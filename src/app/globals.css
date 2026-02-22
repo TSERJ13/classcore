@@ -1,0 +1,291 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base layer: overrides Tailwind preflight so app has theme background ─── */
+@layer base {
+    :root {
+        --sidebar-w: 240px;
+        --bg-base: #ffffff;
+        --bg-surface: #f0f2f5;
+        --bg-card: #ffffff;
+        --text-primary: #1a1a1a;
+        --text-muted: rgba(0, 0, 0, 0.6);
+        --border-subtle: rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        min-height: 100vh;
+        background-color: var(--bg-base, #3E2723) !important;
+        color: var(--text-primary, #EFEBE9);
+        font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/* ─── Light theme overrides (when user picks white/ivory in Settings) ───────── */
+html.light-theme body {
+    color: #1a1a1a;
+}
+
+html.light-theme .text-white {
+    color: #1a1a1a !important;
+}
+
+html.light-theme .text-white\/40,
+html.light-theme .text-white\/30,
+html.light-theme .text-white\/25 {
+    color: rgba(26, 26, 26, 0.6) !important;
+}
+
+html.light-theme .text-white\/70 {
+    color: rgba(26, 26, 26, 0.85) !important;
+}
+
+html.light-theme .border-white\/\[0\.08\] {
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light-theme .bg-\[#161620\] {
+    background: #f5f5f5 !important;
+}
+
+html.light-theme .bg-\[#13131a\] {
+    background: #ffffff !important;
+}
+
+/* Light theme: inputs and surfaces (white, ivory, cocoa) */
+html.light-theme .bg-\[#1c1c26\] {
+    background: rgba(0, 0, 0, 0.06) !important;
+}
+
+html.light-theme .bg-\[#0e0e18\] {
+    background: rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light-theme .border-white\/\[0\.06\],
+html.light-theme .divide-white\/\[0\.05\]>*,
+html.light-theme .divide-white\/\[0\.04\]>* {
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light-theme .hover\:bg-white\/\[0\.06\]:hover,
+html.light-theme .hover\:bg-white\/\[0\.07\]:hover,
+html.light-theme .hover\:bg-white\/\[0\.08\]:hover {
+    background: rgba(0, 0, 0, 0.06) !important;
+}
+
+html.light-theme .bg-white\/\[0\.04\],
+html.light-theme .bg-white\/\[0\.05\],
+html.light-theme .bg-white\/\[0\.06\],
+html.light-theme .bg-white\/\[0\.07\],
+html.light-theme .bg-white\/\[0\.08\],
+html.light-theme .bg-white\/\[0\.09\] {
+    background: rgba(0, 0, 0, 0.06) !important;
+}
+
+html.light-theme .text-white\/90 {
+    color: rgba(26, 26, 26, 0.95) !important;
+}
+
+html.light-theme .text-white\/85 {
+    color: rgba(26, 26, 26, 0.9) !important;
+}
+
+html.light-theme .text-white\/75 {
+    color: rgba(26, 26, 26, 0.8) !important;
+}
+
+html.light-theme .text-white\/65 {
+    color: rgba(26, 26, 26, 0.7) !important;
+}
+
+html.light-theme .text-white\/60 {
+    color: rgba(26, 26, 26, 0.7) !important;
+}
+
+html.light-theme .text-white\/55 {
+    color: rgba(26, 26, 26, 0.6) !important;
+}
+
+html.light-theme .text-white\/45 {
+    color: rgba(26, 26, 26, 0.55) !important;
+}
+
+html.light-theme .text-white\/35 {
+    color: rgba(26, 26, 26, 0.45) !important;
+}
+
+html.light-theme .text-white\/20 {
+    color: rgba(26, 26, 26, 0.3) !important;
+}
+
+html.light-theme .text-white\/50 {
+    color: rgba(26, 26, 26, 0.65) !important;
+}
+
+/* Light theme: calendar/day picker and Settings swatch ring */
+html.light-theme [class*="ring-offset-"] {
+    --tw-ring-offset-color: var(--bg-surface);
+}
+
+/* Light theme scrollbar */
+html.light-theme ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+}
+
+/* ─── Badge variants (subscriptions, status) ───────────────────────────────── */
+.badge-active {
+    background: rgba(52, 211, 153, 0.14);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.badge-expired {
+    background: rgba(248, 113, 113, 0.14);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+.badge-paused {
+    background: rgba(251, 191, 36, 0.14);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.badge-warning {
+    background: rgba(251, 146, 60, 0.14);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.25);
+}
+
+/* ─── Page/stack animations ─────────────────────────────────────────────── */
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-up {
+    animation: fadeUp 0.3s ease-out;
+}
+
+.stagger>* {
+    animation: fadeUp 0.35s ease-out both;
+}
+
+.stagger>*:nth-child(1) {
+    animation-delay: 0.04s;
+}
+
+.stagger>*:nth-child(2) {
+    animation-delay: 0.08s;
+}
+
+.stagger>*:nth-child(3) {
+    animation-delay: 0.12s;
+}
+
+.stagger>*:nth-child(4) {
+    animation-delay: 0.16s;
+}
+
+.stagger>*:nth-child(5) {
+    animation-delay: 0.20s;
+}
+
+.stagger>*:nth-child(6) {
+    animation-delay: 0.24s;
+}
+
+.stagger>*:nth-child(7) {
+    animation-delay: 0.28s;
+}
+
+.stagger>*:nth-child(8) {
+    animation-delay: 0.32s;
+}
+
+/* ─── Utilities ───────────────────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.bg-theme-base {
+    background-color: var(--bg-base, #0c0c0e) !important;
+}
+
+.bg-theme-surface {
+    background-color: var(--bg-surface, #111116) !important;
+}
+
+.bg-theme-card {
+    background-color: var(--bg-card, #161620) !important;
+    transition: all 0.3s ease;
+}
+
+@layer utilities {
+    .bg-base {
+        background-color: var(--bg-base, #ffffff) !important;
+    }
+
+    .bg-surface {
+        background-color: var(--bg-surface, #f0f2f5) !important;
+    }
+
+    .bg-card {
+        background-color: var(--bg-card, #ffffff) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+        border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.05));
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .bg-card:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+    }
+
+    .text-primary {
+        color: var(--text-primary, #1a1a1a) !important;
+    }
+}
