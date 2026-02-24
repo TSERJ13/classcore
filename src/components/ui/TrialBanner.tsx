@@ -23,23 +23,15 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
     return (
         <div className={cn(
             'flex items-center gap-3 px-4 py-2.5 border-b sticky top-0 z-30 text-sm',
-            isUrgent
-                ? 'bg-red-500/10 border-red-500/20 text-red-300'
-                : isWarning
-                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
+            'bg-surface border-border-subtle text-[var(--text-primary)]'
         )}>
-            {isUrgent
-                ? <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                : isWarning
-                    ? <Clock className="w-4 h-4 flex-shrink-0" />
-                    : <Zap className="w-4 h-4 flex-shrink-0" />}
+            <Clock className="w-4 h-4 flex-shrink-0 text-indigo-500" />
 
-            <p className="flex-1 text-xs font-medium">
+            <p className="flex-1 text-xs font-bold font-primary">
                 {daysLeft <= 0
-                    ? 'საცდელი პერიოდი დასრულდა — '
-                    : `ტრიალის ${daysLeft} დღე დარჩა — `}
-                <a href="/billing" className="underline underline-offset-2 font-bold hover:opacity-75 transition-opacity">
+                    ? 'საცდელი ვერსია დასრულდა — '
+                    : `საცდელი ვერსია: ${daysLeft} დღე დარჩა — `}
+                <a href="/analytics" className="underline underline-offset-2 font-black hover:opacity-75 transition-opacity">
                     {daysLeft <= 0 ? 'გააქტიურე სააბონემენტო' : 'გადახდის გვერდი →'}
                 </a>
             </p>

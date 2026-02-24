@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, Briefcase, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users } from 'lucide-react';
+import { X, User, Phone, Mail, Briefcase, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Percent } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Teacher, TeacherStatus } from '@/types';
 
@@ -28,6 +28,7 @@ const EMPTY: Partial<Teacher> = {
     full_name: '', phone: '', email: '', specialty: [],
     bio: '', rate_per_hour: undefined, rate_per_month: undefined,
     assigned_group_ids: [], assigned_individual: false, status: 'active',
+    photo_url: '', salary_percentage: undefined,
 };
 
 export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete }: TeacherModalProps) {
@@ -85,6 +86,49 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 scrollbar-thin scrollbar-thumb-border-subtle">
+                    {/* Photo Upload */}
+                    <section className="space-y-4">
+                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                            <Camera className="w-3.5 h-3.5" /> ფოტო
+                        </p>
+                        <div className="flex items-center gap-5">
+                            <button
+                                onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = 'image/*';
+                                    input.onchange = (e: any) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => setF('photo_url', ev.target?.result as string);
+                                            reader.readAsDataURL(file);
+                                        }
+                                    };
+                                    input.click();
+                                }}
+                                className="relative w-24 h-24 rounded-2xl bg-violet-500/5 border-2 border-dashed border-violet-500/20 hover:border-violet-500/50 flex items-center justify-center flex-shrink-0 overflow-hidden group transition-all"
+                            >
+                                {form.photo_url ? (
+                                    <>
+                                        <img src={form.photo_url} alt="" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Camera className="w-6 h-6 text-white" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-1.5 text-violet-500/40 group-hover:text-violet-500 transition-colors">
+                                        <Camera className="w-6 h-6" />
+                                        <span className="text-[10px] font-black">ატვირთვა</span>
+                                    </div>
+                                )}
+                            </button>
+                            <div className="min-w-0">
+                                <p className="text-base font-black text-primary truncate">{form.full_name || '...'}</p>
+                                <p className="text-xs text-muted font-medium opacity-60">JPG, PNG · მაქს 5MB</p>
+                            </div>
+                        </div>
+                    </section>
 
                     {/* Basic info */}
                     <section className="space-y-4">
@@ -204,6 +248,16 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                         placeholder="800"
                                         className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-7 pr-3 py-2.5 text-sm text-primary font-black placeholder:text-muted/30 outline-none transition-all" />
                                 </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs text-muted mb-1.5 block font-medium">პროცენტული წილი (Salary %)</label>
+                            <div className="relative">
+                                <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-muted opacity-40 w-3.5 h-3.5" />
+                                <input type="number" min="0" max="100" value={(form as any).salary_percentage ?? ''}
+                                    onChange={e => setF('salary_percentage', e.target.value ? Number(e.target.value) : undefined)}
+                                    placeholder="40"
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-9 pr-3 py-2.5 text-sm text-primary font-black placeholder:text-muted/30 outline-none transition-all" />
                             </div>
                         </div>
                     </section>

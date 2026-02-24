@@ -6,7 +6,7 @@ import { TrialBanner } from '@/components/ui/TrialBanner';
 import { MobileMenuProvider } from '@/contexts/MobileMenuContext';
 
 export const metadata: Metadata = {
-    title: 'StudioFlow Dashboard',
+    title: 'ClassCore Dashboard',
 };
 
 // Demo: trial ends in 5 days from now

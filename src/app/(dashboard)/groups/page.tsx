@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
+import { GroupModal } from '@/components/groups/GroupModal';
+import { useState, useEffect } from 'react';
+import { useUser } from '@/hooks/useUser';
 
 const MOCK_GROUPS = [
     { id: '1', name: 'Contemporary Dance', coach: 'ნინო ქობახიძე', teacherId: 't1', schedule: 'ორ, ოთხ · 18:00–19:30', capacity: 15, enrolled: 12, type: 'Dance', difficulty: null },
@@ -21,6 +24,34 @@ const typeColor: Record<string, string> = {
 
 export default function GroupsPage() {
     const { t } = useT();
+    const { user, profile } = useUser();
+    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+
+    const [groups, setGroups] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (isDemo) {
+            setGroups(MOCK_GROUPS);
+        } else {
+            // Leave one test group as requested or empty
+            setGroups([MOCK_GROUPS[0]]);
+        }
+    }, [isDemo]);
+
+    const [editing, setEditing] = useState<any>(null);
+    const [modalOpen, setModalOpen] = useState(false);
+
+    function handleSave(data: any) {
+        if (editing) {
+            setGroups(prev => prev.map(g => g.id === editing.id ? { ...g, ...data } : g));
+        } else {
+            setGroups(prev => [...prev, { ...data, id: String(Date.now()), enrolled: 0 }]);
+        }
+    }
+
+    function handleDelete(id: string) {
+        setGroups(prev => prev.filter(g => g.id !== id));
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-6 animate-fade-up pb-10">
@@ -29,17 +60,19 @@ export default function GroupsPage() {
                     <h1 className="text-2xl font-black text-primary tracking-tight">{t.groups}</h1>
                     <p className="text-sm text-muted font-medium opacity-60">{MOCK_GROUPS.length} {t.groups.toLowerCase()}</p>
                 </div>
-                <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl shadow-indigo-600/20 touch-manipulation">
+                <button onClick={() => { setEditing(null); setModalOpen(true); }}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl shadow-indigo-600/20 touch-manipulation">
                     <Plus className="w-4 h-4" />
                     <span>{t.groups} +</span>
                 </button>
             </div>
 
             <div className="grid gap-4 stagger">
-                {MOCK_GROUPS.map(group => {
+                {groups.map(group => {
                     const fillPct = Math.round((group.enrolled / group.capacity) * 100);
                     return (
-                        <div key={group.id} className="group bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 rounded-3xl p-5 transition-all duration-300">
+                        <div key={group.id} onClick={() => { setEditing(group); setModalOpen(true); }}
+                            className="group bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 rounded-3xl p-5 transition-all duration-300 cursor-pointer">
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2.5 mb-2">
@@ -71,7 +104,13 @@ export default function GroupsPage() {
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-3 pt-1">
-                                    <div className="text-xs font-black text-indigo-600 tabular-nums bg-indigo-500/5 px-2 py-1 rounded-lg border border-indigo-500/10">{fillPct}%</div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={(e) => { e.stopPropagation(); setEditing(group); setModalOpen(true); }}
+                                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 hover:border-indigo-500/40 hover:shadow-lg transition-all active:scale-95">
+                                            <Plus className="w-4 h-4 rotate-45" /> {/* Using Plus rotated for edit or just Edit icon if available, but I'll use common pattern */}
+                                        </button>
+                                        <div className="text-xs font-black text-indigo-600 tabular-nums bg-indigo-500/5 px-2 py-1 rounded-lg border border-indigo-500/10">{fillPct}%</div>
+                                    </div>
                                     <ChevronRight className="w-5 h-5 text-muted opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                 </div>
                             </div>
@@ -109,6 +148,14 @@ export default function GroupsPage() {
                     ))}
                 </div>
             </div>
+
+            <GroupModal
+                open={modalOpen}
+                group={editing}
+                onClose={() => setModalOpen(false)}
+                onSave={handleSave}
+                onDelete={handleDelete}
+            />
         </div>
     );
 }

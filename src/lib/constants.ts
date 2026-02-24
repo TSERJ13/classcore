@@ -19,6 +19,8 @@ export const GEO = {
     filter: 'ფილტრი',
     loading: 'იტვირთება...',
     noData: 'მონაცემი არ არის',
+    visit: 'ვიზიტი',
+    visits: 'ვიზიტები',
 
     // Dashboard
     totalStudents: 'სულ სტუდენტები',
@@ -39,7 +41,7 @@ export const GEO = {
     medicalCert: 'სამედიცინო ცნობა',
     certExpires: 'ვადა',
     partner: 'პარტნიორი',
-    danceStyle: 'ცეკვის სტილი',
+    categories: 'კატეგორიები',
     allStudents: 'ყველა სტუდენტი',
 
     // Attendance
@@ -57,7 +59,7 @@ export const GEO = {
     coach: 'მწვრთნელი',
     student: 'სტუდენტი',
 
-    // Org types
+    // Core types for ClassCore
     dance: 'საცეკვაო სტუდია',
     sports: 'სასპორტო სკოლა',
     yoga: 'იოგა ცენტრი',
@@ -79,7 +81,7 @@ export const GEO = {
     signInToContinue: 'გაგრძელებისთვის შედით სისტემაში',
 
     // App
-    appName: 'StudioFlow',
+    appName: 'ClassCore',
     tagline: 'სტუდიის მართვა - ახალ დონეზე',
 } as const;
 

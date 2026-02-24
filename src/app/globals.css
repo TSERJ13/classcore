@@ -13,6 +13,44 @@
         --text-primary: #1a1a1a;
         --text-muted: rgba(0, 0, 0, 0.6);
         --border-subtle: rgba(0, 0, 0, 0.08);
+
+        /* Default aliases for Tailwind */
+        --primary: var(--text-primary);
+        --muted: var(--text-muted);
+        --card: var(--bg-card);
+        --surface: var(--bg-surface);
+
+        /* Sidebar - Default dark */
+        --sidebar-bg: #1a1a24;
+        --sidebar-text: rgba(255, 255, 255, 0.9);
+        --sidebar-text-muted: rgba(255, 255, 255, 0.35);
+        --sidebar-border: rgba(255, 255, 255, 0.08);
+        --sidebar-hover: rgba(255, 255, 255, 0.06);
+    }
+
+    .light-theme {
+        --bg-base: #ffffff;
+        --bg-surface: #f4f6f8;
+        --bg-card: #ffffff;
+        --text-primary: #111827;
+        --text-muted: #6b7280;
+        --border-subtle: rgba(0, 0, 0, 0.06);
+
+        /* Light sidebar option (uncomment if sidebars should also turn light) */
+        /* 
+        --sidebar-bg: #f8fafc;
+        --sidebar-text: #09090b;
+        --sidebar-text-muted: #71717a;
+        --sidebar-border: #e4e4e7;
+        --sidebar-hover: #f4f4f5;
+        */
+
+        /* Global contrast overrides */
+        --primary: #09090b;
+        --muted: #71717a;
+        --border-subtle: #e4e4e7;
+        --card: #ffffff;
+        --surface: #f4f4f5;
     }
 
     * {
@@ -116,4 +154,21 @@
 
 .stagger>*:nth-child(5) {
     animation-delay: 0.25s;
+}
+
+/* ─── Logo Polish ────────────────────────────────────────────────────────── */
+.logo-animate-hover {
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.logo-animate-hover:hover {
+    transform: rotate(360deg);
+}
+
+.logo-white {
+    filter: brightness(0) invert(1);
+}
+
+.logo-large {
+    transform: scale(1.05);
 }

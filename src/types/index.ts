@@ -1,4 +1,4 @@
-// Core types for StudioFlow
+// Core types for ClassCore
 
 export type OrgType = 'dance' | 'sports' | 'yoga' | 'fitness';
 
@@ -9,6 +9,7 @@ export interface Hall {
     name: string;
     capacity?: number;
     color: string;        // hex or tailwind color token
+    photo_url?: string;
     description?: string;
     is_active: boolean;
     created_at: string;
@@ -57,20 +58,29 @@ export interface Organization {
 export interface Student {
     id: string;
     org_id: string;
-    full_name: string;
+    full_name: string; // Keep for convenience/compat
+    first_name?: string;
+    last_name?: string;
     phone: string;
     email?: string;
     birth_date?: string;
     notes?: string;
     // dance niche
     dance_style?: string;
-    partner_name?: string;
-    // sports niche
+    // sports/admin niche
     medical_cert_expires_at?: string;
+    passport_expires_at?: string;
     // photo & access
-    photo_url?: string;   // base64 data URL or remote URL
-    qr_code?: string;     // 6-char unique code e.g. "SF4A3B"
-    nfc_uid?: string;     // NFC/RFID card UID e.g. "04A32B1C"
+    photo_url?: string;
+    qr_code?: string;
+    nfc_uid?: string;
+    // social
+    social_links?: {
+        facebook?: string;
+        instagram?: string;
+        telegram?: string;
+        whatsapp?: string;
+    };
     created_at: string;
 }
 
@@ -150,6 +160,7 @@ export interface HallRental {
     deposit: number;
     payment_status: PaymentStatus;
     event_type?: string;     // party, rehearsal, etc.
+    contract_url?: string;   // PDF or image
     notes?: string;
     created_at: string;
 }
@@ -170,6 +181,7 @@ export interface Teacher {
     rate_per_month?: number;      // GEL flat (for groups)
     assigned_group_ids: string[]; // group IDs
     assigned_individual: boolean; // takes individual sessions?
+    salary_percentage?: number;   // percentage share of revenue
     status: TeacherStatus;
     created_at: string;
 }

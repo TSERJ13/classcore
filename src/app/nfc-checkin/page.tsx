@@ -27,10 +27,9 @@ type KioskState = 'waiting' | 'scanning' | 'success' | 'already' | 'error' | 'un
 export default function NfcCheckinPage({
     searchParams,
 }: {
-    searchParams: Promise<Record<string, string>>;
+    searchParams: Record<string, string>;
 }) {
-    // We don't need searchParams for NFC kiosk, just resolve it
-    use(searchParams);
+    // searchParams is a plain object in Next.js 14
 
     const [state, setState] = useState<KioskState>('waiting');
     const [student, setStudent] = useState<{ name: string; group: string } | null>(null);
@@ -53,8 +52,9 @@ export default function NfcCheckinPage({
         if (!nfcAvailable) return;
         setState('scanning');
         try {
-            if (!window.NDEFReader) return;
-            const ndef = new window.NDEFReader();
+            const win = window as any;
+            if (!win.NDEFReader) return;
+            const ndef = new win.NDEFReader();
             await ndef.scan();
             ndef.addEventListener('reading', ({ serialNumber }: { serialNumber?: string }) => {
                 const normUid = normaliseUid(serialNumber || '');

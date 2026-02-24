@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, UserPlus, Filter, Users, Phone, Calendar, ShieldAlert, Heart, ChevronRight, Edit2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, UserPlus, Filter, Users, Phone, Calendar, ShieldAlert, Heart, ChevronRight, Edit2, AlertTriangle, SortAsc, SortDesc } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
+import { useUser } from '@/hooks/useUser';
 import { cn, formatDate, getInitials, isExpiringSoon } from '@/lib/utils';
 import { StudentModal } from '@/components/students/StudentModal';
 import type { Student } from '@/types';
@@ -45,15 +46,44 @@ function StatusBadge({ status, t }: { status: string; t: ReturnType<typeof useT>
 
 export default function StudentsPage() {
     const { t } = useT();
-    const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
+    const { user, profile } = useUser();
+    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+
+    const [students, setStudents] = useState<Student[]>([]);
+
+    useEffect(() => {
+        if (isDemo) {
+            setStudents(INITIAL_STUDENTS);
+        } else {
+            // Leave one test student as requested
+            setStudents([INITIAL_STUDENTS[0]]);
+        }
+    }, [isDemo]);
+
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+    const [sortBy, setSortBy] = useState<'first_name' | 'last_name'>('first_name');
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Student | null>(null);
 
-    const filtered = students.filter(s =>
-        s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-        (s.dance_style ?? '').toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = students.filter(s => {
+        const matchesSearch = s.full_name.toLowerCase().includes(search.toLowerCase()) ||
+            (s.dance_style ?? '').toLowerCase().includes(search.toLowerCase());
+
+        const sub = SUB_MAP[s.id];
+        const isActive = sub?.status === 'active';
+        const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && isActive) || (statusFilter === 'inactive' && !isActive);
+
+        return matchesSearch && matchesStatus;
+    }).sort((a, b) => {
+        const valA = sortBy === 'first_name'
+            ? (a.first_name || a.full_name.split(' ')[0])
+            : (a.last_name || a.full_name.split(' ')[1] || a.full_name.split(' ')[0]);
+        const valB = sortBy === 'first_name'
+            ? (b.first_name || b.full_name.split(' ')[0])
+            : (b.last_name || b.full_name.split(' ')[1] || b.full_name.split(' ')[0]);
+        return valA.localeCompare(valB, 'ka');
+    });
 
     function openAdd() { setEditing(null); setModalOpen(true); }
     function openEdit(s: Student) { setEditing(s); setModalOpen(true); }
@@ -71,7 +101,6 @@ export default function StudentsPage() {
                 birth_date: data.birth_date,
                 notes: data.notes,
                 dance_style: data.dance_style,
-                partner_name: data.partner_name,
                 medical_cert_expires_at: data.medical_cert_expires_at,
                 photo_url: data.photo_url,
                 qr_code: data.qr_code,
@@ -102,17 +131,29 @@ export default function StudentsPage() {
                 </div>
 
                 {/* Search & Filter */}
-                <div className="flex gap-3">
-                    <div className="relative flex-1 min-w-0 group">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 min-w-0 group order-2 sm:order-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
                         <input type="text" placeholder={t.search} value={search}
                             onChange={e => setSearch(e.target.value)}
                             className="w-full bg-card border border-border-subtle rounded-2xl pl-11 pr-5 py-3 text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/60 transition-all shadow-sm" />
                     </div>
-                    <button className="flex items-center gap-2 bg-card border border-border-subtle hover:border-indigo-500/30 text-muted hover:text-primary text-xs font-bold px-4 py-3 rounded-2xl transition-all flex-shrink-0 shadow-sm">
-                        <Filter className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t.filter}</span>
-                    </button>
+
+                    <div className="flex gap-2 order-1 sm:order-2">
+                        {/* Status Filter */}
+                        <div className="flex bg-card border border-border-subtle p-1 rounded-2xl shadow-sm">
+                            <button onClick={() => setStatusFilter('all')} className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all", statusFilter === 'all' ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-muted hover:bg-surface")}>სულ</button>
+                            <button onClick={() => setStatusFilter('active')} className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all", statusFilter === 'active' ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "text-muted hover:bg-surface")}>{t.active}</button>
+                            <button onClick={() => setStatusFilter('inactive')} className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all", statusFilter === 'inactive' ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" : "text-muted hover:bg-surface")}>{t.expired}</button>
+                        </div>
+
+                        {/* Sort Switcher */}
+                        <button onClick={() => setSortBy(p => p === 'first_name' ? 'last_name' : 'first_name')}
+                            className="flex items-center gap-2 bg-card border border-border-subtle hover:border-indigo-500/30 text-muted hover:text-primary text-xs font-bold px-4 py-3 rounded-2xl transition-all shadow-sm">
+                            <SortAsc className="w-4 h-4 text-indigo-500" />
+                            <span>{sortBy === 'first_name' ? 'სახელით' : 'გვარით'}</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Student list */}
@@ -120,6 +161,7 @@ export default function StudentsPage() {
                     {filtered.map(student => {
                         const sub = SUB_MAP[student.id];
                         const certExpiring = student.medical_cert_expires_at ? isExpiringSoon(student.medical_cert_expires_at, 30) : false;
+                        const subEndsToday = sub && sub.expires_at === new Date().toISOString().slice(0, 10);
 
                         return (
                             <div key={student.id}
@@ -186,6 +228,14 @@ export default function StudentsPage() {
                                         <div className="ml-4 flex-shrink-0">
                                             <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black px-2 py-1 rounded-lg border border-amber-500/20 flex items-center gap-1 animate-pulse">
                                                 <ShieldAlert className="w-3 h-3" />ცნობა!
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {subEndsToday && (
+                                        <div className="ml-4 flex-shrink-0">
+                                            <span className="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-lg border border-red-600 flex items-center gap-1 animate-bounce shadow-lg shadow-red-500/20">
+                                                <AlertTriangle className="w-3 h-3" />დღეს გადის!
                                             </span>
                                         </div>
                                     )}

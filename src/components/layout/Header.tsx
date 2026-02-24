@@ -1,15 +1,21 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, Bell, X } from 'lucide-react';
 import { useState } from 'react';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { useT } from '@/contexts/LanguageContext';
+import { useUser } from '@/hooks/useUser';
+import { useStudio } from '@/contexts/StudioContext';
+import { Zap } from 'lucide-react';
 
 export function Header() {
     const pathname = usePathname();
     const { toggle } = useMobileMenu();
     const { t } = useT();
+    const { profile } = useUser();
+    const { settings } = useStudio();
     const [notifOpen, setNotifOpen] = useState(false);
 
     // Derive page title from t.* translations using pathname
@@ -40,28 +46,36 @@ export function Header() {
 
     return (
         <>
-            {/* Mobile header bar */}
-            <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-[#0D0D0D]/95 backdrop-blur-xl border-b border-white/[0.06] md:hidden">
+            {/* Header bar (Handles mobile and desktop) */}
+            <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card/90 backdrop-blur-xl border-b border-border-subtle">
                 {/* Hamburger */}
                 <button
                     onClick={toggle}
-                    className="w-9 h-9 flex items-center justify-center rounded-xl text-white/60 hover:text-white hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors touch-manipulation"
+                    className="w-10 h-10 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                     aria-label="Menu"
                 >
                     <Menu className="w-5 h-5" />
                 </button>
 
-                <h1 className="text-sm font-bold text-white">{title}</h1>
+                <div className="flex items-center gap-3">
+                    <div className="hidden md:flex items-center gap-2 pr-4">
+                        {/* Empty on desktop as per user request to remove studio name & page title */}
+                    </div>
+                    <h1 className="text-sm font-black text-primary tracking-tight md:hidden">{title}</h1>
+                </div>
 
-                {/* Bell */}
-                <button
-                    onClick={() => setNotifOpen(v => !v)}
-                    className="relative w-9 h-9 flex items-center justify-center rounded-xl text-white/60 hover:text-white hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors touch-manipulation"
-                    aria-label="Notifications"
-                >
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-indigo-400 ring-2 ring-[#0D0D0D]" />
-                </button>
+                <div className="flex items-center gap-2">
+                    <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg uppercase tracking-wider">შესვლა</Link>
+                    {/* Bell */}
+                    <button
+                        onClick={() => setNotifOpen(v => !v)}
+                        className="relative w-10 h-10 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        aria-label="Notifications"
+                    >
+                        <Bell className="w-5 h-5" />
+                        <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-indigo-500 ring-2 ring-card" />
+                    </button>
+                </div>
             </header>
 
             {/* Notification drawer */}
@@ -69,31 +83,31 @@ export function Header() {
                 <>
                     {/* Backdrop */}
                     <div
-                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+                        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
                         onClick={() => setNotifOpen(false)}
                     />
                     {/* Panel */}
-                    <div className="fixed top-0 right-0 h-full w-80 max-w-[90vw] z-50 bg-surface border-l border-white/[0.08] shadow-2xl flex flex-col md:hidden">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-                            <p className="text-sm font-bold text-white">შეტყობინებები</p>
+                    <div className="fixed top-0 right-0 h-full w-80 max-w-[90vw] z-50 bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="flex items-center justify-between px-5 py-5 border-b border-border-subtle">
+                            <p className="text-sm font-black text-primary">შეტყობინებები</p>
                             <button onClick={() => setNotifOpen(false)}
-                                className="w-8 h-8 flex items-center justify-center rounded-xl text-white/40 hover:text-white hover:bg-white/[0.08] transition-colors touch-manipulation">
-                                <X className="w-4 h-4" />
+                                className="w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-primary hover:bg-surface transition-colors touch-manipulation">
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto divide-y divide-white/[0.05]">
+                        <div className="flex-1 overflow-y-auto divide-y divide-border-subtle/50">
                             {NOTIFICATIONS.map(n => (
-                                <div key={n.id} className="flex items-start gap-3 px-5 py-4">
-                                    <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.dot}`} />
+                                <div key={n.id} className="flex items-start gap-4 px-5 py-5 hover:bg-surface/50 transition-colors">
+                                    <span className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.dot}`} />
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-white/80 leading-snug">{n.text}</p>
-                                        <p className="text-[11px] text-white/30 mt-1">{n.time}</p>
+                                        <p className="text-sm text-primary/80 font-medium leading-snug">{n.text}</p>
+                                        <p className="text-[11px] text-muted font-bold mt-1 opacity-60">{n.time}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="px-5 py-4 border-t border-white/[0.06]">
-                            <button className="w-full py-2.5 rounded-xl bg-white/[0.05] text-xs text-white/50 hover:bg-white/[0.09] transition-colors">
+                        <div className="px-5 py-5 border-t border-border-subtle bg-surface/30">
+                            <button className="w-full py-3 rounded-xl bg-card border border-border-subtle text-xs font-bold text-muted hover:text-primary hover:bg-card shadow-sm transition-all">
                                 ყველა ნახვა
                             </button>
                         </div>

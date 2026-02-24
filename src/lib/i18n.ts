@@ -31,6 +31,9 @@ export interface Translations {
     filter: string;
     loading: string;
     noData: string;
+    visit: string;
+    visits: string;
+    categories: string;
     // Dashboard
     totalStudents: string;
     activeSubscriptions: string;
@@ -176,6 +179,8 @@ export interface Translations {
     settingsSecDesc: string;
     settingsSubDesc: string;
     settingsTelegramDesc: string;
+    collapse: string;
+    expand: string;
 }
 
 export const translations: Record<Lang, Translations> = {
@@ -210,6 +215,9 @@ export const translations: Record<Lang, Translations> = {
         filter: 'ფილტრი',
         loading: 'იტვირთება...',
         noData: 'მონაცემი ვერ მოიძებნა',
+        visit: 'ვიზიტი',
+        visits: 'ვიზიტები',
+        categories: 'კატეგორიები',
         // Dashboard
         totalStudents: 'სულ სტუდ.',
         activeSubscriptions: 'აქტ. გამოწ.',
@@ -319,7 +327,7 @@ export const translations: Record<Lang, Translations> = {
         // Hall-rental extra
         paid: 'გადახდილი',
         // Billing
-        billingHeading: 'გამოიწერე StudioFlow',
+        billingHeading: 'გამოიწერე ClassCore',
         billingSubheading: 'მარტივი ფასი. გაუქმება ნებისმიერ დროს.',
         billingMonthly: 'ყოველთვიური',
         billingAnnual: 'წლიური',
@@ -355,6 +363,8 @@ export const translations: Record<Lang, Translations> = {
         settingsSecDesc: 'პაროლი, 2FA',
         settingsSubDesc: 'ტარიფები, ვადები',
         settingsTelegramDesc: 'ავტ. შეტყ. სტუდენტებს · @studioflow_bot',
+        collapse: 'დაკეცვა',
+        expand: 'გაფართოება',
     },
 
     ru: {
@@ -388,6 +398,9 @@ export const translations: Record<Lang, Translations> = {
         filter: 'Фильтр',
         loading: 'Загрузка...',
         noData: 'Данные не найдены',
+        visit: 'Визит',
+        visits: 'Визиты',
+        categories: 'Категории',
         // Dashboard
         totalStudents: 'Всего учен.',
         activeSubscriptions: 'Акт. абон.',
@@ -533,6 +546,8 @@ export const translations: Record<Lang, Translations> = {
         settingsSecDesc: 'Пароль, 2FA',
         settingsSubDesc: 'Тарифы, сроки',
         settingsTelegramDesc: 'Авто. увед. ученикам · @studioflow_bot',
+        collapse: 'Свернуть',
+        expand: 'Развернуть',
     },
 
     en: {
@@ -566,6 +581,9 @@ export const translations: Record<Lang, Translations> = {
         filter: 'Filter',
         loading: 'Loading...',
         noData: 'No data found',
+        visit: 'Visit',
+        visits: 'Visits',
+        categories: 'Categories',
         // Dashboard
         totalStudents: 'Total Students',
         activeSubscriptions: 'Active Subs.',
@@ -675,7 +693,7 @@ export const translations: Record<Lang, Translations> = {
         // Hall-rental extra
         paid: 'Paid',
         // Billing
-        billingHeading: 'Subscribe to StudioFlow',
+        billingHeading: 'Subscribe to ClassCore',
         billingSubheading: 'Simple pricing. Cancel anytime.',
         billingMonthly: 'Monthly',
         billingAnnual: 'Annual',
@@ -711,6 +729,8 @@ export const translations: Record<Lang, Translations> = {
         settingsSecDesc: 'Password, 2FA',
         settingsSubDesc: 'Plans, durations',
         settingsTelegramDesc: 'Auto notifications · @studioflow_bot',
+        collapse: 'Collapse',
+        expand: 'Expand',
     },
 };
 

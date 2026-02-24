@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
+import { useUser } from '@/hooks/useUser';
 import { THEMES, BG_THEMES, type ThemeKey, type BgKey } from '@/lib/settings-store';
 import { cn, getInitials } from '@/lib/utils';
 
@@ -18,7 +19,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
             onClick={() => onChange(!checked)}
             className={cn(
                 'relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0',
-                checked ? 'bg-indigo-500' : 'bg-white/[0.10]'
+                checked ? 'bg-indigo-500' : 'bg-muted/10'
             )}
             style={checked ? { background: 'hsl(var(--accent, 239 84% 67%))' } : undefined}
         >
@@ -32,12 +33,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
     return (
-        <div className="bg-surface border border-white/[0.07] rounded-2xl overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
-                <Icon className="w-4 h-4 text-white/40" />
-                <h2 className="text-sm font-bold text-white/80">{title}</h2>
+        <div className="bg-card border border-border-subtle rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-border-subtle/50">
+                <Icon className="w-4 h-4 text-muted" />
+                <h2 className="text-sm font-bold text-primary">{title}</h2>
             </div>
-            <div className="divide-y divide-white/[0.04]">{children}</div>
+            <div className="divide-y divide-border-subtle/30">{children}</div>
         </div>
     );
 }
@@ -46,8 +47,8 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
     return (
         <div className="flex items-center gap-4 px-5 py-4">
             <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-white/80">{label}</p>
-                {sub && <p className="text-[11px] text-white/35 mt-0.5">{sub}</p>}
+                <p className="text-[13px] font-medium text-primary">{label}</p>
+                {sub && <p className="text-[11px] text-muted mt-0.5">{sub}</p>}
             </div>
             {children}
         </div>
@@ -58,7 +59,9 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 
 export default function SettingsPage() {
     const { t, lang } = useT();
-    const { settings, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity } = useStudio();
+    const { settings, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setLandingContent } = useStudio();
+    const { profile, user } = useUser();
+    const isAdmin = profile?.role === 'admin';
 
     const [nameVal, setNameVal] = useState(settings.studioName);
     const [slugVal, setSlugVal] = useState(settings.studioSlug);
@@ -68,7 +71,20 @@ export default function SettingsPage() {
     const [sessionVal, setSessionVal] = useState(settings.security.sessionTimeout);
     const fileRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => { setNameVal(settings.studioName); setSlugVal(settings.studioSlug); }, [settings.studioName, settings.studioSlug]);
+    useEffect(() => {
+        setNameVal(settings.studioName);
+        setSlugVal(settings.studioSlug);
+    }, [settings.studioName, settings.studioSlug]);
+
+    // Auto-sync studio name from profile if it's currently a default/demo name
+    useEffect(() => {
+        if (profile?.studio_name && (settings.studioName.toLowerCase().includes('demo') || settings.studioName === 'ჩემი სტუდია')) {
+            if (profile.studio_name !== settings.studioName) {
+                setStudioName(profile.studio_name);
+                setNameVal(profile.studio_name);
+            }
+        }
+    }, [profile?.studio_name, settings.studioName]);
 
     function saveName() {
         if (!nameVal.trim()) return;
@@ -109,8 +125,8 @@ export default function SettingsPage() {
 
             {/* ─── Header ─── */}
             <div>
-                <h1 className="text-xl font-bold text-white">{t.settings}</h1>
-                <p className="text-sm text-white/35 mt-0.5">{settings.studioName}</p>
+                <h1 className="text-xl font-bold text-primary">{t.settings}</h1>
+                <p className="text-sm text-muted mt-0.5">{settings.studioName}</p>
             </div>
 
             {/* ─── Studio Identity ─── */}
@@ -119,7 +135,7 @@ export default function SettingsPage() {
                 <Row label={l('ლოგო', 'Логотип', 'Logo')} sub={l('სტუდიის ლოგო (PNG/JPG)', 'Логотип студии (PNG/JPG)', 'Your studio logo (PNG/JPG)')}>
                     <div className="flex items-center gap-3">
                         {/* Preview */}
-                        <div className="w-12 h-12 rounded-xl overflow-hidden border border-white/[0.10] flex-shrink-0 bg-white/[0.04] flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden border border-border-subtle flex-shrink-0 bg-surface flex items-center justify-center">
                             {settings.logoDataUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={settings.logoDataUrl} alt="logo" className="w-full h-full object-cover" />
@@ -133,7 +149,7 @@ export default function SettingsPage() {
                             <button
                                 onClick={() => fileRef.current?.click()}
                                 disabled={uploading}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.10] text-white/60 hover:text-white hover:bg-white/[0.10] text-xs font-medium transition-all"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm"
                             >
                                 {uploading ? <span className="animate-spin">⏳</span> : <Camera className="w-3.5 h-3.5" />}
                                 {l('ატვირთვა', 'Загрузить', 'Upload')}
@@ -156,31 +172,45 @@ export default function SettingsPage() {
                             value={nameVal}
                             onChange={e => setNameVal(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && saveName()}
-                            className="w-36 bg-white/[0.05] border border-white/[0.09] focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-white outline-none transition-colors"
+                            className="w-48 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
                             style={{ borderColor: nameSaved ? 'hsl(var(--accent, 239 84% 67%) / 0.5)' : undefined }}
                         />
                         <button
                             onClick={saveName}
-                            className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/[0.06] text-white/40 hover:bg-white/[0.10] hover:text-white')}
+                            className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
                         >
                             {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
                         </button>
                     </div>
                 </Row>
 
+                {/* Email */}
+                <Row label={l('ელ-ფოსტა', 'Email', 'Email')} sub={l('თქვენი ანგარიშის მეილი', 'Email вашего аккаунта', 'Your account email')}>
+                    <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-xs font-medium text-muted/60 min-w-[12rem] text-right">
+                        {user?.email || 'N/A'}
+                    </div>
+                </Row>
+
+                {/* Owner */}
+                <Row label={l('მფლობელი', 'Владелец', 'Owner')} sub={l('სახელი და გვარი', 'Имя и фамилия', 'First and last name')}>
+                    <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-xs font-medium text-primary min-w-[12rem] text-right">
+                        {profile?.first_name} {profile?.last_name}
+                    </div>
+                </Row>
+
                 {/* Slug */}
-                <Row label={l('URL slug', 'URL slug', 'URL Slug')} sub="studioflow.ge/{slug}">
+                <Row label={l('URL slug', 'URL slug', 'URL Slug')} sub="classcore.ge/{slug}">
                     <div className="flex items-center gap-2">
-                        <span className="text-white/20 text-xs">/</span>
+                        <span className="text-muted/40 text-xs">/</span>
                         <input
                             value={slugVal}
                             onChange={e => setSlugVal(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                             onKeyDown={e => e.key === 'Enter' && saveSlug()}
-                            className="w-36 bg-white/[0.05] border border-white/[0.09] focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-white/70 outline-none transition-colors"
+                            className="w-36 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors"
                         />
                         <button
                             onClick={saveSlug}
-                            className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/[0.06] text-white/40 hover:bg-white/[0.10] hover:text-white')}
+                            className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
                         >
                             {slugSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
                         </button>
@@ -191,7 +221,7 @@ export default function SettingsPage() {
             {/* ─── Color Theme ─── */}
             <Section title={l('ფერთა პალიტრა', 'Цветовая палитра', 'Color Theme')} icon={Palette}>
                 <div className="px-5 py-5">
-                    <p className="text-xs text-white/35 mb-4">{l('აირჩიეთ ინტერფეისის ძირითადი ფერი', 'Выберите основной цвет интерфейса', 'Choose the main accent color for the interface')}</p>
+                    <p className="text-xs text-muted mb-4">{l('აირჩიეთ ინტერფეისის ძირითადი ფერი', 'Выберите основной цвет интерфейса', 'Choose the main accent color for the interface')}</p>
                     <div className="grid grid-cols-7 gap-2">
                         {(Object.entries(THEMES) as [ThemeKey, typeof THEMES[ThemeKey]][]).map(([key, th]) => {
                             const isActive = settings.themeKey === key;
@@ -208,22 +238,22 @@ export default function SettingsPage() {
                                     )}>
                                         {isActive && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                                     </div>
-                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-white' : 'text-white/30')}>{th.label}</span>
+                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary uppercase font-bold' : 'text-muted')}>{th.label}</span>
                                 </button>
                             );
                         })}
                     </div>
 
                     {/* Live preview strip */}
-                    <div className="mt-5 p-3 rounded-xl bg-white/[0.03] border border-white/[0.07]">
-                        <p className="text-[10px] text-white/30 mb-2">{l('წინასწარი ხედი', 'Предпросмотр', 'Preview')}</p>
+                    <div className="mt-5 p-3 rounded-xl bg-surface/50 border border-border-subtle">
+                        <p className="text-[10px] text-muted mb-2">{l('წინასწარი ხედი', 'Предпросмотр', 'Preview')}</p>
                         <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center flex-shrink-0`}>
                                 <Zap className="w-4 h-4 text-white" />
                             </div>
                             <div className="flex-1">
                                 <div className={`h-1.5 rounded-full bg-gradient-to-r ${theme.from} ${theme.to} w-3/4`} />
-                                <div className="h-1 rounded-full bg-white/[0.08] w-1/2 mt-1.5" />
+                                <div className="h-1 rounded-full bg-muted/20 w-1/2 mt-1.5" />
                             </div>
                             <span className={cn('text-xs font-bold px-2.5 py-1 rounded-lg border', ThemeBgCls, ThemeTextCls, ThemeBorderCls)}>
                                 {theme.label}
@@ -236,7 +266,7 @@ export default function SettingsPage() {
             {/* ─── Background Theme ─── */}
             <Section title={l('ფონის ფერი', 'Цвет фона', 'Background Color')} icon={Palette}>
                 <div className="px-5 py-5">
-                    <p className="text-xs text-white/35 mb-4">{l('ინტერფეისის ფონის ფერი', 'Цвет фона интерфейса', 'Choose the overall background darkness')}</p>
+                    <p className="text-xs text-muted mb-4">{l('ინტერფეისის ფონის ფერი', 'Цвет фона интерфейса', 'Choose the overall background darkness')}</p>
                     <div className="grid grid-cols-7 gap-2">
                         {(Object.entries(BG_THEMES) as [BgKey, typeof BG_THEMES[BgKey]][]).map(([key, bg]) => {
                             const isActive = settings.bgKey === key;
@@ -248,22 +278,22 @@ export default function SettingsPage() {
                                     )} style={{ background: bg.base }}>
                                         {isActive && <Check className="w-4 h-4 text-white/80" strokeWidth={3} />}
                                     </div>
-                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-white' : 'text-white/30')}>{bg.label}</span>
+                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary uppercase font-bold' : 'text-muted')}>{bg.label}</span>
                                 </button>
                             );
                         })}
                     </div>
                     {/* bg preview */}
-                    <div className="mt-5 rounded-xl overflow-hidden border border-white/[0.07]">
-                        <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]" style={{ background: BG_THEMES[settings.bgKey].surface }}>
+                    <div className="mt-5 rounded-xl overflow-hidden border border-border-subtle">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle/50" style={{ background: BG_THEMES[settings.bgKey].surface }}>
                             <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${theme.from} ${theme.to}`} />
-                            <div className="flex-1 h-1.5 rounded-full bg-white/[0.08]" />
+                            <div className="flex-1 h-1.5 rounded-full bg-muted/20" />
                         </div>
                         <div className="flex gap-2 p-2" style={{ background: BG_THEMES[settings.bgKey].base }}>
                             {[30, 50, 70].map(w => (
                                 <div key={w} className="rounded-lg p-2 flex-1" style={{ background: BG_THEMES[settings.bgKey].card }}>
                                     <div className="h-1.5 rounded-full mb-1" style={{ background: `hsl(var(--accent, 239 84% 67%) / 0.5)`, width: `${w}%` }} />
-                                    <div className="h-1 rounded-full bg-white/[0.08]" />
+                                    <div className="h-1 rounded-full bg-muted/20" />
                                 </div>
                             ))}
                         </div>
@@ -290,13 +320,13 @@ export default function SettingsPage() {
             {/* ─── Language ─── */}
             <Section title={t.settingsLang} icon={Globe}>
                 <Row label={l('ინტერფეისის ენა', 'Язык интерфейса', 'Interface Language')} sub={l('ყველა ტექსტის ენა', 'Язык всех текстов', 'Language of all text')}>
-                    <div className="text-xs text-white/40">
+                    <div className="text-xs text-muted">
                         {lang === 'ka' ? '🇬🇪 ქართული' : lang === 'ru' ? '🇷🇺 Русский' : '🇬🇧 English'}
-                        <span className="ml-1 text-white/20">(sidebar)</span>
+                        <span className="ml-1 text-muted/40">(sidebar)</span>
                     </div>
                 </Row>
                 <Row label={l('ვალუტა', 'Валюта', 'Currency')} sub={l('გადახდების ვალუტა', 'Валюта платежей', 'Currency for payments')}>
-                    <select className="bg-white/[0.05] border border-white/[0.09] rounded-xl px-3 py-2 text-xs text-white/70 outline-none">
+                    <select className="bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-primary outline-none focus:border-indigo-500/40 transition-all">
                         <option value="gel">₾ GEL</option>
                         <option value="usd">$ USD</option>
                         <option value="eur">€ EUR</option>
@@ -304,7 +334,7 @@ export default function SettingsPage() {
                     </select>
                 </Row>
                 <Row label={l('დროის ზონა', 'Часовой пояс', 'Timezone')}>
-                    <select className="bg-white/[0.05] border border-white/[0.09] rounded-xl px-3 py-2 text-xs text-white/70 outline-none">
+                    <select className="bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-primary outline-none focus:border-indigo-500/40 transition-all">
                         <option>Asia/Tbilisi (UTC+4)</option>
                         <option>Europe/Moscow (UTC+3)</option>
                         <option>UTC</option>
@@ -325,13 +355,13 @@ export default function SettingsPage() {
                             min={5} max={480}
                             onChange={e => setSessionVal(Number(e.target.value))}
                             onBlur={() => setSecurity('sessionTimeout', sessionVal)}
-                            className="w-20 bg-white/[0.05] border border-white/[0.09] rounded-xl px-3 py-2 text-xs text-white/70 outline-none text-center"
+                            className="w-20 bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-primary outline-none text-center focus:border-indigo-500/40 transition-all"
                         />
-                        <span className="text-xs text-white/30">{l('წთ', 'мин', 'min')}</span>
+                        <span className="text-xs text-muted">{l('წთ', 'мин', 'min')}</span>
                     </div>
                 </Row>
                 <Row label={l('პაროლის შეცვლა', 'Изменить пароль', 'Change Password')}>
-                    <button className="px-4 py-2 rounded-xl bg-white/[0.06] border border-white/[0.09] text-white/50 hover:text-white hover:bg-white/[0.10] text-xs font-medium transition-all">
+                    <button className="px-4 py-2 rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm">
                         {l('შეცვლა', 'Изменить', 'Change')}
                     </button>
                 </Row>
@@ -347,7 +377,7 @@ export default function SettingsPage() {
                     </div>
                 </Row>
                 <Row label={l('თვიური გადასახადი', 'Ежемесячная оплата', 'Monthly Billing')} sub="₾149 / month">
-                    <button className="px-4 py-2 rounded-xl bg-white/[0.06] border border-white/[0.09] text-white/50 hover:text-white hover:bg-white/[0.10] text-xs font-medium transition-all">
+                    <button className="px-4 py-2 rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm">
                         {l('მართვა', 'Управлять', 'Manage')}
                     </button>
                 </Row>
@@ -365,8 +395,8 @@ export default function SettingsPage() {
                             <span className="text-lg">{item.icon}</span>
                             <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full border',
                                 item.active
-                                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                                    : 'bg-white/[0.05] text-white/25 border-white/[0.08]'
+                                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                                    : 'bg-surface text-muted/40 border-border-subtle/50'
                             )}>
                                 {item.active ? l('აქტიური', 'Активно', 'Active') : l('გამოთიშული', 'Откл.', 'Disabled')}
                             </span>
@@ -375,10 +405,79 @@ export default function SettingsPage() {
                 ))}
             </Section>
 
+            {/* ─── Landing Page Content (Admin Only) ─── */}
+            {isAdmin && (
+                <Section title={l('მთავარი გვერდის კონტენტი', 'Контент главной страницы', 'Landing Page Content')} icon={Globe}>
+                    <div className="px-5 py-5 space-y-6">
+                        {/* Hero */}
+                        <div className="space-y-4">
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1 opacity-40">Hero სექცია</p>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs text-muted/40 mb-1.5 block">სათაური</label>
+                                    <textarea
+                                        value={settings.landingContent.heroTitle}
+                                        onChange={e => setLandingContent({ heroTitle: e.target.value })}
+                                        rows={2}
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-sm text-primary outline-none hide-scrollbar resize-none transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted/40 mb-1.5 block">ქვესათაური</label>
+                                    <textarea
+                                        value={settings.landingContent.heroSubtitle}
+                                        onChange={e => setLandingContent({ heroSubtitle: e.target.value })}
+                                        rows={2}
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs text-muted outline-none hide-scrollbar resize-none transition-colors"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Features */}
+                        <div className="space-y-4 pt-4 border-t border-border-subtle/50">
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1 opacity-40">ფუნქციები (Features)</p>
+                            <div className="space-y-4">
+                                {settings.landingContent.features.map((f, i) => (
+                                    <div key={i} className="p-4 rounded-xl bg-surface/30 border border-border-subtle space-y-3 shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                                                <span className="text-xs text-indigo-600 font-bold">#{i + 1}</span>
+                                            </div>
+                                            <input
+                                                value={f.title}
+                                                onChange={e => {
+                                                    const next = [...settings.landingContent.features];
+                                                    next[i] = { ...f, title: e.target.value };
+                                                    setLandingContent({ features: next });
+                                                }}
+                                                placeholder="სათაური"
+                                                className="flex-1 bg-transparent border-none text-sm font-bold text-primary outline-none placeholder:text-muted/20"
+                                            />
+                                        </div>
+                                        <textarea
+                                            value={f.desc}
+                                            onChange={e => {
+                                                const next = [...settings.landingContent.features];
+                                                next[i] = { ...f, desc: e.target.value };
+                                                setLandingContent({ features: next });
+                                            }}
+                                            placeholder="აღწერა"
+                                            rows={2}
+                                            className="w-full bg-transparent border-none text-xs text-muted outline-none hide-scrollbar resize-none placeholder:text-muted/20"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </Section>
+            )}
+
             {/* Footer */}
-            <div className="flex items-center justify-between text-[10px] text-white/20 px-1">
-                <span>StudioFlow v1.0 · studioflow.ge</span>
-                <button className="hover:text-red-400 transition-colors">{l('ანგარიშის წაშლა', 'Удалить аккаунт', 'Delete Account')}</button>
+            <div className="flex items-center justify-between text-[10px] text-muted/30 px-1 font-bold uppercase tracking-widest">
+                <span>ClassCore v1.0 · classcore.ge</span>
+                <button className="hover:text-red-500 transition-colors">{l('ანგარიშის წაშლა', 'Удалить аккаунт', 'Delete Account')}</button>
             </div>
         </div>
     );

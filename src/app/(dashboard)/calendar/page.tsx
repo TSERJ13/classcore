@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, Plus, X, Download,
     FileSpreadsheet, FileText, CalendarDays, LayoutGrid,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
+import { useUser } from '@/hooks/useUser';
 import type { CalendarEvent, EventType } from '@/types';
 
 /* ─── Constants ──────────────────────────────────────────────── */
@@ -281,7 +282,7 @@ function exportIcal(events: CalendarEvent[]) {
     const lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//StudioFlow//Calendar//GEO',
+        'PRODID:-//ClassCore//Calendar//GEO',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
     ];
@@ -292,7 +293,7 @@ function exportIcal(events: CalendarEvent[]) {
         const end = ev.date.replace(/-/g, '') + 'T' + ev.end_time.replace(':', '') + '00';
         lines.push(
             'BEGIN:VEVENT',
-            `UID:${ev.id}@studioflow.ge`,
+            `UID:${ev.id}@classcore.ge`,
             `DTSTART;TZID=Asia/Tbilisi:${start}`,
             `DTEND;TZID=Asia/Tbilisi:${end}`,
             `SUMMARY:${ev.title}`,
@@ -369,10 +370,26 @@ async function exportPDF(events: CalendarEvent[]) {
 /* ─── Main Calendar Page ─────────────────────────────────────── */
 
 export default function CalendarPage() {
-    const { t } = useT();
-    const [view, setView] = useState<'week' | 'month'>('week');
+    const { t, lang } = useT();
+    const { user, profile } = useUser();
+    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+
+    const [view, setView] = useState<'day' | 'week' | 'month'>('week');
+
+    // Default to day view on mobile
+    useEffect(() => {
+        if (window.innerWidth < 768) {
+            setView('day');
+        }
+    }, []);
+
+    const filteredHalls = isDemo ? HALLS : [HALLS[0]];
+    const filteredTeachers = isDemo ? TEACHERS : [TEACHERS[0]];
+    const filteredEventsRaw = isDemo ? SEED_WEEK : [SEED_WEEK[0]];
+    const filteredEvents = expandEvents(filteredEventsRaw);
+
     const [anchor, setAnchor] = useState(new Date());
-    const [events, setEvents] = useState<CalendarEvent[]>(ALL_EVENTS);
+    const [events, setEvents] = useState<CalendarEvent[]>(filteredEvents);
     const [filterHall, setFilterHall] = useState<string>('all');
     const [filterTeacher, setFilterTeacher] = useState<string>('all');
     const [selectedEv, setSelectedEv] = useState<CalendarEvent | null>(null);
@@ -426,18 +443,22 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-2 ml-auto flex-wrap">
                     {/* Nav */}
                     <div className="flex items-center gap-1 bg-surface border border-border-subtle rounded-xl p-1 shadow-sm">
-                        <button onClick={() => nav(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-all active:scale-95"><ChevronLeft className="w-4 h-4" /></button>
-                        <button onClick={() => setAnchor(new Date())} className="px-3 h-8 text-xs font-bold rounded-lg hover:bg-card text-muted hover:text-primary transition-all uppercase tracking-wider">{t.todayBtn}</button>
-                        <button onClick={() => nav(1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-all active:scale-95"><ChevronRight className="w-4 h-4" /></button>
+                        <button onClick={() => nav(-1)} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-all active:scale-95"><ChevronLeft className="w-5 h-5" /></button>
+                        <button onClick={() => setAnchor(new Date())} className="px-4 h-10 text-xs font-bold rounded-lg hover:bg-card text-muted hover:text-primary transition-all uppercase tracking-wider">{t.todayBtn}</button>
+                        <button onClick={() => nav(1)} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-all active:scale-95"><ChevronRight className="w-5 h-5" /></button>
                     </div>
 
                     {/* View toggle */}
                     <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 shadow-sm">
-                        {([['week', <CalendarDays key="w" className="w-3.5 h-3.5" />, t.weekView], ['month', <LayoutGrid key="m" className="w-3.5 h-3.5" />, t.monthView]] as const).map(([v, icon, lbl]) => (
-                            <button key={v} onClick={() => setView(v as 'week' | 'month')}
+                        {([
+                            ['day', <Clock key="d" className="w-3.5 h-3.5" />, lang === 'ka' ? 'დღე' : 'Day'],
+                            ['week', <CalendarDays key="w" className="w-3.5 h-3.5" />, t.weekView],
+                            ['month', <LayoutGrid key="m" className="w-3.5 h-3.5" />, t.monthView]
+                        ] as const).map(([v, icon, lbl]) => (
+                            <button key={v} onClick={() => setView(v as any)}
                                 className={cn('flex items-center gap-2 px-3 h-8 text-xs font-bold rounded-lg transition-all',
                                     view === v ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'text-muted hover:text-primary')}>
-                                {icon}<span className="hidden sm:inline">{lbl}</span>
+                                {icon}<span className={cn(v === 'day' ? '' : 'hidden sm:inline')}>{lbl}</span>
                             </button>
                         ))}
                     </div>
@@ -497,6 +518,56 @@ export default function CalendarPage() {
                     </button>
                 ))}
             </div>
+
+            {/* ═══ DAY VIEW (MOBILE DEFAULT) ════════════════════════════ */}
+            {view === 'day' && (
+                <div className="flex-1 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between px-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted opacity-40">დღის განრიგი</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500/60">{toDateStr(anchor)}</p>
+                    </div>
+                    <div className="bg-card border border-border-subtle rounded-3xl divide-y divide-border-subtle overflow-hidden shadow-xl shadow-black/5">
+                        {dayEvents(toDateStr(anchor)).length > 0 ? (
+                            dayEvents(toDateStr(anchor)).map(ev => {
+                                const hall = HALLS.find(h => h.id === ev.hall_id);
+                                const teacher = TEACHERS.find(t => t.id === ev.teacher_id);
+                                return (
+                                    <button key={ev.id} onClick={() => setSelectedEv(ev)}
+                                        className="w-full flex items-center gap-4 px-5 py-5 hover:bg-surface transition-colors text-left group">
+                                        <div className="w-12 text-center flex-shrink-0">
+                                            <p className="text-xs font-black tabular-nums text-primary">{ev.start_time}</p>
+                                            <p className="text-[9px] font-bold text-muted opacity-40">{ev.end_time}</p>
+                                        </div>
+                                        <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-black text-primary truncate tracking-tight">{ev.title}</p>
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <div className="flex items-center gap-1">
+                                                    <DoorOpen className="w-3 h-3 text-muted/40" />
+                                                    <span className="text-[10px] font-bold text-muted truncate max-w-[80px]">{hall?.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <UserCheck className="w-3 h-3 text-muted/40" />
+                                                    <span className="text-[10px] font-bold text-muted truncate max-w-[80px]">{teacher?.name}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-muted/20 group-hover:text-indigo-500 transition-colors" />
+                                    </button>
+                                );
+                            })
+                        ) : (
+                            <div className="p-12 text-center">
+                                <p className="text-sm font-bold text-muted opacity-30">ამ დღეს ღონისძიებები არ არის</p>
+                            </div>
+                        )}
+                    </div>
+                    <button onClick={() => setAddDate(toDateStr(anchor))}
+                        className="w-full py-4 bg-surface border border-dashed border-border-subtle rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-primary transition-all">
+                        <Plus className="w-4 h-4" /> დამატება
+                    </button>
+                </div>
+            )}
 
             {/* ═══ WEEK VIEW ══════════════════════════════════════════ */}
             {view === 'week' && (

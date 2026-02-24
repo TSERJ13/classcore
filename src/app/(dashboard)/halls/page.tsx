@@ -45,7 +45,7 @@ export default function HallsPage() {
 
     return (
         <>
-            <div className="space-y-5 animate-fade-up max-w-2xl">
+            <div className="space-y-8 animate-fade-up max-w-4xl mx-auto pb-10">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3">
                     <div>
@@ -78,13 +78,17 @@ export default function HallsPage() {
                 </div>
 
                 {/* Hall cards */}
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {halls.map(hall => (
                         <div key={hall.id}
-                            className="group bg-card border border-border-subtle hover:border-border-subtle/20 rounded-2xl p-4 transition-all flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg"
-                                style={{ backgroundColor: hall.color + '22', border: `1.5px solid ${hall.color}55` }}>
-                                <DoorOpen className="w-5 h-5" style={{ color: hall.color }} />
+                            className="group bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 rounded-3xl p-5 transition-all duration-300 flex items-center gap-5">
+                            <div className="w-20 h-20 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-500/10 transition-colors overflow-hidden relative">
+                                {hall.photo_url ? (
+                                    <img src={hall.photo_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                ) : (
+                                    <DoorOpen className="w-8 h-8 text-indigo-500/40 group-hover:scale-110 transition-all duration-500" />
+                                )}
+                                <div className="absolute inset-x-0 bottom-0 h-1" style={{ backgroundColor: hall.color }} />
                             </div>
 
                             <div className="flex-1 min-w-0">

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
 import {
     UserPlus, Search, Phone, Mail, Users, User, BookOpen,
@@ -56,7 +57,19 @@ const STATUS_STYLE: Record<string, string> = {
 
 export default function TeachersPage() {
     const { t } = useT();
-    const [teachers, setTeachers] = useState<Teacher[]>(INITIAL_TEACHERS);
+    const { user, profile } = useUser();
+    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+
+    const [teachers, setTeachers] = useState<Teacher[]>([]);
+
+    useEffect(() => {
+        if (isDemo) {
+            setTeachers(INITIAL_TEACHERS);
+        } else {
+            setTeachers([INITIAL_TEACHERS[0]]);
+        }
+    }, [isDemo]);
+
     const [search, setSearch] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Teacher | null>(null);
@@ -143,8 +156,12 @@ export default function TeachersPage() {
                             className="group bg-card border border-border-subtle hover:border-violet-500/30 hover:shadow-xl hover:shadow-violet-500/5 rounded-[2rem] p-6 transition-all duration-300">
                             <div className="flex items-start gap-5">
                                 {/* Avatar */}
-                                <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-lg font-black text-white flex-shrink-0 shadow-lg shadow-violet-500/20 group-hover:scale-110 transition-transform">
-                                    {getInitials(teacher.full_name)}
+                                <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-lg font-black text-white flex-shrink-0 shadow-lg shadow-violet-500/20 group-hover:scale-110 transition-transform overflow-hidden">
+                                    {teacher.photo_url ? (
+                                        <img src={teacher.photo_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        getInitials(teacher.full_name)
+                                    )}
                                 </div>
 
                                 {/* Info */}
@@ -172,6 +189,7 @@ export default function TeachersPage() {
                                         <div className="flex gap-4">
                                             {teacher.rate_per_hour && <span className="text-emerald-600 font-black tracking-tight">{teacher.rate_per_hour}₾ / სთ</span>}
                                             {teacher.rate_per_month && <span className="text-emerald-600 font-black tracking-tight">{teacher.rate_per_month}₾ / თვე</span>}
+                                            {teacher.salary_percentage && <span className="text-rose-500 font-black tracking-tight">{teacher.salary_percentage}% (წილი)</span>}
                                         </div>
                                     </div>
 

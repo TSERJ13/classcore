@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
     Plus, CalendarDays, Clock, CalendarRange, Phone, Mail, Banknote,
-    CheckCircle2, XCircle, AlertCircle, ChevronRight, X, Check, Search, Filter,
+    CheckCircle2, XCircle, AlertCircle, ChevronRight, X, Check, Search, Filter, FileText, Download, Trash2
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -40,27 +40,44 @@ const EMPTY: Omit<HallRental, 'id' | 'org_id' | 'created_at'> = {
     start_date: '', end_date: '', start_time: '', end_time: '',
     total_price: 0, deposit: 0, payment_status: 'pending',
     event_type: '', notes: '',
+    contract_url: '',
 };
 
 export default function HallRentalPage() {
     const { t } = useT();
     const [rentals, setRentals] = useState<HallRental[]>(MOCK_RENTALS);
     const [modalOpen, setModalOpen] = useState(false);
+    const [editing, setEditing] = useState<HallRental | null>(null);
     const [form, setForm] = useState(EMPTY);
     const [step, setStep] = useState(1);
     const [search, setSearch] = useState('');
+    const [hallFilter, setHallFilter] = useState('all');
 
     function set(k: string, v: string | number) { setForm(p => ({ ...p, [k]: v })); }
-    function openAdd() { setForm(EMPTY); setStep(1); setModalOpen(true); }
+    function openAdd() { setEditing(null); setForm(EMPTY); setStep(1); setModalOpen(true); }
+    function openEdit(r: HallRental) { setEditing(r); setForm(r); setStep(2); setModalOpen(true); }
 
     function saveRental() {
-        setRentals(prev => [{
-            ...form, id: String(Date.now()), org_id: 'demo', created_at: new Date().toISOString(),
-        }, ...prev]);
+        if (editing) {
+            setRentals(prev => prev.map(r => r.id === editing.id ? { ...r, ...form } as HallRental : r));
+        } else {
+            setRentals(prev => [{
+                ...form, id: String(Date.now()), org_id: 'demo', created_at: new Date().toISOString(),
+            } as HallRental, ...prev]);
+        }
         setModalOpen(false);
     }
 
-    const filtered = rentals.filter(r => r.renter_name.toLowerCase().includes(search.toLowerCase()) || r.hall_name?.toLowerCase().includes(search.toLowerCase()));
+    function deleteRental(id: string) {
+        setRentals(prev => prev.filter(r => r.id !== id));
+        setModalOpen(false);
+    }
+
+    const filtered = rentals.filter(r => {
+        const matchesSearch = r.renter_name.toLowerCase().includes(search.toLowerCase()) || r.hall_name?.toLowerCase().includes(search.toLowerCase());
+        const matchesHall = hallFilter === 'all' || r.hall_name === hallFilter;
+        return matchesSearch && matchesHall;
+    });
 
     const totalRevenue = rentals.reduce((s, r) => s + (r.payment_status !== 'cancelled' ? r.total_price : 0), 0);
     const paidTotal = rentals.filter(r => r.payment_status === 'paid').reduce((s, r) => s + r.total_price, 0);
@@ -107,6 +124,11 @@ export default function HallRentalPage() {
                         onChange={e => setSearch(e.target.value)}
                         className="w-full bg-card border border-border-subtle rounded-2xl pl-11 pr-5 py-3 text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/60 transition-all shadow-sm" />
                 </div>
+                <select value={hallFilter} onChange={e => setHallFilter(e.target.value)}
+                    className="bg-card border border-border-subtle hover:border-indigo-500/30 text-muted hover:text-primary text-xs font-bold px-4 py-3 rounded-2xl transition-all flex-shrink-0 shadow-sm outline-none cursor-pointer">
+                    <option value="all">{t.allHalls || 'ყველა დარბაზი'}</option>
+                    {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
                 <button className="flex items-center gap-2 bg-card border border-border-subtle hover:border-indigo-500/30 text-muted hover:text-primary text-xs font-bold px-4 py-3 rounded-2xl transition-all flex-shrink-0 shadow-sm">
                     <Filter className="w-4 h-4" />
                     <span className="hidden sm:inline">{t.filter}</span>
@@ -118,7 +140,8 @@ export default function HallRentalPage() {
                 {filtered.map(r => {
                     const status = PAY_STATUS_INFO[r.payment_status];
                     return (
-                        <div key={r.id} className="group bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 rounded-[2rem] p-6 transition-all duration-300 cursor-pointer overflow-hidden">
+                        <div key={r.id} onClick={() => openEdit(r)}
+                            className="group bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 rounded-[2rem] p-6 transition-all duration-300 cursor-pointer overflow-hidden">
                             <div className="flex items-start gap-5">
                                 <div className="w-14 h-14 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-500/10 transition-colors">
                                     {r.rental_type === 'hourly' && <Clock className="w-7 h-7 text-indigo-500" />}
@@ -164,7 +187,13 @@ export default function HallRentalPage() {
                                                 <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40 mt-1">დეპოზიტი</p>
                                             </div>
                                         )}
-                                        <div className="ml-auto">
+                                        <div className="ml-auto flex items-center gap-3">
+                                            {r.contract_url && (
+                                                <button onClick={(e) => { e.stopPropagation(); window.open(r.contract_url, '_blank'); }}
+                                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition-all border border-indigo-500/20" title="კონტრაქტის ნახვა">
+                                                    <FileText className="w-5 h-5" />
+                                                </button>
+                                            )}
                                             <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border-subtle rounded-xl text-[10px] font-black text-muted group-hover:text-primary transition-colors">
                                                 <Phone className="w-3 h-3 text-indigo-500" />
                                                 {r.renter_phone}
@@ -173,7 +202,13 @@ export default function HallRentalPage() {
                                     </div>
                                 </div>
 
-                                <ChevronRight className="w-6 h-6 text-muted opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all mt-1" />
+                                <div className="flex flex-col items-end gap-3 pt-1">
+                                    <button onClick={(e) => { e.stopPropagation(); openEdit(r); }}
+                                        className="w-10 h-10 flex items-center justify-center rounded-2xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 hover:border-indigo-500/40 hover:shadow-lg transition-all active:scale-95">
+                                        <Plus className="w-4 h-4 rotate-45" />
+                                    </button>
+                                    <ChevronRight className="w-6 h-6 text-muted opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all mt-1" />
+                                </div>
                             </div>
                         </div>
                     );
@@ -197,8 +232,8 @@ export default function HallRentalPage() {
                     <div className="fixed inset-y-0 right-0 z-[70] w-full max-w-md flex flex-col bg-card border-l border-border-subtle shadow-2xl animate-in slide-in-from-right duration-300">
                         <div className="flex items-center justify-between px-8 py-6 border-b border-border-subtle flex-shrink-0">
                             <div>
-                                <h2 className="text-xl font-black text-primary tracking-tight">ახალი ჯავშანი</h2>
-                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1 opacity-70">ნაბიჯი {step} / 2</p>
+                                <h2 className="text-xl font-black text-primary tracking-tight">{editing ? 'ჯავშნის რედაქტირება' : 'ახალი ჯავშანი'}</h2>
+                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1 opacity-70">{editing ? editing.renter_name : `ნაბიჯი ${step} / 2`}</p>
                             </div>
                             <button onClick={() => setModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface text-muted transition-colors">
                                 <X className="w-6 h-6" />
@@ -206,6 +241,14 @@ export default function HallRentalPage() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 scrollbar-thin">
+                            {editing && step === 2 && (
+                                <div className="space-y-4">
+                                    <button onClick={() => { if (confirm('ნამდვილად გსურთ წაშლა?')) deleteRental(editing.id); }}
+                                        className="w-full py-2.5 text-red-500/60 hover:text-red-500 text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
+                                        <Trash2 className="w-4 h-4" /> ჯავშნის წაშლა
+                                    </button>
+                                </div>
+                            )}
                             {step === 1 ? (
                                 <div className="space-y-4">
                                     <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 opacity-40">გაქირავების ტიპი</p>
@@ -320,12 +363,41 @@ export default function HallRentalPage() {
                                         </div>
                                     </div>
 
-                                    {/* Notes */}
                                     <div className="border-t border-border-subtle/50 pt-6">
                                         <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">{t.notes}</label>
                                         <textarea value={form.notes ?? ''} onChange={e => set('notes', e.target.value)}
                                             rows={3} placeholder="დამატებითი ინფო..."
                                             className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary placeholder:text-muted/30 outline-none resize-none shadow-inner" />
+                                    </div>
+
+                                    {/* Contract upload */}
+                                    <div className="border-t border-border-subtle/50 pt-6">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <label className="text-[11px] font-black text-muted uppercase tracking-wider opacity-60">კონტრაქტი / საბუთი</label>
+                                            {(form as any).contract_url && (
+                                                <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">ატვირთულია</span>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                const input = document.createElement('input');
+                                                input.type = 'file';
+                                                input.accept = 'application/pdf,image/*';
+                                                input.onchange = (e: any) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (ev) => set('contract_url', ev.target?.result as string);
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                };
+                                                input.click();
+                                            }}
+                                            className="w-full py-4 bg-surface border-2 border-dashed border-border-subtle hover:border-indigo-500/40 text-xs font-bold text-muted hover:text-indigo-600 rounded-2xl transition-all shadow-inner flex items-center justify-center gap-2 group-inner"
+                                        >
+                                            <FileText className="w-4 h-4 opacity-40 group-inner-hover:scale-110 transition-transform" />
+                                            {(form as any).contract_url ? 'საბუთის შეცვლა' : 'კონტრაქტის ატვირთვა (PDF/JPG)'}
+                                        </button>
                                     </div>
                                 </div>
                             )}

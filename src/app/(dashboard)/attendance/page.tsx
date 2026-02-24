@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Check, X, ChevronLeft, ChevronRight, Users, Scan, AlertTriangle, CheckCircle2, Search, CalendarCheck, Clock, CheckCheck } from 'lucide-react';
+import { Check, X, ChevronLeft, ChevronRight, Users, Scan, AlertTriangle, CheckCircle2, Search, CalendarCheck, Clock, CheckCheck, Phone, MessageSquare, Info, Instagram, Facebook, Send, MessageCircle, Plus } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { recordCheckin, forceCheckin, getCheckinCountToday } from '@/lib/checkin-store';
 import { lookupByUid } from '@/lib/student-store';
+import { useUser } from '@/hooks/useUser';
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ function useCountdown(active: boolean, seconds: number, onDone: () => void) {
     return remaining;
 }
 
-function ScanPopup({ data, onClose, onConfirm }: { data: PopupData; onClose: () => void; onConfirm: () => void; }) {
+function ScanPopup({ data, onClose, onConfirm, t }: { data: PopupData; onClose: () => void; onConfirm: () => void; t: any; }) {
     const autoClose = data.phase === 'success' || data.phase === 'double-success';
     const secs = data.phase === 'double-success' ? 3 : 4;
     const countdown = useCountdown(autoClose, secs, onClose);
@@ -96,12 +97,12 @@ function ScanPopup({ data, onClose, onConfirm }: { data: PopupData; onClose: () 
                         </div>
                         <div className="text-center mb-6">
                             <h2 className="text-2xl font-black text-primary tracking-tight">{data.studentName}</h2>
-                            {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ დასწრება OK</p></>}
+                            {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendance} OK</p></>}
                             {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 uppercase tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ უკვე შემოსულია</p>}
-                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest mt-2 bg-indigo-500/10 px-3 py-1 rounded-full inline-block">✅ ×2 მეორე ვიზიტი</p>}
+                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest mt-2 bg-indigo-500/10 px-3 py-1 rounded-full inline-block">✅ ×2 მეორე {t.visit}</p>}
                         </div>
                         <div className={cn('rounded-2xl p-4 mb-6 flex items-center justify-between shadow-inner', data.sessionsRemaining <= 2 ? 'bg-red-500/5 border border-red-500/20' : 'bg-surface border border-border-subtle')}>
-                            <span className="text-xs font-bold text-muted opacity-60">დარჩენილი სესიები</span>
+                            <span className="text-xs font-bold text-muted opacity-60">დარჩენილი {t.visits}</span>
                             <div className="flex items-center gap-2">
                                 {(data.phase === 'success' || data.phase === 'double-success') && <span className="text-[10px] text-amber-600 font-black">-1</span>}
                                 <span className={cn('text-xl font-black tabular-nums', data.sessionsRemaining <= 2 ? 'text-red-500' : 'text-emerald-500')}>{data.sessionsRemaining}</span>
@@ -128,9 +129,15 @@ function ScanPopup({ data, onClose, onConfirm }: { data: PopupData; onClose: () 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
-    const { lang } = useT();
+    const { t, lang } = useT();
+    const { user, profile } = useUser();
+    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+
+    const filteredSchedule = isDemo ? SCHEDULE : [SCHEDULE[0]];
     const [date, setDate] = useState(new Date());
-    const [selectedClass, setSelectedClass] = useState(SCHEDULE[0].id);
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+    const [selectedClass, setSelectedClass] = useState(filteredSchedule[0].id);
     const [att, setAtt] = useState<Record<string, State>>({});
     const [qrInput, setQrInput] = useState('');
     const [flash, setFlash] = useState<string | null>(null);
@@ -138,21 +145,42 @@ export default function AttendancePage() {
     const [popup, setPopup] = useState<PopupData | null>(null);
     const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const [drawerOpen, setDrawerOpen] = useState(false);
 
     const qrRef = useRef<HTMLInputElement>(null);
     const rfidBuffer = useRef('');
     const rfidTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const cls = SCHEDULE.find(s => s.id === selectedClass)!;
-    const students = STUDENTS_BY_CLASS[selectedClass] || [];
+    const cls = filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0];
+    const studentsRaw = STUDENTS_BY_CLASS[selectedClass] || [];
+    const students = isDemo ? studentsRaw : (selectedClass === 'cls1' ? [studentsRaw[0]] : []);
     const filtered = students.filter(s => !search || s.full_name.toLowerCase().includes(search.toLowerCase()));
 
     const presentCount = students.filter(s => att[s.id] === 'present').length;
     const absentCount = students.filter(s => att[s.id] === 'absent').length;
-    const selStudent = selectedStudent ? students.find(s => s.id === selectedStudent) : null;
+
+    const [studentPatches, setStudentPatches] = useState<Record<string, any>>({});
+    useEffect(() => {
+        const { getStudentPatches } = require('@/lib/student-store');
+        setStudentPatches(getStudentPatches());
+    }, [drawerOpen, selectedStudent]);
+
+    // Merge patches into selected student data
+    const selStudentRaw = selectedStudent ? students.find(s => s.id === selectedStudent) : null;
+    const selStudent = selStudentRaw ? {
+        ...selStudentRaw,
+        ...(studentPatches[selStudentRaw.id] || {})
+    } : null;
 
     useEffect(() => { qrRef.current?.focus(); }, []);
     const closePopup = useCallback(() => { setPopup(null); setTimeout(() => qrRef.current?.focus(), 50); }, []);
+    const openProfile = (id: string) => { setSelectedStudent(id); setDrawerOpen(true); };
+
+    // Reset local attendance state when group changes to ensure a fresh start
+    useEffect(() => {
+        setAtt({});
+        setSearch('');
+    }, [selectedClass]);
 
     const confirmDouble = useCallback(() => {
         if (!popup) return;
@@ -232,7 +260,7 @@ export default function AttendancePage() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-100px)] -m-4 md:-m-8 bg-card animate-fade-up overflow-hidden">
-            {popup && <ScanPopup data={popup} onClose={closePopup} onConfirm={confirmDouble} />}
+            {popup && <ScanPopup data={popup} onClose={closePopup} onConfirm={confirmDouble} t={t} />}
 
             {/* Header / Scan Bar */}
             <div className={cn(
@@ -248,15 +276,17 @@ export default function AttendancePage() {
                         className="w-full bg-transparent text-lg font-bold text-primary placeholder:text-muted/20 outline-none" />
                     {scanError && <span className="absolute right-0 top-1/2 -translate-y-1/2 text-xs font-bold text-red-500 bg-red-500/10 px-3 py-1 rounded-full animate-bounce">{scanError}</span>}
                 </div>
-                <div className="hidden md:flex items-center gap-3 bg-surface px-4 py-2 rounded-2xl border border-border-subtle shadow-sm">
-                    <CalendarCheck className="w-4 h-4 text-indigo-500" />
-                    <span className="text-xs font-black text-primary uppercase tracking-wider">{dateStr}</span>
-                </div>
+                {mounted && (
+                    <div className="hidden md:flex items-center gap-3 bg-surface px-4 py-2 rounded-2xl border border-border-subtle shadow-sm">
+                        <CalendarCheck className="w-4 h-4 text-indigo-500" />
+                        <span className="text-xs font-black text-primary uppercase tracking-wider">{dateStr}</span>
+                    </div>
+                )}
             </div>
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Left Panel: Schedule */}
-                <div className="w-64 border-r border-border-subtle bg-surface/30 flex flex-col overflow-hidden">
+                <div className="hidden lg:flex w-64 border-r border-border-subtle bg-surface/30 flex-col overflow-hidden">
                     <div className="p-4 border-b border-border-subtle/50">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted opacity-40">განრიგი</p>
                     </div>
@@ -269,10 +299,9 @@ export default function AttendancePage() {
                                     className={cn(
                                         'w-full text-left p-4 rounded-2xl transition-all group border shadow-sm relative overflow-hidden',
                                         isActive
-                                            ? 'border-transparent shadow-xl scale-[1.02] z-10'
+                                            ? 'bg-indigo-500 border-indigo-600 shadow-xl scale-[1.02] z-10'
                                             : 'bg-card border-border-subtle hover:bg-surface hover:border-border-subtle/50'
-                                    )}
-                                    style={isActive ? { backgroundColor: 'hsla(var(--accent), 0.5)', color: '#fff' } : undefined}>
+                                    )}>
                                     <h3 className={cn(
                                         'text-sm font-black truncate leading-tight transition-colors',
                                         isActive ? 'text-white' : 'text-primary'
@@ -306,7 +335,7 @@ export default function AttendancePage() {
                 </div>
 
                 {/* Middle Panel: Student List */}
-                <div className="w-full md:w-[560px] flex flex-col bg-card overflow-hidden border-r border-border-subtle">
+                <div className="flex-1 flex flex-col bg-card overflow-hidden border-r border-border-subtle">
                     <div className="p-6 border-b border-border-subtle/50 flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -318,44 +347,90 @@ export default function AttendancePage() {
                                 <button onClick={() => { const n: Record<string, State> = { ...att }; students.forEach(s => n[s.id] = 'absent'); setAtt(n); }} className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-[10px] font-black uppercase tracking-wider hover:bg-red-500/20 shadow-sm transition-all">არ არის</button>
                             </div>
                         </div>
+                        <div className="lg:hidden flex overflow-x-auto no-scrollbar gap-2 pb-2">
+                            {SCHEDULE.map(s => (
+                                <button key={s.id} onClick={() => setSelectedClass(s.id)}
+                                    className={cn(
+                                        'px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border',
+                                        selectedClass === s.id ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-surface text-muted border-border-subtle'
+                                    )}>
+                                    {s.name}
+                                </button>
+                            ))}
+                        </div>
                         <div className="relative group">
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-indigo-500 transition-colors" />
                             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="მოსწავლის ძებნა..."
                                 className="w-full bg-surface border border-border-subtle rounded-2xl pl-10 pr-4 py-3 text-sm font-bold text-primary placeholder:text-muted/20 outline-none focus:border-indigo-500/60 transition-all shadow-inner" />
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-border-subtle">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-border-subtle">
                         {filtered.map(st => {
                             const state = att[st.id] ?? 'none';
                             const isSel = selectedStudent === st.id;
                             const isFl = flash === st.id;
                             return (
-                                <button key={st.id} onClick={() => { setSelectedStudent(isSel ? null : st.id); toggle(st.id); }}
+                                <div key={st.id}
                                     className={cn(
-                                        'w-full flex items-center gap-4 p-4 rounded-3xl transition-all group border shadow-sm',
+                                        'w-full flex items-center gap-4 p-5 rounded-[2rem] transition-all group border shadow-sm relative overflow-hidden',
                                         isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
                                             isSel ? 'bg-indigo-50/50 border-indigo-200 shadow-indigo-500/5' :
                                                 'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50'
                                     )}>
-                                    <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${avatarColor(st.id)} flex items-center justify-center shadow-lg border-2 border-surface group-hover:scale-110 transition-transform`}>
-                                        <span className="text-[11px] font-black text-white">{getInitials(st.full_name)}</span>
+
+                                    {/* Avatar/Toggle area */}
+                                    <div className="flex items-center gap-4 relative z-10 flex-1 min-w-0">
+                                        {/* Clickable photo for profile */}
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); openProfile(st.id); }}
+                                            className={cn(
+                                                "w-12 h-12 rounded-full border-2 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden active:scale-95",
+                                                state === 'present' ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]" :
+                                                    state === 'absent' ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]" :
+                                                        "border-border-subtle hover:border-indigo-500/50"
+                                            )}
+                                        >
+                                            <div className={`w-full h-full rounded-full bg-gradient-to-br ${avatarColor(st.id)} flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform`}>
+                                                <span className="text-xs font-black text-white">{getInitials(st.full_name)}</span>
+                                            </div>
+                                        </button>
+
+                                        <div className="flex-1 min-w-0" onClick={() => openProfile(st.id)}>
+                                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                <p className={cn('text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>{st.full_name}</p>
+                                                <span className="text-[10px] font-black text-indigo-600 tabular-nums">8/12</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner">
+                                                    <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 shadow-[0_0_8px_rgba(99,102,241,0.2)]" style={{ width: '66.6%' }} />
+                                                </div>
+                                                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/5 px-1.5 py-0.5 rounded-lg border border-indigo-500/10 whitespace-nowrap">5 დღე დარჩა</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={cn('text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>{st.full_name}</p>
-                                        <p className="text-[10px] font-bold text-muted opacity-40 mt-1 uppercase tracking-wider">{cls.name}</p>
-                                    </div>
-                                    <div className={cn('w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all shadow-sm', state === 'present' ? 'bg-emerald-500 border-emerald-500' : state === 'absent' ? 'bg-red-500 border-red-500' : 'border-border-subtle bg-surface')}>
-                                        {state === 'present' && <Check className="w-4 h-4 text-white" strokeWidth={4} />}
-                                        {state === 'absent' && <X className="w-4 h-4 text-white" strokeWidth={4} />}
-                                    </div>
-                                </button>
+
+                                    {/* Attendance Toggle at the end */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); toggle(st.id); }}
+                                        className={cn(
+                                            "relative z-10 w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all active:scale-90 ml-auto flex-shrink-0",
+                                            state === 'present' ? "bg-emerald-500 border-emerald-500 text-white" :
+                                                state === 'absent' ? "bg-red-500 border-red-500 text-white" :
+                                                    "border-dashed border-border-subtle text-muted/20 hover:border-indigo-500/50 hover:text-indigo-500"
+                                        )}
+                                    >
+                                        {state === 'present' ? <Check className="w-5 h-5" strokeWidth={4} /> :
+                                            state === 'absent' ? <X className="w-5 h-5" strokeWidth={4} /> :
+                                                <Plus className="w-5 h-5" />}
+                                    </button>
+                                </div>
                             );
                         })}
                     </div>
                 </div>
 
                 {/* Right Panel: Student Profile */}
-                <div className="flex-1 min-w-[400px] bg-surface/30 flex flex-col overflow-hidden">
+                <div className="hidden xl:flex flex-1 min-w-[350px] bg-surface/30 flex-col overflow-hidden">
                     {selStudent ? (
                         <div className="flex flex-col h-full animate-in slide-in-from-right duration-300">
                             <div className="p-8 flex flex-col items-center text-center border-b border-border-subtle/50 bg-card/40">
@@ -373,25 +448,60 @@ export default function AttendancePage() {
                                     );
                                 })()}
                             </div>
-                            <div className="p-6 grid grid-cols-2 gap-3 border-b border-border-subtle/50">
-                                <div className="bg-card border border-border-subtle rounded-2xl p-4 text-center shadow-sm">
-                                    <p className="text-2xl font-black text-primary tabular-nums">8</p>
-                                    <p className="text-[9px] font-black text-muted uppercase tracking-widest mt-1 opacity-40">სესია</p>
+                            <div className="p-4 grid grid-cols-2 gap-2 border-b border-border-subtle/50">
+                                <div className="bg-card border border-border-subtle rounded-xl p-3 text-center shadow-sm">
+                                    <p className="text-lg font-black text-primary tabular-nums">8</p>
+                                    <p className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40">{t.visit}</p>
                                 </div>
-                                <div className="bg-card border border-border-subtle rounded-2xl p-4 text-center shadow-sm">
-                                    <p className="text-2xl font-black text-primary tabular-nums">12</p>
-                                    <p className="text-[9px] font-black text-muted uppercase tracking-widest mt-1 opacity-40">სულ</p>
+                                <div className="bg-card border border-border-subtle rounded-xl p-3 text-center shadow-sm">
+                                    <p className="text-lg font-black text-primary tabular-nums">12</p>
+                                    <p className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40">სულ</p>
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-30">ბოლო დასწრებები</p>
-                                <div className="space-y-3">
-                                    {['20.02.2026 · 09:10', '16.02.2026 · 11:45', '11.02.2026 · 09:05'].map((v, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-surface/50 border border-border-subtle/50">
-                                            <CalendarCheck className="w-4 h-4 text-indigo-500 opacity-60" />
-                                            <span className="text-[11px] font-bold text-muted">{v}</span>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                {/* Social Links Section */}
+                                {selStudent.social_links && Object.values(selStudent.social_links).some(v => v) && (
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-30">სოციალური ქსელები</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selStudent.social_links.instagram && (
+                                                <a href={`https://instagram.com/${selStudent.social_links.instagram}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 transition-all hover:scale-110 shadow-sm">
+                                                    <Instagram className="w-5 h-5" />
+                                                </a>
+                                            )}
+                                            {selStudent.social_links.facebook && (
+                                                <a href={`https://facebook.com/${selStudent.social_links.facebook}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-600 transition-all hover:scale-110 shadow-sm">
+                                                    <Facebook className="w-5 h-5" />
+                                                </a>
+                                            )}
+                                            {selStudent.social_links.telegram && (
+                                                <a href={`https://t.me/${selStudent.social_links.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-500 transition-all hover:scale-110 shadow-sm">
+                                                    <Send className="w-5 h-5" />
+                                                </a>
+                                            )}
+                                            {selStudent.social_links.whatsapp && (
+                                                <a href={`https://wa.me/${selStudent.social_links.whatsapp.replace(/\+/g, '')}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 transition-all hover:scale-110 shadow-sm">
+                                                    <MessageCircle className="w-5 h-5" />
+                                                </a>
+                                            )}
                                         </div>
-                                    ))}
+                                    </div>
+                                )}
+
+                                <div className="space-y-4">
+                                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-30">ბოლო დასწრებები</p>
+                                    <div className="space-y-3">
+                                        {['20.02.2026 · 09:10', '16.02.2026 · 11:45', '11.02.2026 · 09:05'].map((v, i) => (
+                                            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-surface/50 border border-border-subtle/50">
+                                                <CalendarCheck className="w-4 h-4 text-indigo-500 opacity-60" />
+                                                <span className="text-[11px] font-bold text-muted">{v}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -406,6 +516,146 @@ export default function AttendancePage() {
                     )}
                 </div>
             </div>
+
+            {/* Mobile Profile Drawer */}
+            {drawerOpen && selStudent && (
+                <div className="xl:hidden fixed inset-0 z-[100] flex items-end justify-center pointer-events-none">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setDrawerOpen(false)} />
+                    <div className="relative w-full max-w-lg bg-card rounded-t-[3rem] shadow-2xl pointer-events-auto animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
+                        <div className="w-12 h-1.5 bg-border-subtle rounded-full mx-auto mt-4 mb-2 opacity-50" />
+
+                        <div className="overflow-y-auto px-6 pb-8">
+                            <div className="flex flex-col items-center text-center pt-4 pb-8 border-b border-border-subtle/50">
+                                <div className={`w-24 h-24 rounded-[2rem] bg-gradient-to-br ${avatarColor(selStudent.id)} flex items-center justify-center text-white text-3xl font-black shadow-xl mb-4 border-4 border-card`}>
+                                    {getInitials(selStudent.full_name)}
+                                </div>
+                                <h2 className="text-2xl font-black text-primary tracking-tight">{selStudent.full_name}</h2>
+                                <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mt-1 opacity-70">{cls.name}</p>
+                            </div>
+
+                            <div className="bg-surface/30 border border-border-subtle rounded-[2.5rem] p-6 py-8 mb-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-50">სტატუსი</span>
+                                        <span className="text-emerald-500 font-black text-sm uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full">{t.active}</span>
+                                    </div>
+                                    <div className="text-right flex flex-col gap-1">
+                                        <span className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-50">ვადა</span>
+                                        <span className="text-primary font-black text-sm">24.03.2026</span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-card border border-border-subtle/50 rounded-2xl p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <div className="w-1 h-1 rounded-full bg-indigo-500" />
+                                            <span className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40">დარჩა</span>
+                                        </div>
+                                        <div className="flex items-baseline gap-1">
+                                            <p className="text-2xl font-black text-primary tabular-nums tracking-tighter">8</p>
+                                            <p className="text-[9px] font-black text-muted uppercase opacity-40">{t.visit}</p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-card border border-border-subtle/50 rounded-2xl p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                            <span className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40">სულ</span>
+                                        </div>
+                                        <div className="flex items-baseline gap-1">
+                                            <p className="text-2xl font-black text-primary tabular-nums tracking-tighter">12</p>
+                                            <p className="text-[9px] font-black text-muted uppercase opacity-40">{t.visits}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="mt-5 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30">
+                                    <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 shadow-[0_0_10px_rgba(99,102,241,0.3)] transition-all duration-1000" style={{ width: '66.6%' }} />
+                                </div>
+                            </div>
+
+                            <div className="space-y-5">
+                                {selStudent.social_links && Object.values(selStudent.social_links).some(v => v) && (
+                                    <div>
+                                        <p className="text-[9px] font-black text-muted uppercase tracking-[0.2em] opacity-40 mb-2.5 px-1">სოციალური ქსელები</p>
+                                        <div className="flex items-center gap-3 mb-3.5">
+                                            {selStudent.social_links.instagram && (
+                                                <a href={`https://instagram.com/${selStudent.social_links.instagram}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 transition-all hover:scale-110 shadow-sm">
+                                                    <Instagram className="w-4.5 h-4.5" />
+                                                </a>
+                                            )}
+                                            {selStudent.social_links.facebook && (
+                                                <a href={`https://facebook.com/${selStudent.social_links.facebook}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-9 h-9 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-600 transition-all hover:scale-110 shadow-sm">
+                                                    <Facebook className="w-4.5 h-4.5" />
+                                                </a>
+                                            )}
+                                            {selStudent.social_links.telegram && (
+                                                <a href={`https://t.me/${selStudent.social_links.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-500 transition-all hover:scale-110 shadow-sm">
+                                                    <Send className="w-4.5 h-4.5" />
+                                                </a>
+                                            )}
+                                            {selStudent.social_links.whatsapp && (
+                                                <a href={`https://wa.me/${selStudent.social_links.whatsapp.replace(/\+/g, '')}`} target="_blank" rel="noopener noreferrer"
+                                                    className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 transition-all hover:scale-110 shadow-sm">
+                                                    <MessageCircle className="w-4.5 h-4.5" />
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-[9px] font-black text-muted uppercase tracking-[0.2em] opacity-40 mb-2.5 px-1">კონტაქტი</p>
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        <a href={`tel:${selStudent.phone}`} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-600 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest">
+                                            <Phone className="w-4 h-4" />
+                                            <span>დარეკვა</span>
+                                        </a>
+                                        <button className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest">
+                                            <MessageSquare className="w-4 h-4" />
+                                            <span>SMS</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 rounded-3xl bg-amber-500/5 border border-amber-500/20 flex items-center gap-3">
+                                <AlertTriangle className="w-6 h-6 text-amber-500" />
+                                <div>
+                                    <p className="text-xs font-black text-amber-600">პასპორტის ვადა</p>
+                                    <p className="text-[10px] font-bold text-amber-600/60 uppercase">გადის: 12.03.2026</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40 mb-3 px-1">ბოლო ვიზიტები</p>
+                                <div className="space-y-2">
+                                    {['20.02.2026', '16.02.2026', '11.02.2026'].map((v, i) => (
+                                        <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-surface border border-border-subtle/50 text-sm font-bold text-primary">
+                                            <div className="flex items-center gap-3">
+                                                <CalendarCheck className="w-4 h-4 text-indigo-500 opacity-60" />
+                                                <span>{v}</span>
+                                            </div>
+                                            <span className="text-[10px] font-black text-emerald-600 uppercase">დაესწრო</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="p-5 rounded-3xl bg-surface border border-border-subtle/50 space-y-2">
+                                <div className="flex items-center gap-2 text-primary">
+                                    <Info className="w-4 h-4 text-indigo-500 opacity-60" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">შენიშვნა</span>
+                                </div>
+                                <p className="text-xs font-bold text-muted leading-relaxed italic opacity-60">მოცემულ სტუდენტს სჭირდება დამატებითი ყურადღება მოთელვისას</p>
+                            </div>
+                        </div>
+
+                        <button onClick={() => setDrawerOpen(false)} className="w-full mt-8 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-xl active:scale-[0.98] transition-all">
+                            დახურვა
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

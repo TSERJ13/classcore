@@ -7,6 +7,8 @@ import {
     UserPlus, ClipboardList, ArrowUpRight, Zap,
     Activity, ChevronLeft, ChevronRight, Bell,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useUser } from '@/hooks/useUser';
 
 // ─── Mini calendar helpers ──────────────────────────────────────────────────
 
@@ -27,10 +29,10 @@ const WEEK_EN = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 // Days with events (demo)
 const EVENT_DAYS = new Set([3, 7, 12, 15, 20, 22, 25]);
 
-function MiniCalendar({ lang }: { lang: string }) {
+function MiniCalendar({ lang, selectedDate, onSelect }: { lang: string; selectedDate: Date; onSelect: (d: Date) => void }) {
+    const [year, setYear] = useState(selectedDate.getFullYear());
+    const [month, setMonth] = useState(selectedDate.getMonth());
     const now = new Date();
-    const [year, setYear] = useState(now.getFullYear());
-    const [month, setMonth] = useState(now.getMonth());
     const today = now.getDate();
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
 
@@ -71,15 +73,25 @@ function MiniCalendar({ lang }: { lang: string }) {
                     const isToday = isCurrentMonth && d === today;
                     const hasEvent = EVENT_DAYS.has(d);
                     return (
-                        <button key={i} className="relative flex flex-col items-center justify-center h-8 rounded-lg group transition-colors hover:bg-surface">
-                            <span className={`text-xs font-medium leading-none transition-colors ${isToday
-                                ? 'w-6 h-6 flex items-center justify-center bg-indigo-500 text-white rounded-full font-bold'
-                                : 'text-primary/60 group-hover:text-primary'
-                                }`}>
+                        <button key={i}
+                            onClick={() => onSelect(new Date(year, month, d))}
+                            className={cn(
+                                "relative flex flex-col items-center justify-center h-8 rounded-lg group transition-colors hover:bg-surface",
+                                selectedDate.getDate() === d && selectedDate.getMonth() === month && selectedDate.getFullYear() === year && "bg-indigo-500/10 border border-indigo-500/20"
+                            )}>
+                            <span className={cn('text-xs font-medium leading-none transition-colors',
+                                isToday
+                                    ? 'w-6 h-6 flex items-center justify-center bg-indigo-500 text-white rounded-full font-bold'
+                                    : (selectedDate.getDate() === d && selectedDate.getMonth() === month && selectedDate.getFullYear() === year)
+                                        ? 'text-indigo-400 font-bold'
+                                        : 'text-primary/60 group-hover:text-primary'
+                            )}>
                                 {d}
                             </span>
                             {hasEvent && !isToday && (
-                                <span className="absolute bottom-1 w-1 h-1 rounded-full bg-indigo-400/70" />
+                                <span className={cn("absolute bottom-1 w-1 h-1 rounded-full",
+                                    (selectedDate.getDate() === d && selectedDate.getMonth() === month && selectedDate.getFullYear() === year) ? "bg-indigo-400" : "bg-indigo-400/70"
+                                )} />
                             )}
                         </button>
                     );
@@ -92,11 +104,13 @@ function MiniCalendar({ lang }: { lang: string }) {
 // ─── Today's schedule ───────────────────────────────────────────────────────
 
 const SCHEDULE = [
-    { time: '09:00', name: 'Contemporary Dance', teacher: 'ნინო კ.', count: 8, color: 'bg-indigo-500' },
-    { time: '11:00', name: 'Ballet', teacher: 'ანა ბ.', count: 12, color: 'bg-pink-500' },
-    { time: '13:30', name: 'Yoga Beginners', teacher: 'გიორგი მ.', count: 6, color: 'bg-emerald-500' },
-    { time: '16:00', name: 'Hip-Hop', teacher: 'დავით ლ.', count: 10, color: 'bg-amber-500' },
-    { time: '18:30', name: 'Sports Group A', teacher: 'მარიამ ა.', count: 9, color: 'bg-violet-500' },
+    { time: '09:00', name: 'Contemporary Dance', teacher: 'ნინო კ.', count: 8, color: 'bg-indigo-500', days: [1, 3, 5] },
+    { time: '11:00', name: 'Ballet', teacher: 'ანა ბ.', count: 12, color: 'bg-pink-500', days: [1, 2, 4] },
+    { time: '13:30', name: 'Yoga Beginners', teacher: 'გიორგი მ.', count: 6, color: 'bg-emerald-500', days: [1, 3, 5, 0] },
+    { time: '16:00', name: 'Hip-Hop', teacher: 'დავით ლ.', count: 10, color: 'bg-amber-500', days: [2, 4, 6] },
+    { time: '18:30', name: 'Sports Group A', teacher: 'მარიამ ა.', count: 9, color: 'bg-violet-500', days: [1, 3, 5] },
+    { time: '10:00', name: 'Zumba', teacher: 'ელენე გ.', count: 15, color: 'bg-orange-500', days: [2, 4, 6] },
+    { time: '20:00', name: 'Latino Mix', teacher: 'გიო ს.', count: 11, color: 'bg-rose-500', days: [1, 3, 5] },
 ];
 
 // ─── Recent activity ────────────────────────────────────────────────────────
@@ -120,17 +134,40 @@ function actionBadge(action: string, lang: string) {
 
 export default function DashboardPage() {
     const { t, lang } = useT();
+    const { profile, user } = useUser();
+    const [selectedDate, setSelectedDate] = useState(new Date());
 
-    const todayFull = new Date().toLocaleDateString(
-        lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-GB',
-        { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
-    );
+    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+
+    const getLocalizedDate = (date: Date, lang: string) => {
+        const weekdays = {
+            ka: ['კვირა', 'ორშაბათი', 'სამშაბათი', 'ოთხშაბათი', 'ხუთშაბათი', 'პარასკევი', 'შაბათი'],
+            en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            ru: ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
+        };
+        const months = {
+            ka: ['იანვარი', 'თებერვალი', 'მარტი', 'აპრილი', 'მაისი', 'ივნისი', 'ივლისი', 'აგვისტო', 'სექტემბერი', 'ოქტომბერი', 'ნოემბერი', 'დეკემბერი'],
+            en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+            ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+        };
+
+        const day = date.getDate();
+        const month = months[lang as keyof typeof months][date.getMonth()];
+        const weekday = weekdays[lang as keyof typeof weekdays][date.getDay()];
+        const year = date.getFullYear();
+
+        if (lang === 'ka') return `${weekday}, ${day} ${month} ${year}`;
+        if (lang === 'ru') return `${weekday}, ${day} ${month} ${year}`;
+        return `${weekday}, ${day} ${month} ${year}`;
+    };
+
+    const dateStr = getLocalizedDate(selectedDate, lang);
 
     const stats = [
-        { label: t.totalStudents, value: '142', change: '+8', sub: lang === 'ru' ? 'в этом месяце' : lang === 'en' ? 'this month' : 'ამ თვეში', icon: Users, color: 'indigo' },
-        { label: t.activeSubscriptions, value: '118', change: '+12', sub: lang === 'ru' ? 'новых' : lang === 'en' ? 'new' : 'ახალი', icon: CreditCard, color: 'emerald' },
-        { label: t.todayAttendance, value: '34', change: '83%', sub: lang === 'ru' ? 'посещаемость' : lang === 'en' ? 'rate' : 'დასწრება', icon: CalendarCheck, color: 'violet' },
-        { label: t.monthlyRevenue, value: '14 200', change: '+18%', sub: lang === 'ru' ? 'рост' : lang === 'en' ? 'growth' : 'გაზრდა', icon: TrendingUp, color: 'amber' },
+        { label: t.totalStudents, value: isDemo ? '142' : '1', change: isDemo ? '+8' : '0', sub: lang === 'ru' ? 'в этом месяце' : lang === 'en' ? 'this month' : 'ამ თვეში', icon: Users, color: 'indigo' },
+        { label: t.activeSubscriptions, value: isDemo ? '118' : '1', change: isDemo ? '+12' : '0', sub: lang === 'ru' ? 'новых' : lang === 'en' ? 'new' : 'ახალი', icon: CreditCard, color: 'emerald' },
+        { label: t.todayAttendance, value: isDemo ? '34' : '0', change: isDemo ? '83%' : '0%', sub: lang === 'ru' ? 'посещаемость' : lang === 'en' ? 'rate' : 'დასწრება', icon: CalendarCheck, color: 'violet' },
+        { label: t.monthlyRevenue, value: isDemo ? '14 200' : '0', change: isDemo ? '+18%' : '0%', sub: lang === 'ru' ? 'рост' : lang === 'en' ? 'growth' : 'გაზრდა', icon: TrendingUp, color: 'amber' },
     ];
 
     const colorMap: Record<string, { bg: string; text: string; border: string; glow: string }> = {
@@ -141,10 +178,17 @@ export default function DashboardPage() {
     };
 
     const nowHour = new Date().getHours();
-    const currentClass = SCHEDULE.find(s => {
+    const isToday = selectedDate.toDateString() === new Date().toDateString();
+
+    const dayOfWeek = selectedDate.getDay();
+    const filteredSchedule = SCHEDULE
+        .filter(s => s.days.includes(dayOfWeek))
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+    const currentClass = isToday ? (isDemo ? filteredSchedule.find(s => {
         const h = parseInt(s.time.split(':')[0]);
         return h <= nowHour && h + 2 > nowHour;
-    });
+    }) : null) : null;
 
     return (
         <div className="space-y-5 animate-fade-up">
@@ -152,8 +196,12 @@ export default function DashboardPage() {
             {/* ─── Top bar ─── */}
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-xl font-bold text-primary">{t.welcomeBack} 👋</h1>
-                    <p className="text-sm text-muted mt-0.5">Demo Dance Studio · {todayFull}</p>
+                    <h1 className="text-xl font-bold text-primary">
+                        {lang === 'ka' ? `მოგესალმები, ${profile?.first_name || ''}` : t.welcomeBack} 👋
+                    </h1>
+                    <p className="text-sm text-muted font-bold mt-0.5 uppercase tracking-wide">
+                        {profile?.studio_name || 'ClassCore Studio'} · <span className="text-indigo-400 capitalize">{dateStr}</span>
+                    </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                     {currentClass && (
@@ -164,12 +212,8 @@ export default function DashboardPage() {
                     )}
                     <div className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-2">
                         <Zap className="w-3.5 h-3.5 text-indigo-400" />
-                        <span className="text-xs font-medium text-indigo-400">Pro</span>
+                        <span className="text-xs font-medium text-indigo-400">Trial</span>
                     </div>
-                    <button className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 transition-colors">
-                        <Bell className="w-4 h-4" />
-                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
-                    </button>
                 </div>
             </div>
 
@@ -206,7 +250,7 @@ export default function DashboardPage() {
 
                     {/* Calendar */}
                     <div className="bg-card border border-border-subtle rounded-2xl p-4">
-                        <MiniCalendar lang={lang} />
+                        <MiniCalendar lang={lang} selectedDate={selectedDate} onSelect={setSelectedDate} />
                     </div>
 
                     {/* Quick actions */}
@@ -239,35 +283,50 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                             <CalendarCheck className="w-4 h-4 text-muted" />
                             <h2 className="text-sm font-semibold text-primary">
-                                {lang === 'ru' ? 'Расписание сегодня' : lang === 'en' ? "Today's Schedule" : 'დღის განრიგი'}
+                                {lang === 'ru' ? 'Расписание' : lang === 'en' ? "Schedule" : 'განრიგი'}{' '}
+                                {isToday ? (lang === 'ru' ? 'сегодня' : lang === 'en' ? 'today' : 'დღეს') : ''}
                             </h2>
                         </div>
                         <a href="/calendar" className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
                             {lang === 'en' ? 'All →' : lang === 'ru' ? 'Все →' : 'ყველა →'}
                         </a>
                     </div>
-                    <div className="divide-y divide-border-subtle">
-                        {SCHEDULE.map((cls, i) => {
-                            const h = parseInt(cls.time.split(':')[0]);
-                            const isCurrent = h <= nowHour && h + 2 > nowHour;
-                            return (
-                                <div key={i} className={`flex items-center gap-3 px-5 py-3.5 hover:bg-surface transition-colors ${isCurrent ? 'bg-surface' : ''}`}>
-                                    <div className="w-10 text-center flex-shrink-0">
-                                        <p className={`text-xs font-bold tabular-nums ${isCurrent ? 'text-indigo-400' : 'text-muted/40'}`}>{cls.time}</p>
+                    <div className="divide-y divide-border-subtle max-h-[400px] overflow-y-auto">
+                        {!isDemo ? (
+                            <div className="p-10 text-center">
+                                <p className="text-xs text-muted/40 font-medium italic">
+                                    {lang === 'ka' ? 'განრიგი ცარიელია. დაამატეთ თქვენი პირველი ჯგუფი' : lang === 'ru' ? 'Расписание пусто. Добавьте свою первую группу' : 'Schedule is empty. Add your first group'}
+                                </p>
+                            </div>
+                        ) : filteredSchedule.length > 0 ? (
+                            filteredSchedule.map((cls, i) => {
+                                const h = parseInt(cls.time.split(':')[0]);
+                                const isCurrent = isToday && h <= nowHour && h + 2 > nowHour;
+                                return (
+                                    <div key={i} className={`flex items-center gap-3 px-5 py-3.5 hover:bg-surface transition-colors ${isCurrent ? 'bg-surface' : ''}`}>
+                                        <div className="w-10 text-center flex-shrink-0">
+                                            <p className={`text-xs font-bold tabular-nums ${isCurrent ? 'text-indigo-400' : 'text-muted/40'}`}>{cls.time}</p>
+                                        </div>
+                                        <div className={`w-1 h-8 rounded-full flex-shrink-0 ${cls.color}`} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-primary/75'}`}>{cls.name}</p>
+                                            <p className="text-[11px] text-muted truncate">{cls.teacher}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                                            <span className={`text-xs font-bold ${isCurrent ? 'text-emerald-400' : 'text-primary/40'}`}>{cls.count}</span>
+                                            <Users className="w-3 h-3 text-muted" />
+                                            {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                                        </div>
                                     </div>
-                                    <div className={`w-1 h-8 rounded-full flex-shrink-0 ${cls.color}`} />
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-primary/75'}`}>{cls.name}</p>
-                                        <p className="text-[11px] text-muted truncate">{cls.teacher}</p>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <span className={`text-xs font-bold ${isCurrent ? 'text-emerald-400' : 'text-primary/40'}`}>{cls.count}</span>
-                                        <Users className="w-3 h-3 text-muted" />
-                                        {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })
+                        ) : (
+                            <div className="p-10 text-center">
+                                <p className="text-xs text-muted/40 font-medium">
+                                    {lang === 'ka' ? 'ამ დღეს ჯგუფები არ არის' : lang === 'ru' ? 'В этот день занятий нет' : 'No classes for this day'}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -283,7 +342,7 @@ export default function DashboardPage() {
                         </a>
                     </div>
                     <div className="divide-y divide-border-subtle">
-                        {activity.map((item, i) => {
+                        {isDemo ? activity.map((item, i) => {
                             const badge = actionBadge(item.action, lang);
                             return (
                                 <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-surface transition-colors">
@@ -300,7 +359,13 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                             );
-                        })}
+                        }) : (
+                            <div className="p-10 text-center">
+                                <p className="text-xs text-muted/40 font-medium italic">
+                                    {lang === 'ka' ? 'აქტივობა არ არის' : lang === 'ru' ? 'Активности нет' : 'No activity yet'}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -311,13 +376,17 @@ export default function DashboardPage() {
                     <div>
                         <p className="text-sm font-semibold text-primary">{t.todayAttendance}</p>
                         <p className="text-[11px] text-muted mt-0.5">
-                            {lang === 'ru' ? '34 из 41 студентов' : lang === 'en' ? '34 of 41 students' : '34 სტუდენტი 41-დან'}
+                            {isDemo
+                                ? (lang === 'ru' ? '34 из 41 студентов' : lang === 'en' ? '34 of 41 students' : '34 სტუდენტი 41-დან')
+                                : (lang === 'ru' ? '0 из 0 студентов' : lang === 'en' ? '0 of 0 students' : '0 სტუდენტი 0-დან')
+                            }
                         </p>
                     </div>
-                    <span className="text-2xl font-black text-primary">83%</span>
+                    <span className="text-2xl font-black text-primary">{isDemo ? '83%' : '0%'}</span>
                 </div>
                 <div className="w-full bg-surface rounded-full h-3 overflow-hidden">
-                    <div className="h-full w-[83%] bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full relative overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full relative overflow-hidden transition-all duration-1000"
+                        style={{ width: isDemo ? '83%' : '0%' }}>
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
                     </div>
                 </div>

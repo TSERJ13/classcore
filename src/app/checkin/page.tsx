@@ -23,10 +23,9 @@ type CheckStatus = 'idle' | 'checking' | 'success' | 'already' | 'error';
 export default function CheckInPage({
     searchParams,
 }: {
-    searchParams: Promise<{ code?: string }>;
+    searchParams: { code?: string };
 }) {
-    const params = use(searchParams);
-    const code = (params.code ?? '').toUpperCase().trim();
+    const code = (searchParams.code ?? '').toUpperCase().trim();
     const student = STUDENT_DB[code];
 
     const [status, setStatus] = useState<CheckStatus>('idle');
@@ -60,7 +59,7 @@ export default function CheckInPage({
                     </div>
                     <div>
                         <h1 className="text-xl font-black text-white">QR Check-in</h1>
-                        <p className="text-sm text-white/40 mt-1">სტუდიო StudioFlow</p>
+                        <p className="text-sm text-white/40 mt-1">სტუდიო ClassCore</p>
                     </div>
                     <p className="text-sm text-white/50 max-w-[260px]">
                         QR კოდი სკანეთ სტუდენტის ბარათიდან ან პორტალიდან.
@@ -200,7 +199,7 @@ function CheckInShell({ children }: { children: React.ReactNode }) {
                 <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center">
                     <QrCode className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-sm font-bold text-white/60">StudioFlow</span>
+                <span className="text-sm font-bold text-white/60">ClassCore</span>
             </div>
             <div className="w-full max-w-[320px] flex flex-col items-center">
                 {children}

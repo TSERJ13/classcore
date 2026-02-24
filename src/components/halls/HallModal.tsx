@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, DoorOpen, Users, Palette, Check, Trash2, AlertTriangle } from 'lucide-react';
+import { X, DoorOpen, Users, Palette, Check, Trash2, AlertTriangle, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Hall } from '@/types';
 
@@ -27,6 +27,7 @@ const COLORS = [
 
 const EMPTY: Partial<Hall> = {
     name: '', capacity: undefined, color: '#6366f1', description: '', is_active: true,
+    photo_url: '',
 };
 
 export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalProps) {
@@ -66,6 +67,44 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
 
                     {/* Body */}
                     <div className="px-5 py-5 space-y-4">
+                        <div className="flex items-center gap-4 mb-2">
+                            <button
+                                onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = 'image/*';
+                                    input.onchange = (e: any) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => setF('photo_url', ev.target?.result as string);
+                                            reader.readAsDataURL(file);
+                                        }
+                                    };
+                                    input.click();
+                                }}
+                                className="relative w-20 h-20 rounded-2xl bg-indigo-500/5 border-2 border-dashed border-indigo-500/20 hover:border-indigo-500/50 flex items-center justify-center flex-shrink-0 overflow-hidden group transition-all"
+                            >
+                                {form.photo_url ? (
+                                    <>
+                                        <img src={form.photo_url} alt="" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Camera className="w-5 h-5 text-white" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-1 text-indigo-500/40 group-hover:text-indigo-500 transition-colors">
+                                        <Camera className="w-5 h-5" />
+                                        <span className="text-[10px] font-black uppercase">ფოტო</span>
+                                    </div>
+                                )}
+                            </button>
+                            <div className="min-w-0">
+                                <p className="text-sm font-black text-primary truncate">{form.name || 'დარბაზის სახელი'}</p>
+                                <p className="text-[10px] text-muted font-medium opacity-60 uppercase tracking-wider">ატვირთეთ დარბაზის ფოტო</p>
+                            </div>
+                        </div>
+
                         <div>
                             <label className="text-xs text-muted mb-1.5 block font-medium">სახელი *</label>
                             <input value={form.name ?? ''} onChange={e => setF('name', e.target.value)}

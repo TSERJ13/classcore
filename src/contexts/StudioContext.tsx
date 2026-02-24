@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { loadSettings, saveSettings, patchNotifications, patchSecurity, applyTheme, applyBg, type StudioSettings, type ThemeKey, type BgKey } from '@/lib/settings-store';
+import { loadSettings, saveSettings, patchNotifications, patchSecurity, applyTheme, applyBg, type StudioSettings, type ThemeKey, type BgKey, DEFAULT_SETTINGS } from '@/lib/settings-store';
 
 interface StudioContextValue {
     settings: StudioSettings;
@@ -12,14 +12,18 @@ interface StudioContextValue {
     setLogo: (dataUrl: string | null) => void;
     setNotification: (key: keyof StudioSettings['notifications'], val: boolean) => void;
     setSecurity: (key: keyof StudioSettings['security'], val: number | boolean) => void;
+    setLandingContent: (content: Partial<StudioSettings['landingContent']>) => void;
 }
 
 const StudioContext = createContext<StudioContextValue | null>(null);
 
 export function StudioProvider({ children }: { children: React.ReactNode }) {
-    const [settings, setSettings] = useState<StudioSettings>(() => {
-        try { return loadSettings(); } catch { return loadSettings(); }
-    });
+    const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
+
+    useEffect(() => {
+        // Hydrate from localStorage after mount
+        setSettings(loadSettings());
+    }, []);
 
     // Apply theme on mount + whenever theme/bg changes
     useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);
@@ -55,8 +59,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         setSettings(patchSecurity({ [key]: val }));
     }, []);
 
+    const setLandingContent = useCallback((content: Partial<StudioSettings['landingContent']>) => {
+        setSettings(saveSettings({ landingContent: { ...settings.landingContent, ...content } }));
+    }, [settings.landingContent]);
+
     return (
-        <StudioContext.Provider value={{ settings, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity }}>
+        <StudioContext.Provider value={{ settings, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setLandingContent }}>
             {children}
         </StudioContext.Provider>
     );

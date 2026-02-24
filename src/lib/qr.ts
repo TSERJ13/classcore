@@ -1,5 +1,5 @@
 /**
- * QR code utilities for StudioFlow student check-in
+ * QR code utilities for ClassCore student check-in
  */
 import QRCode from 'qrcode';
 

@@ -21,6 +21,11 @@ export interface StudioSettings {
         twoFactor: boolean;
         sessionTimeout: number; // minutes
     };
+    landingContent: {
+        heroTitle: string;
+        heroSubtitle: string;
+        features: Array<{ title: string; desc: string; icon: string }>;
+    };
 }
 
 export const THEMES: Record<ThemeKey, { label: string; accent: string; accentHex: string; bg: string; text: string; border: string; from: string; to: string }> = {
@@ -49,9 +54,9 @@ export const BG_THEMES: Record<BgKey, BgTheme> = {
 
 const STORAGE_KEY = 'sf_studio_settings';
 
-const DEFAULT_SETTINGS: StudioSettings = {
-    studioName: 'Demo Dance Studio',
-    studioSlug: 'demo-dance',
+export const DEFAULT_SETTINGS: StudioSettings = {
+    studioName: 'ჩემი სტუდია',
+    studioSlug: 'demo.classcore.ge',
     logoDataUrl: null,
     themeKey: 'indigo',
     bgKey: 'white',
@@ -65,6 +70,15 @@ const DEFAULT_SETTINGS: StudioSettings = {
     security: {
         twoFactor: false,
         sessionTimeout: 60,
+    },
+    landingContent: {
+        heroTitle: 'მართეთ თქვენი სტუდია მარტივად',
+        heroSubtitle: 'ყველაფერი ერთ სივრცეში: დასწრება, გადახდები, ანალიტიკა და ბევრი სხვა.',
+        features: [
+            { title: 'დასწრების აღრიცხვა', desc: 'QR კოდით ან მექანიკურად — სწრაფი და ზუსტი.', icon: 'CheckCircle2' },
+            { title: 'გადახდების მართვა', desc: 'აკონტროლეთ შემოსავლები და ჯავშნები რეალურ დროში.', icon: 'Banknote' },
+            { title: 'ანალიტიკა', desc: 'მიიღეთ გადაწყვეტილებები მონაცემებზე დაყრდნობით.', icon: 'LayoutDashboard' },
+        ],
     },
 };
 
@@ -127,8 +141,14 @@ export function applyBg(bgKey: BgKey) {
         const isLight = ['white', 'ivory', 'cocoa'].includes(bgKey);
         if (isLight) {
             document.documentElement.classList.add('light-theme');
+            document.documentElement.style.setProperty('--text-primary', '#111827');
+            document.documentElement.style.setProperty('--text-muted', '#6b7280');
+            document.documentElement.style.setProperty('--border-subtle', 'rgba(0,0,0,0.06)');
         } else {
             document.documentElement.classList.remove('light-theme');
+            document.documentElement.style.setProperty('--text-primary', '#ffffff');
+            document.documentElement.style.setProperty('--text-muted', 'rgba(255,255,255,0.6)');
+            document.documentElement.style.setProperty('--border-subtle', 'rgba(255,255,255,0.1)');
         }
 
         // Force reflow to ensure styles are applied

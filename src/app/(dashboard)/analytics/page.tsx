@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     BarChart2, TrendingUp, Users, CreditCard,
     CalendarCheck, ArrowUpRight, ArrowDownRight,
     Filter, Download, CalendarDays, ChevronDown,
-    Banknote, Clock, Wallet, CheckCircle2
+    Banknote, Clock, Wallet, CheckCircle2, Eye, EyeOff
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/hooks/useUser';
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
@@ -92,11 +93,11 @@ function SimpleBarChart({ data, maxValue, colorClass }: { data: { month?: string
                 const val = d.value || d.rate || 0;
                 const height = (val / maxValue) * 100;
                 return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-3 group">
-                        <div className="relative w-full flex justify-center">
-                            <div className={cn("w-full max-w-[24px] rounded-t-xl transition-all duration-500 ease-out group-hover:brightness-110 relative", colorClass)}
+                    <div key={i} className="flex-1 flex flex-col items-center gap-3 group animate-fade-up" style={{ animationDelay: `${i * 100}ms` }}>
+                        <div className="relative w-full flex justify-center items-end h-full">
+                            <div className={cn("w-full max-w-[32px] rounded-t-xl transition-all duration-700 ease-out group-hover:brightness-110 relative min-h-[4px]", colorClass)}
                                 style={{ height: `${height}%` }}>
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-black px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-black px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-20">
                                     {val}{d.rate ? '%' : ''}
                                 </div>
                             </div>
@@ -111,12 +112,48 @@ function SimpleBarChart({ data, maxValue, colorClass }: { data: { month?: string
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
-export default function AnalyticsPage() {
-    const { t } = useT();
-    const [period, setPeriod] = useState('This Month');
+export function getMonths(lang: string) {
+    if (lang === 'ka') return ['იან', 'თებ', 'მარ', 'აპრ', 'მაი', 'ივნ', 'ივლ', 'აგვ', 'სექ', 'ოქტ', 'ნოე', 'დეკ'];
+    if (lang === 'ru') return ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+}
 
-    const totalPaid = SALARY_BREAKDOWN.filter(s => s.status === 'paid').reduce((acc, s) => acc + s.total, 0);
-    const totalPending = SALARY_BREAKDOWN.filter(s => s.status === 'pending').reduce((acc, s) => acc + s.total, 0);
+export default function AnalyticsPage() {
+    const { t, lang } = useT();
+    const { user, profile } = useUser();
+    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+    const [period, setPeriod] = useState('This Month');
+    const [showSalaries, setShowSalaries] = useState(true);
+
+    const stats = OVERVIEW_STATS.map(s => {
+        if (isDemo) return s;
+        if (s.label === 'Total Students') return { ...s, value: '1' };
+        if (s.label === 'Avg Attendance') return { ...s, value: '0%', change: '0%', trend: 'up' };
+        return { ...s, value: '0 ₾', change: '0%', trend: 'up' };
+    });
+
+    const revenueData = REVENUE_DATA.map((d, i) => {
+        if (isDemo) return d;
+        return { month: getMonths(lang)[i], value: 0 };
+    });
+
+    const attendanceData = ATTENDANCE_DATA.map(d => {
+        if (isDemo) return d;
+        return { ...d, rate: 0 };
+    });
+
+    const salaryBreakdown = isDemo ? SALARY_BREAKDOWN : [];
+    const topGroups = isDemo ? TOP_GROUPS : [];
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.location.hash === '#salaries-section') {
+            const el = document.getElementById('salaries-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, []);
+
+    const totalPaid = salaryBreakdown.filter(s => s.status === 'paid').reduce((acc, s) => acc + s.total, 0);
+    const totalPending = salaryBreakdown.filter(s => s.status === 'pending').reduce((acc, s) => acc + s.total, 0);
 
     return (
         <div className="max-w-6xl mx-auto space-y-10 animate-fade-up pb-20">
@@ -128,12 +165,20 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <button onClick={() => setShowSalaries(!showSalaries)}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-3 rounded-2xl border text-xs font-bold transition-all",
+                            showSalaries ? "bg-rose-500/10 border-rose-500/20 text-rose-600" : "bg-card border-border-subtle text-muted hover:text-primary"
+                        )}>
+                        {showSalaries ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        <span className="hidden sm:inline">ხელფასების ჩვენება</span>
+                    </button>
                     <div className="bg-surface border border-border-subtle rounded-2xl p-1 shadow-inner flex items-center">
                         {['Week', 'Month', 'Year'].map(p => (
                             <button key={p} onClick={() => setPeriod(p)}
                                 className={cn(
                                     "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                    period.includes(p) ? "bg-white text-primary shadow-lg" : "text-muted hover:text-primary"
+                                    period.includes(p) ? "bg-card text-primary shadow-lg border border-border-subtle/50" : "text-muted hover:text-primary"
                                 )}>
                                 {p}
                             </button>
@@ -147,7 +192,7 @@ export default function AnalyticsPage() {
 
             {/* Overview Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {OVERVIEW_STATS.map(stat => (stat.label !== 'Active Plans' &&
+                {stats.map(stat => (stat.label !== 'Active Plans' &&
                     <StatCard key={stat.label} stat={stat} t={t} />
                 ))}
             </div>
@@ -167,7 +212,7 @@ export default function AnalyticsPage() {
                     </div>
                     <p className="text-xs font-bold text-muted opacity-40 mb-8 uppercase tracking-wider">ყოველთვიური შემოსავალი (₾)</p>
 
-                    <SimpleBarChart data={REVENUE_DATA} maxValue={15000} colorClass="bg-gradient-to-t from-indigo-600 to-indigo-400" />
+                    <SimpleBarChart data={revenueData} maxValue={isDemo ? 15000 : 1000} colorClass="bg-gradient-to-t from-indigo-600 to-indigo-400" />
                 </div>
 
                 {/* Attendance Chart */}
@@ -179,16 +224,16 @@ export default function AnalyticsPage() {
                             </div>
                             <h2 className="text-xl font-black text-primary tracking-tight">დასწრების მაჩვენებელი</h2>
                         </div>
-                        <span className="text-xs font-black text-muted uppercase tracking-widest opacity-40">Weekly Average: 83%</span>
+                        <span className="text-xs font-black text-muted uppercase tracking-widest opacity-40">Weekly Average: {isDemo ? '83%' : '0%'}</span>
                     </div>
                     <p className="text-xs font-bold text-muted opacity-40 mb-8 uppercase tracking-wider">დღიური დასწრების პროცენტი (%)</p>
 
-                    <SimpleBarChart data={ATTENDANCE_DATA} maxValue={100} colorClass="bg-gradient-to-t from-violet-600 to-violet-400" />
+                    <SimpleBarChart data={attendanceData} maxValue={100} colorClass="bg-gradient-to-t from-violet-600 to-violet-400" />
                 </div>
             </div>
 
             {/* Salary Calculation Section */}
-            <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm">
+            <div id="salaries-section" className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm">
                 <div className="px-8 py-6 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface/30">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600">
@@ -212,21 +257,26 @@ export default function AnalyticsPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="bg-surface/10">
+                            <tr className="bg-surface/30">
                                 <th className="px-8 py-4 text-left text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">მასწავლებელი</th>
                                 <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">ტიპი</th>
-                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">განაკვეთი / საათები</th>
-                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">ბონუსი</th>
-                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">ჯამი</th>
+                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">მოცულობა</th>
+                                {showSalaries && (
+                                    <>
+                                        <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">ბონუსი</th>
+                                        <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">ჯამი</th>
+                                    </>
+                                )}
                                 <th className="px-8 py-4 text-right text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">სტატუსი</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border-subtle/50">
-                            {SALARY_BREAKDOWN.map((item, i) => (
+                            {salaryBreakdown.length > 0 ? salaryBreakdown.map((item, i) => (
                                 <tr key={i} className="group hover:bg-surface/40 transition-colors">
                                     <td className="px-8 py-5">
                                         <p className="text-sm font-black text-primary group-hover:text-rose-600 transition-colors uppercase tracking-tight">{item.teacher}</p>
                                     </td>
+                                    {/* ... rest of columns ... */}
                                     <td className="px-8 py-5 text-center">
                                         <span className={cn(
                                             "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border",
@@ -241,12 +291,25 @@ export default function AnalyticsPage() {
                                             {item.hours > 0 && <span className="text-[10px] font-bold text-muted opacity-60 uppercase">{item.hours} სთ</span>}
                                         </div>
                                     </td>
-                                    <td className="px-8 py-5 text-center">
-                                        <span className="text-xs font-black text-emerald-600 tabular-nums">{item.bonus > 0 ? `+${item.bonus} ₾` : '—'}</span>
-                                    </td>
-                                    <td className="px-8 py-5 text-center">
-                                        <span className="text-sm font-black text-primary tabular-nums">{item.total} ₾</span>
-                                    </td>
+                                    {showSalaries ? (
+                                        <>
+                                            <td className="px-8 py-5 text-center">
+                                                <span className="text-xs font-black text-emerald-600 tabular-nums">{item.bonus > 0 ? `+${item.bonus} ₾` : '—'}</span>
+                                            </td>
+                                            <td className="px-8 py-5 text-center">
+                                                <span className="text-sm font-black text-primary tabular-nums">{item.total} ₾</span>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="px-8 py-5 text-center">
+                                                <span className="text-sm font-black text-primary/10 select-none">••••₾</span>
+                                            </td>
+                                            <td className="px-8 py-5 text-center">
+                                                <span className="text-sm font-black text-primary/10 select-none">••••₾</span>
+                                            </td>
+                                        </>
+                                    )}
                                     <td className="px-8 py-5 text-right">
                                         <span className={cn(
                                             "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
@@ -257,7 +320,13 @@ export default function AnalyticsPage() {
                                         </span>
                                     </td>
                                 </tr>
-                            ))}
+                            )) : (
+                                <tr>
+                                    <td colSpan={6} className="px-8 py-10 text-center">
+                                        <p className="text-xs text-muted/40 font-medium italic">ხელფასების მონაცემები ცარიელია</p>
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -285,7 +354,7 @@ export default function AnalyticsPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border-subtle/50">
-                            {TOP_GROUPS.map((group, i) => (
+                            {topGroups.length > 0 ? topGroups.map((group, i) => (
                                 <tr key={i} className="group hover:bg-surface/40 transition-colors">
                                     <td className="px-8 py-5">
                                         <div className="flex items-center gap-4">
@@ -310,7 +379,13 @@ export default function AnalyticsPage() {
                                         </span>
                                     </td>
                                 </tr>
-                            ))}
+                            )) : (
+                                <tr>
+                                    <td colSpan={4} className="px-8 py-10 text-center">
+                                        <p className="text-xs text-muted/40 font-medium italic">ჯგუფების მონაცემები ცარიელია</p>
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

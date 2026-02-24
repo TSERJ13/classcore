@@ -24,32 +24,48 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
         <div ref={ref} className="relative">
             <button
                 onClick={() => setOpen(o => !o)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] transition-colors text-xs font-medium text-white/70 hover:text-white"
+                className={cn(
+                    "flex items-center gap-2 rounded-xl transition-all duration-200 border",
+                    "bg-[var(--sidebar-hover)] border-[var(--sidebar-border)]",
+                    "text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)]",
+                    compact ? "w-11 h-11 justify-center" : "px-3 py-2 text-xs font-semibold"
+                )}
+                title={compact ? current.label : undefined}
             >
-                <span className="text-base leading-none">{current.flag}</span>
-                <span>{current.label}</span>
-                <svg className="w-3 h-3 text-white/30" viewBox="0 0 12 12" fill="none">
-                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <span className={cn("leading-none transition-transform", compact ? "text-2xl hover:scale-110" : "text-base")}>
+                    {current.flag}
+                </span>
+                {!compact && (
+                    <>
+                        <span>{current.label}</span>
+                        <svg className="w-3.5 h-3.5 opacity-40 ml-1" viewBox="0 0 12 12" fill="none">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    </>
+                )}
             </button>
 
             {open && (
-                <div className="absolute bottom-full mb-2 left-0 w-40 bg-surface border border-white/[0.10] rounded-xl shadow-xl overflow-hidden z-50">
+                <div className={cn(
+                    "absolute bottom-full mb-3 left-0 bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200",
+                    compact ? "w-14" : "w-40"
+                )}>
                     {(Object.entries(LANG_META) as [Lang, typeof LANG_META[Lang]][]).map(([code, meta]) => (
                         <button
                             key={code}
                             onClick={() => { setLang(code); setOpen(false); }}
-                            className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors text-left
-                ${lang === code
-                                    ? 'bg-indigo-500/15 text-indigo-300 font-semibold'
-                                    : 'text-white/65 hover:bg-white/[0.06] hover:text-white'
-                                }`}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 text-sm transition-all text-left",
+                                lang === code
+                                    ? "bg-indigo-500/20 text-indigo-300 font-bold"
+                                    : "text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]"
+                            )}
                         >
-                            <span className="text-base">{meta.flag}</span>
-                            <span>{meta.label}</span>
-                            {lang === code && (
-                                <svg className="ml-auto w-3.5 h-3.5 text-indigo-400" viewBox="0 0 14 14" fill="none">
-                                    <path d="M2.5 7L5.5 10L11.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            <span className={cn("text-lg", compact && "text-xl")}>{meta.flag}</span>
+                            {!compact && <span className="flex-1">{meta.label}</span>}
+                            {lang === code && !compact && (
+                                <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 14 14" fill="none">
+                                    <path d="M2.5 7L5.5 10L11.5 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                             )}
                         </button>
