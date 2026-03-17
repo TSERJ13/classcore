@@ -1,21 +1,13 @@
 'use client';
 
-import { use } from 'react';
 import { useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, Wifi, CreditCard, AlertCircle } from 'lucide-react';
 import { recordCheckin } from '@/lib/checkin-store';
+import { lookupByUid } from '@/lib/student-store';
+import { useT } from '@/contexts/LanguageContext';
 
 // HEX-normalised UID → student lookup (id matches INITIAL_SESSIONS keys in checkin-store)
-const NFC_DB: Record<string, { id: string; name: string; group: string }> = {
-    '04A32B1C': { id: '1', name: 'ნინო ბერიძე', group: 'Contemporary Dance' },
-    '04B71E2D': { id: '2', name: 'გიორგი კვირიკაშვილი', group: 'Ballet' },
-    '04C85F3E': { id: '3', name: 'ანა ჩხეიძე', group: 'Ballet' },
-    '04D96A4F': { id: '4', name: 'დავით მეფარიშვილი', group: 'Ballet' },
-    '04EA7B50': { id: '5', name: 'მარიამ ლომიძე', group: 'Ballet' },
-    '04FB8C61': { id: '6', name: 'ლუკა ჯავახიშვილი', group: 'Contemporary Dance' },
-    '040C9D72': { id: '7', name: 'სოფო კაციტაძე', group: 'Contemporary Dance' },
-    '041DAE83': { id: '8', name: 'თამო ღვინიაშვილი', group: 'Ballet' },
-};
+// NFC_DB removed - using student-store lookupByUid
 
 // Normalise UID: remove separators, uppercase
 function normaliseUid(raw: string) {
@@ -24,11 +16,7 @@ function normaliseUid(raw: string) {
 
 type KioskState = 'waiting' | 'scanning' | 'success' | 'already' | 'error' | 'unsupported';
 
-export default function NfcCheckinPage({
-    searchParams,
-}: {
-    searchParams: Record<string, string>;
-}) {
+export default function NfcCheckinPage() {
     // searchParams is a plain object in Next.js 14
 
     const [state, setState] = useState<KioskState>('waiting');
@@ -52,18 +40,19 @@ export default function NfcCheckinPage({
         if (!nfcAvailable) return;
         setState('scanning');
         try {
-            const win = window as any;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const win = window as unknown as Window & { NDEFReader: any };
             if (!win.NDEFReader) return;
             const ndef = new win.NDEFReader();
             await ndef.scan();
             ndef.addEventListener('reading', ({ serialNumber }: { serialNumber?: string }) => {
                 const normUid = normaliseUid(serialNumber || '');
                 setUid(normUid);
-                const found = NFC_DB[normUid];
+                const found = lookupByUid(normUid);
                 if (found) {
                     // Record attendance + deduct session
-                    const result = recordCheckin(found.id, found.name, 'nfc');
-                    setStudent(found);
+                    const result = recordCheckin(found.studentId, found.studentName, 'nfc');
+                    setStudent({ name: found.studentName, group: 'ClassCore Student' }); // Default group if not in registry
                     setTime(new Date().toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }));
                     setSessionsRemaining(result.sessionsRemaining);
                     setState(result.alreadyCheckedIn ? 'already' : 'success');
@@ -112,7 +101,7 @@ function NfcShell({ children }: { children: React.ReactNode }) {
                     <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center">
                         <CreditCard className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-sm font-bold text-white/60">StudioFlow · NFC Check-in</span>
+                    <span className="text-sm font-bold text-white/60">ClassCore · NFC Check-in</span>
                 </div>
                 <span className="text-[11px] text-white/25 font-mono">
                     {new Date().toLocaleDateString('ka-GE')}

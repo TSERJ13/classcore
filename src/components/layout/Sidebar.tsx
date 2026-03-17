@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Users, CalendarCheck, BookOpen, Settings,
-    Zap, LogOut, CreditCard, Receipt, GraduationCap, BarChart2,
-    CalendarDays, Key, DoorOpen, X, ChevronRight, LucideIcon, Wallet
+    CreditCard, Receipt, GraduationCap, BarChart2,
+    CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare, Copy, Zap, Building2, Plus, Check, LogOut, User as UserIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -14,8 +13,9 @@ import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { THEMES } from '@/lib/settings-store';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useUser } from '@/hooks/useUser';
+import { getBillingState } from '@/lib/saas-billing';
 
 type NavItem = {
     href: string;
@@ -26,75 +26,175 @@ type NavItem = {
 const ALL_ITEMS: NavItem[] = [
     { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
     { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck },
+    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard },
     { href: '/students', labelKey: 'students', icon: Users },
     { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
     { href: '/groups', labelKey: 'groups', icon: BookOpen },
     { href: '/teachers', labelKey: 'teachers', icon: GraduationCap },
     { href: '/halls', labelKey: 'halls', icon: DoorOpen },
-    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard },
-    { href: '/hall-rental', labelKey: 'hallRental', icon: Key },
-    { href: '/billing', labelKey: 'billing', icon: Receipt },
+    { href: '/shop', labelKey: 'shop', icon: ShoppingBag },
+    { href: '/history', labelKey: 'history', icon: Receipt },
     { href: '/analytics', labelKey: 'analytics', icon: BarChart2 },
+    { href: '/sms-manager', labelKey: 'sms_manager', icon: MessageSquare },
+    { href: '/billing', labelKey: 'billing', icon: Zap },
     { href: '/settings', labelKey: 'settings', icon: Settings },
 ];
 
-const DIVIDER_BEFORE = new Set([4, 7, 10, 11]);
-
-// ─── Main Sidebar Component ──────────────────────────────────────────────────
-
 export function Sidebar() {
     const pathname = usePathname();
-    const { t } = useT();
+    const { t, lang } = useT();
     const { isOpen, close } = useMobileMenu();
-    const { settings } = useStudio();
+    const { settings, activeBranchId, setActiveBranch, addBranch } = useStudio();
     const { profile, user, logout } = useUser();
-    const theme = THEMES[settings.themeKey];
+    const theme = THEMES[settings.themeKey] || THEMES.indigo;
 
     const [expanded, setExpanded] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [studioMenuOpen, setStudioMenuOpen] = useState(false);
+    const [branchModalOpen, setBranchModalOpen] = useState(false);
+    const [newBranchName, setNewBranchName] = useState('');
+    const [newBranchAddress, setNewBranchAddress] = useState('');
+
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+
     useEffect(() => {
         setMounted(true);
-        const stored = localStorage.getItem('sf_sidebar_expanded');
-        if (stored === 'true') {
-            setExpanded(true);
-        } else if (stored === 'false') {
-            setExpanded(false);
-        } else {
-            // Auto-collapse on smaller screens by default
-            setExpanded(window.innerWidth > 1024);
-        }
+        const stored = localStorage.getItem('cc_sidebar_expanded');
+        if (stored === 'true') setExpanded(true);
+        else if (stored === 'false') setExpanded(false);
+        else setExpanded(window.innerWidth > 1024);
     }, []);
 
-    function toggleExpanded() {
+    if (!mounted) return null;
+
+    const toggleExpanded = () => {
         setExpanded(v => {
-            localStorage.setItem('sf_sidebar_expanded', String(!v));
+            localStorage.setItem('cc_sidebar_expanded', String(!v));
             return !v;
         });
-    }
+    };
 
-    const getInitial = (name: string) => name.trim().charAt(0).toUpperCase();
+    const getInitial = (name: string) => name?.trim().charAt(0).toUpperCase() || 'S';
 
-    // ─── Reusable logo block ──
-    const LogoBlock = ({ exp }: { exp: boolean }) => {
-        const [logoError, setLogoError] = useState(false);
+    // ── Studio Header Block with Hover Branch Switcher ──
+    const StudioBlock = ({ exp }: { exp: boolean }) => {
+        const [isHovered, setIsHovered] = useState(false);
+
+        const allowedBranches = useMemo(() => {
+            return settings.branches.filter(b => {
+                if (!profile?.allowedBranchIds || profile.allowedBranchIds.length === 0) return true;
+                return profile.allowedBranchIds.includes(b.id);
+            });
+        }, [settings.branches, profile?.allowedBranchIds]);
+
+        const activeBranch = settings.branches.find(b => b.id === activeBranchId) || settings.branches[0];
 
         return (
-            <div className={cn('flex items-center border-b border-white/[0.06] flex-shrink-0 py-[18px]', exp ? 'px-4 gap-3' : 'justify-center')}>
-                {settings.logoDataUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={settings.logoDataUrl} alt="Logo" className="w-9 h-9 rounded-xl object-cover flex-shrink-0 shadow-sm" />
-                ) : (
-                    <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 group`}>
-                        <div className={`absolute inset-0 bg-gradient-to-br ${theme.from} ${theme.to} opacity-100 group-hover:opacity-90 transition-opacity`} />
-                        <span className="text-sm font-black text-white relative z-10">{getInitial(settings.studioName)}</span>
+            <div
+                className="relative border-b border-[var(--sidebar-border)] bg-white/[0.01] px-4 py-6"
+                onMouseEnter={() => exp && setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                <div className="flex items-center gap-3">
+                    <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0",
+                        !settings.logoDataUrl ? `bg-gradient-to-br ${theme.from} ${theme.to} border-white/20` : "bg-card border-border-subtle shadow-inner"
+                    )} style={settings.logoDataUrl ? { borderColor: theme.accentHex } : {}}>
+                        {settings.logoDataUrl ? (
+                            <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
+                        ) : (
+                            <span className="text-lg font-black text-white">{getInitial(settings.studioName)}</span>
+                        )}
                     </div>
-                )}
+
+                    <div className={cn(
+                        "flex flex-col items-start transition-all duration-300 min-w-0 flex-1",
+                        exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
+                    )}>
+                        <h1 className="text-[15px] font-black text-white/80 tracking-tight leading-tight uppercase truncate w-full">
+                            {settings.studioName || 'Studio'}
+                        </h1>
+
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[11px] font-black text-white/40 truncate max-w-[120px]">
+                                {profile?.first_name} {profile?.last_name}
+                            </span>
+                            <span className={cn(
+                                "px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-wider border shrink-0",
+                                (profile?.role || 'admin') === 'owner' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                                    (profile?.role || 'admin') === 'manager' ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" :
+                                        "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                            )}>
+                                {profile?.role || 'Staff'}
+                            </span>
+                        </div>
+
+                        <button
+                            className={cn(
+                                "mt-2 flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn",
+                                isHovered && "border-indigo-500/40 bg-indigo-500/10"
+                            )}
+                        >
+                            <Building2 className={cn("w-3 h-3 transition-colors", isHovered ? "text-indigo-400" : "text-white/40")} />
+                            <span className={cn("text-[9px] font-black uppercase tracking-widest truncate max-w-[140px]", isHovered ? "text-indigo-400" : "text-white/60")}>
+                                {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
+                            </span>
+                            <ChevronRight className={cn("w-2.5 h-2.5 text-white/20 transition-all", isHovered && "rotate-90 text-indigo-400")} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Hover Reveal Branch List */}
                 {exp && (
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-sm font-bold text-white leading-tight truncate">
-                            {mounted ? (profile?.studio_name || settings.studioName) : settings.studioName}
-                        </p>
-                        <p className="text-[10px] text-white/35 mt-0.5 truncate">{mounted ? settings.studioSlug : settings.studioSlug}</p>
+                    <div className={cn(
+                        "absolute left-4 right-4 top-[94%] z-50 bg-[#1c1c28] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 origin-top",
+                        isHovered ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                    )}>
+                        <div className="p-2 space-y-1">
+                            {allowedBranches.length > 0 && (
+                                <div className="max-h-48 overflow-y-auto no-scrollbar space-y-1">
+                                    {allowedBranches.map(branch => {
+                                        const active = branch.id === activeBranchId;
+                                        return (
+                                            <button
+                                                key={branch.id}
+                                                onClick={() => {
+                                                    setActiveBranch(branch.id);
+                                                    setIsHovered(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all group/branch",
+                                                    active
+                                                        ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                                                        : "hover:bg-white/5 text-white/60 hover:text-white"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <Building2 className={cn("w-3.5 h-3.5", active ? "text-white" : "opacity-40 group-hover/branch:opacity-100")} />
+                                                    <span className="text-[11px] font-bold truncate tracking-tight">
+                                                        {branch.id === 'main' ? t.mainBranch : branch.name}
+                                                    </span>
+                                                </div>
+                                                {active && <Check className="w-3 h-3" strokeWidth={3} />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {(profile?.role === 'owner' || profile?.role === 'admin') && (
+                                <button
+                                    onClick={() => {
+                                        setBranchModalOpen(true);
+                                        setIsHovered(false);
+                                    }}
+                                    className="w-full py-2 flex items-center justify-center gap-1.5 text-indigo-400 hover:text-indigo-300 transition-colors group/add-branch"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{l('ფილიალის დამატება', 'Добавить филиал', 'Add Branch')}</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
@@ -103,142 +203,165 @@ export function Sidebar() {
 
     // ── Reusable nav ──
     const NavItems = ({ exp }: { exp: boolean }) => (
-        <nav className={cn('flex-1 py-2 overflow-y-auto no-scrollbar', exp ? 'px-2 space-y-0.5' : 'flex flex-col items-center gap-0.5')}>
-            {ALL_ITEMS.map(({ href, labelKey, icon: Icon }, i) => {
-                const active = pathname === href || pathname.startsWith(href + '/');
-                const label = t[labelKey] as string;
+        <nav className="flex-1 py-2 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-1">
+            {ALL_ITEMS.filter(item => {
+                // Admin/Owner see everything
+                if (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role) return true;
 
+                // For staff, check granular permissions
+                const mapping: Record<string, keyof typeof profile | undefined> = {
+                    '/attendance': 'canViewAttendance',
+                    '/subscriptions': 'canViewSubscriptions',
+                    '/students': 'canViewStudents',
+                    '/calendar': 'canViewCalendar',
+                    '/groups': 'canViewGroups',
+                    '/teachers': 'canViewTeachers',
+                    '/halls': 'canViewHalls',
+                    '/shop': 'canViewShop',
+                    '/analytics': 'canViewAnalytics',
+                    '/sms-manager': 'canViewSMS',
+                };
+
+                const permKey = mapping[item.href];
+                if (permKey) {
+                    return !!profile[permKey];
+                }
+
+                // Hide restricted admin-only pages for anyone else
+                const adminOnly = ['/billing', '/settings'];
+                if (adminOnly.includes(item.href)) {
+                    // Only owners/admins on the 'main' branch can see these
+                    if (activeBranchId !== 'main') return false;
+                    if (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role) return true;
+                    return false;
+                }
+
+                return true;
+            }).map(({ href, labelKey, icon: Icon }, i) => {
+                const active = pathname === href || pathname.startsWith(href + '/');
                 return (
-                    <div key={href} className={cn('w-full', !exp && 'flex flex-col items-center')}>
-                        {DIVIDER_BEFORE.has(i) && (
-                            exp ? <div className="h-px bg-[var(--sidebar-border)] my-2 mx-1" />
-                                : <div className="w-8 h-px bg-[var(--sidebar-border)] my-1.5" />
+                    <div key={href} className="relative group w-full">
+                        {i > 0 && [5, 8, 11].includes(i) && (
+                            <div className="h-px bg-[var(--sidebar-border)] my-1.5 transition-all duration-300 mx-1.5" />
                         )}
-                        {exp ? (
-                            <Link href={href} onClick={close}
-                                className={cn(
-                                    'flex items-center gap-3 px-3 min-h-[44px] rounded-xl text-[13px] font-semibold transition-all duration-150',
-                                    active
-                                        ? `${theme.bg} ${theme.text}`
-                                        : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
-                                )}>
-                                <Icon className={cn('w-5 h-5 flex-shrink-0', active ? theme.text : 'text-[var(--sidebar-text-muted)]')} strokeWidth={active ? 2.5 : 2} />
-                                <span className="flex-1 truncate">{label}</span>
-                                {active && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${theme.text.replace('text-', 'bg-')}`} />}
-                            </Link>
-                        ) : (
-                            <div className="relative group">
-                                <Link href={href} onClick={close}
-                                    className={cn(
-                                        'w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 relative',
-                                        active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
-                                    )}>
-                                    {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full ${theme.text.replace('text-', 'bg-')}`} />}
-                                    <Icon className={cn('w-6 h-6', active ? theme.text : '')} strokeWidth={active ? 2.5 : 2} />
-                                </Link>
-                                <div className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-[#1e1e28] border border-white/[0.10] text-white/85 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap">
-                                    {label}
-                                    <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1e1e28]" />
-                                </div>
+                        <Link
+                            href={href}
+                            onClick={close}
+                            className={cn(
+                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-11 w-full pl-5 gap-4',
+                                active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
+                            )}
+                        >
+                            {!exp && active && (
+                                <span className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full', theme.text.replace('text-', 'bg-'))} />
+                            )}
+                            <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                                <Icon className={cn('w-5 h-5 transition-transform duration-200', active ? 'scale-110' : 'group-hover/link:scale-110')} strokeWidth={active ? 2.5 : 2} />
                             </div>
-                        )}
+                            {exp && (
+                                <span className="truncate text-[13px] font-semibold transition-all duration-300 opacity-100 max-w-[160px]">
+                                    {t[labelKey]}
+                                </span>
+                            )}
+                            {exp && active && (
+                                <span className={cn('absolute right-3 w-1.5 h-1.5 rounded-full flex-shrink-0', theme.text.replace('text-', 'bg-'))} />
+                            )}
+                        </Link>
                     </div>
                 );
             })}
         </nav>
     );
 
-    // ── Bottom user block ──
-    const UserBlock = ({ exp }: { exp: boolean }) => (
-        <div className={cn('flex items-center p-3 border-t border-[var(--sidebar-border)] flex-shrink-0', exp ? 'gap-3' : 'justify-center')}>
-            <div className="relative group flex-shrink-0">
-                <button className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center hover:ring-2 hover:ring-white/20 transition-all text-white font-bold text-[11px] overflow-hidden",
-                    !settings.logoDataUrl && `bg-gradient-to-br ${theme.from} ${theme.to}`
-                )}>
-                    {settings.logoDataUrl ? (
-                        <img src={settings.logoDataUrl} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                        profile?.studio_name ? profile.studio_name[0].toUpperCase() : (profile?.first_name ? profile.first_name[0].toUpperCase() : user?.email?.[0].toUpperCase() || 'U')
-                    )}
-                </button>
-                {!exp && (
-                    <div className="pointer-events-none absolute left-[calc(100%+10px)] bottom-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-[#1e1e28] border border-white/[0.10] text-white/85 text-xs font-medium px-3 py-2.5 rounded-lg shadow-xl whitespace-nowrap">
-                        <p className="font-semibold">{profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : 'მომხმარებელი'}</p>
-                        <p className="text-white/40 text-[10px] mt-0.5">{user?.email}</p>
-                        <div onClick={logout} className="flex items-center gap-1.5 mt-2 text-red-400/70 text-[10px] cursor-pointer pointer-events-auto"><LogOut className="w-3 h-3" /> გამოსვლა</div>
-                        <span className="absolute right-full bottom-3 border-4 border-transparent border-r-[#1e1e28]" />
-                    </div>
-                )}
-            </div>
-            {exp && (
-                <>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-[13px] font-semibold text-[var(--sidebar-text)] truncate">{profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : 'მომხმარებელი'}</p>
-                        <p className="text-[10px] text-[var(--sidebar-text-muted)] truncate">{user?.email}</p>
-                    </div>
-                    <LogOut onClick={logout} className="w-4 h-4 text-[var(--sidebar-text-muted)] flex-shrink-0 cursor-pointer hover:text-red-400 transition-colors" />
-                </>
-            )}
-        </div>
-    );
-
-    // ── Full sidebar ──
     const SidebarContent = ({ exp, isMobile = false }: { exp: boolean; isMobile?: boolean }) => (
         <aside className={cn(
-            'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-visible transition-all duration-300',
-            exp ? 'w-60' : 'w-[72px]'
+            'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-visible transition-[width] duration-300 ease-in-out',
+            exp ? 'w-64' : 'w-[76px]'
         )}>
-            {/* Logo Section */}
-            <LogoBlock exp={exp} />
-
-            {/* Nav + midpoint toggle */}
-            <div className="relative flex-1 overflow-hidden flex flex-col">
+            <StudioBlock exp={exp} />
+            <div className="relative flex-1 overflow-hidden flex flex-col no-scrollbar">
                 <NavItems exp={exp} />
-
-                {/* Language — compact when collapsed, flag only*/}
-                <div className={cn('flex pb-2 flex-shrink-0', exp ? 'px-2' : 'justify-center')}>
-                    <LanguageSwitcher compact={!exp} />
-                </div>
             </div>
-
-            {/* ── Midpoint toggle pull-tab ── */}
             {!isMobile && (
                 <button
                     onClick={toggleExpanded}
-                    title={exp ? t.collapse : t.expand}
                     className={cn(
-                        'absolute z-20 top-1/2 -translate-y-1/2 -right-3',
-                        'w-6 h-10 rounded-r-xl flex items-center justify-center',
-                        'bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0',
-                        'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]',
-                        'transition-all duration-150 shadow-md',
+                        'absolute z-30 top-1/2 -translate-y-1/2 -right-3 w-6 h-10 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-md transform active:scale-95'
                     )}
                 >
                     <ChevronRight className={cn('w-3.5 h-3.5 transition-transform duration-300', exp && 'rotate-180')} />
                 </button>
             )}
-
-            <UserBlock exp={exp} />
+            <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
+                <LanguageSwitcher compact={!exp} />
+                <div className={cn("flex-1 flex justify-center", exp ? "pl-4" : "hidden")}>
+                    <button
+                        onClick={logout}
+                        className={cn(
+                            "w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 shrink-0",
+                            "bg-[var(--sidebar-hover)] border border-[var(--sidebar-border)] shadow-sm"
+                        )}
+                        title={l('გასვლა', 'Выйти', 'Logout')}
+                    >
+                        <LogOut className="w-4 h-4" strokeWidth={2.5} />
+                    </button>
+                </div>
+            </div>
         </aside>
     );
 
     return (
         <>
-            {/* Desktop — sticky, width transitions */}
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-all duration-300 overflow-visible', expanded ? 'w-60' : 'w-[72px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-64' : 'w-[76px]')}>
                 <SidebarContent exp={expanded} />
             </div>
-
-            {/* Mobile backdrop */}
-            <div
-                className={cn('md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300', isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}
-                onClick={close}
-            />
-            {/* Mobile drawer — always expanded */}
-            <div className={cn('md:hidden fixed top-0 left-0 h-full z-50 transition-transform duration-300 ease-out', isOpen ? 'translate-x-0' : '-translate-x-full')}>
-                <SidebarContent exp isMobile />
+            <div className={cn('fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
+            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-64', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+                <SidebarContent exp={true} isMobile={true} />
             </div>
+
+            {branchModalOpen && (profile?.role === 'owner' || profile?.role === 'admin') && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setBranchModalOpen(false)}>
+                    <div className="bg-card border border-border-subtle rounded-[2rem] w-full max-w-sm p-8 shadow-2xl flex flex-col gap-6 animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-2">
+                                <Building2 className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-black text-primary tracking-tight">{l('ახალი ფილიალი', 'Новый филиал', 'Add New Branch')}</h3>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <input
+                                autoFocus
+                                value={newBranchName}
+                                onChange={e => setNewBranchName(e.target.value)}
+                                placeholder={l('ფილიალის სახელი', 'Название филиала', 'Branch Name')}
+                                className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                            />
+                            <input
+                                value={newBranchAddress}
+                                onChange={e => setNewBranchAddress(e.target.value)}
+                                placeholder={l('მისამართი', 'Адрес', 'Address')}
+                                className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                            />
+                            <div className="flex gap-3 mt-2">
+                                <button onClick={() => setBranchModalOpen(false)} className="flex-1 py-3 bg-surface text-muted text-xs font-black rounded-xl border border-border-subtle hover:bg-surface/80 transition-all uppercase tracking-widest">{l('გაუქმება', 'Отмена', 'Cancel')}</button>
+                                <button
+                                    onClick={() => {
+                                        if (!newBranchName.trim()) return;
+                                        addBranch(newBranchName.trim(), newBranchAddress.trim());
+                                        setBranchModalOpen(false);
+                                        setNewBranchName('');
+                                        setNewBranchAddress('');
+                                    }}
+                                    className="flex-2 py-3 bg-indigo-600 text-white text-xs font-black rounded-xl shadow-xl active:scale-95 transition-all uppercase tracking-widest"
+                                >
+                                    {l('შექმნა', 'Создать', 'Create')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

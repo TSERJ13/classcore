@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import {
-    Plus, CalendarDays, Clock, CalendarRange, Phone, Mail, Banknote,
-    CheckCircle2, XCircle, AlertCircle, ChevronRight, X, Check, Search, Filter, FileText, Download, Trash2
+    Plus, CalendarDays, Clock, CalendarRange, Phone, Banknote,
+    CheckCircle2, XCircle, AlertCircle, ChevronRight, X, Search, Filter, FileText, Trash2
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
-import { cn } from '@/lib/utils';
+import { useConfirm } from '@/contexts/ConfirmContext';
+import { cn, formatCurrency } from '@/lib/utils';
+import { useStudio } from '@/contexts/StudioContext';
 import type { HallRental, RentalType, PaymentStatus } from '@/types';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 
 const RENTAL_TYPES: { value: RentalType; label: string; icon: React.ReactNode; desc: string }[] = [
     { value: 'hourly', label: 'საათობრივი/დღიური', icon: <Clock className="w-4 h-4" />, desc: 'ერთი დღე, კონკრეტული საათები' },
@@ -45,6 +48,8 @@ const EMPTY: Omit<HallRental, 'id' | 'org_id' | 'created_at'> = {
 
 export default function HallRentalPage() {
     const { t } = useT();
+    const { settings } = useStudio();
+    const confirm = useConfirm();
     const [rentals, setRentals] = useState<HallRental[]>(MOCK_RENTALS);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<HallRental | null>(null);
@@ -100,8 +105,8 @@ export default function HallRentalPage() {
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                    { label: t.monthlyRevenue, value: `${totalRevenue} ₾`, icon: Banknote, cls: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/20' },
-                    { label: t.paid, value: `${paidTotal} ₾`, icon: CheckCircle2, cls: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' },
+                    { label: t.monthlyRevenue, value: formatCurrency(totalRevenue, settings.currency), icon: Banknote, cls: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/20' },
+                    { label: t.paid, value: formatCurrency(paidTotal, settings.currency), icon: CheckCircle2, cls: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' },
                     { label: 'ჯავშნები', value: String(rentals.length), icon: CalendarDays, cls: 'text-amber-600 bg-amber-500/10 border-amber-500/20' },
                 ].map(s => (
                     <div key={s.label} className="bg-card border border-border-subtle rounded-3xl p-5 flex items-center gap-4 shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all">
@@ -124,11 +129,17 @@ export default function HallRentalPage() {
                         onChange={e => setSearch(e.target.value)}
                         className="w-full bg-card border border-border-subtle rounded-2xl pl-11 pr-5 py-3 text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/60 transition-all shadow-sm" />
                 </div>
-                <select value={hallFilter} onChange={e => setHallFilter(e.target.value)}
-                    className="bg-card border border-border-subtle hover:border-indigo-500/30 text-muted hover:text-primary text-xs font-bold px-4 py-3 rounded-2xl transition-all flex-shrink-0 shadow-sm outline-none cursor-pointer">
-                    <option value="all">{t.allHalls || 'ყველა დარბაზი'}</option>
-                    {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
+                <div className="w-[200px] shrink-0">
+                    <SearchSelect
+                        options={[
+                            { value: 'all', label: t.allHalls || 'ყველა დარბაზი' },
+                            ...HALLS.map(h => ({ value: h, label: h }))
+                        ]}
+                        value={hallFilter}
+                        onChange={setHallFilter}
+                        className="!border-border-subtle hover:!border-indigo-500/30 shadow-sm [&>div]:py-3 [&>div]:px-4"
+                    />
+                </div>
                 <button className="flex items-center gap-2 bg-card border border-border-subtle hover:border-indigo-500/30 text-muted hover:text-primary text-xs font-bold px-4 py-3 rounded-2xl transition-all flex-shrink-0 shadow-sm">
                     <Filter className="w-4 h-4" />
                     <span className="hidden sm:inline">{t.filter}</span>
@@ -178,12 +189,12 @@ export default function HallRentalPage() {
                                     </div>
                                     <div className="flex items-center gap-5 mt-4 pt-4 border-t border-border-subtle/50">
                                         <div>
-                                            <p className="text-xl font-black text-primary tabular-nums tracking-tighter">{r.total_price} <span className="text-xs font-black opacity-30">₾</span></p>
+                                            <p className="text-xl font-black text-primary tabular-nums tracking-tighter">{formatCurrency(r.total_price, settings.currency)}</p>
                                             <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40 mt-1">ჯამური ფასი</p>
                                         </div>
                                         {r.deposit > 0 && (
                                             <div>
-                                                <p className="text-sm font-black text-indigo-600 tabular-nums tracking-tight">{r.deposit} <span className="text-[10px] font-black opacity-30">₾</span></p>
+                                                <p className="text-sm font-black text-indigo-600 tabular-nums tracking-tight">{formatCurrency(r.deposit, settings.currency)}</p>
                                                 <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40 mt-1">დეპოზიტი</p>
                                             </div>
                                         )}
@@ -243,7 +254,7 @@ export default function HallRentalPage() {
                         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 scrollbar-thin">
                             {editing && step === 2 && (
                                 <div className="space-y-4">
-                                    <button onClick={() => { if (confirm('ნამდვილად გსურთ წაშლა?')) deleteRental(editing.id); }}
+                                    <button onClick={async () => { if (await confirm('ნამდვილად გსურთ წაშლა?')) deleteRental(editing.id); }}
                                         className="w-full py-2.5 text-red-500/60 hover:text-red-500 text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
                                         <Trash2 className="w-4 h-4" /> ჯავშნის წაშლა
                                     </button>
@@ -291,10 +302,13 @@ export default function HallRentalPage() {
                                     {/* Hall */}
                                     <div className="border-t border-border-subtle/50 pt-6">
                                         <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დარბაზი</label>
-                                        <select value={form.hall_name} onChange={e => set('hall_name', e.target.value)}
-                                            className="w-full bg-surface border border-border-subtle rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner cursor-pointer">
-                                            {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-                                        </select>
+                                        <SearchSelect
+                                            options={HALLS.map(h => ({ value: h, label: h }))}
+                                            value={form.hall_name || ''}
+                                            onChange={val => set('hall_name', val)}
+                                            className="!border-border-subtle hover:!border-indigo-500/60 shadow-inner [&>div]:py-3.5 [&>div]:px-4"
+                                            placeholder="აირჩიეთ დარბაზი"
+                                        />
                                     </div>
 
                                     {/* Dates */}
@@ -330,13 +344,13 @@ export default function HallRentalPage() {
                                     {/* Prices */}
                                     <div className="border-t border-border-subtle/50 pt-6 grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">ჯამური ფასი (₾) *</label>
+                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">ჯამური ფასი ({settings.currency}) *</label>
                                             <input type="number" min="0" value={form.total_price || ''}
                                                 onChange={e => set('total_price', Number(e.target.value))}
                                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-black text-primary outline-none shadow-inner" />
                                         </div>
                                         <div>
-                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დეპოზიტი (₾)</label>
+                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დეპოზიტი ({settings.currency})</label>
                                             <input type="number" min="0" value={form.deposit || ''}
                                                 onChange={e => set('deposit', Number(e.target.value))}
                                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-black text-primary outline-none shadow-inner" />
@@ -374,7 +388,7 @@ export default function HallRentalPage() {
                                     <div className="border-t border-border-subtle/50 pt-6">
                                         <div className="flex items-center justify-between mb-3">
                                             <label className="text-[11px] font-black text-muted uppercase tracking-wider opacity-60">კონტრაქტი / საბუთი</label>
-                                            {(form as any).contract_url && (
+                                            {(form as { contract_url?: string }).contract_url && (
                                                 <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">ატვირთულია</span>
                                             )}
                                         </div>
@@ -383,8 +397,9 @@ export default function HallRentalPage() {
                                                 const input = document.createElement('input');
                                                 input.type = 'file';
                                                 input.accept = 'application/pdf,image/*';
-                                                input.onchange = (e: any) => {
-                                                    const file = e.target.files?.[0];
+                                                input.onchange = (e: Event) => {
+                                                    const target = e.target as HTMLInputElement;
+                                                    const file = target.files?.[0];
                                                     if (file) {
                                                         const reader = new FileReader();
                                                         reader.onload = (ev) => set('contract_url', ev.target?.result as string);
@@ -396,7 +411,7 @@ export default function HallRentalPage() {
                                             className="w-full py-4 bg-surface border-2 border-dashed border-border-subtle hover:border-indigo-500/40 text-xs font-bold text-muted hover:text-indigo-600 rounded-2xl transition-all shadow-inner flex items-center justify-center gap-2 group-inner"
                                         >
                                             <FileText className="w-4 h-4 opacity-40 group-inner-hover:scale-110 transition-transform" />
-                                            {(form as any).contract_url ? 'საბუთის შეცვლა' : 'კონტრაქტის ატვირთვა (PDF/JPG)'}
+                                            {(form as { contract_url?: string }).contract_url ? 'საბუთის შეცვლა' : 'კონტრაქტის ატვირთვა (PDF/JPG)'}
                                         </button>
                                     </div>
                                 </div>

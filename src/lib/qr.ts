@@ -1,12 +1,7 @@
-/**
- * QR code utilities for ClassCore student check-in
- */
-import QRCode from 'qrcode';
-
-/** Generate a random 6-character alphanumeric student code (e.g. "SF4A3B") */
+/** Generate a random 6-character alphanumeric student code (e.g. "ID4A3B") */
 export function generateStudentCode(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = 'SF';
+    let code = 'ID';
     for (let i = 0; i < 4; i++) {
         code += chars[Math.floor(Math.random() * chars.length)];
     }
@@ -14,19 +9,20 @@ export function generateStudentCode(): string {
 }
 
 /**
- * Generate a QR code as a Data URL (PNG) that encodes the check-in URL.
+ * Generate a QR code as a Data URL (PNG) for a given string.
  * Returns the data URL string or empty string on error.
  */
-export async function generateQRDataUrl(code: string, baseUrl = ''): Promise<string> {
-    const url = `${baseUrl}/checkin?code=${code}`;
+export async function generateQRDataUrl(data: string): Promise<string> {
     try {
-        return await QRCode.toDataURL(url, {
-            width: 200,
-            margin: 1,
-            color: { dark: '#ffffff', light: '#00000000' },
+        const QRCode = await import('qrcode');
+        return await QRCode.toDataURL(data, {
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#00000000' },
             errorCorrectionLevel: 'M',
         });
-    } catch {
+    } catch (err) {
+        console.error('QR Generation Error:', err);
         return '';
     }
 }

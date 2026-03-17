@@ -21,15 +21,14 @@ export function BottomNav() {
         { href: '/students', labelKey: 'students', icon: Users },
         { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck },
         { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
-        { href: '/groups', labelKey: 'groups', icon: BookOpen },
     ] as const;
 
     return (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111114]/95 backdrop-blur-xl border-t border-white/[0.08]">
-            <div
-                className="flex items-center justify-around px-1 py-1"
-                style={{ paddingBottom: 'calc(6px + env(safe-area-inset-bottom))' }}
-            >
+        <nav
+            className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111114]/95 backdrop-blur-xl border-t border-white/[0.08]"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+            <div className="flex items-center justify-around px-1 py-1.5 h-16">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (
@@ -37,7 +36,7 @@ export function BottomNav() {
                             key={href}
                             href={href}
                             className={cn(
-                                'flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl transition-all duration-150 min-w-[48px] touch-manipulation',
+                                'flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all duration-150 min-w-[64px] touch-manipulation',
                                 active ? 'text-indigo-400' : 'text-white/35'
                             )}
                         >
@@ -58,7 +57,7 @@ export function BottomNav() {
                     <div className="w-6 h-6 flex items-center justify-center">
                         <Menu className="w-5 h-5" strokeWidth={1.8} />
                     </div>
-                    <span className="text-[9px] font-semibold">{t.settings === 'Settings' ? 'More' : t.settings === 'Настройки' ? 'Ещё' : 'მეტი'}</span>
+                    <span className="text-[9px] font-semibold">{t.more}</span>
                 </button>
             </div>
         </nav>

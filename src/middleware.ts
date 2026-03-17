@@ -21,7 +21,8 @@ export async function middleware(request: NextRequest) {
                 getAll() {
                     return request.cookies.getAll();
                 },
-                setAll(cookiesToSet: any[]) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
                     cookiesToSet.forEach(({ name, value }) =>
                         request.cookies.set(name, value)
                     );
@@ -39,13 +40,25 @@ export async function middleware(request: NextRequest) {
 
         const { data: { user } } = await supabase.auth.getUser();
         const { pathname } = request.nextUrl;
+        const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
 
-        const publicRoutes = ['/', '/login', '/register', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
-        const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
+        const publicRoutes = ['/', '/login', '/sa-login', '/registration', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
+        const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
 
-        if (!user && !isPublic) {
+        // Portal routes are like /[studio]/[studentId] - 2 segments
+        // We exclude static assets and known public routes
+        const segments = pathname.split('/').filter(Boolean);
+        const isPortal = segments.length === 2 && !publicRoutes.includes('/' + segments[0]);
+
+        const isPublic = isPublicStatic || isPortal;
+
+        if (!user && !hasStaffCookie && !isPublic) {
             const url = request.nextUrl.clone();
-            url.pathname = '/login';
+            if (pathname.startsWith('/superadmin')) {
+                url.pathname = '/sa-login';
+            } else {
+                url.pathname = '/login';
+            }
             return NextResponse.redirect(url);
         }
     } catch (e) {

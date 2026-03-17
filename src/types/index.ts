@@ -81,6 +81,16 @@ export interface Student {
         telegram?: string;
         whatsapp?: string;
     };
+    // status
+    status?: 'active' | 'inactive' | 'lead';
+    // group enrollments
+    enrolled_group_ids?: string[];
+    // language preference
+    preferred_language?: 'ka' | 'ru' | 'en';
+    // balance / credit (overpayments)
+    balance?: number;
+    // branch
+    branch_id?: string;
     created_at: string;
 }
 
@@ -92,11 +102,12 @@ export interface Group {
     coach_name?: string;
     schedule?: string; // e.g. "Mon/Wed/Fri 18:00"
     capacity?: number;
+    color?: string;
     created_at: string;
 }
 
 // ─── Subscription Plans ────────────────────────────────────────
-export type SubscriptionType = 'group' | 'individual';
+export type SubscriptionType = 'group' | 'individual' | 'rental';
 export type SessionPeriod = 'sessions' | 'monthly' | 'unlimited';
 
 export interface SubscriptionPlan {
@@ -171,7 +182,10 @@ export type TeacherStatus = 'active' | 'on_leave' | 'inactive';
 export interface Teacher {
     id: string;
     org_id: string;
-    full_name: string;
+    first_name: string;
+    last_name: string;
+    full_name?: string;           // Optional for backward compatibility
+    role?: string;                // Role: Teacher, Accountant, etc.
     phone: string;
     email?: string;
     specialty: string[];          // e.g. ['Contemporary', 'Ballet']
@@ -179,10 +193,24 @@ export interface Teacher {
     photo_url?: string;
     rate_per_hour?: number;       // GEL per hour (for individual lessons)
     rate_per_month?: number;      // GEL flat (for groups)
+    salary_percentage?: number;   // percentage share of revenue
     assigned_group_ids: string[]; // group IDs
     assigned_individual: boolean; // takes individual sessions?
-    salary_percentage?: number;   // percentage share of revenue
     status: TeacherStatus;
+    allowedBranchIds?: string[]; // Standardized camelCase
+    permissions?: {
+        canViewAttendance: boolean;
+        canViewSubscriptions: boolean;
+        canViewStudents: boolean;
+        canViewCalendar: boolean;
+        canEditCalendar: boolean;
+        canViewGroups: boolean;
+        canViewTeachers: boolean;
+        canViewHalls: boolean;
+        canViewShop: boolean;
+        canViewAnalytics: boolean;
+        canViewSMS: boolean;
+    };
     created_at: string;
 }
 
@@ -208,5 +236,37 @@ export interface ClientAccessToken {
     student_id: string;
     token: string;
     expires_at: string;
+    created_at: string;
+}
+// ─── Shop / Inventory ──────────────────────────────────────────
+export interface Product {
+    id: string;
+    org_id: string;
+    name: string;
+    category?: string;
+    description?: string;
+    price: number;
+    cost_price?: number;
+    quantity: number;
+    size?: string;
+    weight?: string;
+    color?: string;
+    photo_url?: string;
+    is_active: boolean;
+    created_at: string;
+}
+
+export interface Sale {
+    id: string;
+    org_id: string;
+    student_id: string;
+    items: {
+        product_id: string;
+        quantity: number;
+        price_at_sale: number;
+    }[];
+    total_amount: number;
+    payment_method: 'cash' | 'card' | 'transfer' | 'balance';
+    notes?: string;
     created_at: string;
 }

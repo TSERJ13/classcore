@@ -1,32 +1,88 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, BookOpen, User, Clock, Users, Check, Trash2, AlertTriangle, GraduationCap } from 'lucide-react';
+import { X, BookOpen, Clock, Users, Check, Trash2, AlertTriangle, GraduationCap, Plus, Calendar } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
+import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
+import { getTeachers } from '@/lib/teacher-store';
+import { syncGroupScheduleToCalendar } from '@/lib/event-store';
+import { type ScheduleSlot, slotsToDisplay } from '@/lib/group-store';
+import type { Teacher } from '@/types';
+import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
 
 interface GroupModalProps {
     open: boolean;
-    group?: any;
+    group?: {
+        id: string;
+        name: string;
+        coach?: string;
+        teacherId?: string;
+        schedule?: string;
+        schedule_slots?: ScheduleSlot[];
+        capacity?: number;
+        type?: string;
+        difficulty?: string | null;
+        hall_id?: string;
+    };
     onClose: () => void;
-    onSave: (data: any) => void;
+    onSave: (data: Partial<{
+        id: string; name: string; coach: string; teacherId: string;
+        schedule: string; schedule_slots: ScheduleSlot[];
+        capacity: number; type: string; difficulty: string | null; hall_id: string;
+        color: string;
+    }>) => void;
     onDelete?: (id: string) => void;
+    [key: string]: unknown;
 }
 
+// Day labels (Mon–Sun)
+const DAY_LABELS_KA = ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'];
+const DAY_LABELS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_LABELS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+const DAY_FULL_KA = ['ორშაბათი', 'სამშაბათი', 'ოთხშაბათი', 'ხუთშაბათი', 'პარასკევი', 'შაბათი', 'კვირა'];
+const DAY_FULL_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Schedule display handled by group-store slotsToDisplay
+
+// ─── Default time slot ───────────────────────────────────────────
+const DEFAULT_SLOT: ScheduleSlot = { dayOfWeek: 0, startTime: '10:00', endTime: '11:30' };
+
 export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModalProps) {
-    const { t } = useT();
+    const { t, lang } = useT();
+    const { user, profile } = useUser();
     const isEdit = !!group;
+    const isTeacher = profile?.role === 'teacher';
+
     const [form, setForm] = useState({
         id: '',
         name: '',
         coach: '',
-        schedule: '',
+        teacherId: '',
         capacity: 15,
         type: 'Dance',
-        difficulty: '',
+        difficulty: '' as string | null,
+        hall_id: 'h1',
+        color: '#6366f1',
     });
+
+    const [slots, setSlots] = useState<ScheduleSlot[]>([]);
     const [saving, setSaving] = useState(false);
     const [showDelete, setShowDelete] = useState(false);
+    const [teachers, setTeachers] = useState<Teacher[]>([]);
+
+    const teacherOptions: SearchSelectOption[] = teachers.map(tc => ({
+        value: tc.id,
+        label: tc.full_name || '',
+        subLabel: tc.phone
+    }));
+
+    const dayLabels = lang === 'ka' ? DAY_LABELS_KA : lang === 'ru' ? DAY_LABELS_RU : DAY_LABELS_EN;
+
+    useEffect(() => {
+        setTeachers(getTeachers());
+    }, [open]);
 
     useEffect(() => {
         if (open && group) {
@@ -34,138 +90,261 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                 id: group.id ?? '',
                 name: group.name ?? '',
                 coach: group.coach ?? '',
-                schedule: group.schedule ?? '',
+                teacherId: group.teacherId ?? '',
                 capacity: group.capacity ?? 15,
                 type: group.type ?? 'Dance',
-                difficulty: group.difficulty ?? '',
+                difficulty: group.difficulty ?? null,
+                hall_id: group.hall_id ?? 'h1',
+                color: (group as any).color ?? '#6366f1',
             });
+            setSlots(group.schedule_slots?.length ? group.schedule_slots : [{ ...DEFAULT_SLOT }]);
             setShowDelete(false);
         } else if (open) {
-            setForm({ id: '', name: '', coach: '', schedule: '', capacity: 15, type: 'Dance', difficulty: '' });
+            setForm({ id: '', name: '', coach: '', teacherId: '', capacity: 15, type: 'Dance', difficulty: '', hall_id: 'h1', color: '#6366f1' });
+            setSlots([{ ...DEFAULT_SLOT }]);
             setShowDelete(false);
         }
     }, [group, open]);
 
     if (!open) return null;
 
+    const toggleDaySlot = (dayIdx: number) => {
+        setSlots(prev => {
+            const existing = prev.find(s => s.dayOfWeek === dayIdx);
+            if (existing) {
+                return prev.filter(s => s.dayOfWeek !== dayIdx);
+            } else {
+                // Default to 10:00 - 11:30 or use times from first existing slot if any
+                const base = prev[0] || DEFAULT_SLOT;
+                return [...prev, { dayOfWeek: dayIdx, startTime: base.startTime, endTime: base.endTime }];
+            }
+        });
+    };
+
+    const updateSlotTime = (dayIdx: number, field: 'startTime' | 'endTime', val: string) => {
+        setSlots(prev => prev.map(s => s.dayOfWeek === dayIdx ? { ...s, [field]: val } : s));
+    };
+
     const save = async () => {
+        if (!form.name) return;
         setSaving(true);
         await new Promise(r => setTimeout(r, 400));
-        onSave(form);
+
+        const groupId = form.id || `g_${Date.now()}`;
+        const scheduleDisplay = slotsToDisplay(slots, lang);
+
+        onSave({
+            ...form,
+            id: groupId,
+            schedule: scheduleDisplay,
+            schedule_slots: slots,
+        });
+
+        // Sync recurring events to calendar
+        if (slots.length > 0) {
+            syncGroupScheduleToCalendar(groupId, form.name, form.teacherId, form.hall_id, slots, form.color);
+        }
+
         setSaving(false);
         onClose();
     };
 
     const inputCls = "w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm";
 
+    const dayFullLabels = lang === 'ka' ? DAY_FULL_KA : DAY_FULL_EN;
+
     return (
         <>
             <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border-subtle shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
-                <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle flex-shrink-0">
+            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[min(100vw,480px)] max-h-[92dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-3xl sm:rounded-none">
+
+                {/* Handle for mobile */}
+                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+                    <div className="w-10 h-1 rounded-full bg-border-subtle opacity-60" />
+                </div>
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0">
                     <div>
-                        <h2 className="text-base font-bold text-primary">{isEdit ? 'ჯგუფის რედაქტირება' : 'ახალი ჯგუფი'}</h2>
-                        <p className="text-xs text-muted mt-0.5">{isEdit ? group.name : 'დაამატეთ ახალი სასწავლო ჯგუფი'}</p>
+                        <h2 className="text-base font-bold text-primary">{isEdit ? t.editGroup : t.newGroup}</h2>
+                        <p className="text-xs text-muted mt-0.5 opacity-70">{isEdit ? group.name : t.addGroupDescription}</p>
                     </div>
                     <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6 overscroll-contain">
+
+                    {/* Group name */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <BookOpen className="w-3 h-3" /> {t.groupName}
+                        </label>
+                        <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Dance Group..." className={inputCls} />
+                    </div>
+
+                    {/* Teacher */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <GraduationCap className="w-3 h-3" /> {t.teachers}
+                        </label>
+                        <SearchSelect
+                            options={teacherOptions}
+                            value={form.teacherId || ''}
+                            onChange={val => {
+                                const teacher = teachers.find(tc => tc.id === val);
+                                setForm({ ...form, teacherId: val, coach: teacher ? teacher.full_name : '' });
+                            }}
+                            placeholder={t.selectTeacher}
+                        />
+                    </div>
+
+                    {/* Color selector */}
+                    <div>
+                        <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70 flex items-center gap-2">
+                            <Plus className="w-3 h-3" /> {lang === 'ka' ? 'ჯგუფის ფერი' : 'Group Color'}
+                        </label>
+                        <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
+                            <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
+                                <input type="color" value={form.color || '#6366f1'} onChange={e => setForm({ ...form, color: e.target.value })}
+                                    className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
+                                <div className="w-full h-full pointer-events-none" style={{ backgroundColor: form.color || '#6366f1' }} />
+                            </span>
+                            <span className="text-xs text-muted font-medium select-none truncate">სხვა ფერის არჩევა</span>
+                        </label>
+                    </div>
+
+                    {/* ─── Schedule Builder (Simplified Multi-Day) ─────────────────────────────── */}
                     <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                                <Calendar className="w-3 h-3" /> {t.schedule || 'Schedule'}
+                            </label>
+                        </div>
+
+                        <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
+                            <label className="text-[10px] text-muted block uppercase tracking-wider font-black opacity-40">აირჩიეთ დღეები და დროები</label>
+                            <div className="flex flex-wrap gap-2">
+                                {[0, 1, 2, 3, 4, 5, 6].map(d => {
+                                    const isActive = slots.some(s => s.dayOfWeek === d);
+                                    return (
+                                        <button key={d} onClick={() => toggleDaySlot(d)}
+                                            className={cn(
+                                                "w-10 h-10 rounded-xl text-[10px] font-black transition-all border",
+                                                isActive ? "bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                            )}>
+                                            {dayLabels[d]}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="space-y-2">
+                                {slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((slot) => {
+                                    return (
+                                        <div key={slot.dayOfWeek} className="flex items-center gap-3 bg-card/50 p-2 rounded-xl border border-border-subtle/30">
+                                            <span className="text-[10px] font-bold text-primary w-20">{dayFullLabels[slot.dayOfWeek]}</span>
+                                            <div className="flex-1 flex gap-2">
+                                                <input type="time" value={slot.startTime} onChange={e => updateSlotTime(slot.dayOfWeek, 'startTime', e.target.value)}
+                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
+                                                <input type="time" value={slot.endTime} onChange={e => updateSlotTime(slot.dayOfWeek, 'endTime', e.target.value)}
+                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {slots.length === 0 && (
+                                <p className="text-xs text-muted opacity-40 italic text-center py-2">
+                                    {lang === 'ka' ? 'აირჩიეთ მინიმუმ ერთი დღე' : 'Select at least one day'}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Calendar sync notice */}
+                        {slots.length > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/5 border border-indigo-500/20 rounded-xl">
+                                <Calendar className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                                <p className="text-[10px] font-bold text-indigo-500 opacity-80">
+                                    {lang === 'ka'
+                                        ? 'შენახვისას კალენდარი ავტომატურად განახლდება'
+                                        : lang === 'ru'
+                                            ? 'При сохранении календарь обновится автоматически'
+                                            : 'Calendar will be automatically updated on save'}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Capacity & Type */}
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
-                                <BookOpen className="w-3 h-3" /> დასახელება
+                                <Users className="w-3 h-3" /> {t.capacity}
                             </label>
-                            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="მაგ: Contemporary Dance" className={inputCls} />
+                            <input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })} className={inputCls} />
                         </div>
-
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
-                                <GraduationCap className="w-3 h-3" /> მასწავლებელი
+                                <BookOpen className="w-3 h-3" /> {t.subscriptionType}
                             </label>
-                            <input value={form.coach} onChange={e => setForm({ ...form, coach: e.target.value })} placeholder="სახელი გვარი" className={inputCls} />
+                            <SearchSelect
+                                options={[
+                                    { value: 'Dance', label: 'Dance' },
+                                    { value: 'Yoga', label: 'Yoga' },
+                                    { value: 'Fitness', label: 'Fitness' },
+                                    { value: 'Sports', label: 'Sports' }
+                                ]}
+                                value={form.type}
+                                onChange={(val: string) => setForm({ ...form, type: val })}
+                                className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
+                            />
                         </div>
+                    </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
-                                <Clock className="w-3 h-3" /> განრიგი
-                            </label>
-                            <input value={form.schedule} onChange={e => setForm({ ...form, schedule: e.target.value })} placeholder="მაგ: ორ, ოთხ · 18:00–19:30" className={inputCls} />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
-                                    <Users className="w-3 h-3" /> ტევადობა
-                                </label>
-                                <input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: parseInt(e.target.value) })} className={inputCls} />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
-                                    <BookOpen className="w-3 h-3" /> ტიპი
-                                </label>
-                                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className={inputCls}>
-                                    <option value="Dance">Dance</option>
-                                    <option value="Yoga">Yoga</option>
-                                    <option value="Fitness">Fitness</option>
-                                    <option value="Sports">Sports</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
-                                    სირთულე
-                                </label>
-                                <select value={form.difficulty} onChange={e => setForm({ ...form, difficulty: e.target.value })} className={inputCls}>
-                                    <option value="">Default</option>
-                                    <option value="beginner">Beginner</option>
-                                    <option value="intermediate">Intermediate</option>
-                                    <option value="advanced">Advanced</option>
-                                </select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
-                                    ფერი
-                                </label>
-                                <div className="flex gap-2 p-1 bg-surface border border-border-subtle rounded-xl overflow-x-auto no-scrollbar">
-                                    {['indigo', 'emerald', 'rose', 'amber', 'blue'].map(c => (
-                                        <button key={c} onClick={() => setForm({ ...form, type: c.charAt(0).toUpperCase() + c.slice(1) })}
-                                            className={cn('w-6 h-6 rounded-lg flex-shrink-0 transition-all border-2',
-                                                form.type.toLowerCase() === c ? 'border-white scale-110 shadow-md' : 'border-transparent opacity-60')}
-                                            style={{ background: `var(--${c}-500, ${c})` }}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                    {/* Difficulty */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1">
+                            {t.difficulty}
+                        </label>
+                        <SearchSelect
+                            options={[
+                                { value: '', label: t.difficultyDefault },
+                                { value: 'beginner', label: t.difficultyBeginner },
+                                { value: 'intermediate', label: t.difficultyIntermediate },
+                                { value: 'advanced', label: t.difficultyAdvanced }
+                            ]}
+                            value={form.difficulty || ''}
+                            onChange={(val: string) => setForm({ ...form, difficulty: (val || null) as string | null })}
+                            className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
+                        />
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-border-subtle space-y-3 flex-shrink-0 bg-card/80 backdrop-blur-md">
-                    {isEdit && !showDelete && (
+                {/* Footer */}
+                <div className="px-5 py-4 border-t border-border-subtle space-y-3 flex-shrink-0 bg-card/80 backdrop-blur-md">
+                    {isEdit && !showDelete && !isTeacher && (
                         <button onClick={() => setShowDelete(true)} className="w-full py-2.5 text-red-500/60 hover:text-red-500 text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
-                            <Trash2 className="w-4 h-4" /> {t.delete || 'ჯგუფის წაშლა'}
+                            <Trash2 className="w-4 h-4" /> {t.deleteGroup}
                         </button>
                     )}
                     {showDelete && (
                         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
                             <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
                             <div className="flex-1">
-                                <p className="text-xs font-black text-red-600">წავშალოთ?</p>
+                                <p className="text-xs font-black text-red-600">{t.deleteQuestion}</p>
                             </div>
-                            <button onClick={() => { onDelete?.(group.id); onClose(); }} className="px-4 py-1.5 bg-red-500 text-white text-[11px] font-bold rounded-lg hover:bg-red-600 active:scale-95 transition-all">წაშლა</button>
-                            <button onClick={() => setShowDelete(false)} className="text-[11px] font-bold text-muted hover:text-primary transition-colors">გაუქ.</button>
+                            <button onClick={() => { if (group?.id) onDelete?.(group.id); onClose(); }} className="px-4 py-1.5 bg-red-500 text-white text-[11px] font-bold rounded-lg hover:bg-red-600 active:scale-95 transition-all">{t.delete}</button>
+                            <button onClick={() => setShowDelete(false)} className="text-[11px] font-bold text-muted hover:text-primary transition-colors">{t.cancel}</button>
                         </div>
                     )}
                     <div className="flex gap-3">
-                        <button onClick={onClose} className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-sm font-bold rounded-xl transition-all">გაუქმება</button>
+                        <button onClick={onClose} className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-sm font-bold rounded-xl transition-all">{t.cancel}</button>
                         <button onClick={save} disabled={!form.name || saving} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2">
                             {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
-                            შენახვა
+                            {saving ? t.loading : (lang === 'ka' ? 'კალენდარში დამატება' : lang === 'ru' ? 'Сохранить в календарь' : 'Save & Sync Calendar')}
                         </button>
                     </div>
                 </div>

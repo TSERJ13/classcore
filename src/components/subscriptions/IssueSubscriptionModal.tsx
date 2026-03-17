@@ -1,0 +1,634 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { X, CreditCard, Calendar, Save, Trash2, Tag, Percent, ArrowRight, Banknote, Building2, Wallet } from 'lucide-react';
+import { useT } from '@/contexts/LanguageContext';
+import type { SubscriptionInfo } from '@/lib/subscription-store';
+import { getStudents, updateStudent } from '@/lib/student-store';
+import { getPlans } from '@/lib/plan-store';
+import { getGroups } from '@/lib/group-store';
+import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
+import { useStudio } from '@/contexts/StudioContext';
+import { useUser } from '@/hooks/useUser';
+import { SearchSelect } from '@/components/ui/SearchSelect';
+
+interface IssueSubscriptionModalProps {
+    open: boolean;
+    onClose: () => void;
+    onIssue: (data: Omit<SubscriptionInfo, 'id'>) => void;
+    initialStudentId?: string;
+    centered?: boolean;
+}
+
+type PayMethod = 'cash' | 'card' | 'transfer';
+
+export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, centered = false }: IssueSubscriptionModalProps) {
+    const { t, lang } = useT();
+    const { settings, logSubscription } = useStudio();
+    const { user, profile } = useUser();
+    const [students, setStudents] = useState(() => getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
+    const [plans, setPlans] = useState(() => getPlans().filter(p => p.is_active));
+    const [groups, setGroups] = useState(() => getGroups());
+
+    useEffect(() => {
+        const refresh = () => {
+            setStudents(getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
+            setPlans(getPlans().filter(p => p.is_active));
+            setGroups(getGroups());
+        };
+        if (open) {
+            refresh();
+            window.addEventListener('cc_subscription_update', refresh);
+            window.addEventListener('cc_attendance_update', refresh);
+        }
+        return () => {
+            window.removeEventListener('cc_subscription_update', refresh);
+            window.removeEventListener('cc_attendance_update', refresh);
+        };
+    }, [open]);
+
+    const [studentId, setStudentId] = useState('');
+    const [step, setStep] = useState<'type_selection' | 'form'>('type_selection');
+    const [selectedType, setSelectedType] = useState<'group' | 'individual' | 'rental'>('group');
+    const [isOneTime, setIsOneTime] = useState(false);
+
+    const availablePlans = plans.filter(p => {
+        if (p.type !== selectedType) return false;
+        const pOneTime = p.session_count === 1;
+        return isOneTime ? pOneTime : !pOneTime;
+    });
+
+    const [planId, setPlanId] = useState('');
+    const [groupId, setGroupId] = useState('');
+    const [price, setPrice] = useState<number | ''>('');
+    const [discount, setDiscount] = useState<number | ''>('');
+    const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [days, setDays] = useState<number | ''>('');
+    const [sessions, setSessions] = useState<number | ''>('');
+    const [unlimited, setUnlimited] = useState(false);
+    const [neverExpires, setNeverExpires] = useState(false);
+
+    // Payment fields
+    const [payMethod, setPayMethod] = useState<PayMethod>('cash');
+    const [amountPaid, setAmountPaid] = useState<number | ''>('');
+    const [useBalance, setUseBalance] = useState(false);
+
+    // Current student balance
+    const selectedStudent = students.find(s => s.id === studentId);
+    const studentBalance = selectedStudent?.balance ?? 0;
+
+    // Derived payment calculations
+    const totalDue = useMemo(() => {
+        const base = typeof price === 'number' ? price : 0;
+        const disc = typeof discount === 'number' ? discount : 0;
+        if (discountType === 'percent') {
+            return Math.round(base * (1 - disc / 100) * 100) / 100;
+        } else {
+            return Math.max(0, base - disc);
+        }
+    }, [price, discount, discountType]);
+
+    const appliedBalance = useBalance ? Math.min(studentBalance, totalDue) : 0;
+    const remaining = Math.max(0, totalDue - appliedBalance);
+    const actualPaid = typeof amountPaid === 'number' ? amountPaid : remaining;
+    const overpayment = Math.max(0, actualPaid - remaining);
+    const newBalance = Math.round((studentBalance - appliedBalance + overpayment) * 100) / 100;
+
+    // Reset when opened
+    useEffect(() => {
+        if (open) {
+            setStep('type_selection');
+            const currentStudents = getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+            setStudentId(initialStudentId || currentStudents[0]?.id || '');
+            setStartDate(getLocalISODate());
+            setDiscount('');
+            setPayMethod('cash');
+            setAmountPaid('');
+            setUseBalance(false);
+        }
+    }, [open, initialStudentId]);
+
+    // Reset balance usage when student changes
+    useEffect(() => {
+        setUseBalance(false);
+        setAmountPaid('');
+    }, [studentId]);
+
+    const studentOptions = useMemo(() => students.map(s => ({
+        value: s.id,
+        label: s.full_name,
+        subLabel: s.phone || undefined,
+        badge: (s.balance ?? 0) > 0 ? `💰 ${formatCurrency(s.balance || 0, settings.currency)}` : undefined
+    })), [students, settings.currency]);
+
+    const planOptions = useMemo(() => availablePlans.map(p => ({
+        value: p.id,
+        label: p.name,
+        subLabel: `${formatCurrency(p.price, settings.currency)} (${p.type})`
+    })), [availablePlans, settings.currency]);
+
+    const groupOptions = useMemo(() => groups.map(g => ({
+        value: g.id,
+        label: g.name,
+        subLabel: g.coach || undefined
+    })), [groups]);
+
+    // Update planId when category changes
+    useEffect(() => {
+        if (availablePlans.length > 0 && !availablePlans.find(p => p.id === planId)) {
+            setPlanId(availablePlans[0].id);
+        } else if (availablePlans.length === 0) {
+            setPlanId('');
+        }
+    }, [selectedType, isOneTime, planId]);
+
+    // Auto-fill when plan changes
+    useEffect(() => {
+        const plan = plans.find(p => p.id === planId);
+        if (plan) {
+            setPrice(plan.price);
+            setUnlimited(plan.period === 'unlimited');
+            setSessions(plan.period === 'unlimited' ? '' : (plan.session_count || ''));
+
+            if (plan.validity_days) {
+                setDays(plan.validity_days);
+                setNeverExpires(false);
+            } else {
+                setDays('');
+                setNeverExpires(true);
+            }
+            if (plan.type === 'group' && groups.length > 0) {
+                setGroupId(groups[0].id);
+            } else {
+                setGroupId('');
+            }
+        }
+    }, [planId]);
+
+    // Sync amountPaid default to remaining when totalDue changes
+    useEffect(() => {
+        setAmountPaid('');
+    }, [totalDue, useBalance]);
+
+    // Auto-calculate end date based on start date and days
+    useEffect(() => {
+        if (neverExpires) {
+            setEndDate('2099-12-31');
+            return;
+        }
+        if (startDate && days && typeof days === 'number') {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + days);
+            setEndDate(getLocalISODate(d));
+        }
+    }, [startDate, days, neverExpires]);
+
+    if (!open) return null;
+
+    const handleIssue = () => {
+        if (!studentId || !planId || !startDate || !endDate) return;
+
+        const plan = plans.find(p => p.id === planId);
+        if (!plan) return;
+
+        const isGroupPlan = plan.type === 'group';
+        if (isGroupPlan && !groupId) return;
+
+        const subType = plan.period === 'unlimited' ? 'monthly' : 'sessions';
+        const sessionsTotal = unlimited ? null : (typeof sessions === 'number' ? sessions : 12);
+
+        // Balance logic: update student balance
+        const paidNow = typeof amountPaid === 'number' ? amountPaid : remaining;
+        if (newBalance !== studentBalance) {
+            updateStudent(studentId, { balance: newBalance });
+        }
+
+        if (isGroupPlan && groupId) {
+            const student = students.find(s => s.id === studentId);
+            if (student) {
+                const enrolled = student.enrolled_group_ids || [];
+                if (!enrolled.includes(groupId)) {
+                    updateStudent(studentId, { enrolled_group_ids: [...enrolled, groupId] });
+                }
+            }
+        }
+
+        const commentParts: string[] = [];
+        commentParts.push(`გადახდა: ${formatCurrency(paidNow, settings.currency)} (${payMethod === 'cash' ? 'ნაღდი' : payMethod === 'card' ? 'ბარათი' : 'გადარიცხვა'})`);
+        if (appliedBalance > 0) commentParts.push(`ბალანსიდან: ${formatCurrency(appliedBalance, settings.currency)}`);
+        if (overpayment > 0) commentParts.push(`ბალანსზე: +${formatCurrency(overpayment, settings.currency)}`);
+
+        const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
+
+        onIssue({
+            student_id: studentId,
+            plan: plan.name,
+            sessions_used: 0,
+            sessions_total: sessionsTotal,
+            status: 'active',
+            purchased_at: startDate,
+            expires_at: endDate,
+            type: subType,
+            plan_type: plan.type,
+            group_id: isGroupPlan ? groupId : undefined,
+            category: selectedGroup ? selectedGroup.type : (plan.type === 'individual' ? 'Individual' : undefined),
+            payment_method: payMethod,
+            amount_paid: paidNow,
+            teacher_comment: commentParts.join(' · '),
+        });
+
+        // Log to history
+        logSubscription({
+            studentId,
+            studentName: selectedStudent?.full_name || 'Unknown',
+            planName: plan.name,
+            amount: paidNow,
+            issuedBy: user?.id || 'admin',
+            issuedByName: profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : 'Admin',
+            branchId: settings.activeBranchId || 'main',
+            branchName: settings.branches.find(b => b.id === settings.activeBranchId)?.name || 'Main',
+            groupName: selectedGroup?.name
+        });
+
+        onClose();
+    };
+
+    const PAY_METHODS: { id: PayMethod; label: string; icon: React.ReactNode }[] = [
+        { id: 'cash', label: t.paymentCash, icon: <Banknote className="w-4 h-4" /> },
+        { id: 'card', label: t.paymentCard, icon: <CreditCard className="w-4 h-4" /> },
+        { id: 'transfer', label: t.paymentTransfer, icon: <Building2 className="w-4 h-4" /> },
+    ];
+
+    return (
+        <>
+            <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className={cn(
+                "fixed z-[101] flex flex-col bg-card border-border-subtle shadow-2xl overflow-hidden transition-all duration-300",
+                centered
+                    ? `top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,512px)]'} max-h-[92dvh] border rounded-[2rem] animate-in fade-in zoom-in-95`
+                    : `inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,420px)]'} max-h-[92dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-[2rem] sm:rounded-none`
+            )}>
+                {/* Handle for mobile */}
+                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                    <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
+                </div>
+
+                {/* Header */}
+                <div className="p-4 border-b border-border-subtle bg-surface/50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                            <CreditCard className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-black text-primary uppercase tracking-tight">{t.issueSubscription}</h2>
+                            <p className="text-[9px] font-bold text-muted uppercase opacity-40">{t.newSale}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface text-muted transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div className="p-5 space-y-4 overflow-y-auto overscroll-contain flex-1">
+
+                    {step === 'type_selection' ? (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Group Column */}
+                                <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm">
+                                    <button
+                                        onClick={() => { setSelectedType('group'); setIsOneTime(false); setStep('form'); }}
+                                        className="flex-1 p-4 flex flex-col items-center justify-center gap-2 bg-surface hover:bg-emerald-500/5 transition-colors text-primary"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                        </div>
+                                        <div className="text-center">
+                                            <h3 className="text-xs font-black uppercase tracking-tight">{t.groupSubscription}</h3>
+                                        </div>
+                                    </button>
+                                    <div className="h-px bg-border-subtle w-full" />
+                                    <button
+                                        onClick={() => { setSelectedType('group'); setIsOneTime(true); setStep('form'); }}
+                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-emerald-600 bg-surface/50 hover:bg-emerald-500/10 transition-colors uppercase tracking-widest group/btn"
+                                    >
+                                        <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover/btn:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                        </div>
+                                        <span>{t.groupOneTime}</span>
+                                    </button>
+                                </div>
+
+                                {/* Individual Column */}
+                                <div className="flex flex-col border-2 border-indigo-500/20 rounded-3xl overflow-hidden bg-card hover:border-indigo-500/40 transition-all group shadow-sm">
+                                    <button
+                                        onClick={() => { setSelectedType('individual'); setIsOneTime(false); setStep('form'); }}
+                                        className="flex-1 p-4 flex flex-col items-center justify-center gap-2 bg-surface hover:bg-indigo-500/5 transition-colors text-primary"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                        </div>
+                                        <div className="text-center">
+                                            <h3 className="text-xs font-black uppercase tracking-tight">{t.individualSubscription}</h3>
+                                        </div>
+                                    </button>
+                                    <div className="h-px bg-border-subtle w-full" />
+                                    <button
+                                        onClick={() => { setSelectedType('individual'); setIsOneTime(true); setStep('form'); }}
+                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-indigo-600 bg-surface/50 hover:bg-indigo-500/10 transition-colors uppercase tracking-widest group/btn"
+                                    >
+                                        <div className="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover/btn:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                        </div>
+                                        <span>{t.individualOneTime}</span>
+                                    </button>
+                                </div>
+
+                                {/* Rental Column */}
+                                <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm">
+                                    <button
+                                        onClick={() => { setSelectedType('rental'); setIsOneTime(false); setStep('form'); }}
+                                        className="flex-1 p-4 flex flex-col items-center justify-center gap-2 bg-surface hover:bg-amber-500/5 transition-colors text-primary"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                        </div>
+                                        <div className="text-center">
+                                            <h3 className="text-xs font-black uppercase tracking-tight">{t.rentalSubscription}</h3>
+                                        </div>
+                                    </button>
+                                    <div className="h-px bg-border-subtle w-full" />
+                                    <button
+                                        onClick={() => { setSelectedType('rental'); setIsOneTime(true); setStep('form'); }}
+                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-amber-600 bg-surface/50 hover:bg-amber-500/10 transition-colors uppercase tracking-widest group/btn"
+                                    >
+                                        <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover/btn:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                        </div>
+                                        <span>{t.rentalOneTime}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                            {/* Client & Plan */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <button onClick={() => setStep('type_selection')} className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1">
+                                        &larr; {t.backToType}
+                                    </button>
+                                </div>
+                                <div className="space-y-1.5 relative">
+                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.selectClient}</label>
+                                    <SearchSelect
+                                        options={studentOptions}
+                                        value={studentId}
+                                        onChange={setStudentId}
+                                        placeholder={t.selectClient}
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.selectPlan}</label>
+                                    <SearchSelect
+                                        options={planOptions}
+                                        value={planId}
+                                        onChange={setPlanId}
+                                        placeholder={t.selectPlan}
+                                    />
+                                </div>
+
+                                {plans.find(p => p.id === planId)?.type === 'group' && (
+                                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.addToGroup}</label>
+                                        <SearchSelect
+                                            options={groupOptions}
+                                            value={groupId}
+                                            onChange={setGroupId}
+                                            placeholder={t.selectGroup}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Price Block */}
+                            <div className="space-y-2 p-3 border border-border-subtle bg-surface/30 rounded-xl">
+                                <div className="grid grid-cols-2 gap-3 items-end">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between px-1 h-5">
+                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest flex items-center gap-1">
+                                                <Tag className="w-3 h-3" /> {t.price} ({settings.currency})
+                                            </label>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={price}
+                                            onChange={(e) => setPrice(parseInt(e.target.value) || '')}
+                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between px-1 h-5">
+                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest flex items-center gap-1">
+                                                <Percent className="w-3 h-3" /> {t.discount}
+                                            </label>
+                                            <div className="flex bg-border-subtle/50 rounded-lg p-0.5 relative">
+                                                {/* Animated slider background approach or just clean segments */}
+                                                <button
+                                                    onClick={() => setDiscountType('percent')}
+                                                    className={cn(
+                                                        "px-2 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
+                                                        discountType === 'percent' ? "bg-white text-indigo-600 shadow-sm" : "text-muted/60 hover:text-muted"
+                                                    )}
+                                                >
+                                                    %
+                                                </button>
+                                                <button
+                                                    onClick={() => setDiscountType('fixed')}
+                                                    className={cn(
+                                                        "px-2 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
+                                                        discountType === 'fixed' ? "bg-white text-indigo-600 shadow-sm" : "text-muted/60 hover:text-muted"
+                                                    )}
+                                                >
+                                                    {settings.currency === 'GEL' ? '₾' : settings.currency === 'USD' ? '$' : '€'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={discount}
+                                            onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
+                                            placeholder="0"
+                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-emerald-500 outline-none focus:border-emerald-500/40 transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Payment Method */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">გადახდის მეთოდი</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {PAY_METHODS.map(m => (
+                                            <button
+                                                key={m.id}
+                                                type="button"
+                                                onClick={() => setPayMethod(m.id)}
+                                                className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold border transition-all ${payMethod === m.id
+                                                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
+                                                    : 'bg-surface border-border-subtle text-muted hover:border-emerald-500/40 hover:text-primary'
+                                                    }`}
+                                            >
+                                                {m.icon}
+                                                {m.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Balance row — only if student has balance */}
+                                {studentBalance > 0 && (
+                                    <div className="flex items-center justify-between bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2 py-2 animate-in fade-in duration-200">
+                                        <div className="flex items-center gap-1.5">
+                                            <Wallet className="w-3.5 h-3.5 text-emerald-500" />
+                                            <span className="text-[10px] font-bold text-primary">{t.clientBalance}: <span className="text-emerald-500">{formatCurrency(studentBalance, settings.currency)}</span></span>
+                                        </div>
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                            <span className="text-[9px] font-bold text-muted uppercase">{t.useBalance}</span>
+                                            <div
+                                                onClick={() => setUseBalance(v => !v)}
+                                                className={`w-8 h-4 rounded-full transition-colors cursor-pointer relative ${useBalance ? 'bg-emerald-500' : 'bg-border-subtle'}`}
+                                            >
+                                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${useBalance ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                            </div>
+                                        </label>
+                                    </div>
+                                )}
+
+                                {/* Amount paid input */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.amountPaid} ({settings.currency})</label>
+                                    <input
+                                        type="number"
+                                        value={amountPaid}
+                                        onChange={(e) => setAmountPaid(parseFloat(e.target.value) || '')}
+                                        placeholder={remaining.toFixed(2)}
+                                        className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                    />
+                                </div>
+
+                                {/* Payment summary */}
+                                <div className="space-y-0.5 pt-1 border-t border-border-subtle/60">
+                                    <div className="flex justify-between text-[10px]">
+                                        <span className="text-muted">{t.totalDue}</span>
+                                        <span className="font-bold text-primary">{formatCurrency(totalDue, settings.currency)}</span>
+                                    </div>
+                                    {appliedBalance > 0 && (
+                                        <div className="flex justify-between text-[10px]">
+                                            <span className="text-emerald-500">{t.balanceApplied}</span>
+                                            <span className="font-bold text-emerald-500">−{formatCurrency(appliedBalance, settings.currency)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between text-[10px]">
+                                        <span className="text-muted">{t.remainingToPay}</span>
+                                        <span className="font-black text-primary">{formatCurrency(remaining, settings.currency)}</span>
+                                    </div>
+                                    {overpayment > 0 && (
+                                        <div className="flex justify-between text-[10px]">
+                                            <span className="text-amber-500">{t.overpayment} → {t.newBalance}</span>
+                                            <span className="font-bold text-amber-500">+{formatCurrency(overpayment, settings.currency)} = {formatCurrency(newBalance, settings.currency)}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Validity Period */}
+                            <div className="space-y-3">
+                                <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1 border-b border-border-subtle pb-1.5 block">{t.periodDuration}</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1 relative">
+                                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" />
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="w-full bg-surface border border-border-subtle rounded-lg pl-8 pr-2 py-2 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                        />
+                                    </div>
+                                    <ArrowRight className="w-3.5 h-3.5 text-muted/40 flex-shrink-0" />
+                                    <div className="flex-1 relative">
+                                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" />
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            disabled={neverExpires}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="w-full bg-surface border border-border-subtle rounded-lg pl-8 pr-2 py-2 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between px-1">
+                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest">{t.days}</label>
+                                            <label className="flex items-center gap-1 cursor-pointer">
+                                                <input type="checkbox" checked={neverExpires} onChange={e => setNeverExpires(e.target.checked)} className="w-3 h-3 accent-indigo-500 rounded" />
+                                                <span className="text-[8px] font-bold text-muted uppercase">{t.neverExpires}</span>
+                                            </label>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={days}
+                                            disabled={neverExpires}
+                                            onChange={(e) => setDays(parseInt(e.target.value) || '')}
+                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between px-1">
+                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest">{t.lessons}</label>
+                                            <label className="flex items-center gap-1 cursor-pointer">
+                                                <input type="checkbox" checked={unlimited} onChange={e => setUnlimited(e.target.checked)} className="w-3 h-3 accent-indigo-500 rounded" />
+                                                <span className="text-[8px] font-bold text-muted uppercase">{t.unlimited}</span>
+                                            </label>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={sessions}
+                                            disabled={unlimited}
+                                            onChange={(e) => setSessions(parseInt(e.target.value) || '')}
+                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+
+                {/* Footer */}
+                {step === 'form' && (
+                    <div className="p-4 border-t border-border-subtle bg-surface/50 flex gap-2">
+                        <button onClick={onClose} className="flex-1 py-2.5 bg-card border border-border-subtle hover:border-border text-muted hover:text-primary text-[10px] font-bold rounded-xl transition-all shadow-sm">
+                            {t.cancel}
+                        </button>
+                        <button
+                            onClick={handleIssue}
+                            disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
+                            className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 text-white text-[10px] font-black rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                        >
+                            <Save className="w-3.5 h-3.5" /> {t.issueAction}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </>
+    );
+}

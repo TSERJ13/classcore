@@ -3,378 +3,665 @@
 import {
     Zap, Users, Calendar, Banknote, Shield, Star,
     ChevronRight, ArrowRight, Play, Check, Globe,
-    LayoutDashboard, Laptop, Sparkles, Menu, X
+    LayoutDashboard, Laptop, Sparkles, TrendingUp, BarChart3,
+    Activity, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect } from 'react';
+import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
+import { useUser } from '@/hooks/useUser';
+import { useT } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
-export default function LandingPage() {
-    const { settings } = useStudio();
-    const [scrolled, setScrolled] = useState(false);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const ICON_MAP: Record<string, any> = {
+    Globe, Zap, Users, MessageSquare: Sparkles, Shield, Laptop, Check, LayoutDashboard, Banknote, Calendar, Sparkles
+};
+
+const SystemVideoOverview = ({ t, lang }: { t: any, lang: string }) => {
+    const [scene, setScene] = useState(0);
+    const scenes = [
+        {
+            title: lang === 'ka' ? "ერთიანი მართვის სისტემა" : lang === 'ru' ? "Единая система управления" : "Unified Management System",
+            description: lang === 'ka' ? "აკონტროლეთ ყველა პროცესი ერთი ფანჯრიდან" : lang === 'ru' ? "Управляйте всеми процессами из одного окна" : "Control all processes from a single window",
+            zoom: "scale(1) translate(0, 0)",
+            img: "/overview.webp"
+        },
+        {
+            title: lang === 'ka' ? "მოსწავლეების ბაზა" : lang === 'ru' ? "База учеников" : "Student Database",
+            description: lang === 'ka' ? "სტუდენტების სრული სიის და აბონემენტების მართვა" : lang === 'ru' ? "Полный список студентов и управление абонементами" : "Full student list and subscription management",
+            zoom: "scale(1) translate(0, 0)",
+            img: "/dashboard_students.png"
+        },
+        {
+            title: lang === 'ka' ? "ავტომატური განრიგი" : lang === 'ru' ? "Автоматическое расписание" : "Automated Schedule",
+            description: lang === 'ka' ? "ჭკვიანი კალენდარი და დარბაზების დაჯავშნა" : lang === 'ru' ? "Умный календарь и бронирование залов" : "Smart calendar and room booking",
+            zoom: "scale(1) translate(0, 0)",
+            img: "/dashboard_calendar.png"
+        },
+        {
+            title: lang === 'ka' ? "ფინანსური რეპორტები" : lang === 'ru' ? "Финансовые отчеты" : "Financial Reports",
+            description: lang === 'ka' ? "შემოსავლების და ხარჯების დეტალური ანალიტიკა" : lang === 'ru' ? "Детальная аналитика доходов и расходов" : "Detailed income and expense analytics",
+            zoom: "scale(1) translate(0, 0)",
+            img: "/dashboard_finance.png"
+        }
+    ];
 
     useEffect(() => {
+        const timer = setInterval(() => {
+            setScene((prev) => (prev + 1) % scenes.length);
+        }, 6000);
+        return () => clearInterval(timer);
+    }, []);
+
+    return (
+        <div className="relative w-full h-full overflow-hidden bg-[#020617]">
+            {/* Background Base Image with Zoom/Pan Transformation */}
+            <div className="absolute inset-0">
+                {scenes.map((s, i) => (
+                    <div
+                        key={i}
+                        className={cn(
+                            "absolute inset-0 transition-all duration-[1500ms] ease-in-out",
+                            scene === i ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-110 rotate-1"
+                        )}
+                    >
+                        <img
+                            src={s.img}
+                            alt={s.title}
+                            className="w-full h-full object-cover opacity-60 brightness-75"
+                        />
+                    </div>
+                ))}
+            </div>
+
+            {/* Overlays and Atmosphere */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/10 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(2,6,23,0.4)_100%)] pointer-events-none" />
+
+            {/* Content Scene */}
+            <div className="absolute inset-0 flex items-center justify-center p-6 md:p-12 pointer-events-none">
+                <div className="max-w-xl w-full flex flex-col items-center text-center">
+                    {scenes.map((s, i) => (
+                        <div
+                            key={i}
+                            className={cn(
+                                "transition-all duration-1000 absolute",
+                                scene === i ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"
+                            )}
+                        >
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 border border-indigo-400/20 rounded-full mb-4">
+                                <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Highlight 0{i + 1}</span>
+                            </div>
+                            <h3 className="text-2xl md:text-5xl font-black text-white mb-4 tracking-tight drop-shadow-2xl">
+                                {s.title}
+                            </h3>
+                            <p className="text-base md:text-xl text-indigo-100/70 font-medium leading-relaxed drop-shadow-lg max-w-lg mx-auto">
+                                {s.description}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Dynamic UI Elements (Floating Bits) */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className={cn(
+                    "hidden md:block absolute top-10 right-10 w-48 h-48 border border-white/5 rounded-full transition-all duration-1000",
+                    scene % 2 === 0 ? "scale-110 rotate-45 border-white/10" : "scale-100 rotate-0"
+                )} />
+                <div className={cn(
+                    "hidden md:block absolute -bottom-10 -left-10 w-64 h-64 border border-indigo-500/5 rounded-full transition-all duration-1000 delay-300",
+                    scene % 2 !== 0 ? "scale-125 translate-x-10 translate-y-10 border-indigo-500/10" : "scale-100"
+                )} />
+            </div>
+
+            {/* Navigation Dots */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-20">
+                {scenes.map((_, i) => (
+                    <button
+                        key={i}
+                        onClick={() => setScene(i)}
+                        className="group relative flex items-center justify-center pointer-events-auto"
+                    >
+                        <div className={cn(
+                            "h-1.5 transition-all duration-500 rounded-full",
+                            scene === i ? "w-10 bg-indigo-500" : "w-3 bg-white/20 hover:bg-white/40"
+                        )} />
+                    </button>
+                ))}
+            </div>
+
+            {/* Scanlines Effect */}
+            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,0,0.01),rgba(0,0,255,0.03))] bg-[length:100%_2px,3px_100%] z-10 opacity-30" />
+        </div>
+    );
+};
+
+export default function LandingPage() {
+    const [scrolled, setScrolled] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [formData, setFormData] = useState({ name: '', phone: '', message: '' });
+    const { t, lang } = useT();
+    const { user } = useUser();
+    const { settings } = useStudio();
+    const [heroSet, setHeroSet] = useState(0);
+
+    useEffect(() => {
+        setMounted(true);
+        setHeroSet(Math.floor(Math.random() * 3));
         const handleScroll = () => setScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const ICON_MAP: Record<string, any> = {
-        Users, Calendar, Banknote, CheckCircle2: Check, LayoutDashboard, Globe, Shield, Star, Sparkles, Zap
+    const l = (ge: string, ru: string, en: string) =>
+        lang === 'ka' ? ge : lang === 'ru' ? ru : en;
+
+    const handleContactSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (submitting) return;
+
+        setSubmitting(true);
+        setSubmitStatus('idle');
+
+        try {
+            const res = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            });
+
+            if (res.ok) {
+                setSubmitStatus('success');
+                setFormData({ name: '', phone: '', message: '' });
+            } else {
+                setSubmitStatus('error');
+            }
+        } catch (err) {
+            setSubmitStatus('error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    const PLANS = [
-        {
-            name: 'Starter',
-            price: '49',
-            desc: 'პატარა სტუდიებისთვის',
-            features: ['20 სტუდენტი', '3 ჯგუფი', 'დასწრების აღრიცხვა', 'Email მხარდაჭერა'],
-            color: 'text-indigo-600',
-            bg: 'bg-indigo-600',
-            popular: false
-        },
-        {
-            name: 'Growth',
-            price: '99',
-            desc: 'მზარდი ბიზნესისთვის',
-            features: ['შეუზღუდავი სტუდენტები', 'ჯგუფების მართვა', 'ფინანსური ანალიტიკა', 'SMS შეხსენებები', 'პრიორიტეტული მხარდაჭერა'],
-            color: 'text-violet-600',
-            bg: 'bg-violet-600',
-            popular: true
-        },
-        {
-            name: 'Enterprise',
-            price: '199',
-            desc: 'დიდი ქსელებისთვის',
-            features: ['მრავალი ფილიალი', 'API წვდომა', 'White-label ოფცია', 'პერსონალური მენეჯერი'],
-            color: 'text-emerald-600',
-            bg: 'bg-emerald-600',
-            popular: false
-        }
+    const FEATURES_LIST = [
+        { title: l('მონაცემების მიგრაცია', 'Миграция данных', 'Data Migration'), icon: 'Globe' },
+        { title: l('სწრაფი ტექ. მხარდაჭერა', 'Быстрая техподдержка', 'Fast Support'), icon: 'Zap' },
+        { title: l('ჯგუფების მართვა', 'Управление группами', 'Group Management'), icon: 'Users' },
+        { title: l('ულიმიტო მოსწავლეები', 'Безлимитные ученики', 'Unlimited Students'), icon: 'Users' },
+        { title: l('შიდა ჩატი', 'Внутренний чат', 'Internal Chat'), icon: 'MessageSquare' },
+        { title: l('3 ადმინისტრატორი', '3 администратора', '3 Administrators'), icon: 'Shield' },
+        { title: l('მოსწავლის პორტალი', 'Портал ученика', 'Student Portal'), icon: 'Laptop' },
+        { title: l('დისტანციური რეგისტრაცია', 'Дистанционная регистрация', 'Remote Registration'), icon: 'Globe' },
+        { title: l('ავტომატური SMS', 'Автоматические SMS', 'Auto SMS'), icon: 'Sparkles' },
+        { title: l('დასწრების კონტროლი', 'Контроль посещаемости', 'Attendance Control'), icon: 'Check' },
+        { title: l('ანალიტიკა და რეპორტინგი', 'Аналитика и отчеты', 'Analytics & Reporting'), icon: 'LayoutDashboard' },
+        { title: l('ხელფასები გამოთვლა', 'Расчет зарплат', 'Salary Calculation'), icon: 'Banknote' },
+        { title: l('სივრცეების იჯარა', 'Аренда пространств', 'Space Rental'), icon: 'Calendar' },
+        { title: l('შიდა მაღაზია', 'Внутренний магазин', 'Internal Shop'), icon: 'Banknote' },
+        { title: l('მობილური აპლიკაცია', 'Мобильное приложение', 'Mobile App'), icon: 'Laptop' },
     ];
 
+    if (!mounted) return null;
+
     return (
-        <div className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white">
+        <div className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white overflow-x-hidden">
             {/* Header */}
             <header className={cn(
-                "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-6 py-4",
+                "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-4 md:px-6 py-3 md:py-4",
                 scrolled ? "bg-white/80 backdrop-blur-xl border-b border-slate-100 shadow-sm" : "bg-transparent"
             )}>
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        {settings.logoDataUrl ? (
-                            <img
-                                src={settings.logoDataUrl}
-                                alt="Logo"
-                                className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-black/5 logo-animate-hover logo-white logo-large"
-                            />
-                        ) : (
-                            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 relative group logo-animate-hover logo-large">
-                                <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain logo-white rounded-xl"
-                                    onError={(e) => (e.currentTarget.style.display = 'none')} />
-                                <Zap className="w-6 h-6 text-white absolute inset-0 m-auto opacity-0" strokeWidth={2.5} />
-                            </div>
-                        )}
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 relative group overflow-hidden bg-white">
+                            <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
+                        </div>
                         <span className="text-xl font-black tracking-tight text-slate-900">ClassCore</span>
                     </div>
 
                     <nav className="hidden md:flex items-center gap-8">
                         {['Features', 'Pricing', 'About', 'Contact'].map(item => (
-                            <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors">
-                                {item === 'Features' ? 'ფუნქციები' : item === 'Pricing' ? 'ფასები' : item === 'About' ? 'ჩვენს შესახებ' : 'კონტაქტი'}
+                            <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-widest">
+                                {item === 'Features' ? t.navFeatures : item === 'Pricing' ? t.navPricing : item === 'About' ? t.navAbout : t.navContact}
                             </a>
                         ))}
                     </nav>
 
                     <div className="flex items-center gap-4">
-                        <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors">
-                            შესვლა
+                        <Link href={user ? "/dashboard" : "/login"} className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-black px-8 py-3 rounded-xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-wide">
+                            {user ? t.dashboard : t.login}
                         </Link>
-                        <Link href="/register" className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-xl shadow-indigo-600/20 transition-all">
-                            დაწყება
-                        </Link>
+                        <LanguageSwitcher compact={true} variant="landing" align="right" />
                     </div>
                 </div>
             </header>
 
             <main>
-                {/* Hero Section */}
-                <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-                    <div className="absolute top-0 right-0 -z-10 w-[60%] h-full bg-gradient-to-bl from-indigo-50/50 to-transparent blur-3xl opacity-70" />
-                    <div className="absolute top-1/4 -left-20 -z-10 w-[40%] h-1/2 bg-gradient-to-tr from-violet-50/50 to-transparent blur-3xl opacity-70 rotate-12" />
-
-                    <div className="max-w-7xl mx-auto px-6 text-center lg:text-left">
+                {/* Hero Section - Restored to previous version */}
+                <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-slate-50/50">
+                    <div className="absolute top-0 right-0 -z-10 w-[60%] h-full bg-gradient-to-bl from-indigo-50 to-transparent blur-3xl opacity-70" />
+                    <div className="max-w-7xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
-                            <div className="space-y-8 max-w-2xl mx-auto lg:mx-0">
+                            <div className="space-y-8 max-w-2xl text-center lg:text-left">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
                                     <span className="flex h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-indigo-700">სტუდიის მართვის ახალი ეპოქა</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">{t.heroNewEra}</span>
                                 </div>
                                 <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-[1.1] tracking-tight whitespace-pre-line">
-                                    {settings.landingContent.heroTitle}
+                                    {settings.landingContent?.heroTitle || t.heroTitle}
                                 </h1>
-                                <p className="text-xl text-slate-600 font-medium leading-relaxed max-w-xl whitespace-pre-line">
-                                    {settings.landingContent.heroSubtitle}
+                                <p className="text-xl text-slate-600 font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 whitespace-pre-line">
+                                    {settings.landingContent?.heroSubtitle || t.heroSubtitle}
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 justify-center lg:justify-start">
-                                    <Link href="/register" className="w-full sm:w-auto px-8 py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                        დაიწყეთ უფასოდ <ArrowRight className="w-5 h-5" />
+                                    <Link href="/registration" className="w-full sm:w-auto px-8 py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
+                                        {t.heroStartFree} <ArrowRight className="w-5 h-5" />
                                     </Link>
-                                    <button className="w-full sm:w-auto px-8 py-5 bg-white text-slate-700 border border-slate-200 rounded-2xl font-black text-lg hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-                                        <Play className="w-5 h-5 fill-slate-700" /> დემო ვერსია
-                                    </button>
-                                </div>
-                                <div className="flex items-center gap-4 pt-6 justify-center lg:justify-start">
-                                    <div className="flex -space-x-3">
-                                        {[1, 2, 3, 4].map(i => (
-                                            <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center overflow-hidden">
-                                                <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="" className="w-full h-full object-cover" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="text-sm font-bold text-slate-500">
-                                        <span className="text-slate-900">50+</span> სტუდია უკვე გვენდობა
-                                    </div>
+                                    <Link href="/login" className="w-full sm:w-auto px-8 py-5 bg-white text-slate-700 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                                        <Play className="w-4 h-4 fill-slate-700" /> {l('პორტალზე შესვლა', 'Войти в портал', 'Portal')}
+                                    </Link>
                                 </div>
                             </div>
 
-                            <div className="relative">
-                                {/* Mockup Image Frame */}
-                                <div className="relative z-10 p-2 bg-slate-900/5 backdrop-blur-sm rounded-[2.5rem] border border-slate-200/50 shadow-2xl">
-                                    <div className="bg-white rounded-[2rem] overflow-hidden border border-slate-200 aspect-[4/3] relative group">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 mix-blend-overlay" />
-                                        <img src="https://placehold.co/800x600/8b5cf6/ffffff?text=Studio+Management" alt="App Mockup" className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" />
+                            <div className="relative group flex items-center justify-center lg:h-[500px]">
+                                {/* Animated Background Glow */}
+                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[400px] bg-indigo-500/5 blur-[100px] rounded-full animate-pulse-subtle" />
 
-                                        {/* Floating UI elements */}
-                                        <div className="absolute top-6 left-6 bg-white/90 backdrop-blur p-4 rounded-2xl shadow-2xl border border-white/50 animate-bounce-slow">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-600">
-                                                    <Sparkles className="w-4 h-4" />
+                                {/* Dynamic Floating Data Cards */}
+                                {heroSet === 0 && (
+                                    <>
+                                        {/* Set 1: Revenue & Students */}
+                                        <div className="absolute -top-4 right-2 md:top-2 md:right-0 z-30 transform scale-[0.72] md:scale-[1.04] origin-top-right">
+                                            <div className="bg-white/80 backdrop-blur-2xl p-2 md:p-4 rounded-[1.5rem] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] animate-bounce-slow">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                                                        <Banknote className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">{l('შემოსავალი', 'Доход', 'Revenue')}</div>
+                                                        <div className="flex items-baseline gap-1.5">
+                                                            <div className="text-lg font-black text-slate-900">₾4,250</div>
+                                                            <div className="text-[9px] font-black text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">+12%</div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">დღევანდელი შემოსავალი</p>
-                                                    <p className="text-sm font-black text-slate-900">1,200 ₾</p>
+                                                <div className="mt-3 h-10 w-full">
+                                                    <svg viewBox="0 0 100 30" className="w-full h-full text-emerald-500 overflow-visible">
+                                                        <path d="M0 25 Q 20 20, 30 15 T 50 18 T 70 5 T 100 12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                                    </svg>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur p-4 rounded-2xl shadow-2xl border border-white/50 animate-float">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-600">
-                                                    <Users className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">აქტიური სტუდენტები</p>
-                                                    <p className="text-sm font-black text-slate-900">142</p>
+                                        <div className="absolute -bottom-16 -left-4 md:-bottom-2 md:-left-4 z-30 transform scale-[0.72] md:scale-[1.04] origin-top-left">
+                                            <div className="bg-slate-900/95 backdrop-blur-2xl p-3 md:p-5 rounded-[2rem] border border-white/10 shadow-2xl animate-float-refined">
+                                                <div className="flex flex-col gap-3">
+                                                    <div className="flex items-center justify-between gap-8">
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">{l('სტუდენტები', 'Студенты', 'Students')}</div>
+                                                            <div className="text-xl font-black text-white">1,240</div>
+                                                        </div>
+                                                        <div className="flex -space-x-2.5">
+                                                            {[1, 2, 3].map(i => (
+                                                                <div key={i} className="w-8 h-8 rounded-full border-2 border-slate-900 bg-slate-800 overflow-hidden">
+                                                                    <img src={`/avatars/student_${i}.png`} alt="Student" className="w-full h-full object-cover" />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: '85%' }} />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </>
+                                )}
+
+                                {heroSet === 1 && (
+                                    <>
+                                        {/* Set 2: Attendance & Activity */}
+                                        <div className="absolute -top-4 right-2 md:top-2 md:right-0 z-30 transform scale-[0.72] md:scale-[1.04] origin-top-right">
+                                            <div className="bg-white/90 backdrop-blur-2xl p-3 md:p-4 rounded-[1.5rem] border border-slate-100 shadow-2xl animate-bounce-slow">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white">
+                                                        <Activity className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{l('დასწრება', 'Посещаемость', 'Attendance')}</div>
+                                                        <div className="text-xl font-black text-slate-900">94.2%</div>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 flex gap-1">
+                                                    {[40, 70, 45, 90, 65, 80, 50].map((h, i) => (
+                                                        <div key={i} className="flex-1 bg-indigo-100 rounded-full overflow-hidden flex flex-col justify-end h-8">
+                                                            <div className="w-full bg-indigo-500 rounded-full" style={{ height: `${h}%` }} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="absolute -bottom-16 -left-4 md:-bottom-2 md:-left-4 z-30 transform scale-[0.72] md:scale-[1.04] origin-top-left">
+                                            <div className="bg-white/90 backdrop-blur-2xl p-3 md:p-4 rounded-[2rem] border border-slate-100 shadow-2xl animate-float-refined">
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                                                            <TrendingUp className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{l('აქტიური აბონემენტი', 'Активные планы', 'Active Plans')}</div>
+                                                    </div>
+                                                    <div className="text-2xl font-black text-slate-900">856</div>
+                                                    <div className="flex items-center gap-2 text-emerald-500 font-bold text-[10px]">
+                                                        <ArrowRight className="w-3 h-3 -rotate-45" /> +24% {l('ამ თვეში', 'в этом месяце', 'this month')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {heroSet === 2 && (
+                                    <>
+                                        {/* Set 3: New Leads & Calendar */}
+                                        <div className="absolute -top-4 right-2 md:top-2 md:right-0 z-30 transform scale-[0.72] md:scale-[1.04] origin-top-right">
+                                            <div className="bg-white/90 backdrop-blur-2xl p-3 md:p-4 rounded-[1.5rem] border border-slate-100 shadow-2xl animate-bounce-slow">
+                                                <div className="flex items-center gap-4 mb-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white">
+                                                        <Users className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{l('ახალი ლიდები', 'Новые лиды', 'New Leads')}</div>
+                                                        <div className="text-xl font-black text-slate-900">+42</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex -space-x-2">
+                                                    {[1, 2, 3, 4].map(i => (
+                                                        <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 overflow-hidden">
+                                                            <img src={`/avatars/student_${i}.png`} alt="Student" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="absolute -bottom-16 -left-4 md:-bottom-2 md:-left-4 z-30 transform scale-[0.72] md:scale-[1.04] origin-top-left">
+                                            <div className="bg-indigo-600 text-white p-3 md:p-4 rounded-[2rem] shadow-2xl animate-float-refined">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <Calendar className="w-4 h-4 opacity-60" />
+                                                    <div className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">{l('განრიგი', 'Расписание', 'Schedule')}</div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="text-xs font-bold bg-white/10 px-2 py-1.5 rounded-lg border border-white/10">Yoga Class - 10:00</div>
+                                                    <div className="text-xs font-bold bg-white/10 px-2 py-1.5 rounded-lg border border-white/10 opacity-60">Ballet - 12:30</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Main Mockup Wrapper */}
+                                <div className="relative z-10 p-2.5 bg-white/30 backdrop-blur-md rounded-[2.5rem] border border-white/50 shadow-[0_40px_100px_rgba(0,0,0,0.1)] transition-all duration-700 hover:scale-[1.01] group">
+                                    <div className="absolute -inset-0.5 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-[2.5rem] blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <img
+                                        src="/overview.webp"
+                                        alt="ClassCore Dashboard Mockup"
+                                        className="rounded-[2rem] w-full h-auto shadow-2xl relative z-10"
+                                    />
                                 </div>
-
-                                {/* Abstract shapes */}
-                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/10 rounded-full blur-3xl animate-pulse" />
-                                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-violet-600/10 rounded-full blur-3xl animate-pulse delay-700" />
                             </div>
                         </div>
                     </div>
                 </section>
 
                 {/* Features Section */}
-                <section id="features" className="py-24 bg-slate-50/50">
+                <section id="features" className="py-24 bg-white relative">
                     <div className="max-w-7xl mx-auto px-6">
-                        <div className="text-center space-y-4 mb-16">
-                            <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">ძირითადი ფუნქციები</h2>
-                            <p className="text-4xl lg:text-5xl font-black text-slate-900">ყველაფერი რაც თქვენს <br />სტუდიას სჭირდება</p>
+                        <div className="text-center space-y-4 mb-20">
+                            <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.mainFeatures}</h2>
+                            <p className="text-4xl lg:text-5xl font-black text-slate-900">{t.allYourStudioNeeds}</p>
                         </div>
 
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {settings.landingContent.features.map((f, i) => {
-                                const Icon = ICON_MAP[f.icon] || Sparkles;
-                                return (
-                                    <div key={i} className="group p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 transition-all duration-300">
-                                        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 transition-transform bg-indigo-500")}>
-                                            <Icon className="w-7 h-7" />
-                                        </div>
-                                        <h3 className="text-xl font-black text-slate-900 mb-3">{f.title}</h3>
-                                        <p className="text-slate-600 font-medium leading-relaxed">{f.desc}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[300px]">
+                            {/* Management Card */}
+                            <div className="md:col-span-8 group relative overflow-hidden bg-slate-50 border border-slate-100 rounded-[2.5rem] p-8 lg:p-12 hover:border-indigo-100 transition-all duration-500">
+                                <div className="space-y-4 max-w-sm relative z-10">
+                                    <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-600/20">
+                                        <Users className="w-7 h-7" />
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </section>
-
-                {/* Dashboard Preview Section */}
-                <section className="py-24 overflow-hidden">
-                    <div className="max-w-7xl mx-auto px-6">
-                        <div className="bg-slate-900 rounded-[3.5rem] p-8 lg:p-20 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-[50%] h-full bg-indigo-500/10 blur-[120px]" />
-                            <div className="absolute bottom-0 left-0 w-[30%] h-1/2 bg-violet-600/10 blur-[100px]" />
-
-                            <div className="grid lg:grid-cols-2 gap-16 items-center relative z-10">
-                                <div className="space-y-8">
-                                    <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight">სრული კონტროლი თქვენს ხელთაა</h2>
-                                    <p className="text-slate-400 text-lg font-medium leading-relaxed">
-                                        ჩვენი დეშბორდი შექმნილია მაქსიმალური ეფექტურობისთვის. ერთი შეხედვით ხედავთ სტუდიის ყველა მნიშვნელოვან მაჩვენებელს.
-                                    </p>
-                                    <ul className="space-y-4">
-                                        {['ინტუიციური ინტერფეისი', 'მუქი და ღია რეჟიმები', 'მობილურით მართვა', 'მრავალენოვანი მხარდაჭერა'].map((item, i) => (
-                                            <li key={i} className="flex items-center gap-3 text-white font-bold">
-                                                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                                </div>
-                                                {item}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    <Link href="/dashboard" className="inline-flex items-center gap-2 px-8 py-4 bg-white text-slate-900 rounded-2xl font-black hover:scale-105 active:scale-95 transition-all">
-                                        ნახეთ დემო <ChevronRight className="w-5 h-5" />
-                                    </Link>
+                                    <h3 className="text-2xl font-black text-slate-900">{FEATURES_LIST[2].title}</h3>
+                                    <p className="text-slate-500 font-medium leading-relaxed">{l('მართეთ ჯგუფები, მოსწავლეები და დასწრება ერთ სრულყოფილ სივრცეში.', 'Управляйте группами, учениками и посещаемостью.', 'Manage groups, students, and attendance easily.')}</p>
                                 </div>
-                                <div className="relative group">
-                                    <div className="absolute inset-0 bg-indigo-500/20 blur-[100px] group-hover:bg-indigo-500/30 transition-all" />
-                                    <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-3xl p-3 shadow-2xl relative">
-                                        <div className="bg-slate-900 rounded-2xl overflow-hidden aspect-video relative">
-                                            <img src="https://placehold.co/1200x800/6366f1/ffffff?text=ClassCore+Dashboard" alt="App UI" className="w-full h-full object-cover opacity-60" />
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className="w-20 h-20 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-2xl cursor-pointer hover:scale-110 active:scale-95 transition-all">
-                                                    <Play className="w-8 h-8 fill-slate-900 ml-1" />
-                                                </div>
+                                <div className="absolute bottom-[-10%] right-[-5%] w-[60%] aspect-video bg-white rounded-3xl border border-slate-100 shadow-2xl p-4 translate-y-8 group-hover:translate-y-4 transition-transform duration-700">
+                                    <div className="space-y-3">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                                                <div className="w-24 h-2 bg-slate-200 rounded-full" />
+                                                <Check className="w-4 h-4 text-emerald-500" />
                                             </div>
-                                        </div>
+                                        ))}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Automation Card */}
+                            <div className="md:col-span-4 group relative overflow-hidden bg-indigo-600 rounded-[2.5rem] p-8 lg:p-10 text-white hover:bg-indigo-700 transition-all duration-500 shadow-xl shadow-indigo-600/20">
+                                <div className="space-y-4 relative z-10">
+                                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center">
+                                        <Sparkles className="w-7 h-7" />
+                                    </div>
+                                    <h3 className="text-2xl font-black">{FEATURES_LIST[8].title}</h3>
+                                    <p className="text-indigo-100 font-medium opacity-80">{l('ავტომატური შეტყობინებები.', 'Автоматические уведомления.', 'Automated SMS alerts.')}</p>
+                                </div>
+                            </div>
+
+                            {/* Analytics Card */}
+                            <div className="md:col-span-4 group relative overflow-hidden bg-slate-900 rounded-[2.5rem] p-8 lg:p-10 transition-all duration-500">
+                                <div className="space-y-4 relative z-10">
+                                    <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-xl shadow-emerald-500/20">
+                                        <LayoutDashboard className="w-7 h-7" />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-white">{FEATURES_LIST[10].title}</h3>
+                                    <p className="text-slate-400 font-medium">{l('დეტალური რეპორტები.', 'Детальные отчеты.', 'Detailed insight reports.')}</p>
+                                </div>
+                            </div>
+
+                            {/* Finance & Shop Card */}
+                            <div className="md:col-span-8 group relative overflow-hidden bg-white border border-slate-100 rounded-[2.5rem] p-8 lg:p-10 flex flex-col md:flex-row gap-8 items-center hover:shadow-xl transition-all duration-500">
+                                <div className="space-y-4 flex-1">
+                                    <div className="flex gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center"><Banknote className="w-6 h-6" /></div>
+                                        <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center"><Calendar className="w-6 h-6" /></div>
+                                    </div>
+                                    <h3 className="text-2xl font-black text-slate-900">{l('ფინანსური მართვა & მაღაზია', 'Финансы и Магазин', 'Finances & Shop')}</h3>
+                                    <p className="text-slate-500 font-medium">{l('გადახდები და შიდა გაყიდვები.', 'Платежи и продажи.', 'Payments and in-store sales.')}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                {/* Pricing Section */}
-                <section id="pricing" className="py-24">
+                {/* About Section */}
+                <section id="about" className="py-24 bg-slate-50">
                     <div className="max-w-7xl mx-auto px-6">
-                        <div className="text-center space-y-4 mb-20">
-                            <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">გეგმები და ფასები</h2>
-                            <p className="text-4xl lg:text-5xl font-black text-slate-900">აირჩიეთ თქვენი გეგმა</p>
-                            <p className="text-slate-500 font-medium">14 დღიანი უფასო საცდელი პერიოდი ყველა გეგმაზე</p>
+                        <div className="grid lg:grid-cols-2 gap-16 items-center">
+                            <div className="space-y-8 text-center lg:text-left">
+                                <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.navAbout}</h2>
+                                <h3 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight">
+                                    {l('ციფრული მომავალი თქვენი სტუდიისთვის', 'Цифровое будущее вашей студии', 'The digital future for your studio')}
+                                </h3>
+                                <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-xl mx-auto lg:mx-0">
+                                    {l('ClassCore შეიქმნა ერთი მიზნით: დაეხმაროს სტუდიებს მართვის პროცესის სრულ ავტომატიზაციაში.', 'ClassCore был создан для автоматизации студий.', 'ClassCore was built to automate your studio management.')}
+                                </p>
+                                <div className="grid grid-cols-2 gap-6 pt-4 max-w-sm mx-auto lg:mx-0">
+                                    <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
+                                        <div className="text-3xl font-black text-indigo-600 mb-1">50+</div>
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{l('სტუდია', 'Студий', 'Studios')}</div>
+                                    </div>
+                                    <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
+                                        <div className="text-3xl font-black text-emerald-500 mb-1">99%</div>
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{l('კმაყოფილი', 'Довольных', 'Happy')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="relative grid grid-cols-2 gap-6 p-8 bg-white rounded-[3rem] border border-slate-200 shadow-2xl group overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+                                {FEATURES_LIST.slice(0, 4).map((f, i) => (
+                                    <div key={i} className="relative z-10 p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-white hover:shadow-xl transition-all duration-300 group/item">
+                                        <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600 mb-4 group-hover/item:scale-110 transition-transform">
+                                            {/* @ts-ignore */}
+                                            {ICON_MAP[f.icon] ? React.createElement(ICON_MAP[f.icon], { className: "w-6 h-6" }) : <Star className="w-6 h-6" />}
+                                        </div>
+                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">{f.title}</h4>
+                                    </div>
+                                ))}
+
+                                {/* Atmosphere elements */}
+                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-100/50 blur-3xl rounded-full" />
+                                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-emerald-100/50 blur-3xl rounded-full" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* System Overview Section */}
+                <section id="overview" className="py-24 bg-slate-900 border-y border-white/5 relative overflow-hidden">
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+                    <div className="max-w-7xl mx-auto px-6 relative z-10">
+                        <div className="text-center mb-16 space-y-6">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
+                                <span className="flex h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">{l('სისტემის მიმოხილვა', 'Обзор системы', 'System Overview')}</span>
+                            </div>
+                            <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight tracking-tight">
+                                {t.fullControl}
+                            </h2>
+                            <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-medium leading-relaxed">
+                                {t.controlDesc}
+                            </p>
                         </div>
 
-                        <div className="grid lg:grid-cols-3 gap-8">
-                            {PLANS.map((plan, i) => (
-                                <div key={i} className={cn(
-                                    "relative p-10 rounded-[3rem] border transition-all duration-300 group",
-                                    plan.popular
-                                        ? "bg-slate-900 border-slate-900 shadow-2xl shadow-indigo-500/20 scale-105 z-10"
-                                        : "bg-white border-slate-100 hover:border-slate-200 shadow-sm"
-                                )}>
-                                    {plan.popular && (
-                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">
-                                            რეკომენდებული
-                                        </div>
-                                    )}
-                                    <div className="space-y-6">
-                                        <div>
-                                            <h3 className={cn("text-2xl font-black mb-1", plan.popular ? "text-white" : "text-slate-900")}>{plan.name}</h3>
-                                            <p className={cn("text-sm font-medium", plan.popular ? "text-slate-400" : "text-slate-500")}>{plan.desc}</p>
-                                        </div>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className={cn("text-4xl font-black", plan.popular ? "text-white" : "text-slate-900")}>{plan.price} ₾</span>
-                                            <span className={cn("text-sm font-medium", plan.popular ? "text-slate-500" : "text-slate-400")}>/თვე</span>
-                                        </div>
-                                        <div className="space-y-4 pt-6">
-                                            {plan.features.map((f, fi) => (
-                                                <div key={fi} className="flex items-center gap-3">
-                                                    <Check className={cn("w-5 h-5", plan.popular ? "text-emerald-400" : "text-indigo-600")} strokeWidth={3} />
-                                                    <span className={cn("text-sm font-semibold", plan.popular ? "text-slate-300" : "text-slate-600")}>{f}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <Link href="/register" className={cn(
-                                            "w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 mt-6",
-                                            plan.popular
-                                                ? "bg-indigo-600 text-white hover:bg-indigo-500"
-                                                : "bg-slate-100 text-slate-800 hover:bg-slate-200"
-                                        )}>
-                                            დაწყება <ArrowRight className="w-4 h-4" />
-                                        </Link>
+                        <div className="relative group max-w-5xl mx-auto">
+                            <div className="absolute -inset-4 bg-indigo-500/10 rounded-[2rem] blur-2xl opacity-50 group-hover:opacity-100 transition duration-1000"></div>
+                            <div className="relative bg-[#020617] rounded-3xl overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] border border-white/10 h-[550px] md:h-auto md:aspect-video ring-1 ring-white/5">
+                                <SystemVideoOverview t={t} lang={lang} />
+                            </div>
+                        </div>
+
+                        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {[
+                                {
+                                    title: lang === 'ka' ? "სტუდენტების მართვა" : lang === 'ru' ? "Управление студентами" : "Student Management",
+                                    desc: lang === 'ka' ? "სრული ბაზა, აბონემენტების აღრიცხვა და ისტორია" : lang === 'ru' ? "Полная база, учет абонементов и история" : "Full database, subscription tracking and history",
+                                    icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                                },
+                                {
+                                    title: lang === 'ka' ? "ჭკვიანი განრიგი" : lang === 'ru' ? "Умное расписание" : "Smart Scheduling",
+                                    desc: lang === 'ka' ? "გაკვეთილების დაგეგმვა და ოთახების მართვა" : lang === 'ru' ? "Планирование занятий и управление залами" : "Session planning and room management",
+                                    icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                },
+                                {
+                                    title: lang === 'ka' ? "ფინანსური ანალიტიკა" : lang === 'ru' ? "Финансовая аналитика" : "Financial Analytics",
+                                    desc: lang === 'ka' ? "შემოსავლების და ხარჯების დეტალური კონტროლი" : lang === 'ru' ? "Детальный контроль доходов и расходов" : "Detailed control of income and expenses",
+                                    icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                }
+                            ].map((item, i) => (
+                                <div key={i} className="group p-8 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
+                                    <div className="w-12 h-12 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-6 text-indigo-400 group-hover:scale-110 transition-transform duration-300">
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+                                        </svg>
                                     </div>
+                                    <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{item.title}</h3>
+                                    <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </section>
 
-                {/* CTA Section */}
-                <section className="py-24 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-indigo-600" />
-                    <div className="absolute top-0 right-0 w-[40%] h-full bg-white/10 skew-x-12 translate-x-1/2" />
+                {/* Pricing Section */}
+                <section id="pricing" className="py-24 bg-white relative">
+                    <div className="max-w-7xl mx-auto px-6 text-center">
+                        <div className="space-y-4 mb-20">
+                            <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.navPricing}</h2>
+                            <p className="text-4xl lg:text-5xl font-black text-slate-900">{t.choosePlan}</p>
+                        </div>
 
-                    <div className="max-w-4xl mx-auto px-6 text-center relative z-10 space-y-10">
-                        <h2 className="text-4xl lg:text-7xl font-black text-white leading-tight uppercase italic tracking-tighter">
-                            მზად ხართ სტუდიის <br />შემდეგ ეტაპზე გადასაყვანად?
-                        </h2>
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                            <Link href="/register" className="w-full sm:w-auto px-10 py-6 bg-white text-indigo-600 rounded-3xl font-black text-xl shadow-2xl shadow-black/20 hover:scale-105 active:scale-95 transition-all">
-                                დაიწყეთ დღესვე
-                            </Link>
-                            <Link href="/contact" className="w-full sm:w-auto px-10 py-6 bg-transparent text-white border-2 border-white/30 hover:bg-white/10 rounded-3xl font-black text-xl transition-all">
-                                კონსულტაცია
-                            </Link>
+                        <div className="max-w-2xl mx-auto relative px-6 py-12 md:p-16 rounded-3xl md:rounded-[4rem] border border-slate-100 bg-slate-900 shadow-2xl overflow-hidden group hover:border-indigo-500/50 transition-all duration-500 text-left">
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-6 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full">{t.popular}</div>
+                            <div className="relative z-10 space-y-12">
+                                <div className="space-y-4">
+                                    <h3 className="text-xl md:text-4xl font-black text-white">{l('სრული პაკეტი', 'Полный пакет', 'ClassCore Full')}</h3>
+                                    <p className="text-lg font-medium text-slate-400">{t.plansSubtitle}</p>
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-5xl md:text-7xl font-black text-white">{formatCurrency(49, 'GEL')}</span>
+                                    <span className="text-xl font-medium text-slate-500">/{t.billingPerMonth}</span>
+                                </div>
+                                <div className="grid sm:grid-cols-2 gap-4 pt-10 border-t border-slate-800">
+                                    {[l('ყველა ფუნქცია', 'Все функции', 'All Features'), l('ულიმიტო მოსწავლეები', 'Безлимитно учеников', 'Unlimited Students'), l('3 ადმინისტრატორი', '3 администратора', '3 Admins'), l('SMS პაკეტი', 'SMS пакет', 'SMS Included')].map((f, fi) => (
+                                        <div key={fi} className="flex items-center gap-3">
+                                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500"><Check className="w-3 h-3" /></div>
+                                            <span className="text-sm font-semibold text-slate-300">{f}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <Link href="/registration" className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-black text-lg uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-3">
+                                    {t.heroStartFree} <ChevronRight className="w-5 h-5" />
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Contact Section */}
+                <section id="contact" className="py-24 bg-slate-50">
+                    <div className="max-w-7xl mx-auto px-6">
+                        <div className="grid lg:grid-cols-2 gap-16 items-center">
+                            <div className="space-y-8">
+                                <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.navContact}</h2>
+                                <h3 className="text-4xl lg:text-5xl font-black text-slate-900">{l('დაგვიკავშირდით', 'Свяжитесь с нами', 'Get in Touch')}</h3>
+                                <div className="space-y-4 pt-4">
+                                    <div className="flex items-center gap-4 text-slate-600 font-bold"><Globe className="w-5 h-5 text-indigo-500" /> support@classcore.ge</div>
+                                    <div className="flex items-center gap-4 text-slate-600 font-bold"><Zap className="w-5 h-5 text-indigo-500" /> +995 555 13 00 13</div>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleContactSubmit} className="bg-white p-8 lg:p-12 rounded-[3.5rem] border border-slate-100 shadow-2xl space-y-6">
+                                <div className="grid grid-cols-2 gap-6">
+                                    <input type="text" placeholder={l('სახელი', 'Имя', 'Name')} required className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                    <input type="text" placeholder={l('ტელეფონი', 'Телефон', 'Phone')} required className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                                </div>
+                                <textarea rows={4} placeholder={l('შეტყობინება', 'Сообщение', 'Message')} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} />
+                                <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
+                                    {submitting ? '...' : l('გაგზავნა', 'Отправить', 'Send')}
+                                </button>
+                                {submitStatus === 'success' && <p className="text-center text-emerald-600 font-black text-sm">{l('წარმატებით გაიგზავნა', 'Отправлено успешно', 'Sent successfully')}</p>}
+                            </form>
                         </div>
                     </div>
                 </section>
             </main>
 
-            {/* Footer */}
-            <footer className="bg-white border-t border-slate-100 py-16">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="grid md:grid-cols-4 gap-12">
-                        <div className="col-span-2 space-y-6">
-                            <div className="flex items-center gap-3">
-                                {settings.logoDataUrl ? (
-                                    <img
-                                        src={settings.logoDataUrl}
-                                        alt="Logo"
-                                        className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-black/5"
-                                    />
-                                ) : (
-                                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 relative group">
-                                        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain logo-white rounded-xl"
-                                            onError={(e) => (e.currentTarget.style.display = 'none')} />
-                                        <Zap className="w-6 h-6 text-white absolute inset-0 m-auto opacity-0" strokeWidth={2.5} />
-                                    </div>
-                                )}
-                                <span className="text-2xl font-black tracking-tight text-slate-900">ClassCore</span>
+            <footer className="py-20 bg-white border-t border-slate-100">
+                <div className="max-w-7xl mx-auto px-6 text-center md:text-left">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-12">
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-2 justify-center md:justify-start">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white"><Zap className="w-5 h-5" /></div>
+                                <span className="text-xl font-black">ClassCore</span>
                             </div>
-                            <p className="text-slate-500 font-medium max-w-sm">
-                                საუკეთესო ინსტრუმენტი თქვენი ბიზნესის ზრდისთვის. ჩვენ ვზრუნავთ ტექნიკურ მხარეზე, თქვენ კი — შემოქმედებაზე.
-                            </p>
+                            <p className="text-slate-500 font-medium max-w-sm">© 2026 ClassCore. {t.allRightsReserved}</p>
                         </div>
-                        <div>
-                            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">პროდუქტი</h4>
-                            <ul className="space-y-4 text-slate-500 font-semibold text-sm">
-                                <li><a href="#features" className="hover:text-indigo-600 transition-colors">ფუნქციები</a></li>
-                                <li><a href="#pricing" className="hover:text-indigo-600 transition-colors">ფასები</a></li>
-                                <li><a href="#" className="hover:text-indigo-600 transition-colors">დემო</a></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">კონტაქტი</h4>
-                            <ul className="space-y-4 text-slate-500 font-semibold text-sm">
-                                <li>support@classcore.ge</li>
-                                <li>+995 555 12 34 56</li>
-                                <li>თბილისი, საქართველო</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
-                        <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">© 2026 ClassCore. All rights reserved.</p>
-                        <div className="flex gap-6">
-                            <a href="#" className="text-slate-400 hover:text-indigo-600 transition-colors"><Zap className="w-5 h-5" /></a>
-                            <a href="#" className="text-slate-400 hover:text-indigo-600 transition-colors"><LayoutDashboard className="w-5 h-5" /></a>
-                            <a href="#" className="text-slate-400 hover:text-indigo-600 transition-colors"><Laptop className="w-5 h-5" /></a>
+                        <div className="flex gap-12 text-sm font-black text-slate-400 uppercase tracking-widest">
+                            <Link href="/privacy" className="hover:text-indigo-600">{l('კონფიდენციალურობა', 'Конфиденциальность', 'Privacy')}</Link>
+                            <Link href="/terms" className="hover:text-indigo-600">{l('წესები და პირობები', 'Условия', 'Terms')}</Link>
                         </div>
                     </div>
                 </div>
@@ -382,11 +669,3 @@ export default function LandingPage() {
         </div>
     );
 }
-
-// Add these to globals.css if not present
-// @keyframes float {
-//   0%, 100% { transform: translateY(0); }
-//   50% { transform: translateY(-20px); }
-// }
-// .animate-float { animation: float 6s ease-in-out infinite; }
-// .animate-bounce-slow { animation: bounce 4s infinite; }

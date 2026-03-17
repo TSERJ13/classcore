@@ -1,8 +1,9 @@
+import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import React, { type ReactNode } from 'react';
-import '@/app/globals.css';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { StudioProvider } from '@/contexts/StudioContext';
+import { ConfirmProvider } from '@/contexts/ConfirmContext';
 
 export const metadata: Metadata = {
     title: 'ClassCore | სტუდიის მართვის სისტემა',
@@ -10,10 +11,15 @@ export const metadata: Metadata = {
     keywords: ['CRM', 'studio', 'dance', 'sports', 'yoga', 'fitness', 'Georgia'],
     authors: [{ name: 'ClassCore', url: 'https://classcore.ge' }],
     icons: {
-        icon: '/favicon.png',
-        shortcut: '/favicon.png',
-        apple: '/favicon.png',
+        icon: [
+            { url: '/logo.svg' },
+        ],
+        shortcut: '/logo.svg',
+        apple: [
+            { url: '/logo.svg' },
+        ],
     },
+    manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {
@@ -21,44 +27,48 @@ export const viewport: Viewport = {
     initialScale: 1,
     viewportFit: 'cover',
     userScalable: false,
-    themeColor: '#3E2723',
+    themeColor: '#6366f1',
 };
 
-const themeInitScript = `
-(function(){
-  var STORAGE_KEY = 'sf_studio_settings';
-  var th={charcoal:'#0e0e12',slate:'#0d1117',midnight:'#080c14',zinc:'#18181b',abyss:'#050508',forest:'#071310',cosmos:'#0c0a14',white:'#ffffff',ivory:'#fefcf8',cocoa:'#faf5ed'};
-  var surf={charcoal:'#111116',slate:'#161b22',midnight:'#0d1424',zinc:'#1c1c1f',abyss:'#0a0a0f',forest:'#0c1c18',cosmos:'#120f1e',white:'#f8f9fa',ivory:'#faf8f3',cocoa:'#f3ede4'};
-  var card={charcoal:'#161620',slate:'#1c2128',midnight:'#121c30',zinc:'#212125',abyss:'#0f0f16',forest:'#112420',cosmos:'#181428',white:'#ffffff',ivory:'#ffffff',cocoa:'#ffffff'};
-  var light=['white','ivory','cocoa'];
-  var stored = localStorage.getItem(STORAGE_KEY);
-  var bgKey = 'white';
-  try { if(stored) bgKey = JSON.parse(stored).bgKey || 'white'; } catch(e){}
-  var b=th[bgKey]||th.white, s=surf[bgKey]||surf.white, c=card[bgKey]||card.white;
-  var isL=light.indexOf(bgKey)!==-1;
-  var el=document.documentElement;
-  el.style.setProperty('--bg-base',b);el.style.setProperty('--bg-surface',s);el.style.setProperty('--bg-card',c);
-  el.style.setProperty('--text-primary',isL?'#111827':'#ffffff');
-  el.style.setProperty('--text-muted',isL?'#6b7280':'rgba(255,255,255,0.6)');
-  el.style.setProperty('--border-subtle',isL?'rgba(0,0,0,0.06)':'rgba(255,255,255,0.1)');
-  if(isL)el.classList.add('light-theme');else el.classList.remove('light-theme');
-})();
-`;
+import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="ka" suppressHydrationWarning>
-            <head />
-            <body
-                className="min-h-screen bg-base text-[var(--text-primary)] antialiased"
-                style={{ backgroundColor: 'var(--bg-base, #3E2723)', color: 'var(--text-primary, #EFEBE9)' }}
-            >
-                <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-                <LanguageProvider>
-                    <StudioProvider>
-                        {children}
-                    </StudioProvider>
-                </LanguageProvider>
+            <head>
+                <script dangerouslySetInnerHTML={{
+                    __html: `
+(function(){
+  try {
+    var K='cc_studio_settings',
+        th={charcoal:'#0e0e12',midnight:'#080c14',abyss:'#050508',forest:'#071310',white:'#ffffff',ivory:'#fefcf8',cocoa:'#faf5ed'},
+        surf={charcoal:'#111116',midnight:'#0d1424',abyss:'#0a0a0f',forest:'#0c1c18',white:'#f8f9fa',ivory:'#faf8f3',cocoa:'#f3ede4'},
+        card={charcoal:'#161620',midnight:'#121c30',abyss:'#0f0f16',forest:'#112420',white:'#ffffff',ivory:'#ffffff',cocoa:'#ffffff'},
+        light=['white','ivory','cocoa'],
+        s=localStorage.getItem(K),
+        k='white';
+    if(s)k=JSON.parse(s).bgKey||'white';
+    var b=th[k]||th.white, su=surf[k]||surf.white, c=card[k]||card.white, L=light.indexOf(k)!==-1, e=document.documentElement;
+    e.style.setProperty('--bg-base',b);e.style.setProperty('--bg-surface',su);e.style.setProperty('--bg-card',c);
+    e.style.setProperty('--text-primary',L?'#111827':'#ffffff');
+    e.style.setProperty('--text-muted',L?'#6b7280':'rgba(255,255,255,0.6)');
+    e.style.setProperty('--border-subtle',L?'rgba(0,0,0,0.06)':'rgba(255,255,255,0.1)');
+    if(L)e.classList.add('light-theme');else e.classList.remove('light-theme');
+  } catch(e){}
+})();
+                ` }} />
+                <link rel="apple-touch-icon" href="/logo.svg" />
+            </head>
+            <body className="min-h-screen bg-base antialiased font-sans">
+                <GlobalErrorBoundary>
+                    <LanguageProvider>
+                        <StudioProvider>
+                            <ConfirmProvider>
+                                {children}
+                            </ConfirmProvider>
+                        </StudioProvider>
+                    </LanguageProvider>
+                </GlobalErrorBoundary>
             </body>
         </html>
     );

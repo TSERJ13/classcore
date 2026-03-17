@@ -1,7 +1,9 @@
+import { incrementSessionsUsed, getSubscription, refundSessionsUsed } from './subscription-store';
+import { getScopedKey } from './settings-store';
 /**
  * checkin-store.ts
- * localStorage-based store for attendance records and session deductions.
- * All data is keyed per-day and per-student.
+ * localStorage-based store for attendance records.
+ * Relies on subscription-store.ts for session counting.
  */
 
 export interface CheckinRecord {
@@ -11,19 +13,9 @@ export interface CheckinRecord {
     time: string;        // HH:MM
     via: 'nfc' | 'qr' | 'manual';
     sessionsRemaining: number;
+    classId?: string;
+    groupId?: string;
 }
-
-// Initial sessions per student (mock subscription data)
-const INITIAL_SESSIONS: Record<string, number> = {
-    '1': 5,  // ნინო ბერიძე       (12 total, 7 used)
-    '2': 8,  // გიორგი კვირიკაშვილი
-    '3': 3,  // ანა ჩხეიძე
-    '4': 10, // დავით მეფარიშვილი
-    '5': 6,  // მარიამ ლომიძე
-    '6': 2,  // ლუკა ჯავახიშვილი
-    '7': 7,  // სოფო კაციტაძე
-    '8': 4,  // თამო ღვინიაშვილი
-};
 
 function today(): string {
     return new Date().toISOString().split('T')[0];
@@ -33,33 +25,38 @@ function nowTime(): string {
     return new Date().toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── Sessions ────────────────────────────────────────────────────────────────
+// ─── Sessions (Delegated to subscription-store) ──────────────────────────────
 
-function sessionsKey(studentId: string) {
-    return `sf_sessions_${studentId}`;
-}
-
-export function getSessionsRemaining(studentId: string): number {
-    if (typeof window === 'undefined') return INITIAL_SESSIONS[studentId] ?? 0;
-    const stored = localStorage.getItem(sessionsKey(studentId));
-    if (stored !== null) return parseInt(stored, 10);
-    return INITIAL_SESSIONS[studentId] ?? 0;
-}
-
-function setSessionsRemaining(studentId: string, count: number) {
-    localStorage.setItem(sessionsKey(studentId), String(Math.max(0, count)));
+export function getSessionsRemaining(studentId: string, groupId?: string, planType?: 'group' | 'individual' | 'rental'): number {
+    const sub = getSubscription(studentId, groupId, planType);
+    if (!sub) return 0;
+    if (sub.type === 'monthly') {
+        const now = new Date();
+        const expiry = new Date(sub.expires_at);
+        if (expiry < now) return 0;
+        return 30; // Mock 
+    }
+    if (sub.sessions_total === null) return 0;
+    return Math.max(0, sub.sessions_total - sub.sessions_used);
 }
 
 // ─── Daily Checkins ───────────────────────────────────────────────────────────
 
+const BASE_CHECKINS_PREFIX = 'cc_checkins_';
+
 function dayKey(date?: string) {
-    return `sf_checkins_${date ?? today()}`;
+    const base = `${BASE_CHECKINS_PREFIX}${date ?? today()}`;
+    return getScopedKey(base);
 }
 
 export function getTodayCheckins(): CheckinRecord[] {
     if (typeof window === 'undefined') return [];
     try {
-        return JSON.parse(localStorage.getItem(dayKey()) ?? '[]') as CheckinRecord[];
+        const key = dayKey();
+        let saved = localStorage.getItem(key);
+
+        const parsed = JSON.parse(saved ?? '[]');
+        return Array.isArray(parsed) ? parsed : [] as CheckinRecord[];
     } catch {
         return [];
     }
@@ -88,15 +85,21 @@ export function recordCheckin(
     studentId: string,
     studentName: string,
     via: 'nfc' | 'qr' | 'manual',
+    classId?: string,
+    groupId?: string,
+    subId?: string
 ): CheckinResult {
-    if (hasCheckinToday(studentId)) {
+    const todayRecs = getTodayCheckins();
+    const already = todayRecs.some(r => r.studentId === studentId);
+
+    if (already && via !== 'manual') {
         return {
             success: false,
             alreadyCheckedIn: true,
-            sessionsRemaining: getSessionsRemaining(studentId),
+            sessionsRemaining: getSessionsRemaining(studentId, groupId),
         };
     }
-    return _writeCheckin(studentId, studentName, via);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId);
 }
 
 /**
@@ -107,19 +110,43 @@ export function forceCheckin(
     studentId: string,
     studentName: string,
     via: 'nfc' | 'qr' | 'manual',
+    classId?: string,
+    groupId?: string,
+    subId?: string
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId);
+}
+
+/** Refund a checkin: increments sessions back */
+export function refundCheckin(studentId: string): void {
+    const existing = getTodayCheckins();
+    const record = existing.find(r => r.studentId === studentId);
+
+    if (record) {
+        // Delegate refund to subscription store
+        refundSessionsUsed(studentId);
+
+        // Remove only the latest checkin from today
+        const updated = [...existing];
+        const idx = updated.findLastIndex(r => r.studentId === studentId);
+        if (idx > -1) updated.splice(idx, 1);
+        localStorage.setItem(dayKey(), JSON.stringify(updated));
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
+    }
 }
 
 function _writeCheckin(
     studentId: string,
     studentName: string,
     via: 'nfc' | 'qr' | 'manual',
+    classId?: string,
+    groupId?: string,
+    subId?: string
 ): CheckinResult {
-    const prev = getSessionsRemaining(studentId);
-    const next = Math.max(0, prev - 1);
-    setSessionsRemaining(studentId, next);
+    // Increment sessions used in the main subscription store
+    incrementSessionsUsed(studentId, subId);
 
+    const next = getSessionsRemaining(studentId, groupId);
     const record: CheckinRecord = {
         studentId,
         studentName,
@@ -127,9 +154,66 @@ function _writeCheckin(
         time: nowTime(),
         via,
         sessionsRemaining: next,
+        classId,
+        groupId,
     };
     const existing = getTodayCheckins();
-    localStorage.setItem(dayKey(), JSON.stringify([...existing, record]));
+    const key = dayKey();
+    localStorage.setItem(key, JSON.stringify([...existing, record]));
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
 
     return { success: true, alreadyCheckedIn: false, sessionsRemaining: next, record };
+}
+export function getStudentCheckins(studentId: string): CheckinRecord[] {
+    if (typeof window === 'undefined') return [];
+
+    const history: CheckinRecord[] = [];
+    const keys = Object.keys(localStorage);
+
+    // ONLY look for keys that match the current scoped prefix
+    // This prevents history from other branches/studios from leaking
+    const prefix = getScopedKey(BASE_CHECKINS_PREFIX);
+
+    keys.forEach(key => {
+        if (key.startsWith(prefix)) {
+            try {
+                const records = JSON.parse(localStorage.getItem(key) ?? '[]') as CheckinRecord[];
+                records.forEach(r => {
+                    if (r.studentId === studentId) history.push(r);
+                });
+            } catch (e) {
+                console.error('Error parsing checkin record', key, e);
+            }
+        }
+    });
+
+    // Sort by date and time descending
+    return history.sort((a, b) => {
+        const dateCompare = (b.date || '').localeCompare(a.date || '');
+        if (dateCompare !== 0) return dateCompare;
+        return (b.time || '').localeCompare(a.time || '');
+    });
+}
+// ─── History Deletion ────────────────────────────────────────────────────────
+
+/** Delete a specific checkin from history and refund sessions */
+export function deleteCheckin(studentId: string, date: string, time: string): void {
+    const key = dayKey(date);
+    const existing = JSON.parse(localStorage.getItem(key) ?? '[]') as CheckinRecord[];
+    const idx = existing.findIndex(r => r.studentId === studentId && r.time === time);
+
+    if (idx > -1) {
+        // Refund session
+        refundSessionsUsed(studentId);
+
+        // Remove record
+        const updated = [...existing];
+        updated.splice(idx, 1);
+        if (updated.length === 0) {
+            localStorage.removeItem(key);
+        } else {
+            localStorage.setItem(key, JSON.stringify(updated));
+        }
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
+    }
 }

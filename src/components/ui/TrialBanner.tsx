@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Zap, AlertTriangle, Clock } from 'lucide-react';
+import { X, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/contexts/LanguageContext';
 
 interface TrialBannerProps {
     trialEndsAt: string; // ISO date string
 }
 
 export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
+    const { t } = useT();
     const [dismissed, setDismissed] = useState(false);
 
     const now = new Date();
@@ -16,9 +18,6 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
     const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     if (dismissed || daysLeft > 14) return null;
-
-    const isUrgent = daysLeft <= 3;
-    const isWarning = daysLeft <= 7;
 
     return (
         <div className={cn(
@@ -29,10 +28,10 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
 
             <p className="flex-1 text-xs font-bold font-primary">
                 {daysLeft <= 0
-                    ? 'საცდელი ვერსია დასრულდა — '
-                    : `საცდელი ვერსია: ${daysLeft} დღე დარჩა — `}
+                    ? `${t.trialVersion} ${t.expired} — `
+                    : `${t.trialVersion}: ${daysLeft} ${t.daysLeft} — `}
                 <a href="/analytics" className="underline underline-offset-2 font-black hover:opacity-75 transition-opacity">
-                    {daysLeft <= 0 ? 'გააქტიურე სააბონემენტო' : 'გადახდის გვერდი →'}
+                    {daysLeft <= 0 ? t.activateSubscription : `${t.paymentPage} →`}
                 </a>
             </p>
 

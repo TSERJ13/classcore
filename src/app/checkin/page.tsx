@@ -1,21 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, QrCode, ArrowLeft, AlertCircle } from 'lucide-react';
-import Link from 'next/link';
-import { use } from 'react';
 import { recordCheckin } from '@/lib/checkin-store';
+import { QrCode, XCircle, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 // QR code → student lookup (id matches checkin-store INITIAL_SESSIONS keys)
 const STUDENT_DB: Record<string, { id: string; name: string; group: string }> = {
-    'SF4A3B': { id: '1', name: 'ნინო ბერიძე', group: 'Contemporary Dance' },
-    'SF7X9C': { id: '2', name: 'გიორგი კვირიკაშვილი', group: 'Ballet' },
-    'SF2M5K': { id: '3', name: 'ანა ჩხეიძე', group: 'Ballet' },
-    'SF8R1N': { id: '4', name: 'დავით მეფარიშვილი', group: 'Ballet' },
-    'SF3Q6P': { id: '5', name: 'მარიამ ლომიძე', group: 'Ballet' },
-    'SF9T2W': { id: '6', name: 'ლუკა ჯავახიშვილი', group: 'Contemporary Dance' },
-    'SF5H4V': { id: '7', name: 'სოფო კაციტაძე', group: 'Contemporary Dance' },
-    'SF1D8U': { id: '8', name: 'თამო ღვინიაშვილი', group: 'Ballet' },
+    'ID4A3B': { id: '1', name: 'ნინო ბერიძე', group: 'Contemporary Dance' },
+    'ID7X9C': { id: '2', name: 'გიორგი კვირიკაშვილი', group: 'Ballet' },
+    'ID2M5K': { id: '3', name: 'ანა ჩხეიძე', group: 'Ballet' },
+    'ID8R1N': { id: '4', name: 'დავით მეფარიშვილი', group: 'Ballet' },
+    'ID3Q6P': { id: '5', name: 'მარიამ ლომიძე', group: 'Ballet' },
+    'ID9T2W': { id: '6', name: 'ლუკა ჯავახიშვილი', group: 'Contemporary Dance' },
+    'ID5H4V': { id: '7', name: 'სოფო კაციტაძე', group: 'Contemporary Dance' },
+    'ID1D8U': { id: '8', name: 'თამო ღვინიაშვილი', group: 'Ballet' },
 };
 
 type CheckStatus = 'idle' | 'checking' | 'success' | 'already' | 'error';

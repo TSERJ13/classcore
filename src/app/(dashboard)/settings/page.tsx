@@ -1,15 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
-    Upload, Check, Camera, Save, Zap, Settings2,
+    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle
 } from 'lucide-react';
+import { checkCloudConnection, syncStaffToCloud } from '@/lib/sync-store';
+import { addNotification } from '@/lib/notification-store';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
-import { THEMES, BG_THEMES, type ThemeKey, type BgKey } from '@/lib/settings-store';
-import { cn, getInitials } from '@/lib/utils';
+import { useConfirm } from '@/contexts/ConfirmContext';
+import { THEMES, BG_THEMES, type ThemeKey, type BgKey, ensureUniqueName, ensureUniqueSlug, convertFinancialData, removeFromRegistry, cleanupRegistry } from '@/lib/settings-store';
+import { cn, getInitials, compactSlugify, formatCurrency } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -33,12 +39,18 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
     return (
-        <div className="bg-card border border-border-subtle rounded-2xl overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-border-subtle/50">
-                <Icon className="w-4 h-4 text-muted" />
-                <h2 className="text-sm font-bold text-primary">{title}</h2>
+        <div className="bg-card border border-border-subtle rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-all border-border-subtle/60">
+            <div className="w-full flex items-center justify-between px-6 py-5 border-b border-border-subtle/30 bg-surface/30">
+                <div className="flex items-center gap-3.5">
+                    <div className="p-2 rounded-xl bg-muted/5 text-muted">
+                        <Icon className="w-4 h-4" />
+                    </div>
+                    <h2 className="text-[13px] font-black text-primary tracking-tight uppercase opacity-80">{title}</h2>
+                </div>
             </div>
-            <div className="divide-y divide-border-subtle/30">{children}</div>
+            <div className="divide-y divide-border-subtle/20 bg-card">
+                {children}
+            </div>
         </div>
     );
 }
@@ -58,13 +70,57 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-    const { t, lang } = useT();
-    const { settings, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setLandingContent } = useStudio();
-    const { profile, user } = useUser();
+    const { t, lang, setLang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    const { settings, isLoaded, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff } = useStudio();
+    const { profile, user, logout } = useUser();
+    const confirm = useConfirm();
     const isAdmin = profile?.role === 'admin';
 
     const [nameVal, setNameVal] = useState(settings.studioName);
     const [slugVal, setSlugVal] = useState(settings.studioSlug);
+    const [copiedRegLink, setCopiedRegLink] = useState(false);
+    const [cloudSynced, setCloudSynced] = useState<boolean | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [branchModalOpen, setBranchModalOpen] = useState(false);
+    const [newBranchName, setNewBranchName] = useState('');
+    const [newBranchAddress, setNewBranchAddress] = useState('');
+    const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+    const [newRoleName, setNewRoleName] = useState('');
+    const [staffModalOpen, setStaffModalOpen] = useState(false);
+    const [newStaff, setNewStaff] = useState({
+        first_name: '',
+        last_name: '',
+        role: 'teacher',
+        email: '',
+        password: '',
+        permissions: {
+            canViewAttendance: true,
+            canViewSubscriptions: false,
+            canViewStudents: true,
+            canViewCalendar: true,
+            canEditCalendar: false,
+            canViewGroups: true,
+            canViewTeachers: true,
+            canViewHalls: false,
+            canViewShop: false,
+            canViewAnalytics: false,
+            canViewSMS: false,
+        },
+        allowedBranchIds: [] as string[]
+    });
+
+    // Use slugVal (live input) so the link preview updates as-you-type
+    const registrationUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/${slugVal}/registration`
+        : `/${slugVal}/registration`;
+
+    const copyRegLink = () => {
+        navigator.clipboard.writeText(registrationUrl).then(() => {
+            setCopiedRegLink(true);
+            setTimeout(() => setCopiedRegLink(false), 2000);
+        });
+    };
     const [nameSaved, setNameSaved] = useState(false);
     const [slugSaved, setSlugSaved] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -72,32 +128,156 @@ export default function SettingsPage() {
     const fileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
+        setSlugVal(settings.studioSlug);
+
+        // Initial cloud check
+        if (settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge') {
+            checkCloudConnection(settings.studioSlug).then(setCloudSynced);
+        }
+    }, [settings.studioSlug]);
+
+    const forceSync = async () => {
+        if (!settings.studioSlug || settings.studioSlug === 'demo.classcore.ge') return;
+        setIsSyncing(true);
+        try {
+            await syncStaffToCloud(settings.studioSlug, settings.staff || []);
+            const ok = await checkCloudConnection(settings.studioSlug);
+            setCloudSynced(ok);
+            if (ok) {
+                addNotification({
+                    title: t.cloudSyncLabel,
+                    message: t.syncSuccess,
+                    type: 'success',
+                    time: String(Date.now())
+                });
+            }
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    // Password Modal States
+    const [showPwdModal, setShowPwdModal] = useState(false);
+    const [pwdVal, setPwdVal] = useState('');
+    const [pwdConfirmVal, setPwdConfirmVal] = useState('');
+    const [pwdLoading, setPwdLoading] = useState(false);
+    const [pwdError, setPwdError] = useState('');
+    const [pwdSuccess, setPwdSuccess] = useState(false);
+    const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+    const [branchToDeleteId, setBranchToDeleteId] = useState<string | null>(null);
+    const [branchDeletePass, setBranchDeletePass] = useState('');
+    const [branchDeleteError, setBranchDeleteError] = useState('');
+    const [isDeletingBranch, setIsDeletingBranch] = useState(false);
+    const [editingStaffData, setEditingStaffData] = useState<any>(null);
+
+    // Sync local state when starting/stopping edit
+    useEffect(() => {
+        if (editingStaffId) {
+            const member = settings.staff?.find((s: any) => s.id === editingStaffId);
+            if (member) {
+                setEditingStaffData(JSON.parse(JSON.stringify(member))); // Deep clone
+            }
+        } else {
+            setEditingStaffData(null);
+        }
+    }, [editingStaffId, settings.staff]);
+
+
+
+    useEffect(() => {
         setNameVal(settings.studioName);
         setSlugVal(settings.studioSlug);
     }, [settings.studioName, settings.studioSlug]);
 
-    // Auto-sync studio name from profile if it's currently a default/demo name
-    useEffect(() => {
-        if (profile?.studio_name && (settings.studioName.toLowerCase().includes('demo') || settings.studioName === 'ჩემი სტუდია')) {
-            if (profile.studio_name !== settings.studioName) {
-                setStudioName(profile.studio_name);
-                setNameVal(profile.studio_name);
-            }
-        }
-    }, [profile?.studio_name, settings.studioName]);
-
     function saveName() {
         if (!nameVal.trim()) return;
-        setStudioName(nameVal.trim());
+        const uniqueName = ensureUniqueName(nameVal.trim(), settings.studioSlug);
+        setStudioName(uniqueName);
+        setNameVal(uniqueName);
+
+        // Auto-update slug on name save to follow the new rules
+        const uniqueSlug = ensureUniqueSlug(uniqueName, settings.studioSlug);
+        setStudioSlug(uniqueSlug);
+        setSlugVal(uniqueSlug);
+
         setNameSaved(true);
         setTimeout(() => setNameSaved(false), 2000);
     }
 
     function saveSlug() {
-        const val = slugVal.trim() || nameVal.trim().toLowerCase().replace(/\s+/g, '-');
+        const val = ensureUniqueSlug(slugVal || nameVal, settings.studioSlug);
         setStudioSlug(val);
+        setSlugVal(val);
         setSlugSaved(true);
         setTimeout(() => setSlugSaved(false), 2000);
+    }
+
+    async function handleReclaimSlug() {
+        const target = compactSlugify(slugVal || nameVal);
+        if (!target) return;
+
+        const ok = await confirm({
+            title: t.reclaimName,
+            message: t.reclaimConfirm.replace('"${target}"', `"${target}"`),
+            confirmText: t.confirm,
+            cancelText: t.cancel,
+            danger: true
+        });
+
+        if (ok) {
+            removeFromRegistry(target);
+            cleanupRegistry();
+            saveSlug(); // Try saving again after clearing
+        }
+    }
+
+    async function handleCurrencyChange(newCurrency: 'GEL' | 'USD' | 'EUR') {
+        if (newCurrency === settings.currency) return;
+
+        const confirmMsg = lang === 'ka'
+            ? `ყურადღება! ხდება მხოლოდ ვალუტის ნიშნის (სიმბოლოს) ცვლილება (${settings.currency} -> ${newCurrency}). არსებული თანხების კონვერტაცია არ მოხდება. გნებავთ გაგრძელება?`
+            : `Внимание! Изменяется только символ валюты (${settings.currency} -> ${newCurrency}). Существующие суммы не будут конвертированы. Хотите продолжить?`;
+
+        const ok = await confirm({
+            title: t.currencyChangeTitle,
+            message: t.currencyChangeDesc.replace('${settings.currency}', settings.currency).replace('${newCurrency}', newCurrency),
+            confirmText: t.confirm,
+            cancelText: t.cancel,
+            danger: false
+        });
+
+        if (ok) {
+            setCurrency(newCurrency);
+        }
+    }
+
+    async function handleChangePassword() {
+        if (!pwdVal || pwdVal !== pwdConfirmVal) {
+            setPwdError(t.passwordsDoNotMatch);
+            return;
+        }
+        if (pwdVal.length < 6) {
+            setPwdError(t.passwordTooShort);
+            return;
+        }
+
+        setPwdError('');
+        setPwdLoading(true);
+        const supabase = createClient();
+        const { error } = await supabase.auth.updateUser({ password: pwdVal });
+        setPwdLoading(false);
+
+        if (error) {
+            setPwdError(error.message);
+        } else {
+            setPwdSuccess(true);
+            setTimeout(() => {
+                setShowPwdModal(false);
+                setPwdSuccess(false);
+                setPwdVal('');
+                setPwdConfirmVal('');
+            }, 2000);
+        }
     }
 
     function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -118,124 +298,140 @@ export default function SettingsPage() {
     const ThemeBgCls = theme.bg;
     const ThemeBorderCls = theme.border;
 
-    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    if (!isLoaded) {
+        return (
+            <div className="max-w-2xl mx-auto space-y-6 animate-pulse">
+                <div className="h-8 bg-muted/10 rounded-lg w-1/3" />
+                <div className="h-64 bg-muted/5 rounded-2xl border border-border-subtle" />
+                <div className="h-64 bg-muted/5 rounded-2xl border border-border-subtle" />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 animate-fade-up pb-10">
 
-            {/* ─── Header ─── */}
-            <div>
-                <h1 className="text-xl font-bold text-primary">{t.settings}</h1>
-                <p className="text-sm text-muted mt-0.5">{settings.studioName}</p>
-            </div>
 
-            {/* ─── Studio Identity ─── */}
-            <Section title={l('სტუდიის ინდივიდუალობა', 'Идентичность студии', 'Studio Identity')} icon={Building2}>
-                {/* Logo */}
-                <Row label={l('ლოგო', 'Логотип', 'Logo')} sub={l('სტუდიის ლოგო (PNG/JPG)', 'Логотип студии (PNG/JPG)', 'Your studio logo (PNG/JPG)')}>
-                    <div className="flex items-center gap-3">
-                        {/* Preview */}
-                        <div className="w-12 h-12 rounded-xl overflow-hidden border border-border-subtle flex-shrink-0 bg-surface flex items-center justify-center">
-                            {settings.logoDataUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={settings.logoDataUrl} alt="logo" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className={`w-full h-full bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center`}>
-                                    <span className="text-base font-black text-white">{getInitials(settings.studioName)}</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <button
-                                onClick={() => fileRef.current?.click()}
-                                disabled={uploading}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm"
-                            >
-                                {uploading ? <span className="animate-spin">⏳</span> : <Camera className="w-3.5 h-3.5" />}
-                                {l('ატვირთვა', 'Загрузить', 'Upload')}
-                            </button>
-                            {settings.logoDataUrl && (
+            {isAdmin && (
+                <Section title={t.studioSettings} icon={Building2}>
+                    {/* Logo */}
+                    <Row label={t.logoLabel} sub={t.logoDesc}>
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden border border-border-subtle flex-shrink-0 bg-surface flex items-center justify-center">
+                                {settings.logoDataUrl ? (
+                                    <img src={settings.logoDataUrl} alt="logo" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className={`w-full h-full bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center`}>
+                                        <span className="text-base font-black text-white">{getInitials(settings.studioName)}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-1.5">
                                 <button
-                                    onClick={() => setLogo(null)}
-                                    className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors"
-                                >{l('წაშლა', 'Удалить', 'Remove')}</button>
-                            )}
+                                    onClick={() => fileRef.current?.click()}
+                                    disabled={uploading}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm"
+                                >
+                                    {uploading ? <span className="animate-spin">⏳</span> : <Camera className="w-3.5 h-3.5" />}
+                                    {t.uploadAction}
+                                </button>
+                                {settings.logoDataUrl && (
+                                    <button onClick={() => setLogo(null)} className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors">
+                                        {t.removeAction}
+                                    </button>
+                                )}
+                            </div>
+                            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                         </div>
-                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                    </div>
-                </Row>
+                    </Row>
+                    <Row label={t.studioNameLabel} sub={t.sidebarShow}>
+                        <div className="flex items-center gap-2">
+                            <input value={nameVal} onChange={e => setNameVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveName()} className="w-48 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all" />
+                            <button onClick={saveName} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
+                                {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                            </button>
+                        </div>
+                    </Row>
+                    <Row label={t.emailLabel} sub={t.emailDesc}>
+                        <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-xs font-medium text-muted/60 min-w-[12rem] text-right">
+                            {user?.email || 'N/A'}
+                        </div>
+                    </Row>
+                    <Row label={t.urlSlugLabel} sub={t.slugWarning}>
+                        <div className="flex flex-col gap-2 items-end">
+                            <div className="flex items-center gap-2">
+                                <span className="text-muted/40 text-xs">/</span>
+                                <div className="relative flex items-center gap-2">
+                                    <input
+                                        value={slugVal}
+                                        onChange={e => setSlugVal(compactSlugify(e.target.value))}
+                                        onKeyDown={e => e.key === 'Enter' && saveSlug()}
+                                        className="w-48 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors"
+                                    />
+                                    <button
+                                        onClick={handleReclaimSlug}
+                                        className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+                                        title={t.reclaimName}
+                                    >
+                                        {t.reclaimAction}
+                                    </button>
+                                    <button
+                                        onClick={saveSlug}
+                                        className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
+                                    >
+                                        {slugSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </Row>
 
-                {/* Studio name */}
-                <Row label={l('სტუდიის სახელი', 'Название студии', 'Studio Name')} sub={l('გამოჩნდება სადენავ პანელში', 'Отображается в боковой панели', 'Shown in sidebar')}>
-                    <div className="flex items-center gap-2">
-                        <input
-                            value={nameVal}
-                            onChange={e => setNameVal(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveName()}
-                            className="w-48 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
-                            style={{ borderColor: nameSaved ? 'hsl(var(--accent, 239 84% 67%) / 0.5)' : undefined }}
-                        />
-                        <button
-                            onClick={saveName}
-                            className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
-                        >
-                            {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                        </button>
-                    </div>
-                </Row>
+                    {settings.studioSlug !== 'demo.classcore.ge' && (
+                        <Row label={t.cloudSyncLabel} sub={t.cloudSyncDesc}>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border-subtle rounded-xl">
+                                    <div className={cn("w-2 h-2 rounded-full", cloudSynced === true ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : cloudSynced === false ? "bg-red-500" : "bg-amber-500 animate-pulse")} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                                        {cloudSynced === true ? t.registeredFound :
+                                            cloudSynced === false ? t.notFoundCloud :
+                                                t.checkingStatus}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={forceSync}
+                                    disabled={isSyncing}
+                                    className="w-10 h-10 flex items-center justify-center bg-surface border border-border-subtle hover:text-indigo-500 rounded-xl transition-all disabled:opacity-50"
+                                    title={t.forceSyncAction}
+                                >
+                                    <RefreshCcw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                </button>
+                            </div>
+                        </Row>
+                    )}
+                    <Row label={t.registrationLink} sub={t.registrationLinkDesc}>
+                        <div className="flex items-center gap-2">
+                            <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[160px] transition-colors">
+                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">/{settings.studioSlug}/registration</span>
+                            </a>
+                            <button onClick={copyRegLink} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
+                                {copiedRegLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                        </div>
+                    </Row>
+                </Section>
+            )}
 
-                {/* Email */}
-                <Row label={l('ელ-ფოსტა', 'Email', 'Email')} sub={l('თქვენი ანგარიშის მეილი', 'Email вашего аккаунта', 'Your account email')}>
-                    <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-xs font-medium text-muted/60 min-w-[12rem] text-right">
-                        {user?.email || 'N/A'}
-                    </div>
-                </Row>
-
-                {/* Owner */}
-                <Row label={l('მფლობელი', 'Владелец', 'Owner')} sub={l('სახელი და გვარი', 'Имя и фамилия', 'First and last name')}>
-                    <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-xs font-medium text-primary min-w-[12rem] text-right">
-                        {profile?.first_name} {profile?.last_name}
-                    </div>
-                </Row>
-
-                {/* Slug */}
-                <Row label={l('URL slug', 'URL slug', 'URL Slug')} sub="classcore.ge/{slug}">
-                    <div className="flex items-center gap-2">
-                        <span className="text-muted/40 text-xs">/</span>
-                        <input
-                            value={slugVal}
-                            onChange={e => setSlugVal(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                            onKeyDown={e => e.key === 'Enter' && saveSlug()}
-                            className="w-36 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors"
-                        />
-                        <button
-                            onClick={saveSlug}
-                            className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
-                        >
-                            {slugSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                        </button>
-                    </div>
-                </Row>
-            </Section>
-
-            {/* ─── Color Theme ─── */}
-            <Section title={l('ფერთა პალიტრა', 'Цветовая палитра', 'Color Theme')} icon={Palette}>
-                <div className="px-5 py-5">
-                    <p className="text-xs text-muted mb-4">{l('აირჩიეთ ინტერფეისის ძირითადი ფერი', 'Выберите основной цвет интерфейса', 'Choose the main accent color for the interface')}</p>
+            {/* ─── Aesthetics (Collapsible) ─── */}
+            <Section title={t.colorThemes} icon={Palette}>
+                <div className="px-6 py-6">
+                    <p className="text-xs text-muted mb-4">{t.colorThemesDesc}</p>
                     <div className="grid grid-cols-7 gap-2">
                         {(Object.entries(THEMES) as [ThemeKey, typeof THEMES[ThemeKey]][]).map(([key, th]) => {
                             const isActive = settings.themeKey === key;
                             return (
-                                <button
-                                    key={key}
-                                    onClick={() => setTheme(key)}
-                                    className="flex flex-col items-center gap-2 group"
-                                >
-                                    <div className={cn(
-                                        'w-10 h-10 rounded-full transition-all duration-200 shadow-lg flex items-center justify-center',
-                                        `bg-gradient-to-br ${th.from} ${th.to}`,
-                                        isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105'
-                                    )}>
+                                <button key={key} onClick={() => setTheme(key)} className="flex flex-col items-center gap-2 group">
+                                    <div className={cn('w-10 h-10 rounded-full transition-all duration-200 shadow-lg flex items-center justify-center', `bg-gradient-to-br ${th.from} ${th.to}`, isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105')}>
                                         {isActive && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                                     </div>
                                     <span className={cn('text-[10px] font-medium', isActive ? 'text-primary uppercase font-bold' : 'text-muted')}>{th.label}</span>
@@ -243,39 +439,18 @@ export default function SettingsPage() {
                             );
                         })}
                     </div>
-
-                    {/* Live preview strip */}
-                    <div className="mt-5 p-3 rounded-xl bg-surface/50 border border-border-subtle">
-                        <p className="text-[10px] text-muted mb-2">{l('წინასწარი ხედი', 'Предпросмотр', 'Preview')}</p>
-                        <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center flex-shrink-0`}>
-                                <Zap className="w-4 h-4 text-white" />
-                            </div>
-                            <div className="flex-1">
-                                <div className={`h-1.5 rounded-full bg-gradient-to-r ${theme.from} ${theme.to} w-3/4`} />
-                                <div className="h-1 rounded-full bg-muted/20 w-1/2 mt-1.5" />
-                            </div>
-                            <span className={cn('text-xs font-bold px-2.5 py-1 rounded-lg border', ThemeBgCls, ThemeTextCls, ThemeBorderCls)}>
-                                {theme.label}
-                            </span>
-                        </div>
-                    </div>
                 </div>
             </Section>
 
-            {/* ─── Background Theme ─── */}
-            <Section title={l('ფონის ფერი', 'Цвет фона', 'Background Color')} icon={Palette}>
-                <div className="px-5 py-5">
-                    <p className="text-xs text-muted mb-4">{l('ინტერფეისის ფონის ფერი', 'Цвет фона интерфейса', 'Choose the overall background darkness')}</p>
+            <Section title={t.bgColor} icon={Palette}>
+                <div className="px-6 py-6">
+                    <p className="text-xs text-muted mb-4">{t.bgColorDesc}</p>
                     <div className="grid grid-cols-7 gap-2">
                         {(Object.entries(BG_THEMES) as [BgKey, typeof BG_THEMES[BgKey]][]).map(([key, bg]) => {
                             const isActive = settings.bgKey === key;
                             return (
                                 <button key={key} onClick={() => setBg(key)} className="flex flex-col items-center gap-2 group">
-                                    <div className={cn(
-                                        'w-10 h-10 rounded-full border-2 transition-all duration-200 shadow-lg flex items-center justify-center',
-                                        isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110 border-white/30' : 'border-white/[0.12] opacity-70 hover:opacity-100 hover:scale-105'
-                                    )} style={{ background: bg.base }}>
+                                    <div className={cn('w-10 h-10 rounded-full border-2 transition-all duration-200 shadow-lg flex items-center justify-center', isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110 border-white/30' : 'border-white/[0.12] opacity-70 hover:opacity-100 hover:scale-105')} style={{ background: bg.base }}>
                                         {isActive && <Check className="w-4 h-4 text-white/80" strokeWidth={3} />}
                                     </div>
                                     <span className={cn('text-[10px] font-medium', isActive ? 'text-primary uppercase font-bold' : 'text-muted')}>{bg.label}</span>
@@ -283,202 +458,844 @@ export default function SettingsPage() {
                             );
                         })}
                     </div>
-                    {/* bg preview */}
-                    <div className="mt-5 rounded-xl overflow-hidden border border-border-subtle">
-                        <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle/50" style={{ background: BG_THEMES[settings.bgKey].surface }}>
-                            <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${theme.from} ${theme.to}`} />
-                            <div className="flex-1 h-1.5 rounded-full bg-muted/20" />
-                        </div>
-                        <div className="flex gap-2 p-2" style={{ background: BG_THEMES[settings.bgKey].base }}>
-                            {[30, 50, 70].map(w => (
-                                <div key={w} className="rounded-lg p-2 flex-1" style={{ background: BG_THEMES[settings.bgKey].card }}>
-                                    <div className="h-1.5 rounded-full mb-1" style={{ background: `hsl(var(--accent, 239 84% 67%) / 0.5)`, width: `${w}%` }} />
-                                    <div className="h-1 rounded-full bg-muted/20" />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </div>
             </Section>
 
-            {/* ─── Notifications ─── */}
-            <Section title={t.settingsNotif} icon={Bell}>
-                <Row label={l('ახალი სტუდენტი', 'Новый студент', 'New Student')} sub={l('შეტყობინება ახალი სტუდენტის დამატებისას', 'Уведомлять при добавлении нового студента', 'Notify when a new student is added')}>
-                    <Toggle checked={settings.notifications.newStudent} onChange={v => setNotification('newStudent', v)} />
-                </Row>
-                <Row label={l('სესიების ნაკლებობა', 'Мало сессий', 'Low Sessions')} sub={l('სტუდენტს 2-ზე ნაკლები სესია დარჩა', 'У студента осталось менее 2 сессий', 'Student has fewer than 2 sessions left')}>
-                    <Toggle checked={settings.notifications.lowSessions} onChange={v => setNotification('lowSessions', v)} />
-                </Row>
-                <Row label={l('ყოველდღიური ანგარიში', 'Ежедневный отчёт', 'Daily Report')} sub={l('ყოველდღე 20:00-ზე გამოგიგზავნოთ ანგარიში', 'Отчёт каждый день в 20:00', 'Receive a daily report at 20:00')}>
-                    <Toggle checked={settings.notifications.dailyReport} onChange={v => setNotification('dailyReport', v)} />
-                </Row>
-                <Row label="Telegram Bot" sub={l('მოინიშნეთ Telegram-ის არხში', 'Уведомления в Telegram канале', 'Attendance alerts in Telegram channel')}>
-                    <Toggle checked={settings.notifications.telegramBot} onChange={v => setNotification('telegramBot', v)} />
-                </Row>
-            </Section>
 
-            {/* ─── Language ─── */}
-            <Section title={t.settingsLang} icon={Globe}>
-                <Row label={l('ინტერფეისის ენა', 'Язык интерфейса', 'Interface Language')} sub={l('ყველა ტექსტის ენა', 'Язык всех текстов', 'Language of all text')}>
-                    <div className="text-xs text-muted">
-                        {lang === 'ka' ? '🇬🇪 ქართული' : lang === 'ru' ? '🇷🇺 Русский' : '🇬🇧 English'}
-                        <span className="ml-1 text-muted/40">(sidebar)</span>
-                    </div>
-                </Row>
-                <Row label={l('ვალუტა', 'Валюта', 'Currency')} sub={l('გადახდების ვალუტა', 'Валюта платежей', 'Currency for payments')}>
-                    <select className="bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-primary outline-none focus:border-indigo-500/40 transition-all">
-                        <option value="gel">₾ GEL</option>
-                        <option value="usd">$ USD</option>
-                        <option value="eur">€ EUR</option>
-                        <option value="rub">₽ RUB</option>
-                    </select>
-                </Row>
-                <Row label={l('დროის ზონა', 'Часовой пояс', 'Timezone')}>
-                    <select className="bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-primary outline-none focus:border-indigo-500/40 transition-all">
-                        <option>Asia/Tbilisi (UTC+4)</option>
-                        <option>Europe/Moscow (UTC+3)</option>
-                        <option>UTC</option>
-                    </select>
-                </Row>
-            </Section>
-
-            {/* ─── Security ─── */}
-            <Section title={t.settingsSecurity} icon={Shield}>
-                <Row label={l('ორფაქტორიანი ავთ.', 'Двухфакторная аутент.', '2-Factor Auth')} sub={l('SMS ან Authenticator App-ით', 'Через SMS или Authenticator App', 'Via SMS or Authenticator App')}>
-                    <Toggle checked={settings.security.twoFactor} onChange={v => setSecurity('twoFactor', v)} />
-                </Row>
-                <Row label={l('სესიის ვადა (წუთი)', 'Таймаут сессии (мин)', 'Session Timeout (min)')} sub={l('უმოქმედო სესიის ხანგრძლივობა', 'Длительность неактивной сессии', 'Auto-logout after inactivity')}>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="number"
-                            value={sessionVal}
-                            min={5} max={480}
-                            onChange={e => setSessionVal(Number(e.target.value))}
-                            onBlur={() => setSecurity('sessionTimeout', sessionVal)}
-                            className="w-20 bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-primary outline-none text-center focus:border-indigo-500/40 transition-all"
-                        />
-                        <span className="text-xs text-muted">{l('წთ', 'мин', 'min')}</span>
-                    </div>
-                </Row>
-                <Row label={l('პაროლის შეცვლა', 'Изменить пароль', 'Change Password')}>
-                    <button className="px-4 py-2 rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm">
-                        {l('შეცვლა', 'Изменить', 'Change')}
-                    </button>
-                </Row>
-            </Section>
-
-            {/* ─── Subscription ─── */}
-            <Section title={t.subscriptions} icon={CreditCard}>
-                <Row label="Pro Plan" sub={l('გაგრძელდება 28 მარტს', 'Истекает 28 марта', 'Renews March 28')}>
-                    <div className="flex items-center gap-2">
-                        <span className={cn('text-xs font-bold px-2.5 py-1 rounded-lg border', ThemeBgCls, ThemeTextCls, ThemeBorderCls)}>
-                            <Zap className="w-3 h-3 inline mr-1" />Pro
-                        </span>
-                    </div>
-                </Row>
-                <Row label={l('თვიური გადასახადი', 'Ежемесячная оплата', 'Monthly Billing')} sub="₾149 / month">
-                    <button className="px-4 py-2 rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm">
-                        {l('მართვა', 'Управлять', 'Manage')}
-                    </button>
-                </Row>
-            </Section>
-
-            {/* ─── Integrations ─── */}
-            <Section title={l('ინტეგრაციები', 'Интеграции', 'Integrations')} icon={Settings2}>
-                {[
-                    { name: 'Telegram Bot', active: settings.notifications.telegramBot, icon: '✈' },
-                    { name: 'Google Calendar', active: false, icon: '📅' },
-                    { name: 'Stripe Payments', active: false, icon: '💳' },
-                ].map(item => (
-                    <Row key={item.name} label={item.name}>
-                        <div className="flex items-center gap-2">
-                            <span className="text-lg">{item.icon}</span>
-                            <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full border',
-                                item.active
-                                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                                    : 'bg-surface text-muted/40 border-border-subtle/50'
-                            )}>
-                                {item.active ? l('აქტიური', 'Активно', 'Active') : l('გამოთიშული', 'Откл.', 'Disabled')}
-                            </span>
-                        </div>
-                    </Row>
-                ))}
-            </Section>
-
-            {/* ─── Landing Page Content (Admin Only) ─── */}
             {isAdmin && (
-                <Section title={l('მთავარი გვერდის კონტენტი', 'Контент главной страницы', 'Landing Page Content')} icon={Globe}>
-                    <div className="px-5 py-5 space-y-6">
-                        {/* Hero */}
-                        <div className="space-y-4">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1 opacity-40">Hero სექცია</p>
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="text-xs text-muted/40 mb-1.5 block">სათაური</label>
-                                    <textarea
-                                        value={settings.landingContent.heroTitle}
-                                        onChange={e => setLandingContent({ heroTitle: e.target.value })}
-                                        rows={2}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-sm text-primary outline-none hide-scrollbar resize-none transition-colors"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-muted/40 mb-1.5 block">ქვესათაური</label>
-                                    <textarea
-                                        value={settings.landingContent.heroSubtitle}
-                                        onChange={e => setLandingContent({ heroSubtitle: e.target.value })}
-                                        rows={2}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs text-muted outline-none hide-scrollbar resize-none transition-colors"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                <Section title={t.staffAccess} icon={Shield}>
+                    <div className="p-4 space-y-4">
+                        <button
+                            onClick={() => setStaffModalOpen(true)}
+                            className="w-full py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                        >
+                            <Plus className="w-4 h-4" />
+                            {t.addStaffAction}
+                        </button>
 
-                        {/* Features */}
-                        <div className="space-y-4 pt-4 border-t border-border-subtle/50">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1 opacity-40">ფუნქციები (Features)</p>
-                            <div className="space-y-4">
-                                {settings.landingContent.features.map((f, i) => (
-                                    <div key={i} className="p-4 rounded-xl bg-surface/30 border border-border-subtle space-y-3 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                                                <span className="text-xs text-indigo-600 font-bold">#{i + 1}</span>
+
+                        {settings.staff && settings.staff.length > 0 && (
+                            <div className="space-y-3">
+                                {settings.staff.map((member: any) => {
+                                    return (
+                                        <div key={member.id} className="bg-surface/30 rounded-3xl border border-border-subtle/30 hover:border-indigo-500/30 hover:bg-surface/50 transition-all duration-300">
+                                            <div
+                                                onClick={() => setEditingStaffId(member.id)}
+                                                className="p-4 flex items-center justify-between cursor-pointer group"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-black text-lg group-hover:scale-105 transition-transform">
+                                                        {getInitials(`${member.first_name} ${member.last_name}`)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-sm font-black text-primary tracking-tight">{member.first_name} {member.last_name}</p>
+                                                            <span className={cn(
+                                                                "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border",
+                                                                member.role === 'owner' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                                                            )}>
+                                                                {member.role}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[10px] font-bold text-muted/40 uppercase tracking-widest mt-0.5">{member.email}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="w-10 h-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted group-hover:text-indigo-500 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all">
+                                                    <Settings2 className="w-5 h-5" />
+                                                </div>
                                             </div>
-                                            <input
-                                                value={f.title}
-                                                onChange={e => {
-                                                    const next = [...settings.landingContent.features];
-                                                    next[i] = { ...f, title: e.target.value };
-                                                    setLandingContent({ features: next });
-                                                }}
-                                                placeholder="სათაური"
-                                                className="flex-1 bg-transparent border-none text-sm font-bold text-primary outline-none placeholder:text-muted/20"
-                                            />
                                         </div>
-                                        <textarea
-                                            value={f.desc}
-                                            onChange={e => {
-                                                const next = [...settings.landingContent.features];
-                                                next[i] = { ...f, desc: e.target.value };
-                                                setLandingContent({ features: next });
-                                            }}
-                                            placeholder="აღწერა"
-                                            rows={2}
-                                            className="w-full bg-transparent border-none text-xs text-muted outline-none hide-scrollbar resize-none placeholder:text-muted/20"
-                                        />
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
-                        </div>
+                        )}
                     </div>
                 </Section>
             )}
 
-            {/* Footer */}
-            <div className="flex items-center justify-between text-[10px] text-muted/30 px-1 font-bold uppercase tracking-widest">
+            {isAdmin && (
+                <Section title={t.branchManagement} icon={Building2}>
+                    <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {settings.branches.map(branch => (
+                                <div key={branch.id} className="p-4 bg-surface/30 rounded-2xl border border-border-subtle/30 flex items-center justify-between group">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                                            <Building2 className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-primary">{branch.name}</p>
+                                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{branch.address || t.noAddress}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                        <button
+                                            onClick={() => {
+                                                setEditingBranchId(branch.id);
+                                                setNewBranchName(branch.name);
+                                                setNewBranchAddress(branch.address || '');
+                                                setBranchModalOpen(true);
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-indigo-500/40 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all"
+                                        >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                        {branch.id !== 'main' && (
+                                            <button
+                                                onClick={() => setBranchToDeleteId(branch.id)}
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500/40 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setEditingBranchId(null);
+                                setNewBranchName('');
+                                setNewBranchAddress('');
+                                setBranchModalOpen(true);
+                            }}
+                            className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-indigo-500/20 text-indigo-500/60 hover:text-indigo-500 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all font-black uppercase tracking-widest text-xs"
+                        >
+                            <Plus className="w-5 h-5" />
+                            {t.addNewBranchAction}
+                        </button>
+                    </div>
+                </Section>
+            )}
+
+            {/* ─── Security ─── */}
+            <Section title={t.settingsSecurity} icon={Shield}>
+                {isAdmin && (
+                    <Row label={t.twoFactorAuth} sub={t.twoFactorDesc}>
+                        <Toggle checked={settings.security.twoFactor} onChange={v => setSecurity('twoFactor', v)} />
+                    </Row>
+                )}
+                <Row label={t.changePasswordTitle}>
+                    <button onClick={() => setShowPwdModal(true)} className="px-4 py-2 rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm">{t.editAction}</button>
+                </Row>
+            </Section>
+
+
+
+            {isAdmin && (
+                <>
+                    {/* ─── Integrations (Collapsible) ─── */}
+                    <Section title={t.integrationsLabel} icon={Settings2}>
+                        <Row label="Google Calendar" sub={t.syncCalendarDesc}>
+                            <Toggle checked={settings.googleCalendarEnabled} onChange={setGoogleCalendar} />
+                        </Row>
+                        <Row label="Telegram Bot" sub={t.telegramNotifDesc}>
+                            <Toggle checked={settings.notifications.telegramBot} onChange={v => setNotification('telegramBot', v)} />
+                        </Row>
+                    </Section>
+
+                    {/* ─── Notifications (Collapsible) ─── */}
+                    <Section title={t.settingsNotif} icon={Bell}>
+                        <Row label={t.newStudentLabel} sub={t.newStudentNotifDesc}>
+                            <Toggle checked={settings.notifications.newStudent} onChange={v => setNotification('newStudent', v)} />
+                        </Row>
+                        <Row label={t.lowSessionsLabel} sub={t.lowSessionsNotifDesc}>
+                            <Toggle checked={settings.notifications.lowSessions} onChange={v => setNotification('lowSessions', v)} />
+                        </Row>
+                    </Section>
+
+                    <Section title={t.langRegionLabel} icon={Globe}>
+                        <Row label={t.interfaceLanguage} sub={t.interfaceLanguageDesc}>
+                            <SearchSelect options={[{ value: 'ka', label: '🇬🇪 ქართული' }, { value: 'en', label: '🇬🇧 English' }, { value: 'ru', label: '🇷🇺 Русский' }]} value={settings.language} onChange={val => { const nl = val as any; setLanguage(nl); setLang(nl); }} className="w-48 !border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-xs" />
+                        </Row>
+                        <Row label={t.currencyLabel} sub={t.currencyChangeDesc}>
+                            <SearchSelect options={[{ value: 'GEL', label: '₾ GEL' }, { value: 'USD', label: '$ USD' }, { value: 'EUR', label: '€ EUR' }]} value={settings.currency} onChange={val => handleCurrencyChange(val as any)} className="w-48 !border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-xs" />
+                        </Row>
+                        <Row label={t.timezoneLabel}>
+                            <SearchSelect options={[{ value: 'Asia/Tbilisi', label: 'Asia/Tbilisi (UTC+4)' }, { value: 'Europe/Moscow', label: 'Europe/Moscow (UTC+3)' }, { value: 'UTC', label: 'UTC' }]} value={settings.timezone} onChange={setTimezone} className="w-48 !border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-xs" />
+                        </Row>
+                    </Section>
+
+                    {/* ─── Account / Logout ─── */}
+                    <Section title={t.accountLabel} icon={UserCircle}>
+                        <Row label={t.logoutLabel} sub={t.logoutDesc}>
+                            <button onClick={logout} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group">
+                                <LogOutIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                                {t.logoutLabel}
+                            </button>
+                        </Row>
+                    </Section>
+                </>
+            )}
+
+            {/* ─── Support Footer ─── */}
+            <Section title={t.helpSupport} icon={MessageCircle}>
+                <div className="p-5">
+                    <button
+                        onClick={() => window.dispatchEvent(new Event('toggle-support'))}
+                        className="w-full flex flex-col sm:flex-row items-center gap-4 p-6 bg-surface/30 border border-border-subtle rounded-2xl hover:bg-surface/50 transition-all text-left group"
+                    >
+                        <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-500/10 flex items-center justify-center text-indigo-500 flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <MessageCircle className="w-8 h-8" />
+                        </div>
+                        <div className="flex-1 text-center sm:text-left">
+                            <h4 className="text-base font-black text-primary">{t.needHelp}</h4>
+                            <p className="text-xs font-bold text-muted mt-1 leading-relaxed opacity-60">
+                                {t.supportDesc}
+                            </p>
+                        </div>
+                    </button>
+                </div>
+            </Section>
+
+            {/* Footer without Delete Account */}
+            <div className="flex items-center justify-center text-[10px] text-muted/20 px-1 font-bold uppercase tracking-widest pt-4">
                 <span>ClassCore v1.0 · classcore.ge</span>
-                <button className="hover:text-red-500 transition-colors">{l('ანგარიშის წაშლა', 'Удалить аккаунт', 'Delete Account')}</button>
             </div>
+
+            {/* Password Modal */}
+            {
+                showPwdModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in duration-200">
+                        <div className="bg-surface border border-border-subtle rounded-2xl w-full max-w-sm p-6 shadow-2xl flex flex-col gap-4">
+                            <h3 className="text-lg font-bold text-primary">{t.changePasswordTitle}</h3>
+
+                            <div className="flex flex-col gap-3">
+                                <div>
+                                    <label className="text-xs font-medium text-muted mb-1 block">{t.newPasswordLabel}</label>
+                                    <input
+                                        type="password"
+                                        value={pwdVal}
+                                        onChange={e => setPwdVal(e.target.value)}
+                                        className="w-full bg-background border border-border-subtle rounded-xl px-3 py-2 text-sm text-primary outline-none focus:border-indigo-500/40"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted mb-1 block">{t.confirmPasswordLabel}</label>
+                                    <input
+                                        type="password"
+                                        value={pwdConfirmVal}
+                                        onChange={e => setPwdConfirmVal(e.target.value)}
+                                        className="w-full bg-background border border-border-subtle rounded-xl px-3 py-2 text-sm text-primary outline-none focus:border-indigo-500/40"
+                                    />
+                                </div>
+                            </div>
+
+                            {pwdError && <p className="text-xs font-medium text-red-500">{pwdError}</p>}
+                            {pwdSuccess && <p className="text-xs font-medium text-emerald-500">{t.passwordChangeSuccess}</p>}
+
+                            <div className="flex justify-end gap-2 mt-2">
+                                <button
+                                    onClick={() => { setShowPwdModal(false); setPwdError(''); setPwdVal(''); setPwdConfirmVal(''); }}
+                                    className="px-4 py-2 rounded-xl text-xs font-medium text-muted hover:bg-muted/10 transition-colors">
+                                    {t.cancel}
+                                </button>
+                                <button
+                                    onClick={handleChangePassword}
+                                    disabled={pwdLoading || pwdSuccess}
+                                    className="px-4 py-2 rounded-xl text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors disabled:opacity-50">
+                                    {pwdLoading ? '...' : t.saveAction}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+
+            {/* Branch Creation Modal */}
+            {branchModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-transparent animate-in fade-in duration-200">
+                    <div className="bg-card border border-border-subtle rounded-2xl w-full max-w-sm p-8 shadow-2xl flex flex-col gap-6 animate-in zoom-in-95 duration-200">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-2">
+                                <Building2 className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-black text-primary tracking-tight">
+                                {editingBranchId
+                                    ? t.editBranchTitle
+                                    : t.addNewBranchTitle}
+                            </h3>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <input
+                                autoFocus
+                                value={newBranchName}
+                                onChange={e => setNewBranchName(e.target.value)}
+                                placeholder={t.branchNameLabel}
+                                className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                            />
+                            <input
+                                value={newBranchAddress}
+                                onChange={e => setNewBranchAddress(e.target.value)}
+                                placeholder={t.addressLabel}
+                                className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                            />
+                        </div>
+
+                        <div className="p-8 border-t border-border-subtle/30 bg-surface/30 flex gap-4">
+                            <button
+                                onClick={() => setBranchModalOpen(false)}
+                                className="flex-1 py-4 text-xs font-black text-muted hover:bg-surface rounded-2xl transition-all"
+                            >
+                                {t.cancel}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (!newBranchName.trim()) return;
+                                    if (editingBranchId) {
+                                        updateBranch(editingBranchId, { name: newBranchName.trim(), address: newBranchAddress.trim() });
+                                    } else {
+                                        addBranch(newBranchName.trim(), newBranchAddress.trim());
+                                    }
+                                    setBranchModalOpen(false);
+                                    setEditingBranchId(null);
+                                    setNewBranchName('');
+                                    setNewBranchAddress('');
+                                }}
+                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest"
+                            >
+                                {editingBranchId ? t.save : t.add}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Add Staff Modal ─── */}
+            {staffModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-transparent p-4 animate-in fade-in duration-200">
+                    <div className="bg-card border border-border-subtle w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+                        <div className="px-8 py-6 border-b border-border-subtle/30 flex items-center justify-between bg-surface/30">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-500">
+                                    <UserCircle className="w-5 h-5" />
+                                </div>
+                                <h3 className="text-xl font-black text-primary tracking-tight">{t.newStaffMember}</h3>
+                            </div>
+                            <button onClick={() => setStaffModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface text-muted transition-all">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.firstNameLabel}</label>
+                                    <input
+                                        value={newStaff.first_name}
+                                        onChange={e => setNewStaff({ ...newStaff, first_name: e.target.value })}
+                                        placeholder="John"
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.lastNameLabel}</label>
+                                    <input
+                                        value={newStaff.last_name}
+                                        onChange={e => setNewStaff({ ...newStaff, last_name: e.target.value })}
+                                        placeholder="Doe"
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2 text-indigo-500">
+                                    <Shield className="w-3 h-3" /> {t.assignAccess}
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { k: 'canViewAttendance', l: t.attendance },
+                                        { k: 'canViewSubscriptions', l: t.subscriptions },
+                                        { k: 'canViewStudents', l: t.students },
+                                        { k: 'canViewCalendar', l: t.calendar },
+                                        { k: 'canEditCalendar', l: t.edit },
+                                        { k: 'canViewGroups', l: t.groups },
+                                        { k: 'canViewTeachers', l: t.teachers },
+                                        { k: 'canViewHalls', l: t.halls },
+                                        { k: 'canViewShop', l: t.hallRental },
+                                        { k: 'canViewAnalytics', l: t.analytics },
+                                        { k: 'canViewSMS', l: 'SMS' },
+                                    ].map(({ k, l: label }) => {
+                                        const val = (newStaff.permissions as any)[k];
+                                        return (
+                                            <label key={k} className={cn(
+                                                "flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all",
+                                                val ? "bg-indigo-500/10 border-indigo-500/30" : "bg-surface border-border-subtle opacity-60"
+                                            )}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!val}
+                                                    onChange={() => {
+                                                        setNewStaff({
+                                                            ...newStaff,
+                                                            permissions: { ...newStaff.permissions, [k]: !val }
+                                                        } as any);
+                                                    }}
+                                                    className="sr-only"
+                                                />
+                                                <div className={cn('w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
+                                                    val ? 'bg-indigo-500 border-indigo-500 shadow-sm' : 'border-border-subtle bg-card')}>
+                                                    {val && <Check className="w-2.5 h-2.5 text-white" strokeWidth={5} />}
+                                                </div>
+                                                <span className="text-[11px] font-bold truncate">{label}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.accessLevelLabel}</label>
+                                    <SearchSelect
+                                        options={[
+                                            { value: 'manager', label: t.managerRole },
+                                            { value: 'teacher', label: t.teacherRole },
+                                            { value: 'receptionist', label: t.receptionistRole },
+                                            { value: 'accountant', label: t.accountantRole },
+                                        ]}
+                                        value={newStaff.role}
+                                        onChange={val => setNewStaff({ ...newStaff, role: val })}
+                                        className="!border-border-subtle hover:!border-indigo-500/40"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 opacity-60">
+                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.studentStatus}</label>
+                                    <div className="w-full bg-surface/50 border border-border-subtle rounded-2xl px-5 py-3.5 text-xs font-bold flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                        {t.active}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.emailLabel}</label>
+                                    <input
+                                        value={newStaff.email}
+                                        onChange={e => setNewStaff({ ...newStaff, email: e.target.value })}
+                                        placeholder="john@example.com"
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.password}</label>
+                                    <input
+                                        type="password"
+                                        value={newStaff.password}
+                                        onChange={e => setNewStaff({ ...newStaff, password: e.target.value })}
+                                        placeholder="••••••••"
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2">
+                                    <Building2 className="w-3 h-3" /> {t.calendar + ' ' + t.halls}
+                                </label>
+                                <div className="space-y-2">
+                                    {settings.branches.map(b => {
+                                        const allowed = newStaff.allowedBranchIds.length === 0 || newStaff.allowedBranchIds.includes(b.id);
+                                        return (
+                                            <label key={b.id} className={cn('flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all shadow-sm',
+                                                allowed ? 'bg-indigo-500/5 border-indigo-500/40' : 'bg-surface/50 border-border-subtle opacity-60')}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={allowed}
+                                                    onChange={() => {
+                                                        const current = newStaff.allowedBranchIds || [];
+                                                        let next: string[];
+                                                        if (current.length === 0) {
+                                                            // If currently All (empty), and we uncheck one, include all EXCEPT this one
+                                                            next = settings.branches.filter(br => br.id !== b.id).map(br => br.id);
+                                                        } else {
+                                                            if (current.includes(b.id)) {
+                                                                next = current.filter(id => id !== b.id);
+                                                            } else {
+                                                                next = [...current, b.id];
+                                                            }
+                                                        }
+                                                        // Final cleanup: if everything is checked, reset to empty (All)
+                                                        if (next.length === settings.branches.length) {
+                                                            next = [];
+                                                        }
+                                                        setNewStaff({ ...newStaff, allowedBranchIds: next });
+                                                    }}
+                                                    className="sr-only"
+                                                />
+                                                <div className={cn('w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
+                                                    allowed ? 'bg-indigo-500 border-indigo-500 shadow-md' : 'border-border-subtle bg-card')}>
+                                                    {allowed && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
+                                                </div>
+                                                <span className={cn('text-sm font-bold', allowed ? 'text-primary' : 'text-muted')}>{b.name}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 border-t border-border-subtle/30 bg-surface/30 flex gap-4">
+                            <button
+                                onClick={() => setStaffModalOpen(false)}
+                                className="flex-1 py-4 text-xs font-black text-muted hover:bg-surface rounded-2xl transition-all"
+                            >
+                                {l('გაუქმება', 'Отмена', 'Cancel')}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (!newStaff.first_name || !newStaff.email) return;
+                                    addStaff({
+                                        ...newStaff,
+                                        full_name: `${newStaff.first_name} ${newStaff.last_name}`.trim(),
+                                        phone: '', // Optional for now
+                                        status: 'active'
+                                    } as any);
+                                    setStaffModalOpen(false);
+                                    // Reset
+                                    setNewStaff({
+                                        first_name: '',
+                                        last_name: '',
+                                        role: 'teacher',
+                                        email: '',
+                                        password: '',
+                                        permissions: {
+                                            canViewAttendance: true,
+                                            canViewSubscriptions: false,
+                                            canViewStudents: true,
+                                            canViewCalendar: true,
+                                            canEditCalendar: false,
+                                            canViewGroups: true,
+                                            canViewTeachers: true,
+                                            canViewHalls: false,
+                                            canViewShop: false,
+                                            canViewAnalytics: false,
+                                            canViewSMS: false,
+                                        },
+                                        allowedBranchIds: []
+                                    });
+                                }}
+                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest"
+                            >
+                                {t.add}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Edit Staff Access Modal ─── */}
+            {editingStaffId && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-transparent p-4 animate-in fade-in duration-200">
+                    <div className="bg-card border border-border-subtle w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+                        {(() => {
+                            const member = editingStaffData;
+                            if (!member) return null;
+
+                            const handleLocalUpdate = (patch: any) => {
+                                setEditingStaffData({ ...member, ...patch });
+                            };
+
+                            const handleSave = () => {
+                                updateStaff(member.id, member);
+                                setEditingStaffId(null);
+                            };
+
+                            return (
+                                <>
+                                    <div className="px-8 py-6 border-b border-border-subtle/30 flex items-center justify-between bg-surface/30">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-black text-lg">
+                                                {getInitials(`${member.first_name} ${member.last_name}`)}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-black text-primary tracking-tight">{member.first_name} {member.last_name}</h3>
+                                                <p className="text-[10px] font-bold text-muted uppercase tracking-widest opacity-40">{member.email}</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setEditingStaffId(null)} className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface text-muted transition-all">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+                                        {/* Basic Info */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.firstNameLabel}</label>
+                                                <input
+                                                    value={member.first_name}
+                                                    onChange={e => handleLocalUpdate({ first_name: e.target.value })}
+                                                    className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.lastNameLabel}</label>
+                                                <input
+                                                    value={member.last_name || ''}
+                                                    onChange={e => handleLocalUpdate({ last_name: e.target.value })}
+                                                    className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.emailLabel}</label>
+                                            <input
+                                                value={member.email}
+                                                onChange={e => handleLocalUpdate({ email: e.target.value })}
+                                                className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        {/* Role Selection */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{l('წვდომის დონე (როლი)', 'Уровень доступа (Роль)', 'Access Level (Role)')}</label>
+                                            <SearchSelect
+                                                options={[
+                                                    { value: 'owner', label: l('მფლობელი', 'Владелец', 'Owner') },
+                                                    { value: 'admin', label: l('ადმინისტრატორი', 'Администратор', 'Admin') },
+                                                    { value: 'manager', label: l('მენეჯერი', 'Менеджер', 'Manager') },
+                                                    { value: 'teacher', label: l('მასწავლებელი', 'Учитель', 'Teacher') },
+                                                    { value: 'receptionist', label: l('რეცეფშენი', 'Ресепшн', 'Receptionist') },
+                                                    { value: 'accountant', label: l('ბუღალტერი', 'Бухгалтер', 'Accountant') },
+                                                ]}
+                                                value={member.role}
+                                                onChange={val => handleLocalUpdate({ role: val })}
+                                                className="!border-border-subtle hover:!border-indigo-500/40"
+                                            />
+                                        </div>
+
+                                        {/* Permissions Toggles */}
+                                        <div className="space-y-4">
+                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2 text-indigo-500">
+                                                <Shield className="w-3 h-3" /> {t.featureAccess}
+                                            </label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {[
+                                                    { k: 'canViewAttendance', l: l('დასწრება', 'Посещаемость', 'Attendance') },
+                                                    { k: 'canViewSubscriptions', l: l('აბონემენტები', 'Абонементы', 'Subscriptions') },
+                                                    { k: 'canViewStudents', l: l('სტუდენტები', 'Сტუდენტები', 'Students') },
+                                                    { k: 'canViewCalendar', l: l('კალენდარი', 'Календарь', 'Calendar') },
+                                                    { k: 'canEditCalendar', l: l('კალენდრის ედიტი', 'Ред. календаря', 'Edit Calendar') },
+                                                    { k: 'canViewGroups', l: l('ჯგუფები', 'Группы', 'Groups') },
+                                                    { k: 'canViewTeachers', l: l('მასწავლებლები', 'Учителя', 'Teachers') },
+                                                    { k: 'canViewHalls', l: l('დარბაზები', 'Залы', 'Halls') },
+                                                    { k: 'canViewShop', l: l('მაღაზია', 'Магазин', 'Shop') },
+                                                    { k: 'canViewAnalytics', l: l('ანალიტიკა', 'Аналитика', 'Analytics') },
+                                                    { k: 'canViewSMS', l: l('SMS', 'SMS', 'SMS') },
+                                                ].map(({ k, l: label }) => {
+                                                    const val = (member.permissions as any)?.[k];
+                                                    return (
+                                                        <label key={k} className={cn(
+                                                            "flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all",
+                                                            val ? "bg-indigo-500/10 border-indigo-500/30 font-bold" : "bg-surface border-border-subtle opacity-60"
+                                                        )}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!val}
+                                                                onChange={() => {
+                                                                    const next = { ...(member.permissions || {}), [k]: !val };
+                                                                    handleLocalUpdate({ permissions: next });
+                                                                }}
+                                                                className="sr-only"
+                                                            />
+                                                            <div className={cn('w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
+                                                                val ? 'bg-indigo-500 border-indigo-500 shadow-sm' : 'border-border-subtle bg-card')}>
+                                                                {val && <Check className="w-2.5 h-2.5 text-white" strokeWidth={5} />}
+                                                            </div>
+                                                            <span className="text-[11px] truncate">{label}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Branch Access */}
+                                        <div className="space-y-4">
+                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2">
+                                                <Building2 className="w-3 h-3" /> {t.branchAccessRestrictions}
+                                            </label>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {settings.branches.map(branch => {
+                                                    const isAllowed = !member.allowedBranchIds || member.allowedBranchIds.length === 0 || member.allowedBranchIds.includes(branch.id);
+                                                    return (
+                                                        <label
+                                                            key={branch.id}
+                                                            className={cn(
+                                                                "flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all shadow-sm",
+                                                                isAllowed
+                                                                    ? "bg-indigo-500/5 border-indigo-500/30"
+                                                                    : "bg-surface border-border-subtle opacity-60"
+                                                            )}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isAllowed}
+                                                                onChange={() => {
+                                                                    const current = member.allowedBranchIds || [];
+                                                                    let next: string[];
+                                                                    if (current.length === 0) {
+                                                                        // If currently All (empty), and we uncheck one, include all EXCEPT this one
+                                                                        next = settings.branches.filter(br => br.id !== branch.id).map(br => br.id);
+                                                                    } else {
+                                                                        if (current.includes(branch.id)) {
+                                                                            next = current.filter((id: string) => id !== branch.id);
+                                                                            // If we just removed the last one, it becomes empty (which means All again)
+                                                                            // But maybe the user wanted "None"? Usually login requires at least one.
+                                                                        } else {
+                                                                            next = [...current, branch.id];
+                                                                        }
+                                                                    }
+                                                                    // Final cleanup: if everything is checked, reset to empty (All)
+                                                                    if (next.length === settings.branches.length) {
+                                                                        next = [];
+                                                                    }
+                                                                    handleLocalUpdate({ allowedBranchIds: next });
+                                                                }}
+                                                                className="sr-only"
+                                                            />
+                                                            <div className={cn('w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
+                                                                isAllowed ? 'bg-indigo-500 border-indigo-500 shadow-md' : 'border-border-subtle bg-card')}>
+                                                                {isAllowed && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <p className={cn("text-sm font-bold", isAllowed ? "text-primary" : "text-muted")}>{branch.name}</p>
+                                                                {branch.address && <p className="text-[10px] text-muted opacity-40">{branch.address}</p>}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Dangerous Actions */}
+                                        {member.role !== 'owner' && (
+                                            <div className="pt-4 border-t border-border-subtle/30">
+                                                <button
+                                                    onClick={async () => {
+                                                        const ok = await confirm({
+                                                            title: l('წაშლა', 'Удалить', 'Delete Staff Member'),
+                                                            message: l('ნამდვილად გსურთ პერსონალის წაშლა?', 'Вы уверены, что хотите удалить сотрудника?', 'Are you sure you want to remove this staff member?'),
+                                                            danger: true
+                                                        });
+                                                        if (ok) {
+                                                            removeStaff(member.id);
+                                                            setEditingStaffId(null);
+                                                        }
+                                                    }}
+                                                    className="w-full py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    {l('პერსონალის წაშლა', 'Удалить сотрудника', 'Remove Staff Member')}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="p-8 border-t border-border-subtle/30 bg-surface/30 flex gap-4">
+                                        <button
+                                            onClick={() => setEditingStaffId(null)}
+                                            className="flex-1 py-4 text-xs font-black text-muted hover:bg-surface rounded-2xl transition-all"
+                                        >
+                                            {l('გაუქმება', 'Отмена', 'Cancel')}
+                                        </button>
+                                        <button
+                                            onClick={handleSave}
+                                            className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                                        >
+                                            <Save className="w-4 h-4" />
+                                            {l('შენახვა', 'Сохранить', 'Save')}
+                                        </button>
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
+            {/* ─── Branch Delete Verify Modal ─── */}
+            {branchToDeleteId && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-transparent p-4 animate-in fade-in duration-200">
+                    <div className="bg-card border border-border-subtle w-full max-w-sm rounded-2xl shadow-2xl p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-200">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 mb-2">
+                                <AlertTriangle className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-black text-primary tracking-tight">{l('ფილიალის წაშლა', 'Удалить филиал', 'Delete Branch')}</h3>
+                            <p className="text-[10px] font-bold text-muted opacity-60 leading-relaxed px-4">
+                                {l('ფილიალის წასაშლელად შეიყვანეთ ადმინისტრატორის პაროლი დასადასტურებლად.', 'Для удаления филиала введите пароль администратора для подтверждения.', 'To delete the branch, enter the admin password to confirm.')}
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{l('ადმინისტრატორის პაროლი', 'Пароль администратора', 'Admin Password')}</label>
+                                <input
+                                    type="password"
+                                    autoFocus
+                                    value={branchDeletePass}
+                                    onChange={e => {
+                                        setBranchDeletePass(e.target.value);
+                                        setBranchDeleteError('');
+                                    }}
+                                    placeholder="••••••••"
+                                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-rose-500/50 transition-all shadow-inner"
+                                />
+                            </div>
+                            {branchDeleteError && <p className="text-[10px] font-black text-rose-500 text-center uppercase tracking-widest">{branchDeleteError}</p>}
+                        </div>
+
+                        <div className="p-8 border-t border-border-subtle/30 bg-surface/30 flex gap-4">
+                            <button
+                                onClick={() => {
+                                    setBranchToDeleteId(null);
+                                    setBranchDeletePass('');
+                                    setBranchDeleteError('');
+                                }}
+                                className="flex-1 py-4 text-xs font-black text-muted hover:bg-surface rounded-2xl transition-all"
+                            >
+                                {l('გაუქმება', 'Отмена', 'Cancel')}
+                            </button>
+                            <button
+                                disabled={!branchDeletePass || isDeletingBranch}
+                                onClick={async () => {
+                                    setIsDeletingBranch(true);
+                                    try {
+                                        const supabase = createClient();
+                                        const { error } = await supabase.auth.signInWithPassword({
+                                            email: user?.email || '',
+                                            password: branchDeletePass
+                                        });
+
+                                        if (error) {
+                                            setBranchDeleteError(l('არასწორი პაროლი', 'Неверный пароль', 'Incorrect Password'));
+                                            setIsDeletingBranch(false);
+                                            return;
+                                        }
+
+                                        removeBranch(branchToDeleteId);
+                                        setBranchToDeleteId(null);
+                                        setBranchDeletePass('');
+                                        setBranchDeleteError('');
+                                        addNotification(l('ფილიალი წარმატებით წაიშალა', 'Филиал успешно удален', 'Branch deleted successfully'), 'success');
+                                    } catch (err) {
+                                        setBranchDeleteError('Error');
+                                    } finally {
+                                        setIsDeletingBranch(false);
+                                    }
+                                }}
+                                className="flex-[2] py-4 bg-rose-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest disabled:opacity-50"
+                            >
+                                {isDeletingBranch ? '...' : l('წაშლა', 'Удалить', 'Delete')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

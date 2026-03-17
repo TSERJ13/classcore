@@ -3,15 +3,26 @@
  * Manages custom studio categories (dance styles, sports types, etc.)
  */
 
-const STYLE_STORAGE_KEY = 'sf_custom_styles';
+import { getScopedKey } from './settings-store';
+
+const BASE_STYLE_STORAGE_KEY = 'cc_custom_styles';
+function getStyleKey() { return getScopedKey(BASE_STYLE_STORAGE_KEY); }
 
 const DEFAULT_STYLES = ['Contemporary', 'Ballet', 'Hip-Hop', 'Salsa', 'Bachata', 'Tango', 'Jazz', 'Modern'];
 
 export function getCustomStyles(): string[] {
     if (typeof window === 'undefined') return DEFAULT_STYLES;
     try {
-        const stored = localStorage.getItem(STYLE_STORAGE_KEY);
-        return stored ? JSON.parse(stored) : DEFAULT_STYLES;
+        const key = getStyleKey();
+        let stored = localStorage.getItem(key);
+
+        // Migration
+        if (!stored && key !== BASE_STYLE_STORAGE_KEY) {
+            stored = localStorage.getItem(BASE_STYLE_STORAGE_KEY);
+        }
+
+        const parsed = JSON.parse(stored || '[]');
+        return Array.isArray(parsed) ? parsed : DEFAULT_STYLES;
     } catch {
         return DEFAULT_STYLES;
     }
@@ -19,7 +30,7 @@ export function getCustomStyles(): string[] {
 
 export function saveCustomStyles(styles: string[]): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(STYLE_STORAGE_KEY, JSON.stringify(styles));
+    localStorage.setItem(getStyleKey(), JSON.stringify(styles));
 }
 
 export function addCustomStyle(style: string): void {

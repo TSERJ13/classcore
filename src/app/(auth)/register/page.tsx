@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Zap, Mail, Lock, User, ArrowRight, ShieldCheck, Github, Chrome, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Mail, Lock, User, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { useT } from '@/contexts/LanguageContext';
 
 export default function RegisterPage() {
+    const { t } = useT();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -47,8 +48,9 @@ export default function RegisterPage() {
             } else {
                 window.location.href = '/dashboard';
             }
-        } catch (err: any) {
-            setError(err.message || 'რეგისტრაციისას დაფიქსირდა შეცდომა');
+        } catch (err: unknown) {
+            const errorObj = err as { message?: string };
+            setError(errorObj.message || t.registerError);
             setLoading(false);
         }
     };
@@ -63,14 +65,14 @@ export default function RegisterPage() {
                 {/* Logo */}
                 <div className="flex flex-col items-center text-center space-y-4">
                     <Link href="/" className="group flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-600/30 logo-animate-hover logo-large overflow-hidden">
-                            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain logo-white" />
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-600/30 logo-animate-hover logo-large overflow-hidden">
+                            <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
                         </div>
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight">ClassCore</h1>
                     </Link>
                     <div className="space-y-1">
-                        <h2 className="text-xl font-black text-slate-800">შექმენი შენი სტუდია</h2>
-                        <p className="text-sm text-slate-500 font-medium">დაიწყე 14 დღიანი უფასო საცდელი პერიოდით</p>
+                        <h2 className="text-xl font-black text-slate-800">{t.createStudio}</h2>
+                        <p className="text-sm text-slate-500 font-medium">{t.startTrial}</p>
                     </div>
                 </div>
 
@@ -82,16 +84,16 @@ export default function RegisterPage() {
                                 <Mail className="w-10 h-10 text-emerald-500" />
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-xl font-black text-slate-900">შეამოწმეთ ელ-ფოსტა</h3>
+                                <h3 className="text-xl font-black text-slate-900">{t.checkEmail}</h3>
                                 <p className="text-sm text-slate-500 font-medium leading-relaxed px-4">
-                                    რეგისტრაცია თითქმის დასრულებულია. გთხოვთ დაადასტუროთ თქვენი მეილი გამოგზავნილი ბმულით.
+                                    {t.registerSuccessMessage}
                                 </p>
                             </div>
                             <button
                                 onClick={() => window.location.href = '/login'}
                                 className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
                             >
-                                ავტორიზაციის გვერდი
+                                {t.login}
                             </button>
                         </div>
                     ) : (
@@ -104,28 +106,28 @@ export default function RegisterPage() {
                             <form onSubmit={handleRegister} className="space-y-5">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">სახელი</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{t.firstName}</label>
                                         <div className="relative group">
                                             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                                            <input name="firstName" required placeholder="გიორგი" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
+                                            <input name="firstName" required placeholder="Nino" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">გვარი</label>
-                                        <input name="lastName" required placeholder="კაპანაძე" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{t.lastName}</label>
+                                        <input name="lastName" required placeholder="Beridze" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">სტუდიის სახელი</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{t.studioName}</label>
                                     <div className="relative group">
                                         <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                                        <input name="studioName" required placeholder="მაგ: My Dance Academy" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
+                                        <input name="studioName" required placeholder="e.g. My Dance Academy" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Email</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{t.email}</label>
                                     <div className="relative group">
                                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                         <input name="email" type="email" required placeholder="contact@studio.ge" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
@@ -133,7 +135,7 @@ export default function RegisterPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">პაროლი</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{t.password}</label>
                                     <div className="relative group">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                         <input name="password" type="password" required placeholder="••••••••" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
@@ -145,7 +147,7 @@ export default function RegisterPage() {
                                         <input type="checkbox" id="terms" required className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                                     </div>
                                     <label htmlFor="terms" className="text-[11px] font-medium text-slate-500 leading-relaxed">
-                                        ვეთანხმები <Link href="#" className="text-indigo-600 font-bold hover:underline">წესებს და პირობებს</Link> და მონაცემთა დამუშავების პოლიტიკას.
+                                        {t.agreeTerms}
                                     </label>
                                 </div>
 
@@ -157,7 +159,7 @@ export default function RegisterPage() {
                                     {loading ? (
                                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     ) : (
-                                        <>ანგარიშის შექმნა <ArrowRight className="w-5 h-5" /></>
+                                        <>{t.createAccount} <ArrowRight className="w-5 h-5" /></>
                                     )}
                                 </button>
                             </form>
@@ -166,13 +168,13 @@ export default function RegisterPage() {
 
                     <div className="mt-8 pt-8 border-t border-slate-100">
                         <div className="flex items-center justify-center gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                            <ShieldCheck className="w-4 h-4" /> 100% უსაფრთხო და დაცული
+                            <ShieldCheck className="w-4 h-4" /> {t.secureAccount}
                         </div>
                     </div>
                 </div>
 
                 <p className="text-center text-sm font-semibold text-slate-500 pb-10">
-                    უკვე გაქვთ ანგარიში? <Link href="/login" className="text-indigo-600 font-black hover:underline underline-offset-4 decoration-2">შესვლა</Link>
+                    {t.haveAccount} <Link href="/login" className="text-indigo-600 font-black hover:underline underline-offset-4 decoration-2">{t.login}</Link>
                 </p>
             </div>
         </div>

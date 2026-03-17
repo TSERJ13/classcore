@@ -1,0 +1,177 @@
+
+> classcore.ge@0.1.0 dev
+> next dev -p 3001
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3001
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1321ms
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 624ms (122 modules)
+ ○ Compiling /attendance ...
+ ✓ Compiled /attendance in 2.6s (744 modules)
+ GET /attendance 200 in 3018ms
+ ✓ Compiled in 406ms (376 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ GET /attendance 200 in 67ms
+ ✓ Compiled in 447ms (730 modules)
+ ✓ Compiled in 391ms (744 modules)
+ GET /attendance 200 in 102ms
+ ✓ Compiled in 312ms (730 modules)
+ ✓ Compiled in 220ms (730 modules)
+ GET /attendance 200 in 167ms
+ ✓ Compiled in 208ms (730 modules)
+ ✓ Compiled in 390ms (744 modules)
+ GET /attendance 200 in 124ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 583ms (754 modules)
+ ✓ Compiled /students in 477ms (886 modules)
+ ✓ Compiled /calendar in 248ms (902 modules)
+ ✓ Compiled in 232ms (902 modules)
+ ✓ Compiled in 263ms (902 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 758ms (833 modules)
+ GET /attendance 200 in 156ms
+ ✓ Compiled in 387ms (833 modules)
+ ✓ Compiled in 144ms (819 modules)
+ GET /attendance 200 in 153ms
+ GET /attendance 200 in 39ms
+ ✓ Compiled /students in 191ms (475 modules)
+ GET /students 200 in 371ms
+ ✓ Compiled /subscriptions in 406ms (918 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /subscriptions 200 in 505ms
+ GET /subscriptions 200 in 35ms
+ GET /attendance 200 in 63ms
+ GET /attendance 200 in 49ms
+ ✓ Compiled in 679ms (932 modules)
+ ✓ Compiled in 357ms (932 modules)
+ ✓ Compiled in 232ms (918 modules)
+ ✓ Compiled in 310ms (918 modules)
+ ✓ Compiled in 368ms (918 modules)
+ ✓ Compiled in 604ms (932 modules)
+ ⨯ Error: Cannot find module './276.js'
+Require stack:
+- /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/dev/hot-middleware.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/dev/hot-reloader-webpack.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/router-server.js
+- /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/start-server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require-hook.js:55:36
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at mod.require (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at __webpack_require__.f.require (/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js:198:28)
+    at /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js:111:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js:110:67)
+    at Array.map (<anonymous>)
+    at __webpack_require__.X (/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js:162:22)
+    at /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js:1:43713
+    at Object.<anonymous> (/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js:1:43782)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at mod.require (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js:109:84)
+    at /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js:103:84
+    at async loadComponentsImpl (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js:103:26)
+    at async DevServer.findPageComponentsImpl (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/next-server.js:714:36)
+    at async DevServer.findPageComponents (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/dev/hot-middleware.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/dev/hot-reloader-webpack.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/router-server.js',
+    '/Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/lib/start-server.js'
+  ],
+  page: '/attendance'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1004ms (1145 modules)
+ ✓ Compiled /_not-found in 155ms (1148 modules)
+ GET /_next/static/css/app/layout.css?v=1772042846601 404 in 262ms
+ GET /attendance 200 in 98ms
+ GET /_next/static/css/app/layout.css?v=1772042847149 404 in 16ms
+ GET /_next/static/chunks/main-app.js?v=1772042847149 404 in 41ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 33ms
+ GET /_next/static/chunks/app/(dashboard)/attendance/page.js 404 in 33ms
+ GET /_next/static/chunks/app/(dashboard)/layout.js 404 in 32ms
+ ✓ Compiled in 610ms (1162 modules)
+ GET /_next/static/css/app/layout.css?v=1772042865924 404 in 62ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, lstat '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/vendor-chunks'
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/clsx' in /Users/sergitsivtsivadze/Downloads/studioflow/.next/server for build dependencies doesn't lead to expected result '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/vendor-chunks/clsx.js', but to 'Error: Can't resolve './vendor-chunks/clsx' in '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/clsx (expected /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/vendor-chunks/clsx.js)
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/cookie' in /Users/sergitsivtsivadze/Downloads/studioflow/.next/server for build dependencies doesn't lead to expected result '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/vendor-chunks/cookie.js', but to 'Error: Can't resolve './vendor-chunks/cookie' in '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/cookie (expected /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/vendor-chunks/cookie.js)
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/iceberg-js' in /Users/sergitsivtsivadze/Downloads/studioflow/.next/server for build dependencies doesn't lead to expected result '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server/vendor-chunks/iceberg-js.js', but to 'Error: Can't resolve './vendor-chunks/iceberg-js' in '/Users/sergitsivtsivadze/Downloads/studioflow/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/iceberg-js (expected /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/vendor-chunks/iceberg-js.js)
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/webpack-runtime.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/.next/server/app/(dashboard)/attendance/page.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Users/sergitsivtsivadze/Downloads/studioflow/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
