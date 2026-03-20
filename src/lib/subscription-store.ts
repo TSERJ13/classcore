@@ -254,7 +254,7 @@ export function pauseActiveSubscription(studentId: string, subId: string, days: 
 
     // Deduct price from balance if > 0
     if (price > 0) {
-        const student = getStudents().find(s => s.id === studentId);
+        const student = getStudents().find((s: any) => s.id === studentId);
         if (student) {
             const currentBalance = student.balance || 0;
             updateStudent(studentId, { balance: currentBalance - price });

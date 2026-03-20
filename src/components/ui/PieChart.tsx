@@ -17,16 +17,23 @@ interface PieChartProps {
 }
 
 export function PieChart({ data, size = 160, thickness = 20, className, centerLabel }: PieChartProps) {
-    const total = data.reduce((sum, item) => sum + item.value, 0);
-    const radius = (size - thickness) / 2;
+    const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0);
+    const radius = Math.max(0, (size - thickness) / 2);
     const center = size / 2;
     const circumference = 2 * Math.PI * radius;
 
     let currentOffset = 0;
 
     return (
-        <div className={cn("relative flex items-center justify-center shrink-0", className)}>
-            <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full transform -rotate-90">
+        <div 
+            className={cn("relative flex items-center justify-center shrink-0 overflow-hidden", className)}
+            style={{ width: size, height: size }}
+        >
+            <svg 
+                viewBox={`0 0 ${size} ${size}`} 
+                className="w-full h-full transform -rotate-90"
+                preserveAspectRatio="xMidYMid meet"
+            >
                 {/* Background circle */}
                 <circle
                     cx={center}

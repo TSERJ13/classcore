@@ -1,5 +1,41 @@
 [
   {
+    "id": "355r7v07",
+    "timestamp": "2026-03-19T16:59:44.123Z",
+    "studentName": "Studio Owner",
+    "to": "N/A",
+    "text": "გამარჯობა ClassCore Admin-ისგან",
+    "status": "error",
+    "error": "Failed to send SMS"
+  },
+  {
+    "id": "0g9wh03f",
+    "timestamp": "2026-03-19T10:56:49.367Z",
+    "studentName": "Studio Owner",
+    "to": "N/A",
+    "text": "გამარჯობა N/A, ",
+    "status": "error",
+    "error": "Failed to send SMS"
+  },
+  {
+    "id": "98ju0fdj",
+    "timestamp": "2026-03-19T10:56:39.850Z",
+    "studentName": "Studio Owner",
+    "to": "N/A",
+    "text": "გამარჯობა ClassCore Admin-ისგან",
+    "status": "error",
+    "error": "Failed to send SMS"
+  },
+  {
+    "id": "87gu1sn8",
+    "timestamp": "2026-03-19T09:39:22.980Z",
+    "studentName": "უცნობი",
+    "to": "Unknown",
+    "text": "გამარჯობა ClassCore Admin-ისგან",
+    "status": "error",
+    "error": "Missing \"to\" or \"text\""
+  },
+  {
     "id": 549330348,
     "timestamp": "2026-03-16T20:56:27.898Z",
     "studentName": "გიორგი მახარაძე",

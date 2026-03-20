@@ -8,6 +8,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import { cn, getInitials, isExpiringSoon } from '@/lib/utils';
 import { StudentModal } from '@/components/students/StudentModal';
 import { getStudents } from '@/lib/student-store';
+import { useConfirm } from '@/contexts/ConfirmContext';
 import type { Student } from '@/types';
 
 // removed
@@ -28,12 +29,16 @@ export default function StudentsPage() {
     const { t } = useT();
     const { user, profile } = useUser();
     const { settings, addToTrash } = useStudio();
+    const { confirm } = useConfirm();
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [students, setStudents] = useState<Student[]>([]);
 
     useEffect(() => {
-        setStudents(getStudents());
+        const load = () => setStudents(getStudents());
+        load();
+        window.addEventListener('cc_student_update', load);
+        return () => window.removeEventListener('cc_student_update', load);
     }, [isDemo, settings.activeBranchId]);
 
     const [search, setSearch] = useState('');
@@ -123,7 +128,9 @@ export default function StudentsPage() {
         });
     }
 
-    function handleDelete(id: string) {
+    async function handleDelete(id: string) {
+        if (!await confirm(t.confirmDelete)) return;
+        
         const student = students.find(s => s.id === id);
         if (student) {
             addToTrash({
@@ -312,7 +319,7 @@ export default function StudentsPage() {
                                         className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all shadow-sm">
                                         <Edit2 className="w-3.5 h-3.5" />
                                     </button>
-                                    <button onClick={(e) => { e.stopPropagation(); if (window.confirm(t.confirmDelete)) handleDelete(student.id); }}
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(student.id); }}
                                         className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm">
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>

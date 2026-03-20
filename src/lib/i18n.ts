@@ -21,6 +21,11 @@ export interface Translations {
     subscriptions: string;
     billing: string;
     sms_manager: string;
+    selectColor: string;
+    yearlyRevenue: string;
+    attention: string;
+    yes: string;
+    ok: string;
     // Nav section labels
     navSectionLearning: string;
     navSectionStructure: string;
@@ -55,6 +60,7 @@ export interface Translations {
     visit: string;
     visits: string;
     categories: string;
+    products: string;
     addNew: string;
     // Dashboard
     totalStudents: string;
@@ -509,12 +515,16 @@ export interface Translations {
     perHourShort: string;
     perMonthShort: string;
     shareShort: string;
+    percentageShort: string;
     indSessionShort: string;
     statsTotal: string;
     statsActive: string;
     statsExpired: string;
     statsNewThisMonth: string;
     average: string;
+    averageDaily: string;
+    averageMonthly: string;
+    averageYearly: string;
     thisMonthAverage: string;
     searchStudentPlaceholder: string;
     priceManagement: string;
@@ -564,7 +574,14 @@ export interface Translations {
     popularGroups: string;
     growthTable: string;
     groupsEmpty: string;
-    // SMS
+    markAsPaid: string;
+    markAsPending: string;
+    issueSalary: string;
+    pay: string;
+    totalPaidThisMonth: string;
+    totalPendingThisMonth: string;
+    revenueOverview: string;
+    attendanceRateShort: string;
     smsManager: string;
     smsManagerDesc: string;
     manageTexts: string;
@@ -739,6 +756,11 @@ export interface Translations {
     difficultyAdvanced: string;
     selectTeacher: string;
     schedulePlaceholder: string;
+    groupColor: string;
+    chooseAnotherColor: string;
+    selectDaysAndTimes: string;
+    atLeastOneDay: string;
+    calendarUpdateNotice: string;
     deleteGroup: string;
     // SubscriptionModal extra
     editSubscription: string;
@@ -931,6 +953,16 @@ export interface Translations {
     permViewShop: string;
     permViewAnalytics: string;
     permViewSMS: string;
+    saveAndSync: string;
+    revenueTrend: string;
+    attendanceAnalysis: string;
+    recommendations: string;
+    mostPopular: string;
+    revenueDynamics: string;
+    students3m: string;
+    oldLabel: string;
+    leftLabel: string;
+    thisMonthAve: string;
 }
 
 
@@ -985,6 +1017,9 @@ export const translations: Record<Lang, Translations> = {
         delete: 'წაშლა',
         save: 'შენახვა',
         cancel: 'გაუქმება',
+        attention: 'ყურადღება',
+        yes: 'დიახ',
+        ok: 'კარგი',
         search: 'ძებნა...',
         filter: 'ფილტრი',
         loading: 'იტვირთება...',
@@ -992,6 +1027,7 @@ export const translations: Record<Lang, Translations> = {
         visit: 'ვიზიტი',
         visits: 'ვიზიტები',
         categories: 'კატეგორიები',
+        products: 'პროდუქტები',
         // Dashboard
         totalStudents: 'სულ სტუდენტები',
         activeSubscriptions: 'აქტიური აბონემენტები',
@@ -1310,6 +1346,7 @@ export const translations: Record<Lang, Translations> = {
         perHourShort: 'სთ',
         perMonthShort: 'თვე',
         shareShort: 'წილი',
+        percentageShort: 'პროცენტული',
         indSessionShort: 'ინდ. გაკვეთილი',
         statsTotal: 'ჯამში',
         statsActive: 'აქტიური',
@@ -1362,9 +1399,13 @@ export const translations: Record<Lang, Translations> = {
         salaryEmpty: 'ხელფასების მონაცემები ცარიელია',
         popularGroups: 'პოპულარული ჯგუფები',
         growthTable: 'ზრდა',
+        selectColor: 'ფერის არჩევა',
+        yearlyRevenue: 'წლიური შემოსავალი',
         groupsEmpty: 'ჯგუფების მონაცემები ცარიელია',
         // SMS
-        smsManager: 'SMS მენეჯერი',
+        revenueOverview: 'შემოსავლების მიმოხილვა',
+    attendanceRateShort: 'დასწრება',
+    smsManager: 'SMS მენეჯერი',
         smsManagerDesc: 'მართეთ ავტომატური შეტყობინებების ტექსტები და სტატისტიკა.',
         manageTexts: 'ტექსტების მართვა',
         logsStats: 'ლოგები & სტატისტიკა',
@@ -1538,6 +1579,11 @@ export const translations: Record<Lang, Translations> = {
         difficultyAdvanced: 'პროფესიონალი',
         selectTeacher: 'აირჩიეთ მასწავლებელი',
         schedulePlaceholder: 'მაგ: ორ, ოთხ · 18:00–19:30',
+        groupColor: 'ჯგუფის ფერი',
+        chooseAnotherColor: 'სხვა ფერის არჩევა',
+        selectDaysAndTimes: 'აირჩიეთ დღეები და დროები',
+        atLeastOneDay: 'აირჩიეთ მინიმუმ ერთი დღე',
+        calendarUpdateNotice: 'შენახვისას კალენდარი ავტომატურად განახლდება',
         deleteGroup: 'ჯგუფის წაშლა',
         // SubscriptionModal extra
         editSubscription: 'აბონემენტის რედაქტირება',
@@ -1652,6 +1698,12 @@ export const translations: Record<Lang, Translations> = {
         searchProduct: 'პროდუქტის ძებნა...',
         sell: 'გაყიდვა',
         recentSales: 'ბოლო გაყიდვები',
+        totalPaidThisMonth: 'ამ თვეში სულ გაცემული',
+        totalPendingThisMonth: 'სულ გადასახდელი',
+        markAsPaid: 'გადახდილად მონიშვნა',
+        markAsPending: 'მონიშვნა როგორც გადასახდელი',
+        issueSalary: 'ხელფასის გაცემა',
+        pay: 'გაცემა',
         transactionHistory: 'ტრანზაქციების ისტორია',
         noSales: 'გაყიდვები არ ფიქსირდება',
         trial15Days: '15-დღიანი ტესტირება',
@@ -1665,6 +1717,9 @@ export const translations: Record<Lang, Translations> = {
         noEventsToday: 'ამ დღეს ღონისძიებები არ არის',
         unnamed: 'უსახელო',
         average: 'საშუალო',
+        averageDaily: 'დღიური საშუალო',
+        averageMonthly: 'თვიური საშუალო',
+        averageYearly: 'წლიური საშუალო',
         thisMonthAverage: 'ამ თვის საშუალო',
         ofStudents: '{count} სტუდენტი {total}-დან',
         birthdayNotification: 'დაბადების დღე',
@@ -1861,8 +1916,17 @@ export const translations: Record<Lang, Translations> = {
         requiredField: 'სავალდებულოა',
         photoOptional: 'სურვილისამებრ',
         registering: 'დარეგისტრირება...',
+        saveAndSync: 'კალენდარში დამატება',
+        revenueTrend: 'შემოსავლების ტრენდი',
+        attendanceAnalysis: 'დასწრების ანალიზი',
+        recommendations: 'რეკომენდაციები',
+        mostPopular: 'ყველაზე პოპულარული',
+        revenueDynamics: 'შემოსავლების დინამიკა',
+        students3m: 'სტუდენტები (3 თვე)',
+        oldLabel: 'ძველი',
+        leftLabel: 'წავიდა',
+        thisMonthAve: 'ამ თვის საშუალო',
     },
-
     ru: {
         // Nav core
         dashboard: 'Дашборд',
@@ -1913,6 +1977,9 @@ export const translations: Record<Lang, Translations> = {
         delete: 'Удалить',
         save: 'Сохранить',
         cancel: 'Отмена',
+        attention: 'Внимание',
+        yes: 'Да',
+        ok: 'ОК',
         search: 'Поиск...',
         filter: 'Фильтр',
         loading: 'Загрузка...',
@@ -1920,6 +1987,7 @@ export const translations: Record<Lang, Translations> = {
         visit: 'Визит',
         visits: 'Визиты',
         categories: 'Категории',
+        products: 'Продукты',
         // Dashboard
         totalStudents: 'Всего студентов',
         activeSubscriptions: 'Активные абонементы',
@@ -2241,6 +2309,7 @@ export const translations: Record<Lang, Translations> = {
         perHourShort: 'ч.',
         perMonthShort: 'мес.',
         shareShort: 'доля',
+        percentageShort: 'Процент',
         indSessionShort: 'Инд. урок',
         statsTotal: 'Всего',
         statsActive: 'Активные',
@@ -2293,9 +2362,13 @@ export const translations: Record<Lang, Translations> = {
         salaryEmpty: 'Данные о зарплатах пусты',
         popularGroups: 'Популярные группы',
         growthTable: 'Рост',
+        selectColor: 'Выбор цвета',
+        yearlyRevenue: 'Годовой доход',
         groupsEmpty: 'Данные о группах пусты',
         // SMS
-        smsManager: 'SMS Менеджер',
+        revenueOverview: 'Обзор доходов',
+    attendanceRateShort: 'Посещаемость',
+    smsManager: 'SMS Менеджер',
         smsManagerDesc: 'Управляйте текстами автоуведомлений и статистикой.',
         manageTexts: 'Управление текстами',
         logsStats: 'Логи и статистика',
@@ -2469,6 +2542,11 @@ export const translations: Record<Lang, Translations> = {
         difficultyAdvanced: 'Продвинутый',
         selectTeacher: 'Выберите преподавателя',
         schedulePlaceholder: 'Напр: Пн, Ср · 18:00–19:30',
+        groupColor: 'Цвет группы',
+        chooseAnotherColor: 'Выбрать другой цвет',
+        selectDaysAndTimes: 'Выберите дни и время',
+        atLeastOneDay: 'Выберите хотя бы один день',
+        calendarUpdateNotice: 'Календарь обновится автоматически при сохранении',
         deleteGroup: 'Удалить группу',
         // SubscriptionModal extra
         editSubscription: 'Редактировать абонемент',
@@ -2583,6 +2661,12 @@ export const translations: Record<Lang, Translations> = {
         searchProduct: 'Поиск товара...',
         sell: 'Продать',
         recentSales: 'Последние продажи',
+        totalPaidThisMonth: 'Всего выплачено в этом месяце',
+        totalPendingThisMonth: 'Всего к выплате',
+        markAsPaid: 'Отметить как выплачено',
+        markAsPending: 'Отметить как ожидается',
+        issueSalary: 'Выдать зарплату',
+        pay: 'Выдать',
         transactionHistory: 'История транзакций',
         noSales: 'Продажи не зафиксированы',
         trial15Days: '15-дневное тестирование',
@@ -2595,6 +2679,9 @@ export const translations: Record<Lang, Translations> = {
         noEventsToday: 'В этот день занятий нет',
         unnamed: 'Без названия',
         average: 'Среднее',
+        averageDaily: 'Среднее в день',
+        averageMonthly: 'Среднее в месяц',
+        averageYearly: 'Среднее в год',
         thisMonthAverage: 'Среднее за месяц',
         ofStudents: '{count} из {total} студентов',
         birthdayNotification: 'День рождения',
@@ -2788,6 +2875,16 @@ export const translations: Record<Lang, Translations> = {
         requiredField: 'обязательно',
         photoOptional: 'необязательно',
         registering: 'Регистрация...',
+        saveAndSync: 'Сохранить в календарь',
+        revenueTrend: 'Тренд доходов',
+        attendanceAnalysis: 'Анализ посещаемости',
+        recommendations: 'Рекомендации',
+        mostPopular: 'Самое популярное',
+        revenueDynamics: 'Динамика доходов',
+        students3m: 'Студенты (3 мес)',
+        oldLabel: 'Старые',
+        leftLabel: 'Ушли',
+        thisMonthAve: 'В этом месяце',
     },
     en: {
         // Nav core
@@ -2839,6 +2936,9 @@ export const translations: Record<Lang, Translations> = {
         delete: 'Delete',
         save: 'Save',
         cancel: 'Cancel',
+        attention: 'Attention',
+        yes: 'Yes',
+        ok: 'OK',
         search: 'Search...',
         filter: 'Filter',
         loading: 'Loading...',
@@ -2846,6 +2946,7 @@ export const translations: Record<Lang, Translations> = {
         visit: 'Visit',
         visits: 'Visits',
         categories: 'Categories',
+        products: 'Products',
         // Dashboard
         totalStudents: 'Total Students',
         activeSubscriptions: 'Active Subscriptions',
@@ -3167,6 +3268,7 @@ export const translations: Record<Lang, Translations> = {
         perHourShort: 'hr',
         perMonthShort: 'mo',
         shareShort: 'share',
+        percentageShort: 'Percentage',
         indSessionShort: 'Ind. Lesson',
         statsTotal: 'Total',
         statsActive: 'Active',
@@ -3219,9 +3321,13 @@ export const translations: Record<Lang, Translations> = {
         salaryEmpty: 'Salary data is empty',
         popularGroups: 'Popular Groups',
         growthTable: 'Growth',
+        selectColor: 'Select Color',
+        yearlyRevenue: 'Yearly Revenue',
         groupsEmpty: 'Group data is empty',
         // SMS
-        smsManager: 'SMS Manager',
+        revenueOverview: 'Revenue Overview',
+    attendanceRateShort: 'Attendance',
+    smsManager: 'SMS Manager',
         smsManagerDesc: 'Manage automated notification texts and stats.',
         manageTexts: 'Manage Texts',
         logsStats: 'Logs & Stats',
@@ -3395,6 +3501,11 @@ export const translations: Record<Lang, Translations> = {
         difficultyAdvanced: 'Advanced',
         selectTeacher: 'Select Teacher',
         schedulePlaceholder: 'e.g. Mon, Wed · 18:00–19:30',
+        groupColor: 'Group Color',
+        chooseAnotherColor: 'Choose another color',
+        selectDaysAndTimes: 'Select days and times',
+        atLeastOneDay: 'Select at least one day',
+        calendarUpdateNotice: 'Calendar will be automatically updated on save',
         deleteGroup: 'Delete Group',
         // SubscriptionModal extra
         editSubscription: 'Edit Subscription',
@@ -3508,6 +3619,12 @@ export const translations: Record<Lang, Translations> = {
         searchProduct: 'Search product...',
         sell: 'Sell',
         recentSales: 'Recent Sales',
+        totalPaidThisMonth: 'Total Paid this Month',
+        totalPendingThisMonth: 'Total Pending',
+        markAsPaid: 'Mark as Paid',
+        markAsPending: 'Mark as Pending',
+        issueSalary: 'Issue Salary',
+        pay: 'Pay',
         transactionHistory: 'Transaction History',
         noSales: 'No sales recorded',
         trial15Days: '15-day trial',
@@ -3520,6 +3637,9 @@ export const translations: Record<Lang, Translations> = {
         noEventsToday: 'No classes for this day',
         unnamed: 'Unnamed',
         average: 'Average',
+        averageDaily: 'Daily Average',
+        averageMonthly: 'Monthly Average',
+        averageYearly: 'Yearly Average',
         thisMonthAverage: 'Monthly Average',
         ofStudents: '{count} of {total} students',
         birthdayNotification: 'Birthday',
@@ -3713,6 +3833,16 @@ export const translations: Record<Lang, Translations> = {
         requiredField: 'required',
         photoOptional: 'optional',
         registering: 'Registering...',
+        saveAndSync: 'Save & Sync Calendar',
+        revenueTrend: 'Revenue Trend',
+        attendanceAnalysis: 'Attendance Analysis',
+        recommendations: 'Recommendations',
+        mostPopular: 'Most Popular',
+        revenueDynamics: 'Revenue Dynamics',
+        students3m: 'Students (3 Months)',
+        oldLabel: 'Old',
+        leftLabel: 'Left',
+        thisMonthAve: 'This Month Average',
     },
 };
 

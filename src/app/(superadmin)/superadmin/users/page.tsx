@@ -18,16 +18,28 @@ function loadUsers(): UserRecord[] {
 }
 
 const LANG_FLAG: Record<string, string> = { ka: '🇬🇪', ru: '🇷🇺', en: '🇬🇧' };
-const TIER_COLORS: Record<string, string> = { trial: 'text-zinc-400 bg-zinc-800', starter: 'text-blue-400 bg-blue-500/10', growth: 'text-violet-400 bg-violet-500/10', enterprise: 'text-amber-400 bg-amber-500/10' };
+const TIER_COLORS: Record<string, string> = { 
+    trial: 'text-muted bg-surface border border-border-subtle', 
+    starter: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border border-blue-500/20', 
+    growth: 'text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-500/20', 
+    enterprise: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20' 
+};
 
 export default function UsersPage() {
+    const [mounted, setMounted] = useState(false);
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [search, setSearch] = useState('');
+    const [lang, setLang] = useState<'ka' | 'en'>('ka');
     const [editingNote, setEditingNote] = useState<string | null>(null);
     const [noteVal, setNoteVal] = useState('');
     const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
-    useEffect(() => { setUsers(loadUsers()); }, []);
+    useEffect(() => { 
+        setMounted(true);
+        setUsers(loadUsers()); 
+        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
+        if (storedLang) setLang(storedLang);
+    }, []);
 
     const filtered = users.filter(u => u.studioName.toLowerCase().includes(search.toLowerCase()) || u.slug.toLowerCase().includes(search.toLowerCase()));
 
@@ -39,50 +51,83 @@ export default function UsersPage() {
 
     const copySlug = (slug: string) => { navigator.clipboard.writeText(slug); setCopiedSlug(slug); setTimeout(() => setCopiedSlug(null), 2000); };
 
+    if (!mounted) return null;
+
     return (
         <div className="space-y-6 animate-fade-up">
             <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div><h1 className="text-2xl font-black text-white tracking-tight">Users & Support</h1><p className="text-sm text-zinc-500 mt-1">Studio accounts and support notes</p></div>
-                <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-indigo-500/50 w-56" /></div>
+                <div>
+                    <h1 className="text-2xl font-black text-primary tracking-tight">{lang === 'ka' ? 'მომხმარებლები და მხარდაჭერა' : 'Users & Support'}</h1>
+                    <p className="text-sm text-muted mt-1">{lang === 'ka' ? 'სტუდიის ანგარიშები და მხარდაჭერის ჩანაწერები' : 'Studio accounts and support notes'}</p>
+                </div>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted opacity-40" />
+                    <input 
+                        value={search} 
+                        onChange={e => setSearch(e.target.value)} 
+                        placeholder={lang === 'ka' ? 'ძიება...' : 'Search...'} 
+                        className="bg-black/5 dark:bg-card border border-black/5 dark:border-border-subtle rounded-2xl pl-10 pr-4 py-3 text-sm text-primary dark:text-white placeholder:text-muted outline-none focus:border-indigo-500/50 w-64 shadow-sm transition-all" 
+                    />
+                </div>
             </div>
             <div className="grid gap-4">
                 {filtered.length === 0 ? (
-                    <div className="py-16 text-center bg-zinc-900 border border-zinc-800 rounded-2xl text-zinc-600"><Users className="w-8 h-8 mx-auto mb-3 opacity-30" /><p className="text-sm font-bold">No users found</p></div>
+                    <div className="py-24 text-center bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle rounded-[2.5rem] text-muted shadow-sm">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p className="text-sm font-black uppercase tracking-[0.2em]">{lang === 'ka' ? 'მომხმარებელი ვერ მოიძებნა' : 'No users found'}</p>
+                    </div>
                 ) : filtered.map(user => (
-                    <div key={user.slug} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                        <div className="flex items-center gap-4 p-5">
-                            <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800 flex items-center justify-center">
-                                {user.logoUrl ? <img src={user.logoUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-xs font-black text-zinc-400">{user.studioName.slice(0, 2).toUpperCase()}</span>}
+                    <div key={user.slug} className="bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center gap-5 p-6">
+                            <div className="w-12 h-12 rounded-[1.25rem] overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle flex items-center justify-center shadow-inner">
+                                {user.logoUrl ? <img src={user.logoUrl} alt="" className="w-full h-full object-cover" /> : <Users className="w-5 h-5 text-zinc-300 opacity-40" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-sm font-black text-white">{user.studioName}</p>
-                                    <span className="text-lg">{LANG_FLAG[user.language] || '🌐'}</span>
-                                    <span className={cn('px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider', TIER_COLORS[user.tier] || TIER_COLORS.trial)}>{user.tier}</span>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <p className="text-base font-black text-primary dark:text-white truncate">{user.studioName}</p>
+                                    <span className="text-lg grayscale-[0.5] hover:grayscale-0 transition-all cursor-default" title={user.language.toUpperCase()}>{LANG_FLAG[user.language] || '🌐'}</span>
+                                    <span className={cn('px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border', TIER_COLORS[user.tier] || TIER_COLORS.trial)}>
+                                        {user.tier === 'trial' ? (lang === 'ka' ? 'ტესტირება' : 'Trial') : 
+                                         user.tier === 'starter' ? (lang === 'ka' ? 'სტარტერი' : 'Starter') :
+                                         user.tier === 'growth' ? (lang === 'ka' ? 'ზრდა' : 'Growth') :
+                                         user.tier === 'enterprise' ? (lang === 'ka' ? 'პრემიუმი' : 'Pro') : user.tier}
+                                    </span>
                                 </div>
-                                <div className="flex items-center gap-3 mt-1">
-                                    <button onClick={() => copySlug(user.slug)} className="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 font-mono transition-colors">
-                                        {copiedSlug === user.slug ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                <div className="flex items-center gap-3 mt-1.5">
+                                    <button onClick={() => copySlug(user.slug)} className="flex items-center gap-1.5 text-[10px] text-muted hover:text-indigo-500 font-mono font-black uppercase tracking-tighter transition-colors group/slug">
+                                        {copiedSlug === user.slug ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3 opacity-40 group-hover/slug:opacity-100" />}
                                         /{user.slug}
                                     </button>
-                                    <span className="text-[10px] text-zinc-600">•</span>
-                                    <span className="text-[10px] text-zinc-500">{user.studentCount} students</span>
+                                    <span className="text-[10px] text-muted opacity-20">•</span>
+                                    <span className="text-[10px] text-muted font-black uppercase tracking-widest opacity-60 tabular-nums">{user.studentCount} {lang === 'ka' ? 'მოსწავლე' : 'students'}</span>
                                 </div>
                             </div>
-                            <button onClick={() => { setEditingNote(user.slug); setNoteVal(user.supportNote); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-xl text-xs font-bold transition-all">
-                                <MessageSquare className="w-3.5 h-3.5" /><span className="hidden sm:inline">Note</span>
+                            <button onClick={() => { setEditingNote(user.slug); setNoteVal(user.supportNote); }} className="flex items-center gap-2 px-5 py-3 bg-black/5 dark:bg-surface hover:bg-black/10 dark:hover:bg-muted/10 text-muted hover:text-primary dark:hover:text-white border border-black/5 dark:border-border-subtle rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                <MessageSquare className="w-4 h-4 opacity-40" />
+                                <span className="hidden sm:inline">{lang === 'ka' ? 'ჩანაწერი' : 'Note'}</span>
                             </button>
                         </div>
                         {editingNote === user.slug ? (
-                            <div className="border-t border-zinc-800 px-5 py-4 flex gap-2">
-                                <textarea autoFocus value={noteVal} onChange={e => setNoteVal(e.target.value)} placeholder="Add support note, contact info, issues..." rows={3} className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-indigo-500/50 resize-none" />
+                            <div className="border-t border-black/5 dark:border-border-subtle/50 px-6 py-5 flex gap-4 bg-black/[0.01]">
+                                <textarea 
+                                    autoFocus 
+                                    value={noteVal} 
+                                    onChange={e => setNoteVal(e.target.value)} 
+                                    placeholder={lang === 'ka' ? 'დაამატეთ მხარდაჭერის შენიშვნა, საკონტაქტო ინფორმაცია და ა.შ.' : 'Add support note, contact info, issues...'} 
+                                    rows={3} 
+                                    className="flex-1 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle rounded-2xl px-5 py-3.5 text-xs font-bold text-primary dark:text-white placeholder:text-muted/40 outline-none focus:border-indigo-500/50 resize-none shadow-inner" 
+                                />
                                 <div className="flex flex-col gap-2">
-                                    <button onClick={() => saveNote(user.slug)} className="px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black rounded-xl transition-all">Save</button>
-                                    <button onClick={() => setEditingNote(null)} className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-black rounded-xl transition-all">Cancel</button>
+                                    <button onClick={() => saveNote(user.slug)} className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20">{lang === 'ka' ? 'შენახვა' : 'Save'}</button>
+                                    <button onClick={() => setEditingNote(null)} className="px-5 py-3 bg-white/95 dark:bg-card hover:bg-black/5 dark:hover:bg-zinc-500/10 text-muted border border-black/5 dark:border-border-subtle text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">{lang === 'ka' ? 'გაუქმება' : 'Cancel'}</button>
                                 </div>
                             </div>
                         ) : user.supportNote ? (
-                            <div className="border-t border-zinc-800 px-5 py-3"><p className="text-[11px] text-zinc-400 whitespace-pre-wrap">💬 {user.supportNote}</p></div>
+                            <div className="border-t border-black/5 dark:border-border-subtle/50 px-6 py-4 bg-black/[0.02] dark:bg-zinc-500/5">
+                                <p className="text-[11px] text-primary/70 dark:text-white/60 font-medium whitespace-pre-wrap leading-relaxed">
+                                    <span className="opacity-40 mr-2 text-xs">💬</span> {user.supportNote}
+                                </p>
+                            </div>
                         ) : null}
                     </div>
                 ))}

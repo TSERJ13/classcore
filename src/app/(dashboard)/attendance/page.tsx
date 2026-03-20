@@ -773,7 +773,15 @@ export default function AttendancePage() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h2 className="text-lg md:text-xl font-black text-primary tracking-tight">{cls.title}</h2>
-                                        <p className="text-[10px] md:text-xs font-bold text-muted opacity-60 mt-0.5">{cls.start_time}–{cls.end_time} · {getTeacherName(cls.teacher_id)}</p>
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                                            <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {getTeacherName(cls.teacher_id)}</p>
+                                            {cls.notes && (
+                                                <div className="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded-full">
+                                                    <Info className="w-3 h-3 text-indigo-400" />
+                                                    <p className="text-[9px] font-bold text-indigo-600 truncate max-w-[200px]">{cls.notes}</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex gap-1 md:gap-2">
                                         {mounted && ((() => {
@@ -1332,55 +1340,39 @@ export default function AttendancePage() {
 
                                                     {activeTab === 'products' && (
                                                         <div className="space-y-4 pb-20">
-                                                            {/* Quick Sell UI */}
-                                                            <div className="p-4 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/10 space-y-3">
-                                                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{t.sellAction}</p>
-                                                                <div className="space-y-3">
-                                                                    <SearchSelect 
-                                                                        options={availableProducts.filter(p => p.quantity > 0).map(p => ({
-                                                                            value: p.id,
-                                                                            label: `${p.name} (${p.quantity} ც. - ${formatCurrency(p.price, settings.currency)})`
-                                                                        }))}
-                                                                        value=""
-                                                                        onChange={handleQuickSell}
-                                                                        placeholder={t.productTitle}
-                                                                        className="!border-indigo-500/20"
-                                                                    />
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-card border border-border-subtle rounded-xl">
-                                                                            <span className="text-[9px] font-black text-muted uppercase opacity-40">{t.stockValue}</span>
-                                                                            <input 
-                                                                                type="number" 
-                                                                                min="1"
-                                                                                value={quickSellQty}
-                                                                                onChange={e => setQuickSellQty(parseInt(e.target.value) || 1)}
-                                                                                className="w-full bg-transparent text-xs font-black text-primary focus:outline-none"
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
 
                                                             {/* Sales History */}
-                                                            <div className="space-y-2">
-                                                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1">{t.transactionHistory}</p>
+                                                            <div className="space-y-3">
+                                                                <div className="flex items-center justify-between px-1">
+                                                                    <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.transactionHistory}</p>
+                                                                    <p className="text-[10px] font-black text-indigo-600 tabular-nums">{studentSales.length} {t.products}</p>
+                                                                </div>
                                                                 {studentSales.map((sale) => (
-                                                                    <div key={sale.id} className="flex items-center justify-between p-3 rounded-2xl bg-surface/50 border border-border-subtle/50 transition-all hover:border-indigo-500/20 group">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                                                                                <Package className="w-4 h-4 text-indigo-600" />
+                                                                    <div key={sale.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-surface/50 border border-border-subtle/50 transition-all hover:border-indigo-500/20 hover:bg-card group">
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                                                <Package className="w-5 h-5 text-indigo-600" />
                                                                             </div>
                                                                             <div>
-                                                                                <p className="text-[11px] font-black text-primary">{sale.productName}</p>
-                                                                                <p className="text-[9px] font-bold text-muted opacity-60">{sale.date} · {sale.quantity} ც.</p>
+                                                                                <p className="text-sm font-black text-primary leading-tight">{sale.productName}</p>
+                                                                                <div className="flex items-center gap-2 mt-1">
+                                                                                    <span className="text-[10px] font-bold text-muted opacity-60">{sale.date}</span>
+                                                                                    <span className="text-[10px] font-black text-indigo-500/40 tracking-widest uppercase">{sale.quantity} ც.</span>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                        <p className="text-[11px] font-black text-primary tabular-nums">{formatCurrency(sale.price, settings.currency)}</p>
+                                                                        <div className="text-right">
+                                                                            <p className="text-sm font-black text-primary tabular-nums">{formatCurrency(sale.price, settings.currency)}</p>
+                                                                            <p className="text-[9px] font-bold text-muted opacity-40 uppercase">{sale.time || '12:00'}</p>
+                                                                        </div>
                                                                     </div>
                                                                 ))}
                                                                 {studentSales.length === 0 && (
-                                                                    <div className="py-8 text-center bg-surface/30 rounded-2xl border border-dashed border-border-subtle">
-                                                                        <p className="text-[9px] font-black text-muted uppercase opacity-30 italic">{t.noData}</p>
+                                                                    <div className="py-12 text-center bg-surface/30 rounded-[2rem] border border-dashed border-border-subtle">
+                                                                        <div className="w-12 h-12 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center mx-auto mb-4 opacity-50">
+                                                                            <ShoppingCart className="w-6 h-6 text-muted/20" />
+                                                                        </div>
+                                                                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.noData}</p>
                                                                     </div>
                                                                 )}
                                                             </div>

@@ -11,6 +11,7 @@ export type BillingStatus = 'trial' | 'active' | 'overdue' | 'suspended';
 
 export interface BillingState {
     status: BillingStatus;
+    plan: string;
     trialStartDate: string | null;
     lastPaidDate: string | null;
     daysLeftInTrial: number;
@@ -20,9 +21,14 @@ export interface BillingState {
 }
 
 export function getBillingState(slug: string): BillingState {
+    if (typeof window === 'undefined') return { status: 'trial', plan: 'trial', trialStartDate: null, lastPaidDate: null, daysLeftInTrial: TRIAL_DAYS, daysOverdue: 0, nextDueDate: null, accountBalance: 0 };
     try {
         const raw = localStorage.getItem(`cc_saas_billing_${slug}`);
         const data = raw ? JSON.parse(raw) : {};
+
+        const metaRaw = localStorage.getItem(`cc_sa_meta_${slug}`);
+        const meta = metaRaw ? JSON.parse(metaRaw) : {};
+        const plan = meta.plan || data.plan || 'trial';
 
         const trialStart = data.trialStartDate ? new Date(data.trialStartDate) : new Date();
         if (!data.trialStartDate) {
@@ -43,11 +49,11 @@ export function getBillingState(slug: string): BillingState {
             const daysOverdue = Math.floor((now.getTime() - nextDue.getTime()) / (1000 * 60 * 60 * 24));
 
             if (daysOverdue <= 0) {
-                return { status: 'active', trialStartDate: trialStart.toISOString(), lastPaidDate: lastPaid.toISOString(), daysLeftInTrial: 0, daysOverdue: 0, nextDueDate: nextDue.toISOString(), accountBalance: data.accountBalance || 0 };
+                return { status: 'active', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: lastPaid.toISOString(), daysLeftInTrial: 0, daysOverdue: 0, nextDueDate: nextDue.toISOString(), accountBalance: data.accountBalance || 0 };
             } else if (daysOverdue <= GRACE_DAYS) {
-                return { status: 'overdue', trialStartDate: trialStart.toISOString(), lastPaidDate: lastPaid.toISOString(), daysLeftInTrial: 0, daysOverdue, nextDueDate: nextDue.toISOString(), accountBalance: data.accountBalance || 0 };
+                return { status: 'overdue', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: lastPaid.toISOString(), daysLeftInTrial: 0, daysOverdue, nextDueDate: nextDue.toISOString(), accountBalance: data.accountBalance || 0 };
             } else {
-                return { status: 'suspended', trialStartDate: trialStart.toISOString(), lastPaidDate: lastPaid.toISOString(), daysLeftInTrial: 0, daysOverdue, nextDueDate: nextDue.toISOString(), accountBalance: data.accountBalance || 0 };
+                return { status: 'suspended', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: lastPaid.toISOString(), daysLeftInTrial: 0, daysOverdue, nextDueDate: nextDue.toISOString(), accountBalance: data.accountBalance || 0 };
             }
         }
 
@@ -56,22 +62,23 @@ export function getBillingState(slug: string): BillingState {
         const daysLeftInTrial = Math.max(0, TRIAL_DAYS - daysInTrial);
 
         if (daysInTrial < TRIAL_DAYS) {
-            return { status: 'trial', trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial, daysOverdue: 0, nextDueDate: trialEnd.toISOString(), accountBalance: data.accountBalance || 0 };
+            return { status: 'trial', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial, daysOverdue: 0, nextDueDate: trialEnd.toISOString(), accountBalance: data.accountBalance || 0 };
         }
 
         // Trial ended, no payment
         const daysOverdue = daysInTrial - TRIAL_DAYS;
         if (daysOverdue <= GRACE_DAYS) {
-            return { status: 'overdue', trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial: 0, daysOverdue, nextDueDate: trialEnd.toISOString(), accountBalance: data.accountBalance || 0 };
+            return { status: 'overdue', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial: 0, daysOverdue, nextDueDate: trialEnd.toISOString(), accountBalance: data.accountBalance || 0 };
         }
-        return { status: 'suspended', trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial: 0, daysOverdue, nextDueDate: trialEnd.toISOString(), accountBalance: data.accountBalance || 0 };
+        return { status: 'suspended', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial: 0, daysOverdue, nextDueDate: trialEnd.toISOString(), accountBalance: data.accountBalance || 0 };
 
     } catch {
-        return { status: 'trial', trialStartDate: null, lastPaidDate: null, daysLeftInTrial: TRIAL_DAYS, daysOverdue: 0, nextDueDate: null, accountBalance: 0 };
+        return { status: 'trial', plan: 'trial', trialStartDate: null, lastPaidDate: null, daysLeftInTrial: TRIAL_DAYS, daysOverdue: 0, nextDueDate: null, accountBalance: 0 };
     }
 }
 
 export function saveBillingData(slug: string, patch: Record<string, unknown>) {
+    if (typeof window === 'undefined') return;
     try {
         const existing = JSON.parse(localStorage.getItem(`cc_saas_billing_${slug}`) || '{}');
         localStorage.setItem(`cc_saas_billing_${slug}`, JSON.stringify({ ...existing, ...patch }));
@@ -85,6 +92,7 @@ export function updateBillingState(slug: string, patch: Partial<BillingState>) {
 export type PaymentMethod = 'cash' | 'card' | 'transfer';
 
 export function recordPayment(slug: string, method: PaymentMethod, amount: number = SAAS_PRICE_GEL, monthsToYield: number = 1) {
+    if (typeof window === 'undefined') return;
     const rawData = localStorage.getItem(`cc_saas_billing_${slug}`);
     const data = rawData ? JSON.parse(rawData) : {};
     const now = new Date();
@@ -111,6 +119,7 @@ export function recordPayment(slug: string, method: PaymentMethod, amount: numbe
 }
 
 export function getPaymentLogs(slug: string): Array<{ date: string; method: PaymentMethod; amount: number }> {
+    if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem(`cc_saas_payments_${slug}`) || '[]'); } catch { return []; }
 }
 

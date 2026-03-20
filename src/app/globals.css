@@ -5,14 +5,18 @@
 @tailwind utilities;
 
 @layer base {
+    html {
+        background-color: #ffffff;
+    }
+    
     :root {
         --sidebar-w: 240px;
         --bg-base: #ffffff;
-        --bg-surface: #f0f2f5;
+        --bg-surface: #f4f7fa;
         --bg-card: #ffffff;
-        --text-primary: #1a1a1a;
-        --text-muted: rgba(0, 0, 0, 0.6);
-        --border-subtle: rgba(0, 0, 0, 0.08);
+        --text-primary: #111827;
+        --text-muted: #6b7280;
+        --border-subtle: #e5e7eb;
 
         /* Default aliases for Tailwind */
         --primary: var(--text-primary);
@@ -20,8 +24,8 @@
         --card: var(--bg-card);
         --surface: var(--bg-surface);
 
-        /* Sidebar - Default dark */
-        --sidebar-bg: #1a1a24;
+        /* Sidebar - Default dark as requested */
+        --sidebar-bg: #111118;
         --sidebar-text: rgba(255, 255, 255, 0.9);
         --sidebar-text-muted: rgba(255, 255, 255, 0.35);
         --sidebar-border: rgba(255, 255, 255, 0.08);
@@ -29,28 +33,29 @@
     }
 
     .light-theme {
-        --bg-base: #ffffff;
-        --bg-surface: #f4f6f8;
+        --bg-base: #f4f7fa;
+        --bg-surface: #ffffff;
         --bg-card: #ffffff;
-        --text-primary: #111827;
-        --text-muted: #6b7280;
-        --border-subtle: rgba(0, 0, 0, 0.06);
-
-        /* Light sidebar option (uncomment if sidebars should also turn light) */
-        /* 
-        --sidebar-bg: #f8fafc;
-        --sidebar-text: #09090b;
-        --sidebar-text-muted: #71717a;
-        --sidebar-border: #e4e4e7;
-        --sidebar-hover: #f4f4f5;
-        */
-
-        /* Global contrast overrides */
-        --primary: #09090b;
-        --muted: #71717a;
-        --border-subtle: #e4e4e7;
+        --text-primary: #0f172a;
+        --text-muted: #64748b;
+        --border-subtle: #e2e8f0;
+        --primary: #0f172a;
+        --muted: #64748b;
         --card: #ffffff;
-        --surface: #f4f4f5;
+        --surface: #ffffff;
+    }
+
+    .dark {
+        --bg-base: #09090b;
+        --bg-surface: #18181b;
+        --bg-card: #18181b;
+        --text-primary: #f8fafc;
+        --text-muted: #94a3b8;
+        --border-subtle: #27272a;
+        --primary: #f8fafc;
+        --muted: #94a3b8;
+        --card: #18181b;
+        --surface: #18181b;
     }
 
     * {
@@ -66,10 +71,11 @@
 
     body {
         background-color: var(--bg-base, #ffffff);
-        color: var(--text-primary, #1a1a1a);
+        color: var(--text-primary, #111827);
         font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
         position: relative;
         width: 100%;
+        transition: background-color 0.3s ease, color 0.3s ease;
     }
 }
 
@@ -91,15 +97,15 @@
 /* ─── Utilities ───────────────────────────────────────────────────────────── */
 @layer utilities {
     .bg-base {
-        background-color: var(--bg-base, #ffffff) !important;
+        background-color: var(--bg-base, #ffffff);
     }
 
     .bg-surface {
-        background-color: var(--bg-surface, #f0f2f5) !important;
+        background-color: var(--bg-surface, #f0f2f5);
     }
 
     .bg-card {
-        background-color: var(--bg-card, #ffffff) !important;
+        background-color: var(--bg-card, #ffffff);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
         border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.05));
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -110,7 +116,11 @@
     }
 
     .text-primary {
-        color: var(--text-primary, #1a1a1a) !important;
+        color: var(--text-primary, #1a1a1a);
+    }
+
+    .text-muted {
+        color: var(--text-muted, #6b7280);
     }
 
     .no-scrollbar::-webkit-scrollbar {

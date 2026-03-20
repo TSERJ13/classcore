@@ -95,6 +95,71 @@ export function getStudents(): Student[] {
     }
 }
 
+/**
+ * Retrieves all students across all branches.
+ * Iterates through all branches of the current studio.
+ */
+export function getStudentsAllBranches(): Student[] {
+    if (typeof window === 'undefined') return INITIAL_STUDENTS;
+    try {
+        const activeSlug = localStorage.getItem('cc_active_studio_slug') || 'demo.classcore.ge';
+        const branchesKey = `cc_branches_${activeSlug}`;
+        const branchesRaw = localStorage.getItem(branchesKey);
+        const branches = branchesRaw ? JSON.parse(branchesRaw) : [{ id: 'main', name: 'Main' }];
+
+        let allStudents: Student[] = [];
+        const seenIds = new Set<string>();
+
+        // We need to temporarily override the active branch in memory or 
+        // access each branch's data key directly
+        for (const branch of branches) {
+            const branchId = branch.id;
+            const dataKey = `cc_student_data_${activeSlug}_${branchId}`;
+            const stored = localStorage.getItem(dataKey);
+            
+            const deletedKey = `cc_deleted_students_${activeSlug}_${branchId}`;
+            const deletedIds = new Set(JSON.parse(localStorage.getItem(deletedKey) || '[]'));
+
+            let branchStudents: Student[] = [];
+            const isMainBranch = branchId === 'main';
+
+            if (stored) {
+                const patches = JSON.parse(stored) || {};
+                if (!Array.isArray(patches)) {
+                    const baseStudents = isMainBranch ? INITIAL_STUDENTS : [];
+                    const merged = baseStudents.map(s => ({ ...s, ...(patches[s.id] || {}) }));
+                    
+                    const baseIds = new Set(baseStudents.map(s => s.id));
+                    const newOnes = Object.entries(patches)
+                        .map(([id, p]: [string, any]) => ({ ...(p as Student), id: p.id || id }))
+                        .filter(student => !baseIds.has(student.id))
+                        .map(student => student as Student);
+                    
+                    branchStudents = [...merged, ...newOnes];
+                }
+            } else if (isMainBranch) {
+                branchStudents = INITIAL_STUDENTS;
+            }
+
+            // Apply branch info and filter
+            branchStudents.forEach(s => {
+                if (!deletedIds.has(s.id) && !seenIds.has(s.id)) {
+                    allStudents.push({
+                        ...s,
+                        branch_id: branchId // Ensure branch info is attached
+                    });
+                    seenIds.add(s.id);
+                }
+            });
+        }
+
+        return allStudents;
+    } catch (e) {
+        console.error('Failed to get students from all branches', e);
+        return getStudents();
+    }
+}
+
 export function updateStudent(studentId: string, data: Partial<Student>, oldId?: string): void {
     const patches = getStudentPatches();
     const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';

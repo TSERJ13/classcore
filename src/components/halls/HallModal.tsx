@@ -136,7 +136,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                         className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
                                     <div className="w-full h-full pointer-events-none" style={{ backgroundColor: form.color || '#6366f1' }} />
                                 </span>
-                                <span className="text-xs text-muted font-medium select-none truncate">სხვა ფერის არჩევა</span>
+                                <span className="text-xs text-muted font-medium select-none truncate">{t.chooseAnotherColor}</span>
                             </label>
                         </div>
 

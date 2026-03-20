@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import {
-    User, User as UserIcon, CreditCard, Calendar, CheckCircle,
+    User, CreditCard, Calendar, CheckCircle,
     ArrowRight, ShieldCheck, Heart,
     MessageSquare, Smartphone, Clock,
     QrCode, Copy, Check, Info, CalendarDays,
@@ -11,6 +11,7 @@ import {
     ExternalLink, BellOff, BellRing,
     CircleUser, AlertCircle, ShoppingBag, Tag
 } from 'lucide-react';
+const UserIcon = User;
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 import { getSubscription, renewSubscription, getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
@@ -876,6 +877,11 @@ export default function StudentPortalPage() {
                                                                         </div>
                                                                     )}
                                                                 </div>
+                                                                {(ev as any).notes && (
+                                                                    <p className="mt-2 text-[10px] font-medium text-muted/80 leading-relaxed border-l-2 border-indigo-100 pl-2">
+                                                                        {(ev as any).notes}
+                                                                    </p>
+                                                                )}
                                                             </div>
                                                             <div className="flex-shrink-0 flex items-center pl-2">
                                                                 <button
@@ -1221,7 +1227,7 @@ export default function StudentPortalPage() {
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
                             <div className="flex items-center justify-between mb-2">
                                 <div>
-                                    <h2 className="text-sm font-black text-primary tracking-tight">{settings.studioName || 'Studio'}{t.shop}</h2>
+                                    <h2 className="text-sm font-black text-primary tracking-tight">{settings.studioName || 'Studio'} {t.shop}</h2>
                                     <p className="text-[10px] text-muted opacity-50 font-medium mt-0.5">{t.availableProducts}</p>
                                 </div>
                                 <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">

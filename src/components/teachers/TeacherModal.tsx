@@ -72,12 +72,8 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     function save() {
         if (!form.first_name?.trim() || !form.last_name?.trim() || !form.phone?.trim()) return;
 
-        // Only keep the active rate type
+        // No longer deleting non-active rate types to allow combinations
         const finalForm = { ...form };
-        if (activeRateType !== 'hourly') delete finalForm.rate_per_hour;
-        if (activeRateType !== 'monthly') delete finalForm.rate_per_month;
-        if (activeRateType !== 'percentage') delete finalForm.salary_percentage;
-
         onSave(finalForm);
         onClose();
     }
@@ -223,60 +219,39 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     {/* Salary Selection */}
                     <div className="space-y-4">
                         <section className="space-y-4">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.revenue}</p>
-
-                            {/* Rate Type Selector (Segmented Control) */}
-                            <div className="flex gap-1 p-1 bg-surface border border-border-subtle rounded-xl mb-2">
-                                {(['hourly', 'monthly', 'percentage'] as const).map(type => (
-                                    <button
-                                        key={type}
-                                        type="button"
-                                        onClick={() => setActiveRateType(type)}
-                                        className={cn(
-                                            "flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all",
-                                            activeRateType === type
-                                                ? "bg-indigo-500 text-white shadow-sm"
-                                                : "text-muted hover:text-primary hover:bg-card"
-                                        )}
-                                    >
-                                        {type === 'hourly' ? t.perHourShort : type === 'monthly' ? t.perMonthShort : t.shareShort}
-                                    </button>
-                                ))}
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 mb-2">{l('ხელფასის გაანგარიშება', 'Расчет зарплаты', 'Salary Calculation')}</p>
+                            
+                            {/* Hourly Rate */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.perHourShort}</label>
+                                <div className="relative group/input">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-500">{getCurrencySymbol(settings.currency)}</div>
+                                    <input type="number" value={form.rate_per_hour ?? ''}
+                                        onChange={e => setF('rate_per_hour', e.target.value ? Number(e.target.value) : undefined)}
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="0" />
+                                </div>
                             </div>
 
-                            <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                                {activeRateType === 'hourly' && (
-                                    <div className="space-y-1.5">
-                                        <div className="relative group/input">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-500">{getCurrencySymbol(settings.currency)}</div>
-                                            <input type="number" value={form.rate_per_hour ?? ''}
-                                                onChange={e => setF('rate_per_hour', e.target.value ? Number(e.target.value) : undefined)}
-                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="50" />
-                                        </div>
-                                    </div>
-                                )}
+                            {/* Monthly Rate */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.perMonthShort}</label>
+                                <div className="relative group/input">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-violet-500/10 flex items-center justify-center text-[10px] font-bold text-violet-500">{getCurrencySymbol(settings.currency)}</div>
+                                    <input type="number" value={form.rate_per_month ?? ''}
+                                        onChange={e => setF('rate_per_month', e.target.value ? Number(e.target.value) : undefined)}
+                                        className="w-full bg-surface border border-border-subtle focus:border-violet-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="0" />
+                                </div>
+                            </div>
 
-                                {activeRateType === 'monthly' && (
-                                    <div className="space-y-1.5">
-                                        <div className="relative group/input">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-violet-500/10 flex items-center justify-center text-[10px] font-bold text-violet-500">{getCurrencySymbol(settings.currency)}</div>
-                                            <input type="number" value={form.rate_per_month ?? ''}
-                                                onChange={e => setF('rate_per_month', e.target.value ? Number(e.target.value) : undefined)}
-                                                className="w-full bg-surface border border-border-subtle focus:border-violet-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="1200" />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeRateType === 'percentage' && (
-                                    <div className="space-y-1.5">
-                                        <div className="relative group/input">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-emerald-500/10 flex items-center justify-center"><Percent className="w-2.5 h-2.5 text-emerald-500" /></div>
-                                            <input type="number" value={form.salary_percentage ?? ''}
-                                                onChange={e => setF('salary_percentage', e.target.value ? Number(e.target.value) : undefined)}
-                                                className="w-full bg-surface border border-border-subtle focus:border-emerald-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="20" />
-                                        </div>
-                                    </div>
-                                )}
+                            {/* Percentage Share */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.shareShort} (%)</label>
+                                <div className="relative group/input">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-emerald-500/10 flex items-center justify-center"><Percent className="w-2.5 h-2.5 text-emerald-500" /></div>
+                                    <input type="number" value={form.salary_percentage ?? ''}
+                                        onChange={e => setF('salary_percentage', e.target.value ? Number(e.target.value) : undefined)}
+                                        className="w-full bg-surface border border-border-subtle focus:border-emerald-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="0" />
+                                </div>
                             </div>
                         </section>
                     </div>

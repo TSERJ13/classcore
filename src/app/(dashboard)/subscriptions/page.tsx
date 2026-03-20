@@ -30,29 +30,38 @@ export default function SubscriptionsPage() {
 
     // Flatten and sort subscriptions (newest first)
     const allSubs: SubscriptionInfo[] = [];
-    Object.keys(subsData).forEach(studentId => {
-        const subsArray = subsData[studentId];
-        if (Array.isArray(subsArray)) {
-            subsArray.forEach(sub => {
-                allSubs.push({ ...sub, student_id: studentId });
-            });
-        }
-    });
+    if (subsData && typeof subsData === 'object') {
+        Object.keys(subsData).forEach(studentId => {
+            const subsArray = subsData[studentId];
+            if (Array.isArray(subsArray)) {
+                subsArray.forEach(sub => {
+                    if (sub && typeof sub === 'object') {
+                        allSubs.push({ ...sub, student_id: studentId });
+                    }
+                });
+            }
+        });
+    }
 
     const sortedSubs = [...allSubs].sort((a, b) => {
-        const dateA = new Date(a.purchased_at || 0).getTime();
-        const dateB = new Date(b.purchased_at || 0).getTime();
+        const dateA = new Date(a?.purchased_at || 0).getTime();
+        const dateB = new Date(b?.purchased_at || 0).getTime();
         return dateB - dateA;
     });
 
     const filtered = sortedSubs.filter(s => {
+        if (!s) return false;
         const matchesTab = s.status === tab;
         const matchesCategory = category === 'group' ? s.plan_type !== 'individual' : s.plan_type === 'individual';
-        const st = students.find(x => x.id === s.student_id);
-        const nameMatch = st?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-            st?.first_name?.toLowerCase().includes(search.toLowerCase()) ||
-            st?.last_name?.toLowerCase().includes(search.toLowerCase());
-        const matchesSearch = !search || nameMatch || s.student_id?.toLowerCase().includes(search.toLowerCase());
+        const st = Array.isArray(students) ? students.find(x => x && x.id === s.student_id) : null;
+        
+        const searchLower = search?.toLowerCase() || '';
+        const nameMatch = st?.full_name?.toLowerCase().includes(searchLower) ||
+            st?.first_name?.toLowerCase().includes(searchLower) ||
+            st?.last_name?.toLowerCase().includes(searchLower);
+        const idMatch = s.student_id?.toLowerCase().includes(searchLower);
+            
+        const matchesSearch = !search || nameMatch || idMatch;
         return matchesTab && matchesCategory && matchesSearch;
     });
 

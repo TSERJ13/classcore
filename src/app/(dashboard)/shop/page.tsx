@@ -11,7 +11,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, formatCurrency } from '@/lib/utils';
 import { recordSale, getSales, deleteSale, updateSale, type ShopSale } from '@/lib/sales-store';
-import { getUidRegistry } from '@/lib/student-store';
+import { getStudentsAllBranches } from '@/lib/student-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 
@@ -33,7 +33,7 @@ const INITIAL_PRODUCTS: Product[] = [
 export default function ShopPage() {
     const { t } = useT();
     const { settings } = useStudio();
-    const confirm = useConfirm();
+    const { confirm, alert } = useConfirm();
     const { user, profile } = useUser();
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
@@ -45,7 +45,7 @@ export default function ShopPage() {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedSale, setSelectedSale] = useState<ShopSale | null>(null);
     const [sellForm, setSellForm] = useState({ studentId: '', quantity: 1, customerName: '' });
-
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [form, setForm] = useState<Partial<Product>>({
         name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: ''
     });
@@ -75,19 +75,30 @@ export default function ShopPage() {
         localStorage.setItem('cc_shop_products', JSON.stringify(newProds));
     };
 
-    const handleAdd = () => {
+    const handleSaveProduct = () => {
         if (!form.name?.trim()) return;
-        const newProd: Product = {
-            ...form as Product,
-            id: 'p' + Math.random().toString(36).substring(2, 7),
-            org_id: 'demo',
-            is_active: true,
-            created_at: new Date().toISOString(),
-            quantity: Number(form.quantity) || 0,
-            price: Number(form.price) || 0
-        };
-        saveProducts([newProd, ...products]);
+        
+        if (editingProduct) {
+            const newProds = products.map(p => 
+                p.id === editingProduct.id 
+                    ? { ...p, ...form as Product, quantity: Number(form.quantity) || 0, price: Number(form.price) || 0 } 
+                    : p
+            );
+            saveProducts(newProds);
+        } else {
+            const newProd: Product = {
+                ...form as Product,
+                id: 'p' + Math.random().toString(36).substring(2, 7),
+                org_id: 'demo',
+                is_active: true,
+                created_at: new Date().toISOString(),
+                quantity: Number(form.quantity) || 0,
+                price: Number(form.price) || 0
+            };
+            saveProducts([newProd, ...products]);
+        }
         setIsAddOpen(false);
+        setEditingProduct(null);
         setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
     };
 
@@ -105,14 +116,14 @@ export default function ShopPage() {
         saveProducts(newProds);
 
         // Record sale
-        const registry = getUidRegistry();
+        const allStudents = getStudentsAllBranches();
         const student = sellForm.studentId === 'other'
-            ? { studentName: sellForm.customerName || t.otherCustomer }
-            : registry[sellForm.studentId];
+            ? { full_name: sellForm.customerName || t.otherCustomer }
+            : allStudents.find(s => s.id === sellForm.studentId);
 
         recordSale({
             studentId: sellForm.studentId,
-            studentName: student?.studentName || t.unknownClient,
+            studentName: student?.full_name || t.unknownClient,
             productId: selectedProduct.id,
             productName: selectedProduct.name,
             quantity: qty,
@@ -193,7 +204,11 @@ export default function ShopPage() {
                     <p className="text-xs sm:text-sm text-muted font-medium opacity-60">{products.length} {t.categories} · {totalStock} {t.inventory}</p>
                 </div>
                 <button
-                    onClick={() => setIsAddOpen(true)}
+                    onClick={() => {
+                        setEditingProduct(null);
+                        setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
+                        setIsAddOpen(true);
+                    }}
                     className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 active:scale-[0.97] transition-all text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl shadow-amber-500/20 whitespace-nowrap"
                 >
                     <Plus className="w-4 h-4" />
@@ -204,9 +219,9 @@ export default function ShopPage() {
             {/* Modal */}
             {isAddOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsAddOpen(false)} />
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
                     <div className="relative bg-card border border-border-subtle w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h2 className="text-xl font-black text-primary mb-6">{t.addNew}</h2>
+                        <h2 className="text-xl font-black text-primary mb-6">{editingProduct ? t.edit : t.addNew}</h2>
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.productTitle}</label>
@@ -265,8 +280,8 @@ export default function ShopPage() {
                             </div>
                         </div>
                         <div className="flex gap-3 mt-8">
-                            <button onClick={() => setIsAddOpen(false)} className="flex-1 py-3 font-bold text-sm text-muted">{t.cancel}</button>
-                            <button onClick={handleAdd} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all">{t.add}</button>
+                            <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="flex-1 py-3 font-bold text-sm text-muted">{t.cancel}</button>
+                            <button onClick={handleSaveProduct} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all">{editingProduct ? t.save : t.add}</button>
                         </div>
                     </div>
                 </div>
@@ -333,13 +348,38 @@ export default function ShopPage() {
                                 <span className={cn('text-[10px] font-black tabular-nums', product.quantity <= 3 ? 'text-red-500' : 'text-muted opacity-40')}>{product.quantity} ც.</span>
                             </div>
 
-                            <button
-                                onClick={() => { setSelectedProduct(product); setIsSellOpen(true); }}
-                                className="w-full mt-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/10 active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <TrendingUp className="w-3 h-3" />
-                                {t.sellAction}
-                            </button>
+                            <div className="flex items-center justify-between mt-3 gap-2">
+                                <button
+                                    onClick={() => { setSelectedProduct(product); setIsSellOpen(true); }}
+                                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/10 active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <TrendingUp className="w-3 h-3" />
+                                    {t.sellAction}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setEditingProduct(product);
+                                        setForm({ ...product });
+                                        setIsAddOpen(true);
+                                    }}
+                                    className="p-2 border border-border-subtle text-muted hover:text-amber-500 hover:bg-amber-500/5 rounded-xl transition-all shadow-sm active:scale-95"
+                                    title={t.edit}
+                                >
+                                    <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (await confirm(t.deleteConfirm)) {
+                                            const newProds = products.filter(p => p.id !== product.id);
+                                            saveProducts(newProds);
+                                        }
+                                    }}
+                                    className="p-2 border border-border-subtle text-muted hover:text-red-500 hover:bg-red-500/5 rounded-xl transition-all shadow-sm active:scale-95"
+                                    title={t.delete}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -374,8 +414,8 @@ export default function ShopPage() {
                                 <div className="mb-3">
                                     <SearchSelect
                                         options={[
-                                            ...Object.values(getUidRegistry()).map(s => ({
-                                                value: s.studentId, label: s.studentName
+                                            ...getStudentsAllBranches().map(s => ({
+                                                value: s.id, label: s.full_name + (s.branch_id ? ` (${s.branch_id})` : '')
                                             })),
                                             { value: 'other', label: t.otherCustomer }
                                         ]}

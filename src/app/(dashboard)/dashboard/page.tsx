@@ -646,7 +646,7 @@ export default function DashboardPage() {
 
 
             {/* Billing Expiration Notification */}
-            {billing?.status === 'trial' && billing?.daysLeft <= 3 && (
+            {billing?.plan === 'trial' && billing?.status === 'trial' && billing?.daysLeft <= 3 && (
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-[2rem] p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
                     <div className="flex items-center gap-4 text-center sm:text-left">
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
@@ -674,8 +674,14 @@ export default function DashboardPage() {
                         <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
                             {t.welcomeBack} {profile?.first_name || ''} 👋
                         </h1>
-                        <span className="px-2 py-0.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase tracking-tighter shadow-lg shadow-emerald-500/20 animate-pulse">
-                            PRO
+                        <span className={cn(
+                            "px-2 py-0.5 rounded-lg text-white text-[10px] font-black uppercase tracking-tighter shadow-lg animate-pulse",
+                            billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
+                            billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
+                            billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
+                            "bg-emerald-500 shadow-emerald-500/20"
+                        )}>
+                            {billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')}
                         </span>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted font-black mt-1 uppercase tracking-[0.15em] opacity-40">
@@ -693,12 +699,12 @@ export default function DashboardPage() {
             </div>
 
             {/* ─── Statistics ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
                 {/* 1. Student Dynamics (Active vs New/Churn) */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all">
+                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all overflow-hidden min-h-[280px]">
                     <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">{t.studentDynamicsMonth}</p>
                     <PieChart
-                        className="size-[110px]"
+                        size={130}
                         thickness={14}
                         data={[
                             { label: t.activeLabel, value: liveStats.activeStudents, color: '#6366f1' },
@@ -707,7 +713,7 @@ export default function DashboardPage() {
                         ]}
                         centerLabel={
                             <div className="space-y-0.5 text-center">
-                                <span className="text-2xl font-black text-primary block leading-none">{liveStats.activeStudents}</span>
+                                <span className="text-2xl font-black text-[#1e293b] dark:text-white block leading-none">{liveStats.activeStudents}</span>
                                 <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.activeLabel}</span>
                             </div>
                         }
@@ -729,10 +735,10 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 2. Financial Overview (Revenue vs Debt) */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all relative overflow-hidden group">
+                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all relative overflow-hidden group min-h-[280px]">
                     <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">{t.financialOverview}</p>
                     <PieChart
-                        className="size-[110px]"
+                        size={130}
                         thickness={14}
                         data={[
                             { label: t.revenue, value: liveStats.monthlyRevenue, color: '#10b981' },
@@ -740,7 +746,7 @@ export default function DashboardPage() {
                         ]}
                         centerLabel={
                             <div className="space-y-0.5 text-center">
-                                <span className="text-xl font-black text-primary block leading-none">{formatCurrency(liveStats.monthlyRevenue, settings.currency).split('.')[0]}</span>
+                                <span className="text-xl font-black text-[#1e293b] dark:text-white block leading-none">{formatCurrency(liveStats.monthlyRevenue, settings.currency).split('.')[0]}</span>
                                 <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.income}</span>
                             </div>
                         }
@@ -758,10 +764,10 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 3. Subscription Status (Active vs Expiring) */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all">
+                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all overflow-hidden min-h-[280px]">
                     <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">{t.subscriptionStats}</p>
                     <PieChart
-                        className="size-[110px]"
+                        size={130}
                         thickness={14}
                         data={[
                             { label: t.stable, value: Math.max(0, liveStats.activeSubs - liveStats.expiringSoon), color: '#10b981' },
@@ -787,11 +793,10 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 4. Attendance Rate */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">{t.attendanceRate}</p>
+                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all overflow-hidden text-center min-h-[280px]">
+                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4">{t.attendanceRate}</p>
                     <GaugeChart
-                        className="size-[110px]"
-                        size={120}
+                        size={130}
                         thickness={14}
                         value={liveStats.attendanceRateMonth}
                         total={100}

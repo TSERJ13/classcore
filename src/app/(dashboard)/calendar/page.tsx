@@ -531,14 +531,14 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         )}
 
                         <div>
-                            <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70">ფერის არჩევა</label>
+                            <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70">{t.selectColor}</label>
                             <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
                                 <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
                                     <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
                                         className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
                                     <div className="w-full h-full pointer-events-none" style={{ backgroundColor: selectedColor }} />
                                 </span>
-                                <span className="text-xs text-muted font-medium select-none truncate">სხვა ფერის არჩევა</span>
+                                <span className="text-xs text-muted font-medium select-none truncate">{t.chooseAnotherColor}</span>
                             </label>
                         </div>
 
@@ -993,14 +993,14 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
 
 
                     <div>
-                        <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70">ფერის არჩევა</label>
+                        <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70">{t.selectColor}</label>
                         <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
                             <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
                                 <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
                                     className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
                                 <div className="w-full h-full pointer-events-none" style={{ backgroundColor: selectedColor }} />
                             </span>
-                            <span className="text-xs text-muted font-medium select-none truncate">სხვა ფერის არჩევა</span>
+                            <span className="text-xs text-muted font-medium select-none truncate">{t.chooseAnotherColor}</span>
                         </label>
                     </div>
 

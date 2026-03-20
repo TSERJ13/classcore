@@ -6,7 +6,7 @@ import {
     CalendarCheck, ArrowUpRight, ArrowDownRight,
     Download, X, Lightbulb, BarChart3,
     Banknote, Clock, Wallet, CheckCircle2, Eye, EyeOff,
-    Edit2, ChevronLeft, ChevronRight
+    Edit2, ChevronLeft, ChevronRight, Calculator
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
@@ -19,6 +19,7 @@ import { getTeachers, updateTeacher } from '@/lib/teacher-store';
 import { getEvents } from '@/lib/event-store';
 import { getPlans } from '@/lib/plan-store';
 import { getMonthlyBonuses, getTeacherBonusForMonth, setTeacherBonus } from '@/lib/bonus-store';
+import { getSalaryStatuses, toggleSalaryStatus, getStatusForTeacher } from '@/lib/salary-status-store';
 import { TeacherModal } from '@/components/teachers/TeacherModal';
 import { getGroups } from '@/lib/group-store';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
@@ -26,7 +27,7 @@ import { getScopedKey } from '@/lib/settings-store';
 
 // ─── Month Navigator ─────────────────────────────────────────────────────────
 
-function MonthNavigator({ selectedMonth, onSelect, t }: { selectedMonth: string, onSelect: (m: string) => void, t: any }) {
+function MonthNavigator({ selectedMonth, onSelect, t, className }: { selectedMonth: string, onSelect: (m: string) => void, t: any, className?: string }) {
     const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
     const [year, monthIdx] = selectedMonth.split('-').map(Number);
     const displayMonth = months[monthIdx - 1];
@@ -56,7 +57,7 @@ function MonthNavigator({ selectedMonth, onSelect, t }: { selectedMonth: string,
     };
 
     return (
-        <div className="flex items-center gap-3 bg-surface border border-border-subtle rounded-2xl px-3 py-2.5 shadow-inner">
+        <div className={cn("flex items-center gap-3 bg-surface border border-border-subtle rounded-2xl px-3 py-2.5 shadow-inner", className)}>
             <button onClick={goToPrev} className="w-7 h-7 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-primary transition-colors">
                 <ChevronLeft className="w-4 h-4" strokeWidth={3} />
             </button>
@@ -163,7 +164,7 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
     const insights = [
         {
             icon: '📈',
-            title: l('შემოსავლების ტრენდი', 'Тренд доходов', 'Revenue Trend'),
+            title: t.revenueTrend,
             text: revenueGrowth > 0
                 ? l(`შემოსავალი გაიზარდა ${revenueGrowth}%-ით წინა თვესთან შედარებით. გირჩევთ ამ ტემპის შენარჩუნებას.`, `Доход вырос на ${revenueGrowth}% по сравнению с прошлым месяцем. Рекомендуем поддерживать этот темп.`, `Revenue grew by ${revenueGrowth}% compared to last month. Maintain this momentum.`)
                 : revenueGrowth < 0
@@ -172,14 +173,14 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
         },
         {
             icon: '🎯',
-            title: l('დასწრების ანალიზი', 'Анализ посещаемости', 'Attendance Analysis'),
+            title: t.attendanceAnalysis,
             text: attendanceGrowth > 0
                 ? l(`დასწრება გაიზარდა ${attendanceGrowth}%-ით. ეს მიუთითებს სტუდენტების კმაყოფილებაზე და მოტივაციაზე.`, `Посещаемость выросла на ${attendanceGrowth}%. Это свидетельствует об удовлетворённости студентов.`, `Attendance grew by ${attendanceGrowth}%. This indicates high student satisfaction and motivation.`)
                 : l('სტაბილური დასწრება. განიხილეთ სპეციალური პროგრამები დასწრების გასაუმჯობესებლად.', 'Стабильная посещаемость. Рассмотрите специальные программы для улучшения посещаемости.', 'Stable attendance. Consider special programs to improve turnout.'),
         },
         {
             icon: '💡',
-            title: l('რეკომენდაციები', 'Рекомендации', 'Recommendations'),
+            title: t.recommendations,
             text: l(
                 `სტუდენტების შეკავებისთვის გირჩევთ: 1) ერთ-ერთი ყველაზე ეფექტური მეთოდია სტუდენტებთან პირადი კომუნიკაცია. 2) გამართეთ თვიური განსაკუთრებული გახსნილი გაკვეთილები. 3) შეიმუშავეთ ლოიალობის პროგრამა.`,
                 `Для удержания студентов рекомендуем: 1) Личная коммуникация со студентами — один из самых эффективных методов. 2) Проводите ежемесячные открытые уроки. 3) Разработайте программу лояльности.`,
@@ -188,7 +189,7 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
         },
         {
             icon: '🏆',
-            title: l('ყველაზე პოპულარული', 'Самое популярное', 'Most Popular'),
+            title: t.mostPopular,
             text: l(
                 'გირჩევთ ყველაზე პოპულარული ჯგუფებისთვის დამატებითი საათების დამატება. ეს პირდაპირ გაზრდის შემოსავალს.',
                 'Рекомендуем добавить дополнительные часы для самых популярных групп. Это напрямую увеличит доход.',
@@ -225,14 +226,14 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
                             <p className={cn("text-xl font-black", revenueGrowth >= 0 ? "text-emerald-600" : "text-red-500")}>
                                 {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth}%
                             </p>
-                            <p className="text-[10px] text-muted opacity-50">{l('წინა თვეთან', 'vs прошлый месяц', 'vs last month')}</p>
+                            <p className="text-[10px] text-muted opacity-50">{t.vsLastMonth}</p>
                         </div>
                         <div className={cn("p-4 rounded-2xl border", attendanceGrowth >= 0 ? "bg-violet-500/5 border-violet-500/20" : "bg-amber-500/5 border-amber-500/20")}>
                             <p className="text-xs font-bold text-muted opacity-60 mb-1">{t.attendanceRate || 'Attendance'}</p>
                             <p className={cn("text-xl font-black", attendanceGrowth >= 0 ? "text-violet-600" : "text-amber-500")}>
                                 {attendanceGrowth >= 0 ? '+' : ''}{attendanceGrowth}%
                             </p>
-                            <p className="text-[10px] text-muted opacity-50">{l('წინა თვეთან', 'vs прошлый месяц', 'vs last month')}</p>
+                            <p className="text-[10px] text-muted opacity-50">{t.vsLastMonth}</p>
                         </div>
                     </div>
 
@@ -252,7 +253,7 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
                     <div className="px-8 pb-8">
                         <button onClick={onClose}
                             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all">
-                            {l('დახურვა', 'Закрыть', 'Close')}
+                            {t.close}
                         </button>
                     </div>
                 </div>
@@ -276,6 +277,7 @@ export default function AnalyticsPage() {
     const [topGroupsData, setTopGroupsData] = useState<any[]>([]);
     const [showSalaries, setShowSalaries] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState(getLocalISODate(new Date()).slice(0, 7)); // YYYY-MM
+    const [refreshToggle, setRefreshToggle] = useState(0);
     const [prevMonthStats, setPrevMonthStats] = useState<any>(null);
     const [currentMonthStats, setCurrentMonthStats] = useState<any>(null);
     const [editingTeacher, setEditingTeacher] = useState<any>(null);
@@ -288,16 +290,42 @@ export default function AnalyticsPage() {
         activeSubs: 0
     });
 
-    const handleExport = (type: 'pdf' | 'excel', fileName: string = 'report') => {
-        const content = type === 'pdf' ? '%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n' : 'Teacher,Type,Rate,Total\n';
-        const blob = new Blob([content], { type: type === 'pdf' ? 'application/pdf' : 'application/vnd.ms-excel' });
+    const handleExport = () => {
+        // Collect Analytics Data
+        const analyticsRows = [
+            ['Section', 'Metric', 'Value'],
+            ['Overview', t.averageDaily, formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)],
+            ['Overview', t.thisMonthAve, formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)],
+            ['Gauges', t.attendanceRate, `${Math.round(currentMonthStats?.attendanceRate || 0)}%`],
+            ['Gauges', t.yearlyRevenue || 'Yearly', formatCurrency(extraStats.yearlyRevenue || 0, settings.currency)],
+            ['Demographics', t.totalStudents || 'Total Students', stats[1]?.value || 0],
+            ['Demographics', t.activeSubscriptions, extraStats.activeSubs],
+            ['', '', ''], // Spacer
+            ['Teacher Salaries', '', ''],
+            ['Teacher', 'Type', 'Rate', 'Bonus', 'Total', 'Status']
+        ];
+
+        // Collect Salary Data
+        const salaryRows = salaryData.map(s => [
+            s.teacher,
+            s.type,
+            s.rate,
+            formatCurrency(s.bonus, settings.currency),
+            formatCurrency(s.total, settings.currency),
+            getStatusForTeacher(s.id, selectedMonth)
+        ]);
+
+        const allRows = [...analyticsRows, ...salaryRows];
+        const csvContent = allRows.map(row => row.join(',')).join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${fileName}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `studioflow_report_${selectedMonth}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(url);
     };
 
@@ -380,28 +408,42 @@ export default function AnalyticsPage() {
                 const teacherGroups = (t.assigned_group_ids && t.assigned_group_ids.length > 0)
                     ? t.assigned_group_ids
                     : events.filter(e => e.teacher_id === t.id).map(e => e.id);
+                
                 const subsForTeacher = filteredSubs.filter(sub => {
                     const plan = plans.find(p => p.name === sub.plan);
                     return plan && plan.group_id && teacherGroups.includes(plan.group_id);
                 });
+
                 const subRevenue = subsForTeacher.reduce((sum, sub) => {
                     const price = planPrices[sub.plan] || (sub as any).price || 0;
                     if (price > 0) return sum + price;
                     const match = sub.teacher_comment?.match(/(\d+\.?\d*)/);
                     return sum + (match ? parseFloat(match[0]) : 0);
                 }, 0);
-                const percentage = t.salary_percentage || 50;
+
                 const bonus = getTeacherBonusForMonth(t.id, monthStr);
-
+                
+                // Additive Calculation
                 let total = bonus;
-                let type = 'Percentage';
-                let rate: any = percentage + '%';
+                const activeTypes: string[] = [];
+                const rateParts: string[] = [];
 
+                // 1. Percentage component
+                if (t.salary_percentage) {
+                    total += (subRevenue * t.salary_percentage) / 100;
+                    activeTypes.push('Percentage');
+                    rateParts.push(`${t.salary_percentage}%`);
+                }
+
+                // 2. Monthly component
                 if (t.rate_per_month) {
-                    total += (subRevenue * percentage) / 100 + t.rate_per_month;
-                    type = 'Monthly';
-                    rate = t.rate_per_month;
-                } else if (t.rate_per_hour) {
+                    total += t.rate_per_month;
+                    activeTypes.push('Monthly');
+                    rateParts.push(formatCurrency(t.rate_per_month, settings.currency));
+                }
+
+                // 3. Hourly component
+                if (t.rate_per_hour) {
                     const teacherEvents = events.filter(e => e.teacher_id === t.id && e.date.startsWith(monthStr));
                     const totalMinutes = teacherEvents.reduce((acc, ev) => {
                         const [h1, m1] = ev.start_time.split(':').map(Number);
@@ -410,18 +452,24 @@ export default function AnalyticsPage() {
                     }, 0);
                     const hours = totalMinutes / 60;
                     total += (hours * t.rate_per_hour);
-                    type = 'Hourly';
-                    rate = t.rate_per_hour;
-                } else {
-                    total += (subRevenue * percentage) / 100;
+                    activeTypes.push('Hourly');
+                    rateParts.push(`${formatCurrency(t.rate_per_hour, settings.currency)}/hr`);
+                }
+
+                // Default if nothing set
+                if (activeTypes.length === 0) {
+                    const defPerc = t.salary_percentage || 50;
+                    total += (subRevenue * defPerc) / 100;
+                    activeTypes.push('Percentage');
+                    rateParts.push(`${defPerc}%`);
                 }
 
                 return {
                     id: t.id,
                     teacher: `${t.first_name || ''} ${t.last_name || t.full_name || ''}`,
                     fullObject: t,
-                    type: type as any,
-                    rate: rate,
+                    type: activeTypes.length > 1 ? 'Combined' : activeTypes[0],
+                    rate: rateParts.join(' + '),
                     bonus: bonus,
                     total: total,
                     status: 'pending'
@@ -467,9 +515,8 @@ export default function AnalyticsPage() {
             const threeMonthsAgo = new Date(selectedMonthDate);
             threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
             const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
-
-            let newStudents3m = students.filter(s => (s as any).created_at && (s as any).created_at >= threeMonthsAgoStr && (s as any).created_at <= endMonthStr).length;
-            let leftStudents3m = students.filter(s => s.status === 'inactive' && (s as any).updated_at && (s as any).updated_at >= threeMonthsAgoStr && (s as any).updated_at <= endMonthStr).length;
+            const newStudents3m = students.filter(s => (s as any).created_at && (s as any).created_at >= threeMonthsAgoStr && (s as any).created_at <= endMonthStr).length;
+            const leftStudents3m = students.filter(s => s.status === 'inactive' && (s as any).updated_at && (s as any).updated_at >= threeMonthsAgoStr && (s as any).updated_at <= endMonthStr).length;
 
             setExtraStats({
                 inactiveSubs: students.length - activeSubCount,
@@ -503,17 +550,20 @@ export default function AnalyticsPage() {
         const prevResult = refreshAnalytics(prevMonthStr);
         setPrevMonthStats({ totalRevenue: prevResult.totalRevenue, attendanceRate: prevResult.attendanceRate });
 
-    }, [lang, selectedMonth, settings.activeBranchId]);
+    }, [lang, selectedMonth, settings.activeBranchId, refreshToggle]);
 
     // Listen for bonus updates to refresh analytics
     useEffect(() => {
-        const h = () => setSelectedMonth(p => { const v = p; return v; });
+        const h = () => setRefreshToggle(v => v + 1);
         window.addEventListener('cc_bonuses_updated', h);
-        return () => window.removeEventListener('cc_bonuses_updated', h);
+        window.addEventListener('cc_salary_statuses_updated', h);
+        return () => {
+            window.removeEventListener('cc_bonuses_updated', h);
+            window.removeEventListener('cc_salary_statuses_updated', h);
+        };
     }, []);
 
-    const totalPaid = salaryData.filter(s => s.status === 'paid').reduce((acc, s) => acc + s.total, 0);
-    const totalPending = salaryData.filter(s => s.status === 'pending').reduce((acc, s) => acc + s.total, 0);
+    const totalCalculated = salaryData.reduce((acc, s) => acc + s.total, 0);
 
     const revenueMax = Math.max(...revenueChartData.map(d => d.value), 100);
 
@@ -522,216 +572,217 @@ export default function AnalyticsPage() {
             {/* Header Controls */}
             <div className="flex items-center justify-between sm:justify-end gap-2 px-2 sm:px-0">
                 <div className="flex items-center gap-2">
-                    <button onClick={() => handleExport('pdf')}
+                    <button onClick={() => handleExport()}
                         className="w-10 h-10 flex items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/20 transition-all shrink-0"
                         title={l('ჩამოტვირთვა', 'Скачать', 'Download')}>
                         <Download className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => setShowSalaries(!showSalaries)}
-                        className={cn(
-                            "w-10 h-10 flex items-center justify-center rounded-2xl border transition-all shrink-0",
-                            showSalaries ? "bg-rose-500/10 border-rose-500/20 text-rose-600 hover:bg-rose-500/20" : "bg-card border-border-subtle text-muted hover:text-primary"
-                        )}
-                        title={showSalaries ? l('ხელფასების დამალვა', 'Скрыть зарплаты', 'Hide Salaries') : l('ხელფასების ჩვენება', 'Показать зарплаты', 'Show Salaries')}>
-                        {showSalaries ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                     </button>
                 </div>
                 <MonthNavigator selectedMonth={selectedMonth} onSelect={setSelectedMonth} t={t} />
             </div>
 
-            {/* ─── Circular Statistics ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Students Pie */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-4 flex flex-col items-center shadow-lg">
-                    <div className="min-h-[2.5rem] flex items-center justify-center text-center w-full mb-3">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">{l('სტუდენტები (3 თვე)', 'Студенты (3 мес)', 'Students (3 Months)')}</p>
+            {/* ─── 2-2-1 Analytics Grid (Unified) ─── */}
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6">
+                {/* 1. Revenue Overview (Merged Gauges) */}
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 shadow-lg flex flex-col items-center justify-between min-h-[220px] sm:min-h-[280px]">
+                    <div className="flex items-center justify-center text-center w-full mb-2">
+                        <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-[0.1em] sm:tracking-[0.2em]">{t.revenueOverview || l('მიმოხილვა', 'Обзор', 'Overview')}</p>
                     </div>
-                    <PieChart
-                        className="size-[96px] lg:size-[120px]"
-                        thickness={16}
-                        data={[
-                            { label: 'Existing', value: Math.max(0, stats[1]?.value ? parseInt(stats[1].value) - extraStats.newStudents3m : 0), color: '#6366f1' },
-                            { label: 'New', value: extraStats.newStudents3m, color: '#10b981' },
-                            { label: 'Left', value: extraStats.leftStudents3m, color: '#ef4444' }
-                        ]}
-                        centerLabel={
-                            <div className="space-y-0.5">
-                                <span className="text-2xl font-black text-primary block leading-none">{stats[1]?.value || 0}</span>
-                                <span className="text-[10px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.total}</span>
+                    
+                    <div className="flex-1 flex flex-col sm:flex-row items-center justify-around w-full gap-4 py-2">
+                        {/* Daily Gauge */}
+                        <div className="flex flex-col items-center text-center">
+                            <div className="scale-[0.6] sm:scale-75 origin-center">
+                                <GaugeChart
+                                    size={100}
+                                    thickness={14}
+                                    value={currentMonthStats?.totalRevenue / 30 || 0}
+                                    total={currentMonthStats?.totalRevenue / 10 || 1}
+                                    color="#f59e0b"
+                                    centerLabel={
+                                        <div className="space-y-0.5">
+                                            <span className="text-xl font-black text-primary block leading-none">{Math.round((currentMonthStats?.totalRevenue / 30) / (currentMonthStats?.totalRevenue / 10) * 100 || 0)}%</span>
+                                        </div>
+                                    }
+                                />
                             </div>
-                        }
-                    />
-                    <div className="mt-2 flex flex-wrap justify-center gap-3">
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                            <span className="text-[10px] font-bold text-primary/60">{l('ძველი', 'Старые', 'Old')}</span>
+                            <p className="text-[8px] font-black text-muted uppercase mt-1">{t.averageDaily}</p>
+                            <p className="text-[10px] font-black text-primary">{formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] font-bold text-emerald-500">{l('ახალი', 'Новые', 'New')}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-red-500" />
-                            <span className="text-[10px] font-bold text-red-500">{l('წავიდა', 'Ушли', 'Left')}</span>
+
+                        {/* Monthly Gauge */}
+                        <div className="flex flex-col items-center text-center">
+                            <div className="scale-[0.6] sm:scale-75 origin-center">
+                                <GaugeChart
+                                    size={100}
+                                    thickness={14}
+                                    value={currentMonthStats?.totalRevenue || 0}
+                                    total={extraStats.yearlyRevenue * 1.2 || 1}
+                                    color="#8b5cf6"
+                                    centerLabel={
+                                        <div className="space-y-0.5">
+                                            <span className="text-xl font-black text-primary block leading-none">{Math.round((currentMonthStats?.totalRevenue / (extraStats.yearlyRevenue * 1.2 || 1)) * 100 || 0)}%</span>
+                                        </div>
+                                    }
+                                />
+                            </div>
+                            <p className="text-[8px] font-black text-muted uppercase mt-1">{t.thisMonthAve}</p>
+                            <p className="text-[10px] font-black text-primary">{formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Subscriptions Pie */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-4 flex flex-col items-center shadow-lg">
-                    <div className="min-h-[2.5rem] flex items-center justify-center text-center w-full mb-3">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">{t.activeSubscriptions}</p>
+                {/* 2. Students Pie Chart */}
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 flex flex-col items-center shadow-lg min-h-[220px] sm:min-h-[280px]">
+                    <div className="flex items-center justify-center text-center w-full mb-3">
+                        <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-[0.1em] sm:tracking-[0.2em]">{t.students3m}</p>
                     </div>
-                    <PieChart
-                        className="size-[96px] lg:size-[120px]"
-                        thickness={16}
-                        data={[
-                            { label: 'Active', value: extraStats.activeSubs, color: '#10b981' },
-                            { label: 'Inactive', value: extraStats.inactiveSubs, color: '#64748b20' }
-                        ]}
-                        centerLabel={
-                            <div className="space-y-0.5">
-                                <span className="text-2xl font-black text-primary block leading-none">{extraStats.activeSubs}</span>
-                                <span className="text-[10px] text-muted font-bold block uppercase tracking-tighter opacity-40">{l('აქტიური', 'Активные', 'Active')}</span>
-                            </div>
-                        }
-                    />
-                    <div className="mt-2 flex justify-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] font-bold text-emerald-500">{l('აქტიური', 'Активные', 'Active')}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-slate-200" />
-                            <span className="text-[10px] font-bold text-primary/30 uppercase">{l('სხვა', 'Прочие', 'Other')}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Daily Revenue Gauge */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-4 flex flex-col items-center shadow-lg">
-                    <div className="min-h-[2.5rem] flex items-center justify-center text-center w-full mb-3">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">{l('საშუალო დღიური', 'Средний доход в день', 'Average Daily')}</p>
-                    </div>
-                    <GaugeChart
-                        className="size-[96px] lg:size-[120px]"
-                        size={140}
-                        thickness={16}
-                        value={currentMonthStats?.totalRevenue / 30 || 0}
-                        total={currentMonthStats?.totalRevenue / 10 || 1}
-                        color="#f59e0b"
-                        centerLabel={
-                            <div className="space-y-0.5">
-                                <span className="text-lg font-black text-primary block leading-none">{formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)}</span>
-                                <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{l('დღე', 'День', 'Day')}</span>
-                            </div>
-                        }
-                    />
-                    <div className="mt-2 text-center">
-                        <p className="text-[10px] font-bold text-muted/60">{l('ამ თვის საშუალო', 'Среднее за месяц', 'Monthly average')}</p>
-                    </div>
-                </div>
-
-                {/* Yearly Revenue Gauge */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-4 flex flex-col items-center shadow-lg">
-                    <div className="min-h-[2.5rem] flex items-center justify-center text-center w-full mb-3">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">{l('თვიური / წლიური', 'Мес. / Годовой', 'Monthly / Yearly')}</p>
-                    </div>
-                    <GaugeChart
-                        className="size-[96px] lg:size-[120px]"
-                        size={140}
-                        thickness={16}
-                        value={currentMonthStats?.totalRevenue || 0}
-                        total={extraStats.yearlyRevenue || 1}
-                        color="#8b5cf6"
-                        centerLabel={
-                            <div className="space-y-0.5">
-                                <span className="text-lg font-black text-primary block leading-none">{formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)}</span>
-                                <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{l('ეს თვე', 'Этот месяц', 'This Month')}</span>
-                            </div>
-                        }
-                    />
-                    <div className="mt-2 text-center">
-                        <p className="text-[10px] font-bold text-muted/60">{l('სულ წელს', 'Всего за год', 'Total Year')}</p>
-                        <p className="text-xs font-black text-violet-500">{formatCurrency(extraStats.yearlyRevenue, settings.currency)}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8">
-                {/* Revenue Chart */}
-                <div className="bg-card border border-border-subtle rounded-[2.5rem] p-8 shadow-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
-                        <h2 className="text-lg font-black text-primary tracking-tight">{l('შემოსავლების დინამიკა', 'Динамика доходов', 'Revenue Dynamics')}</h2>
-                    </div>
-                    <p className="text-xs font-bold text-muted opacity-40 mb-4 uppercase tracking-wider">{l('შემოსავალი', 'Доход', 'Revenue')} ({settings.currency})</p>
-                    {revenueChartData.length > 0 ? (
-                        <SimpleBarChart
-                            data={revenueChartData}
-                            maxValue={revenueMax}
-                            colorClass="bg-gradient-to-t from-emerald-500 to-emerald-400"
+                    <div className="scale-[0.6] sm:scale-[0.85] origin-center">
+                        <PieChart
+                            size={120}
+                            thickness={18}
+                            data={[
+                                { label: 'Existing', value: Math.max(0, stats[1]?.value ? parseInt(stats[1].value) - extraStats.newStudents3m : 0), color: '#6366f1' },
+                                { label: 'New', value: extraStats.newStudents3m, color: '#10b981' },
+                                { label: 'Left', value: extraStats.leftStudents3m, color: '#ef4444' }
+                            ]}
+                            centerLabel={
+                                <div className="space-y-0.5">
+                                    <span className="text-xl sm:text-2xl font-black text-primary block leading-none">{stats[1]?.value || 0}</span>
+                                    <span className="text-[8px] sm:text-[10px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.total}</span>
+                                </div>
+                            }
                         />
-                    ) : (
-                        <div className="h-48 flex items-center justify-center text-muted opacity-40 text-sm">
-                            {l('მონაცემები არ არის', 'Нет данных', 'No data')}
+                    </div>
+                    <div className="mt-auto flex flex-wrap justify-center gap-2 sm:gap-4 pb-2">
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-indigo-500" />
+                            <span className="text-[7px] sm:text-[9px] font-bold text-primary/60">{t.oldLabel}</span>
                         </div>
-                    )}
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500" />
+                            <span className="text-[7px] sm:text-[9px] font-bold text-emerald-500">{t.new}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500" />
+                            <span className="text-[7px] sm:text-[9px] font-bold text-red-500">{t.leftLabel}</span>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Attendance Chart */}
-                <div className="bg-card border border-border-subtle rounded-[2.5rem] p-8 shadow-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-600">
-                            <CalendarCheck className="w-5 h-5" />
-                        </div>
-                        <h2 className="text-lg font-black text-primary tracking-tight">{t.attendanceRate}</h2>
+                {/* 3. Subscriptions Pie Chart */}
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 flex flex-col items-center shadow-lg min-h-[220px] sm:min-h-[280px]">
+                    <div className="flex items-center justify-center text-center w-full mb-3">
+                        <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-[0.1em] sm:tracking-[0.2em]">{t.activeSubscriptions}</p>
                     </div>
-                    <p className="text-xs font-bold text-muted opacity-40 mb-4 uppercase tracking-wider">{t.attendanceRate}</p>
-                    {attendanceChartData.length > 0 ? (
-                        <SimpleBarChart
-                            data={attendanceChartData}
-                            maxValue={100}
-                            colorClass="bg-gradient-to-t from-violet-500 to-violet-400"
+                    <div className="scale-[0.6] sm:scale-[0.85] origin-center">
+                        <PieChart
+                            size={120}
+                            thickness={18}
+                            data={[
+                                { label: 'Active', value: extraStats.activeSubs, color: '#10b981' },
+                                { label: 'Inactive', value: extraStats.inactiveSubs, color: '#64748b20' }
+                            ]}
+                            centerLabel={
+                                <div className="space-y-0.5">
+                                    <span className="text-xl sm:text-2xl font-black text-primary block leading-none">{extraStats.activeSubs}</span>
+                                    <span className="text-[8px] sm:text-[10px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.active}</span>
+                                </div>
+                            }
                         />
-                    ) : (
-                        <div className="h-48 flex items-center justify-center text-muted opacity-40 text-sm">
-                            {l('მონაცემები არ არის', 'Нет данных', 'No data')}
+                    </div>
+                    <div className="mt-auto flex justify-center gap-4 pb-2">
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500" />
+                            <span className="text-[7px] sm:text-[9px] font-bold text-emerald-500">{t.active}</span>
                         </div>
-                    )}
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-200" />
+                            <span className="text-[7px] sm:text-[9px] font-bold text-primary/30 uppercase">{t.more}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 4. Attendance Rate Chart */}
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 shadow-sm flex flex-col min-h-[220px] sm:min-h-[280px]">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2 min-h-[24px] sm:min-h-[32px]">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-600 shrink-0">
+                            <CalendarCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        </div>
+                        <h2 className="text-[10px] sm:text-sm font-black text-primary tracking-tight leading-tight">{t.attendanceRateShort || t.attendanceRate}</h2>
+                    </div>
+                    <div className="flex-1 scale-90 sm:scale-100 origin-bottom">
+                        {attendanceChartData.length > 0 ? (
+                            <SimpleBarChart
+                                data={attendanceChartData}
+                                maxValue={100}
+                                colorClass="bg-gradient-to-t from-violet-500 to-violet-400"
+                            />
+                        ) : (
+                            <div className="h-32 sm:h-48 flex items-center justify-center text-muted opacity-40 text-[10px]">
+                                {t.noData}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* 5. Revenue Dynamics (Full Width - THE '1') */}
+                <div className="col-span-2 bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm flex flex-col min-h-[220px] sm:min-h-[320px]">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2 min-h-[32px] sm:min-h-[48px]">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shrink-0">
+                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </div>
+                        <h2 className="text-xs sm:text-lg font-black text-primary tracking-tight leading-tight">{t.revenueDynamics}</h2>
+                    </div>
+                    <p className="text-[8px] sm:text-xs font-bold text-muted opacity-40 mb-2 sm:mb-4 uppercase tracking-wider">{t.revenue} ({settings.currency})</p>
+                    <div className="flex-1 scale-95 sm:scale-100 origin-bottom">
+                        {revenueChartData.length > 0 ? (
+                            <SimpleBarChart
+                                data={revenueChartData}
+                                maxValue={revenueMax}
+                                colorClass="bg-gradient-to-t from-emerald-500 to-emerald-400"
+                            />
+                        ) : (
+                            <div className="h-32 sm:h-48 flex items-center justify-center text-muted opacity-40 text-[10px]">
+                                {t.noData}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Salary Calculation Section */}
             <div id="salaries-section" className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm">
-                <div className="px-8 py-6 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface/30">
+                <div className="px-8 py-6 border-b border-border-subtle flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface/30">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600">
-                            <Banknote className="w-5 h-5" />
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                            <Calculator className="w-5 h-5" />
                         </div>
-                        <h2 className="text-xl font-black text-primary tracking-tight">{t.salaryCalculation || 'Salary Calculation'}</h2>
+                        <h2 className="text-xl font-black text-primary tracking-tight">{t.salaryCalculation}</h2>
                     </div>
-                    <div className="flex items-center gap-4 sm:gap-6">
+
+                    <div className="flex items-center gap-4">
+                        <MonthNavigator
+                            selectedMonth={selectedMonth}
+                            onSelect={setSelectedMonth}
+                            t={t}
+                            className="scale-90"
+                        />
+                        <div className="h-8 w-px bg-border-subtle mx-2 hidden md:block" />
                         <div className="flex items-center gap-2">
-                            <button onClick={() => handleExport('pdf', 'salaries')} title="PDF" className="p-2 rounded-xl bg-surface border border-border-subtle hover:text-indigo-600 transition-colors">
-                                <Download className="w-4 h-4" />
+                            <div className="text-right hidden sm:block">
+                                <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40">{t.totalSalaries}</p>
+                                <p className="text-sm font-black text-primary tabular-nums">{formatCurrency(totalCalculated, settings.currency)}</p>
+                            </div>
+                            <button
+                                onClick={() => setShowSalaries(!showSalaries)}
+                                className={cn(
+                                    "p-2.5 rounded-xl border transition-all active:scale-95",
+                                    showSalaries ? "bg-rose-500 border-rose-600 text-white shadow-lg shadow-rose-500/20" : "bg-surface border-border-subtle text-muted"
+                                )}
+                            >
+                                {showSalaries ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                             </button>
-                            <button onClick={() => handleExport('excel', 'salaries')} title="Excel" className="p-2 rounded-xl bg-surface border border-border-subtle hover:text-emerald-600 transition-colors">
-                                <BarChart3 className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <div className="w-px h-8 bg-border-subtle opacity-50 hidden sm:block" />
-                        <div className="text-center">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.paidAmount}</p>
-                            <p className="text-lg font-black text-emerald-600 tabular-nums">{formatCurrency(totalPaid, settings.currency)}</p>
-                        </div>
-                        <div className="w-px h-8 bg-border-subtle opacity-50" />
-                        <div className="text-center">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.pendingAmount || 'Pending'}</p>
-                            <p className="text-lg font-black text-amber-600 tabular-nums">{formatCurrency(totalPending, settings.currency)}</p>
                         </div>
                     </div>
                 </div>
@@ -761,9 +812,15 @@ export default function AnalyticsPage() {
                                     <td className="px-8 py-5 text-center">
                                         <span className={cn(
                                             "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border",
-                                            item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : "bg-violet-500/10 text-violet-600 border-violet-500/20"
+                                            item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : 
+                                            item.type === 'Hourly' ? "bg-violet-500/10 text-violet-600 border-violet-500/20" :
+                                            item.type === 'Combined' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                                            "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                                         )}>
-                                            {item.type === 'Monthly' ? t.monthly : t.hourly}
+                                            {item.type === 'Monthly' ? t.monthly : 
+                                             item.type === 'Hourly' ? t.hourly : 
+                                             item.type === 'Percentage' ? t.percentageShort || 'Share' :
+                                             item.type === 'Combined' ? l('კომბინირებული', 'Комбинир.', 'Combined') : item.type}
                                         </span>
                                     </td>
                                     <td className="px-8 py-5 text-center">
@@ -798,16 +855,26 @@ export default function AnalyticsPage() {
                                             <button onClick={() => setEditingTeacher(item.fullObject)} className="p-2 rounded-lg hover:bg-violet-500/10 hover:text-violet-600 transition-colors opacity-0 group-hover:opacity-100">
                                                 <Edit2 className="w-3.5 h-3.5" />
                                             </button>
-                                            <button onClick={() => handleExport('pdf', `salary_${item.teacher}`)} className="p-2 rounded-lg hover:bg-indigo-500/10 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100">
+                                            <button onClick={() => handleExport()} className="p-2 rounded-lg hover:bg-indigo-500/10 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100">
                                                 <Download className="w-3.5 h-3.5" />
                                             </button>
-                                            <span className={cn(
-                                                "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
-                                                item.status === 'paid' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                                            )}>
-                                                {item.status === 'paid' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                                                {item.status === 'paid' ? t.paidAmount : t.pendingAmount}
-                                            </span>
+                                            {getStatusForTeacher(item.id, selectedMonth) === 'pending' ? (
+                                                <button 
+                                                    onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
+                                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                                                >
+                                                    <Banknote className="w-3.5 h-3.5" />
+                                                    {t.pay}
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-sm"
+                                                >
+                                                    <CheckCircle2 className="w-3 h-3" />
+                                                    {t.paidAmount}
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -820,7 +887,30 @@ export default function AnalyticsPage() {
                             )}
                         </tbody>
                     </table>
+                    <div className="bg-surface/30 px-8 py-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-8">
+                        <div>
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 mb-1">{t.totalPaidThisMonth}</p>
+                            <p className="text-xl font-black text-emerald-600 tabular-nums">
+                                {formatCurrency(
+                                    salaryData.filter(s => getStatusForTeacher(s.id, selectedMonth) === 'paid').reduce((acc, curr) => acc + curr.total, 0),
+                                    settings.currency
+                                )}
+                            </p>
+                        </div>
+                        <div className="w-px h-8 bg-border-subtle hidden sm:block" />
+                        <div>
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 mb-1">{t.totalPendingThisMonth}</p>
+                            <p className="text-xl font-black text-amber-600 tabular-nums">
+                                {formatCurrency(
+                                    salaryData.filter(s => getStatusForTeacher(s.id, selectedMonth) === 'pending').reduce((acc, curr) => acc + curr.total, 0),
+                                    settings.currency
+                                )}
+                            </p>
+                        </div>
+                    </div>
                 </div>
+            </div>
             </div>
 
             {/* Top Groups Table */}

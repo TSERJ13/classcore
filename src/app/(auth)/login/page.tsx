@@ -9,23 +9,35 @@ import { useEffect } from 'react';
 
 export default function LoginPage() {
     const { t } = useT();
-    const { user } = useUser();
+    const { user, loading } = useUser();
 
     useEffect(() => {
-        if (user) {
-            window.location.href = '/dashboard';
+        if (user && !loading) {
+            const SUPER_ADMIN_EMAILS = [
+                'adminclasscore@gmail.com',
+                'support@classcore.ge', 
+                'admin@classcore.ge',
+                'tserj13@classcore.ge'
+            ];
+            const isSuperAdmin = user.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
+            
+            if (isSuperAdmin) {
+                window.location.href = '/superadmin';
+            } else {
+                window.location.href = '/dashboard';
+            }
         }
-    }, [user]);
+    }, [user, loading]);
 
     const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const setMobileMenuOpen = (_open: boolean) => { };
     const [error, setError] = useState<string | null>(null);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setIsSubmitting(true);
         setError(null);
 
         const formData = new FormData(e.target as HTMLFormElement);
@@ -75,7 +87,7 @@ export default function LoginPage() {
             }
 
             setError(errorMessage);
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -145,10 +157,10 @@ export default function LoginPage() {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={isSubmitting}
                             className="w-full py-5 bg-slate-900 border border-slate-800 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50"
                         >
-                            {loading ? (
+                            {isSubmitting ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>{t.login} <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></>

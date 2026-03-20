@@ -515,6 +515,8 @@ export function loadSettings(slug?: string): StudioSettings {
         }
 
         const parsed = JSON.parse(raw);
+        if (!parsed) return { ...DEFAULT_SETTINGS, cabinetCode: generateCabinetCode(finalSlug) };
+
         let cabinetCode = parsed.cabinetCode;
         if (!cabinetCode) {
             cabinetCode = generateCabinetCode(finalSlug);
@@ -729,4 +731,28 @@ export function applyBg(bgKey: BgKey) {
         // Force reflow to ensure styles are applied
         void document.body.offsetHeight;
     }
+}
+
+/** 
+ * Gets the total count of unread support messages across all studios.
+ * Support message is unread if its 'read' property is false AND sender is NOT 'student' (support).
+ */
+export function getUnreadSupportCount(): number {
+    if (typeof window === 'undefined') return 0;
+    const slugs = getStudioRegistry();
+    let total = 0;
+    slugs.forEach(slug => {
+        try {
+            const key = `chat_${slug}_classcore_support`;
+            const raw = localStorage.getItem(key);
+            if (raw) {
+                const msgs = JSON.parse(raw);
+                if (Array.isArray(msgs)) {
+                    const unread = msgs.filter((m: any) => m.read === false && m.sender !== 'student');
+                    total += unread.length;
+                }
+            }
+        } catch { }
+    });
+    return total;
 }

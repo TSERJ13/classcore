@@ -19,12 +19,23 @@ function loadBilling(): BillingRecord[] {
     });
 }
 
-const PLAN_COLORS: Record<string, string> = { trial: 'text-zinc-400 bg-zinc-800', basic: 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20', enterprise: 'text-amber-400 bg-amber-500/10 border border-amber-500/20' };
+const PLAN_COLORS: Record<string, string> = { 
+    trial: 'text-muted bg-surface border border-border-subtle', 
+    basic: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20', 
+    enterprise: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20' 
+};
 const PLATFORM_PRICES: Record<string, number> = { trial: 0, basic: 49, enterprise: 0 };
 
 export default function BillingPage() {
+    const [mounted, setMounted] = useState(false);
     const [records, setRecords] = useState<BillingRecord[]>([]);
-    useEffect(() => { setRecords(loadBilling()); }, []);
+    const [lang, setLang] = useState<'ka' | 'en'>('ka');
+    useEffect(() => { 
+        setMounted(true);
+        setRecords(loadBilling()); 
+        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
+        if (storedLang) setLang(storedLang);
+    }, []);
 
     const totalStudents = records.reduce((s, r) => s + r.studentCount, 0);
     const totalShopRev = records.reduce((s, r) => s + r.shopRevenue, 0);
@@ -33,53 +44,61 @@ export default function BillingPage() {
     const planCounts = records.reduce((acc, r) => { acc[r.plan] = (acc[r.plan] || 0) + 1; return acc; }, {} as Record<string, number>);
     const curr = (r: BillingRecord) => r.currency === 'GEL' ? '₾' : r.currency === 'USD' ? '$' : '€';
 
+    if (!mounted) return null;
+
     return (
         <div className="space-y-6 animate-fade-up">
-            <div><h1 className="text-2xl font-black text-white tracking-tight">Global Billing</h1><p className="text-sm text-zinc-500 mt-1">Revenue overview across all studios</p></div>
+            <div><h1 className="text-2xl font-black text-primary tracking-tight">{lang === 'ka' ? 'გლობალური ფინანსები' : 'Global Billing'}</h1><p className="text-sm text-muted mt-1">{lang === 'ka' ? 'შემოსავლების მიმოხილვა ყველა სტუდიაში' : 'Revenue overview across all studios'}</p></div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Platform MRR', value: `$${platformMRR}`, icon: CreditCard, color: 'bg-indigo-500/10 text-indigo-400', sub: 'Monthly recurring' },
-                    { label: 'Total Students', value: totalStudents, icon: Users, color: 'bg-violet-500/10 text-violet-400', sub: 'All studios' },
-                    { label: 'Subs Revenue', value: `${totalSubsRev.toLocaleString()} ₾`, icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-400', sub: 'Subscription income' },
-                    { label: 'Shop Revenue', value: `${totalShopRev.toLocaleString()} ₾`, icon: ShoppingBag, color: 'bg-amber-500/10 text-amber-400', sub: 'Product sales' },
+                    { label: lang === 'ka' ? 'პლატფორმის MRR' : 'Platform MRR', value: `${platformMRR} ₾`, icon: CreditCard, color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400', sub: lang === 'ka' ? 'ყოველთვიური განმეორებადი' : 'Monthly recurring' },
+                    { label: lang === 'ka' ? 'ჯამური მოსწავლეები' : 'Total Students', value: totalStudents, icon: Users, color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400', sub: lang === 'ka' ? 'ყველა სტუდია' : 'All studios' },
+                    { label: lang === 'ka' ? 'აბონიმენტების შემოსავალი' : 'Subs Revenue', value: `${totalSubsRev.toLocaleString()} ₾`, icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', sub: lang === 'ka' ? 'შემოსავალი აბონიმენტებიდან' : 'Subscription income' },
+                    { label: lang === 'ka' ? 'მაღაზიის შემოსავალი' : 'Shop Revenue', value: `${totalShopRev.toLocaleString()} ₾`, icon: ShoppingBag, color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', sub: lang === 'ka' ? 'გაყიდვები მაღაზიიდან' : 'Product sales' },
                 ].map(card => (
-                    <div key={card.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                    <div key={card.label} className="bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle rounded-2xl p-5 shadow-sm">
                         <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', card.color)}><card.icon className="w-5 h-5" /></div>
-                        <p className="text-xl font-black text-white">{card.value}</p>
-                        <p className="text-xs text-zinc-500 mt-0.5 font-bold">{card.label}</p>
-                        <p className="text-[10px] text-zinc-700 mt-0.5">{card.sub}</p>
+                        <p className="text-xl font-black text-[#1e293b] dark:text-white tabular-nums">{card.value}</p>
+                        <p className="text-xs text-muted mt-0.5 font-bold">{card.label}</p>
+                        <p className="text-[10px] text-muted opacity-60 mt-0.5">{card.sub}</p>
                     </div>
                 ))}
             </div>
             <div className="grid grid-cols-3 gap-3">
-                {['trial', 'basic', 'enterprise'].map(plan => (
-                    <div key={plan} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-center">
-                        <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider', PLAN_COLORS[plan])}>{plan.replace('_', ' ')}</span>
-                        <p className="text-2xl font-black text-white mt-3">{planCounts[plan] || 0}</p>
-                        <p className="text-[10px] text-zinc-600 mt-0.5">studios</p>
-                        <p className="text-xs font-black text-zinc-500 mt-1">{`${(planCounts[plan] || 0) * PLATFORM_PRICES[plan]} ₾/mo`}</p>
+                {['trial', 'pro', 'custom'].map(plan => (
+                    <div key={plan} className="bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle rounded-2xl p-4 text-center shadow-sm">
+                        <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider', plan === 'trial' ? 'bg-zinc-500/10 text-zinc-500' : plan === 'pro' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-amber-500/10 text-amber-500')}>
+                            {plan === 'trial' ? 'ტრიალი' : plan === 'pro' ? 'პრო' : 'სპეციალური'}
+                        </span>
+                        <p className="text-2xl font-black text-[#1e293b] dark:text-white mt-3 tabular-nums">{planCounts[plan] || 0}</p>
+                        <p className="text-[10px] text-muted mt-0.5 uppercase tracking-widest font-black opacity-40">{lang === 'ka' ? 'სტუდია' : 'studios'}</p>
+                        <p className="text-xs font-black text-muted mt-1 opacity-60">{`${(planCounts[plan] || 0) * (plan === 'pro' ? 49 : 0)} ₾/${lang === 'ka' ? 'თვე' : 'mo'}`}</p>
                     </div>
                 ))}
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-zinc-800"><h2 className="text-sm font-black text-white uppercase tracking-wider">Per-Studio Revenue</h2></div>
-                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-6 py-3 border-b border-zinc-800/50 text-[10px] font-black text-zinc-600 uppercase tracking-widest">
-                    <span>Studio</span><span className="text-center">Plan</span><span className="text-center">Subs</span><span className="text-right">Subs Rev.</span><span className="text-right">Shop Rev.</span>
+            <div className="bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-black/5 dark:border-border-subtle bg-black/[0.02] dark:bg-muted/5"><h2 className="text-sm font-black text-[#1e293b] dark:text-white uppercase tracking-wider">{lang === 'ka' ? 'შემოსავალი სტუდიების მიხედვით' : 'Per-Studio Revenue'}</h2></div>
+                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-6 py-3 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest opacity-40">
+                    <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span><span className="text-center">{lang === 'ka' ? 'გეგმა' : 'Plan'}</span><span className="text-center">{lang === 'ka' ? 'აბონ' : 'Subs'}</span><span className="text-right">{lang === 'ka' ? 'აბონ. შემოს.' : 'Subs Rev.'}</span><span className="text-right">{lang === 'ka' ? 'მაღაზიის შემოს.' : 'Shop Rev.'}</span>
                 </div>
-                {records.length === 0 ? (<div className="py-12 text-center text-zinc-600"><p className="text-sm font-bold">No data yet</p></div>) : (
-                    <div className="divide-y divide-zinc-800/30">
+                {records.length === 0 ? (<div className="py-12 text-center text-muted"><p className="text-sm font-bold opacity-20">{lang === 'ka' ? 'მონაცემები არ არის' : 'No data yet'}</p></div>) : (
+                    <div className="divide-y divide-border-subtle/30">
                         {[...records].sort((a, b) => b.totalRevenue - a.totalRevenue).map(r => (
-                            <div key={r.slug} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 items-center px-6 py-4 hover:bg-zinc-800/20 transition-colors">
+                            <div key={r.slug} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 items-center px-6 py-4 hover:bg-muted/5 transition-colors">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800 flex items-center justify-center">
-                                        {r.logoUrl ? <img src={r.logoUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-[10px] font-black text-zinc-400">{r.name.slice(0, 2).toUpperCase()}</span>}
+                                    <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-surface border border-border-subtle flex items-center justify-center">
+                                        {r.logoUrl ? <img src={r.logoUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-[10px] font-black text-muted opacity-40">{r.name.slice(0, 2).toUpperCase()}</span>}
                                     </div>
-                                    <div className="min-w-0"><p className="text-xs font-black text-white truncate">{r.name}</p><p className="text-[10px] text-zinc-600 font-mono">/{r.slug}</p></div>
+                                    <div className="min-w-0"><p className="text-xs font-black text-primary truncate">{r.name}</p><p className="text-[10px] text-muted opacity-40 font-mono">/{r.slug}</p></div>
                                 </div>
-                                <div className="text-center"><span className={cn('px-2 py-0.5 rounded-full text-[9px] font-black uppercase', PLAN_COLORS[r.plan])}>{r.plan.replace('_', ' ')}</span></div>
-                                <div className="text-center"><span className="text-sm font-black text-white">{r.activeSubsCount}</span></div>
-                                <div className="text-right"><span className="text-sm font-black text-emerald-400">{r.subsRevenue.toLocaleString()} {curr(r)}</span></div>
-                                <div className="text-right"><span className="text-sm font-black text-amber-400">{r.shopRevenue.toLocaleString()} {curr(r)}</span></div>
+                                <div className="text-center">
+                                    <span className={cn('px-2 py-0.5 rounded-full text-[9px] font-black uppercase', r.plan === 'trial' ? 'bg-zinc-500/10 text-zinc-500' : r.plan === 'pro' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-amber-500/10 text-amber-500')}>
+                                        {r.plan === 'trial' ? 'ტრიალი' : r.plan === 'pro' ? 'პრო' : 'სპეციალური'}
+                                    </span>
+                                </div>
+                                <div className="text-center"><span className="text-sm font-black text-primary tabular-nums">{r.activeSubsCount}</span></div>
+                                <div className="text-right"><span className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{r.subsRevenue.toLocaleString()} {curr(r)}</span></div>
+                                <div className="text-right"><span className="text-sm font-black text-amber-600 dark:text-amber-400 tabular-nums">{r.shopRevenue.toLocaleString()} {curr(r)}</span></div>
                             </div>
                         ))}
                     </div>

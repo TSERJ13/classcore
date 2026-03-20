@@ -132,7 +132,7 @@ export default function BillingPage() {
                         </div>
                         <div className="min-w-0">
                             <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1 opacity-40">{t.balance || l('ბალანსი', 'Баланс', 'Balance')}</p>
-                            <p className="text-sm sm:text-2xl font-black text-primary tracking-tight truncate">
+                            <p className="text-sm sm:text-2xl font-black text-[#1e293b] dark:text-white tracking-tight truncate">
                                 {isMounted ? formatCurrency(billing?.accountBalance || 0, settings.currency) : '...'}
                             </p>
                         </div>
@@ -141,7 +141,7 @@ export default function BillingPage() {
             </div>
 
             {/* Trial warning banner */}
-            {isMounted && billing?.status === 'trial' && (
+            {isMounted && billing?.plan === 'trial' && billing?.status === 'trial' && (
                 <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-3 sm:p-6 flex items-center gap-3 sm:gap-5 shadow-xl shadow-amber-500/5">
                     <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center flex-shrink-0 animate-pulse">
                         <AlertTriangle className="w-5 h-5 sm:w-7 sm:h-7 text-amber-600" />

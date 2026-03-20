@@ -2,8 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, Users, User as UserIcon, ChevronRight, Pin, LogOut, Plus, Building2, Check, ExternalLink, Shield } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { 
+    Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, Users, 
+    User as UserIcon, ChevronRight, Pin, LogOut, Plus, Building2, Check, 
+    ExternalLink, Shield, Paperclip, FileText, Image as ImageIcon, Download 
+} from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -21,6 +25,13 @@ import type { Student } from '@/types';
 import type { Group } from '@/lib/group-store';
 import { NotesDrawer } from '@/components/dashboard/NotesDrawer';
 
+interface ChatAttachment {
+    name: string;
+    type: string;
+    size: number;
+    data: string; // Base64
+}
+
 interface ChatMessage {
     id: string;
     text: string;
@@ -28,6 +39,7 @@ interface ChatMessage {
     senderName?: string;
     read?: boolean;
     timestamp: string;
+    attachment?: ChatAttachment;
     metadata?: {
         type: 'lesson_request' | 'lesson_proposal' | 'lesson_confirmed';
         status?: 'pending' | 'proposed' | 'confirmed' | 'cancelled';
@@ -58,6 +70,8 @@ export function Header() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
     const [chatInput, setChatInput] = useState('');
+    const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [calLabel, setCalLabel] = useState('');
     const [uncompletedNotesCount, setUncompletedNotesCount] = useState(0);
@@ -85,6 +99,25 @@ export function Header() {
             }
         }
         setUnreadCounts(counts);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File too large (max 2MB)');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (prev) => {
+            setAttachment({
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                data: prev.target?.result as string
+            });
+        };
+        reader.readAsDataURL(file);
     };
 
     const updateNotesCount = () => {
@@ -188,7 +221,12 @@ export function Header() {
                 // If this chat is active, mark incoming as read
                 const updated = msgs.map(m => m.sender === 'student' ? { ...m, read: true } : m);
                 setMessages(updated);
-                localStorage.setItem(key, JSON.stringify(updated));
+                
+                // Only update localStorage if we actually changed something to avoid infinite loops
+                const hasUnread = msgs.some(m => m.sender === 'student' && !m.read);
+                if (hasUnread) {
+                    localStorage.setItem(key, JSON.stringify(updated));
+                }
             }
         };
         window.addEventListener('storage', handleStorage);
@@ -196,38 +234,56 @@ export function Header() {
     }, [selectedChatId, activeTab, settings.studioSlug]);
 
     const handleSendMessage = () => {
-        if (!chatInput.trim() || !selectedChatId) return;
+        if ((!chatInput.trim() && !attachment) || !selectedChatId) return;
+        
+        const isSupport = selectedChatId === SUPPORT_CHAT_ID;
+        
         const msg: ChatMessage = {
             id: Date.now().toString(),
             text: chatInput,
+            attachment: attachment || undefined,
             sender: 'manager',
-            read: true,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            read: isSupport ? false : true, // Support messages are unread for SuperAdmin
+            timestamp: new Date().toISOString()
         };
+
         const updated = [...messages, msg];
         setMessages(updated);
+        
         const key = activeTab === 'private'
             ? `chat_${settings.studioSlug}_${selectedChatId}`
             : `group_chat_${settings.studioSlug}_${selectedChatId}`;
+        
         localStorage.setItem(key, JSON.stringify(updated));
         setChatInput('');
+        setAttachment(null);
 
-        // Simulate Support Reply if it's the support chat
-        if (selectedChatId === SUPPORT_CHAT_ID) {
+        // Notify SuperAdmin (Dispatch storage event for cross-tab updates)
+        window.dispatchEvent(new Event('storage'));
+
+        // Simulated Email Notification to SuperAdmin
+        if (isSupport) {
+            console.log(`[SIMULATED EMAIL] To: adminclasscore@gmail.com | Subject: New Support Message from ${settings.studioName} | Content: ${chatInput}`);
+            // In a real app, this would be a fetch to an API route:
+            // fetch('/api/notify/support', { method: 'POST', body: JSON.stringify({ studio: settings.studioName, text: chatInput }) });
+        }
+
+        // Keep the local auto-reply for better UX if needed, but SuperAdmin can now reply for real
+        if (isSupport && messages.length === 0) {
             setTimeout(() => {
                 const replyMsg: ChatMessage = {
                     id: (Date.now() + 1).toString(),
                     text: t.chatWelcome,
-                    sender: 'student', // Using 'student' as 'other party' in this UI
+                    sender: 'student',
                     senderName: 'ClassCore Support',
                     read: false,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    timestamp: new Date().toISOString()
                 };
                 const final = [...updated, replyMsg];
                 setMessages(final);
                 localStorage.setItem(key, JSON.stringify(final));
-                window.dispatchEvent(new Event('storage')); // Trigger update for unread dots
-            }, 2000);
+                window.dispatchEvent(new Event('storage'));
+            }, 1000);
         }
     };
 
@@ -413,7 +469,10 @@ export function Header() {
                     >
                         <MessageSquare className="w-5 h-5" />
                         {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
-                            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-card shadow-sm" />
+                            <span className={cn(
+                                "absolute top-2.5 right-2.5 w-2 h-2 rounded-full ring-2 ring-card shadow-sm",
+                                unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
+                            )} />
                         )}
                     </button>
 
@@ -632,20 +691,32 @@ export function Header() {
                                             <button
                                                 onClick={() => setSelectedChatId(SUPPORT_CHAT_ID)}
                                                 className={cn(
-                                                    "w-full flex items-center gap-4 px-5 py-4 hover:bg-indigo-500/5 transition-colors text-left border-b border-indigo-500/10",
+                                                    "w-full flex items-center gap-4 px-5 py-4 hover:bg-indigo-500/5 transition-colors text-left border-b border-indigo-500/10 relative overflow-hidden group",
                                                     selectedChatId === SUPPORT_CHAT_ID && "bg-indigo-500/10"
                                                 )}
                                             >
-                                                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
+                                                <div className={cn(
+                                                    "w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 transition-all duration-500",
+                                                    unreadCounts[SUPPORT_CHAT_ID] && "animate-pulse ring-4 ring-indigo-500/10"
+                                                )}>
                                                     <Shield className="w-6 h-6" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <p className="text-sm font-black text-primary truncate">ClassCore Admin</p>
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        {unreadCounts[SUPPORT_CHAT_ID] ? (
+                                                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+                                                        ) : (
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                        )}
                                                     </div>
                                                     <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest opacity-80">{t.techSupport}</p>
                                                 </div>
+                                                {unreadCounts[SUPPORT_CHAT_ID] && (
+                                                    <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] font-black text-white shadow-lg shadow-red-500/20 animate-pulse">
+                                                        {unreadCounts[SUPPORT_CHAT_ID]}
+                                                    </span>
+                                                )}
                                                 <ChevronRight className="w-4 h-4 text-indigo-500/30" />
                                             </button>
 
@@ -756,6 +827,30 @@ export function Header() {
                                                     m.sender === 'manager' ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none",
                                                     m.metadata?.type === 'lesson_request' ? "bg-amber-500/10 border-amber-500/20 text-amber-900 shadow-none" : ""
                                                 )}>
+                                                    {m.attachment && (
+                                                        <div className="mb-3 overflow-hidden rounded-2xl border border-white/10">
+                                                            {m.attachment.type.startsWith('image/') ? (
+                                                                <img src={m.attachment.data} className="w-full h-auto max-h-[300px] object-contain bg-black/10" alt="attachment" />
+                                                            ) : (
+                                                                <div className="bg-black/20 p-4 flex items-center gap-3">
+                                                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                                                                        <FileText className="w-5 h-5" />
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-xs font-bold truncate">{m.attachment.name}</p>
+                                                                        <p className="text-[10px] opacity-60">{(m.attachment.size / 1024).toFixed(1)} KB</p>
+                                                                    </div>
+                                                                    <a 
+                                                                        href={m.attachment.data} 
+                                                                        download={m.attachment.name}
+                                                                        className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                                                                    >
+                                                                        <Download className="w-4 h-4" />
+                                                                    </a>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     {activeTab === 'groups' && m.sender === 'student' && (
                                                         <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-50">{m.senderName || t.students}</p>
                                                     )}
@@ -815,19 +910,53 @@ export function Header() {
                                 </div>
 
                                 {/* Input Area */}
-                                <div className="p-4 border-t border-border-subtle bg-card">
+                                <div className="p-4 border-t border-border-subtle bg-card space-y-4">
+                                    {attachment && (
+                                        <div className="flex items-center gap-3 p-3 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl animate-fade-in">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                                                {attachment.type.startsWith('image/') ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest truncate">{attachment.name}</p>
+                                                <p className="text-[9px] font-bold text-muted opacity-60">{(attachment.size / 1024).toFixed(1)} KB</p>
+                                            </div>
+                                            <button onClick={() => setAttachment(null)} className="w-8 h-8 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-colors">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+
                                     <div className="relative flex items-center gap-2">
-                                        <input
-                                            type="text"
-                                            value={chatInput}
-                                            onChange={(e) => setChatInput(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                            placeholder={`${t.sendMessageToStart}...`}
-                                            className="flex-1 bg-surface border border-border-subtle rounded-2xl px-5 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all shadow-inner"
-                                        />
+                                        <div className="flex-1 relative group">
+                                            <input
+                                                type="text"
+                                                value={chatInput}
+                                                onChange={(e) => setChatInput(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                                placeholder={t.sendMessageToStart}
+                                                className="w-full bg-surface border border-border-subtle rounded-2xl pl-5 pr-12 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all shadow-inner"
+                                            />
+                                            <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-indigo-500 hover:bg-surface transition-all"
+                                            >
+                                                <Paperclip className="w-5 h-5" />
+                                            </button>
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                onChange={handleFileChange} 
+                                                className="hidden" 
+                                                accept="image/*,.pdf,.doc,.docx"
+                                            />
+                                        </div>
                                         <button
                                             onClick={handleSendMessage}
-                                            className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-xl shadow-indigo-600/20 flex-shrink-0"
+                                            disabled={!chatInput.trim() && !attachment}
+                                            className={cn(
+                                                "w-12 h-12 flex items-center justify-center rounded-2xl transition-all active:scale-95 shadow-xl flex-shrink-0",
+                                                (chatInput.trim() || attachment) ? "bg-indigo-600 text-white shadow-indigo-600/20" : "bg-surface border border-border-subtle text-muted opacity-50 cursor-not-allowed"
+                                            )}
                                         >
                                             <Send className="w-5 h-5" />
                                         </button>

@@ -524,7 +524,7 @@ export default function SettingsPage() {
                                             <Building2 className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-primary">{branch.name}</p>
+                                            <p className="text-sm font-bold text-primary">{branch.id === 'main' ? t.mainBranch : branch.name}</p>
                                             <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{branch.address || t.noAddress}</p>
                                         </div>
                                     </div>

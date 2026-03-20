@@ -1,115 +1,176 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Users, Search, Building2, Phone, Mail, Copy, Check } from 'lucide-react';
+import { Users, Search, Building2, Phone, Mail, Globe, Zap, Shield, CreditCard, ExternalLink, Calendar } from 'lucide-react';
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
+import { getBillingState } from '@/lib/saas-billing';
+import { cn, formatCurrency } from '@/lib/utils';
 
-interface GlobalClient {
-    id: string;
+interface StudioClient {
+    slug: string;
     name: string;
-    phone: string;
-    email?: string;
-    dob?: string;
-    studioSlug: string;
-    studioName: string;
-    subscriptionStatus?: string;
+    logoUrl: string | null;
+    ownerName: string;
+    ownerPhone: string;
+    ownerEmail: string;
+    plan: string;
+    status: 'active' | 'suspended';
+    studentCount: number;
+    billingStatus: string;
+    nextDue: string | null;
+    currency: string;
 }
 
-function loadAllClients(): GlobalClient[] {
+function loadStudios(): StudioClient[] {
     const slugs = getStudioRegistry();
-    const all: GlobalClient[] = [];
-    slugs.forEach(slug => {
+    return slugs.map(slug => {
         const s = loadSettings(slug);
+        const billing = getBillingState(slug);
+        const owner = s.staff.find(m => m.role === 'owner') || s.staff[0];
+        const meta = (() => { try { return JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); } catch { return {}; } })();
+        
+        let studentCount = 0;
         try {
-            const raw = localStorage.getItem(`cc_student_data_${slug}`) || (slugs.length === 1 ? localStorage.getItem('cc_student_data') : null);
-            if (!raw) return;
-            const data = JSON.parse(raw) as Record<string, {
-                name?: string; phone?: string; email?: string; dob?: string;
-            }>;
-            Object.entries(data).forEach(([id, student]) => {
-                all.push({
-                    id, studioSlug: slug, studioName: s.studioName,
-                    name: student.name || '—',
-                    phone: student.phone || '—',
-                    email: student.email,
-                    dob: student.dob,
-                });
-            });
+            const raw = localStorage.getItem(`cc_student_data_${slug}`) || localStorage.getItem('cc_student_data');
+            if (raw) studentCount = Object.keys(JSON.parse(raw)).length;
         } catch { }
-    });
-    return all;
+
+        return {
+            slug,
+            name: s.studioName || 'Unnamed Studio',
+            logoUrl: s.logoDataUrl || null,
+            ownerName: owner?.full_name || 'No Owner',
+            ownerPhone: owner?.phone || '—',
+            ownerEmail: owner?.email || '—',
+            plan: meta.plan || 'trial',
+            status: (meta.suspended ? 'suspended' : 'active') as 'active' | 'suspended',
+            studentCount,
+            billingStatus: billing.status,
+            nextDue: billing.nextDueDate,
+            currency: s.currency || 'GEL'
+        };
+    }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export default function GlobalClientsPage() {
-    const [clients, setClients] = useState<GlobalClient[]>([]);
+    const [mounted, setMounted] = useState(false);
+    const [studios, setStudios] = useState<StudioClient[]>([]);
     const [search, setSearch] = useState('');
-    const [copied, setCopied] = useState<string | null>(null);
+    const [lang, setLang] = useState<'ka' | 'en'>('ka');
 
-    useEffect(() => { setClients(loadAllClients()); }, []);
+    useEffect(() => { 
+        setMounted(true);
+        setStudios(loadStudios()); 
+        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
+        if (storedLang) setLang(storedLang);
+    }, []);
 
     const filtered = useMemo(() =>
-        clients.filter(c =>
-            c.name.toLowerCase().includes(search.toLowerCase()) ||
-            c.phone.includes(search) ||
-            (c.email || '').toLowerCase().includes(search.toLowerCase()) ||
-            c.studioName.toLowerCase().includes(search.toLowerCase())
-        ), [clients, search]);
+        studios.filter(s =>
+            s.name.toLowerCase().includes(search.toLowerCase()) ||
+            s.slug.toLowerCase().includes(search.toLowerCase()) ||
+            s.ownerName.toLowerCase().includes(search.toLowerCase()) ||
+            s.ownerPhone.includes(search)
+        ), [studios, search]);
 
-    const copy = (text: string, key: string) => {
-        navigator.clipboard.writeText(text);
-        setCopied(key);
-        setTimeout(() => setCopied(null), 2000);
-    };
+    if (!mounted) return null;
 
     return (
-        <div className="space-y-6 animate-fade-up">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="space-y-8 animate-fade-up pb-20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-black text-white tracking-tight">Global Client Database</h1>
-                    <p className="text-sm text-zinc-500 mt-1">{clients.length} clients across all studios</p>
+                    <h1 className="text-3xl font-black text-[#1e293b] tracking-tight uppercase">
+                        {lang === 'ka' ? 'სტუდიების რეესტრი' : 'Studio Directory'}
+                    </h1>
+                    <p className="text-[10px] text-zinc-500 mt-1 font-black uppercase tracking-widest opacity-60">
+                        {lang === 'ka' ? `${studios.length} რეგისტრირებული კლიენტი (სტუდია)` : `${studios.length} Registered Studio Clients`}
+                    </p>
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, phone, email..."
-                        className="bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-indigo-500/50 w-72" />
+                <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-indigo-500 transition-colors" />
+                    <input 
+                        value={search} 
+                        onChange={e => setSearch(e.target.value)} 
+                        placeholder={lang === 'ka' ? "ძიება სტუდიით, მფლობელით..." : "Search studio, owner..."}
+                        className="bg-white border border-black/10 dark:border-border-subtle rounded-2xl pl-11 pr-6 py-4 text-sm text-primary placeholder:text-zinc-400 outline-none focus:border-indigo-500/50 w-full md:w-96 shadow-sm transition-all" 
+                    />
                 </div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                <div className="grid grid-cols-[2fr_1.5fr_1.5fr_1.5fr] gap-4 px-6 py-3 border-b border-zinc-800 text-[10px] font-black text-zinc-600 uppercase tracking-widest">
-                    <span>Client</span><span>Phone</span><span>Email</span><span>Studio</span>
-                </div>
-                {filtered.length === 0 ? (
-                    <div className="py-16 text-center text-zinc-600">
-                        <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm font-bold">{search ? 'No results found' : 'No clients yet'}</p>
-                    </div>
-                ) : (
-                    <div className="divide-y divide-zinc-800/40 max-h-[600px] overflow-y-auto">
-                        {filtered.map((c, i) => (
-                            <div key={`${c.studioSlug}-${c.id}`} className="grid grid-cols-[2fr_1.5fr_1.5fr_1.5fr] gap-4 items-center px-6 py-3.5 hover:bg-zinc-800/20 transition-colors">
-                                <div>
-                                    <p className="text-sm font-black text-white">{c.name}</p>
-                                    {c.dob && <p className="text-[10px] text-zinc-600 mt-0.5">🎂 {c.dob}</p>}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filtered.map((s) => (
+                    <div key={s.slug} className="group bg-white dark:bg-card border border-black/10 dark:border-border-subtle rounded-3xl p-6 hover:shadow-xl transition-all shadow-sm flex flex-col">
+                        <div className="flex items-start justify-between mb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 bg-zinc-50 border border-black/5 flex items-center justify-center shadow-inner group-hover:border-indigo-500/30 transition-all">
+                                    {s.logoUrl ? <img src={s.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6 text-zinc-300" />}
                                 </div>
-                                <button onClick={() => copy(c.phone, `${i}-phone`)} className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors font-mono group text-left">
-                                    {copied === `${i}-phone` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                                    {c.phone}
-                                </button>
-                                <button onClick={() => c.email && copy(c.email, `${i}-email`)} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors group text-left truncate">
-                                    {c.email ? (
-                                        <>{copied === `${i}-email` ? <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" /> : <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />}<span className="truncate">{c.email}</span></>
-                                    ) : <span className="text-zinc-700">—</span>}
-                                </button>
-                                <div className="flex items-center gap-1.5">
-                                    <Building2 className="w-3 h-3 text-indigo-400 flex-shrink-0" />
-                                    <span className="text-xs text-zinc-400 truncate">{c.studioName}</span>
+                                <div className="min-w-0">
+                                    <h3 className="text-base font-black text-[#1e293b] dark:text-white truncate">{s.name}</h3>
+                                    <p className="text-[10px] text-zinc-500 font-mono tracking-tighter mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">/{s.slug}</p>
                                 </div>
                             </div>
-                        ))}
+                            <span className={cn(
+                                "px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border",
+                                s.status === 'active' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                            )}>
+                                {s.status === 'active' ? (lang === 'ka' ? 'აქტიური' : 'Active') : (lang === 'ka' ? 'შეჩერებული' : 'Blocked')}
+                            </span>
+                        </div>
+
+                        <div className="space-y-4 flex-1">
+                            <div className="bg-zinc-50 dark:bg-zinc-500/5 p-4 rounded-2xl border border-black/5 dark:border-border-subtle">
+                                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                    <Globe className="w-3 h-3" /> {lang === 'ka' ? 'მფლობელი' : 'Owner Contact'}
+                                </p>
+                                <p className="text-xs font-black text-[#1e293b] dark:text-white">{s.ownerName}</p>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1"><Phone className="w-3 h-3" /> {s.ownerPhone}</span>
+                                    {s.ownerEmail !== '—' && <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1"><Mail className="w-3 h-3" /> {s.ownerEmail.split('@')[0]}...</span>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-zinc-50 dark:bg-zinc-500/5 p-4 rounded-2xl border border-black/5 dark:border-border-subtle text-center">
+                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">{lang === 'ka' ? 'მოსწავლე' : 'Students'}</p>
+                                    <p className="text-xl font-black text-indigo-600 tabular-nums">{s.studentCount}</p>
+                                </div>
+                                <div className="bg-zinc-50 dark:bg-zinc-500/5 p-4 rounded-2xl border border-black/5 dark:border-border-subtle text-center">
+                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">{lang === 'ka' ? 'გეგმა' : 'Plan'}</p>
+                                    <p className="text-xs font-black text-emerald-600 uppercase pt-2 tracking-tight">{s.plan}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 pt-5 border-t border-black/5 dark:border-border-subtle flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
+                                    {lang === 'ka' ? 'გადახდის ვადა' : 'Next Due'}
+                                </span>
+                                <span className={cn("text-[11px] font-black mt-0.5 flex items-center gap-1.5", s.billingStatus === 'overdue' ? "text-rose-500" : "text-zinc-600 dark:text-zinc-400")}>
+                                    <Calendar className="w-3 h-3" />
+                                    {s.nextDue ? new Date(s.nextDue).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short', day: 'numeric' }) : '—'}
+                                </span>
+                            </div>
+                            <button 
+                                onClick={() => window.location.href = `/superadmin/studios?search=${s.slug}`}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-indigo-600/20 uppercase tracking-wider flex items-center gap-2"
+                            >
+                                {lang === 'ka' ? 'მართვა' : 'Manage'} <Zap className="w-3 h-3" />
+                            </button>
+                        </div>
                     </div>
-                )}
+                ))}
             </div>
+
+            {filtered.length === 0 && (
+                <div className="py-24 text-center bg-white border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm">
+                    <Building2 className="w-12 h-12 mx-auto mb-4 text-zinc-200" />
+                    <p className="text-sm font-black text-zinc-400 uppercase tracking-[0.2em]">
+                        {lang === 'ka' ? 'სტუდია ვერ მოიძებნა' : 'No studios found'}
+                    </p>
+                </div>
+            )}
         </div>
     );
 }

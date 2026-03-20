@@ -7,25 +7,40 @@ import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
-const SUPER_ADMIN_EMAILS = ['support@classcore.ge', 'adminclasscore@gmail.com'];
+const SUPER_ADMIN_EMAILS = [
+    'adminclasscore@gmail.com',
+    'support@classcore.ge', 
+    'admin@classcore.ge',
+    'tserj13@classcore.ge'
+];
 
 export default function SALoginPage() {
-    const { user } = useUser();
+    const [mounted, setMounted] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const { user, logout } = useUser();
     const { t } = useT();
 
     useEffect(() => {
-        if (user) {
-            if (SUPER_ADMIN_EMAILS.includes(user.email || '')) {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!mounted) return;
+        if (user && user.email) {
+            const email = user.email.toLowerCase();
+            const isAdmin = SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email);
+            if (isAdmin) {
                 window.location.href = '/superadmin';
             } else {
-                window.location.href = '/dashboard';
+                // If they are logged in but not a superadmin, 
+                // we show an error but DON'T auto-redirect immediately so they can sign out
+                setError(`Logged in as ${user.email}, but you are not a Super Admin.`);
             }
         }
     }, [user]);
 
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -33,10 +48,17 @@ export default function SALoginPage() {
         setError(null);
 
         const formData = new FormData(e.target as HTMLFormElement);
-        const email = formData.get('email') as string;
+        let email = (formData.get('email') as string).trim().toLowerCase();
         const password = formData.get('password') as string;
 
-        if (!SUPER_ADMIN_EMAILS.includes(email.trim().toLowerCase())) {
+        // Alias for the main admin account
+        if (email === 'tserj13') {
+            email = 'adminclasscore@gmail.com';
+        } else if (!email.includes('@')) {
+            email = email + '@classcore.ge';
+        }
+
+        if (!SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email)) {
             setError('Access restricted to SuperAdmin personnel only. Connection logged.');
             setLoading(false);
             return;
@@ -67,6 +89,8 @@ export default function SALoginPage() {
         }
     };
 
+    if (!mounted) return null;
+
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
             {/* Dark/Secure Abstract Backgrounds */}
@@ -90,8 +114,18 @@ export default function SALoginPage() {
                 {/* Form Card */}
                 <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 p-10 rounded-[2.5rem] shadow-2xl">
                     {error && (
-                        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-[11px] font-bold text-red-500 uppercase tracking-widest text-center animate-fade-up">
-                            {error}
+                        <div className="mb-6 space-y-4">
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-[11px] font-bold text-red-500 uppercase tracking-widest text-center animate-fade-up">
+                                {error}
+                            </div>
+                            {user && (
+                                <button 
+                                    onClick={() => logout()}
+                                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                >
+                                    Sign Out & Try Another Account
+                                </button>
+                            )}
                         </div>
                     )}
                     <form onSubmit={handleLogin} className="space-y-6">
@@ -101,9 +135,9 @@ export default function SALoginPage() {
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-500 group-focus-within:text-white transition-colors" />
                                 <input
                                     name="email"
-                                    type="email"
+                                    type="text"
                                     required
-                                    placeholder="admin@classcore.ge"
+                                    placeholder="Login"
                                     className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-600 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-white placeholder:text-zinc-600 outline-none transition-all"
                                 />
                             </div>
@@ -117,7 +151,7 @@ export default function SALoginPage() {
                                     name="password"
                                     type={showPassword ? "text" : "password"}
                                     required
-                                    placeholder="••••••••"
+                                    placeholder="Password"
                                     className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-600 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-12 py-4 text-sm font-bold text-white placeholder:text-zinc-600 outline-none transition-all"
                                 />
                                 <button

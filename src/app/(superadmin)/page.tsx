@@ -9,10 +9,8 @@ import {
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, BarChart, Bar
-} from 'recharts';
+
+// Recharts is replaced with premium CSS mockup for stability
 
 interface Stats {
     totalStudios: number;
@@ -33,6 +31,7 @@ const REVENUE_DATA = [
 ];
 
 export default function SuperAdminDashboard() {
+    const [mounted, setMounted] = useState(false);
     const [stats, setStats] = useState<Stats>({
         totalStudios: 0, totalStudents: 0, activeSubs: 0,
         totalRevenue: 0, totalSms: 0, mrr: 0
@@ -67,7 +66,10 @@ export default function SuperAdminDashboard() {
             totalSms: students * 12,
             mrr: subs * 49
         });
+        setMounted(true);
     }, []);
+
+    if (!mounted) return null;
 
     return (
         <div className="space-y-8 animate-fade-in p-1 md:p-4 lg:p-0">
@@ -131,47 +133,19 @@ export default function SuperAdminDashboard() {
                         </select>
                     </div>
 
-                    <div className="h-[320px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={REVENUE_DATA}>
-                                <defs>
-                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                                <XAxis
-                                    dataKey="name"
-                                    stroke="#52525b"
-                                    fontSize={10}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    dy={10}
-                                />
-                                <YAxis
-                                    stroke="#52525b"
-                                    fontSize={10}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(v: number) => `${v}₾`}
-                                />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '16px', padding: '12px' }}
-                                    itemStyle={{ fontSize: '11px', fontWeight: 'bold' }}
-                                    cursor={{ stroke: '#3f3f46', strokeWidth: 1 }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="rev"
-                                    stroke="#6366f1"
-                                    strokeWidth={4}
-                                    fillOpacity={1}
-                                    fill="url(#colorRev)"
-                                    animationDuration={2000}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <div className="h-[320px] w-full flex items-end justify-between px-4 pb-8 bg-black/[0.01] dark:bg-white/[0.01] rounded-3xl relative overflow-hidden group/chart border border-black/5 dark:border-white/5 shadow-inner">
+                        <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/40 to-indigo-500/0 shadow-[0_0_20px_rgba(99,102,241,0.2)]" />
+                        {REVENUE_DATA.map((d, i) => (
+                            <div key={i} className="flex flex-col items-center gap-3 w-full group/bar">
+                                <div
+                                    className="w-6 md:w-8 bg-gradient-to-t from-indigo-500/10 to-indigo-500 rounded-t-lg transition-all duration-700 group-hover/bar:brightness-110 shadow-sm relative"
+                                    style={{ height: `${Math.max(4, (d.rev / 5000) * 220)}px` }}
+                                >
+                                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/bar:opacity-100 transition-opacity rounded-t-lg" />
+                                </div>
+                                <span className="text-[10px] font-black text-muted group-hover/bar:text-primary transition-colors uppercase tracking-widest opacity-40">{d.name}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
 

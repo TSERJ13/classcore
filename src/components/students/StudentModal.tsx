@@ -121,7 +121,7 @@ function Field({ icon, label, children }: { icon: React.ReactNode; label: string
 function SubscriptionCard({ student }: { student: Student }) {
     const { t } = useT();
     const { user, profile } = useUser();
-    const confirm = useConfirm();
+    const { confirm } = useConfirm();
     const { settings } = useStudio();
     const isTeacher = profile?.role === 'teacher';
     const [subs, setSubs] = useState<any[]>([]);
@@ -251,7 +251,7 @@ export function StudentModal({
     const { t } = useT();
     const { user, profile } = useUser();
     const { settings } = useStudio();
-    const confirm = useConfirm();
+    const { confirm } = useConfirm();
     const isEdit = !!student;
     const isTeacher = profile?.role === 'teacher';
     const fileRef = useRef<HTMLInputElement>(null);
@@ -1108,6 +1108,20 @@ export function StudentModal({
 
                 {/* Footer */}
                 <div className="flex gap-3 px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md">
+                    {isEdit && !isTeacher && onDelete && (
+                        <button
+                            onClick={async () => {
+                                if (await confirm(t.confirmDelete)) {
+                                    onDelete(form.id);
+                                    onClose();
+                                }
+                            }}
+                            className="w-12 h-12 flex items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 transition-all rounded-xl shadow-sm active:scale-95 shrink-0"
+                            title={t.delete}
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                    )}
                     <button onClick={onClose} className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted hover:text-primary text-sm font-bold rounded-xl transition-all shadow-sm">
                         {t.cancel}
                     </button>
