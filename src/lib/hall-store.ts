@@ -13,14 +13,12 @@ export interface HallData {
     is_active: boolean;
 }
 
-import { getScopedKey } from './settings-store';
+import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
 
 const BASE_HALLS_KEY = 'cc_halls';
 function getHallsKey() { return getScopedKey(BASE_HALLS_KEY); }
 
-const INITIAL_HALLS: HallData[] = [
-    { id: 'h1', name: 'hallA', color: '#6366f1', capacity: 30, description: '150 კვ.მ', is_active: true },
-];
+const INITIAL_HALLS: HallData[] = [];
 
 export function getHalls(): HallData[] {
     if (typeof window === 'undefined') return INITIAL_HALLS;
@@ -66,4 +64,5 @@ export function getHalls(): HallData[] {
 export function saveHalls(halls: HallData[]): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getHallsKey(), JSON.stringify(halls));
+    markLocalUpdate();
 }

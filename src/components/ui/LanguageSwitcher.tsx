@@ -59,22 +59,22 @@ export function LanguageSwitcher({
                     "flex items-center gap-2 rounded-xl transition-all duration-200 border group",
                     variant === 'sidebar'
                         ? "bg-[var(--sidebar-hover)] border-[var(--sidebar-border)] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)]"
-                        : "bg-surface border-border-subtle text-muted hover:text-primary hover:border-border-subtle/80 shadow-sm",
-                    compact || hideLabel ? "w-10 h-10 justify-center" : cn(
-                        "px-4 py-2 text-[11px] font-black uppercase tracking-widest",
-                        variant === 'landing' && "px-1.5 py-1.5 md:px-4 md:py-2 text-[9px] md:text-[11px]"
+                        : "bg-white border-slate-100 text-slate-600 hover:text-indigo-600 hover:border-indigo-100 shadow-xl shadow-slate-200/50",
+                    compact || hideLabel ? "w-11 h-11 md:w-12 md:h-12 justify-center rounded-2xl" : cn(
+                        "px-4 py-2 text-[11px] font-black tracking-widest rounded-xl",
+                        variant === 'landing' && "px-2 py-2 md:px-5 md:py-3 h-11 md:h-12 text-[9px] md:text-[11px] rounded-2xl"
                     )
                 )}
                 title={compact ? current.label : undefined}
             >
                 {!noFlags && (
-                    <span className="text-sm shrink-0">
+                    <span className={cn("shrink-0", variant === 'landing' ? "text-xl" : "text-sm")}>
                         {current.flag}
                     </span>
                 )}
                 {!compact && !hideLabel && (
                     <>
-                        <span className="flex-1 text-left truncate ml-2 font-black uppercase tracking-widest">{current.label}</span>
+                        <span className="flex-1 text-left truncate ml-2 font-black tracking-widest">{current.label}</span>
                         <ChevronDown className={cn(
                             "w-3 h-3 opacity-40 transition-transform duration-200 shrink-0",
                             open && "rotate-180",
@@ -89,12 +89,12 @@ export function LanguageSwitcher({
                     "absolute z-50 animate-in fade-in slide-in-from-bottom-2 duration-200",
                     variant === 'sidebar'
                         ? "bottom-[calc(100%+4px)] bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] rounded-2xl shadow-2xl overflow-hidden"
-                        : cn("top-full mt-2 bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden", !compact && !hideLabel && "min-w-[140px]"),
+                        : cn("top-full mt-2 bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden", (variant === 'landing' || (!compact && !hideLabel)) && "min-w-[160px]"),
                     (compact || hideLabel) && variant === 'sidebar'
                         ? "w-[44px] left-1/2 -translate-x-1/2"
-                        : hideLabel && variant === 'landing'
-                            ? "w-[40px] " + (align === 'right' ? "right-0" : "left-0")
-                            : (variant === 'landing' && align === 'right' ? "right-0" : "left-0")
+                        : (hideLabel && variant === 'landing' && !open) // This part was a bit confusing, simplifying
+                            ? "w-auto " + (align === 'right' ? "right-0" : "left-0")
+                            : (align === 'right' ? "right-0" : "left-0")
                 )}>
                     {(Object.entries(LANG_META) as [Lang, typeof LANG_META[Lang]][]).map(([code, meta]) => (
                         <button
@@ -102,7 +102,7 @@ export function LanguageSwitcher({
                             onClick={() => { setLang(code); setOpen(false); }}
                             className={cn(
                                 "w-full flex items-center transition-all text-left group/item",
-                                (compact || hideLabel) ? "justify-center py-2" : "gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest",
+                                (compact || hideLabel) && variant === 'sidebar' ? "justify-center py-2 px-2" : "gap-3 px-4 py-3 text-[10px] font-black tracking-widest",
                                 lang === code
                                     ? variant === 'sidebar' ? "bg-indigo-500/20 text-indigo-300" : "bg-indigo-500/5 text-indigo-600"
                                     : variant === 'sidebar'
@@ -111,12 +111,12 @@ export function LanguageSwitcher({
                             )}
                         >
                             {!noFlags && (
-                                <span className={cn("text-base transition-transform group-hover/item:scale-110", (compact || hideLabel) ? "text-xl" : "mr-3")}>
+                                <span className={cn("text-base transition-transform group-hover/item:scale-110", (compact || hideLabel) && variant === 'sidebar' ? "text-xl" : "mr-1")}>
                                     {meta.flag}
                                 </span>
                             )}
-                            {(!compact && !hideLabel) && <span className="flex-1">{meta.label}</span>}
-                            {(lang === code && !compact && !hideLabel) && (
+                            {((!compact && !hideLabel) || variant === 'landing') && <span className="flex-1 ml-2">{meta.label}</span>}
+                            {(lang === code && ((!compact && !hideLabel) || variant === 'landing')) && (
                                 <Check className="w-3.5 h-3.5 opacity-60" />
                             )}
                         </button>

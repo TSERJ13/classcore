@@ -78,7 +78,7 @@ export function SupportChat() {
                         <Shield className="w-5 h-5" />
                     </div>
                     <div>
-                        <h3 className="text-sm font-black uppercase tracking-widest">{l('მხარდაჭერა', 'Поддержка', 'Support')}</h3>
+                        <h3 className="text-sm font-black tracking-widest">{l('მხარდაჭერა', 'Поддержка', 'Support')}</h3>
                         <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             <span className="text-[10px] font-bold text-indigo-100 opacity-60">{l('ონლაინ', 'В сети', 'Online')}</span>
@@ -111,12 +111,12 @@ export function SupportChat() {
                         )}>
                             {msg.text}
                         </div>
-                        <span className="text-[9px] font-bold text-muted/40 uppercase tracking-widest px-1">{msg.time}</span>
+                        <span className="text-[9px] font-bold text-muted/40 tracking-widest px-1">{msg.time}</span>
                     </div>
                 ))}
 
                 {isTyping && (
-                    <div className="flex items-center gap-2 text-muted/40 font-bold text-[10px] uppercase tracking-widest px-1">
+                    <div className="flex items-center gap-2 text-muted/40 font-bold text-[10px] tracking-widest px-1">
                         <Loader2 className="w-3 h-3 animate-spin" />
                         {l('ადმინისტრატორი წერს...', 'Админ пишет...', 'Admin is typing...')}
                     </div>
@@ -141,7 +141,7 @@ export function SupportChat() {
                         <Send className="w-4 h-4" />
                     </button>
                 </div>
-                <p className="text-center text-[9px] font-bold text-muted/30 uppercase tracking-[0.2em] mt-3">
+                <p className="text-center text-[9px] font-bold text-muted/30 tracking-[0.2em] mt-3">
                     ClassCore Integrated Support
                 </p>
             </div>

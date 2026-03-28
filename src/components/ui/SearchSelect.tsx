@@ -106,7 +106,7 @@ export function SearchSelect({
 
                     <div className="overflow-y-auto flex-1 p-1 no-scrollbar">
                         {filteredOptions.length === 0 ? (
-                            <div className="py-6 text-center text-[10px] font-bold text-muted uppercase opacity-40 select-none">
+                            <div className="py-6 text-center text-[10px] font-bold text-muted opacity-40 select-none">
                                 {translatedEmptyText}
                             </div>
                         ) : (

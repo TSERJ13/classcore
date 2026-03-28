@@ -77,18 +77,20 @@ export default function StudentPortalPage() {
     const [selectedGroupChatId, setSelectedGroupChatId] = useState<string | null>(null);
     const [scheduleSubTab, setScheduleSubTab] = useState<'mine' | 'all'>('mine');
     const [chatInput, setChatInput] = useState('');
-    const [selectedSlots, setSelectedSlots] = useState<Array<{ date: string, time: string }>>([]);
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>('');
     const [selectedStyle, setSelectedStyle] = useState<string>('');
     const [selectedHallId, setSelectedHallId] = useState<string>('');
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [halls, setHalls] = useState<HallData[]>([]);
     const [shopProducts, setShopProducts] = useState<Product[]>([]);
+    const [isQrExpanded, setIsQrExpanded] = useState(false);
+    const [scheduleView, setScheduleView] = useState<'daily' | 'weekly'>('daily');
 
     // Auth state
     const [authState, setAuthState] = useState<'welcome' | 'phone' | 'authenticated'>('welcome');
     const [phoneInput, setPhoneInput] = useState('');
     const [authError, setAuthError] = useState('');
+    const [unreadCount, setUnreadCount] = useState(0);
 
     // Load Chats & Sync
     useEffect(() => {
@@ -101,17 +103,19 @@ export default function StudentPortalPage() {
                 setStudentData(student || null);
 
                 if (student) {
-                    const s = getSubscription(studentId);
+                    const s = getSubscription(studentId, undefined, undefined, true);
                     setSub(s || null);
 
                     const patch = getStudentPatch(studentId);
-                    const code = patch.qr_code || s?.student_id || studentId;
-
-                    if (code) {
-                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                        const portalUrl = `${origin}/${studio}/${studentId}`;
-                        generateQRDataUrl(portalUrl).then(setQrDataUrl);
-                    }
+                    const nfcUid = patch.nfc_uid || student.nfc_uid;
+                    
+                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                    const studioSlug = studio || 'studio';
+                    
+                    // If NFC UID exists, QR code is the UID itself. Otherwise it's the Portal URL.
+                    const finalQrData = nfcUid ? nfcUid : `${origin}/${studioSlug}/${studentId}`;
+                    
+                    generateQRDataUrl(finalQrData).then(setQrDataUrl);
 
                     // Check if already authenticated in this session
                     const isAuth = typeof window !== 'undefined' ? sessionStorage.getItem(`auth_${studentId}`) : null;
@@ -183,7 +187,7 @@ export default function StudentPortalPage() {
             text: chatInput,
             sender: 'student',
             read: false,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            timestamp: new Date().toISOString()
         };
 
         if (chatTab === 'private') {
@@ -206,7 +210,7 @@ export default function StudentPortalPage() {
             text,
             sender: 'student',
             read: false,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            timestamp: new Date().toISOString()
         };
         const updated = [...privateMessages, msg];
         setPrivateMessages(updated);
@@ -248,56 +252,20 @@ export default function StudentPortalPage() {
         return () => window.removeEventListener('storage', handleStorage);
     }, [studentId, studio, studentData?.enrolled_group_ids]);
 
-    const toggleSlot = (date: string, time: string) => {
-        const key = { date, time };
-        const exists = selectedSlots.find(s => s.date === date && s.time === time);
-        if (exists) {
-            setSelectedSlots(prev => prev.filter(s => !(s.date === date && s.time === time)));
-        } else {
-            setSelectedSlots(prev => [...prev, key]);
-        }
-    };
+    useEffect(() => {
+        let total = 0;
+        // Private
+        total += privateMessages.filter(m => m.sender === 'manager' && !m.read).length;
+        // Groups
+        Object.values(groupMessages).forEach(msgs => {
+            total += msgs.filter(m => m.sender === 'manager' && !m.read).length;
+        });
+        setUnreadCount(total);
+    }, [privateMessages, groupMessages]);
 
-    const requestSelectedLessons = () => {
-        if (selectedSlots.length === 0) return;
 
-        const sortedSlots = [...selectedSlots].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-        const slotsStr = sortedSlots
-            .map(s => `• ${s.date}: ${s.time}`)
-            .join('\n');
 
-        const teacherName = teachers.find(t => t.id === selectedTeacherId)?.full_name || t.any;
-        const styleName = selectedStyle || t.any;
 
-        const msgText = `${t.lessonRequest}:\n\n${t.times}:\n${slotsStr}\n\n${t.teacher}: ${teacherName}\n${t.style}: ${styleName}`;
-
-        const msg: ChatMessage = {
-            id: Date.now().toString(),
-            text: msgText,
-            sender: 'student',
-            read: false,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            metadata: {
-                type: 'lesson_request',
-                status: 'pending',
-                slots: sortedSlots,
-                teacherId: selectedTeacherId,
-                style: selectedStyle,
-                studentId,
-                studentName: studentData?.full_name
-            }
-        };
-
-        const updated = [...privateMessages, msg];
-        setPrivateMessages(updated);
-        localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(updated));
-
-        setActiveTab('chat');
-        setChatTab('private');
-        setSelectedSlots([]);
-        // Notify storage for other tabs
-        window.dispatchEvent(new Event('storage'));
-    };
 
     const addToCalendar = (ev: CalendarEvent, type: 'google' | 'apple') => {
         const start = ev.start_time.replace(':', '');
@@ -404,8 +372,8 @@ export default function StudentPortalPage() {
                     </p>
                 </div>
                 <div className="pt-4 space-y-2 opacity-30">
-                    <p className="text-[9px] font-mono uppercase tracking-widest">ID: {studentId}</p>
-                    <p className="text-[9px] font-mono uppercase tracking-widest">Studio: {studio}</p>
+                    <p className="text-[9px] font-mono tracking-widest">ID: {studentId}</p>
+                    <p className="text-[9px] font-mono tracking-widest">Studio: {studio}</p>
                 </div>
             </div>
         );
@@ -430,7 +398,7 @@ export default function StudentPortalPage() {
                 >
                     {t.portalLogin} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
-                <p className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] opacity-40">{t.authSecurity}</p>
+                <p className="text-[10px] font-bold text-muted tracking-[0.2em] opacity-40">{t.authSecurity}</p>
             </div>
         );
     }
@@ -519,10 +487,10 @@ export default function StudentPortalPage() {
                         </div>
                     )}
                     <div className="text-center mt-1.5 group">
-                        <h1 className="text-sm font-black text-primary tracking-tight mb-0 group-hover:text-indigo-500 transition-colors uppercase">{settings.studioName}</h1>
+                        <h1 className="text-sm font-black text-primary tracking-tight mb-0 group-hover:text-indigo-500 transition-colors">{settings.studioName}</h1>
                         <div className="flex items-center justify-center gap-1">
                             <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                            <span className="text-[9px] font-bold text-muted uppercase tracking-[0.2em] opacity-40">{t.portalSubtitle}</span>
+                            <span className="text-[9px] font-bold text-muted tracking-[0.2em] opacity-40">{t.portalSubtitle}</span>
                         </div>
                     </div>
                 </div>
@@ -539,7 +507,7 @@ export default function StudentPortalPage() {
                         )}
                     >
                         <Info className="w-4 h-4" />
-                        <span className="text-[9px] font-black uppercase tracking-wider">{t.info}</span>
+                        <span className="text-[9px] font-black tracking-wider">{t.info}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('schedule')}
@@ -549,7 +517,7 @@ export default function StudentPortalPage() {
                         )}
                     >
                         <CalendarDays className="w-4 h-4" />
-                        <span className="text-[9px] font-black uppercase tracking-wider">{t.schedule}</span>
+                        <span className="text-[9px] font-black tracking-wider">{t.schedule}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('shop')}
@@ -559,17 +527,20 @@ export default function StudentPortalPage() {
                         )}
                     >
                         <ShoppingBag className="w-4 h-4" />
-                        <span className="text-[9px] font-black uppercase tracking-wider">{t.shop}</span>
+                        <span className="text-[9px] font-black tracking-wider">{t.shop}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('chat')}
                         className={cn(
-                            "flex flex-col items-center gap-1 py-2 rounded-xl transition-all",
+                            "flex flex-col items-center gap-1 py-2 rounded-xl transition-all relative",
                             activeTab === 'chat' ? "bg-white text-indigo-500 shadow-md border border-indigo-500/10" : "text-muted hover:text-primary"
                         )}
                     >
                         <MessageSquare className="w-4 h-4" />
-                        <span className="text-[9px] font-black uppercase tracking-wider">{t.chat}</span>
+                        {unreadCount > 0 && (
+                            <span className="absolute top-1.5 right-3 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                        )}
+                        <span className="text-[9px] font-black tracking-wider">{t.chat}</span>
                     </button>
                 </div>
 
@@ -594,9 +565,9 @@ export default function StudentPortalPage() {
                                         <h1 className="text-2xl font-black text-primary tracking-tight mb-1 truncate">{studentData.full_name || `${studentData.first_name} ${studentData.last_name}`}</h1>
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2">
-                                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{sub?.status === 'active' ? t.active : t.inactive || 'InActive'}</p>
+                                                <p className="text-[10px] font-black text-indigo-600 tracking-widest">{sub?.status === 'active' ? t.active : t.inactive || 'InActive'}</p>
                                                 <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
-                                                <p className="text-[10px] font-bold text-muted uppercase tracking-widest opacity-40">ID: {studentId}</p>
+                                                <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {studentId}</p>
                                             </div>
 
                                             {/* Header Balance & History */}
@@ -617,11 +588,11 @@ export default function StudentPortalPage() {
 
                                 <div className="grid grid-cols-2 gap-4 mt-8 pt-6 border-t border-border-subtle/50 relative z-10">
                                     <div className="space-y-1">
-                                        <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40">{t.studentPhone}</p>
+                                        <p className="text-[9px] font-black text-muted tracking-widest opacity-40">{t.studentPhone}</p>
                                         <p className="text-xs font-bold text-primary">{studentData.phone || '—'}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40">{t.danceStyle}</p>
+                                        <p className="text-[9px] font-black text-muted tracking-widest opacity-40">{t.danceStyle}</p>
                                         <p className="text-xs font-bold text-primary">{studentData.dance_style || '—'}</p>
                                     </div>
                                 </div>
@@ -641,11 +612,11 @@ export default function StudentPortalPage() {
                                             </div>
                                             <div>
                                                 <h2 className="text-base font-black text-primary tracking-tight">{t.subscriptionRenewal}</h2>
-                                                <p className="text-[10px] font-bold text-muted opacity-60 uppercase tracking-widest">{sub.plan}</p>
+                                                <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{sub.plan}</p>
                                             </div>
                                         </div>
                                         <span className={cn(
-                                            "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider",
+                                            "px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider",
                                             sub.status === 'active' ? "bg-emerald-500 text-white shadow-emerald-500/20" : "bg-rose-500 text-white shadow-rose-500/20"
                                         )}>
                                             {sub.status === 'active' ? t.active : t.expired}
@@ -654,7 +625,7 @@ export default function StudentPortalPage() {
 
                                     {sub.sessions_total && (
                                         <div className="space-y-4">
-                                            <div className="flex items-center justify-between text-[11px] font-black text-primary uppercase tracking-widest mb-1 px-1">
+                                            <div className="flex items-center justify-between text-[11px] font-black text-primary tracking-widest mb-1 px-1">
                                                 <span>{t.remaining}</span>
                                                 <div className="flex items-baseline gap-1">
                                                     <span className="text-xl text-indigo-500 tabular-nums">{remaining}</span>
@@ -673,7 +644,7 @@ export default function StudentPortalPage() {
                                             <div className="flex justify-between px-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                                                    <span className="text-[9px] font-bold text-muted uppercase tracking-widest opacity-60">
+                                                    <span className="text-[9px] font-bold text-muted tracking-widest opacity-60">
                                                         {t.used} {sub.sessions_used}
                                                     </span>
                                                 </div>
@@ -687,58 +658,54 @@ export default function StudentPortalPage() {
                                 </div>
                             )}
 
-                            {/* QR Card */}
-                            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-8 shadow-xl shadow-black/5 space-y-6">
-                                <div className="flex flex-col items-center gap-6 py-4">
-                                    <div className="relative group">
-                                        <div className="absolute -inset-4 bg-indigo-500/5 rounded-[2rem] blur-2xl opacity-0 hover:opacity-100 transition-opacity" />
-                                        <div className="relative w-40 h-40 bg-white rounded-3xl p-3 shadow-2xl shadow-indigo-500/10 border border-border-subtle/30">
-                                            {qrDataUrl ? (
-                                                <img src={qrDataUrl} alt="QR Code" className="w-full h-full object-contain" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center animate-pulse">
-                                                    <QrCode className="w-10 h-10 text-border-subtle" />
-                                                </div>
-                                            )}
+                            {/* QR Card - Collapsible */}
+                            <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-xl shadow-black/5 transition-all duration-500">
+                                <button
+                                    onClick={() => setIsQrExpanded(!isQrExpanded)}
+                                    className="w-full p-8 flex items-center justify-between hover:bg-surface/50 transition-colors"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-all", isQrExpanded ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20")}>
+                                            <QrCode className="w-6 h-6" />
+                                        </div>
+                                        <div className="text-left">
+                                            <h3 className="text-sm font-black text-primary tracking-tight">{t.qrCode || 'QR კოდი'}</h3>
+                                            <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{isQrExpanded ? t.hideQr || 'დამალვა' : t.showQr || 'ჩვენება'}</p>
                                         </div>
                                     </div>
-                                    <div className="w-full space-y-2">
-                                        <p className="text-[10px] text-muted font-black uppercase tracking-widest opacity-40 text-center">{t.qrIdAndCopy}</p>
-                                        <button
-                                            onClick={handleCopyId}
-                                            className="w-full flex items-center justify-between gap-4 bg-surface/50 border border-border-subtle hover:border-indigo-500/40 rounded-2xl px-6 py-4 transition-all"
-                                        >
-                                            <span className="text-lg font-mono font-black text-primary tracking-tighter">{studentId}</span>
-                                            {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5 text-muted opacity-40" />}
-                                        </button>
+                                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center transition-transform duration-300", isQrExpanded ? "rotate-180 bg-indigo-50/50" : "bg-surface border border-border-subtle")}>
+                                        <ChevronRight className={cn("w-4 h-4 text-primary", isQrExpanded && "rotate-90")} />
                                     </div>
-                                </div>
-                            </div>
+                                </button>
 
-                            {/* Notifications Toggle */}
-                            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 shadow-xl shadow-black/5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
-                                            <BellRing className="w-5 h-5" />
+                                <div className={cn(
+                                    "px-8 pb-8 space-y-6 overflow-hidden transition-all duration-500 ease-in-out",
+                                    isQrExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 invisible"
+                                )}>
+                                    <div className="flex flex-col items-center gap-6 py-4">
+                                        <div className="relative group">
+                                            <div className="absolute -inset-4 bg-indigo-500/5 rounded-[2rem] blur-2xl opacity-0 hover:opacity-100 transition-opacity" />
+                                            <div className="relative w-48 h-48 bg-white rounded-3xl p-4 shadow-2xl shadow-indigo-500/10 border border-border-subtle/30">
+                                                {qrDataUrl ? (
+                                                    <img src={qrDataUrl} alt="QR Code" className="w-full h-full object-contain" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center animate-pulse">
+                                                        <QrCode className="w-10 h-10 text-border-subtle" />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-black text-primary tracking-tight">{t.smsReminders}</p>
-                                            <p className="text-[10px] font-medium text-muted opacity-60">{t.getNotifiedBeforeLesson}</p>
+                                        <div className="w-full space-y-2">
+                                            <p className="text-[10px] text-muted font-black tracking-widest opacity-40 text-center">{t.qrIdAndCopy}</p>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleCopyId(); }}
+                                                className="w-full flex items-center justify-between gap-4 bg-surface/50 border border-border-subtle hover:border-indigo-500/40 rounded-2xl px-6 py-4 transition-all"
+                                            >
+                                                <span className="text-lg font-mono font-black text-primary tracking-tighter">{studentId}</span>
+                                                {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5 text-muted opacity-40" />}
+                                            </button>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={toggleReminders}
-                                        className={cn(
-                                            "w-12 h-6 rounded-full transition-all relative overflow-hidden ring-1 ring-inset ring-black/5",
-                                            (getStudentPatch(studentId).sms_reminders) ? "bg-indigo-500 shadow-inner" : "bg-slate-200"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-md",
-                                            (getStudentPatch(studentId).sms_reminders) ? "left-7" : "left-1"
-                                        )} />
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -747,317 +714,339 @@ export default function StudentPortalPage() {
                     {activeTab === 'schedule' && (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-4">
                             {/* Schedule Tabs */}
-                            <div className="grid grid-cols-2 gap-2 bg-surface/50 p-1 rounded-2xl border border-border-subtle">
-                                <button
-                                    onClick={() => setScheduleSubTab('mine')}
-                                    className={cn(
-                                        "py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                        scheduleSubTab === 'mine' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
-                                    )}
-                                >
-                                    {t.mySchedule}
-                                </button>
-                                <button
-                                    onClick={() => setScheduleSubTab('all')}
-                                    className={cn(
-                                        "py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                        scheduleSubTab === 'all' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
-                                    )}
-                                >
-                                    {t.studioSchedule}
-                                </button>
+                            <div className="flex flex-col gap-3">
+                                <div className="grid grid-cols-2 gap-2 bg-surface/50 p-1 rounded-2xl border border-border-subtle">
+                                    <button
+                                        onClick={() => setScheduleSubTab('mine')}
+                                        className={cn(
+                                            "py-2 rounded-xl text-[10px] font-black tracking-widest transition-all",
+                                            scheduleSubTab === 'mine' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
+                                        )}
+                                    >
+                                        {t.mySchedule}
+                                    </button>
+                                    <button
+                                        onClick={() => setScheduleSubTab('all')}
+                                        className={cn(
+                                            "py-2 rounded-xl text-[10px] font-black tracking-widest transition-all",
+                                            scheduleSubTab === 'all' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
+                                        )}
+                                    >
+                                        {t.studioSchedule}
+                                    </button>
+                                </div>
+
+                                {/* View switcher moved below title */}
+
+                                {/* Notifications Toggle - Moved here */}
+                                {/* Removed separate block */}
                             </div>
 
                             {scheduleSubTab === 'mine' ? (
-                                <div className="space-y-4">
-                                    <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 shadow-xl shadow-black/5 space-y-6">
+                                <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 shadow-xl shadow-black/5 space-y-6">
+                                    <div className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                                                 <CalendarDays className="w-5 h-5" />
                                             </div>
                                             <div>
                                                 <h2 className="text-base font-black text-primary tracking-tight">{t.activeGroups}</h2>
-                                                <p className="text-[10px] font-bold text-muted opacity-60 uppercase tracking-widest">{t.yourRegisteredClasses}</p>
+                                                <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{t.yourRegisteredClasses}</p>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-3">
-                                            {(() => {
-                                                // Filter events to only show ones that occur today or in the future
-                                                // Handling weekly recurring events by checking if they fall on the same day of the week
-                                                const todayStr = getLocalISODate();
-                                                const todayDate = new Date(`${todayStr}T00:00:00`);
+                                        {/* Integrated Reminder Toggle */}
+                                        <button
+                                            onClick={toggleReminders}
+                                            className={cn(
+                                                "flex items-center gap-2 px-3 py-1.5 rounded-2xl transition-all border",
+                                                (getStudentPatch(studentId).sms_reminders) 
+                                                    ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-600" 
+                                                    : "bg-surface border-border-subtle text-muted"
+                                            )}
+                                        >
+                                            <BellRing className={cn("w-3.5 h-3.5", (getStudentPatch(studentId).sms_reminders) ? "animate-wiggle" : "opacity-40")} />
+                                            <span className="text-[9px] font-black uppercase tracking-wider">
+                                                {t.reminder}
+                                            </span>
+                                            <div className={cn(
+                                                "w-6 h-3 rounded-full relative transition-all",
+                                                (getStudentPatch(studentId).sms_reminders) ? "bg-indigo-500" : "bg-slate-200"
+                                            )}>
+                                                <div className={cn(
+                                                    "absolute top-0.5 w-2 h-2 bg-white rounded-full transition-all",
+                                                    (getStudentPatch(studentId).sms_reminders) ? "right-0.5" : "left-0.5"
+                                                )} />
+                                            </div>
+                                        </button>
+                                    </div>
 
-                                                const allEvents = getEvents();
-                                                const myEvents = allEvents.filter(e => {
-                                                    const sIdMatch = e.student_id?.toLowerCase() === studentId.toLowerCase();
-                                                    const hasGroupId = !!e.group_id;
-                                                    const studentIsInGroup = studentData?.enrolled_group_ids?.some(gid => gid.toLowerCase() === e.group_id?.toLowerCase());
-                                                    const groupExists = hasGroupId ? !!getGroups().find(g => g.id.toLowerCase() === e.group_id?.toLowerCase()) : false;
+                                    {/* Sub-Header View Toggles */}
+                                    <div className="flex items-center justify-between gap-4 pt-2">
+                                        <div className="flex bg-surface/50 p-1 rounded-xl border border-border-subtle flex-1">
+                                            {(['daily', 'weekly'] as const).map(v => (
+                                                <button
+                                                    key={v}
+                                                    onClick={() => setScheduleView(v)}
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all uppercase",
+                                                        scheduleView === v ? "bg-white text-indigo-500 shadow-sm shadow-black/5" : "text-muted hover:text-primary"
+                                                    )}
+                                                >
+                                                    {v === 'daily' ? <Calendar className="w-3 h-3 opacity-60" /> : <CalendarDays className="w-3 h-3 opacity-60" />}
+                                                    {v === 'daily' ? t.day : t.week}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                                                    const isMine = sIdMatch || (hasGroupId && studentIsInGroup && groupExists);
+                                    <div className="space-y-4">
+                                        {(() => {
+                                            const todayStr = getLocalISODate();
+                                            const todayDate = new Date(`${todayStr}T00:00:00`);
+                                            const allEvents = getEvents();
+                                            
+                                            const myEvents = allEvents.filter(e => {
+                                                const sIdMatch = e.student_id?.toLowerCase() === studentId.toLowerCase();
+                                                const hasGroupId = !!e.group_id;
+                                                const studentIsInGroup = studentData?.enrolled_group_ids?.some(gid => gid.toLowerCase() === e.group_id?.toLowerCase());
+                                                const groupExists = hasGroupId ? !!getGroups().find(g => g.id.toLowerCase() === e.group_id?.toLowerCase()) : false;
+                                                const isMine = sIdMatch || (hasGroupId && studentIsInGroup && groupExists);
+                                                return e.org_id === studio && isMine;
+                                            });
 
-                                                    if (e.org_id !== studio || !isMine) return false;
-
+                                            // Project events based on view
+                                            let displayEvents: CalendarEvent[] = [];
+                                            
+                                            if (scheduleView === 'daily') {
+                                                displayEvents = myEvents.filter(e => {
+                                                    if (e.date === todayStr) return true;
                                                     if (e.recurring === 'weekly') {
-                                                        // Always project recurring events, ignoring the original anchor date
-                                                        return true;
+                                                        return new Date(`${e.date}T00:00:00`).getDay() === todayDate.getDay();
                                                     }
-                                                    return e.date >= todayStr;
+                                                    return false;
+                                                }).sort((a, b) => a.start_time.localeCompare(b.start_time));
+                                            } else if (scheduleView === 'weekly') {
+                                                const weekDayNumbers = [1, 2, 3, 4, 5]; // Mon-Fri
+                                                const startOfWeek = new Date(todayDate);
+                                                // Start from Monday (1)
+                                                startOfWeek.setDate(todayDate.getDate() - (todayDate.getDay() === 0 ? 6 : todayDate.getDay() - 1));
+                                                
+                                                displayEvents = myEvents.filter(e => {
+                                                    const evDate = new Date(`${e.date}T00:00:00`);
+                                                    const dayOfEv = evDate.getDay();
+                                                    
+                                                    // Only include Mon-Fri
+                                                    if (!weekDayNumbers.includes(dayOfEv)) return false;
+
+                                                    if (e.recurring === 'weekly') return true;
+
+                                                    const endOfWeek = new Date(startOfWeek);
+                                                    endOfWeek.setDate(startOfWeek.getDate() + 4); // To Friday
+                                                    return evDate >= startOfWeek && evDate <= endOfWeek;
+                                                }).sort((a, b) => {
+                                                    const da = new Date(`${a.date}T00:00:00`).getDay();
+                                                    const db = new Date(`${b.date}T00:00:00`).getDay();
+                                                    return da - db || a.start_time.localeCompare(b.start_time);
                                                 });
+                                            }
 
-                                                // Project weekly events to their *next* upcoming date
-                                                const projectedEvents = myEvents.map(e => {
-                                                    if (e.recurring === 'weekly') {
-                                                        const evDate = new Date(`${e.date}T00:00:00`);
-                                                        const evDay = evDate.getDay();
+                                            if (displayEvents.length === 0) return (
+                                                <div className="py-8 text-center bg-surface/30 rounded-3xl border border-dashed border-border-subtle">
+                                                    <p className="text-xs font-bold text-muted opacity-40">{t.noRegisteredClasses}</p>
+                                                </div>
+                                            );
 
-                                                        // Find next occurrence
-                                                        const projDate = new Date(todayDate);
-                                                        const currentDay = projDate.getDay();
-                                                        const diff = (evDay + 7 - currentDay) % 7;
-                                                        projDate.setDate(projDate.getDate() + diff);
+                                            return (
+                                                <div className="space-y-3">
+                                                    {displayEvents.map((ev, idx) => {
+                                                        const dateObj = new Date(`${ev.date}T00:00:00`);
+                                                        const dayName = dateObj.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'short' });
+                                                        const dayFull = dateObj.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'long' });
+                                                        const dayNum = dateObj.getDate();
+                                                        const monthName = dateObj.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short' });
+                                                        const showDayHeader = idx === 0 || displayEvents[idx-1].date !== ev.date;
 
-                                                        // If diff is 0 but the time has already passed today, shift to next week
-                                                        if (diff === 0) {
-                                                            const now = new Date();
-                                                            const currentStrTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                                                            if (e.end_time <= currentStrTime) {
-                                                                projDate.setDate(projDate.getDate() + 7);
-                                                            }
-                                                        }
-
-                                                        return { ...e, date: getLocalISODate(projDate) };
-                                                    }
-                                                    return e;
-                                                }).sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time));
-
-                                                // Deduplicate exact same projected events (same title, date, time)
-                                                const uniqueEvents = projectedEvents.filter((ev, index, self) =>
-                                                    index === self.findIndex((t) => (
-                                                        t.title === ev.title && t.date === ev.date && t.start_time === ev.start_time
-                                                    ))
-                                                );
-
-                                                if (uniqueEvents.length === 0) return (
-                                                    <div className="py-8 text-center bg-surface/30 rounded-3xl border border-dashed border-border-subtle">
-                                                        <p className="text-xs font-bold text-muted opacity-40">{t.noRegisteredClasses}</p>
-                                                    </div>
-                                                );
-
-                                                return uniqueEvents.map(ev => {
-                                                    const dateObj = new Date(ev.date);
-                                                    const dayName = dateObj.toLocaleDateString(studentData?.preferred_language === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'short' });
-                                                    const dayNum = dateObj.getDate();
-                                                    const monthName = dateObj.toLocaleDateString(studentData?.preferred_language === 'ka' ? 'ka-GE' : 'en-US', { month: 'short' });
-
-                                                    return (
-                                                        <div key={ev.id} className="group relative bg-surface border border-border-subtle hover:border-indigo-500/30 rounded-3xl p-4 flex gap-4 transition-all hover:shadow-lg hover:shadow-indigo-500/5 overflow-hidden">
-                                                            {ev.type === 'individual' && (
-                                                                <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-2xl z-10">
-                                                                    {t.individual}
-                                                                </div>
-                                                            )}
-                                                            <div className="flex-shrink-0 w-14 flex flex-col items-center justify-center bg-indigo-50/50 rounded-2xl py-2 border border-indigo-100/50 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
-                                                                <span className="text-[8px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-80">{monthName}</span>
-                                                                <span className="text-xl font-black leading-none my-0.5">{dayNum}</span>
-                                                                <span className="text-[8px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-80">{dayName}</span>
-                                                            </div>
-                                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                                <h4 className="text-sm font-black text-primary truncate mb-1 pr-12">{ev.title}</h4>
-                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-muted uppercase tracking-wider">
-                                                                    <div className="flex items-center gap-1">
-                                                                        <Clock className="w-3 h-3 text-indigo-500" />
-                                                                        <span>{ev.start_time} - {ev.end_time}</span>
+                                                        return (
+                                                            <div key={`${ev.id}-${ev.date}`} className="space-y-2">
+                                                                {scheduleView === 'weekly' && showDayHeader && (
+                                                                    <div className="flex items-center gap-2 px-2 mt-4 first:mt-0">
+                                                                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{dayFull}</span>
+                                                                        <div className="h-px flex-1 bg-indigo-500/10" />
                                                                     </div>
-                                                                    {ev.teacher_id && teachers.find(t => t.id === ev.teacher_id) && (
-                                                                        <div className="flex items-center gap-1">
-                                                                            <UserIcon className="w-3 h-3 text-indigo-500" />
-                                                                            <span className="truncate max-w-[100px]">{teachers.find(t => t.id === ev.teacher_id)?.full_name}</span>
+                                                                )}
+                                                                <div className={cn(
+                                                                    "group relative bg-surface border border-border-subtle hover:border-indigo-500/30 rounded-3xl p-4 flex gap-4 transition-all hover:shadow-lg hover:shadow-indigo-500/5 overflow-hidden",
+                                                                    ev.date < todayStr && "opacity-40 grayscale-[0.5]"
+                                                                )}>
+                                                                    {ev.type === 'individual' && (
+                                                                        <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl z-10 uppercase">
+                                                                            {t.individual}
                                                                         </div>
                                                                     )}
+                                                                    <div className="flex-shrink-0 w-14 flex flex-col items-center justify-center bg-indigo-50/50 rounded-2xl py-2 border border-indigo-100/50 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+                                                                        <span className="text-[8px] font-black tracking-widest opacity-60 group-hover:opacity-80 uppercase">{monthName}</span>
+                                                                        <span className="text-xl font-black leading-none my-0.5 tabular-nums">{dayNum}</span>
+                                                                        <span className="text-[8px] font-bold tracking-widest opacity-60 group-hover:opacity-80 uppercase">{dayName}</span>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                                        <h4 className="text-sm font-black text-primary truncate mb-1 pr-12">{ev.title}</h4>
+                                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-muted tracking-wider">
+                                                                            <div className="flex items-center gap-1">
+                                                                                <Clock className="w-3 h-3 text-indigo-500" />
+                                                                                <span className="tabular-nums">{ev.start_time} - {ev.end_time}</span>
+                                                                            </div>
+                                                                            {ev.teacher_id && (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <UserIcon className="w-3 h-3 text-indigo-500" />
+                                                                                    <span className="truncate max-w-[100px]">{teachers.find(t => t.id === ev.teacher_id)?.full_name || t.teacherRole}</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex-shrink-0 flex items-center pl-2">
+                                                                        <button onClick={() => downloadIcal(ev)} className="w-10 h-10 bg-surface hover:bg-slate-100 border border-border-subtle rounded-xl flex items-center justify-center text-primary transition-all active:scale-95 group-hover:border-indigo-500/30 group-hover:text-indigo-600">
+                                                                            <Calendar className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
-                                                                {(ev as any).notes && (
-                                                                    <p className="mt-2 text-[10px] font-medium text-muted/80 leading-relaxed border-l-2 border-indigo-100 pl-2">
-                                                                        {(ev as any).notes}
-                                                                    </p>
-                                                                )}
                                                             </div>
-                                                            <div className="flex-shrink-0 flex items-center pl-2">
-                                                                <button
-                                                                    onClick={() => downloadIcal(ev)}
-                                                                    className="w-10 h-10 bg-surface hover:bg-slate-100 border border-border-subtle rounded-xl flex items-center justify-center text-primary transition-all active:scale-95 group-hover:border-indigo-500/30 group-hover:text-indigo-600"
-                                                                    title="Add to Calendar"
-                                                                >
-                                                                    <Calendar className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                });
-                                            })()}
-                                        </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ) : (
                                 <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 shadow-xl shadow-black/5 space-y-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-500">
-                                            <Info className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-base font-black text-primary tracking-tight">{t.studioSchedule}</h2>
-                                            <p className="text-[10px] font-bold text-muted opacity-60 uppercase tracking-widest">{t.bookedTimes}</p>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-500">
+                                                <CalendarDays className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-base font-black text-primary tracking-tight">{t.studioSchedule}</h2>
+                                                <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{t.bookedTimes}</p>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-6">
-                                        {/* Selection Controls */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5 px-1">
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-widest">{t.teachers}</label>
-                                                <SearchSelect
-                                                    options={[
-                                                        { value: '', label: t.any },
-                                                        ...teachers.filter(t => t.assigned_individual).map(t => ({
-                                                            value: t.id, label: t.full_name || t.id
-                                                        }))
-                                                    ]}
-                                                    value={selectedTeacherId}
-                                                    onChange={setSelectedTeacherId}
-                                                    className="!border-border-subtle hover:!border-indigo-500/50 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-[11px]"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5 px-1">
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-widest">{t.style}</label>
-                                                <SearchSelect
-                                                    options={[
-                                                        { value: '', label: t.any },
-                                                        ...Array.from(new Set(teachers.flatMap(t => t.specialty))).map(s => ({
-                                                            value: s, label: s
-                                                        }))
-                                                    ]}
-                                                    value={selectedStyle}
-                                                    onChange={setSelectedStyle}
-                                                    className="!border-border-subtle hover:!border-indigo-500/50 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-[11px]"
-                                                />
-                                            </div>
+                                    {/* Sub-Header View Toggles - Spread out like in My Schedule */}
+                                    <div className="flex items-center justify-between gap-4 pt-2">
+                                        <div className="flex bg-surface/50 p-1 rounded-xl border border-border-subtle flex-1">
+                                            {(['daily', 'weekly'] as const).map(v => (
+                                                <button
+                                                    key={v}
+                                                    onClick={() => setScheduleView(v)}
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all uppercase",
+                                                        scheduleView === v ? "bg-white text-indigo-500 shadow-sm shadow-black/5" : "text-muted hover:text-primary"
+                                                    )}
+                                                >
+                                                    {v === 'daily' ? <Calendar className="w-3 h-3 opacity-60" /> : <CalendarDays className="w-3 h-3 opacity-60" />}
+                                                    {v === 'daily' ? t.day : t.week}
+                                                </button>
+                                            ))}
                                         </div>
+                                    </div>
 
-                                        <div className="space-y-6">
-                                            <div className="flex overflow-x-auto pb-4 gap-3 scrollbar-hide -mx-2 px-2">
-                                                {(() => {
-                                                    const events = getEvents().filter(e => e.org_id === studio);
-                                                    const days = [];
-                                                    const today = new Date();
-                                                    for (let i = 0; i < 7; i++) {
-                                                        const d = new Date(today);
-                                                        d.setDate(today.getDate() + i);
-                                                        days.push(getLocalISODate(d));
+                                    <div className="space-y-8">
+                                        {(() => {
+                                            const allEvents = getEvents().filter(e => e.org_id === studio);
+                                            const today = new Date();
+                                            const todayStr = getLocalISODate();
+                                            
+                                            let days: string[] = [];
+                                            if (scheduleView === 'daily') {
+                                                days = [todayStr];
+                                            } else if (scheduleView === 'weekly') {
+                                                const startOfWeek = new Date(today);
+                                                startOfWeek.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+                                                for (let i = 0; i < 5; i++) { // Only 5 days (Mon-Fri)
+                                                    const d = new Date(startOfWeek);
+                                                    d.setDate(startOfWeek.getDate() + i);
+                                                    days.push(getLocalISODate(d));
+                                                }
+                                            } else {
+                                                for (let i = 0; i < 5; i++) {
+                                                    const d = new Date(today);
+                                                    d.setDate(today.getDate() + i);
+                                                    days.push(getLocalISODate(d));
+                                                }
+                                            }
+
+                                            return days.map(dayDate => {
+                                                const d = new Date(`${dayDate}T00:00:00`);
+                                                const dayName = d.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'long' });
+                                                const dayNum = d.getDate();
+                                                const monthName = d.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short' });
+                                                const isToday = dayDate === todayStr;
+
+                                                const dayOfWeek = d.getDay();
+                                                const dayEvents = allEvents.filter(e => {
+                                                    if (e.date === dayDate) return true;
+                                                    if (e.recurring === 'weekly') {
+                                                        const evDate = new Date(`${e.date}T00:00:00`);
+                                                        return evDate.getDay() === dayOfWeek;
                                                     }
+                                                    return false;
+                                                }).sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-                                                    // Dynamic time slots
-                                                    const timeSlots: string[] = [];
-                                                    const startH = 10;
-                                                    const endH = 20;
-                                                    for (let h = startH; h <= endH; h++) {
-                                                        timeSlots.push(`${String(h).padStart(2, '0')}:00`);
-                                                    }
+                                                if (dayEvents.length === 0) return null;
 
-                                                    return days.map((date, idx) => {
-                                                        const d = new Date(date);
-                                                        const dayName = d.toLocaleDateString(studentData?.preferred_language === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'short' });
-                                                        const dayNum = d.getDate();
-                                                        const isToday = idx === 0;
-
-                                                        return (
-                                                            <div key={date} className="flex flex-col gap-2 min-w-[90px]">
-                                                                <div className={cn(
-                                                                    "text-center py-2 px-1 rounded-xl border transition-all",
-                                                                    isToday ? "bg-indigo-600 border-indigo-700 text-white shadow-md shadow-indigo-600/10" : "bg-surface/50 border-border-subtle"
-                                                                )}>
-                                                                    <p className={cn("text-[8px] font-black uppercase tracking-widest", isToday ? "text-indigo-100" : "text-muted")}>{dayName}</p>
-                                                                    <p className={cn("text-lg font-black leading-none mt-0.5", isToday ? "text-white" : "text-primary")}>{dayNum}</p>
-                                                                </div>
-
-                                                                <div className="flex flex-col gap-1.5">
-                                                                    {timeSlots.map(time => {
-                                                                        const isValidDateStr = `${date}T00:00:00`;
-                                                                        const targetDateObj = new Date(isValidDateStr);
-                                                                        const targetDay = targetDateObj.getDay();
-
-                                                                        const isOccupied = events.some(e => {
-                                                                            if (selectedTeacherId && e.teacher_id !== selectedTeacherId) return false;
-                                                                            // Since hall selection is removed, we treat all occurrences as potentially occupied if we want to show studio availability
-                                                                            // But user specifically said "avoid choosing a hall", so we filter only by teacher/style if provided
-
-                                                                            let dateMatch = false;
-                                                                            if (e.date === date) {
-                                                                                dateMatch = true;
-                                                                            } else if (e.recurring === 'weekly') {
-                                                                                const evDateObj = new Date(`${e.date}T00:00:00`);
-                                                                                if (evDateObj.getDay() === targetDay) {
-                                                                                    dateMatch = true;
-                                                                                }
-                                                                            }
-
-                                                                            if (!dateMatch) return false;
-
-                                                                            const cellStartStr = time;
-                                                                            const cellEndH = parseInt(time.split(':')[0]) + 1;
-                                                                            const cellEndStr = `${String(cellEndH).padStart(2, '0')}:00`;
-
-                                                                            return e.start_time < cellEndStr && e.end_time > cellStartStr;
-                                                                        });
-                                                                        const isSelected = selectedSlots.some(s => s.date === date && s.time === time);
-
-                                                                        return (
-                                                                            <button
-                                                                                key={time}
-                                                                                disabled={isOccupied}
-                                                                                onClick={() => toggleSlot(date, time)}
-                                                                                className={cn(
-                                                                                    "w-full py-2 rounded-lg text-[10px] font-black transition-all border",
-                                                                                    isOccupied
-                                                                                        ? "bg-slate-50/30 border-slate-100 text-slate-200 cursor-not-allowed opacity-30 line-through"
-                                                                                        : isSelected
-                                                                                            ? "bg-indigo-600 border-indigo-700 text-white shadow-lg shadow-indigo-600/20 scale-105 z-10"
-                                                                                            : "bg-card border-border-subtle text-primary hover:border-indigo-500/40 hover:bg-indigo-50/50 hover:text-indigo-600"
-                                                                                )}
-                                                                            >
-                                                                                {time}
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                                                return (
+                                                    <div key={dayDate} className="space-y-4">
+                                                        <div className="flex items-center gap-3 px-1">
+                                                            <div className={cn(
+                                                                "px-3 py-1 rounded-lg text-[10px] font-black tracking-[0.2em] uppercase",
+                                                                isToday ? "bg-indigo-600 text-white" : "bg-surface border border-border-subtle text-muted"
+                                                            )}>
+                                                                {isToday ? t.today : dayName}
                                                             </div>
-                                                        );
-                                                    });
-                                                })()}
-                                            </div>
+                                                            <div className="h-px flex-1 bg-border-subtle opacity-30" />
+                                                            <span className="text-[10px] font-black text-muted opacity-40 uppercase tabular-nums">{dayNum} {monthName}</span>
+                                                        </div>
 
-                                            {selectedSlots.length > 0 && (
-                                                <div className="fixed bottom-24 left-6 right-6 z-50 animate-fade-up">
-                                                    <button
-                                                        onClick={requestSelectedLessons}
-                                                        className="w-full bg-indigo-600 text-white py-5 rounded-[2rem] text-xs font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all ring-4 ring-white"
-                                                    >
-                                                        <Send className="w-5 h-5" />
-                                                        {t.confirm} ({selectedSlots.length})
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            <div className="p-5 bg-indigo-50/50 border border-indigo-100 rounded-3xl space-y-3">
-                                                <div className="flex items-center gap-2">
-                                                    <Info className="w-4 h-4 text-indigo-500" />
-                                                    <p className="text-[10px] font-black text-indigo-900 uppercase tracking-widest">{t.instruction}</p>
-                                                </div>
-                                                <p className="text-[11px] font-bold text-indigo-600/80 leading-relaxed">
-                                                    {t.instructionText}
-                                                </p>
-                                            </div>
-                                        </div>
+                                                        <div className="space-y-3">
+                                                            {dayEvents.map(ev => {
+                                                                const isMyEvent = studentData?.enrolled_group_ids?.includes(ev.group_id || '') || ev.student_id === studentId;
+                                                                
+                                                                return (
+                                                                    <div key={`${ev.id}-${dayDate}`} className={cn(
+                                                                        "relative bg-surface border rounded-3xl p-4 flex gap-4 transition-all overflow-hidden",
+                                                                        isMyEvent ? "border-indigo-500/30 bg-indigo-50/20 shadow-lg shadow-indigo-500/5" : "border-border-subtle opacity-80 shadow-sm",
+                                                                        dayDate < todayStr && "opacity-40 grayscale-[0.5]"
+                                                                    )}>
+                                                                        {isMyEvent && (
+                                                                            <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl uppercase">
+                                                                                {t.myClass}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="flex-shrink-0 w-12 flex flex-col items-center justify-center font-black">
+                                                                            <span className="text-[11px] text-primary tabular-nums">{ev.start_time}</span>
+                                                                            <div className="w-px h-3 bg-border-subtle my-0.5" />
+                                                                            <span className="text-[9px] text-muted opacity-40 tabular-nums">{ev.end_time}</span>
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                                            <h4 className="text-sm font-black text-primary truncate mb-1">{ev.title}</h4>
+                                                                            <div className="flex items-center gap-1 text-[10px] font-bold text-muted tracking-wider">
+                                                                                {ev.teacher_id && (
+                                                                                    <>
+                                                                                        <UserIcon className="w-3 h-3 text-indigo-500" />
+                                                                                        <span className="truncate max-w-[120px]">{teachers.find(t => t.id === ev.teacher_id)?.full_name || t.teacherRole}</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                 </div>
                             )}
@@ -1071,7 +1060,7 @@ export default function StudentPortalPage() {
                                 <button
                                     onClick={() => setChatTab('private')}
                                     className={cn(
-                                        "py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                        "py-2 rounded-xl text-[10px] font-black tracking-widest transition-all",
                                         chatTab === 'private' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
                                     )}
                                 >
@@ -1080,7 +1069,7 @@ export default function StudentPortalPage() {
                                 <button
                                     onClick={() => setChatTab('groups')}
                                     className={cn(
-                                        "py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                        "py-2 rounded-xl text-[10px] font-black tracking-widest transition-all",
                                         chatTab === 'groups' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
                                     )}
                                 >
@@ -1090,24 +1079,42 @@ export default function StudentPortalPage() {
 
                             {chatTab === 'groups' && !selectedGroupChatId ? (
                                 <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 space-y-3">
-                                    <h4 className="text-xs font-black text-primary uppercase tracking-widest opacity-50 px-2">{t.yourGroups}</h4>
+                                    <h4 className="text-xs font-black text-primary tracking-widest opacity-50 px-2">{t.yourGroups}</h4>
                                     {studentData.enrolled_group_ids?.length ? (
                                         <div className="space-y-2">
-                                            {studentData.enrolled_group_ids.filter(gid => getGroupById(gid)).map(gid => (
-                                                <button
-                                                    key={gid}
-                                                    onClick={() => setSelectedGroupChatId(gid)}
-                                                    className="w-full flex items-center justify-between p-4 bg-surface/50 hover:bg-surface border border-border-subtle rounded-2xl transition-all"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-                                                            <MessageSquare className="w-4 h-4" />
-                                                        </div>
-                                                        <span className="text-sm font-bold text-primary">{getGroupById(gid)?.name || gid}</span>
-                                                    </div>
-                                                    <ChevronRight className="w-4 h-4 text-muted opacity-40" />
-                                                </button>
-                                            ))}
+                                            {(studentData.enrolled_group_ids || [])
+                                                .filter(gid => getGroupById(gid))
+                                                .sort((a, b) => {
+                                                    const msgsA = groupMessages[a] || [];
+                                                    const msgsB = groupMessages[b] || [];
+                                                    const timeA = msgsA.length > 0 ? new Date(msgsA[msgsA.length - 1].timestamp).getTime() : 0;
+                                                    const timeB = msgsB.length > 0 ? new Date(msgsB[msgsB.length - 1].timestamp).getTime() : 0;
+                                                    return timeB - timeA;
+                                                })
+                                                .map(gid => {
+                                                    const unreadInGrp = (groupMessages[gid] || []).filter(m => m.sender === 'manager' && !m.read).length;
+                                                    return (
+                                                        <button
+                                                            key={gid}
+                                                            onClick={() => setSelectedGroupChatId(gid)}
+                                                            className="w-full flex items-center justify-between p-4 bg-surface/50 hover:bg-surface border border-border-subtle rounded-2xl transition-all group/btn"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 relative">
+                                                                    <MessageSquare className="w-4 h-4" />
+                                                                    {unreadInGrp > 0 && (
+                                                                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-sm font-bold text-primary">{getGroupById(gid)?.name || gid}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {unreadInGrp > 0 && <span className="px-1.5 py-0.5 bg-red-500 text-[8px] font-black text-white rounded-full">+{unreadInGrp}</span>}
+                                                                <ChevronRight className="w-4 h-4 text-muted opacity-40 group-hover/btn:translate-x-1 transition-transform" />
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
                                         </div>
                                     ) : (
                                         <p className="text-[10px] font-bold text-muted text-center py-8">{t.noGroupsFound}</p>
@@ -1121,7 +1128,7 @@ export default function StudentPortalPage() {
                                             <button onClick={() => setSelectedGroupChatId(null)} className="p-1 hover:text-indigo-500 transition-colors">
                                                 <ArrowRight className="w-4 h-4 rotate-180" />
                                             </button>
-                                            <span className="text-xs font-black text-primary uppercase tracking-widest">{getGroupById(selectedGroupChatId!)?.name || selectedGroupChatId}</span>
+                                            <span className="text-xs font-black text-primary tracking-widest">{getGroupById(selectedGroupChatId!)?.name || selectedGroupChatId}</span>
                                         </div>
                                     )}
 
@@ -1149,7 +1156,7 @@ export default function StudentPortalPage() {
                                                             {settings.logoDataUrl ? (
                                                                 <img src={settings.logoDataUrl} alt="Studio" className="w-full h-full object-cover" />
                                                             ) : (
-                                                                <span className="text-[10px] font-black uppercase">{settings.studioName?.[0] || 'S'}</span>
+                                                                <span className="text-[10px] font-black">{settings.studioName?.[0] || 'S'}</span>
                                                             )}
                                                         </div>
                                                     )}
@@ -1160,7 +1167,7 @@ export default function StudentPortalPage() {
                                                             m.metadata?.type === 'lesson_request' ? "bg-amber-50 border-amber-200 text-amber-900" : ""
                                                         )}>
                                                             {chatTab === 'groups' && m.sender === 'manager' && (
-                                                                <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-50">{t.administration}</p>
+                                                                <p className="text-[9px] font-black tracking-widest mb-1 opacity-50">{t.administration}</p>
                                                             )}
                                                             {m.metadata?.type === 'lesson_request' ? (
                                                                 <div className="space-y-2">
@@ -1172,7 +1179,7 @@ export default function StudentPortalPage() {
                                                                     </div>
                                                                     <p className="opacity-90">{m.text}</p>
                                                                     {m.metadata.status === 'confirmed' && (
-                                                                        <div className="mt-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-center flex items-center justify-center gap-1.5 border border-emerald-500/30">
+                                                                        <div className="mt-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-700 rounded-lg text-[10px] font-black tracking-widest text-center flex items-center justify-center gap-1.5 border border-emerald-500/30">
                                                                             <CheckCircle className="w-3.5 h-3.5" />
                                                                             {t.confirmed}
                                                                         </div>
@@ -1182,14 +1189,16 @@ export default function StudentPortalPage() {
                                                                 m.text
                                                             )}
                                                         </div>
-                                                        <span className="text-[9px] font-black text-muted uppercase opacity-50 mt-1.5 px-2">{m.timestamp}</span>
+                                                        <span className="text-[9px] font-black text-muted opacity-50 mt-1.5 px-2">
+                                                            {m.timestamp.includes('T') ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : m.timestamp}
+                                                        </span>
                                                     </div>
                                                     {m.sender === 'student' && (
                                                         <div className="w-8 h-8 rounded-full flex-shrink-0 bg-indigo-100 border border-indigo-200 overflow-hidden flex items-center justify-center text-indigo-600 shadow-sm">
                                                             {studentData?.photo_url ? (
                                                                 <img src={studentData.photo_url} alt="Profile" className="w-full h-full object-cover" />
                                                             ) : (
-                                                                <span className="text-[10px] font-black uppercase">{studentData?.full_name?.[0] || studentData?.first_name?.[0] || 'S'}</span>
+                                                                <span className="text-[10px] font-black">{studentData?.full_name?.[0] || studentData?.first_name?.[0] || 'S'}</span>
                                                             )}
                                                         </div>
                                                     )}
@@ -1265,7 +1274,7 @@ export default function StudentPortalPage() {
                                                         </div>
                                                     )}
                                                     {product.quantity <= 3 && (
-                                                        <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-500 text-white text-[9px] font-black uppercase tracking-wider rounded-full">
+                                                        <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-500 text-white text-[9px] font-black tracking-wider rounded-full">
                                                             {product.quantity === 0 ? t.outOfStock : `${product.quantity} ${t.left}`}
                                                         </span>
                                                     )}
@@ -1277,13 +1286,13 @@ export default function StudentPortalPage() {
                                                         <p className="text-xs font-black text-primary leading-tight">{product.name}</p>
                                                     </div>
                                                     <div className="flex items-center gap-1 flex-wrap">
-                                                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider opacity-50">
+                                                        <span className="text-[9px] font-bold text-muted tracking-wider opacity-50">
                                                             {CATEGORY_LABELS[product.category ?? ''] || product.category}
                                                         </span>
                                                         {product.size && (
                                                             <>
                                                                 <span className="text-[9px] opacity-20">·</span>
-                                                                <span className="text-[9px] font-bold text-muted uppercase tracking-wider opacity-50">{product.size}</span>
+                                                                <span className="text-[9px] font-bold text-muted tracking-wider opacity-50">{product.size}</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -1294,7 +1303,7 @@ export default function StudentPortalPage() {
                                                     {product.quantity > 0 && (
                                                         <button
                                                             onClick={() => handleProductInterest(product)}
-                                                            className="w-full mt-2 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 shadow-md shadow-indigo-500/20"
+                                                            className="w-full mt-2 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black tracking-wider rounded-xl transition-all active:scale-95 shadow-md shadow-indigo-500/20"
                                                         >
                                                             {t.interested}
                                                         </button>
@@ -1306,13 +1315,13 @@ export default function StudentPortalPage() {
                                 </div>
                             )}
 
-                            <p className="text-center text-[9px] font-bold text-muted uppercase tracking-[0.2em] opacity-20 pt-4">{t.buyInStudio}</p>
+                            <p className="text-center text-[9px] font-bold text-muted tracking-[0.2em] opacity-20 pt-4">{t.buyInStudio}</p>
                         </div>
                     )}
 
                     {/* Footer */}
                     <div className="text-center pt-12 pb-6">
-                        <p className="text-[9px] font-black text-muted uppercase tracking-[0.3em] opacity-20">Persistence System</p>
+                        <p className="text-[9px] font-black text-muted tracking-[0.3em] opacity-20">Persistence System</p>
                     </div>
                 </div>
             </div>

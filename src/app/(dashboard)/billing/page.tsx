@@ -111,7 +111,7 @@ export default function BillingPage() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-10 animate-fade-up pb-20">
+        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-20">
             {/* Quick overview cards */}
             <div className="grid grid-cols-2 gap-3 sm:gap-6 pb-2">
                 <div className="bg-card border border-border-subtle rounded-3xl p-3 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center justify-between shadow-sm text-center sm:text-left">
@@ -120,7 +120,7 @@ export default function BillingPage() {
                             <CreditCard className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1 opacity-40">{l('კაბინეტის კოდი', 'Код кабинета', 'Cabinet Code')}</p>
+                            <p className="text-[8px] sm:text-[10px] font-black text-muted tracking-widest leading-none mb-1 opacity-40">{l('კაბინეტის კოდი', 'Код кабинета', 'Cabinet Code')}</p>
                             <p className="text-sm sm:text-2xl font-black text-primary tracking-widest truncate">{settings.cabinetCode || '------'}</p>
                         </div>
                     </div>
@@ -131,7 +131,7 @@ export default function BillingPage() {
                             <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1 opacity-40">{t.balance || l('ბალანსი', 'Баланс', 'Balance')}</p>
+                            <p className="text-[8px] sm:text-[10px] font-black text-muted tracking-widest leading-none mb-1 opacity-40">{t.balance || l('ბალანსი', 'Баланс', 'Balance')}</p>
                             <p className="text-sm sm:text-2xl font-black text-[#1e293b] dark:text-white tracking-tight truncate">
                                 {isMounted ? formatCurrency(billing?.accountBalance || 0, settings.currency) : '...'}
                             </p>
@@ -147,7 +147,7 @@ export default function BillingPage() {
                         <AlertTriangle className="w-5 h-5 sm:w-7 sm:h-7 text-amber-600" />
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm sm:text-base font-black text-amber-700 uppercase tracking-tight truncate">{daysLeft} {t.billingTrialDays}</p>
+                        <p className="text-sm sm:text-base font-black text-amber-700 tracking-tight truncate">{daysLeft} {t.billingTrialDays}</p>
                         <p className="text-[10px] sm:text-sm text-amber-700/60 font-medium mt-0.5 line-clamp-1">{t.billingTrialWarn}</p>
                     </div>
                     <div className="text-2xl sm:text-4xl font-black text-amber-600 tabular-nums flex-shrink-0 opacity-40">{daysLeft}</div>
@@ -167,9 +167,9 @@ export default function BillingPage() {
                                 'flex-1 min-w-0 px-1 sm:px-4 py-2 sm:py-3 rounded-xl text-[10px] sm:text-xs font-black transition-all tracking-tight sm:tracking-widest flex flex-col items-center gap-0.5 sm:gap-1',
                                 period === p ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 scale-[1.02]' : 'bg-surface hover:bg-surface-hover text-muted hover:text-primary border border-transparent'
                             )}>
-                            <span className="uppercase whitespace-nowrap">{PERIOD_DISCOUNTS[p].desc}</span>
+                            <span className="whitespace-nowrap">{PERIOD_DISCOUNTS[p].desc}</span>
                             <span className={cn(
-                                "text-[8px] sm:text-[10px] uppercase px-1 sm:px-2 py-0.5 rounded-lg whitespace-nowrap",
+                                "text-[8px] sm:text-[10px] px-1 sm:px-2 py-0.5 rounded-lg whitespace-nowrap",
                                 period === p ? "bg-white/20 text-white" : "bg-emerald-500/10 text-emerald-600"
                             )}>
                                 {PERIOD_DISCOUNTS[p].text}
@@ -193,23 +193,23 @@ export default function BillingPage() {
                         onClick={() => setSelectedPlan(plan.id)}
                     >
                         {plan.highlight && (
-                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-xl uppercase tracking-widest animate-bounce">
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-xl tracking-widest animate-bounce">
                                 ⭐ {t.billingPopular}
                             </div>
                         )}
 
                         <div className="mb-8 text-center flex flex-col items-center">
-                            <p className="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] mb-3">{plan.name}</p>
+                            <p className="text-xs font-black text-indigo-600 tracking-[0.2em] mb-3">{plan.name}</p>
 
                             <div className="flex items-baseline justify-center gap-1">
                                 <span className="text-6xl font-black text-primary tabular-nums tracking-tighter">
                                     {formatCurrency(displayMonthly, settings.currency)}
                                 </span>
-                                <span className="text-muted text-xs font-bold ml-1 opacity-50 uppercase tracking-widest">/ {t.billingPerMonth}</span>
+                                <span className="text-muted text-xs font-bold ml-1 opacity-50 tracking-widest">/ {t.billingPerMonth}</span>
                             </div>
 
                             {currentPeriodMonths > 1 && (
-                                <p className="text-[12px] font-black text-emerald-600 mt-3 uppercase tracking-wide bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                                <p className="text-[12px] font-black text-emerald-600 mt-3 tracking-wide bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
                                     {l('სულ გადასახდელი: ', 'Итого: ', 'Total Due: ')} {formatCurrency(totalDiscountPrice, settings.currency)}
                                 </p>
                             )}
@@ -229,7 +229,7 @@ export default function BillingPage() {
                         <button
                             onClick={e => { e.stopPropagation(); handlePlanClick(plan.id, currentPeriodMonths); setStep('pay'); }}
                             className={cn(
-                                'w-full py-4 rounded-2xl text-xs font-black transition-all uppercase tracking-widest active:scale-[0.97]',
+                                'w-full py-4 rounded-2xl text-xs font-black transition-all tracking-widest active:scale-[0.97]',
                                 plan.id === 'enterprise'
                                     ? 'bg-surface border border-border-subtle text-muted hover:border-indigo-500/40 hover:text-primary'
                                     : plan.highlight
@@ -253,7 +253,7 @@ export default function BillingPage() {
                             </div>
                             <div>
                                 <p className="text-sm font-black text-primary tracking-tight">{l('პრომო კოდი', 'Промокод', 'Promo Code')}</p>
-                                <p className="text-[10px] font-bold text-muted opacity-60 uppercase tracking-widest">{l('გაქვთ ფასდაკლების კოდი?', 'Есть промокод?', 'Have a discount code?')}</p>
+                                <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{l('გაქვთ ფასდაკლების კოდი?', 'Есть промокод?', 'Have a discount code?')}</p>
                             </div>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 relative">
@@ -263,20 +263,20 @@ export default function BillingPage() {
                                 value={promoCode}
                                 onChange={e => setPromoCode(e.target.value)}
                                 className={cn(
-                                    "w-full sm:flex-1 bg-card border rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all uppercase tracking-widest",
+                                    "w-full sm:flex-1 bg-card border rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all tracking-widest",
                                     promoError ? "border-red-500/50 text-red-500 bg-red-500/[0.02]" : "border-border-subtle focus:border-indigo-500/40",
                                     promoDiscount > 0 && "border-emerald-500/50 text-emerald-600 bg-emerald-500/[0.02]"
                                 )}
                             />
                             <button
                                 onClick={handleApplyPromo}
-                                className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+                                className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[11px] font-black tracking-widest transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
                             >
                                 {l('გააქტიურება', 'Активировать', 'Apply')}
                             </button>
                         </div>
                         {promoError && <p className="text-[10px] font-black text-red-500 px-1 animate-shake">{promoError}</p>}
-                        {promoDiscount > 0 && <p className="text-[10px] font-black text-emerald-600 px-1 uppercase tracking-widest flex items-center gap-1.5 animate-bounce-subtle">✨ {l('ფასდაკლება აქტიურია', 'Скидка активна', 'Discount applied')} (-{promoDiscount * 100}%)</p>}
+                        {promoDiscount > 0 && <p className="text-[10px] font-black text-emerald-600 px-1 tracking-widest flex items-center gap-1.5 animate-bounce-subtle">✨ {l('ფასდაკლება აქტიურია', 'Скидка активна', 'Discount applied')} (-{promoDiscount * 100}%)</p>}
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -319,7 +319,7 @@ export default function BillingPage() {
                                     <div className="pl-16 pr-4 pb-2 animate-in slide-in-from-top-2 duration-300">
                                         <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
                                             <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50 rounded-l-2xl" />
-                                            <p className="text-[11px] font-bold text-amber-600/80 uppercase tracking-widest leading-relaxed">
+                                            <p className="text-[11px] font-bold text-amber-600/80 tracking-widest leading-relaxed">
                                                 {l(
                                                     'ᲛᲜᲘᲨᲕᲜᲔᲚᲝᲕᲐᲜᲘᲐ: ᲒᲐᲓᲐᲮᲓᲘᲡ/ᲒᲐᲓᲐᲠᲘᲪᲮᲕᲘᲡ ᲓᲐᲜᲘᲨᲜᲣᲚᲔᲑᲐᲨᲘ ᲐᲣᲪᲘᲚᲔᲑᲚᲐᲓ ᲛᲘᲣᲗᲘᲗᲔᲗ ᲗᲥᲕᲔᲜᲘ ᲙᲐᲑᲘᲜᲔᲢᲘᲡ ᲙᲝᲓᲘ: ',
                                                     'ВАЖНО: В НАЗНАЧЕНИИ ПЛАТЕЖА/ПЕРЕВОДА ОБЯЗАТЕЛЬНО УКАЖИТЕ ВАШ КОД КАБИНЕТА: ',
@@ -335,7 +335,7 @@ export default function BillingPage() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4 border-t border-border-subtle">
-                        <div className="flex items-center gap-3 text-[11px] font-bold text-muted opacity-50 uppercase tracking-wider">
+                        <div className="flex items-center gap-3 text-[11px] font-bold text-muted opacity-50 tracking-wider">
                             <Shield className="w-4 h-4 text-emerald-500" />
                             <span>{t.billingSecure}</span>
                         </div>
@@ -358,7 +358,7 @@ export default function BillingPage() {
                     { lbl: t.billingDataProtected, icon: '🛡️' },
                     { lbl: t.billingCancelAnytime, icon: '↩️' }
                 ].map(b => (
-                    <div key={b.lbl} className="flex items-center gap-2 text-[10px] font-black text-muted uppercase tracking-widest opacity-40">
+                    <div key={b.lbl} className="flex items-center gap-2 text-[10px] font-black text-muted tracking-widest opacity-40">
                         <span>{b.icon}</span>
                         <span>{b.lbl}</span>
                     </div>

@@ -14,7 +14,7 @@ export interface Notification {
     created_at: string;
 }
 
-import { getScopedKey } from './settings-store';
+import { getScopedKey } from './utils';
 
 const BASE_NOTIFS_KEY = 'cc_notifications';
 const BASE_HISTORY_KEY = 'cc_notifications_history';
@@ -22,11 +22,7 @@ const BASE_HISTORY_KEY = 'cc_notifications_history';
 function getNotifsKey() { return getScopedKey(BASE_NOTIFS_KEY); }
 function getHistoryKey() { return getScopedKey(BASE_HISTORY_KEY); }
 
-const INITIAL_NOTIFS: Notification[] = [
-    { id: '1', text: 'ნინო ბერიძეს ივსება აბონიმენტი 3 დღეში', time: '5 წ. წ.', dot: 'bg-amber-400', read: false, created_at: new Date().toISOString() },
-    { id: '2', text: 'ახალი ჯავშანი — დარბ. A, 14:00', time: '12 წ. წ.', dot: 'bg-indigo-400', read: false, created_at: new Date().toISOString() },
-    { id: '3', text: 'გიორგი კვ. გამოტოვა 3 გაკვ.', time: '1 სთ. წ.', dot: 'bg-rose-400', read: false, created_at: new Date().toISOString() },
-];
+const INITIAL_NOTIFS: Notification[] = [];
 
 export function getNotifications(): Notification[] {
     if (typeof window === 'undefined') return INITIAL_NOTIFS;

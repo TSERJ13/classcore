@@ -3,7 +3,7 @@
  * Manages custom studio categories (dance styles, sports types, etc.)
  */
 
-import { getScopedKey } from './settings-store';
+import { getScopedKey } from './utils';
 
 const BASE_STYLE_STORAGE_KEY = 'cc_custom_styles';
 function getStyleKey() { return getScopedKey(BASE_STYLE_STORAGE_KEY); }

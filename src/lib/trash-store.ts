@@ -2,7 +2,7 @@
  * trash-store.ts
  * Manages deleted items with a 30-day retention policy.
  */
-import { getScopedKey } from './settings-store';
+import { getScopedKey, getActiveSlug } from './utils';
 
 export interface TrashItem {
     id: string;

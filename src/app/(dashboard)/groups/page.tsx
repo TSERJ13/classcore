@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays } from 'lucide-react';
+import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays, Search, Pencil } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
@@ -25,7 +25,7 @@ export default function GroupsPage() {
 
     const [groups, setGroups] = useState<Group[]>([]);
 
-    const { settings } = useStudio();
+    const { settings, updateStaff } = useStudio();
     useEffect(() => {
         function load() { setGroups(getGroups()); }
         load();
@@ -38,6 +38,9 @@ export default function GroupsPage() {
 
     function handleSave(data: Partial<Group>) {
         let updated: Group[];
+        const oldTeacherId = editing?.teacherId;
+        const newTeacherId = data.teacherId;
+
         if (editing) {
             updated = groups.map(g => g.id === editing.id ? { ...g, ...data } as Group : g);
         } else {
@@ -57,6 +60,29 @@ export default function GroupsPage() {
             };
             updated = [...groups, newGroup];
         }
+
+        // Sync with StudioContext Teachers
+        if (oldTeacherId !== newTeacherId) {
+            const gid = editing?.id || updated[updated.length - 1].id;
+            
+            // 1. Remove from old teacher
+            if (oldTeacherId) {
+                const oldT = settings.staff.find(s => s.id === oldTeacherId);
+                if (oldT) {
+                    const nextGroups = (oldT.assigned_group_ids || []).filter(id => id !== gid);
+                    updateStaff(oldTeacherId, { assigned_group_ids: nextGroups });
+                }
+            }
+            // 2. Add to new teacher
+            if (newTeacherId) {
+                const newT = settings.staff.find(s => s.id === newTeacherId);
+                if (newT) {
+                    const nextGroups = Array.from(new Set([...(newT.assigned_group_ids || []), gid]));
+                    updateStaff(newTeacherId, { assigned_group_ids: nextGroups });
+                }
+            }
+        }
+
         setGroups(updated);
         saveGroups(updated);
     }
@@ -68,105 +94,125 @@ export default function GroupsPage() {
         deleteGroupEvents(id);
     }
 
-    const teachers = getTeachers();
+    const [teachers, setTeachers] = useState(getTeachers());
+    useEffect(() => {
+        const load = () => setTeachers(getTeachers());
+        window.addEventListener('cc_teacher_update', load);
+        return () => window.removeEventListener('cc_teacher_update', load);
+    }, []);
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6 animate-fade-up pb-10 px-4 sm:px-0">
-            <div className="flex items-center justify-end mb-2">
+        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-10">
+            {/* ── Top Header Row: Metrics & Add Action ── */}
+            <div className="flex flex-row items-center justify-between gap-3 sm:gap-4">
+                {/* Metrics Bar */}
+                {(() => {
+                    const totalStudents = groups.reduce((s, g) => s + (g.enrolled || 0), 0);
+                    const avgFill = groups.length > 0 ? Math.round(groups.reduce((s, g) => s + ((g.enrolled / g.capacity) * 100), 0) / groups.length) : 0;
+
+                    return (
+                        <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 sm:flex-none py-1">
+                            {/* Groups Stat */}
+                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full bg-violet-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
+                                <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                    <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 text-violet-600 opacity-60" />
+                                    <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none">{groups.length}</span>
+                                </div>
+                                <span className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-muted tracking-[0.2em] uppercase opacity-40 mt-1 lg:mt-2">{t.groupsShort}</span>
+                            </div>
+                            {/* Students Stat */}
+                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full bg-indigo-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
+                                <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                    <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 text-indigo-600 opacity-60" />
+                                    <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none">{totalStudents}</span>
+                                </div>
+                                <span className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-muted tracking-[0.2em] uppercase opacity-40 mt-1 lg:mt-2">{t.activeStudentsShort}</span>
+                            </div>
+                            {/* Fill Rate Stat */}
+                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full bg-emerald-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
+                                <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                    <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 text-emerald-600 opacity-60" />
+                                    <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none">{avgFill}%</span>
+                                </div>
+                                <span className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-muted tracking-[0.2em] uppercase opacity-40 mt-1 lg:mt-2">{t.fillRateShort}</span>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* Add Group Action */}
                 <button onClick={() => { setEditing(null); setModalOpen(true); }}
-                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all text-white text-sm font-black px-6 py-3.5 rounded-2xl shadow-xl shadow-indigo-600/20 touch-manipulation">
-                    <Plus className="w-5 h-5" />
-                    <span>{t.addToGroup}</span>
+                    className="flex items-center justify-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-xl sm:rounded-[1.5rem] shadow-lg shadow-indigo-600/20 transition-all touch-manipulation shrink-0">
+                    <div className="relative">
+                        <Users className="w-4 h-4" />
+                        <Plus className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-indigo-600 rounded-full" />
+                    </div>
+                    <span className="hidden sm:inline">{t.addToGroup}</span>
                 </button>
             </div>
 
-            {/* Quick stats */}
-            {(() => {
-                const totalStudents = groups.reduce((s, g) => s + (g.enrolled || 0), 0);
-                const avgFill = groups.length > 0 ? Math.round(groups.reduce((s, g) => s + ((g.enrolled / g.capacity) * 100), 0) / groups.length) : 0;
-
-                return (
-                    <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                        {[
-                            { label: t.groupsShort, value: String(groups.length), icon: BookOpen, cls: 'text-violet-600 bg-violet-500/10 border-violet-500/20' },
-                            { label: t.activeStudentsShort, value: String(totalStudents), icon: Users, cls: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/20' },
-                            { label: t.fillRateShort, value: avgFill + '%', icon: GraduationCap, cls: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' },
-                        ].map(s => (
-                            <div key={s.label} className="bg-card border border-border-subtle rounded-3xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-4 shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left">
-                                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform ${s.cls}`}>
-                                    <s.icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-lg sm:text-xl font-black text-primary tabular-nums leading-none tracking-tight">{s.value}</p>
-                                    <p className="text-[8px] sm:text-[10px] text-muted font-black uppercase tracking-widest mt-1 opacity-40 truncate">{s.label}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                );
-            })()}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
                 {groups.map(group => {
                     const fillPct = Math.round((group.enrolled / group.capacity) * 100);
                     const teacher = teachers.find(tc => tc.id === group.teacherId);
                     const gColor = group.color || '#6366f1';
 
                     return (
-                        <div key={group.id} onClick={() => { setEditing(group); setModalOpen(true); }}
-                            className="group bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 rounded-[2rem] p-6 transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col justify-between h-full">
-
+                        <div key={group.id} className="group relative bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.5rem] p-4 transition-all duration-300 overflow-hidden flex flex-col gap-3 min-h-[140px]">
                             {/* Color Accent Bar */}
-                            <div className="absolute top-0 left-0 w-full h-[6px]" style={{ backgroundColor: gColor, opacity: 0.6 }} />
-
-                            <div className="relative flex items-start justify-between gap-4 mb-4">
+                            <div className="absolute top-0 left-0 w-full h-[4px]" style={{ backgroundColor: gColor, opacity: 0.6 }} />
+                            
+                            <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                                        <h3 className="text-lg font-black text-primary truncate group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{group.name}</h3>
-                                        <div className="flex flex-wrap gap-2">
-                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black border uppercase tracking-widest shrink-0 ${typeColor[group.type] || typeColor.Dance}`}>{group.type}</span>
-                                            {group.difficulty && (
-                                                <span className="px-2.5 py-1 rounded-full text-[9px] font-black bg-surface text-muted/60 border border-border-subtle uppercase tracking-widest shrink-0">{group.difficulty}</span>
-                                            )}
-                                        </div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <h3 className="text-[14px] sm:text-[16px] font-black text-primary leading-tight line-clamp-1 uppercase tracking-tight group-hover:text-indigo-600 transition-colors uppercase">{group.name}</h3>
+                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border tracking-widest shrink-0 ${typeColor[group.type] || typeColor.Dance}`}>{group.type}</span>
                                     </div>
-
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 rounded-full border border-border-subtle bg-surface flex-shrink-0 overflow-hidden shadow-inner flex items-center justify-center">
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 shadow-sm overflow-hidden relative">
                                             {teacher?.photo_url ? (
-                                                <img src={teacher.photo_url} alt={group.coach} className="w-full h-full object-cover" />
+                                                <img src={teacher.photo_url} alt={teacher.full_name} className="w-full h-full object-cover" />
                                             ) : (
-                                                <GraduationCap className="w-5 h-5 text-muted/40" />
+                                                <GraduationCap className="w-4 h-4 text-muted opacity-40" />
                                             )}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-[11px] font-black text-primary/80 truncate leading-none mb-1">{group.coach}</p>
-                                            <p className="text-[9px] font-bold text-muted uppercase tracking-widest opacity-60">{t.teachers}</p>
+                                            <span className="text-[10px] font-bold text-primary truncate leading-none block">
+                                                {teacher?.full_name || group.coach || t.noTeacher}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-col items-end gap-3 pt-1 shrink-0">
-                                    <div className="text-xs font-black text-indigo-600 tabular-nums bg-indigo-500/5 px-2.5 py-1 rounded-xl border border-indigo-500/10 shadow-sm">{fillPct}%</div>
-                                    <ChevronRight className="w-5 h-5 text-muted opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                                </div>
+
+                                {/* Edit Action - faint by default, prominent on hover */}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setEditing(group); setModalOpen(true); }}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted group-hover:text-indigo-600 hover:border-indigo-500/40 transition-all shadow-sm opacity-60 group-hover:opacity-100 active:scale-90 shrink-0"
+                                >
+                                    <Pencil className="w-3.5 h-3.5" /> 
+                                </button>
                             </div>
 
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-3 text-[10px] font-black text-muted uppercase tracking-widest">
-                                    <div className="flex items-center gap-2 bg-surface/50 p-2.5 rounded-xl border border-border-subtle/30">
-                                        <Clock className="w-3.5 h-3.5 opacity-40" />
-                                        <span className="truncate">{slotsToDisplay(group.schedule_slots || [], lang)}</span>
+                            <div className="mt-auto">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1 min-w-0 flex items-center gap-2 bg-surface/50 p-2 py-1.5 rounded-xl border border-border-subtle/30">
+                                        <Clock className="w-3 h-3 text-muted shrink-0 opacity-40" />
+                                        <span className="text-[9px] font-bold text-primary truncate">
+                                            {slotsToDisplay(group.schedule_slots || [], lang)}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-2 bg-surface/50 p-2.5 rounded-xl border border-border-subtle/30">
-                                        <Users className="w-3.5 h-3.5 opacity-40" />
-                                        <span>{group.enrolled} / {group.capacity}</span>
+                                    <div className="shrink-0 flex items-center gap-1.5 bg-indigo-500/5 px-2 py-1.5 rounded-xl border border-indigo-500/10 h-8">
+                                        <span className="text-[9px] font-black text-indigo-600 tracking-tight">{group.enrolled}/{group.capacity}</span>
+                                        <div className="w-px h-3 bg-indigo-500/20" />
+                                        <span className="text-[9px] font-black text-indigo-500/60">{fillPct}%</span>
                                     </div>
                                 </div>
 
-                                <div className="relative w-full bg-surface rounded-full h-2.5 overflow-hidden shadow-inner">
+                                <div className="relative w-full bg-surface rounded-full h-1 overflow-hidden shadow-inner mt-2">
                                     <div
-                                        className={`h-full rounded-full transition-all duration-1000 shadow-[0_0_12px_rgba(99,102,241,0.2)] ${fillPct > 85 ? 'bg-amber-500' : 'bg-indigo-500'}`}
-                                        style={{ width: `${fillPct}%`, backgroundColor: fillPct > 85 ? undefined : gColor }}
+                                        className="h-full rounded-full transition-all duration-1000"
+                                        style={{ width: `${Math.min(100, fillPct)}%`, backgroundColor: fillPct > 85 ? '#f59e0b' : gColor, boxShadow: `0 0 8px ${fillPct > 85 ? '#f59e0b' : gColor}40` }}
                                     />
                                 </div>
                             </div>
@@ -176,23 +222,23 @@ export default function GroupsPage() {
             </div>
 
             {/* Cross-page quick nav */}
-            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-8 mt-8 shadow-sm">
-                <p className="text-[10px] font-black text-muted uppercase tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-8 shadow-sm">
+                <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     {[
                         { href: '/teachers', label: t.teachers, icon: GraduationCap, color: '#6366f1', desc: t.academicStaff },
                         { href: '/calendar', label: t.calendar, icon: CalendarDays, color: '#8b5cf6', desc: t.fullSchedule },
                         { href: '/attendance', label: t.attendance, icon: BookOpen, color: '#10b981', desc: t.attendanceRecording },
                     ].map(l => (
                         <Link key={l.href} href={l.href}
-                            className="flex flex-col items-center text-center gap-3 p-6 rounded-3xl bg-surface/50 border border-border-subtle hover:border-indigo-500/30 hover:bg-card hover:shadow-2xl hover:shadow-black/5 transition-all duration-300 touch-manipulation group">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner"
+                            className="flex flex-col items-center text-center gap-2 sm:gap-3 px-1.5 py-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface/50 border border-border-subtle hover:border-indigo-500/30 hover:bg-card hover:shadow-2xl hover:shadow-black/5 transition-all duration-300 touch-manipulation group">
+                            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner"
                                 style={{ background: l.color + '10', border: `1px solid ${l.color}25` }}>
-                                <l.icon className="w-7 h-7" style={{ color: l.color }} />
+                                <l.icon className="w-5 h-5 sm:w-7 sm:h-7" style={{ color: l.color }} />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-sm font-black text-primary leading-tight mb-1">{l.label}</p>
-                                <p className="text-[10px] text-muted font-bold opacity-60 uppercase tracking-widest">{l.desc}</p>
+                                <p className="text-[10px] sm:text-sm font-black text-primary leading-tight mb-0.5 sm:mb-1">{l.label}</p>
+                                <p className="text-[8px] sm:text-[10px] text-muted font-bold opacity-60 tracking-widest line-clamp-1 sm:line-clamp-none">{l.desc}</p>
                             </div>
                         </Link>
                     ))}

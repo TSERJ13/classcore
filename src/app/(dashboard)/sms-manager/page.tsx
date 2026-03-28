@@ -146,7 +146,7 @@ export default function SmsManagerPage() {
     }
 
     return (
-        <div className="flex-1 p-4 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
+        <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -362,7 +362,7 @@ export default function SmsManagerPage() {
                             <div className="p-5 space-y-8">
 
                                 <TemplateField
-                                    title={l('აბონიმენტის ვადის ამოწურვა (დღე 0)', 'Истечение срока абонемента (День 0)', 'Subscription Expiration (Day 0)')}
+                                    title={l('აბონემენტის ვადის ამოწურვა (დღე 0)', 'Истечение срока абонемента (День 0)', 'Subscription Expiration (Day 0)')}
                                     desc={l('იგზავნება იმავე დღეს, როცა აბონიმენტს ვადა გასდის.', 'Отправляется в день истечения срока абонемента.', 'Sent on the day the subscription expires.')}
                                     value={templates[langTab]?.expiration_day_0 || ''}
                                     onChange={(val) => handleTemplateChange('expiration_day_0', val)}
@@ -497,12 +497,12 @@ export default function SmsManagerPage() {
                                                     <td className="px-5 py-4">
                                                         <div className="flex flex-col gap-1 items-start">
                                                             {log.status === 'success' || log.status === 'DELIVERED' ? (
-                                                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                                                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black tracking-wider">
                                                                     {t.sentStatus}
                                                                 </span>
                                                             ) : (
                                                                 <>
-                                                                    <span className="inline-flex items-center px-2 py-1 rounded bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-wider">
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded bg-red-500/10 text-red-500 text-[10px] font-black tracking-wider">
                                                                         {t.errorStatus}
                                                                     </span>
                                                                     {log.error && <span className="text-[10px] text-red-500/80 max-w-[150px] leading-tight break-words">{log.error}</span>}
@@ -513,7 +513,7 @@ export default function SmsManagerPage() {
                                                     <td className="px-5 py-4 text-muted/80 text-xs w-full max-w-[250px] sm:max-w-xs xl:max-w-sm relative group/td">
                                                         <div className="flex flex-col gap-1">
                                                             {log.text && <span className="truncate leading-tight">{log.text}</span>}
-                                                            <span className="text-[9px] font-mono text-muted/40 uppercase">ID: {log.id || log.messageId || '-'}</span>
+                                                            <span className="text-[9px] font-mono text-muted/40">ID: {log.id || log.messageId || '-'}</span>
                                                         </div>
                                                     </td>
                                                 </tr>

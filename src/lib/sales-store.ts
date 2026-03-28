@@ -15,7 +15,7 @@ export interface ShopSale {
     date: string;
 }
 
-import { getScopedKey } from './settings-store';
+import { getScopedKey, markLocalUpdate } from './utils';
 
 const BASE_SALES_KEY = 'cc_shop_sales';
 function getSalesKey() { return getScopedKey(BASE_SALES_KEY); }
@@ -52,17 +52,22 @@ export function recordSale(sale: Omit<ShopSale, 'id' | 'date' | 'time'>) {
 
     const existing = getSales();
     localStorage.setItem(getSalesKey(), JSON.stringify([newSale, ...existing]));
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_sale_update'));
+    markLocalUpdate();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_shop_update'));
     return newSale;
 }
 
 export function deleteSale(id: string) {
     const existing = getSales();
     localStorage.setItem(getSalesKey(), JSON.stringify(existing.filter(s => s.id !== id)));
+    markLocalUpdate();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_shop_update'));
 }
 
 export function updateSale(id: string, data: Partial<ShopSale>) {
     const existing = getSales();
     const updated = existing.map(s => s.id === id ? { ...s, ...data } : s);
     localStorage.setItem(getSalesKey(), JSON.stringify(updated));
+    markLocalUpdate();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_shop_update'));
 }

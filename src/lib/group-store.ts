@@ -24,23 +24,13 @@ export interface Group {
     color?: string;
 }
 
-import { getScopedKey } from './settings-store';
+import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
 
 const BASE_GROUPS_KEY = 'cc_groups';
 function getGroupsKey() { return getScopedKey(BASE_GROUPS_KEY); }
 
 // Matches teacher-store assigned_group_ids (g1 to g5)
-const INITIAL_GROUPS: Group[] = [
-    {
-        id: 'g1', name: 'Contemporary Dance', coach: 'ნინო ბერიძე', teacherId: 't1',
-        schedule: 'ორ, ოთხ · 18:00-19:30', capacity: 15, enrolled: 12, type: 'Dance', difficulty: null,
-        hall_id: 'h1',
-        schedule_slots: [
-            { dayOfWeek: 0, startTime: '18:00', endTime: '19:30' },
-            { dayOfWeek: 2, startTime: '18:00', endTime: '19:30' }
-        ]
-    }
-];
+const INITIAL_GROUPS: Group[] = [];
 
 export function getGroups(): Group[] {
     if (typeof window === 'undefined') return INITIAL_GROUPS;
@@ -68,7 +58,7 @@ export function getGroups(): Group[] {
             return data;
         }
         const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : (isMainBranch ? INITIAL_GROUPS : []);
+        return Array.isArray(parsed) ? parsed : INITIAL_GROUPS;
     } catch {
         return INITIAL_GROUPS;
     }
@@ -77,6 +67,7 @@ export function getGroups(): Group[] {
 export function saveGroups(groups: Group[]): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getGroupsKey(), JSON.stringify(groups));
+    markLocalUpdate();
     window.dispatchEvent(new Event('cc_groups_update'));
 }
 
@@ -152,4 +143,41 @@ export function slotsToDisplay(slots: ScheduleSlot[], lang: string = 'ka'): stri
         parts.push(`${days.sort((a, b) => a - b).map(d => currentLabels[d]).join(', ')} · ${time}`);
     });
     return parts.join(' | ');
+}
+
+/** Updates a group's teacher info (coach name and teacherId) */
+export function updateGroupTeacher(groupId: string, teacherId: string, coachName: string): void {
+    const groups = getGroups();
+    const idx = groups.findIndex(g => g.id === groupId);
+    if (idx === -1) return;
+    
+    groups[idx] = { ...groups[idx], teacherId, coach: coachName };
+    saveGroups(groups);
+}
+
+/** Updates all groups that were assigned to a teacher but are no longer, or vice versa */
+export function updateTeacherGroups(teacherId: string, coachName: string, assignedGroupIds: string[]): void {
+    const groups = getGroups();
+    let changed = false;
+    
+    const updated = groups.map(g => {
+        const shouldBeAssigned = assignedGroupIds.includes(g.id);
+        const isCurrentlyAssigned = g.teacherId === teacherId;
+        const nameChanged = g.coach !== coachName;
+
+        if (shouldBeAssigned) {
+            if (!isCurrentlyAssigned || nameChanged) {
+                changed = true;
+                return { ...g, teacherId, coach: coachName };
+            }
+        } else if (isCurrentlyAssigned) {
+            changed = true;
+            return { ...g, teacherId: '', coach: '' };
+        }
+        return g;
+    });
+    
+    if (changed) {
+        saveGroups(updated);
+    }
 }

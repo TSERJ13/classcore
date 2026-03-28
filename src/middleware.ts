@@ -42,15 +42,19 @@ export async function middleware(request: NextRequest) {
         const { pathname } = request.nextUrl;
         const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
 
-        const publicRoutes = ['/', '/login', '/sa-login', '/registration', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
+        const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
         const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
 
         // Portal routes are like /[studio]/[studentId] - 2 segments
-        // We exclude static assets and known public routes
         const segments = pathname.split('/').filter(Boolean);
         const isPortal = segments.length === 2 && !publicRoutes.includes('/' + segments[0]);
 
         const isPublic = isPublicStatic || isPortal;
+
+        // Redirect /sa-admin to /sa-login for user-friendliness
+        if (pathname === '/sa-admin') {
+            return NextResponse.redirect(new URL('/sa-login', request.url));
+        }
 
         if (!user && !hasStaffCookie && !isPublic) {
             const url = request.nextUrl.clone();

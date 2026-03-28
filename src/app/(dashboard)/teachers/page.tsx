@@ -27,7 +27,14 @@ export default function TeachersPage() {
     const { t } = useT();
     const { settings, addStaff, updateStaff, removeStaff } = useStudio();
     const { user, profile } = useUser();
-    const groups = getGroups();
+    
+    const [groups, setGroups] = useState(getGroups());
+    useEffect(() => {
+        const load = () => setGroups(getGroups());
+        window.addEventListener('cc_groups_update', load);
+        return () => window.removeEventListener('cc_groups_update', load);
+    }, []);
+
     const GROUP_MAP = Object.fromEntries(groups.map(g => [g.id, g.name]));
 
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
@@ -79,9 +86,7 @@ export default function TeachersPage() {
     }
 
     function handleDelete(id: string) {
-        if (window.confirm(t.confirmDelete)) {
-            removeStaff(id);
-        }
+        removeStaff(id);
     }
 
 
@@ -90,41 +95,34 @@ export default function TeachersPage() {
 
     return (
         <>
-            <div className="space-y-8 animate-fade-up max-w-4xl mx-auto pb-10">
-                {/* Header */}
-                <div className="flex items-center justify-end mb-2">
-                    <button onClick={openAdd}
-                        className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 active:scale-[0.97] transition-all text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl shadow-violet-600/20 whitespace-nowrap">
-                        <UserPlus className="w-4 h-4" />
-                        <span>{t.addTeacher}</span>
-                    </button>
-                </div>
-
+            <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
+            {/* ── Top Header Row: Metrics & Add Action ── */}
+            <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
                 {/* Quick stats */}
-                <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 sm:flex-none py-1">
                     {[
-                        { label: t.totalTeachersShort, value: String(teachers.length), icon: Users, cls: 'text-violet-600 bg-violet-500/10 border-violet-500/20' },
-                        { label: t.indSessionsShort, value: String(individualCount), icon: User, cls: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/20' },
-                        { label: t.groupsShort, value: String(groups.length), icon: BookOpen, cls: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' },
+                        { label: t.totalTeachersShort, value: String(teachers.length), icon: Users, colorCls: 'text-violet-600', bgCls: 'bg-violet-500/5' },
+                        { label: t.indSessionsShort, value: String(individualCount), icon: User, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
+                        { label: t.groupsShort, value: String(groups.length), icon: BookOpen, colorCls: 'text-emerald-600', bgCls: 'bg-emerald-500/5' },
                     ].map(s => (
-                        <div key={s.label} className="bg-card border border-border-subtle rounded-3xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-4 shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left">
-                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform ${s.cls}`}>
-                                <s.icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
+                            <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
+                                <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums">{s.value}</span>
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-lg sm:text-xl font-black text-primary tabular-nums leading-none tracking-tight">{s.value}</p>
-                                <p className="text-[8px] sm:text-[10px] text-muted font-black uppercase tracking-widest mt-1 opacity-40 truncate">{s.label}</p>
-                            </div>
+                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase">{s.label}</p>
                         </div>
                     ))}
                 </div>
 
-                {/* Search */}
-                <div className="relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-violet-500 transition-colors pointer-events-none" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.teacherSearchPlaceholder}
-                        className="w-full bg-card border border-border-subtle rounded-2xl pl-11 pr-5 py-3 text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-violet-500/60 transition-all shadow-sm" />
-                </div>
+                {/* Add Teacher Action */}
+                <button onClick={openAdd}
+                    className="flex items-center justify-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-xl sm:rounded-[1.5rem] shadow-lg shadow-violet-600/20 transition-all touch-manipulation shrink-0">
+                    <UserPlus className="w-4 h-4" />
+                    <span className="hidden sm:inline">{t.addTeacher}</span>
+                </button>
+            </div>
+
 
                 {/* Teacher cards */}
                 <div className="grid gap-4 stagger">
@@ -144,8 +142,8 @@ export default function TeachersPage() {
                                 {/* Info */}
                                 <div className="flex-1 min-w-0 pt-0.5">
                                     <div className="flex flex-wrap items-center gap-2.5 mb-2">
-                                        <p className="text-base font-black text-primary group-hover:text-violet-600 transition-colors uppercase tracking-tight">{teacher.first_name} {teacher.last_name}</p>
-                                        <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider', STATUS_STYLE[teacher.status])}>
+                                        <p className="text-base font-black text-primary group-hover:text-violet-600 transition-colors tracking-tight">{teacher.first_name} {teacher.last_name}</p>
+                                        <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider', STATUS_STYLE[teacher.status])}>
                                             {STATUS_LABEL[teacher.status]}
                                         </span>
                                     </div>
@@ -166,12 +164,12 @@ export default function TeachersPage() {
                                     {(teacher.assigned_group_ids || []).length > 0 && (
                                         <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border-subtle/50">
                                             {teacher.assigned_group_ids.map(gid => (
-                                                <span key={gid} className="px-3 py-1.5 bg-surface border border-border-subtle text-muted text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                <span key={gid} className="px-3 py-1.5 bg-surface border border-border-subtle text-muted text-[10px] font-black tracking-widest rounded-xl flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                                     <BookOpen className="w-3.5 h-3.5 text-violet-500" />{GROUP_MAP[gid] ?? gid}
                                                 </span>
                                             ))}
                                             {teacher.assigned_individual && (
-                                                <span className="px-3 py-1.5 bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2">
+                                                <span className="px-3 py-1.5 bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 text-[10px] font-black tracking-widest rounded-xl flex items-center gap-2">
                                                     <Zap className="w-3.5 h-3.5" />{t.indSessionShort}
                                                 </span>
                                             )}
@@ -179,15 +177,11 @@ export default function TeachersPage() {
                                     )}
                                 </div>
 
-                                {/* Actions hover */}
-                                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                {/* Actions - faint by default, prominent on hover */}
+                                <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
                                     <button onClick={(e) => { e.stopPropagation(); openEdit(teacher); }}
                                         className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-violet-600 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all shadow-sm">
                                         <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); if (window.confirm(t.confirmDelete)) handleDelete(teacher.id); }}
-                                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm">
-                                        <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </div>
@@ -206,23 +200,23 @@ export default function TeachersPage() {
                 </div>
 
                 {/* Cross-page quick nav */}
-                <div className="bg-surface/50 border border-border-subtle rounded-3xl p-6 mt-6">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 opacity-40">{t.linkedPages}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-8 shadow-sm">
+                    <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         {[
                             { href: '/calendar', label: t.calendar, icon: CalendarDays, color: '#6366f1', desc: t.academicSchedule },
                             { href: '/groups', label: t.groups, icon: BookOpen, color: '#f59e0b', desc: t.activeGroups },
                             { href: '/attendance', label: t.attendance, icon: BarChart2, color: '#10b981', desc: t.attendanceAnalytics },
                         ].map(l => (
                             <Link key={l.href} href={l.href}
-                                className="flex items-center gap-3.5 p-4 rounded-2xl bg-card border border-border-subtle hover:border-violet-500/30 hover:shadow-lg hover:shadow-black/5 transition-all group">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-inner"
+                                className="flex flex-col items-center text-center gap-2 sm:gap-3 px-1.5 py-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface/50 border border-border-subtle hover:border-violet-500/30 hover:bg-card hover:shadow-2xl hover:shadow-black/5 transition-all duration-300 touch-manipulation group">
+                                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner"
                                     style={{ background: l.color + '10', border: `1px solid ${l.color}25` }}>
-                                    <l.icon className="w-5 h-5" style={{ color: l.color }} />
+                                    <l.icon className="w-5 h-5 sm:w-7 sm:h-7" style={{ color: l.color }} />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-sm font-black text-primary truncate leading-tight">{l.label}</p>
-                                    <p className="text-[10px] text-muted font-medium opacity-60 mt-0.5">{l.desc}</p>
+                                    <p className="text-[10px] sm:text-sm font-black text-primary leading-tight mb-0.5 sm:mb-1">{l.label}</p>
+                                    <p className="text-[8px] sm:text-[10px] text-muted font-bold opacity-60 tracking-widest line-clamp-1 sm:line-clamp-none">{l.desc}</p>
                                 </div>
                             </Link>
                         ))}

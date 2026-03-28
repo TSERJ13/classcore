@@ -72,8 +72,10 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     function save() {
         if (!form.first_name?.trim() || !form.last_name?.trim() || !form.phone?.trim()) return;
 
-        // No longer deleting non-active rate types to allow combinations
-        const finalForm = { ...form };
+        const finalForm = { 
+            ...form,
+            full_name: `${form.first_name.trim()} ${form.last_name.trim()}`
+        };
         onSave(finalForm);
         onClose();
     }
@@ -143,18 +145,18 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                         <div className="flex-1 space-y-2">
                             <div className="pt-2">
                                 <p className="text-sm font-black text-primary truncate">{(form.first_name || form.last_name) ? `${form.first_name || ''} ${form.last_name || ''}` : '...'}</p>
-                                <p className="text-[10px] text-muted font-medium opacity-60 uppercase tracking-widest mt-1">{t.basicInfo}</p>
+                                <p className="text-[10px] text-muted font-medium opacity-60 tracking-widest mt-1">{t.basicInfo}</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Basic info */}
                     <section className="space-y-4">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.basicInfo}</p>
+                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.basicInfo}</p>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{l('სახელი', 'Имя', 'First Name')} *</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{l('სახელი', 'Имя', 'First Name')} *</label>
                                 <div className="relative group/input">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.first_name ?? ''} onChange={e => setF('first_name', e.target.value)}
@@ -163,7 +165,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{l('გვარი', 'Фамилия', 'Last Name')} *</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{l('გვარი', 'Фамилия', 'Last Name')} *</label>
                                 <div className="relative group/input">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.last_name ?? ''} onChange={e => setF('last_name', e.target.value)}
@@ -174,7 +176,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.teacherPhone} *</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{t.teacherPhone} *</label>
                             <div className="relative group/input">
                                 <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                 <input value={form.phone ?? ''} onChange={e => setF('phone', e.target.value)}
@@ -184,7 +186,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.email}</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{t.email}</label>
                             <div className="relative group/input">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                 <input value={form.email ?? ''} onChange={e => setF('email', e.target.value)}
@@ -199,7 +201,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                     {/* Groups (Compact Labels) */}
                     <section className="space-y-4">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2"><Users className="w-3 h-3" /> {t.groups}</p>
+                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2"><Users className="w-3 h-3" /> {t.groups}</p>
                         <div className="flex flex-wrap gap-2">
                             {groups.map(g => {
                                 const assigned = form.assigned_group_ids?.includes(g.id);
@@ -219,11 +221,11 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     {/* Salary Selection */}
                     <div className="space-y-4">
                         <section className="space-y-4">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 mb-2">{l('ხელფასის გაანგარიშება', 'Расчет зарплаты', 'Salary Calculation')}</p>
+                            <p className="text-[10px] font-black text-muted tracking-widest opacity-40 mb-2">{l('ხელფასის გაანგარიშება', 'Расчет зарплаты', 'Salary Calculation')}</p>
                             
                             {/* Hourly Rate */}
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.perHourShort}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{t.perHourShort}</label>
                                 <div className="relative group/input">
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-500">{getCurrencySymbol(settings.currency)}</div>
                                     <input type="number" value={form.rate_per_hour ?? ''}
@@ -234,7 +236,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                             {/* Monthly Rate */}
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.perMonthShort}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{t.perMonthShort}</label>
                                 <div className="relative group/input">
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-violet-500/10 flex items-center justify-center text-[10px] font-bold text-violet-500">{getCurrencySymbol(settings.currency)}</div>
                                     <input type="number" value={form.rate_per_month ?? ''}
@@ -245,7 +247,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                             {/* Percentage Share */}
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 ml-1">{t.shareShort} (%)</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{t.shareShort} (%)</label>
                                 <div className="relative group/input">
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-emerald-500/10 flex items-center justify-center"><Percent className="w-2.5 h-2.5 text-emerald-500" /></div>
                                     <input type="number" value={form.salary_percentage ?? ''}
@@ -258,7 +260,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                     {/* Branch Access */}
                     <section className="space-y-4">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
                             <Layout className="w-3 h-3" /> {l('ფილიალები', 'Фილიалы', 'Branches')}
                         </p>
                         <div className="space-y-2">
@@ -299,7 +301,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                     {/* Status Selection (Moved to bottom & Compact) */}
                     <section className="space-y-3 pb-4">
-                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.teacherStatus}</p>
+                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.teacherStatus}</p>
                         <div className="grid grid-cols-3 gap-2">
                             {STATUSES.map(s => (
                                 <button key={s.value} onClick={() => setF('status', s.value)}

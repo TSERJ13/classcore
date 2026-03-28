@@ -8,6 +8,7 @@ import {
     AlertTriangle
 } from 'lucide-react';
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
+import { getScopedKey } from '@/lib/utils';
 import { getBillingState, getPaymentLogs } from '@/lib/saas-billing';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -45,7 +46,8 @@ export default function SuperAdminDashboard() {
         slugs.forEach((slug: string) => {
             // Students
             try {
-                const studentData = localStorage.getItem(`cc_student_data_${slug}`);
+                const studentDataKey = getScopedKey('cc_student_data', slug);
+                const studentData = localStorage.getItem(studentDataKey);
                 if (studentData) students += Object.keys(JSON.parse(studentData)).length;
             } catch {}
 
@@ -100,6 +102,28 @@ export default function SuperAdminDashboard() {
             mrr
         });
     }, [slugs, lang]);
+
+    const handleGlobalPurge = async () => {
+        if (!confirm(lang === 'ka' ? 'აღმოჩნდა, რომ ეს მოქმედება შეუქცევადია! ნამდვილად გსურთ ყველა სტუდიის და მონაცემის წაშლა?' : 'WARNING: This action is irreversible! Are you sure you want to delete ALL studios and data?')) return;
+        
+        try {
+            const res = await fetch('/api/superadmin/global-purge', {
+                method: 'POST',
+                body: JSON.stringify({ secret: 'cc-master-purge-2026' }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(lang === 'ka' ? 'სისტემა გასუფთავდა! ყველა ლოკალური მონაცემი წაიშლება.' : 'System purged! All local data will be cleared.');
+                localStorage.clear();
+                window.location.href = '/';
+            } else {
+                alert(data.error || 'Error during purge');
+            }
+        } catch (err) {
+            alert('Request failed');
+        }
+    };
 
     if (!mounted) return null;
 
@@ -269,6 +293,18 @@ export default function SuperAdminDashboard() {
                             <ChevronRight className="w-4 h-4 ml-auto opacity-20 group-hover/btn:opacity-100 group-hover/btn:translate-x-1 transition-all text-current" />
                         </button>
                         <ActionButton icon={ShieldCheck} label={lang === 'ka' ? 'სისტემური აუდიტი' : 'System Audit'} href="/superadmin/system" color="zinc" />
+                        
+                        {/* Master Purge Button */}
+                        <button 
+                            onClick={handleGlobalPurge}
+                            className="flex items-center gap-4 p-4 md:p-5 bg-rose-500/5 border border-rose-500/10 rounded-2xl text-rose-500 text-[10px] font-black transition-all group/purge shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white"
+                        >
+                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover/purge:border-white/40 transition-colors shadow-inner">
+                                <AlertTriangle className="w-4 h-4 md:w-4.5 md:h-4.5" />
+                            </div>
+                            <span className="uppercase tracking-widest">{lang === 'ka' ? 'ბაზის სრული წმენდა (LIVE)' : 'Full Database Purge (GO LIVE)'}</span>
+                            <ChevronRight className="w-4 h-4 ml-auto opacity-20 group-hover/purge:opacity-100 group-hover/purge:translate-x-1 transition-all" />
+                        </button>
                     </div>
 
                     <div className="pt-6 border-t border-white/5 space-y-4">

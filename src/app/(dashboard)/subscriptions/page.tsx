@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn } from '@/lib/utils';
@@ -12,7 +12,7 @@ import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscrip
 
 export default function SubscriptionsPage() {
     const { t, lang } = useT();
-    const confirm = useConfirm();
+    const { confirm } = useConfirm();
     const students = getStudents();
     const [tab, setTab] = useState<'active' | 'paused' | 'expired'>('active');
     const [category, setCategory] = useState<'group' | 'individual'>('group');
@@ -54,13 +54,13 @@ export default function SubscriptionsPage() {
         const matchesTab = s.status === tab;
         const matchesCategory = category === 'group' ? s.plan_type !== 'individual' : s.plan_type === 'individual';
         const st = Array.isArray(students) ? students.find(x => x && x.id === s.student_id) : null;
-        
+
         const searchLower = search?.toLowerCase() || '';
         const nameMatch = st?.full_name?.toLowerCase().includes(searchLower) ||
             st?.first_name?.toLowerCase().includes(searchLower) ||
             st?.last_name?.toLowerCase().includes(searchLower);
         const idMatch = s.student_id?.toLowerCase().includes(searchLower);
-            
+
         const matchesSearch = !search || nameMatch || idMatch;
         return matchesTab && matchesCategory && matchesSearch;
     });
@@ -168,72 +168,81 @@ export default function SubscriptionsPage() {
     };
 
     return (
-        <div className="space-y-6 animate-fade-up max-w-[1200px] mx-auto pb-20">
-            {/* Primary Controls Row */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                <div className="flex flex-wrap bg-surface border border-border-subtle rounded-xl p-1 gap-1">
-                    {[
-                        { id: 'active', label: t.statsActive, icon: Zap, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
-                        { id: 'paused', label: t.paused, icon: Pause, activeColor: 'bg-amber-500', hoverColor: 'hover:text-amber-600' },
-                        { id: 'expired', label: t.expired, icon: AlertCircle, activeColor: 'bg-red-500', hoverColor: 'hover:text-red-600' },
-                    ].map(v => (
-                        <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
-                            className={cn(
-                                'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all',
-                                tab === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted', v.hoverColor)
-                            )}>
-                            <v.icon className="w-3.5 h-3.5" />
-                            {v.label}
+        <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-20">
+            {/* Primary Controls */}
+            <div className="flex flex-col gap-3">
+                {/* Top Row: Tabs and Actions */}
+                <div className="flex flex-row items-stretch justify-between gap-2 overflow-visible w-full">
+
+                    {/* Status Tabs (Row 1 on Mobile) */}
+                    <div className="flex flex-1 sm:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1 shrink-0">
+                        {[
+                            { id: 'active', label: t.statsActive, icon: Zap, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
+                            { id: 'paused', label: t.paused, icon: Pause, activeColor: 'bg-amber-500', hoverColor: 'hover:text-amber-600' },
+                            { id: 'expired', label: t.expired, icon: AlertCircle, activeColor: 'bg-red-500', hoverColor: 'hover:text-red-600' },
+                        ].map(v => (
+                            <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
+                                className={cn(
+                                    'flex-1 lg:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-0 sm:px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all truncate',
+                                    tab === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface', v.hoverColor)
+                                )}>
+                                <v.icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden sm:inline truncate">{v.label}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Actions: Prices and Add (Row 2 on Mobile) */}
+                    <div className="flex flex-shrink-0 items-center gap-2 overflow-visible h-12">
+                        <button onClick={() => window.location.href = '/subscriptions/plans'}
+                            className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500 text-emerald-600 font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-4 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
+                            <DollarSign strokeWidth={3} className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
+                            <span className="hidden sm:inline truncate">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </button>
-                    ))}
+                        <button onClick={() => setIssuing(true)}
+                            className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-4 rounded-[1.25rem] tracking-widest shadow-lg shadow-indigo-500/25 transition-all">
+                            <FolderPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline truncate">{lang === 'ka' ? 'აბონემენტის გამოწერა' : lang === 'ru' ? 'Выдать абонемент' : 'Issue Subscription'}</span>
+                        </button>
+                    </div>
                 </div>
 
-                <div className="relative flex-1 w-full max-w-md">
-                    <input
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder={lang === 'ka' ? 'მოძებნეთ სტუდენტით...' : lang === 'ru' ? 'Поиск студента...' : 'Search student...'}
-                        className="w-full bg-surface border border-border-subtle rounded-xl pl-10 pr-4 py-2.5 text-xs text-primary outline-none focus:border-indigo-500/40 transition-all font-medium"
-                    />
-                </div>
+                <div className="flex flex-col lg:flex-row items-stretch justify-between gap-3">
 
-                <div className="flex items-center gap-2 w-full lg:w-auto">
-                    <button onClick={() => window.location.href = '/subscriptions/plans'}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-surface hover:bg-surface-hover border border-border-subtle text-primary text-xs font-semibold px-4 py-2.5 rounded-xl transition-all">
-                        <Zap className="w-4 h-4 text-amber-500" />
-                        {lang === 'ka' ? 'ფასების მართვა' : lang === 'ru' ? 'Управление ценами' : 'Price Management'}
-                    </button>
-                    <button onClick={() => setIssuing(true)}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-500/25 transition-all">
-                        <Plus className="w-4 h-4" />
-                        {lang === 'ka' ? 'ახალი' : lang === 'ru' ? 'Новый' : 'New'}
-                    </button>
-                </div>
-            </div>
+                    {/* Category Tabs (Group / Individual) (Row 3 on Mobile) */}
+                    <div className="flex w-full lg:w-fit h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1 shrink-0">
+                        <button
+                            onClick={() => setCategory('group')}
+                            className={cn(
+                                'flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all truncate',
+                                category === 'group' ? 'bg-indigo-500 text-white shadow-md' : 'text-muted hover:text-primary'
+                            )}
+                        >
+                            <Users className="w-4 h-4 shrink-0" />
+                            <span className="truncate">{lang === 'ka' ? 'ჯგუფური' : lang === 'ru' ? 'Групповые' : 'Group'}</span>
+                        </button>
+                        <button
+                            onClick={() => setCategory('individual')}
+                            className={cn(
+                                'flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all truncate',
+                                category === 'individual' ? 'bg-amber-500 text-white shadow-md' : 'text-muted hover:text-primary'
+                            )}
+                        >
+                            <User className="w-4 h-4 shrink-0" />
+                            <span className="truncate">{lang === 'ka' ? 'ინდივიდუალური' : lang === 'ru' ? 'Индивидуальные' : 'Individual'}</span>
+                        </button>
+                    </div>
 
-            {/* Category Toggle Row */}
-            <div className="flex justify-center sm:justify-start">
-                <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 w-full sm:w-fit">
-                    <button
-                        onClick={() => setCategory('group')}
-                        className={cn(
-                            'flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all',
-                            category === 'group' ? 'bg-indigo-500 text-white shadow-md' : 'text-muted hover:text-primary'
-                        )}
-                    >
-                        <Users className="w-4 h-4" />
-                        {lang === 'ka' ? 'ჯგუფური' : lang === 'ru' ? 'Групповые' : 'Group'}
-                    </button>
-                    <button
-                        onClick={() => setCategory('individual')}
-                        className={cn(
-                            'flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all',
-                            category === 'individual' ? 'bg-amber-500 text-white shadow-md' : 'text-muted hover:text-primary'
-                        )}
-                    >
-                        <Zap className="w-4 h-4" />
-                        {lang === 'ka' ? 'ინდივიდუალური' : lang === 'ru' ? 'Индивидуальные' : 'Individual'}
-                    </button>
+                    {/* Search (Row 4 on Mobile) */}
+                    <div className="relative w-full lg:w-auto lg:flex-1 lg:max-w-xs xl:max-w-md h-12 shrink-0">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" />
+                        <input
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder={lang === 'ka' ? 'მოძებნეთ სტუდენტი...' : lang === 'ru' ? 'Поиск студента...' : 'Search student...'}
+                            className="w-full h-full bg-surface border border-border-subtle rounded-[1.25rem] pl-10 pr-4 text-sm text-primary outline-none focus:border-indigo-500/40 transition-all font-medium"
+                        />
+                    </div>
                 </div>
             </div>
 

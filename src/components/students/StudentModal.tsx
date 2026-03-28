@@ -62,14 +62,14 @@ function BalanceCard({ student }: { student: Student }) {
                         <Wallet className="w-5 h-5" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.clientBalance}</p>
+                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.clientBalance}</p>
                         <p className="text-xl font-black text-primary tabular-nums">{formatCurrency(currentBalance, settings.currency)}</p>
                     </div>
                 </div>
                 {!isAdjusting && !isTeacher && (
                     <button
                         onClick={() => setIsAdjusting(true)}
-                        className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
+                        className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-[10px] font-black tracking-widest rounded-xl transition-all"
                     >
                         {t.adjust}
                     </button>
@@ -169,7 +169,7 @@ function SubscriptionCard({ student }: { student: Student }) {
                         (isExpiring || isLowVisits) ? "bg-amber-500/5 border-amber-500/20" : "bg-indigo-500/5 border-indigo-500/10"
                     )}>
                         {isDefault && (
-                            <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
+                            <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg tracking-tighter">
                                 {t.default || 'Default'}
                             </div>
                         )}
@@ -183,12 +183,12 @@ function SubscriptionCard({ student }: { student: Student }) {
                                     <Zap className="w-5 h-5 fill-current opacity-20" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.activeSubscriptions}</p>
+                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.activeSubscriptions}</p>
                                     <p className="text-sm font-black text-primary truncate max-w-[140px] sm:max-w-[180px]">{sub.plan}</p>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.remaining}</p>
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.remaining}</p>
                                 <p className={cn("text-lg font-black tabular-nums", (isExpiring || isLowVisits) ? "text-amber-500" : "text-indigo-500")}>
                                     {isSessions ? `${sessionsLeft} ${t.visits}` : `${diffDays} ${t.day}`}
                                 </p>
@@ -197,7 +197,7 @@ function SubscriptionCard({ student }: { student: Student }) {
 
                         <div className="flex items-center gap-4 pt-1 border-t border-black/5">
                             <div className="flex-1">
-                                <p className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40 mb-1">{t.expiryDate}</p>
+                                <p className="text-[8px] font-black text-muted tracking-widest opacity-40 mb-1">{t.expiryDate}</p>
                                 <p className="text-[10px] font-bold text-primary opacity-60">{sub.expires_at}</p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -364,16 +364,31 @@ export function StudentModal({
     }, [student, open]);
 
     useEffect(() => {
-        if (!form.id) return;
+        const qrContent = form.nfc_uid || form.id;
+        if (!qrContent) return;
+        
         setQrLoading(true);
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         const studioSlug = settings.studioSlug || 'studio';
-        const portalUrl = `${origin}/${studioSlug}/${form.id}`;
-        generateQRDataUrl(portalUrl).then(url => {
+        
+        // If it's an RFID code, use it directly. Otherwise use the Portal URL.
+        const finalData = form.nfc_uid ? form.nfc_uid : `${origin}/${studioSlug}/${form.id}`;
+        
+        generateQRDataUrl(finalData).then(url => {
             setQrDataUrl(url);
             setQrLoading(false);
         });
-    }, [form.id]);
+    }, [form.id, form.nfc_uid, settings.studioSlug]);
+
+    // Auto-generate ID when names are filled and ID is empty (Debounced)
+    useEffect(() => {
+        if (!form.id && (form.first_name || form.last_name)) {
+            const timer = setTimeout(() => {
+                handleIdGeneration();
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [form.first_name, form.last_name, form.id]);
 
     function handleIdGeneration() {
         if (!form.first_name && !form.last_name) return;
@@ -517,7 +532,14 @@ export function StudentModal({
         await new Promise(r => setTimeout(r, 400));
 
         const fullName = `${form.first_name} ${form.last_name}`.trim();
-        const finalId = form.id.trim() || student?.id || `new_${Date.now()}`;
+        let finalId = form.id.trim() || student?.id;
+        
+        if (!finalId && (form.first_name || form.last_name)) {
+            const { generateFormattedStudentId } = await import('@/lib/student-store');
+            finalId = generateFormattedStudentId(form.first_name, form.last_name);
+        }
+        
+        if (!finalId) finalId = `ST${Date.now().toString().slice(-7)}`;
 
         if (form.nfc_uid) {
             registerUid(form.nfc_uid, finalId, fullName);
@@ -579,7 +601,7 @@ export function StudentModal({
                         <button
                             onClick={() => setActiveTab('info')}
                             className={cn(
-                                "h-9 px-4 flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-all rounded-xl border shrink-0",
+                                "h-9 px-4 flex items-center justify-center text-[10px] font-black tracking-widest transition-all rounded-xl border shrink-0",
                                 activeTab === 'info'
                                     ? "bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20"
                                     : "bg-indigo-500/10 text-indigo-400 hover:text-indigo-300 border-indigo-500/20"
@@ -632,7 +654,7 @@ export function StudentModal({
                         <>
                             {/* Photo Upload */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
                                     <Camera className="w-3.5 h-3.5" /> {t.photo}
                                 </p>
                                 <div className="flex items-center gap-5">
@@ -681,7 +703,7 @@ export function StudentModal({
 
                             {/* Basic info */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.basicInfo}</p>
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.basicInfo}</p>
                                 <div className="space-y-4">
                                     <Field icon={<Zap className="w-4 h-4" />} label="STUDENT ID">
                                         <div className="flex gap-2">
@@ -694,7 +716,7 @@ export function StudentModal({
                                             {!form.id && (
                                                 <button
                                                     onClick={handleIdGeneration}
-                                                    className="px-4 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white border border-indigo-500/20 transition-all rounded-xl text-[10px] font-black uppercase tracking-widest shrink-0"
+                                                    className="px-4 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white border border-indigo-500/20 transition-all rounded-xl text-[10px] font-black tracking-widest shrink-0"
                                                 >
                                                     GENERATE
                                                 </button>
@@ -738,7 +760,7 @@ export function StudentModal({
 
                             {/* Social Links */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
                                     {t.socialNetworks}
                                 </p>
                                 <div className="grid grid-cols-2 gap-3">
@@ -763,7 +785,7 @@ export function StudentModal({
 
                             {/* Passport / Documents */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
                                     <FileText className="w-3.5 h-3.5" /> {t.documents}
                                 </p>
                                 <div className={cn(
@@ -771,7 +793,7 @@ export function StudentModal({
                                     passportExpired ? "border-red-500/30 bg-red-500/5" : passportExpiring ? "border-amber-500/30 bg-amber-500/5" : "border-border-subtle"
                                 )}>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[11px] font-bold text-muted px-1 uppercase tracking-wider opacity-60">{t.passportCopy}</label>
+                                        <label className="text-[11px] font-bold text-muted px-1 tracking-wider opacity-60">{t.passportCopy}</label>
                                         {form.passport_url && (
                                             <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{t.uploaded}</span>
                                         )}
@@ -815,7 +837,7 @@ export function StudentModal({
 
                             {/* Enrolled Groups */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center justify-between">
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center justify-between">
                                     <span>{t.enrolledGroups}</span>
                                 </p>
                                 <div className="flex flex-wrap gap-2">
@@ -846,7 +868,7 @@ export function StudentModal({
 
                             {/* Dynamic Styles / Categories */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center justify-between">
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center justify-between">
                                     <span>{t.categories}</span>
                                 </p>
                                 <div className="flex flex-wrap gap-2">
@@ -890,7 +912,7 @@ export function StudentModal({
 
                             {/* QR Card */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
                                     <QrCode className="w-3.5 h-3.5" /> {t.studentPortalLink}
                                 </p>
                                 <div className="bg-surface border border-border-subtle rounded-2xl p-4 shadow-inner">
@@ -929,7 +951,7 @@ export function StudentModal({
                                                 setTimeout(() => setShowCopyToast(false), 1500);
                                             }}>
                                             <div className="flex flex-col min-w-0">
-                                                <span className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40 leading-none mb-1">PORTAL LINK</span>
+                                                <span className="text-[8px] font-black text-muted tracking-widest opacity-40 leading-none mb-1">PORTAL LINK</span>
                                                 <span className="text-[10px] font-bold text-indigo-600 truncate opacity-70 group-hover/link:opacity-100 transition-opacity">
                                                     {(() => {
                                                         if (typeof window === 'undefined') return '';
@@ -939,7 +961,7 @@ export function StudentModal({
                                                 </span>
                                             </div>
                                             {showCopyToast ? (
-                                                <span className="text-[9px] font-black uppercase text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full shrink-0 animate-in zoom-in duration-200">
+                                                <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full shrink-0 animate-in zoom-in duration-200">
                                                     COPIED!
                                                 </span>
                                             ) : (
@@ -960,7 +982,7 @@ export function StudentModal({
 
                             {/* NFC Card */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center justify-between">
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center justify-between">
                                     <span className="flex items-center gap-2"><CreditCard className="w-3.5 h-3.5" /> {t.nfcCard}</span>
                                     <span id="nfc-indicator" className="text-[8px] font-black px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 transition-all duration-300">
                                         {t.waitingForScan || 'READY TO SCAN'}
@@ -996,7 +1018,7 @@ export function StudentModal({
                                         }
                                     </button>
                                     <div className="space-y-2">
-                                        <p className="text-[10px] text-muted font-bold opacity-40 px-1 uppercase tracking-widest">{t.manualInput}</p>
+                                        <p className="text-[10px] text-muted font-bold opacity-40 px-1 tracking-widest">{t.manualInput}</p>
                                         <input
                                             value={form.nfc_uid}
                                             data-rfid-input="true"
@@ -1038,7 +1060,7 @@ export function StudentModal({
                         </>
                     ) : activeTab === 'sales' ? (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                            <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
                                 <ShoppingBag className="w-4 h-4" /> {t.purchaseHistory}
                             </p>
                             {sales.length > 0 ? (
@@ -1062,7 +1084,7 @@ export function StudentModal({
                         </div>
                     ) : (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 flex items-center gap-2">
+                            <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
                                 <Zap className="w-4 h-4" /> {t.recentVisits}
                             </p>
                             {visits.length > 0 ? (

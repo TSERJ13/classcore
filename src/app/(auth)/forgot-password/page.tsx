@@ -47,14 +47,14 @@ export default function ForgotPasswordPage() {
                                 <h2 className="text-lg font-black text-slate-900">წერილი გაიგზავნა!</h2>
                                 <p className="text-sm text-slate-500 font-medium">შეამოწმეთ {email} ინსტრუქციისთვის.</p>
                             </div>
-                            <Link href="/login" className="flex items-center justify-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-widest pt-2">
+                            <Link href="/login" className="flex items-center justify-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-700 transition-colors tracking-widest pt-2">
                                 <ArrowLeft className="w-4 h-4" /> უკან დაბრუნება
                             </Link>
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">ელ.ფოსტა</label>
+                                <label className="text-[11px] font-black text-slate-400 tracking-widest pl-1">ელ.ფოსტა</label>
                                 <div className="relative group">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                     <input
@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50"
+                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50"
                             >
                                 {loading ? (
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
                                 )}
                             </button>
 
-                            <Link href="/login" className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-[0.2em]">
+                            <Link href="/login" className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors tracking-[0.2em]">
                                 <ArrowLeft className="w-3.5 h-3.5" /> უკან შესვლაზე
                             </Link>
                         </form>

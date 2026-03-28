@@ -76,8 +76,8 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
                             <MessageSquare className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-primary uppercase tracking-tight">{t.sendSms}</h2>
-                            <p className="text-[10px] font-bold text-muted uppercase">{t.recipient}: <span className="text-primary">{studentName} ({studentPhone})</span></p>
+                            <h2 className="text-lg font-black text-primary tracking-tight">{t.sendSms}</h2>
+                            <p className="text-[10px] font-bold text-muted">{t.recipient}: <span className="text-primary">{studentName} ({studentPhone})</span></p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-xl hover:bg-surface text-muted transition-colors">
@@ -88,7 +88,7 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
                 {/* Body */}
                 <div className="p-6 space-y-4">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.messageText}</label>
+                        <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.messageText}</label>
                         <textarea
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
@@ -96,11 +96,11 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
                             className="w-full h-32 bg-surface/50 border border-border-subtle rounded-2xl p-4 text-sm font-bold text-primary placeholder:text-muted/30 outline-none focus:border-sky-500/50 focus:bg-surface transition-all resize-none"
                         />
                         <div className="flex justify-between items-center px-1">
-                            <p className="text-[10px] font-bold text-muted uppercase">
+                            <p className="text-[10px] font-bold text-muted">
                                 {message.length} {t.characters}
                             </p>
                             {message.length > 160 && (
-                                <p className="text-[10px] font-bold text-amber-500 uppercase flex items-center gap-1">
+                                <p className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
                                     {t.smsMultiPart}
                                 </p>

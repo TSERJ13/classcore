@@ -59,8 +59,8 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                             <CreditCard className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-primary uppercase tracking-tight">{t.editSubscription}</h2>
-                            <p className="text-[10px] font-bold text-muted uppercase opacity-40">ID: {form.id}</p>
+                            <h2 className="text-lg font-black text-primary tracking-tight">{t.editSubscription}</h2>
+                            <p className="text-[10px] font-bold text-muted opacity-40">ID: {form.id}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-xl hover:bg-surface text-muted transition-colors">
@@ -71,7 +71,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                 <div className="p-8 space-y-6">
                     {/* Plan Name */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.studentName}</label>
+                        <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.studentName}</label>
                         <input
                             type="text"
                             value={form.plan}
@@ -83,7 +83,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     <div className="grid grid-cols-2 gap-4">
                         {/* Status */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.studentStatus}</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.studentStatus}</label>
                             <SearchSelect
                                 options={[
                                     { value: 'active', label: t.active },
@@ -98,7 +98,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
 
                         {/* Type */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.subscriptionType}</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.subscriptionType}</label>
                             <SearchSelect
                                 options={[
                                     { value: 'sessions', label: t.typeSessions },
@@ -119,7 +119,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                         <div className="grid grid-cols-2 gap-4">
                             {/* Sessions Used */}
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.used}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.used}</label>
                                 <input
                                     type="number"
                                     value={form.sessions_used}
@@ -129,7 +129,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                             </div>
                             {/* Sessions Total */}
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.total}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.total}</label>
                                 <input
                                     type="number"
                                     value={form.sessions_total || ''}
@@ -144,7 +144,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     <div className="grid grid-cols-2 gap-4">
                         {/* Purchased At */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.purchaseDate}</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.purchaseDate}</label>
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/30" />
                                 <input
@@ -157,7 +157,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                         </div>
                         {/* Expires At */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.expiryDate}</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.expiryDate}</label>
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/30" />
                                 <input
@@ -172,7 +172,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
 
                     {/* Teacher Comment */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted uppercase tracking-widest px-1">{t.comment}</label>
+                        <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.comment}</label>
                         <textarea
                             value={form.teacher_comment || ''}
                             onChange={(e) => setForm({ ...form, teacher_comment: e.target.value })}
@@ -185,7 +185,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     {form.status === 'active' && (
                         <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-4">
                             <h3 className="text-xs font-black text-amber-600 flex items-center gap-2">
-                                <Pause className="w-4 h-4" /> აბონიმენტის დაპაუზება
+                                <Pause className="w-4 h-4" /> აბონემენტის დაპაუზება
                             </h3>
                             <div className="flex gap-2">
                                 {(['7', '14', '30', '60'] as const).map(daysStr => {
@@ -198,7 +198,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                                             onClick={async () => {
                                                 const msg = cost > 0
                                                     ? `ანგარიშიდან ჩამოიჭრება ${cost} ${settings.currency}. გსურთ ${days} დღით შეჩერება?`
-                                                    : `გსურთ აბონიმენტის ${days} დღით შეჩერება უფასოდ?`;
+                                                    : `გსურთ აბონემენტის ${days} დღით შეჩერება უფასოდ?`;
                                                 if (await confirm(msg)) {
                                                     pauseActiveSubscription(form.student_id, form.id, days);
                                                     onClose(); // Close modal, letting the parent refresh

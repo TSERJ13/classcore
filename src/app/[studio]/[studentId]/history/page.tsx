@@ -40,7 +40,7 @@ export default function PaymentHistoryPage() {
                 </button>
                 <div>
                     <h1 className="text-xl font-black text-primary tracking-tight">{t.paymentHistory}</h1>
-                    <p className="text-[10px] font-bold text-muted uppercase tracking-widest opacity-60">{studentData?.full_name}</p>
+                    <p className="text-[10px] font-bold text-muted tracking-widest opacity-60">{studentData?.full_name}</p>
                 </div>
             </div>
 
@@ -55,26 +55,26 @@ export default function PaymentHistoryPage() {
                                         <CreditCard className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-black text-primary uppercase tracking-tight">{s.plan}</p>
+                                        <p className="text-xs font-black text-primary tracking-tight">{s.plan}</p>
                                         <div className="flex items-center gap-1.5 opacity-40">
                                             <Clock className="w-3 h-3 text-muted" />
-                                            <p className="text-[9px] font-bold text-muted uppercase">{s.purchased_at}</p>
+                                            <p className="text-[9px] font-bold text-muted">{s.purchased_at}</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-lg font-black text-indigo-600 tabular-nums">{formatCurrency(s.amount_paid || 0, settings.currency)}</p>
-                                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">{t.success}</p>
+                                    <p className="text-[9px] font-black text-emerald-500 tracking-widest">{t.success}</p>
                                 </div>
                             </div>
 
                             <div className="pt-4 border-t border-border-subtle/50 flex justify-between items-center opacity-60">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="w-3.5 h-3.5 text-muted" />
-                                    <span className="text-[10px] font-bold text-muted uppercase">{t.ends}: {s.expires_at}</span>
+                                    <span className="text-[10px] font-bold text-muted">{t.ends}: {s.expires_at}</span>
                                 </div>
                                 {s.sessions_total && (
-                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{s.sessions_total} {t.sessions}</span>
+                                    <span className="text-[10px] font-black text-indigo-500 tracking-widest">{s.sessions_total} {t.sessions}</span>
                                 )}
                             </div>
                         </div>

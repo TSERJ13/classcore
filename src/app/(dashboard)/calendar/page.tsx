@@ -3,8 +3,11 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import {
-    ChevronLeft, ChevronRight, Plus, X, Download,
-    FileSpreadsheet, FileText, CalendarDays, LayoutGrid,
+    ChevronLeft, ChevronRight,
+    CalendarPlus,
+    Download,
+    X,
+    FileSpreadsheet, FileText, CalendarDays, LayoutGrid, Calendar,
     Clock, DoorOpen, UserCheck, BookOpen, Link,
 } from 'lucide-react';
 import { cn, getLocalISODate } from '@/lib/utils';
@@ -269,7 +272,8 @@ function EventChip({ ev, onClick, onMouseDown, teachers, halls, groups = [], com
     canEdit?: boolean;
 }) {
     const hall = halls.find((h: any) => h.id === ev.hall_id);
-    const teacher = teachers.find(t => t.id === ev.teacher_id);
+    const tid = ev.teacher_id || (ev as any).teacherId;
+    const teacher = teachers.find(t => t.id === tid);
     const group = ev.group_id ? groups.find(g => g.id === ev.group_id) : null;
 
     // Highest priority: Custom Event Color -> Group Color -> Hall Color
@@ -281,9 +285,8 @@ function EventChip({ ev, onClick, onMouseDown, teachers, halls, groups = [], com
             onMouseDown={onMouseDown}
             title={`${ev.title}${teacher ? ` — ${teacher.full_name}` : ''}`}
             className={cn(
-                "w-full h-full text-left rounded-lg overflow-hidden transition-all group shadow-sm border border-black/5 flex items-center justify-between gap-1 relative",
+                "w-full h-full text-left rounded-lg overflow-hidden transition-all group shadow-sm border border-black/5 relative p-0",
                 canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-default",
-                compact ? "p-1" : "p-1.5 pl-2.5",
                 style ? "absolute z-10" : "min-h-[24px] mb-0.5",
                 className
             )}
@@ -299,18 +302,28 @@ function EventChip({ ev, onClick, onMouseDown, teachers, halls, groups = [], com
             <div className="absolute left-0 top-0 bottom-0 w-1 pointer-events-none" style={{ backgroundColor: color }} />
 
             {/* Content properly positioned above backgrounds */}
-            <div className="relative z-10 flex h-full w-full items-center justify-between gap-1 overflow-hidden">
-                <span className={cn("truncate flex-1 min-w-0 font-bold leading-tight text-primary drop-shadow-sm", compact ? "text-[8px]" : "text-[10px]")}>
-                    {ev.title}
-                </span>
+            <div className="relative z-10 flex h-full w-full items-center gap-1.5 overflow-hidden px-2 py-1">
+                <div className="flex flex-col flex-1 min-w-0 h-full justify-center overflow-hidden">
+                    <span className={cn("truncate font-black leading-tight text-primary/90", compact ? "text-[8px]" : "text-[11px] sm:text-[12px] opacity-80")}>
+                        {ev.title}
+                    </span>
+                    {teacher && !compact && (
+                        <span className="text-[10px] font-bold text-primary/40 truncate leading-none mt-1">
+                            {teacher.full_name}
+                        </span>
+                    )}
+                </div>
 
-                {teacher && !compact && (
-                    <div className="h-10 w-10 flex-shrink-0 overflow-hidden opacity-90 group-hover:opacity-100 rounded-full border border-black/10 shadow-sm bg-white/20">
+                {teacher && (
+                    <div className={cn(
+                        "flex-shrink-0 overflow-hidden rounded-full border border-white/20 shadow-sm bg-white/30 transition-all",
+                        compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
+                    )}>
                         {teacher.photo_url ? (
                             <img src={teacher.photo_url} alt="" className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                                <UserCheck className="w-4 h-4 opacity-60" style={{ color: color }} />
+                                <UserCheck className={cn("opacity-60", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} style={{ color: color }} />
                             </div>
                         )}
                     </div>
@@ -411,7 +424,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
                         <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calEventType}</label>
+                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEventType}</label>
                                 <SearchSelect
                                     options={eventTypes}
                                     value={form.type}
@@ -420,7 +433,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calRecurring}</label>
+                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calRecurring}</label>
                                 <SearchSelect
                                     options={[
                                         { value: 'none', label: t.calOneTime },
@@ -435,7 +448,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
                         {form.type === 'group_class' && groups.length > 0 && (
                             <div>
-                                <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calGroup}</label>
+                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calGroup}</label>
                                 <SearchSelect
                                     options={[
                                         { value: '', label: t.calGroupOptional },
@@ -453,7 +466,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         )}
 
                         <div>
-                            <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calHall}</label>
+                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calHall}</label>
                             <SearchSelect
                                 options={halls.map((h: any) => ({ value: h.id, label: h.name }))}
                                 value={form.hall_id || ''}
@@ -463,7 +476,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         </div>
 
                         <div>
-                            <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calTeacher}</label>
+                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calTeacher}</label>
                             <SearchSelect
                                 options={teachers.map(tc => ({ value: tc.id, label: tc.full_name }))}
                                 value={form.teacher_id || ''}
@@ -475,26 +488,38 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         {form.recurring !== 'weekly' && (
                             <div className="grid grid-cols-3 gap-2">
                                 <div>
-                                    <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calDate}</label>
+                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calDate}</label>
                                     <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
                                         className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calStartTime}</label>
+                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
                                     <input type="time" value={form.start_time} onChange={e => setF('start_time', e.target.value)}
                                         className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calEndTime}</label>
+                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
                                     <input type="time" value={form.end_time} onChange={e => setF('end_time', e.target.value)}
                                         className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
                                 </div>
                             </div>
                         )}
 
+                        <div className="flex items-center justify-between p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl cursor-pointer" onClick={() => setF('reminder_30m', !form.reminder_30m)}>
+                            <div className="flex items-center gap-3">
+                                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition-colors", form.reminder_30m ? "bg-indigo-500 text-white" : "bg-card text-muted opacity-40")}>
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-primary opacity-80">{t.reminder30m}</span>
+                            </div>
+                            <div className={cn("w-10 h-5 rounded-full p-1 transition-colors relative", form.reminder_30m ? "bg-indigo-500" : "bg-muted/30")}>
+                                <div className={cn("w-3 h-3 bg-white rounded-full transition-all shadow-sm", form.reminder_30m ? "translate-x-5" : "translate-x-0")} />
+                            </div>
+                        </div>
+
                         {form.recurring === 'weekly' && (
                             <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
-                                <label className="text-[10px] text-muted block uppercase tracking-wider font-black opacity-40">აირჩიეთ დღეები და დროები</label>
+                                <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">აირჩიეთ დღეები და დროები</label>
                                 <div className="flex flex-wrap gap-2">
                                     {[1, 2, 3, 4, 5, 6, 0].map(d => {
                                         const dayNames = ['კვ', 'ორშ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ'];
@@ -531,7 +556,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         )}
 
                         <div>
-                            <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70">{t.selectColor}</label>
+                            <label className="text-[10px] text-muted mb-2 block tracking-wider font-bold opacity-70">{t.selectColor}</label>
                             <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
                                 <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
                                     <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
@@ -649,6 +674,12 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         </div>
                     )}
                     {ev.group_id && (() => { const g = groups.find(gr => gr.id === ev.group_id); return g ? <div className="flex items-center gap-2"><BookOpen className="w-3.5 h-3.5 opacity-40" />{g.name}</div> : null; })()}
+                    {ev.reminder_30m && (
+                        <div className="flex items-center gap-2 text-indigo-500 font-bold">
+                            <Clock className="w-3.5 h-3.5" />
+                            {t.reminder30m}
+                        </div>
+                    )}
                     {ev.notes && <div className="flex items-start gap-2"><BookOpen className="w-3.5 h-3.5 opacity-40 mt-0.5" />{ev.notes}</div>}
                 </div>
 
@@ -672,7 +703,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
 /* ─── Add Event Form ─────────────────────────────────────────── */
 
-const EMPTY_EV = { title: '', type: 'group_class' as EventType, hall_id: 'h1', teacher_id: '', group_id: '', date: '', start_time: '09:00', end_time: '10:30', notes: '', recurring: 'none' as 'none' | 'weekly' };
+const EMPTY_EV = { title: '', type: 'group_class' as EventType, hall_id: 'h1', teacher_id: '', group_id: '', date: '', start_time: '09:00', end_time: '10:30', notes: '', recurring: 'none' as 'none' | 'weekly', reminder_30m: false };
 
 function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, halls, groups, canEdit }: { defaultDate: string; defaultTime?: string; onClose: () => void; onAdd: (evs: CalendarEvent[]) => void; teachers: any[]; halls: any[]; groups: Group[]; canEdit: boolean }) {
     const defaultStart = defaultTime || '09:00';
@@ -734,7 +765,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
     const { t } = useT();
     const eventTypes = EVENT_TYPES(t);
 
-    function setF(k: string, v: string) {
+    function setF(k: string, v: any) {
         setForm(p => {
             const next = { ...p, [k]: v };
             // If start_time changes, auto-adjust end_time to be +1 hour
@@ -843,7 +874,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     {/* Event Type */}
                     <div className="grid grid-cols-2 gap-2">
                         <div>
-                            <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calEventType}</label>
+                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEventType}</label>
                             <SearchSelect
                                 options={eventTypes}
                                 value={form.type}
@@ -852,7 +883,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calRecurring}</label>
+                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calRecurring}</label>
                             <SearchSelect
                                 options={[
                                     { value: 'none', label: t.calOneTime },
@@ -869,14 +900,14 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     {form.type === 'group_class' ? (
                         isNewGroup && (
                             <div>
-                                <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.groupName}</label>
+                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.groupName}</label>
                                 <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder={t.calGroupNamePlaceholder}
                                     className="w-full bg-surface border border-indigo-500/40 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
                             </div>
                         )
                     ) : (
                         <div>
-                            <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calTitle}</label>
+                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calTitle}</label>
                             <input value={form.title} onChange={e => setF('title', e.target.value)} placeholder="სათაური *"
                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
                         </div>
@@ -886,7 +917,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     {form.type === 'group_class' && (
                         <div>
                             <div className="flex items-center justify-between mb-1">
-                                <label className="text-[10px] text-muted block uppercase tracking-wider font-bold opacity-70">{t.calGroup}</label>
+                                <label className="text-[10px] text-muted block tracking-wider font-bold opacity-70">{t.calGroup}</label>
                                 <button onClick={() => setIsNewGroup(!isNewGroup)} className="text-[10px] font-bold text-indigo-500 hover:underline">
                                     {isNewGroup ? '← სიიდან არჩევა' : t.calNewGroup}
                                 </button>
@@ -911,7 +942,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     )}
 
                     <div>
-                        <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calHall}</label>
+                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calHall}</label>
                         <SearchSelect
                             options={halls.map((h: any) => ({ value: h.id, label: h.name }))}
                             value={form.hall_id}
@@ -921,7 +952,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     </div>
 
                     <div>
-                        <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calTeacher}</label>
+                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calTeacher}</label>
                         <SearchSelect
                             options={[
                                 { value: '', label: t.allTeachers },
@@ -936,26 +967,39 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     {form.recurring !== 'weekly' && (
                         <div className="grid grid-cols-3 gap-2">
                             <div>
-                                <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calDate}</label>
+                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calDate}</label>
                                 <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
                                     className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
                             </div>
                             <div>
-                                <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calStartTime}</label>
+                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
                                 <input type="time" value={form.start_time} onChange={e => setF('start_time', e.target.value)}
                                     className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
                             </div>
                             <div>
-                                <label className="text-[10px] text-muted mb-1 block uppercase tracking-wider font-bold opacity-70">{t.calEndTime}</label>
+                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
                                 <input type="time" value={form.end_time} onChange={e => setF('end_time', e.target.value)}
                                     className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
                             </div>
                         </div>
                     )}
 
+                    {/* Reminder Toggle */}
+                    <div className="flex items-center justify-between p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl cursor-pointer" onClick={() => setF('reminder_30m', !form.reminder_30m)}>
+                        <div className="flex items-center gap-3">
+                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition-colors", form.reminder_30m ? "bg-indigo-500 text-white" : "bg-card text-muted opacity-40")}>
+                                <Clock className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-primary opacity-80">{t.reminder30m}</span>
+                        </div>
+                        <div className={cn("w-10 h-5 rounded-full p-1 transition-colors relative", form.reminder_30m ? "bg-indigo-500" : "bg-muted/30")}>
+                            <div className={cn("w-3 h-3 bg-white rounded-full transition-all shadow-sm", form.reminder_30m ? "translate-x-5" : "translate-x-0")} />
+                        </div>
+                    </div>
+
                     {form.recurring === 'weekly' && (
                         <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
-                            <label className="text-[10px] text-muted block uppercase tracking-wider font-black opacity-40">აირჩიეთ დღეები და დროები</label>
+                            <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">აირჩიეთ დღეები და დროები</label>
                             <div className="flex flex-wrap gap-2">
                                 {[1, 2, 3, 4, 5, 6, 0].map(d => {
                                     const dayNames = ['კვ', 'ორშ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ'];
@@ -993,7 +1037,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
 
 
                     <div>
-                        <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70">{t.selectColor}</label>
+                        <label className="text-[10px] text-muted mb-2 block tracking-wider font-bold opacity-70">{t.selectColor}</label>
                         <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
                             <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
                                 <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
@@ -1080,38 +1124,6 @@ async function exportExcel() {
     }
 }
 
-async function exportPDF() {
-    try {
-        // const { jsPDF } = await import('jspdf');
-        // const { default: autoTable } = await import('jspdf-autotable');
-        alert('PDF-ის ექსპორტისთვის საჭიროა ბიბლიოთეკები. გთხოვთ გაუშვათ: npm install jspdf jspdf-autotable');
-        /*
-        const doc = new jsPDF({ orientation: 'landscape' });
-        doc.setFontSize(13);
-        doc.text('ClassCore — კალენდარი', 14, 18);
-        doc.setFontSize(9);
-        doc.text(`Generated: ${new Date().toLocaleDateString('ka-GE')}`, 14, 26);
-        autoTable(doc, {
-            startY: 32,
-            head: [['სათ.', 'ტიპი', 'თარ.', 'დასაწ.', 'დასასრ.', 'დარბ.', 'მასწ.']],
-            body: events.map(ev => [
-                ev.title,
-                EVENT_TYPES.find(t => t.value === ev.type)?.label ?? ev.type,
-                ev.date, ev.start_time, ev.end_time,
-                HALLS.find(h => h.id === ev.hall_id)?.name ?? '',
-                TEACHERS.find(t => t.id === ev.teacher_id)?.name ?? '',
-            ]),
-            theme: 'striped',
-            headStyles: { fillColor: [79, 70, 229], textColor: 255 },
-        });
-        doc.save(`classcore_calendar_${new Date().toISOString().slice(0, 10)}.pdf`);
-        */
-    } catch (err) {
-        console.error('PDF export failed:', err);
-        alert('PDF-ის ექსპორტისთვის საჭიროა ბიბლიოთეკები. გთხოვთ გაუშვათ: npm install jspdf jspdf-autotable');
-    }
-}
-
 /* ─── Main Calendar Page ─────────────────────────────────────── */
 
 export default function CalendarPage() {
@@ -1120,32 +1132,50 @@ export default function CalendarPage() {
     const isTeacher = profile?.role === 'teacher';
     const canEdit = !isTeacher || !!profile?.canEditCalendar;
 
-    // Day and Month names from i18n (order: Sun=0 ... Sat=6)
+    // Day and Month names from i18n
     const DAYS = [t.shortSun, t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat];
     const MONTHS = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
 
+    // ── Unified Date Formatter for SSR/Client Consistency ───────────────────
+    const formatDate = (date: Date, mode: 'short' | 'long' = 'short') => {
+        const dNames = mode === 'long' 
+            ? [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday]
+            : [t.shortSun, t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat];
+        const mNames = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
+        
+        const dayName = dNames[date.getDay()];
+        const monthName = mNames[date.getMonth()];
+        const dayNum = date.getDate();
+
+        if (lang === 'ka') return `${dayName}, ${dayNum} ${monthName}`;
+        if (lang === 'ru') return `${dayName}, ${dayNum} ${monthName}`;
+        return `${dayName}, ${monthName} ${dayNum}`;
+    };
+
     const [view, setView] = useState<'day' | 'week' | 'month'>('week');
-
-    // Default to day view on mobile
-    useEffect(() => {
-        if (window.innerWidth < 768) {
-            setView('day');
-        }
-    }, []);
-
     const [anchor, setAnchor] = useState(new Date());
     const { settings } = useStudio();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [teachers, setTeachers] = useState<any[]>([]);
     const [halls, setHalls] = useState<{ id: string; name: string; color: string }[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
+    const [hasMounted, setHasMounted] = useState(false);
 
     useEffect(() => {
+        setHasMounted(true);
         setEvents(getEvents());
         setTeachers(getTeachers());
         setHalls(getHalls().filter(h => h.is_active));
         setGroups(getGroups());
     }, [settings.activeBranchId]);
+
+    // Initial mobile view
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            setView('day');
+        }
+    }, []);
+
 
     const hallColors: Record<string, string> = Object.fromEntries(halls.map(h => [h.id, h.color]));
 
@@ -1206,7 +1236,7 @@ export default function CalendarPage() {
     const monthLabel = `${MONTHS[monthYear.m]} ${monthYear.y}`;
 
     // Day label  
-    const dayLabel = `${anchor.getDate()} ${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
+    const dayLabel = formatDate(anchor, 'long');
 
     // ── Auto-scroll to Current Time ──────────────────────────────
     useEffect(() => {
@@ -1524,124 +1554,165 @@ export default function CalendarPage() {
         return filtered.filter(e => e.date === dateStr && timeToMins(e.start_time) >= slotMins && timeToMins(e.start_time) < slotMins + 60);
     }
 
+    async function exportPDF() {
+        try {
+            const { jsPDF } = await import('jspdf');
+            const { default: autoTable } = await import('jspdf-autotable');
+            
+            const orientation = view === 'day' ? 'p' : 'l';
+            const doc = new jsPDF({ orientation });
+
+            const studioName = settings.studioName || 'ClassCore';
+            const dateStr = view === 'day' 
+                ? formatDate(anchor, 'long')
+                : view === 'week'
+                    ? `${t.weekView}: ${formatDate(getWeekDates(anchor)[0])} - ${formatDate(getWeekDates(anchor)[6])}`
+                    : `${t.monthView}: ${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
+
+            doc.setFontSize(14);
+            doc.text(`${studioName} — ${t.calendar}`, 14, 15);
+            doc.setFontSize(10);
+            doc.text(dateStr, 14, 22);
+
+            const tableHead = [[t.calDate, t.calStartTime, t.calEndTime, t.calGroup, t.calTeacher, t.calHall]];
+            const tableBody = filtered
+                .sort((a, b) => {
+                    const dateComp = a.date.localeCompare(b.date);
+                    if (dateComp !== 0) return dateComp;
+                    return a.start_time.localeCompare(b.start_time);
+                })
+                .map(ev => {
+                    const h = halls.find(h => h.id === ev.hall_id);
+                    const tc = teachers.find(t => t.id === ev.teacher_id);
+                    const grp = groups.find(g => g.id === ev.group_id);
+                    return [
+                        ev.date,
+                        ev.start_time,
+                        ev.end_time,
+                        ev.title || grp?.name || '',
+                        tc?.full_name || '',
+                        h?.name || ''
+                    ];
+                });
+
+            autoTable(doc, {
+                startY: 28,
+                head: tableHead,
+                body: tableBody,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 9, fontStyle: 'bold' },
+                bodyStyles: { fontSize: 8 },
+                alternateRowStyles: { fillColor: [249, 250, 251] },
+                margin: { top: 30 },
+            });
+
+            const fileName = `calendar_${view}_${toDateStr(anchor)}.pdf`;
+            doc.save(fileName);
+        } catch (err) {
+            console.error('PDF export failed:', err);
+            alert('PDF-ის ექსპორტი ვერ მოხერხდა.');
+        }
+    }
+
     return (
-        <div className="flex flex-col gap-5 animate-fade-up h-full pb-8">
-            {/* ── Top bar */}
-            <div className="flex flex-wrap items-center gap-4">
-                {/* Hall filter pills — left (desktop only) */}
-                <div className="hidden sm:flex items-center gap-1.5">
-                    {halls.map((h: any) => (
-                        <button key={h.id}
-                            onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
-                            className={cn('flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[10px] font-bold border transition-all shadow-sm',
-                                filterHall === h.id || filterHall === 'all' ? 'opacity-100' : 'opacity-30')}
-                            style={{ background: h.color + '15', borderColor: h.color + '40', color: h.color }}>
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
-                            <span className="hidden sm:inline">{(t as any)[h.name] || h.name}</span>
+        <div className="flex flex-col gap-3 animate-fade-up h-full pb-8">
+            {/* ── Top Header Row: View Switcher & Navigation ── */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                {/* View switcher - PROMOTED TO TOP ON MOBILE */}
+                <div className="flex bg-surface border border-border-subtle rounded-2xl p-0.5 gap-0.5 shadow-sm h-11 w-full sm:w-auto overflow-x-auto no-scrollbar">
+                    {(['day', 'week', 'month'] as const).map(v => (
+                        <button key={v} onClick={() => setView(v)}
+                            className={cn('flex-1 sm:flex-none px-4 sm:px-5 h-full text-[11px] font-bold tracking-tight rounded-xl transition-all whitespace-nowrap',
+                                view === v ? 'bg-indigo-500 text-white shadow-md' : 'text-muted/60 hover:text-primary')}>
+                            <div className="flex items-center justify-center gap-2">
+                                {v === 'day' && <Calendar className="w-3.5 h-3.5 opacity-70" />}
+                                {v === 'week' && <CalendarDays className="w-3.5 h-3.5 opacity-70" />}
+                                {v === 'month' && <LayoutGrid className="w-3.5 h-3.5 opacity-70" />}
+                                {v === 'day' ? t.dayView : v === 'week' ? t.weekView : t.monthView}
+                            </div>
                         </button>
                     ))}
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto justify-between sm:justify-end flex-wrap">
-                    {/* Nav */}
-                    <div className="flex items-center gap-1 bg-surface border border-border-subtle rounded-xl p-1 shadow-sm">
-                        <button onClick={() => nav(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-all active:scale-95"><ChevronLeft className="w-4 h-4" /></button>
-                        <button onClick={() => setAnchor(new Date())} className="px-3 h-8 text-xs font-bold rounded-lg hover:bg-card text-muted hover:text-primary transition-all uppercase tracking-wider">{t.todayBtn}</button>
-                        <button onClick={() => nav(1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-all active:scale-95"><ChevronRight className="w-4 h-4" /></button>
-                    </div>
-
-                    {/* View toggle */}
-                    <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 shadow-sm">
-                        {([
-                            ['day', <Clock key="d" className="w-3.5 h-3.5" />, t.dayView],
-                            ['week', <CalendarDays key="w" className="w-3.5 h-3.5" />, t.weekView],
-                            ['month', <LayoutGrid key="m" className="w-3.5 h-3.5" />, t.monthView]
-                        ] as const).map(([v, icon, lbl]) => (
-                            <button key={v} onClick={() => setView(v as 'day' | 'week' | 'month')}
-                                className={cn('flex items-center gap-2 px-3 h-8 text-xs font-bold rounded-lg transition-all',
-                                    view === v ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'text-muted hover:text-primary')}>
-                                {icon}<span className={cn(v === 'day' ? '' : 'hidden sm:inline')}>{lbl}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Filters */}
-                    <div className="w-[180px] shrink-0">
-                        <SearchSelect
-                            options={[
-                                { value: 'all', label: t.allHalls },
-                                ...halls.map((h: any) => ({ value: h.id, label: (t as any)[h.name] || h.name }))
-                            ]}
-                            value={filterHall}
-                            onChange={setFilterHall}
-                            className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:h-10 [&>div]:px-3 [&>div]:text-xs [&>div]:text-muted [&>div]:font-bold"
-                        />
-                    </div>
-
-                    <div className="w-[180px] shrink-0">
-                        <SearchSelect
-                            options={[
-                                { value: 'all', label: t.allTeachers },
-                                ...teachers.map(tc => ({ value: tc.id, label: tc.full_name }))
-                            ]}
-                            value={filterTeacher}
-                            onChange={setFilterTeacher}
-                            className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:h-10 [&>div]:px-3 [&>div]:text-xs [&>div]:text-muted [&>div]:font-bold"
-                        />
-                    </div>
-
-                    {/* Add event */}
-                    {canEdit && (
-                        <button onClick={() => setAddDate(toDateStr(new Date()))}
-                            className="flex items-center gap-2 h-10 px-4 bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all">
-                            <Plus className="w-4 h-4" />{t.addEvent}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Unified Navigation: [Left] [Today] [Date] [Right] */}
+                    <div className="flex items-center justify-between w-full sm:w-auto bg-surface border border-border-subtle rounded-2xl p-0.5 shadow-sm h-11">
+                        <button onClick={() => nav(-1)} 
+                            className="w-10 sm:w-9 h-full flex items-center justify-center rounded-xl hover:bg-indigo-50 text-muted hover:text-indigo-600 transition-all active:scale-95">
+                            <ChevronLeft className="w-4 h-4" />
                         </button>
-                    )}
-
-                    {/* Export dropdown */}
-                    <div className="relative group">
-                        <button className="flex items-center gap-2 h-10 px-3 bg-surface border border-border-subtle hover:border-border-subtle/50 text-muted hover:text-primary rounded-xl transition-all shadow-sm">
-                            <Download className="w-4 h-4" />
+                        <div className="w-px h-3 bg-border-subtle mx-0.5" />
+                        <button onClick={() => setAnchor(new Date())} 
+                            className="flex-1 sm:flex-none px-4 h-full text-[11px] font-bold tracking-tight rounded-xl hover:bg-indigo-50 text-indigo-600 transition-all active:scale-95">
+                            {t.todayBtn}
                         </button>
-                        <div className="absolute right-0 top-full mt-2 w-44 bg-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden z-30 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all translate-y-2 group-hover:translate-y-0 p-1">
-                            <button onClick={() => exportIcal(filtered, teachers, halls)}
-                                className="w-full px-3 py-2.5 text-left text-xs text-primary hover:bg-surface rounded-xl flex items-center gap-3 transition-colors">
-                                <Link className="w-4 h-4 text-blue-500" /> iCal (.ics)
-                            </button>
-                            <button onClick={() => exportExcel()}
-                                className="w-full px-3 py-2.5 text-left text-xs text-primary hover:bg-surface rounded-xl flex items-center gap-3 transition-colors">
-                                <FileSpreadsheet className="w-4 h-4 text-emerald-500" /> Excel (.xlsx)
-                            </button>
-                            <button onClick={() => exportPDF()}
-                                className="w-full px-3 py-2.5 text-left text-xs text-primary hover:bg-surface rounded-xl flex items-center gap-3 transition-colors">
-                                <FileText className="w-4 h-4 text-red-500" /> PDF Document
-                            </button>
-                        </div>
+                        <div className="w-px h-3 bg-border-subtle mx-0.5" />
+                        <span className="px-3 text-[11px] font-bold text-primary truncate hidden sm:inline-block">
+                            {formatDate(anchor, 'short')}
+                        </span>
+                        <div className="w-px h-3 bg-border-subtle mx-0.5 hidden sm:block" />
+                        <button onClick={() => nav(1)} 
+                            className="w-10 sm:w-9 h-full flex items-center justify-center rounded-xl hover:bg-indigo-50 text-muted hover:text-indigo-600 transition-all active:scale-95">
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
                     </div>
-
                 </div>
             </div>
 
-            {/* Hall filter pills — mobile only, below top bar */}
-            <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar">
-                {halls.map((h: any) => (
-                    <button key={h.id}
-                        onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
-                        className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all shadow-sm flex-shrink-0',
-                            filterHall === h.id || filterHall === 'all' ? 'opacity-100' : 'opacity-30')}
-                        style={{ background: h.color + '15', borderColor: h.color + '40', color: h.color }}>
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
-                        {(t as any)[h.name] || h.name}
+            {/* ── Bottom Header Row: Hall filters + PDF + Add Action */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Hall Filters Block */}
+                <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
+                    <button
+                        onClick={() => setFilterHall('all')}
+                        className={cn('px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                            filterHall === 'all' ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-card border-border-subtle text-muted/60')}
+                    >
+                        {t.allHalls}
                     </button>
-                ))}
+                    {halls.map((h: any) => (
+                        <button key={h.id}
+                            onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
+                            className={cn('flex items-center gap-2 px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                                filterHall === h.id ? 'opacity-100 shadow-md ring-2 ring-offset-1' : 'opacity-60 hover:opacity-100')}
+                            style={{ 
+                                backgroundColor: filterHall === h.id ? h.color : h.color + '10', 
+                                borderColor: h.color + '40', 
+                                color: filterHall === h.id ? 'white' : h.color,
+                                boxShadow: filterHall === h.id ? `0 4px 12px ${h.color}40` : '',
+                                '--ring-color': h.color
+                            } as any}>
+                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", filterHall === h.id ? "bg-white" : "")} 
+                                 style={{ backgroundColor: filterHall === h.id ? 'white' : h.color }} />
+                            {(t as any)[h.name] || h.name}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {/* PDF Export */}
+                    <button onClick={exportPDF}
+                        className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-indigo-500/40 text-muted hover:text-indigo-600 rounded-2xl transition-all shadow-sm group">
+                        <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    </button>
+
+                    {/* Add Event */}
+                    {canEdit && (
+                        <button onClick={() => setAddDate(toDateStr(new Date()))}
+                            className="flex items-center justify-center gap-2 h-11 px-5 bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white text-[10px] font-black tracking-widest rounded-2xl shadow-lg shadow-indigo-500/20 transition-all">
+                            <CalendarPlus className="w-4 h-4" />
+                            <span className="hidden sm:inline">{t.addEvent}</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* ═══ DAY VIEW ════════════════════════════════════════════ */}
             {view === 'day' && (
                 <div className="flex-1 bg-surface/50 border border-border-subtle rounded-3xl overflow-hidden shadow-xl shadow-black/5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-subtle/50 bg-surface/30">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted opacity-40">{anchor.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500/60">{toDateStr(anchor)}</p>
+                        <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40">{formatDate(anchor, 'long')}</p>
+                        <p className="text-[10px] font-black tracking-[0.2em] text-indigo-500/60">{toDateStr(anchor)}</p>
                     </div>
 
                     <div className="overflow-y-auto max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-border-subtle relative" ref={dayGridRef}>
@@ -1731,7 +1802,7 @@ export default function CalendarPage() {
                             const isToday = toDateStr(d) === toDateStr(new Date());
                             return (
                                 <div key={i} className={cn('py-3.5 text-center border-r border-border-subtle/40 last:border-r-0 transition-colors', isToday ? 'bg-indigo-500/5' : '')}>
-                                    <p className="text-[10px] text-muted uppercase tracking-widest font-black opacity-40">{DAYS[d.getDay()]}</p>
+                                    <p className="text-[10px] text-muted tracking-widest font-black opacity-40">{DAYS[d.getDay()]}</p>
                                     <p className={cn('text-base font-black mt-1', isToday ? 'text-indigo-500 underline decoration-2 underline-offset-4' : 'text-primary')}>{d.getDate()}</p>
                                 </div>
                             );
@@ -1766,7 +1837,7 @@ export default function CalendarPage() {
                                 const isToday = dateStr === toDateStr(new Date());
 
                                 return (
-                                    <div key={di} className={cn("relative border-r border-border-subtle/40 last:border-r-0", isToday ? "bg-indigo-500/[0.02]" : "")}>
+                                    <div key={di} className={cn("relative border-r border-border-subtle/40 last:border-r-0", (isToday && hasMounted) ? "bg-indigo-500/[0.02]" : "")}>
                                         <GridLines onClick={(e) => {
                                             const rect = e.currentTarget.getBoundingClientRect();
                                             const y = e.clientY - rect.top;
@@ -1831,7 +1902,7 @@ export default function CalendarPage() {
                     {/* Day names */}
                     <div className="grid grid-cols-7 border-b border-border-subtle/50 bg-surface/30">
                         {DAYS.map(d => (
-                            <div key={d} className="py-3 text-center text-[10px] font-black text-muted uppercase tracking-widest opacity-40 border-r border-border-subtle/40 last:border-0">{d}</div>
+                            <div key={d} className="py-3 text-center text-[10px] font-black text-muted tracking-widest opacity-40 border-r border-border-subtle/40 last:border-0">{d}</div>
                         ))}
                     </div>
 
@@ -1851,7 +1922,7 @@ export default function CalendarPage() {
                                 <div key={dateStr}
                                     className={cn('border-b border-r border-border-subtle/40 p-2 cursor-pointer hover:bg-surface/40 transition-all min-h-[100px] flex flex-col',
                                         col === 6 ? 'border-r-0' : '',
-                                        isToday ? 'bg-indigo-500/5' : '')}
+                                        (isToday && hasMounted) ? 'bg-indigo-500/5' : '')}
                                     onClick={() => { setAddDate(dateStr); setAddTime(null); }}>
                                     <span className={cn('inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black mb-1 shadow-sm',
                                         isToday ? 'bg-indigo-500 text-white' : 'text-primary/70 bg-surface/50')}>

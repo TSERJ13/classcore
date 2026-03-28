@@ -9,7 +9,7 @@ import { useT } from '@/contexts/LanguageContext';
 // HEX-normalised UID → student lookup (id matches INITIAL_SESSIONS keys in checkin-store)
 // NFC_DB removed - using student-store lookupByUid
 
-// Normalise UID: remove separators, uppercase
+// Normalise UID: remove separators,
 function normaliseUid(raw: string) {
     return raw.replace(/[:\-\s]/g, '').toUpperCase();
 }
@@ -216,7 +216,7 @@ function SuccessState({ student, time, sessionsRemaining }: {
             </div>
 
             <div>
-                <p className="text-xs font-bold text-emerald-400/70 uppercase tracking-widest mb-1">დასწრება დადასტურდა</p>
+                <p className="text-xs font-bold text-emerald-400/70 tracking-widest mb-1">დასწრება დადასტურდა</p>
                 <h2 className="text-2xl font-black text-white">{student.name}</h2>
                 <p className="text-sm text-white/40 mt-1">{student.group}</p>
             </div>
@@ -250,7 +250,7 @@ function SuccessState({ student, time, sessionsRemaining }: {
             )}
             {sessionsRemaining === 0 && (
                 <div className="w-full bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
-                    <p className="text-xs text-red-400 font-semibold">სესიები ამოიწურა! გთხოვ განაახლე აბონიმენტი.</p>
+                    <p className="text-xs text-red-400 font-semibold">სესიები ამოიწურა! გთხოვ განაახლე აბონემენტი.</p>
                 </div>
             )}
 
@@ -266,7 +266,7 @@ function AlreadyCheckedInState({ student }: { student: { name: string; group: st
                 <AlertCircle className="w-14 h-14 text-amber-400" />
             </div>
             <div>
-                <p className="text-xs font-bold text-amber-400/70 uppercase tracking-widest mb-1">უკვე შემოსულია</p>
+                <p className="text-xs font-bold text-amber-400/70 tracking-widest mb-1">უკვე შემოსულია</p>
                 <h2 className="text-xl font-black text-white">{student.name}</h2>
                 <p className="text-sm text-white/40 mt-1">{student.group}</p>
                 <p className="text-xs text-white/30 mt-2">დღეს უკვე დაფიქსირებულია. სესია არ ჩამოიქვია.</p>

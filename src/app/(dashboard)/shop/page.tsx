@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
 import {
     Plus, Search, ShoppingBag, Package, TrendingUp, Filter,
-    ArrowUpRight, Tag, Camera, CheckCircle2, Trash2, Edit
+    ArrowUpRight, Tag, Camera, CheckCircle2, Trash2, Edit, Edit2, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -77,11 +77,11 @@ export default function ShopPage() {
 
     const handleSaveProduct = () => {
         if (!form.name?.trim()) return;
-        
+
         if (editingProduct) {
-            const newProds = products.map(p => 
-                p.id === editingProduct.id 
-                    ? { ...p, ...form as Product, quantity: Number(form.quantity) || 0, price: Number(form.price) || 0 } 
+            const newProds = products.map(p =>
+                p.id === editingProduct.id
+                    ? { ...p, ...form as Product, quantity: Number(form.quantity) || 0, price: Number(form.price) || 0 }
                     : p
             );
             saveProducts(newProds);
@@ -159,7 +159,7 @@ export default function ShopPage() {
 
     useEffect(() => {
         refreshSales();
-    }, [products]); // Update when products change (e.g. after a sale)
+    }, [products]);
 
     const handleDeleteSale = async (id: string) => {
         if (!await confirm(t.deleteConfirm)) return;
@@ -196,23 +196,40 @@ export default function ShopPage() {
     const totalSalesValue = getSales().reduce((acc, s) => acc + s.price, 0);
 
     return (
-        <div className="space-y-8 animate-fade-up max-w-5xl mx-auto pb-10">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">{t.shop}</h1>
-                    <p className="text-xs sm:text-sm text-muted font-medium opacity-60">{products.length} {t.categories} · {totalStock} {t.inventory}</p>
+        <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
+            {/* Header: Stats + Add in one row */}
+            <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
+                {/* Quick stats pills */}
+                <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 sm:flex-none py-1">
+                    {[
+                        { label: t.inventory, value: totalStock, icon: Package, colorCls: 'text-amber-600', bgCls: 'bg-amber-500/5' },
+                        { label: t.priceValue, value: formatCurrency(inventoryValue, settings.currency), icon: Tag, colorCls: 'text-emerald-600', bgCls: 'bg-emerald-500/5' },
+                        { label: t.totalSales, value: formatCurrency(totalSalesValue, settings.currency), icon: TrendingUp, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
+                    ].map(s => (
+                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
+                            <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
+                                <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums tracking-tight">{s.value}</span>
+                            </div>
+                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase">{s.label}</p>
+                        </div>
+                    ))}
                 </div>
+
+                {/* Add Product Action */}
                 <button
                     onClick={() => {
                         setEditingProduct(null);
                         setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
                         setIsAddOpen(true);
                     }}
-                    className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 active:scale-[0.97] transition-all text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl shadow-amber-500/20 whitespace-nowrap"
+                    className="flex-shrink-0 flex items-center justify-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-xl sm:rounded-[1.5rem] shadow-lg shadow-amber-500/20 transition-all touch-manipulation"
                 >
-                    <Plus className="w-4 h-4" />
-                    <span>{t.addNew}</span>
+                    <div className="relative flex items-center">
+                        <ShoppingBag className="w-4 h-4" />
+                        <Plus className="absolute -top-1 -right-2.5 w-3 h-3 text-white" />
+                    </div>
+                    <span className="hidden sm:inline">{t.addNew}</span>
                 </button>
             </div>
 
@@ -224,7 +241,7 @@ export default function ShopPage() {
                         <h2 className="text-xl font-black text-primary mb-6">{editingProduct ? t.edit : t.addNew}</h2>
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.productTitle}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.productTitle}</label>
                                 <input
                                     className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
                                     value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
@@ -232,7 +249,7 @@ export default function ShopPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.price} ({settings.currency})</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.price} ({settings.currency})</label>
                                     <input
                                         type="number"
                                         className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
@@ -240,7 +257,7 @@ export default function ShopPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.stockValue}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.stockValue}</label>
                                     <input
                                         type="number"
                                         className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
@@ -250,14 +267,14 @@ export default function ShopPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.size}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.size}</label>
                                     <input
                                         className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
                                         value={form.size} onChange={e => setForm({ ...form, size: e.target.value })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.weight}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.weight}</label>
                                     <input
                                         className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
                                         value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })}
@@ -265,7 +282,7 @@ export default function ShopPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.photo}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.photo}</label>
                                 <div className="flex items-center gap-4">
                                     <div className="w-16 h-16 rounded-2xl bg-surface border border-dashed border-border-subtle flex items-center justify-center overflow-hidden">
                                         {form.photo_url ? (
@@ -275,114 +292,165 @@ export default function ShopPage() {
                                         )}
                                     </div>
                                     <input type="file" id="photo-up" className="hidden" accept="image/*" onChange={handleFile} />
-                                    <label htmlFor="photo-up" className="px-4 py-2 bg-surface border border-border-subtle rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-amber-50 transition-colors">{t.upload}</label>
+                                    <label htmlFor="photo-up" className="px-4 py-2 bg-surface border border-border-subtle rounded-xl text-[10px] font-black tracking-widest cursor-pointer hover:bg-amber-50 transition-colors">{t.upload}</label>
                                 </div>
                             </div>
                         </div>
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="flex-1 py-3 font-bold text-sm text-muted">{t.cancel}</button>
-                            <button onClick={handleSaveProduct} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all">{editingProduct ? t.save : t.add}</button>
+                        <div className="mt-8 space-y-3">
+                            {editingProduct && (
+                                <button
+                                    onClick={async () => {
+                                        if (await confirm(t.deleteConfirm)) {
+                                            const newProds = products.filter(p => p.id !== editingProduct.id);
+                                            saveProducts(newProds);
+                                            setIsAddOpen(false);
+                                            setEditingProduct(null);
+                                        }
+                                    }}
+                                    className="w-full py-2.5 text-red-500/60 hover:text-red-500 text-[10px] font-black tracking-widest uppercase border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 className="w-3 h-3" /> {t.delete}
+                                </button>
+                            )}
+                            <div className="flex gap-3">
+                                <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="flex-1 py-3 font-bold text-sm text-muted">{t.cancel}</button>
+                                <button onClick={handleSaveProduct} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all">{editingProduct ? t.save : t.add}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                {[
-                    { label: t.inventory, value: String(totalStock), icon: Package, cls: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
-                    { label: t.priceValue, value: formatCurrency(inventoryValue, settings.currency), icon: Tag, cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
-                    { label: t.totalSales, value: formatCurrency(totalSalesValue, settings.currency), icon: TrendingUp, cls: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20' },
-                ].map(s => (
-                    <div key={s.label} className="bg-card border border-border-subtle rounded-3xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-4 shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left">
-                        <div className={cn('w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform', s.cls)}>
-                            <s.icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-lg sm:text-xl font-black text-primary tabular-nums leading-none tracking-tight">{s.value}</p>
-                            <p className="text-[8px] sm:text-[10px] text-muted font-black uppercase tracking-widest mt-1 opacity-40 truncate">{s.label}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Search & Filter */}
-            <div className="flex gap-3">
-                <div className="relative flex-1 group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-amber-500 transition-colors pointer-events-none" />
-                    <input
-                        value={search} onChange={e => setSearch(e.target.value)}
-                        placeholder={t.search + '...'}
-                        className="w-full bg-card border border-border-subtle rounded-2xl pl-11 pr-5 py-3 text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-amber-500/60 transition-all shadow-sm"
-                    />
-                </div>
-                <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-card border border-border-subtle text-muted hover:text-primary transition-all active:scale-95">
-                    <Filter className="w-5 h-5" />
-                </button>
-            </div>
-
-            {/* Product Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* Product Grid - Enlarged to 2 columns on desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 stagger">
                 {filtered.map(product => (
-                    <div key={product.id} className="group bg-card border border-border-subtle hover:border-amber-500/30 hover:shadow-xl rounded-2xl overflow-hidden transition-all duration-300">
-                        <div className="aspect-square bg-surface relative overflow-hidden flex items-center justify-center">
-                            {product.photo_url ? (
-                                <img src={product.photo_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                            ) : (
-                                <ShoppingBag className="w-8 h-8 text-muted opacity-10 group-hover:scale-110 transition-transform duration-500" />
-                            )}
-                            {product.quantity <= 3 && (
-                                <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[7px] font-black uppercase tracking-widest shadow-lg">
-                                    {t.lowStockLabel}
-                                </span>
-                            )}
+                    <div key={product.id} className="group bg-card border border-border-subtle hover:border-amber-500/40 hover:shadow-xl hover:shadow-amber-500/5 rounded-[2rem] p-6 transition-all duration-300 relative overflow-hidden flex flex-col gap-5">
+                        <div className="flex items-start gap-5">
+                        {/* Product Image Container (No overflow-hidden to allow badge out) */}
+                        <div className="relative w-16 h-16 flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                            {/* Inner Image Wrapper (With overflow-hidden for rounded corners) */}
+                            <div className="w-full h-full rounded-[1.25rem] overflow-hidden bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 border-2 border-white/10">
+                                {product.photo_url ? (
+                                    <img src={product.photo_url} className="w-full h-full object-cover" alt={product.name} />
+                                ) : (
+                                    <ShoppingBag className="w-7 h-7 text-white/40" />
+                                )}
+                            </div>
+                            
+                            {/* Quantity Badge Overlay - "Commercial" style (half-in/half-out) */}
+                            <div className={cn('absolute -bottom-2 -right-2 min-w-[24px] h-[24px] px-1.5 flex items-center justify-center rounded-full border-[2.5px] border-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-20 transition-all scale-95 group-hover:scale-105',
+                                product.quantity <= 3 ? 'bg-red-500 text-white animate-pulse' : 'bg-indigo-600 text-white')}>
+                                <span className="text-[10px] font-black leading-none">{product.quantity}</span>
+                            </div>
                         </div>
-                        <div className="p-3">
-                            <div className="mb-1">
-                                <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest opacity-60">{(t[product.category as keyof typeof t] as string) || product.category}</p>
-                                <h3 className="text-sm font-black text-primary truncate tracking-tight">{product.name}</h3>
-                            </div>
 
-                            <div className="flex items-center justify-between mt-3">
-                                <p className="text-lg font-black text-emerald-500 tabular-nums">{formatCurrency(product.price, settings.currency)}</p>
-                                <span className={cn('text-[10px] font-black tabular-nums', product.quantity <= 3 ? 'text-red-500' : 'text-muted opacity-40')}>{product.quantity} ც.</span>
+                        {/* Base Info & Action Row */}
+                        <div className="flex-1 min-w-0 pt-0.5 flex flex-col min-h-[64px]">
+                            <div>
+                                <p className="text-[10px] font-black text-amber-600 tracking-widest opacity-60 uppercase truncate mb-1">
+                                    {(t[product.category as keyof typeof t] as string) || product.category}
+                                </p>
+                                <p className="text-base font-black text-primary group-hover:text-amber-600 transition-colors tracking-tight truncate leading-tight">{product.name}</p>
                             </div>
-
-                            <div className="flex items-center justify-between mt-3 gap-2">
+                            
+                            <div className="flex items-center justify-end gap-3 pointer-events-auto mt-auto">
+                                <span className="text-lg font-black text-indigo-600 leading-none">{formatCurrency(product.price || 0, settings.currency)}</span>
                                 <button
-                                    onClick={() => { setSelectedProduct(product); setIsSellOpen(true); }}
-                                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/10 active:scale-95 flex items-center justify-center gap-2"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setIsSellOpen(true); }}
+                                    className="h-9 px-4 flex items-center gap-2 rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 active:scale-95 hover:bg-indigo-600 transition-all text-[10px] font-black tracking-widest uppercase"
                                 >
-                                    <TrendingUp className="w-3 h-3" />
+                                    <ShoppingBag className="w-3.5 h-3.5" strokeWidth={3} />
                                     {t.sellAction}
                                 </button>
+                            </div>
+                        </div>
+
+                            {/* Actions - faint by default, prominent on hover */}
+                            <div className="absolute top-4 right-4 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
                                 <button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         setEditingProduct(product);
                                         setForm({ ...product });
                                         setIsAddOpen(true);
                                     }}
-                                    className="p-2 border border-border-subtle text-muted hover:text-amber-500 hover:bg-amber-500/5 rounded-xl transition-all shadow-sm active:scale-95"
-                                    title={t.edit}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-amber-600 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all shadow-sm"
                                 >
-                                    <Edit className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        if (await confirm(t.deleteConfirm)) {
-                                            const newProds = products.filter(p => p.id !== product.id);
-                                            saveProducts(newProds);
-                                        }
-                                    }}
-                                    className="p-2 border border-border-subtle text-muted hover:text-red-500 hover:bg-red-500/5 rounded-xl transition-all shadow-sm active:scale-95"
-                                    title={t.delete}
-                                >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                             </div>
                         </div>
+
                     </div>
                 ))}
+            </div>
+
+            {/* Transaction History Section */}
+            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-10 shadow-sm mt-8">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 className="text-lg sm:text-xl font-black text-primary tracking-tight">{t.recentSalesTitle}</h2>
+                        <p className="text-[10px] sm:text-xs text-muted font-bold opacity-60 tracking-wider mt-1">{t.transactionHistory}</p>
+                    </div>
+                    <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-border-subtle text-[10px] font-black text-amber-600 tracking-widest group hover:bg-amber-50 transition-all">
+                        {t.allFilter} <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    </button>
+                </div>
+
+                <div className="space-y-4">
+                    {recentSales.map((sale) => (
+                        <div key={sale.id} className="flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] bg-surface/50 border border-border-subtle/50 hover:border-amber-500/30 hover:bg-card transition-all group relative overflow-hidden shadow-sm">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500/20 group-hover:bg-indigo-500 transition-colors" />
+
+                            <div className="flex items-center gap-4 sm:gap-6">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                                    <ShoppingBag className="w-5 h-5 text-indigo-600" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm sm:text-base font-black text-primary leading-tight">{sale.productName}</p>
+                                    <div className="flex items-center gap-2 mt-1 whitespace-nowrap overflow-hidden">
+                                        <p className="text-[10px] sm:text-[11px] font-bold text-muted opacity-70">{sale.studentName}</p>
+                                        <span className="w-1 h-1 rounded-full bg-border-subtle" />
+                                        <p className="text-[10px] sm:text-[11px] font-bold text-muted opacity-40">{sale.date}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 sm:gap-8">
+                                <div className="text-right">
+                                    <p className="text-sm sm:text-lg font-black text-primary tabular-nums tracking-tight">{formatCurrency(sale.price, settings.currency)}</p>
+                                    <p className="text-[9px] sm:text-[10px] font-black text-muted opacity-40 tracking-widest">{sale.time}</p>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedSale(sale);
+                                            setSellForm({ studentId: sale.studentId, quantity: sale.quantity, customerName: sale.studentName });
+                                            setIsEditSaleOpen(true);
+                                        }}
+                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-card border border-border-subtle text-muted hover:text-amber-600 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all shadow-sm"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }}
+                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-card border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {recentSales.length === 0 && (
+                        <div className="py-20 text-center text-muted/20">
+                            <ShoppingBag className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                            <p className="text-xs font-black tracking-[0.2em] uppercase">{t.noSalesRecorded}</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Sell Modal */}
@@ -402,7 +470,7 @@ export default function ShopPage() {
 
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.stockValue} ({t.inventory}: {selectedProduct.quantity})</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.stockValue} ({t.inventory}: {selectedProduct.quantity})</label>
                                 <input
                                     type="number" min="1" max={selectedProduct.quantity}
                                     className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50"
@@ -410,7 +478,7 @@ export default function ShopPage() {
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.studentLabel}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.studentLabel}</label>
                                 <div className="mb-3">
                                     <SearchSelect
                                         options={[
@@ -435,7 +503,7 @@ export default function ShopPage() {
                             </div>
 
                             <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl flex items-center justify-between">
-                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{t.totalAmount}:</span>
+                                <span className="text-[10px] font-black text-indigo-600 tracking-widest">{t.totalAmount}:</span>
                                 <span className="text-xl font-black text-indigo-600 font-mono tracking-tighter">{formatCurrency(selectedProduct.price * sellForm.quantity, settings.currency)}</span>
                             </div>
                         </div>
@@ -458,7 +526,7 @@ export default function ShopPage() {
                     <div className="relative bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-                                <Edit className="w-6 h-6" />
+                                <Edit2 className="w-6 h-6" />
                             </div>
                             <div>
                                 <h2 className="text-lg font-black text-primary">{t.editSale}</h2>
@@ -468,7 +536,7 @@ export default function ShopPage() {
 
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest block mb-2 opacity-50">{t.stockValue} ({t.active}: {selectedSale.quantity})</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.stockValue} ({t.active}: {selectedSale.quantity})</label>
                                 <input
                                     type="number" min="1"
                                     className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
@@ -477,7 +545,7 @@ export default function ShopPage() {
                             </div>
 
                             <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-center justify-between">
-                                <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">{t.totalAmount} (new):</span>
+                                <span className="text-[10px] font-black text-amber-600 tracking-widest">{t.totalAmount} (new):</span>
                                 <span className="text-xl font-black text-amber-600 font-mono tracking-tighter">{formatCurrency((selectedSale.price / selectedSale.quantity) * Number(sellForm.quantity), settings.currency)}</span>
                             </div>
                         </div>
@@ -492,64 +560,6 @@ export default function ShopPage() {
                     </div>
                 </div>
             )}
-
-            {/* Recent Sales History */}
-            <div className="bg-surface/50 border border-border-subtle rounded-[2.5rem] p-8">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h2 className="text-lg font-black text-primary tracking-tight">{t.recentSalesTitle}</h2>
-                        <p className="text-xs text-muted font-medium opacity-60">{t.transactionHistory}</p>
-                    </div>
-                    <button className="flex items-center gap-2 text-[10px] font-black text-amber-600 uppercase tracking-widest group">
-                        {t.allFilter} <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                    </button>
-                </div>
-                <div className="space-y-4">
-                    {recentSales.map((sale) => (
-                        <div key={sale.id} className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border-subtle/50 shadow-sm hover:border-amber-500/20 transition-all group">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                    <ShoppingBag className="w-5 h-5 text-indigo-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-black text-primary">{sale.productName}</p>
-                                    <p className="text-[10px] font-bold text-muted opacity-60">
-                                        {sale.studentName} · {sale.date}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="text-right flex items-center gap-4">
-                                <div>
-                                    <p className="text-sm font-black text-primary tabular-nums">{formatCurrency(sale.price, settings.currency)}</p>
-                                    <p className="text-[9px] font-bold text-muted opacity-40 uppercase">{sale.time}</p>
-                                </div>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedSale(sale);
-                                        setSellForm({ studentId: sale.studentId, quantity: sale.quantity, customerName: sale.studentName });
-                                        setIsEditSaleOpen(true);
-                                    }}
-                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-amber-500/20 hover:text-amber-500 hover:bg-amber-500/5 transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                    <Edit className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }}
-                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500/20 hover:text-red-500 hover:bg-red-500/5 transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                    {recentSales.length === 0 && (
-                        <div className="py-10 text-center text-muted/30">
-                            <p className="text-xs font-bold italic">{t.noSalesRecorded}</p>
-                        </div>
-                    )}
-                </div>
-            </div>
         </div>
     );
 }

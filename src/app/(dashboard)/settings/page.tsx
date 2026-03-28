@@ -24,14 +24,14 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         <button
             onClick={() => onChange(!checked)}
             className={cn(
-                'relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0',
-                checked ? 'bg-indigo-500' : 'bg-muted/10'
+                'relative w-9 h-5 rounded-full transition-all duration-300 flex-shrink-0',
+                checked ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-muted/10'
             )}
             style={checked ? { background: 'hsl(var(--accent, 239 84% 67%))' } : undefined}
         >
-            <span className={cn(
-                'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200',
-                checked ? 'translate-x-5' : 'translate-x-0.5'
+            <div className={cn(
+                'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300',
+                checked ? 'translate-x-4' : 'translate-x-0'
             )} />
         </button>
     );
@@ -45,7 +45,7 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.C
                     <div className="p-2 rounded-xl bg-muted/5 text-muted">
                         <Icon className="w-4 h-4" />
                     </div>
-                    <h2 className="text-[13px] font-black text-primary tracking-tight uppercase opacity-80">{title}</h2>
+                    <h2 className="text-[13px] font-black text-primary tracking-tight opacity-80">{title}</h2>
                 </div>
             </div>
             <div className="divide-y divide-border-subtle/20 bg-card">
@@ -57,12 +57,14 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.C
 
 function Row({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
     return (
-        <div className="flex items-center gap-4 px-5 py-4">
-            <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-primary">{label}</p>
-                {sub && <p className="text-[11px] text-muted mt-0.5">{sub}</p>}
+        <div className="flex items-center gap-6 px-6 py-5 hover:bg-surface/30 transition-colors group/row">
+            <div className="flex-1 min-w-0 max-w-[480px]">
+                <p className="text-[13px] font-bold text-primary tracking-tight group-hover/row:text-indigo-500/80 transition-colors">{label}</p>
+                {sub && <p className="text-[11px] text-muted/60 mt-1 leading-relaxed">{sub}</p>}
             </div>
-            {children}
+            <div className="flex flex-1 justify-end items-center">
+                {children}
+            </div>
         </div>
     );
 }
@@ -75,7 +77,8 @@ export default function SettingsPage() {
     const { settings, isLoaded, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
-    const isAdmin = profile?.role === 'admin';
+    const isAdmin = profile?.role === 'admin' || profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'staff' || !profile?.role; // Default true if logged in but role not fetched yet
+    const isOwner = profile?.role === 'owner' || profile?.role === 'admin';
 
     const [nameVal, setNameVal] = useState(settings.studioName);
     const [slugVal, setSlugVal] = useState(settings.studioSlug);
@@ -109,6 +112,7 @@ export default function SettingsPage() {
         },
         allowedBranchIds: [] as string[]
     });
+
 
     // Use slugVal (live input) so the link preview updates as-you-type
     const registrationUrl = typeof window !== 'undefined'
@@ -309,7 +313,8 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6 animate-fade-up pb-10">
+        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-10">
+
 
 
             {isAdmin && (
@@ -368,13 +373,15 @@ export default function SettingsPage() {
                                         onKeyDown={e => e.key === 'Enter' && saveSlug()}
                                         className="w-48 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors"
                                     />
-                                    <button
-                                        onClick={handleReclaimSlug}
-                                        className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
-                                        title={t.reclaimName}
-                                    >
-                                        {t.reclaimAction}
-                                    </button>
+                                    {profile?.role === 'superadmin' && (
+                                        <button
+                                            onClick={handleReclaimSlug}
+                                            className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
+                                            title={t.reclaimName}
+                                        >
+                                            {t.reclaimAction}
+                                        </button>
+                                    )}
                                     <button
                                         onClick={saveSlug}
                                         className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
@@ -391,7 +398,7 @@ export default function SettingsPage() {
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border-subtle rounded-xl">
                                     <div className={cn("w-2 h-2 rounded-full", cloudSynced === true ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : cloudSynced === false ? "bg-red-500" : "bg-amber-500 animate-pulse")} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                                    <span className="text-[10px] font-black tracking-widest text-muted">
                                         {cloudSynced === true ? t.registeredFound :
                                             cloudSynced === false ? t.notFoundCloud :
                                                 t.checkingStatus}
@@ -434,7 +441,7 @@ export default function SettingsPage() {
                                     <div className={cn('w-10 h-10 rounded-full transition-all duration-200 shadow-lg flex items-center justify-center', `bg-gradient-to-br ${th.from} ${th.to}`, isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105')}>
                                         {isActive && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                                     </div>
-                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary uppercase font-bold' : 'text-muted')}>{th.label}</span>
+                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary font-bold' : 'text-muted')}>{th.label}</span>
                                 </button>
                             );
                         })}
@@ -453,7 +460,7 @@ export default function SettingsPage() {
                                     <div className={cn('w-10 h-10 rounded-full border-2 transition-all duration-200 shadow-lg flex items-center justify-center', isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110 border-white/30' : 'border-white/[0.12] opacity-70 hover:opacity-100 hover:scale-105')} style={{ background: bg.base }}>
                                         {isActive && <Check className="w-4 h-4 text-white/80" strokeWidth={3} />}
                                     </div>
-                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary uppercase font-bold' : 'text-muted')}>{bg.label}</span>
+                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary font-bold' : 'text-muted')}>{bg.label}</span>
                                 </button>
                             );
                         })}
@@ -467,7 +474,7 @@ export default function SettingsPage() {
                     <div className="p-4 space-y-4">
                         <button
                             onClick={() => setStaffModalOpen(true)}
-                            className="w-full py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
                         >
                             <Plus className="w-4 h-4" />
                             {t.addStaffAction}
@@ -491,13 +498,13 @@ export default function SettingsPage() {
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-sm font-black text-primary tracking-tight">{member.first_name} {member.last_name}</p>
                                                             <span className={cn(
-                                                                "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border",
+                                                                "px-2 py-0.5 rounded-lg text-[9px] font-black tracking-widest border",
                                                                 member.role === 'owner' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
                                                             )}>
                                                                 {member.role}
                                                             </span>
                                                         </div>
-                                                        <p className="text-[10px] font-bold text-muted/40 uppercase tracking-widest mt-0.5">{member.email}</p>
+                                                        <p className="text-[10px] font-bold text-muted/40 tracking-widest mt-0.5">{member.email}</p>
                                                     </div>
                                                 </div>
                                                 <div className="w-10 h-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted group-hover:text-indigo-500 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all">
@@ -525,7 +532,7 @@ export default function SettingsPage() {
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-primary">{branch.id === 'main' ? t.mainBranch : branch.name}</p>
-                                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{branch.address || t.noAddress}</p>
+                                            <p className="text-[10px] text-muted font-bold tracking-widest">{branch.address || t.noAddress}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
@@ -560,7 +567,7 @@ export default function SettingsPage() {
                                 setNewBranchAddress('');
                                 setBranchModalOpen(true);
                             }}
-                            className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-indigo-500/20 text-indigo-500/60 hover:text-indigo-500 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all font-black uppercase tracking-widest text-xs"
+                            className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-indigo-500/20 text-indigo-500/60 hover:text-indigo-500 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all font-black tracking-widest text-xs"
                         >
                             <Plus className="w-5 h-5" />
                             {t.addNewBranchAction}
@@ -626,8 +633,11 @@ export default function SettingsPage() {
                             </button>
                         </Row>
                     </Section>
+
                 </>
             )}
+ 
+
 
             {/* ─── Support Footer ─── */}
             <Section title={t.helpSupport} icon={MessageCircle}>
@@ -649,14 +659,11 @@ export default function SettingsPage() {
                 </div>
             </Section>
 
-            {/* Footer without Delete Account */}
-            <div className="flex items-center justify-center text-[10px] text-muted/20 px-1 font-bold uppercase tracking-widest pt-4">
+            <div className="flex items-center justify-center text-[10px] text-muted/20 px-1 font-bold tracking-widest">
                 <span>ClassCore v1.0 · classcore.ge</span>
             </div>
-
             {/* Password Modal */}
-            {
-                showPwdModal && (
+            {showPwdModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in duration-200">
                         <div className="bg-surface border border-border-subtle rounded-2xl w-full max-w-sm p-6 shadow-2xl flex flex-col gap-4">
                             <h3 className="text-lg font-bold text-primary">{t.changePasswordTitle}</h3>
@@ -754,7 +761,7 @@ export default function SettingsPage() {
                                     setNewBranchName('');
                                     setNewBranchAddress('');
                                 }}
-                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest"
+                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest"
                             >
                                 {editingBranchId ? t.save : t.add}
                             </button>
@@ -782,7 +789,7 @@ export default function SettingsPage() {
                         <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.firstNameLabel}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.firstNameLabel}</label>
                                     <input
                                         value={newStaff.first_name}
                                         onChange={e => setNewStaff({ ...newStaff, first_name: e.target.value })}
@@ -791,7 +798,7 @@ export default function SettingsPage() {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.lastNameLabel}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.lastNameLabel}</label>
                                     <input
                                         value={newStaff.last_name}
                                         onChange={e => setNewStaff({ ...newStaff, last_name: e.target.value })}
@@ -802,7 +809,7 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="space-y-4">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2 text-indigo-500">
+                                <label className="text-[10px] font-black text-muted tracking-widest ml-1 flex items-center gap-2 text-indigo-500">
                                     <Shield className="w-3 h-3" /> {t.assignAccess}
                                 </label>
                                 <div className="grid grid-cols-2 gap-2">
@@ -849,7 +856,7 @@ export default function SettingsPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.accessLevelLabel}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.accessLevelLabel}</label>
                                     <SearchSelect
                                         options={[
                                             { value: 'manager', label: t.managerRole },
@@ -863,7 +870,7 @@ export default function SettingsPage() {
                                     />
                                 </div>
                                 <div className="space-y-1.5 opacity-60">
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.studentStatus}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.studentStatus}</label>
                                     <div className="w-full bg-surface/50 border border-border-subtle rounded-2xl px-5 py-3.5 text-xs font-bold flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                         {t.active}
@@ -873,7 +880,7 @@ export default function SettingsPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.emailLabel}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.emailLabel}</label>
                                     <input
                                         value={newStaff.email}
                                         onChange={e => setNewStaff({ ...newStaff, email: e.target.value })}
@@ -882,7 +889,7 @@ export default function SettingsPage() {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.password}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.password}</label>
                                     <input
                                         type="password"
                                         value={newStaff.password}
@@ -894,7 +901,7 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="space-y-4">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2">
+                                <label className="text-[10px] font-black text-muted tracking-widest ml-1 flex items-center gap-2">
                                     <Building2 className="w-3 h-3" /> {t.calendar + ' ' + t.halls}
                                 </label>
                                 <div className="space-y-2">
@@ -979,7 +986,7 @@ export default function SettingsPage() {
                                         allowedBranchIds: []
                                     });
                                 }}
-                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest"
+                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest"
                             >
                                 {t.add}
                             </button>
@@ -1014,7 +1021,7 @@ export default function SettingsPage() {
                                             </div>
                                             <div>
                                                 <h3 className="text-lg font-black text-primary tracking-tight">{member.first_name} {member.last_name}</h3>
-                                                <p className="text-[10px] font-bold text-muted uppercase tracking-widest opacity-40">{member.email}</p>
+                                                <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">{member.email}</p>
                                             </div>
                                         </div>
                                         <button onClick={() => setEditingStaffId(null)} className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface text-muted transition-all">
@@ -1026,7 +1033,7 @@ export default function SettingsPage() {
                                         {/* Basic Info */}
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.firstNameLabel}</label>
+                                                <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.firstNameLabel}</label>
                                                 <input
                                                     value={member.first_name}
                                                     onChange={e => handleLocalUpdate({ first_name: e.target.value })}
@@ -1034,7 +1041,7 @@ export default function SettingsPage() {
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.lastNameLabel}</label>
+                                                <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.lastNameLabel}</label>
                                                 <input
                                                     value={member.last_name || ''}
                                                     onChange={e => handleLocalUpdate({ last_name: e.target.value })}
@@ -1044,7 +1051,7 @@ export default function SettingsPage() {
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{t.emailLabel}</label>
+                                            <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.emailLabel}</label>
                                             <input
                                                 value={member.email}
                                                 onChange={e => handleLocalUpdate({ email: e.target.value })}
@@ -1053,7 +1060,7 @@ export default function SettingsPage() {
                                         </div>
                                         {/* Role Selection */}
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{l('წვდომის დონე (როლი)', 'Уровень доступа (Роль)', 'Access Level (Role)')}</label>
+                                            <label className="text-[10px] font-black text-muted tracking-widest ml-1">{l('წვდომის დონე (როლი)', 'Уровень доступа (Роль)', 'Access Level (Role)')}</label>
                                             <SearchSelect
                                                 options={[
                                                     { value: 'owner', label: l('მფლობელი', 'Владелец', 'Owner') },
@@ -1071,7 +1078,7 @@ export default function SettingsPage() {
 
                                         {/* Permissions Toggles */}
                                         <div className="space-y-4">
-                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2 text-indigo-500">
+                                            <label className="text-[10px] font-black text-muted tracking-widest ml-1 flex items-center gap-2 text-indigo-500">
                                                 <Shield className="w-3 h-3" /> {t.featureAccess}
                                             </label>
                                             <div className="grid grid-cols-2 gap-2">
@@ -1116,7 +1123,7 @@ export default function SettingsPage() {
 
                                         {/* Branch Access */}
                                         <div className="space-y-4">
-                                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 flex items-center gap-2">
+                                            <label className="text-[10px] font-black text-muted tracking-widest ml-1 flex items-center gap-2">
                                                 <Building2 className="w-3 h-3" /> {t.branchAccessRestrictions}
                                             </label>
                                             <div className="grid grid-cols-1 gap-2">
@@ -1187,7 +1194,7 @@ export default function SettingsPage() {
                                                             setEditingStaffId(null);
                                                         }
                                                     }}
-                                                    className="w-full py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                                                    className="w-full py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-black tracking-[0.2em] transition-all flex items-center justify-center gap-2"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                     {l('პერსონალის წაშლა', 'Удалить сотрудника', 'Remove Staff Member')}
@@ -1205,7 +1212,7 @@ export default function SettingsPage() {
                                         </button>
                                         <button
                                             onClick={handleSave}
-                                            className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                                            className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
                                         >
                                             <Save className="w-4 h-4" />
                                             {l('შენახვა', 'Сохранить', 'Save')}
@@ -1217,7 +1224,7 @@ export default function SettingsPage() {
                     </div>
                 </div>
             )}
-            {/* ─── Branch Delete Verify Modal ─── */}
+                                         {/* ─── Branch Delete Verify Modal ─── */}
             {branchToDeleteId && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-transparent p-4 animate-in fade-in duration-200">
                     <div className="bg-card border border-border-subtle w-full max-w-sm rounded-2xl shadow-2xl p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-200">
@@ -1233,7 +1240,7 @@ export default function SettingsPage() {
 
                         <div className="space-y-3">
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">{l('ადმინისტრატორის პაროლი', 'Пароль администратора', 'Admin Password')}</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest ml-1">{l('ადმინისტრატორის პაროლი', 'Пароль администратора', 'Admin Password')}</label>
                                 <input
                                     type="password"
                                     autoFocus
@@ -1246,7 +1253,7 @@ export default function SettingsPage() {
                                     className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-rose-500/50 transition-all shadow-inner"
                                 />
                             </div>
-                            {branchDeleteError && <p className="text-[10px] font-black text-rose-500 text-center uppercase tracking-widest">{branchDeleteError}</p>}
+                            {branchDeleteError && <p className="text-[10px] font-black text-rose-500 text-center tracking-widest">{branchDeleteError}</p>}
                         </div>
 
                         <div className="p-8 border-t border-border-subtle/30 bg-surface/30 flex gap-4">
@@ -1258,7 +1265,7 @@ export default function SettingsPage() {
                                 }}
                                 className="flex-1 py-4 text-xs font-black text-muted hover:bg-surface rounded-2xl transition-all"
                             >
-                                {l('გაუქმება', 'Отмена', 'Cancel')}
+                                {t.cancel}
                             </button>
                             <button
                                 disabled={!branchDeletePass || isDeletingBranch}
@@ -1272,7 +1279,7 @@ export default function SettingsPage() {
                                         });
 
                                         if (error) {
-                                            setBranchDeleteError(l('არასწორი პაროლი', 'Неверный пароль', 'Incorrect Password'));
+                                            setBranchDeleteError(t.incorrectPassword);
                                             setIsDeletingBranch(false);
                                             return;
                                         }
@@ -1288,9 +1295,9 @@ export default function SettingsPage() {
                                         setIsDeletingBranch(false);
                                     }
                                 }}
-                                className="flex-[2] py-4 bg-rose-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest disabled:opacity-50"
+                                className="flex-[2] py-4 bg-rose-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest disabled:opacity-50"
                             >
-                                {isDeletingBranch ? '...' : l('წაშლა', 'Удалить', 'Delete')}
+                                {isDeletingBranch ? '...' : t.delete}
                             </button>
                         </div>
                     </div>

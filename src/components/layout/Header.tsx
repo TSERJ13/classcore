@@ -64,7 +64,7 @@ export function Header() {
     const [notifOpen, setNotifOpen] = useState(false);
     const [messengerOpen, setMessengerOpen] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'private' | 'groups'>('private');
+    const [activeTab, setActiveTab] = useState<'private' | 'group' | 'support'>('private');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -141,6 +141,18 @@ export function Header() {
         updateNotesCount();
     }, [messengerOpen, notesOpen, settings.studioSlug]);
 
+    const getLastMessageTime = (chatId: string, type: 'private' | 'group') => {
+        const key = type === 'private'
+            ? `chat_${settings.studioSlug}_${chatId}`
+            : `group_chat_${settings.studioSlug}_${chatId}`;
+        try {
+            const msgs = JSON.parse(localStorage.getItem(key) || '[]') as ChatMessage[];
+            return msgs.length > 0 ? new Date(msgs[msgs.length - 1].timestamp).getTime() : 0;
+        } catch {
+            return 0;
+        }
+    };
+
     // Load messages when selectedChatId changes
     useEffect(() => {
         if (!selectedChatId) return;
@@ -201,6 +213,7 @@ export function Header() {
     useEffect(() => {
         const handleToggleSupport = () => {
             setMessengerOpen(true);
+            setActiveTab('support');
             setSelectedChatId(SUPPORT_CHAT_ID);
         };
         window.addEventListener('toggle-support', handleToggleSupport);
@@ -296,7 +309,7 @@ export function Header() {
         if (!msg.metadata || msg.metadata.type !== 'lesson_request' || !msg.metadata.slots) return;
 
         // Create events for each slot
-        const teacherId = msg.metadata.teacherId || 't1';
+        const teacherId = msg.metadata.teacherId || '';
         const title = msg.metadata.style ? `${msg.metadata.style} (${t.individual})` : t.individual;
         const studentObj = students.find(s => s.id === selectedChatId);
         const studentName = studentObj?.full_name || `${studentObj?.first_name} ${studentObj?.last_name}` || selectedChatId;
@@ -431,17 +444,16 @@ export function Header() {
                         <Menu className="w-6 h-6" />
                     </button>
                 </div>
-
                 {/* Centered Page Title */}
                 <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
-                    <h1 className="text-base font-black text-primary uppercase truncate max-w-[240px]">
+                    <h1 className="text-[13px] xs:text-sm md:text-sm font-extrabold text-primary tracking-tight md:tracking-wide truncate max-w-[120px] xs:max-w-[160px] md:max-w-[240px]">
                         {displayTitle || rawTitle}
                     </h1>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0 md:gap-2">
                     {!loading && !user && (
-                        <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg uppercase tracking-wider">{t.login}</Link>
+                        <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg tracking-wider">{t.login}</Link>
                     )}
                     <button
                         onClick={() => {
@@ -539,7 +551,7 @@ export function Header() {
                                     setBranchModalOpen(false);
                                     setNewBranchName('');
                                 }}
-                                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-2xl shadow-xl shadow-indigo-600/20 active:scale-95 transition-all uppercase tracking-widest"
+                                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-2xl shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest"
                             >
                                 {t.add}
                             </button>
@@ -659,11 +671,11 @@ export function Header() {
                                             className="w-full bg-surface border border-border-subtle rounded-2xl pl-11 pr-4 py-3 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 p-1 bg-surface rounded-xl border border-border-subtle">
+                                    <div className="grid grid-cols-3 gap-1 p-1 bg-surface rounded-xl border border-border-subtle">
                                         <button
                                             onClick={() => setActiveTab('private')}
                                             className={cn(
-                                                "flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                                "flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-black tracking-widest transition-all",
                                                 activeTab === 'private' ? "bg-card text-indigo-500 shadow-sm border border-indigo-500/10" : "text-muted hover:text-primary"
                                             )}
                                         >
@@ -671,14 +683,30 @@ export function Header() {
                                             {t.privateLabel}
                                         </button>
                                         <button
-                                            onClick={() => setActiveTab('groups')}
+                                            onClick={() => setActiveTab('group')}
                                             className={cn(
-                                                "flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                                                activeTab === 'groups' ? "bg-card text-indigo-500 shadow-sm border border-indigo-500/10" : "text-muted hover:text-primary"
+                                                "flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-black tracking-widest transition-all",
+                                                activeTab === 'group' ? "bg-card text-indigo-500 shadow-sm border border-indigo-500/10" : "text-muted hover:text-primary"
                                             )}
                                         >
                                             <Users className="w-3.5 h-3.5" />
-                                            {t.groupLabel}
+                                            {t.groups}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setActiveTab('support');
+                                                setSelectedChatId(SUPPORT_CHAT_ID);
+                                            }}
+                                            className={cn(
+                                                "flex items-center justify-center gap-2 py-2 rounded-lg text-[9px] font-black tracking-widest transition-all relative",
+                                                activeTab === 'support' ? "bg-card text-indigo-500 shadow-sm border border-indigo-500/10" : "text-muted hover:text-primary"
+                                            )}
+                                        >
+                                            <Shield className="w-3.5 h-3.5" />
+                                            {lang === 'ka' ? 'მხარდაჭერა' : 'Support'}
+                                            {unreadCounts[SUPPORT_CHAT_ID] > 0 && (
+                                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse ring-2 ring-white" />
+                                            )}
                                         </button>
                                     </div>
                                 </div>
@@ -687,42 +715,10 @@ export function Header() {
                                 <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
                                     {activeTab === 'private' ? (
                                         <div className="divide-y divide-border-subtle/30">
-                                            {/* Technical Support Entry */}
-                                            <button
-                                                onClick={() => setSelectedChatId(SUPPORT_CHAT_ID)}
-                                                className={cn(
-                                                    "w-full flex items-center gap-4 px-5 py-4 hover:bg-indigo-500/5 transition-colors text-left border-b border-indigo-500/10 relative overflow-hidden group",
-                                                    selectedChatId === SUPPORT_CHAT_ID && "bg-indigo-500/10"
-                                                )}
-                                            >
-                                                <div className={cn(
-                                                    "w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 transition-all duration-500",
-                                                    unreadCounts[SUPPORT_CHAT_ID] && "animate-pulse ring-4 ring-indigo-500/10"
-                                                )}>
-                                                    <Shield className="w-6 h-6" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-sm font-black text-primary truncate">ClassCore Admin</p>
-                                                        {unreadCounts[SUPPORT_CHAT_ID] ? (
-                                                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-                                                        ) : (
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                        )}
-                                                    </div>
-                                                    <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest opacity-80">{t.techSupport}</p>
-                                                </div>
-                                                {unreadCounts[SUPPORT_CHAT_ID] && (
-                                                    <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] font-black text-white shadow-lg shadow-red-500/20 animate-pulse">
-                                                        {unreadCounts[SUPPORT_CHAT_ID]}
-                                                    </span>
-                                                )}
-                                                <ChevronRight className="w-4 h-4 text-indigo-500/30" />
-                                            </button>
-
                                             {students
                                                 .filter(s => s.id !== SUPPORT_CHAT_ID)
                                                 .filter(s => s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || (s.first_name + ' ' + s.last_name).toLowerCase().includes(searchQuery.toLowerCase()))
+                                                .sort((a, b) => getLastMessageTime(b.id, 'private') - getLastMessageTime(a.id, 'private'))
                                                 .map(s => (
                                                     <button
                                                         key={s.id}
@@ -734,7 +730,7 @@ export function Header() {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-black text-primary truncate">{s.full_name || `${s.first_name} ${s.last_name}`}</p>
-                                                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest opacity-60">ID: {s.id}</p>
+                                                            <p className="text-[10px] font-bold text-muted tracking-widest opacity-60">ID: {s.id}</p>
                                                         </div>
                                                         {unreadCounts[s.id] && (
                                                             <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] font-black text-white shadow-lg shadow-red-500/20">+{unreadCounts[s.id]}</span>
@@ -743,10 +739,11 @@ export function Header() {
                                                     </button>
                                                 ))}
                                         </div>
-                                    ) : (
+                                    ) : activeTab === 'group' ? (
                                         <div className="divide-y divide-border-subtle/30">
                                             {groups
                                                 .filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                .sort((a, b) => getLastMessageTime(b.id, 'group') - getLastMessageTime(a.id, 'group'))
                                                 .map(g => (
                                                     <button
                                                         key={g.id}
@@ -758,7 +755,7 @@ export function Header() {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-black text-primary truncate">{g.name}</p>
-                                                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest opacity-60">{g.coach}</p>
+                                                            <p className="text-[10px] font-bold text-muted tracking-widest opacity-60">{g.coach}</p>
                                                         </div>
                                                         {unreadCounts[g.id] && (
                                                             <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] font-black text-white shadow-lg shadow-red-500/20">+{unreadCounts[g.id]}</span>
@@ -766,6 +763,22 @@ export function Header() {
                                                         <ChevronRight className="w-4 h-4 text-muted opacity-20" />
                                                     </button>
                                                 ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                            <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-600/20">
+                                                <Shield className="w-8 h-8" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-black text-primary tracking-tight">{lang === 'ka' ? 'მხარდაჭერის ჩატი' : 'Support Chat'}</p>
+                                                <p className="text-[10px] font-bold text-muted opacity-60 leading-relaxed tracking-widest uppercase">{lang === 'ka' ? 'აქ შეგიძლიათ დაუკავშირდეთ ClassCore-ის გუნდს' : 'Contact ClassCore team directly'}</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => setSelectedChatId(SUPPORT_CHAT_ID)}
+                                                className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black tracking-widest hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-600/20"
+                                            >
+                                                {lang === 'ka' ? 'ჩატის გახსნა' : 'Open Chat'}
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -775,7 +788,10 @@ export function Header() {
                                 {/* Chat Header */}
                                 <div className="flex items-center gap-4 px-5 py-4 border-b border-border-subtle bg-surface/20">
                                     <button
-                                        onClick={() => setSelectedChatId(null)}
+                                        onClick={() => {
+                                            setSelectedChatId(null);
+                                            if (activeTab === 'support') setActiveTab('private');
+                                        }}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-primary transition-all rotate-180"
                                     >
                                         <ChevronRight className="w-5 h-5" />
@@ -801,7 +817,7 @@ export function Header() {
                                                     : groups.find(g => g.id === selectedChatId)?.name
                                                 }
                                             </p>
-                                            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none">
+                                            <p className="text-[10px] font-bold text-emerald-500 tracking-widest leading-none">
                                                 {selectedChatId === SUPPORT_CHAT_ID ? "Official Support" : "Online"}
                                             </p>
                                         </div>
@@ -851,8 +867,8 @@ export function Header() {
                                                             )}
                                                         </div>
                                                     )}
-                                                    {activeTab === 'groups' && m.sender === 'student' && (
-                                                        <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-50">{m.senderName || t.students}</p>
+                                                    {activeTab === 'group' && m.sender === 'student' && (
+                                                        <p className="text-[9px] font-black tracking-widest mb-1 opacity-50">{m.senderName || t.students}</p>
                                                     )}
                                                     {m.metadata?.type === 'lesson_request' ? (
                                                         <div className="space-y-3 w-full min-w-[200px]">
@@ -864,17 +880,17 @@ export function Header() {
                                                             </div>
                                                             <div className="space-y-1.5 pt-1">
                                                                 <div className="flex items-center justify-between text-[11px]">
-                                                                    <span className="font-bold text-amber-900/60 uppercase tracking-widest">სტილი:</span>
+                                                                    <span className="font-bold text-amber-900/60 tracking-widest">სტილი:</span>
                                                                     <span className="font-black text-amber-900">{m.metadata.style || t.any}</span>
                                                                 </div>
                                                                 {m.metadata.hallName && (
                                                                     <div className="flex items-center justify-between text-[11px]">
-                                                                        <span className="font-bold text-amber-900/60 uppercase tracking-widest">დარბაზი:</span>
+                                                                        <span className="font-bold text-amber-900/60 tracking-widest">დარბაზი:</span>
                                                                         <span className="font-black text-amber-900">{m.metadata.hallName}</span>
                                                                     </div>
                                                                 )}
                                                                 <div className="pt-2">
-                                                                    <span className="text-[9px] font-bold text-amber-900/60 uppercase tracking-widest mb-1 block">არჩეული დროები:</span>
+                                                                    <span className="text-[9px] font-bold text-amber-900/60 tracking-widest mb-1 block">არჩეული დროები:</span>
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {m.metadata.slots.map((s, i) => (
                                                                             <span key={i} className="px-1.5 py-0.5 bg-white/50 rounded text-[10px] font-bold text-amber-900 font-mono">
@@ -887,13 +903,13 @@ export function Header() {
                                                             {m.metadata.status !== 'confirmed' ? (
                                                                 <button
                                                                     onClick={() => handleApproveLesson(m.id)}
-                                                                    className="w-full mt-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-md shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                                                                    className="w-full mt-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black tracking-widest shadow-md shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-1.5"
                                                                 >
                                                                     <CheckCircle2 className="w-3 h-3" />
                                                                     {t.confirm}
                                                                 </button>
                                                             ) : (
-                                                                <div className="w-full mt-2 py-1.5 bg-emerald-500/10 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest text-center flex items-center justify-center gap-1 border border-emerald-500/20">
+                                                                <div className="w-full mt-2 py-1.5 bg-emerald-500/10 text-emerald-600 rounded-xl text-[10px] font-black tracking-widest text-center flex items-center justify-center gap-1 border border-emerald-500/20">
                                                                     <CheckCircle2 className="w-3 h-3" />
                                                                     {t.confirmed}
                                                                 </div>
@@ -903,7 +919,7 @@ export function Header() {
                                                         m.text
                                                     )}
                                                 </div>
-                                                <span className="text-[9px] font-black text-muted uppercase opacity-40 mt-1.5 px-1">{m.timestamp}</span>
+                                                <span className="text-[9px] font-black text-muted opacity-40 mt-1.5 px-1">{m.timestamp}</span>
                                             </div>
                                         ))
                                     )}
@@ -917,7 +933,7 @@ export function Header() {
                                                 {attachment.type.startsWith('image/') ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest truncate">{attachment.name}</p>
+                                                <p className="text-[10px] font-black text-indigo-500 tracking-widest truncate">{attachment.name}</p>
                                                 <p className="text-[9px] font-bold text-muted opacity-60">{(attachment.size / 1024).toFixed(1)} KB</p>
                                             </div>
                                             <button onClick={() => setAttachment(null)} className="w-8 h-8 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-colors">

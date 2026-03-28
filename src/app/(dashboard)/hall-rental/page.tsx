@@ -88,7 +88,7 @@ export default function HallRentalPage() {
     const paidTotal = rentals.filter(r => r.payment_status === 'paid').reduce((s, r) => s + r.total_price, 0);
 
     return (
-        <div className="space-y-8 animate-fade-up max-w-5xl mx-auto pb-10">
+        <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -115,7 +115,7 @@ export default function HallRentalPage() {
                         </div>
                         <div>
                             <p className="text-xl font-black text-primary tabular-nums leading-none tracking-tight">{s.value}</p>
-                            <p className="text-[10px] text-muted font-black uppercase tracking-widest mt-1 opacity-40">{s.label}</p>
+                            <p className="text-[10px] text-muted font-black tracking-widest mt-1 opacity-40">{s.label}</p>
                         </div>
                     </div>
                 ))}
@@ -162,12 +162,12 @@ export default function HallRentalPage() {
 
                                 <div className="flex-1 min-w-0 pt-0.5">
                                     <div className="flex flex-wrap items-center gap-2.5 mb-2">
-                                        <p className="text-base font-black text-primary group-hover:text-indigo-600 transition-colors leading-tight uppercase tracking-tight">{r.renter_name}</p>
-                                        <span className={cn('px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5', status.cls)}>
+                                        <p className="text-base font-black text-primary group-hover:text-indigo-600 transition-colors leading-tight tracking-tight">{r.renter_name}</p>
+                                        <span className={cn('px-3 py-1 rounded-full text-[10px] font-black tracking-wider border flex items-center gap-1.5', status.cls)}>
                                             {status.icon}
                                             {status.label}
                                         </span>
-                                        <span className="text-[10px] text-muted font-black uppercase tracking-widest bg-surface border border-border-subtle rounded-full px-2.5 py-1 opacity-60">{TYPE_LABELS[r.rental_type]}</span>
+                                        <span className="text-[10px] text-muted font-black tracking-widest bg-surface border border-border-subtle rounded-full px-2.5 py-1 opacity-60">{TYPE_LABELS[r.rental_type]}</span>
                                     </div>
                                     <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] font-bold text-muted opacity-50">
                                         {r.hall_name && (
@@ -190,12 +190,12 @@ export default function HallRentalPage() {
                                     <div className="flex items-center gap-5 mt-4 pt-4 border-t border-border-subtle/50">
                                         <div>
                                             <p className="text-xl font-black text-primary tabular-nums tracking-tighter">{formatCurrency(r.total_price, settings.currency)}</p>
-                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40 mt-1">ჯამური ფასი</p>
+                                            <p className="text-[9px] font-black text-muted tracking-widest opacity-40 mt-1">ჯამური ფასი</p>
                                         </div>
                                         {r.deposit > 0 && (
                                             <div>
                                                 <p className="text-sm font-black text-indigo-600 tabular-nums tracking-tight">{formatCurrency(r.deposit, settings.currency)}</p>
-                                                <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40 mt-1">დეპოზიტი</p>
+                                                <p className="text-[9px] font-black text-muted tracking-widest opacity-40 mt-1">დეპოზიტი</p>
                                             </div>
                                         )}
                                         <div className="ml-auto flex items-center gap-3">
@@ -244,7 +244,7 @@ export default function HallRentalPage() {
                         <div className="flex items-center justify-between px-8 py-6 border-b border-border-subtle flex-shrink-0">
                             <div>
                                 <h2 className="text-xl font-black text-primary tracking-tight">{editing ? 'ჯავშნის რედაქტირება' : 'ახალი ჯავშანი'}</h2>
-                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1 opacity-70">{editing ? editing.renter_name : `ნაბიჯი ${step} / 2`}</p>
+                                <p className="text-[10px] font-black text-indigo-600 tracking-widest mt-1 opacity-70">{editing ? editing.renter_name : `ნაბიჯი ${step} / 2`}</p>
                             </div>
                             <button onClick={() => setModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface text-muted transition-colors">
                                 <X className="w-6 h-6" />
@@ -262,7 +262,7 @@ export default function HallRentalPage() {
                             )}
                             {step === 1 ? (
                                 <div className="space-y-4">
-                                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 opacity-40">გაქირავების ტიპი</p>
+                                    <p className="text-[10px] font-black text-muted tracking-[0.2em] mb-4 opacity-40">გაქირავების ტიპი</p>
                                     {RENTAL_TYPES.map(rt => (
                                         <button key={rt.value} onClick={() => { set('rental_type', rt.value); setStep(2); }}
                                             className={cn(
@@ -273,7 +273,7 @@ export default function HallRentalPage() {
                                                 {rt.icon}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-black text-primary group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{rt.label}</p>
+                                                <p className="text-sm font-black text-primary group-hover:text-indigo-600 transition-colors tracking-tight">{rt.label}</p>
                                                 <p className="text-[10px] font-bold text-muted mt-1 opacity-60 leading-tight">{rt.desc}</p>
                                             </div>
                                         </button>
@@ -282,7 +282,7 @@ export default function HallRentalPage() {
                             ) : (
                                 <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6 pb-10">
                                     {/* Renter info */}
-                                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">გამქირავებელი</p>
+                                    <p className="text-[10px] font-black text-muted tracking-[0.2em] opacity-40">გამქირავებელი</p>
                                     <div className="space-y-4">
                                         {[
                                             { key: 'renter_name', label: 'სახელი *', ph: 'სახელი და გვარი' },
@@ -291,7 +291,7 @@ export default function HallRentalPage() {
                                             { key: 'event_type', label: 'ღონისძიების ტიპი', ph: 'კონცერტი, ფოტო სეია...' },
                                         ].map(f => (
                                             <div key={f.key}>
-                                                <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">{f.label}</label>
+                                                <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">{f.label}</label>
                                                 <input value={(form as Record<string, string | number>)[f.key] as string ?? ''}
                                                     onChange={e => set(f.key, e.target.value)} placeholder={f.ph}
                                                     className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary placeholder:text-muted/30 outline-none transition-all shadow-inner" />
@@ -301,7 +301,7 @@ export default function HallRentalPage() {
 
                                     {/* Hall */}
                                     <div className="border-t border-border-subtle/50 pt-6">
-                                        <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დარბაზი</label>
+                                        <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დარბაზი</label>
                                         <SearchSelect
                                             options={HALLS.map(h => ({ value: h, label: h }))}
                                             value={form.hall_name || ''}
@@ -314,12 +314,12 @@ export default function HallRentalPage() {
                                     {/* Dates */}
                                     <div className="border-t border-border-subtle/50 pt-6 grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დაწყება *</label>
+                                            <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დაწყება *</label>
                                             <input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)}
                                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner" />
                                         </div>
                                         <div>
-                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">
+                                            <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">
                                                 {form.rental_type === 'hourly' ? 'დამთავრება' : 'ბოლო თარიღი'}
                                             </label>
                                             <input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)}
@@ -328,12 +328,12 @@ export default function HallRentalPage() {
                                         {form.rental_type === 'hourly' && (
                                             <>
                                                 <div>
-                                                    <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დაწყ. საათი</label>
+                                                    <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დაწყ. საათი</label>
                                                     <input type="time" value={form.start_time ?? ''} onChange={e => set('start_time', e.target.value)}
                                                         className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner" />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დამთ. საათი</label>
+                                                    <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დამთ. საათი</label>
                                                     <input type="time" value={form.end_time ?? ''} onChange={e => set('end_time', e.target.value)}
                                                         className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner" />
                                                 </div>
@@ -344,13 +344,13 @@ export default function HallRentalPage() {
                                     {/* Prices */}
                                     <div className="border-t border-border-subtle/50 pt-6 grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">ჯამური ფასი ({settings.currency}) *</label>
+                                            <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">ჯამური ფასი ({settings.currency}) *</label>
                                             <input type="number" min="0" value={form.total_price || ''}
                                                 onChange={e => set('total_price', Number(e.target.value))}
                                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-black text-primary outline-none shadow-inner" />
                                         </div>
                                         <div>
-                                            <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">დეპოზიტი ({settings.currency})</label>
+                                            <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დეპოზიტი ({settings.currency})</label>
                                             <input type="number" min="0" value={form.deposit || ''}
                                                 onChange={e => set('deposit', Number(e.target.value))}
                                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-black text-primary outline-none shadow-inner" />
@@ -359,13 +359,13 @@ export default function HallRentalPage() {
 
                                     {/* Payment status */}
                                     <div className="border-t border-border-subtle/50 pt-6">
-                                        <label className="text-[11px] font-black text-muted mb-3 block uppercase tracking-wider opacity-60">გადახდის სტატუსი</label>
+                                        <label className="text-[11px] font-black text-muted mb-3 block tracking-wider opacity-60">გადახდის სტატუსი</label>
                                         <div className="grid grid-cols-2 gap-2">
                                             {(['pending', 'partial', 'paid', 'cancelled'] as PaymentStatus[]).map(ps => {
                                                 const info = PAY_STATUS_INFO[ps];
                                                 return (
                                                     <button key={ps} onClick={() => set('payment_status', ps)}
-                                                        className={cn('py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center justify-center gap-2',
+                                                        className={cn('py-3.5 rounded-2xl text-[10px] font-black tracking-widest border transition-all flex items-center justify-center gap-2',
                                                             form.payment_status === ps ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20 scale-[1.02]' : 'bg-surface border-border-subtle text-muted hover:border-indigo-500/40')}>
                                                         <div className={cn('w-4 h-4 flex-shrink-0', form.payment_status === ps ? 'text-white' : 'text-indigo-500 opacity-60')}>
                                                             {info.icon}
@@ -378,7 +378,7 @@ export default function HallRentalPage() {
                                     </div>
 
                                     <div className="border-t border-border-subtle/50 pt-6">
-                                        <label className="text-[11px] font-black text-muted mb-2 block uppercase tracking-wider opacity-60">{t.notes}</label>
+                                        <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">{t.notes}</label>
                                         <textarea value={form.notes ?? ''} onChange={e => set('notes', e.target.value)}
                                             rows={3} placeholder="დამატებითი ინფო..."
                                             className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary placeholder:text-muted/30 outline-none resize-none shadow-inner" />
@@ -387,7 +387,7 @@ export default function HallRentalPage() {
                                     {/* Contract upload */}
                                     <div className="border-t border-border-subtle/50 pt-6">
                                         <div className="flex items-center justify-between mb-3">
-                                            <label className="text-[11px] font-black text-muted uppercase tracking-wider opacity-60">კონტრაქტი / საბუთი</label>
+                                            <label className="text-[11px] font-black text-muted tracking-wider opacity-60">კონტრაქტი / საბუთი</label>
                                             {(form as { contract_url?: string }).contract_url && (
                                                 <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">ატვირთულია</span>
                                             )}
@@ -420,13 +420,13 @@ export default function HallRentalPage() {
 
                         <div className="flex gap-4 px-8 py-6 border-t border-border-subtle flex-shrink-0 bg-card/50">
                             {step === 2 && (
-                                <button onClick={() => setStep(1)} className="px-6 py-4 bg-surface border border-border-subtle text-muted text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-surface/80 transition-all active:scale-95">
+                                <button onClick={() => setStep(1)} className="px-6 py-4 bg-surface border border-border-subtle text-muted text-xs font-black tracking-widest rounded-2xl hover:bg-surface/80 transition-all active:scale-95">
                                     უკან
                                 </button>
                             )}
                             <button onClick={saveRental}
                                 disabled={step === 2 && (!form.renter_name || !form.renter_phone || !form.start_date || !form.total_price)}
-                                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-black uppercase tracking-[0.15em] rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98]">
+                                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-black tracking-[0.15em] rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98]">
                                 {step === 1 ? 'გაგრძელება →' : 'შენახვა'}
                             </button>
                         </div>

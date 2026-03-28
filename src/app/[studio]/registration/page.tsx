@@ -119,7 +119,7 @@ export default function StudentRegistrationPage() {
                     </p>
                 </div>
                 <div className="bg-surface border border-border-subtle rounded-2xl p-4 w-full max-w-sm space-y-2">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.yourId}</p>
+                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.yourId}</p>
                     <p className="text-2xl font-mono font-black text-primary tracking-widest">{savedId}</p>
                 </div>
                 <a
@@ -154,10 +154,10 @@ export default function StudentRegistrationPage() {
                     </div>
                 )}
                 <div className="text-center mt-1.5">
-                    <h1 className="text-sm font-black text-primary tracking-tight mb-0 uppercase">{settings.studioName}</h1>
+                    <h1 className="text-sm font-black text-primary tracking-tight mb-0">{settings.studioName}</h1>
                     <div className="flex items-center justify-center gap-1">
                         <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                        <span className="text-[9px] font-bold text-muted uppercase tracking-[0.2em] opacity-40">{t.addStudentShort}</span>
+                        <span className="text-[9px] font-bold text-muted tracking-[0.2em] opacity-40">{t.addStudentShort}</span>
                     </div>
                 </div>
             </div>
@@ -179,12 +179,12 @@ export default function StudentRegistrationPage() {
                         ) : (
                             <div className="flex flex-col items-center gap-1 text-indigo-400 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Camera className="w-6 h-6" />
-                                <span className="text-[9px] font-black uppercase tracking-wider">{t.photo}</span>
+                                <span className="text-[9px] font-black tracking-wider">{t.photo}</span>
                             </div>
                         )}
                     </button>
                     <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-                    <p className="text-[10px] text-muted opacity-40 font-bold mt-2 uppercase tracking-wider">{t.photoOptional}</p>
+                    <p className="text-[10px] text-muted opacity-40 font-bold mt-2 tracking-wider">{t.photoOptional}</p>
                 </div>
 
                 {/* Fields */}
@@ -320,7 +320,7 @@ export default function StudentRegistrationPage() {
                     )}
                 </button>
 
-                <p className="text-center text-[9px] font-bold text-muted uppercase tracking-[0.2em] opacity-20 pt-2">
+                <p className="text-center text-[9px] font-bold text-muted tracking-[0.2em] opacity-20 pt-2">
                     {settings.studioName} · ClassCore
                 </p>
             </div>

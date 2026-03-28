@@ -92,7 +92,7 @@ const SystemVideoOverview = ({ t, lang }: { t: any, lang: string }) => {
                         >
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 border border-indigo-400/20 rounded-full mb-4">
                                 <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Highlight 0{i + 1}</span>
+                                <span className="text-[10px] font-black tracking-widest text-indigo-300">Highlight 0{i + 1}</span>
                             </div>
                             <h3 className="text-2xl md:text-5xl font-black text-white mb-4 tracking-tight drop-shadow-2xl">
                                 {s.title}
@@ -216,23 +216,23 @@ export default function LandingPage() {
                 scrolled ? "bg-white/80 backdrop-blur-xl border-b border-slate-100 shadow-sm" : "bg-transparent"
             )}>
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 relative group overflow-hidden bg-white">
+                    <Link href="/" className="flex items-center gap-3 group">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/10 relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100">
                             <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
                         </div>
-                        <span className="text-xl font-black tracking-tight text-slate-900">ClassCore</span>
-                    </div>
+                        <span className="text-2xl font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors">ClassCore</span>
+                    </Link>
 
                     <nav className="hidden md:flex items-center gap-8">
                         {['Features', 'Pricing', 'About', 'Contact'].map(item => (
-                            <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-widest">
+                            <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors tracking-widest">
                                 {item === 'Features' ? t.navFeatures : item === 'Pricing' ? t.navPricing : item === 'About' ? t.navAbout : t.navContact}
                             </a>
                         ))}
                     </nav>
 
                     <div className="flex items-center gap-4">
-                        <Link href={user ? "/dashboard" : "/login"} className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-black px-8 py-3 rounded-xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-wide">
+                        <Link href={user ? "/dashboard" : "/login"} className="h-11 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] md:text-[13px] font-black px-4 md:px-8 rounded-xl md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all tracking-wide">
                             {user ? t.dashboard : t.login}
                         </Link>
                         <LanguageSwitcher compact={true} variant="landing" align="right" />
@@ -249,7 +249,7 @@ export default function LandingPage() {
                             <div className="space-y-8 max-w-2xl text-center lg:text-left">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
                                     <span className="flex h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">{t.heroNewEra}</span>
+                                    <span className="text-[10px] font-black tracking-widest text-indigo-700">{t.heroNewEra}</span>
                                 </div>
                                 <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-[1.1] tracking-tight whitespace-pre-line">
                                     {settings.landingContent?.heroTitle || t.heroTitle}
@@ -258,10 +258,10 @@ export default function LandingPage() {
                                     {settings.landingContent?.heroSubtitle || t.heroSubtitle}
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 justify-center lg:justify-start">
-                                    <Link href="/registration" className="w-full sm:w-auto px-8 py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
+                                    <Link href="/registration" className="w-full sm:w-auto px-10 py-4 bg-indigo-600 text-white rounded-[20px] font-black text-[15px] shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 tracking-wide">
                                         {t.heroStartFree} <ArrowRight className="w-5 h-5" />
                                     </Link>
-                                    <Link href="/login" className="w-full sm:w-auto px-8 py-5 bg-white text-slate-700 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                                    <Link href="/login" className="w-full sm:w-auto px-10 py-4 bg-white text-slate-700 rounded-[20px] font-black text-[12px] tracking-[0.1em] border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
                                         <Play className="w-4 h-4 fill-slate-700" /> {l('პორტალზე შესვლა', 'Войти в портал', 'Portal')}
                                     </Link>
                                 </div>
@@ -282,7 +282,7 @@ export default function LandingPage() {
                                                         <Banknote className="w-5 h-5" />
                                                     </div>
                                                     <div>
-                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">{l('შემოსავალი', 'Доход', 'Revenue')}</div>
+                                                        <div className="text-[9px] font-black text-slate-400 tracking-[0.2em] mb-0.5">{l('შემოსავალი', 'Доход', 'Revenue')}</div>
                                                         <div className="flex items-baseline gap-1.5">
                                                             <div className="text-lg font-black text-slate-900">₾4,250</div>
                                                             <div className="text-[9px] font-black text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">+12%</div>
@@ -302,7 +302,7 @@ export default function LandingPage() {
                                                 <div className="flex flex-col gap-3">
                                                     <div className="flex items-center justify-between gap-8">
                                                         <div className="space-y-0.5">
-                                                            <div className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">{l('სტუდენტები', 'Студенты', 'Students')}</div>
+                                                            <div className="text-[9px] font-black text-white/40 tracking-[0.2em]">{l('სტუდენტები', 'Студенты', 'Students')}</div>
                                                             <div className="text-xl font-black text-white">1,240</div>
                                                         </div>
                                                         <div className="flex -space-x-2.5">
@@ -332,7 +332,7 @@ export default function LandingPage() {
                                                         <Activity className="w-5 h-5" />
                                                     </div>
                                                     <div>
-                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{l('დასწრება', 'Посещаемость', 'Attendance')}</div>
+                                                        <div className="text-[9px] font-black text-slate-400 tracking-[0.2em]">{l('დასწრება', 'Посещаемость', 'Attendance')}</div>
                                                         <div className="text-xl font-black text-slate-900">94.2%</div>
                                                     </div>
                                                 </div>
@@ -353,7 +353,7 @@ export default function LandingPage() {
                                                         <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
                                                             <TrendingUp className="w-4 h-4" />
                                                         </div>
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{l('აქტიური აბონემენტი', 'Активные планы', 'Active Plans')}</div>
+                                                        <div className="text-[10px] font-black text-slate-400 tracking-widest">{l('აქტიური აბონემენტი', 'Активные планы', 'Active Plans')}</div>
                                                     </div>
                                                     <div className="text-2xl font-black text-slate-900">856</div>
                                                     <div className="flex items-center gap-2 text-emerald-500 font-bold text-[10px]">
@@ -375,7 +375,7 @@ export default function LandingPage() {
                                                         <Users className="w-5 h-5" />
                                                     </div>
                                                     <div>
-                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{l('ახალი ლიდები', 'Новые лиды', 'New Leads')}</div>
+                                                        <div className="text-[9px] font-black text-slate-400 tracking-[0.2em]">{l('ახალი ლიდები', 'Новые лиды', 'New Leads')}</div>
                                                         <div className="text-xl font-black text-slate-900">+42</div>
                                                     </div>
                                                 </div>
@@ -393,7 +393,7 @@ export default function LandingPage() {
                                             <div className="bg-indigo-600 text-white p-3 md:p-4 rounded-[2rem] shadow-2xl animate-float-refined">
                                                 <div className="flex items-center gap-3 mb-2">
                                                     <Calendar className="w-4 h-4 opacity-60" />
-                                                    <div className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">{l('განრიგი', 'Расписание', 'Schedule')}</div>
+                                                    <div className="text-[9px] font-black tracking-[0.2em] opacity-60">{l('განრიგი', 'Расписание', 'Schedule')}</div>
                                                 </div>
                                                 <div className="space-y-2">
                                                     <div className="text-xs font-bold bg-white/10 px-2 py-1.5 rounded-lg border border-white/10">Yoga Class - 10:00</div>
@@ -422,7 +422,7 @@ export default function LandingPage() {
                 <section id="features" className="py-24 bg-white relative">
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="text-center space-y-4 mb-20">
-                            <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.mainFeatures}</h2>
+                            <h2 className="text-xs font-black text-indigo-600 tracking-[0.3em]">{t.mainFeatures}</h2>
                             <p className="text-4xl lg:text-5xl font-black text-slate-900">{t.allYourStudioNeeds}</p>
                         </div>
 
@@ -490,7 +490,7 @@ export default function LandingPage() {
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8 text-center lg:text-left">
-                                <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.navAbout}</h2>
+                                <h2 className="text-xs font-black text-indigo-600 tracking-[0.3em]">{t.navAbout}</h2>
                                 <h3 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight">
                                     {l('ციფრული მომავალი თქვენი სტუდიისთვის', 'Цифровое будущее вашей студии', 'The digital future for your studio')}
                                 </h3>
@@ -500,11 +500,11 @@ export default function LandingPage() {
                                 <div className="grid grid-cols-2 gap-6 pt-4 max-w-sm mx-auto lg:mx-0">
                                     <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
                                         <div className="text-3xl font-black text-indigo-600 mb-1">50+</div>
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{l('სტუდია', 'Студий', 'Studios')}</div>
+                                        <div className="text-[10px] font-black text-slate-400 tracking-widest">{l('სტუდია', 'Студий', 'Studios')}</div>
                                     </div>
                                     <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
                                         <div className="text-3xl font-black text-emerald-500 mb-1">99%</div>
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{l('კმაყოფილი', 'Довольных', 'Happy')}</div>
+                                        <div className="text-[10px] font-black text-slate-400 tracking-widest">{l('კმაყოფილი', 'Довольных', 'Happy')}</div>
                                     </div>
                                 </div>
                             </div>
@@ -517,7 +517,7 @@ export default function LandingPage() {
                                             {/* @ts-ignore */}
                                             {ICON_MAP[f.icon] ? React.createElement(ICON_MAP[f.icon], { className: "w-6 h-6" }) : <Star className="w-6 h-6" />}
                                         </div>
-                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">{f.title}</h4>
+                                        <h4 className="text-sm font-black text-slate-900 tracking-wider">{f.title}</h4>
                                     </div>
                                 ))}
 
@@ -536,7 +536,7 @@ export default function LandingPage() {
                         <div className="text-center mb-16 space-y-6">
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
                                 <span className="flex h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">{l('სისტემის მიმოხილვა', 'Обзор системы', 'System Overview')}</span>
+                                <span className="text-[10px] font-black tracking-widest text-indigo-300">{l('სისტემის მიმოხილვა', 'Обзор системы', 'System Overview')}</span>
                             </div>
                             <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight tracking-tight">
                                 {t.fullControl}
@@ -589,12 +589,12 @@ export default function LandingPage() {
                 <section id="pricing" className="py-24 bg-white relative">
                     <div className="max-w-7xl mx-auto px-6 text-center">
                         <div className="space-y-4 mb-20">
-                            <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.navPricing}</h2>
+                            <h2 className="text-xs font-black text-indigo-600 tracking-[0.3em]">{t.navPricing}</h2>
                             <p className="text-4xl lg:text-5xl font-black text-slate-900">{t.choosePlan}</p>
                         </div>
 
                         <div className="max-w-2xl mx-auto relative px-6 py-12 md:p-16 rounded-3xl md:rounded-[4rem] border border-slate-100 bg-slate-900 shadow-2xl overflow-hidden group hover:border-indigo-500/50 transition-all duration-500 text-left">
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-6 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full">{t.popular}</div>
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-6 py-2 bg-indigo-600 text-white text-[10px] font-black tracking-widest rounded-full">{t.popular}</div>
                             <div className="relative z-10 space-y-12">
                                 <div className="space-y-4">
                                     <h3 className="text-xl md:text-4xl font-black text-white">{l('სრული პაკეტი', 'Полный пакет', 'ClassCore Full')}</h3>
@@ -612,7 +612,7 @@ export default function LandingPage() {
                                         </div>
                                     ))}
                                 </div>
-                                <Link href="/registration" className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-black text-lg uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-3">
+                                <Link href="/registration" className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-black text-lg tracking-widest transition-all active:scale-95 flex items-center justify-center gap-3">
                                     {t.heroStartFree} <ChevronRight className="w-5 h-5" />
                                 </Link>
                             </div>
@@ -625,7 +625,7 @@ export default function LandingPage() {
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8">
-                                <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">{t.navContact}</h2>
+                                <h2 className="text-xs font-black text-indigo-600 tracking-[0.3em]">{t.navContact}</h2>
                                 <h3 className="text-4xl lg:text-5xl font-black text-slate-900">{l('დაგვიკავშირდით', 'Свяжитесь с нами', 'Get in Touch')}</h3>
                                 <div className="space-y-4 pt-4">
                                     <div className="flex items-center gap-4 text-slate-600 font-bold"><Globe className="w-5 h-5 text-indigo-500" /> support@classcore.ge</div>
@@ -639,7 +639,7 @@ export default function LandingPage() {
                                     <input type="text" placeholder={l('ტელეფონი', 'Телефон', 'Phone')} required className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                                 </div>
                                 <textarea rows={4} placeholder={l('შეტყობინება', 'Сообщение', 'Message')} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} />
-                                <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
+                                <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black tracking-widest hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
                                     {submitting ? '...' : l('გაგზავნა', 'Отправить', 'Send')}
                                 </button>
                                 {submitStatus === 'success' && <p className="text-center text-emerald-600 font-black text-sm">{l('წარმატებით გაიგზავნა', 'Отправлено успешно', 'Sent successfully')}</p>}
@@ -659,7 +659,7 @@ export default function LandingPage() {
                             </div>
                             <p className="text-slate-500 font-medium max-w-sm">© 2026 ClassCore. {t.allRightsReserved}</p>
                         </div>
-                        <div className="flex gap-12 text-sm font-black text-slate-400 uppercase tracking-widest">
+                        <div className="flex gap-12 text-sm font-black text-slate-400 tracking-widest">
                             <Link href="/privacy" className="hover:text-indigo-600">{l('კონფიდენციალურობა', 'Конфиденциальность', 'Privacy')}</Link>
                             <Link href="/terms" className="hover:text-indigo-600">{l('წესები და პირობები', 'Условия', 'Terms')}</Link>
                         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
     Search, Scan, CalendarCheck, Check, AlertTriangle, CheckCircle2,
     ChevronLeft, ChevronRight, Calendar, Clock, X, Plus, Edit2,
@@ -123,14 +123,14 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                         </div>
                         <div className="text-center mb-6">
                             <h2 className="text-2xl font-black text-primary tracking-tight">{data.studentName}</h2>
-                            {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendanceSheet} OK</p></>}
-                            {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 uppercase tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ {t.alreadyCheckedIn}</p>}
-                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest mt-2 bg-indigo-500/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
+                            {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendanceSheet} OK</p></>}
+                            {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ {t.alreadyCheckedIn}</p>}
+                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-indigo-600 tracking-widest mt-2 bg-indigo-500/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
                         </div>
 
                         {hasMultipleSubs && subscriptions && onSelectSub ? (
                             <div className="space-y-3 mb-6">
-                                <p className="text-[10px] font-black uppercase text-muted text-center opacity-40 tracking-widest">{t.selectSubscription}</p>
+                                <p className="text-[10px] font-black text-muted text-center opacity-40 tracking-widest">{t.selectSubscription}</p>
                                 <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                                     {subscriptions.map(s => {
                                         const rem = (s.sessions_total ?? 0) - (s.sessions_used ?? 0);
@@ -146,7 +146,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                                         {s.type === 'monthly' ? '∞' : rem}
                                                     </span>
                                                 </div>
-                                                <p className="text-[8px] font-bold text-muted opacity-40 uppercase mt-0.5">{s.expires_at}</p>
+                                                <p className="text-[8px] font-bold text-muted opacity-40 mt-0.5">{s.expires_at}</p>
                                             </button>
                                         );
                                     })}
@@ -298,6 +298,55 @@ export default function AttendancePage() {
         }
     }, [selectedStudent, drawerOpen]);
 
+    const getSubStatus = useCallback((studentId: string) => {
+        const todayStr = getLocalISODate();
+        const activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+        
+        let isExpired = !activeSub;
+        if (activeSub) {
+            const hasExpiredByDate = activeSub.expires_at < todayStr;
+            const hasUsedAllSessions = activeSub.type === 'sessions' && activeSub.sessions_total !== null && activeSub.sessions_used >= activeSub.sessions_total;
+            isExpired = hasExpiredByDate || hasUsedAllSessions;
+        }
+        
+        return { activeSub, isExpired };
+    }, [selClass]);
+
+    const cls = filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0] || ({} as CalendarEvent);
+
+    // 1. Get base students list
+    const students = useMemo(() => {
+        return getStudents()
+            .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
+            .filter(s => {
+                if (cls?.type === 'individual' || cls?.type === 'rental') return true;
+                if (cls?.group_id && s.enrolled_group_ids?.includes(cls.group_id)) return true;
+                return (s as any).classes?.includes(selectedClass);
+            });
+    }, [studentPatches, cls, selectedClass]);
+
+    // 2. Pre-calculate statuses for ALL visible students once
+    const studentStatuses = useMemo(() => {
+        const statuses: Record<string, { activeSub: any; isExpired: boolean }> = {};
+        students.forEach(s => {
+            statuses[s.id] = getSubStatus(s.id);
+        });
+        return statuses;
+    }, [students, getSubStatus]);
+
+    // 3. Filter and Sort using pre-calculated statuses
+    const filtered = useMemo(() => {
+        return students
+            .filter(s => !search || s.full_name.toLowerCase().includes(search.toLowerCase()))
+            .sort((a, b) => {
+                const expiredA = studentStatuses[a.id]?.isExpired;
+                const expiredB = studentStatuses[b.id]?.isExpired;
+                if (!expiredA && expiredB) return -1;
+                if (expiredA && !expiredB) return 1;
+                return (a.full_name || '').localeCompare(b.full_name || '');
+            });
+    }, [students, search, studentStatuses]);
+
     const handleQuickSell = (productId: string) => {
         const product = availableProducts.find(p => p.id === productId);
         if (!product || !selectedStudent) return;
@@ -329,34 +378,6 @@ export default function AttendancePage() {
         setQuickSellQty(1);
     };
 
-    const getSubStatus = useCallback((studentId: string) => {
-        const studentSubs = (subs[studentId] || []).filter(s => s.plan_type !== 'rental');
-        const todayStr = getLocalISODate();
-        const activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
-        const isExpired = !activeSub || activeSub.expires_at < todayStr || (activeSub.type === 'sessions' && activeSub.sessions_total !== null && activeSub.sessions_used >= activeSub.sessions_total);
-        return { activeSub, isExpired };
-    }, [subs, selClass]);
-
-    const cls = filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0] || ({} as CalendarEvent);
-
-    // Compute students list and merge patches
-    const students = getStudents()
-        .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
-        .filter(s => {
-            if (cls?.type === 'individual' || cls?.type === 'rental') return true;
-            if (cls?.group_id && s.enrolled_group_ids?.includes(cls.group_id)) return true;
-            return (s as any).classes?.includes(selectedClass);
-        });
-
-    const filtered = students
-        .filter(s => !search || s.full_name.toLowerCase().includes(search.toLowerCase()))
-        .sort((a, b) => {
-            const { isExpired: expiredA } = getSubStatus(a.id);
-            const { isExpired: expiredB } = getSubStatus(b.id);
-            if (!expiredA && expiredB) return -1;
-            if (expiredA && !expiredB) return 1;
-            return (a.full_name || '').localeCompare(b.full_name || '');
-        });
 
     // Merge patches into selected student data
     const selStudentRaw = selectedStudent ? students.find(s => s.id === selectedStudent) : null;
@@ -546,8 +567,9 @@ export default function AttendancePage() {
 
                             // Safe extraction to prevent flat structure fallback bugs
                             let tpl = t.smsTemplateExpiration;
-                            if (templates[prefLang] && typeof templates[prefLang] === 'object') {
-                                tpl = (templates[prefLang] as any).expiration_day_0 || tpl;
+                            const langTemplates = (templates as any)[prefLang];
+                            if (langTemplates && typeof langTemplates === 'object') {
+                                tpl = langTemplates.expiration_day_0 || tpl;
                             } else if (templates.ka && typeof templates.ka === 'object') {
                                 tpl = templates.ka.expiration_day_0 || tpl;
                             }
@@ -664,7 +686,7 @@ export default function AttendancePage() {
                                     <div className="w-6 h-6 rounded-md bg-indigo-500/10 flex items-center justify-center text-indigo-500 transition-colors group-hover:bg-indigo-500 group-hover:text-white ring-1 ring-indigo-500/20 flex-shrink-0">
                                         <Calendar className="w-3 h-3" />
                                     </div>
-                                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.05em]">{dateStr}</span>
+                                    <span className="text-[10px] font-black text-primary tracking-[0.05em]">{dateStr}</span>
                                     <input
                                         ref={dateInputRef}
                                         type="date"
@@ -701,7 +723,7 @@ export default function AttendancePage() {
                                         <div className="flex-1 flex items-center justify-center gap-2 cursor-pointer hover:bg-surface rounded-lg py-1 transition-colors relative group"
                                             onClick={() => dateInputRef.current?.showPicker()}>
                                             <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-70 group-hover:opacity-100 transition-opacity" />
-                                            <span className="text-xs font-black text-primary uppercase tracking-[0.05em]">{dateStr}</span>
+                                            <span className="text-xs font-black text-primary tracking-[0.05em]">{dateStr}</span>
                                             <input
                                                 ref={dateInputRef}
                                                 type="date"
@@ -720,7 +742,7 @@ export default function AttendancePage() {
                                         </button>
                                     </div>
                                 )}
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
+                                <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
                             </div>
                             <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-border-subtle">
                                 {mounted && filteredSchedule.map(s => {
@@ -751,7 +773,7 @@ export default function AttendancePage() {
                                             </div>
                                             <div className="flex items-center justify-between mt-3">
                                                 <span className={cn(
-                                                    'text-[9px] font-bold uppercase tracking-tight truncate max-w-[100px] transition-colors',
+                                                    'text-[9px] font-bold tracking-tight truncate max-w-[100px] transition-colors',
                                                     isActive ? 'text-white/60' : 'text-muted opacity-50'
                                                 )}>{getTeacherName(s.teacher_id)}</span>
                                                 {isCurrent && (
@@ -799,7 +821,7 @@ export default function AttendancePage() {
                                                         });
                                                         saveAttendance(n);
                                                         setTimeout(() => setSubs(getSubscriptions()), 20);
-                                                    }} className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[8px] font-black uppercase tracking-wider hover:bg-emerald-500/20 shadow-sm transition-colors">{t.markAllPresent}</button>
+                                                    }} className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[8px] font-black tracking-wider hover:bg-emerald-500/20 shadow-sm transition-colors">{t.markAllPresent}</button>
 
                                                     {hasAnyAtt && (
                                                         <button onClick={async () => {
@@ -815,7 +837,7 @@ export default function AttendancePage() {
                                                                 saveAttendance(n);
                                                                 setTimeout(() => setSubs(getSubscriptions()), 20);
                                                             });
-                                                        }} className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-[8px] font-black uppercase tracking-wider hover:bg-red-500/20 shadow-sm transition-colors ml-1">{t.deleteAttendance}</button>
+                                                        }} className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-[8px] font-black tracking-wider hover:bg-red-500/20 shadow-sm transition-colors ml-1">{t.deleteAttendance}</button>
                                                     )}
                                                 </>
                                             );
@@ -900,7 +922,7 @@ export default function AttendancePage() {
                                                             if (isExpired || (remaining !== null && remaining <= 0)) {
                                                                 return (
                                                                     <div className="flex flex-col items-end gap-1">
-                                                                        <span className="text-[7px] md:text-[8px] font-black uppercase tracking-tighter text-red-500 px-1.5 py-0.5 rounded-md border border-red-500/30 bg-red-500/10">
+                                                                        <span className="text-[7px] md:text-[8px] font-black tracking-tighter text-red-500 px-1.5 py-0.5 rounded-md border border-red-500/30 bg-red-500/10">
                                                                             {t.subscriptionExpired}
                                                                         </span>
                                                                     </div>
@@ -914,7 +936,7 @@ export default function AttendancePage() {
                                                             return (
                                                                 <div className="flex flex-col items-end">
                                                                     <span className={cn(
-                                                                        "text-[9px] font-black uppercase tracking-tighter opacity-70",
+                                                                        "text-[9px] font-black tracking-tighter opacity-70",
                                                                         diffDays <= 3 ? "text-red-500 opacity-100" : "text-muted"
                                                                     )}>
                                                                         {daysText}
@@ -935,7 +957,7 @@ export default function AttendancePage() {
                                                                     <>
                                                                         <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner"></div>
                                                                         <div className="flex flex-col items-end gap-1 min-w-[80px]">
-                                                                            <span className="text-[8px] font-black uppercase tracking-tighter text-red-500/60 flex items-center gap-1.5">
+                                                                            <span className="text-[8px] font-black tracking-tighter text-red-500/60 flex items-center gap-1.5">
                                                                                 {t.noSubscription}
                                                                                 {isSent && <span title={t.smsSent}><MessageSquare className="w-3 h-3 text-emerald-500 opacity-80" /></span>}
                                                                                 {isFailed && <span title={t.smsFailed}><X className="w-3 h-3 text-red-500 opacity-80" /></span>}
@@ -963,7 +985,7 @@ export default function AttendancePage() {
                                                                     </div>
                                                                     <div className="flex flex-col items-end gap-1 min-w-[80px]">
                                                                         <span className={cn(
-                                                                            "text-[9px] font-black uppercase tracking-tighter flex items-center gap-1.5",
+                                                                            "text-[9px] font-black tracking-tighter flex items-center gap-1.5",
                                                                             remaining <= 1 ? "text-red-500" : "text-muted opacity-60"
                                                                         )}>
                                                                             {remaining <= 0 || isExpired ? `0 ${t.visit}` : `${remaining} ${t.visits}`}
@@ -1011,7 +1033,7 @@ export default function AttendancePage() {
                                     );
                                 }) : (
                                     <div className="p-16 text-center">
-                                        <h3 className="text-sm font-black text-muted opacity-40 uppercase tracking-widest">{t.noData}</h3>
+                                        <h3 className="text-sm font-black text-muted opacity-40 tracking-widest">{t.noData}</h3>
                                     </div>
                                 )}
                             </div>
@@ -1142,7 +1164,7 @@ export default function AttendancePage() {
                                                             </div>
                                                             <div className="flex items-center gap-2 mt-0.5">
                                                                 <div className={cn("w-2 h-2 rounded-full animate-pulse", isExpired ? "bg-red-500" : "bg-emerald-500")} />
-                                                                <span className={cn("text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-tight", isExpired ? "text-red-500" : "text-emerald-600")}>
+                                                                <span className={cn("text-[8px] sm:text-[9px] font-black tracking-widest leading-tight", isExpired ? "text-red-500" : "text-emerald-600")}>
                                                                     {isExpired ? t.subscriptionExpired : activeSub?.status === 'active' ? t.active : t.expired}
                                                                 </span>
                                                             </div>
@@ -1154,7 +1176,7 @@ export default function AttendancePage() {
                                                         <div className="flex items-center justify-center gap-2">
                                                             <a
                                                                 href={`tel:${selStudent.phone}`}
-                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] uppercase tracking-wider"
+                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] tracking-wider"
                                                                 title={t.callStudent}
                                                             >
                                                                 <Phone className="w-3 h-3" />
@@ -1162,7 +1184,7 @@ export default function AttendancePage() {
                                                             </a>
                                                             <button
                                                                 onClick={() => setManualSmsOpen(true)}
-                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-sky-500/10 text-sky-600 border border-sky-500/20 hover:bg-sky-500 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] uppercase tracking-wider"
+                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-sky-500/10 text-sky-600 border border-sky-500/20 hover:bg-sky-500 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] tracking-wider"
                                                                 title="SMS"
                                                             >
                                                                 <MessageSquare className="w-3 h-3" />
@@ -1200,12 +1222,12 @@ export default function AttendancePage() {
 
                                                     <div className="grid grid-cols-2 gap-2 mt-4">
                                                         <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-indigo-500/30 transition-colors group">
-                                                            <p className="text-[9px] font-black text-muted uppercase tracking-[0.2em] opacity-40 mb-1 group-hover:text-indigo-500 transition-colors">{t.remaining}</p>
-                                                            <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1 uppercase">{t.visit}</span></p>
+                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-indigo-500 transition-colors">{t.remaining}</p>
+                                                            <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visit}</span></p>
                                                         </div>
                                                         <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-indigo-500/30 transition-colors group">
-                                                            <p className="text-[9px] font-black text-muted uppercase tracking-[0.2em] opacity-40 mb-1 group-hover:text-indigo-500 transition-colors">{t.expiryDate}</p>
-                                                            <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1 uppercase">{t.days}</span></p>
+                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-indigo-500 transition-colors">{t.expiryDate}</p>
+                                                            <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span></p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1221,7 +1243,7 @@ export default function AttendancePage() {
                                                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                             onClick={() => setTab(tab.id as any)}
                                                             className={cn(
-                                                                "flex-1 py-3 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all relative overflow-hidden",
+                                                                "flex-1 py-3 flex items-center justify-center gap-2 text-[9px] font-black tracking-widest transition-all relative overflow-hidden",
                                                                 activeTab === tab.id
                                                                     ? "text-indigo-600"
                                                                     : "text-muted opacity-50 hover:opacity-100"
@@ -1253,7 +1275,7 @@ export default function AttendancePage() {
                                                                                         <Clock className="w-2 h-2" />
                                                                                         {ch.time}
                                                                                     </span>
-                                                                                    <span className="text-[8px] font-black text-muted opacity-40 uppercase tracking-tighter">
+                                                                                    <span className="text-[8px] font-black text-muted opacity-40 tracking-tighter">
                                                                                         {cls.title}
                                                                                     </span>
                                                                                 </div>
@@ -1283,7 +1305,7 @@ export default function AttendancePage() {
                                                                     <div className="w-12 h-12 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center mx-auto mb-4">
                                                                         <Info className="w-5 h-5 text-muted/20" />
                                                                     </div>
-                                                                    <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.noData}</p>
+                                                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.noData}</p>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1306,26 +1328,26 @@ export default function AttendancePage() {
                                                                             <div className="flex justify-between items-start mb-2">
                                                                                 <div className="flex items-center gap-2">
                                                                                     <p className={cn(
-                                                                                        "text-[8px] font-black uppercase tracking-widest",
+                                                                                        "text-[8px] font-black tracking-widest",
                                                                                         isActive ? "text-emerald-500" : "text-muted"
                                                                                     )}>
                                                                                         {isExpired ? t.subscriptionExpired : sub.status === 'active' ? t.active : sub.status === 'paused' ? t.statusPaused : t.expired}
                                                                                     </p>
                                                                                     <div className="w-1 h-1 rounded-full bg-border-subtle" />
-                                                                                    <p className="text-[8px] font-bold text-muted opacity-40 uppercase tracking-tighter">
+                                                                                    <p className="text-[8px] font-bold text-muted opacity-40 tracking-tighter">
                                                                                         {sub.purchased_at}
                                                                                     </p>
                                                                                 </div>
                                                                                 {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                                                                             </div>
-                                                                            <p className="text-[11px] font-black text-primary uppercase leading-tight mb-2.5">{sub.plan}</p>
+                                                                            <p className="text-[11px] font-black text-primary leading-tight mb-2.5">{sub.plan}</p>
                                                                             <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-border-subtle/30">
                                                                                 <div>
-                                                                                    <p className="text-[7px] font-black text-muted uppercase tracking-widest opacity-40">{t.expiryDate}</p>
+                                                                                    <p className="text-[7px] font-black text-muted tracking-widest opacity-40">{t.expiryDate}</p>
                                                                                     <p className="text-[10px] font-black text-primary tabular-nums">{sub.expires_at || '—'}</p>
                                                                                 </div>
                                                                                 <div>
-                                                                                    <p className="text-[7px] font-black text-muted uppercase tracking-widest opacity-40">{t.balance}</p>
+                                                                                    <p className="text-[7px] font-black text-muted tracking-widest opacity-40">{t.balance}</p>
                                                                                     <p className="text-[10px] font-black text-primary tabular-nums">
                                                                                         {sub.sessions_total !== null ? `${sub.sessions_total - sub.sessions_used} / ${sub.sessions_total}` : '∞'}
                                                                                     </p>
@@ -1344,7 +1366,7 @@ export default function AttendancePage() {
                                                             {/* Sales History */}
                                                             <div className="space-y-3">
                                                                 <div className="flex items-center justify-between px-1">
-                                                                    <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.transactionHistory}</p>
+                                                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.transactionHistory}</p>
                                                                     <p className="text-[10px] font-black text-indigo-600 tabular-nums">{studentSales.length} {t.products}</p>
                                                                 </div>
                                                                 {studentSales.map((sale) => (
@@ -1357,13 +1379,13 @@ export default function AttendancePage() {
                                                                                 <p className="text-sm font-black text-primary leading-tight">{sale.productName}</p>
                                                                                 <div className="flex items-center gap-2 mt-1">
                                                                                     <span className="text-[10px] font-bold text-muted opacity-60">{sale.date}</span>
-                                                                                    <span className="text-[10px] font-black text-indigo-500/40 tracking-widest uppercase">{sale.quantity} ც.</span>
+                                                                                    <span className="text-[10px] font-black text-indigo-500/40 tracking-widest">{sale.quantity} ც.</span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
                                                                         <div className="text-right">
                                                                             <p className="text-sm font-black text-primary tabular-nums">{formatCurrency(sale.price, settings.currency)}</p>
-                                                                            <p className="text-[9px] font-bold text-muted opacity-40 uppercase">{sale.time || '12:00'}</p>
+                                                                            <p className="text-[9px] font-bold text-muted opacity-40">{sale.time || '12:00'}</p>
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -1372,7 +1394,7 @@ export default function AttendancePage() {
                                                                         <div className="w-12 h-12 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center mx-auto mb-4 opacity-50">
                                                                             <ShoppingCart className="w-6 h-6 text-muted/20" />
                                                                         </div>
-                                                                        <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40">{t.noData}</p>
+                                                                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.noData}</p>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -1386,14 +1408,14 @@ export default function AttendancePage() {
                                                         className="flex-1 flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
                                                     >
                                                         <PlusCircle className="w-4 h-4" />
-                                                        <span className="text-[8px] font-black uppercase tracking-tighter text-white/90">{t.issuePlan}</span>
+                                                        <span className="text-[8px] font-black tracking-tighter text-white/90">{t.issuePlan}</span>
                                                     </button>
                                                     <button
                                                         onClick={() => setFreezeModal(true)}
                                                         className="flex-1 flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl bg-surface border border-border-subtle text-muted hover:text-amber-500 hover:border-amber-500/30 transition-all active:scale-95"
                                                     >
                                                         <Clock className="w-4 h-4" />
-                                                        <span className="text-[8px] font-black uppercase tracking-tighter">{t.freeze}</span>
+                                                        <span className="text-[8px] font-black tracking-tighter">{t.freeze}</span>
                                                     </button>
                                                 </div>
                                             </>
@@ -1406,7 +1428,7 @@ export default function AttendancePage() {
                                         <Scan className="w-8 h-8 text-indigo-500 opacity-50" />
                                     </div>
                                     <p className="text-sm font-black text-primary tracking-tight">{t.scanCard}</p>
-                                    <p className="text-[10px] font-bold text-muted mt-2 max-w-[160px] leading-relaxed uppercase tracking-wider">{t.waitingForScan}</p>
+                                    <p className="text-[10px] font-bold text-muted mt-2 max-w-[160px] leading-relaxed tracking-wider">{t.waitingForScan}</p>
                                 </div>
                             )}
                         </div>
@@ -1458,7 +1480,7 @@ export default function AttendancePage() {
                                         ))}
                                     </div>
                                     <div className="flex gap-3">
-                                        <button onClick={() => setFreezeModal(false)} className="flex-1 h-12 rounded-2xl bg-surface border border-border-subtle font-black text-[11px] uppercase tracking-widest">{t.cancel}</button>
+                                        <button onClick={() => setFreezeModal(false)} className="flex-1 h-12 rounded-2xl bg-surface border border-border-subtle font-black text-[11px] tracking-widest">{t.cancel}</button>
                                         <button
                                             onClick={async () => {
                                                 if (!selStudent) return;
@@ -1476,7 +1498,7 @@ export default function AttendancePage() {
                                                 }
                                                 setFreezeModal(false);
                                             }}
-                                            className="flex-1 h-12 rounded-2xl bg-amber-500 text-white font-black text-[11px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                                            className="flex-1 h-12 rounded-2xl bg-amber-500 text-white font-black text-[11px] tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
                                         >
                                             {t.confirm}
                                         </button>

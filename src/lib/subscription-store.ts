@@ -27,7 +27,9 @@ export interface SubscriptionInfo {
 
 type SubMap = Record<string, SubscriptionInfo[]>;
 
-import { getScopedKey } from './settings-store';
+import { getStaffSession, loadSettings } from './settings-store';
+import { recordAuditAction } from './audit-store';
+import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate } from './utils';
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';
 const BASE_DELETED_SUBS_KEY = 'cc_deleted_subscriptions';
@@ -36,15 +38,16 @@ function getSubsKey() { return getScopedKey(BASE_SUBS_KEY); }
 function getDeletedSubsKey() { return getScopedKey(BASE_DELETED_SUBS_KEY); }
 
 // Initial mock data
-const INITIAL_SUBS: SubMap = {
-    'S-2051': [{ id: 'sub1', student_id: 'S-2051', plan: '12 გაკვეთილი', sessions_used: 7, sessions_total: 12, status: 'active', expires_at: '2026-03-15', purchased_at: '2026-02-15', type: 'sessions', teacher_comment: 'გააუმჯობესე პლასტიკა, ძალიან კარგად პროგრესირებ!' }],
-    'S-2052': [{ id: 'sub2', student_id: 'S-2052', plan: 'ყოველთვიური', sessions_used: 0, sessions_total: null, status: 'active', expires_at: '2026-02-25', purchased_at: '2026-01-25', type: 'monthly' }],
-    'S-2053': [{ id: 'sub3', student_id: 'S-2053', plan: '8 გაკვეთილი', sessions_used: 8, sessions_total: 8, status: 'expired', expires_at: '2026-02-10', purchased_at: '2026-01-10', type: 'sessions', teacher_comment: 'ველოდებით შემდეგ აბონემენტს!' }],
-    'S-2054': [{ id: 'sub4', student_id: 'S-2054', plan: '12 გაკვეთილი', sessions_used: 3, sessions_total: 12, status: 'active', expires_at: '2026-03-30', purchased_at: '2026-02-28', type: 'sessions' }],
-};
+const INITIAL_SUBS: SubMap = {};
+
+// --- Performance Caching ---
+let cachedSubs: SubMap | null = null;
+function clearCache() { cachedSubs = null; }
 
 export function getSubscriptions(): SubMap {
     if (typeof window === 'undefined') return INITIAL_SUBS;
+    if (cachedSubs) return cachedSubs;
+    
     try {
         const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
         const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
@@ -70,7 +73,8 @@ export function getSubscriptions(): SubMap {
         if (!saved) {
             data = isMainBranch ? JSON.parse(JSON.stringify(INITIAL_SUBS)) : {};
         } else {
-            data = JSON.parse(saved) || {};
+            const parsed = JSON.parse(saved);
+            data = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
         }
 
         // Filter out deleted IDs (including mock subs)
@@ -129,6 +133,7 @@ export function getSubscriptions(): SubMap {
             localStorage.setItem(getSubsKey(), JSON.stringify(data));
         }
 
+        cachedSubs = data;
         return data;
     } catch {
         return INITIAL_SUBS;
@@ -141,7 +146,14 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
         return;
     }
     const data = getSubscriptions();
+    clearCache();
     if (!data[studentId]) data[studentId] = [];
+    
+    // Ensure ID exists (AID + 10 digits)
+    if (!info.id) {
+        (info as any).id = `AID${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    }
+
     const idx = data[studentId].findIndex(s => s.id === info.id);
     if (idx > -1) {
         data[studentId][idx] = info;
@@ -149,6 +161,7 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
         data[studentId].push(info);
     }
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
+    markLocalUpdate();
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
 }
 
@@ -163,16 +176,35 @@ export function getStudentSubscriptions(studentId: string): SubscriptionInfo[] {
 export function getSubscription(
     studentId: string,
     groupId?: string,
-    planType?: 'group' | 'individual' | 'rental'
+    planType?: 'group' | 'individual' | 'rental',
+    includeExpiredWithSessions: boolean = false
 ): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
     const subs = getStudentSubscriptions(studentId);
     if (!Array.isArray(subs) || subs.length === 0) return null;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalISODate();
 
     // Priority 1: Filter by specific group/type if provided
-    let candidateSubs = subs.filter(s => s.status === 'active' && s.expires_at >= todayStr);
+    let candidateSubs = subs.filter(s => {
+        if (s.status === 'active' && s.expires_at >= todayStr) return true;
+        
+        // New logic for portal: Include expired if they have sessions left
+        if (includeExpiredWithSessions) {
+            const used = s.sessions_used || 0;
+            const total = s.sessions_total || 0;
+            return total > 0 && used < total;
+        }
+        return false;
+    });
+    
+    // Filter by planType if specified (group/individual/rental)
+    if (planType) {
+        candidateSubs = candidateSubs.filter(s => {
+            if (!s.plan_type) return planType === 'group'; // Default legacy to group
+            return s.plan_type === planType;
+        });
+    }
 
     // Filter and sort for auto-continuation
     const valid = candidateSubs.filter(s => {
@@ -209,7 +241,82 @@ export function setDefaultSubscription(studentId: string, subId: string): void {
             is_default: s.id === subId
         }));
         localStorage.setItem(getSubsKey(), JSON.stringify(all));
-        if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
+    markLocalUpdate();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
+    }
+}
+
+export function deleteSubscription(studentId: string, subId: string): void {
+    const data = getSubscriptions();
+    clearCache();
+    if (!data[studentId]) return;
+
+    const sub = data[studentId].find(s => s.id === subId);
+    if (!sub) return;
+
+    data[studentId] = data[studentId].filter(s => s.id !== subId);
+    if (data[studentId].length === 0) delete data[studentId]; // Remove student entry if no subscriptions left
+    localStorage.setItem(getSubsKey(), JSON.stringify(data));
+    markLocalUpdate();
+
+    // GLOBAL AUDIT LOG
+    const session = typeof window !== 'undefined' ? getStaffSession() : null;
+    const activeSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
+    if (activeSlug && sub) {
+        const settings = loadSettings(activeSlug);
+        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
+
+        recordAuditAction({
+            action: 'subscription_deleted',
+            details: `Subscription Deleted: ${sub.plan} (${sub.id})`, // Changed plan_name to plan
+            studentId,
+            branchId: settings.activeBranchId || 'main',
+            branchName,
+            performedBy: session?.staff.full_name || 'System'
+        });
+    }
+
+    // Persist deletion for mock data (to prevent it from reappearing on refresh)
+    const deletedKey = getDeletedSubsKey();
+    const deletedIds = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+    if (!deletedIds.includes(subId)) {
+        deletedIds.push(subId);
+        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    }
+
+    if (typeof window !== 'undefined') {
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // 1. Clear checkins logic for testing
+        const cKey = getScopedKey(`cc_checkins_${todayStr}`);
+        const cSaved = localStorage.getItem(cKey);
+        if (cSaved) {
+            try {
+                const cData = JSON.parse(cSaved);
+                const filtered = cData.filter((r: any) => r.studentId !== studentId);
+                localStorage.setItem(cKey, JSON.stringify(filtered));
+            } catch (e) { /* ignore */ }
+        }
+
+        // 2. Clear UI checkmarks
+        const archiveKey = getScopedKey('cc_attendance_archive');
+        const saved = localStorage.getItem(archiveKey);
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                if (data[todayStr]) {
+                    Object.keys(data[todayStr]).forEach(classId => {
+                        if (data[todayStr][classId][studentId]) {
+                            delete data[todayStr][classId][studentId];
+                        }
+                    });
+                    localStorage.setItem(archiveKey, JSON.stringify(data));
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        window.dispatchEvent(new Event('cc_subscription_update'));
+        window.dispatchEvent(new Event('cc_attendance_update')); // Custom trigger if needed
     }
 }
 
@@ -287,7 +394,7 @@ export function incrementSessionsUsed(studentId: string, subId?: string): Subscr
 
     if (!active) return null;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalISODate();
     if (active.expires_at < todayStr) {
         active.status = 'expired';
         saveSubscription(studentId, active);
@@ -329,57 +436,6 @@ export function refundSessionsUsed(studentId: string): SubscriptionInfo | null {
     return null;
 }
 
-export function deleteSubscription(studentId: string, subId: string): void {
-    const all = getSubscriptions();
-    if (all[studentId]) {
-        all[studentId] = all[studentId].filter(s => s.id !== subId);
-        if (all[studentId].length === 0) delete all[studentId];
-        localStorage.setItem(getSubsKey(), JSON.stringify(all));
-    }
-
-    // Persist deletion for mock data
-    const deletedKey = getDeletedSubsKey();
-    const deletedIds = JSON.parse(localStorage.getItem(deletedKey) || '[]');
-    if (!deletedIds.includes(subId)) {
-        deletedIds.push(subId);
-        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
-    }
-
-    if (typeof window !== 'undefined') {
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        // 1. Clear checkins logic for testing
-        const cKey = getScopedKey(`cc_checkins_${todayStr}`);
-        const cSaved = localStorage.getItem(cKey);
-        if (cSaved) {
-            try {
-                const cData = JSON.parse(cSaved);
-                const filtered = cData.filter((r: any) => r.studentId !== studentId);
-                localStorage.setItem(cKey, JSON.stringify(filtered));
-            } catch (e) { }
-        }
-
-        // 2. Clear UI checkmarks
-        const archiveKey = getScopedKey('cc_attendance_archive');
-        const saved = localStorage.getItem(archiveKey);
-        if (saved) {
-            try {
-                const data = JSON.parse(saved);
-                if (data[todayStr]) {
-                    Object.keys(data[todayStr]).forEach(classId => {
-                        if (data[todayStr][classId][studentId]) {
-                            delete data[todayStr][classId][studentId];
-                        }
-                    });
-                    localStorage.setItem(archiveKey, JSON.stringify(data));
-                }
-            } catch (e) { }
-        }
-
-        window.dispatchEvent(new Event('cc_subscription_update'));
-        window.dispatchEvent(new Event('cc_attendance_update')); // Custom trigger if needed
-    }
-}
 
 export function getSubscriptionStats() {
     const all = getSubscriptions();

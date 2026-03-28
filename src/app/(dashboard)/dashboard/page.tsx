@@ -7,7 +7,7 @@ import { getSubscription, getSubscriptions } from '@/lib/subscription-store';
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -102,7 +102,7 @@ function MiniCalendar({ t, selectedDate, rangeStart, rangeEnd, onSelect, onRange
                             </span>
                             <button
                                 onClick={() => onRangeSelect(null, null)}
-                                className="text-[9px] text-indigo-400/60 hover:text-indigo-300 font-bold uppercase tracking-tighter"
+                                className="text-[9px] text-indigo-400/60 hover:text-indigo-300 font-bold tracking-tighter"
                             >
                                 {t.clear || 'Clear Selection'}
                             </button>
@@ -110,7 +110,7 @@ function MiniCalendar({ t, selectedDate, rangeStart, rangeEnd, onSelect, onRange
                     ) : rangeStart && (
                         <button
                             onClick={() => onRangeSelect(null, null)}
-                            className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-tighter"
+                            className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold tracking-tighter"
                         >
                             {t.clear || 'Clear Selection'}
                         </button>
@@ -183,11 +183,6 @@ function MiniCalendar({ t, selectedDate, rangeStart, rangeEnd, onSelect, onRange
 
 // ─── Recent activity ────────────────────────────────────────────────────────
 
-// Activity feed items simplified
-const activityItems = (t: any) => [
-    { name: t.ninoBeridze, action: 'check-in', group: t.contemporaryDance, time: t.minAgo.replace('{n}', '10'), avatar: 'NB', color: 'from-violet-500 to-indigo-600' },
-    { name: t.giorgiKvirikashvili, action: 'subscription', group: t.threeMonthsPlan, time: t.minAgo.replace('{n}', '25'), avatar: 'GK', color: 'from-indigo-500 to-blue-600' },
-];
 
 function actionBadge(action: string, t: any) {
     if (action === 'check-in') return { label: t.checkInActivity, cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' };
@@ -199,14 +194,10 @@ function actionBadge(action: string, t: any) {
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-    const { t } = useT();
+    const { t, lang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const { settings } = useStudio();
     const { profile, user } = useUser();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [revenueRange, setRevenueRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [liveStats, setLiveStats] = useState({
@@ -366,10 +357,12 @@ export default function DashboardPage() {
         const checkins = getTodayCheckins();
         const sales = getSales();
 
-        // Merge activities
-        const activityList: { name: string; action: string; group: string; time: string; timestamp: number; avatar: string; color: string }[] = [];
+        const allStudents = getStudents();
+        const activeIds = new Set(allStudents.map(s => s.id));
+        const activityList: any[] = [];
 
         checkins.forEach((c: CheckinRecord) => {
+            if (!activeIds.has(c.studentId)) return;
             const name = c.studentName || t.studentLabelGeneric;
             activityList.push({
                 name: name,
@@ -383,6 +376,7 @@ export default function DashboardPage() {
         });
 
         sales.forEach((s: ShopSale) => {
+            if (s.studentId && !activeIds.has(s.studentId)) return;
             const name = s.studentName || t.clientLabelGeneric;
             const initials = name.trim().split(' ').map((n: string) => n[0] || '').join('').toUpperCase();
             activityList.push({
@@ -397,7 +391,7 @@ export default function DashboardPage() {
         });
 
         const sorted = activityList.sort((a, b) => b.timestamp - a.timestamp).slice(0, 8);
-        setLiveActivity(sorted.length > 0 ? sorted : activityItems(t));
+        setLiveActivity(sorted);
 
         // Load All Events for MiniCalendar dots
         import('@/lib/event-store').then(mod => {
@@ -646,22 +640,22 @@ export default function DashboardPage() {
 
 
             {/* Billing Expiration Notification */}
-            {billing?.plan === 'trial' && billing?.status === 'trial' && billing?.daysLeft <= 3 && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-[2rem] p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
-                    <div className="flex items-center gap-4 text-center sm:text-left">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
-                            <Zap className="w-6 h-6 fill-amber-500/30" />
+            {billing?.plan === 'trial' && billing?.status === 'trial' && (billing?.daysLeftInTrial ?? 0) <= 3 && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-2 sm:p-5 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
+                    <div className="flex items-center gap-2.5 sm:gap-4 text-center sm:text-left">
+                        <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
+                            <Zap className="w-3.5 h-3.5 sm:w-5 sm:h-5 fill-amber-500/30" />
                         </div>
                         <div>
-                            <h3 className="text-base font-black text-amber-700 uppercase tracking-tight">
+                            <h3 className="text-[11px] sm:text-[15px] font-black text-amber-700 tracking-tight">
                                 {t.trialEnding}
                             </h3>
-                            <p className="text-xs font-bold text-amber-600/80 mt-0.5">
-                                {t.trialEndingDesc.replace('{days}', String(billing.daysLeft))}
+                            <p className="text-[8px] sm:text-[11px] font-bold text-amber-600/70 mt-0.5 uppercase tracking-tighter">
+                                {t.trialEndingDesc.replace('{days}', String(billing.daysLeftInTrial))}
                             </p>
                         </div>
                     </div>
-                    <Link href="/billing" className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-2xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 uppercase tracking-widest">
+                    <Link href="/billing" className="w-full sm:w-auto text-center px-4 py-2 sm:px-6 sm:py-2.5 bg-amber-500 hover:bg-amber-600 text-[9px] sm:text-[11px] font-black text-white rounded-lg sm:rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 tracking-widest uppercase">
                         {t.billing}
                     </Link>
                 </div>
@@ -674,8 +668,20 @@ export default function DashboardPage() {
                         <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
                             {t.welcomeBack} {profile?.first_name || ''} 👋
                         </h1>
+                        {(isDemo || profile?.role === 'owner') && (
+                            <button
+                                onClick={async () => {
+                                    const { clearAllStudioData } = await import('@/lib/settings-store');
+                                    clearAllStudioData(settings.studioSlug);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-xl text-[10px] font-black tracking-widest transition-all animate-pulse"
+                            >
+                                <RefreshCcw className="w-3 h-3" />
+                                {l('სისტემის გასუფთავება (Reset)', 'Сброс системы', 'System Reset')}
+                            </button>
+                        )}
                         <span className={cn(
-                            "px-2 py-0.5 rounded-lg text-white text-[10px] font-black uppercase tracking-tighter shadow-lg animate-pulse",
+                            "px-2 py-0.5 rounded-lg text-white text-[10px] font-black tracking-tighter shadow-lg animate-pulse",
                             billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
                             billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
                             billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
@@ -684,8 +690,8 @@ export default function DashboardPage() {
                             {billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')}
                         </span>
                     </div>
-                    <p className="text-[10px] sm:text-xs text-muted font-black mt-1 uppercase tracking-[0.15em] opacity-40">
-                        {profile?.studio_name || 'ClassCore Studio'} · <span className="text-indigo-500">{dateStr}</span>
+                    <p className="text-[10px] sm:text-xs text-muted font-black mt-1 tracking-[0.15em] opacity-40">
+                        {profile?.studio_name || 'ClassCore Studio'} · <span suppressHydrationWarning className="text-indigo-500">{dateStr}</span>
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -699,117 +705,133 @@ export default function DashboardPage() {
             </div>
 
             {/* ─── Statistics ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch">
                 {/* 1. Student Dynamics (Active vs New/Churn) */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all overflow-hidden min-h-[280px]">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">{t.studentDynamicsMonth}</p>
-                    <PieChart
-                        size={130}
-                        thickness={14}
-                        data={[
-                            { label: t.activeLabel, value: liveStats.activeStudents, color: '#6366f1' },
-                            { label: t.newLabel, value: liveStats.newThisMonth, color: '#10b981' },
-                            { label: t.churnLabel, value: liveStats.churnThisMonth, color: '#ef4444' }
-                        ]}
-                        centerLabel={
-                            <div className="space-y-0.5 text-center">
-                                <span className="text-2xl font-black text-[#1e293b] dark:text-white block leading-none">{liveStats.activeStudents}</span>
-                                <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.activeLabel}</span>
-                            </div>
-                        }
-                    />
-                    <div className="mt-4 flex flex-wrap justify-center gap-3">
-                        <div className="flex items-center gap-1.5">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                    <div className="h-8 mb-3 flex items-start justify-center w-full">
+                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.studentDynamicsMonth}</p>
+                    </div>
+                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
+                        <PieChart
+                            size={90}
+                            thickness={10}
+                            data={[
+                                { label: t.activeLabel, value: liveStats.activeStudents, color: '#6366f1' },
+                                { label: t.newLabel, value: liveStats.newThisMonth, color: '#10b981' },
+                                { label: t.churnLabel, value: liveStats.churnThisMonth, color: '#ef4444' }
+                            ]}
+                            centerLabel={
+                                <div className="space-y-0.5 text-center">
+                                    <span className="text-xl font-black text-[#1e293b] dark:text-white block leading-none">{liveStats.activeStudents}</span>
+                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.activeLabel}</span>
+                                </div>
+                            }
+                        />
+                    </div>
+                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2">
+                        <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                            <p className="text-[9px] font-bold text-primary opacity-60 uppercase">{t.activeLabel}</p>
+                            <p className="text-[8px] font-bold text-primary opacity-60">{t.activeLabel}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[9px] font-bold text-emerald-500 uppercase">+{liveStats.newThisMonth}</p>
+                            <p className="text-[8px] font-bold text-emerald-500">+{liveStats.newThisMonth}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                            <p className="text-[9px] font-bold text-red-500 uppercase">-{liveStats.churnThisMonth}</p>
+                            <p className="text-[8px] font-bold text-red-500">-{liveStats.churnThisMonth}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* 2. Financial Overview (Revenue vs Debt) */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all relative overflow-hidden group min-h-[280px]">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">{t.financialOverview}</p>
-                    <PieChart
-                        size={130}
-                        thickness={14}
-                        data={[
-                            { label: t.revenue, value: liveStats.monthlyRevenue, color: '#10b981' },
-                            { label: t.debtLabel, value: liveStats.totalDebt, color: '#ef4444' }
-                        ]}
-                        centerLabel={
-                            <div className="space-y-0.5 text-center">
-                                <span className="text-xl font-black text-[#1e293b] dark:text-white block leading-none">{formatCurrency(liveStats.monthlyRevenue, settings.currency).split('.')[0]}</span>
-                                <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.income}</span>
-                            </div>
-                        }
-                    />
-                    <div className="mt-4 flex justify-center gap-4">
-                        <div className="flex items-center gap-1.5">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                    <div className="h-8 mb-3 flex items-start justify-center w-full">
+                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.financialOverview}</p>
+                    </div>
+                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
+                        <PieChart
+                            size={90}
+                            thickness={10}
+                            data={[
+                                { label: t.revenue, value: liveStats.monthlyRevenue, color: '#10b981' },
+                                { label: t.debtLabel, value: liveStats.totalDebt, color: '#ef4444' }
+                            ]}
+                            centerLabel={
+                                <div className="space-y-0.5 text-center">
+                                    <span className="text-lg font-black text-[#1e293b] dark:text-white block leading-none">{formatCurrency(liveStats.monthlyRevenue, settings.currency).split('.')[0]}</span>
+                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.income}</span>
+                                </div>
+                            }
+                        />
+                    </div>
+                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
+                        <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[9px] font-bold text-emerald-500 uppercase">{t.income}</p>
+                            <p className="text-[8px] font-bold text-emerald-500">{t.income}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                            <p className="text-[9px] font-bold text-red-500 uppercase">{t.debtLabel}</p>
+                            <p className="text-[8px] font-bold text-red-500">{t.debtLabel}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* 3. Subscription Status (Active vs Expiring) */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all overflow-hidden min-h-[280px]">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">{t.subscriptionStats}</p>
-                    <PieChart
-                        size={130}
-                        thickness={14}
-                        data={[
-                            { label: t.stable, value: Math.max(0, liveStats.activeSubs - liveStats.expiringSoon), color: '#10b981' },
-                            { label: t.expiring, value: liveStats.expiringSoon, color: '#f59e0b' }
-                        ]}
-                        centerLabel={
-                            <div className="space-y-0.5 text-center">
-                                <span className="text-2xl font-black text-primary block leading-none">{liveStats.activeSubs}</span>
-                                <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.statsTotal}</span>
-                            </div>
-                        }
-                    />
-                    <div className="mt-4 flex justify-center gap-4">
-                        <div className="flex items-center gap-1.5">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                    <div className="h-8 mb-3 flex items-start justify-center w-full">
+                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.subscriptionStats}</p>
+                    </div>
+                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
+                        <PieChart
+                            size={90}
+                            thickness={10}
+                            data={[
+                                { label: t.stable, value: Math.max(0, liveStats.activeSubs - liveStats.expiringSoon), color: '#10b981' },
+                                { label: t.expiring, value: liveStats.expiringSoon, color: '#f59e0b' }
+                            ]}
+                            centerLabel={
+                                <div className="space-y-0.5 text-center">
+                                    <span className="text-xl font-black text-primary block leading-none">{liveStats.activeSubs}</span>
+                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.statsTotal}</span>
+                                </div>
+                            }
+                        />
+                    </div>
+                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
+                        <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[9px] font-bold text-emerald-500 uppercase">{t.activeLabel}</p>
+                            <p className="text-[8px] font-bold text-emerald-500">{t.activeLabel}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <p className="text-[9px] font-bold text-amber-500 uppercase">{t.expiring}: {liveStats.expiringSoon}</p>
+                            <p className="text-[8px] font-bold text-amber-500">{t.expiring}: {liveStats.expiringSoon}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* 4. Attendance Rate */}
-                <div className="bg-card border border-border-subtle rounded-[2rem] p-5 flex flex-col items-center shadow-lg hover:shadow-xl transition-all overflow-hidden text-center min-h-[280px]">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4">{t.attendanceRate}</p>
-                    <GaugeChart
-                        size={130}
-                        thickness={14}
-                        value={liveStats.attendanceRateMonth}
-                        total={100}
-                        color="#8b5cf6"
-                        centerLabel={
-                            <div className="space-y-0.5 text-center">
-                                <span className="text-2xl font-black text-primary block leading-none">{liveStats.attendanceRateMonth}%</span>
-                                <span className="text-[9px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.average}</span>
-                            </div>
-                        }
-                    />
-                    <div className="mt-2 text-center">
-                        <p className="text-[9px] font-bold text-muted/60 uppercase tracking-widest">{t.thisMonthAverage}</p>
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                    <div className="h-8 mb-3 flex items-start justify-center w-full">
+                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.attendanceRate}</p>
+                    </div>
+                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
+                        <GaugeChart
+                            size={90}
+                            thickness={10}
+                            value={liveStats.attendanceRateMonth}
+                            total={100}
+                            color="#8b5cf6"
+                            centerLabel={
+                                <div className="space-y-0.5 text-center">
+                                    <span className="text-xl font-black text-primary block leading-none">{liveStats.attendanceRateMonth}%</span>
+                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.average}</span>
+                                </div>
+                            }
+                        />
+                    </div>
+                    <div className="mt-auto pt-2 text-center w-full">
+                        <p className="text-[8px] font-bold text-muted/60 tracking-widest">{t.thisMonthAverage}</p>
                     </div>
                 </div>
             </div>
@@ -835,47 +857,54 @@ export default function DashboardPage() {
 
                     {/* Quick actions */}
                     <div className="bg-card border border-border-subtle rounded-2xl p-4">
-                        <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-3">{t.quickActions}</p>
-                        <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-muted tracking-widest mb-3">{t.quickActions}</p>
+                        <div className="grid grid-cols-2 gap-2">
                             {[
                                 {
-                                    label: t.addStudent,
+                                    label: t.addStudentShort || 'კლიენტის ჩაწერა',
                                     icon: UserPlus,
                                     color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
                                     onClick: () => setShowAddStudent(true)
                                 },
                                 {
-                                    label: t.issuePlan,
-                                    icon: CreditCard,
+                                    label: t.attendance || 'დასწრება',
+                                    icon: CalendarCheck,
                                     color: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+                                    href: '/attendance'
+                                },
+                                {
+                                    label: t.issuePlan || 'აბონემენტი',
+                                    icon: CreditCard,
+                                    color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
                                     onClick: () => setShowIssueSub(true)
                                 },
                                 {
-                                    label: t.markAttendance,
-                                    icon: ClipboardList,
+                                    label: t.shop || 'მაღაზია',
+                                    icon: ShoppingBag,
                                     color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-                                    href: '/attendance'
+                                    href: '/shop'
                                 },
                             ].map((a, idx) => {
                                 const Icon = a.icon;
                                 const content = (
-                                    <>
-                                        <div className={`w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0 ${a.color}`}>
-                                            <Icon className="w-3.5 h-3.5" />
+                                    <div className="flex flex-col items-center justify-start p-3 gap-2 w-full h-full text-center">
+                                        <div className={`w-10 h-10 rounded-[1rem] border flex items-center justify-center flex-shrink-0 ${a.color} shadow-sm group-hover:scale-110 transition-transform`}>
+                                            <Icon className="w-5 h-5" />
                                         </div>
-                                        <span className="text-xs font-medium text-primary/60 group-hover:text-primary transition-colors flex-1 text-left">{a.label}</span>
-                                        <ArrowUpRight className="w-3.5 h-3.5 text-muted transition-colors" />
-                                    </>
+                                        <div className="flex flex-1 items-start justify-center mt-1">
+                                            <span className="text-[9px] sm:text-[10px] font-black tracking-wider text-primary/70 group-hover:text-primary transition-colors leading-tight">{a.label}</span>
+                                        </div>
+                                    </div>
                                 );
 
                                 return a.href ? (
-                                    <a key={idx} href={a.href}
-                                        className="flex w-full items-center gap-3 p-2.5 rounded-xl bg-surface hover:bg-surface/80 border border-border-subtle hover:border-border-subtle/20 transition-all group">
+                                    <Link key={idx} href={a.href}
+                                        className="flex flex-col h-full rounded-2xl bg-surface hover:bg-surface/80 border border-border-subtle hover:border-border-subtle/20 transition-all group overflow-hidden">
                                         {content}
-                                    </a>
+                                    </Link>
                                 ) : (
                                     <button key={idx} onClick={a.onClick}
-                                        className="flex w-full items-center gap-3 p-2.5 rounded-xl bg-surface hover:bg-surface/80 border border-border-subtle hover:border-border-subtle/20 transition-all group">
+                                        className="flex flex-col h-full rounded-2xl bg-surface hover:bg-surface/80 border border-border-subtle hover:border-border-subtle/20 transition-all group overflow-hidden">
                                         {content}
                                     </button>
                                 );
@@ -922,7 +951,7 @@ export default function DashboardPage() {
                                         <div className={`w-1 h-8 rounded-full flex-shrink-0`} style={{ backgroundColor: cls.color || '#6366f1' }} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-primary/75'}`}>{cls.title || t.unnamed}</p>
-                                            <p className="text-[11px] text-muted truncate">{(cls as any).teacherName || cls.teacher_id || t.teachers}</p>
+                                            <p className="text-[11px] text-muted truncate">{(cls as any).teacherName || getTeacherName((cls as any).teacher_id) || t.teacherRole || 'მასწავლებელი'}</p>
                                         </div>
                                         <div className="flex items-center gap-1.5 flex-shrink-0">
                                             <span className={`text-xs font-bold ${isCurrent ? 'text-emerald-400' : 'text-primary/40'}`}>{(cls as any).studentCount || 0}</span>
@@ -954,24 +983,32 @@ export default function DashboardPage() {
                         </a>
                     </div>
                     <div className="divide-y divide-border-subtle">
-                        {liveActivity.map((item, i) => {
-                            const badge = actionBadge(item.action, t);
-                            return (
-                                <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-surface transition-colors">
-                                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                                        <span className="text-[10px] font-bold text-white">{item.avatar}</span>
+                        {liveActivity.length > 0 ? (
+                            liveActivity.map((item, i) => {
+                                const badge = actionBadge(item.action, t);
+                                return (
+                                    <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-surface transition-colors">
+                                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                            <span className="text-[10px] font-bold text-white">{item.avatar}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-primary/85 truncate">{item.name}</p>
+                                            <p className="text-[11px] text-muted truncate">{item.group}</p>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${badge.cls}`}>{badge.label}</span>
+                                            <span className="text-[10px] text-muted">{item.time}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-primary/85 truncate">{item.name}</p>
-                                        <p className="text-[11px] text-muted truncate">{item.group}</p>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${badge.cls}`}>{badge.label}</span>
-                                        <span className="text-[10px] text-muted">{item.time}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })
+                        ) : (
+                            <div className="p-10 text-center">
+                                <p className="text-xs text-muted/40 font-medium">
+                                    {t.noActivityToday || 'აქტივობები არ არის'}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1009,7 +1046,7 @@ export default function DashboardPage() {
                             <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{isDemo ? '7' : Math.max(0, liveStats.activeStudents - liveStats.attendance)}</span></span>
                         </div>
                     </div>
-                    <div className="text-[10px] font-bold text-muted uppercase tracking-tight">
+                    <div className="text-[10px] font-bold text-muted tracking-tight">
                         {t.activeSubscriptions}: {isDemo ? '41' : liveStats.activeStudents}
                     </div>
                 </div>
@@ -1032,7 +1069,12 @@ export default function DashboardPage() {
                     open={showAddStudent}
                     centered={true}
                     onClose={() => setShowAddStudent(false)}
-                    onSave={() => setShowAddStudent(false)}
+                    onSave={(data) => {
+                        if (data.id) {
+                            updateStudent(data.id, data);
+                        }
+                        setShowAddStudent(false);
+                    }}
                 />
             )}
 
@@ -1042,7 +1084,15 @@ export default function DashboardPage() {
                     open={showIssueSub}
                     centered={true}
                     onClose={() => setShowIssueSub(false)}
-                    onIssue={() => setShowIssueSub(false)}
+                    onIssue={(data) => {
+                        import('@/lib/subscription-store').then(mod => {
+                            mod.saveSubscription(data.student_id, {
+                                ...data,
+                                id: `sub_${Date.now()}`
+                            } as any);
+                            setShowIssueSub(false);
+                        });
+                    }}
                 />
             )}
 
@@ -1054,7 +1104,7 @@ export default function DashboardPage() {
                             <Zap className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black tracking-tight">{mounted ? t.trialActive : ''}</h2>
+                            <h2 className="text-lg font-black tracking-tight">{t.trialActive}</h2>
                             <p className="text-sm font-medium text-white/80">
                                 {t.trialEndingDesc.replace('{days}', billing.daysLeftInTrial.toString())}
                             </p>

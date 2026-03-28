@@ -2,6 +2,159 @@
 
 export type OrgType = 'dance' | 'sports' | 'yoga' | 'fitness';
 
+export type ThemeKey = 'indigo' | 'violet' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'fuchsia';
+export type BgKey = 'charcoal' | 'midnight' | 'abyss' | 'forest' | 'white' | 'ivory' | 'cocoa';
+
+export type StaffRole = 'owner' | 'manager' | 'teacher';
+
+export interface StaffPermissions {
+    canViewAttendance: boolean;
+    canViewSubscriptions: boolean;
+    canViewStudents: boolean;
+    canViewCalendar: boolean;
+    canEditCalendar: boolean;
+    canViewGroups: boolean;
+    canViewTeachers: boolean;
+    canViewHalls: boolean;
+    canViewShop: boolean;
+    canViewAnalytics: boolean;
+    canViewSMS: boolean;
+    // Legacy / Admin
+    canAddStudents?: boolean;
+    canDeleteRecords?: boolean;
+    manageBilling?: boolean;
+    viewFinancials?: boolean;
+    manageInventory?: boolean;
+}
+
+export interface TrashItem {
+    id: string;
+    type: 'student' | 'subscription' | 'sale' | 'staff' | 'hall';
+    data: any;
+    branchId: string;
+    deletedAt: string;
+    deletedBy: string;
+}
+
+export interface SubscriptionLog {
+    id: string;
+    studentId: string;
+    studentName: string;
+    planName: string;
+    amount: number;
+    paymentMethod?: 'cash' | 'card' | 'transfer';
+    category?: string;
+    date: string;
+    issuedBy: string;
+    issuedByName?: string;
+    branchId: string;
+    branchName?: string;
+    groupName?: string;
+}
+
+export interface StaffMember {
+    id: string;
+    org_id: string;
+    full_name: string;
+    first_name?: string;
+    last_name?: string;
+    phone: string;
+    email?: string;
+    password?: string;
+    role: StaffRole | string;
+    permissions: StaffPermissions;
+    photo_url?: string;
+    allowedBranchIds?: string[];
+    // Teacher specific
+    specialty?: string[];
+    bio?: string;
+    rate_per_hour?: number;
+    rate_per_month?: number;
+    salary_percentage?: number;
+    assigned_group_ids?: string[];
+    assigned_individual?: boolean;
+    status: 'active' | 'on_leave' | 'inactive';
+    created_at: string;
+}
+
+export interface Branch {
+    id: string;
+    name: string;
+    address?: string;
+    is_active: boolean;
+    created_at?: string;
+}
+
+export interface StudioSettings {
+    orgId?: string;               // Persistent UUID for the studio
+    studioName: string;
+    studioSlug: string;
+    logoDataUrl: string | null;   // base64 image or null
+    currency: 'GEL' | 'USD' | 'EUR';
+    language: 'ka' | 'ru' | 'en';
+    timezone: string;
+    googleCalendarEnabled: boolean;
+    themeKey: ThemeKey;
+    bgKey: BgKey;
+    accentColor: string;          // CSS HSL value
+    notifications: {
+        newStudent: boolean;
+        lowSessions: boolean;
+        dailyReport: boolean;
+        telegramBot: boolean;
+        autoSms: boolean;
+    };
+    security: {
+        twoFactor: boolean;
+        sessionTimeout: number; // minutes
+    };
+    pausePrices: {
+        '7': number;
+        '14': number;
+        '30': number;
+        '60': number;
+    };
+    landingContent: {
+        heroTitle: string;
+        heroSubtitle: string;
+        features: Array<{ title: string; desc: string; icon: string }>;
+    };
+    sms_templates: {
+        ka: {
+            expiration_day_0: string;
+            birthday: string;
+            new_year: string;
+            easter: string;
+            march_8: string;
+            sept_1: string;
+        };
+        ru: {
+            expiration_day_0: string;
+            birthday: string;
+            new_year: string;
+            easter: string;
+            march_8: string;
+            sept_1: string;
+        };
+        en: {
+            expiration_day_0: string;
+            birthday: string;
+            new_year: string;
+            easter: string;
+            march_8: string;
+            sept_1: string;
+        };
+    };
+    cabinetCode?: string;
+    customRoles?: string[];
+    branches: Branch[];
+    staff: StaffMember[];
+    trash?: TrashItem[];
+    subscriptionLogs?: SubscriptionLog[];
+    // Non-synced / Local only
+    activeBranchId: string;
+}
+
 // ─── Hall / Room ────────────────────────────────────────────────
 export interface Hall {
     id: string;
@@ -33,6 +186,7 @@ export interface CalendarEvent {
     color?: string;
     notes?: string;
     recurring?: 'none' | 'weekly';
+    reminder_30m?: boolean;
     created_at: string;
 }
 
@@ -89,10 +243,14 @@ export interface Student {
     preferred_language?: 'ka' | 'ru' | 'en';
     // balance / credit (overpayments)
     balance?: number;
+    // notifications
+    sms_reminders?: boolean;
     // branch
     branch_id?: string;
     created_at: string;
 }
+
+export type StudentPatch = Partial<Student>;
 
 // ─── Group ─────────────────────────────────────────────────────
 export interface Group {

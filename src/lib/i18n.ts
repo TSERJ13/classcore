@@ -68,6 +68,7 @@ export interface Translations {
     todayAttendance: string;
     monthlyRevenue: string;
     recentActivity: string;
+    noActivityToday: string;
     quickActions: string;
     // Students
     addStudent: string;
@@ -98,6 +99,7 @@ export interface Translations {
     // Teachers
     addTeacher: string;
     teacherName: string;
+    noTeacher: string;
     teacherPhone: string;
     teacherPhoto: string;
     specialty: string;
@@ -135,8 +137,6 @@ export interface Translations {
     rental: string;
     trialStatus: string;
     minAgo: string;
-    ninoBeridze: string;
-    giorgiKvirikashvili: string;
     contemporaryDance: string;
     threeMonthsPlan: string;
     recurring: string;
@@ -165,6 +165,18 @@ export interface Translations {
     studentGrowth: string;
     attendanceRate: string;
     teacherLoad: string;
+    expenses: string;
+    rent: string;
+    electricity: string;
+    gas: string;
+    water: string;
+    cleaner: string;
+    accountant: string;
+    manager: string;
+    otherExpenses: string;
+    totalExpenses: string;
+    netProfit: string;
+    manageExpenses: string;
     exportExcel: string;
     exportPdf: string;
     // Auth
@@ -388,6 +400,7 @@ export interface Translations {
     deleteBranchPasswordConfirm: string;
     adminPasswordLabel: string;
     branchDeletedSuccessfully: string;
+    incorrectPassword: string;
     // Settings sections
     settingsOrg: string;
     settingsOrgDesc: string;
@@ -417,6 +430,10 @@ export interface Translations {
     congratulateThem: string;
     statusChanged: string;
     movedToInactive: string;
+    today: string;
+    myClass: string;
+    reminder: string;
+    week: string;
     smsSentTitle: string;
     sentReminder: string;
     studentLabelGeneric: string;
@@ -963,6 +980,16 @@ export interface Translations {
     oldLabel: string;
     leftLabel: string;
     thisMonthAve: string;
+    reminder30m: string;
+    qrCode: string;
+    hideQr: string;
+    showQr: string;
+    viewList: string;
+    viewDaily: string;
+    viewWeekly: string;
+    aiRevenueUp: string;
+    aiRevenueStable: string;
+    aiAnalysisReady: string;
 }
 
 
@@ -1007,13 +1034,13 @@ export const translations: Record<Lang, Translations> = {
         selectedPeriod: 'არჩეული პერიოდი',
         welcomeBack: 'მოგესალმებით,',
         active: 'აქტიური',
-        new: 'ახალი',
+        new: 'ახალი სტუდენტი',
         analytics: 'ანალიტიკა',
         todayIs: 'დღეს არის',
         monthOf: 'თვის ჭრილში',
         fromTo: 'პერიოდი',
         add: 'დამატება',
-        edit: 'ჩასწ.',
+        edit: 'ჩასწორება',
         delete: 'წაშლა',
         save: 'შენახვა',
         cancel: 'გაუქმება',
@@ -1034,36 +1061,38 @@ export const translations: Record<Lang, Translations> = {
         todayAttendance: 'დასწრება',
         monthlyRevenue: 'თვიური შემოსავალი',
         recentActivity: 'ბოლო აქტივობა',
+        noActivityToday: 'დღეს აქტივობები არ დაფიქსირებულა',
         quickActions: 'სწრაფი მოქმედებები',
         // Students
         addStudent: 'სტუდენტის დამატება',
         studentName: 'სახელი',
-        studentPhone: 'ტელ.',
+        studentPhone: 'ტელეფონი',
         studentGroup: 'ჯგუფი',
-        studentStatus: 'სტატ.',
-        lastVisit: 'ბოლო ვიზ.',
-        medicalCert: 'სამ. ცნობა',
-        partner: 'პარტნ.',
+        studentStatus: 'სტატუსი',
+        lastVisit: 'ბოლო ვიზიტი',
+        medicalCert: 'სამედიცინო ცნობა',
+        partner: 'პარტნიორი',
         danceStyle: 'სტილი',
-        allStudents: 'სულ სტუდ.',
+        allStudents: 'ყველა სტუდენტი',
         // Attendance
-        markAttendance: 'დასწრების მონიშვნა',
-        present: 'დამსწ.',
-        absent: 'არ დამსწ.',
-        selectDate: 'თარ. არჩ.',
-        selectGroup: 'ჯგ. არჩ.',
-        markAllPresent: 'ყველა დამსწ.',
-        attendanceSheet: 'სია',
+        markAttendance: 'დასწრების აღრიცხვა',
+        present: 'დამსწრე',
+        absent: 'არადამსწრე',
+        selectDate: 'თარიღის არჩევა',
+        selectGroup: 'ჯგუფის არჩევა',
+        markAllPresent: 'ყველას მონიშვნა (დამსწრე)',
+        attendanceSheet: 'დასწრების სია',
         notes: 'შენიშვნა',
-        clear: 'გასუფ.',
+        clear: 'გასუფთავება',
         // Statuses
         expired: 'ვადაგასული',
-        paused: 'შეჩ.',
-        inactive: 'არააქტ.',
-        onLeave: 'შვებ.',
+        paused: 'შეჩერებული',
+        inactive: 'არააქტიური',
+        onLeave: 'შვებულება',
         // Teachers
         addTeacher: 'მასწავლებლის დამატება',
         teacherName: 'მასწავლებლის სახელი',
+        noTeacher: 'მასწავლებელი არ არის',
         specialty: 'სპეციალობა',
         ratePerHour: 'ანაზღაურება საათში',
         ratePerMonth: 'ანაზღაურება თვეში',
@@ -1073,7 +1102,7 @@ export const translations: Record<Lang, Translations> = {
         academicStaff: 'აკადემიური პერსონალი',
         fullSchedule: 'სრული განრიგი',
         attendanceRecording: 'დასწრების აღრიცხვა',
-        capacityShort: 'ტევ',
+        capacityShort: 'ტევადობა',
         groupName: 'ჯგუფის სახელი',
         smsReminders: 'SMS შეხსენებები',
         studentPanel: 'სტუდენტის პანელი',
@@ -1101,39 +1130,49 @@ export const translations: Record<Lang, Translations> = {
         rental: 'იჯარა',
         trialStatus: 'საცდელი',
         minAgo: '{n} წუთის წინ',
-        ninoBeridze: 'ნინო ბერიძე',
-        giorgiKvirikashvili: 'გიორგი კვირიკაშვილი',
         contemporaryDance: 'Contemporary Dance',
         threeMonthsPlan: '3 თვიანი აბონემენტი',
-        recurring: 'გამ.',
-        oneTime: 'ერთჯ.',
-        everyWeek: 'ყ. კვ.',
+        recurring: 'განმეორებადი',
+        oneTime: 'ერთჯერადი',
+        everyWeek: 'ყოველ კვირას',
         // Hall Rental
-        addRental: 'ჯავშ. დამ.',
+        addRental: 'ჯავშნის დამატება',
         rentalType: 'ტიპი',
-        hourly: 'საათ.',
-        multiDay: 'მრ. დღ.',
-        monthly: 'თვ.',
-        totalRevenue: 'სულ შემ.',
-        paidAmount: 'გადახ.',
+        hourly: 'საათობრივი',
+        multiDay: 'მრავალდღიანი',
+        monthly: 'ყოველთვიური',
+        totalRevenue: 'სრული შემოსავალი',
+        paidAmount: 'გადახდილი თანხა',
         // Subscriptions
-        addPlan: 'გეგ. დამ.',
-        planName: 'გეგ. სახ.',
+        addPlan: 'გეგმის დამატება',
+        planName: 'გეგმის სახელი',
         price: 'ფასი',
-        sessions: 'სეს.',
-        validDays: 'ვალ. დღ.',
+        sessions: 'სესიები',
+        validDays: 'ვადა (დღეები)',
         // Analytics
         revenue: 'შემოსავალი',
-        revenueBySource: 'შემ. წყ.',
-        studentGrowth: 'სტ. ზრდა',
-        attendanceRate: 'დასწრება',
-        teacherLoad: 'მასწ. ტვ.',
-        exportExcel: 'Excel',
-        exportPdf: 'PDF',
+        revenueBySource: 'შემოსავალი წყაროების მიხედვით',
+        studentGrowth: 'სტუდენტების ზრდა',
+        attendanceRate: 'დასწრების მაჩვენებელი',
+        expenses: 'ხარჯები',
+        rent: 'ქირა',
+        electricity: 'დენი',
+        gas: 'გაზი',
+        water: 'წყალი',
+        cleaner: 'დამლაგებელი',
+        accountant: 'ბუღალტერი',
+        manager: 'მენეჯერი',
+        otherExpenses: 'სხვა ხარჯები',
+        totalExpenses: 'სულ ხარჯები',
+        netProfit: 'წმინდა მოგება',
+        manageExpenses: 'ხარჯების მართვა',
+        teacherLoad: 'მასწავლებლის დატვირთვა',
+        exportExcel: 'Excel ექსპორტი',
+        exportPdf: 'PDF ექსპორტი',
         // Auth
-        login: 'შესვლა',
-        logout: 'გამოს.',
-        email: 'ელ. ფოსტა',
+        login: 'ავტორიზაცია',
+        logout: 'გამოსვლა',
+        email: 'ელექტრონული ფოსტა',
         password: 'პაროლი',
         signIn: 'სისტემაში შესვლა',
         telegramLogin: 'Telegram-ით',
@@ -1180,7 +1219,7 @@ export const translations: Record<Lang, Translations> = {
         callStudent: 'დარეკვა',
         sms: 'SMS',
         balance: 'ბალანსი',
-        issuePlan: 'მომსახურება',
+        issuePlan: 'აბონემენტი',
         freeze: 'შეჩერება',
         freezePrompt: 'რამდენი დღით გსურთ გაგრძელება?',
         confirm: 'დადასტურება',
@@ -1222,7 +1261,7 @@ export const translations: Record<Lang, Translations> = {
         billingEnterprise: 'Enterprise',
         billingContact: 'კავშირი',
         billingF150: '150 სტუდენტამდე',
-        billingFSubs: 'აბონიმენტის მართვა',
+        billingFSubs: 'აბონემენტის მართვა',
         billingFAtt: 'დასწრება',
         billingFApp: 'მობილური აპლ.',
         billingFAdmin: 'ადმინი',
@@ -1253,8 +1292,8 @@ export const translations: Record<Lang, Translations> = {
         paymentSuccess: 'წარმატებით განახლდა!',
         paymentProcessing: 'მუშავდება...',
         // Dates
-        monday: 'ორშ.', tuesday: 'სამ.', wednesday: 'ოთხ.', thursday: 'ხუთ.', friday: 'პარ.', saturday: 'შაბ.', sunday: 'კვ.',
-        jan: 'იანვარი', feb: 'თებერვალი', mar: 'მარტი', apr: 'აპრილი', may: 'მაისი', jun: 'ივნისი', jul: 'ივლისი', aug: 'აგვისტო', sep: 'სექტემბერი', oct: 'ოქტომბერი', nov: 'ნოემბერი', dec: 'დეკ',
+        monday: 'ორშაბათი', tuesday: 'სამშაბათი', wednesday: 'ოთხშაბათი', thursday: 'ხუთშაბათი', friday: 'პარასკევი', saturday: 'შაბათი', sunday: 'კვირა',
+        jan: 'იანვარი', feb: 'თებერვალი', mar: 'მარტი', apr: 'აპრილი', may: 'მაისი', jun: 'ივნისი', jul: 'ივლისი', aug: 'აგვისტო', sep: 'სექტემბერი', oct: 'ოქტომბერი', nov: 'ნოემბერი', dec: 'დეკემბერი',
         // Portal extra
         assignedId: 'მონიჭებული ID',
         purchasedLessons: 'შეძენილი გაკვეთილები',
@@ -1291,14 +1330,14 @@ export const translations: Record<Lang, Translations> = {
         administration: 'ადმინისტრაცია',
         yourGroups: 'თქვენი ჯგუფები',
         privateChat: 'შიდა ჩატი',
-        groupChat: 'ჯგუფური ჩატი',
+        groupChat: 'ჯგუფები',
         chatWelcome: 'მოგვწერეთ ნებისმიერ დროს. ადმინისტრატორი გიპასუხებთ სამუშაო საათებში.',
         bookingRequest: 'ჯავშნის მოთხოვნა',
         confirmed: 'დადასტურებულია',
         techSupport: 'ტექნიკური მხარდაჭერა',
         newBranch: 'ახალი ფილიალი',
         enterBranchName: 'შეიყვანეთ ახალი ფილიალის სახელი მის დასამატებლად.',
-        branchNamePlaceholder: 'ფილიალის სახელი',
+        branchNamePlaceholder: 'ფილიალის დასახელება',
         privateLabel: 'პირადი',
         groupLabel: 'ჯგუფური',
         chatStartHint: 'კავშირი დამყარებულია. გააგზავნეთ შეტყობინება დასაწყებად.',
@@ -1322,7 +1361,7 @@ export const translations: Record<Lang, Translations> = {
         teacherPhoto: 'მასწავლებლის ფოტო',
         // Attendance extra
         recentAttendance: 'ბოლო დასწრებები',
-        subscriptionHistory: 'შეძენილი აბონიმენტები',
+        subscriptionHistory: 'შეძენილი აბონემენტები',
         productHistory: 'შეძენილი პროდუქტები',
         removeFromGroup: 'ჯგუფიდან ამოშლა',
         transferGroup: 'სხვა ჯგუფში გადაყვანა',
@@ -1337,24 +1376,24 @@ export const translations: Record<Lang, Translations> = {
         lastNamePlaceholder: 'ბერიძე',
         passportExpiry: 'პასპორტის ვადა',
         unitPcs: 'ც.',
-        totalTeachersShort: 'სულ მასწ.',
-        indSessionsShort: 'ინდ. სეს.',
+        totalTeachersShort: 'სულ მასწავლებელი',
+        indSessionsShort: 'ინდივიდუალური სესიები',
         groupsShort: 'ჯგუფები',
-        activeStudentsShort: 'სტუდენტი',
-        fillRateShort: 'შევსება',
+        activeStudentsShort: 'აქტიური სტუდენტები',
+        fillRateShort: 'შევსების მაჩვენებელი',
         teacherSearchPlaceholder: 'სახელი, სპეციალობა...',
-        perHourShort: 'სთ',
-        perMonthShort: 'თვე',
-        shareShort: 'წილი',
+        perHourShort: 'საათში',
+        perMonthShort: 'თვეში',
+        shareShort: 'პროცენტული წილი',
         percentageShort: 'პროცენტული',
-        indSessionShort: 'ინდ. გაკვეთილი',
+        indSessionShort: 'ინდივიდუალური გაკვეთილი',
         statsTotal: 'ჯამში',
         statsActive: 'აქტიური',
         statsExpired: 'ვადაგასული',
         statsNewThisMonth: 'ამ თვეში',
         searchStudentPlaceholder: 'სტუდენტის ძებნა...',
         priceManagement: 'ფასების მართვა',
-        priceManagementDesc: 'აბონიმენტების ფასები და მართვა',
+        priceManagementDesc: 'აბონემენტების ფასები და მართვა',
         activeSubs: 'აქტიური აბონემენტები',
         typeLabel: 'ტიპი',
         sessionCountLabel: 'რაოდენობა',
@@ -1364,7 +1403,7 @@ export const translations: Record<Lang, Translations> = {
         monthlyShortLabel: 'ყოველთვიური',
         unlimitedShortLabel: 'შეუზღუდავი',
         pauseMgmt: 'შეჩერების მართვა',
-        pausePricesDesc: 'რა ღირს აბონიმენტის შეჩერება/გაყინვა დასვენების დღეებში?',
+        pausePricesDesc: 'რა ღირს აბონემენტის შეჩერება/გაყინვა დასვენების დღეებში?',
         // Shop
         shop: 'მაღაზია',
         inventory: 'მარაგი',
@@ -1377,7 +1416,7 @@ export const translations: Record<Lang, Translations> = {
         otherCustomer: 'სხვა კლიენტი',
         unknownClient: 'უცნობი',
         productTitle: 'დასახელება',
-        stockValue: 'რაოდენობა',
+        stockValue: 'მარაგის რაოდენობა',
         categoryShoes: 'ფეხსაცმელი',
         categoryClothing: 'ტანსაცმელი',
         categoryAccessories: 'აქსესუარები',
@@ -1389,14 +1428,14 @@ export const translations: Record<Lang, Translations> = {
         noSalesRecorded: 'გაყიდვები არ ფიქსირდება',
         // Analytics
         totalSalaries: 'სულ ხელფასები',
-        salaryCalculation: 'ხელფასების გამოთვლა',
-        pendingAmount: 'გასაცემი',
+        salaryCalculation: 'ხელფასების გამოანგარიშება',
+        pendingAmount: 'გასაცემი თანხა',
         teacherTable: 'მასწავლებელი',
         typeTable: 'ტიპი',
         volumeTable: 'მოცულობა',
         bonusTable: 'ბონუსი',
         statusTable: 'სტატუსი',
-        salaryEmpty: 'ხელფასების მონაცემები ცარიელია',
+        salaryEmpty: 'ხელფასების მონაცემები არ არის',
         popularGroups: 'პოპულარული ჯგუფები',
         growthTable: 'ზრდა',
         selectColor: 'ფერის არჩევა',
@@ -1404,7 +1443,7 @@ export const translations: Record<Lang, Translations> = {
         groupsEmpty: 'ჯგუფების მონაცემები ცარიელია',
         // SMS
         revenueOverview: 'შემოსავლების მიმოხილვა',
-    attendanceRateShort: 'დასწრება',
+    attendanceRateShort: 'დასწრების მაჩვენებელი',
     smsManager: 'SMS მენეჯერი',
         smsManagerDesc: 'მართეთ ავტომატური შეტყობინებების ტექსტები და სტატისტიკა.',
         manageTexts: 'ტექსტების მართვა',
@@ -1439,7 +1478,7 @@ export const translations: Record<Lang, Translations> = {
         studiosCount: 'სულ სტუდიები',
         revenueGrowth: 'ზრდა',
         newClients: 'ახალი კლიენტები',
-        churnedClients: 'დაკარგული კლიენტები',
+        churnedClients: 'კლიენტების გადინება',
         // Footer & Info
         cityBatumi: 'ბათუმი',
         phoneLabel: 'ტელ. ნომერი',
@@ -1449,7 +1488,7 @@ export const translations: Record<Lang, Translations> = {
         subscriptionVisits: 'ვიზიტები',
         subscriptionMonthly: 'თვიური',
         subscriptionStats: 'ამ თვის სტატისტიკა',
-        activeSubscriptionsList: 'აქტიური აბონიმენტების სია',
+        activeSubscriptionsList: 'აქტიური აბონემენტების სია',
         popular: 'რეკომენდებული',
         // Landing
         navFeatures: 'ფუნქციები',
@@ -1524,8 +1563,8 @@ export const translations: Record<Lang, Translations> = {
         specBreakdance: 'ბრეიქდანსი',
         specYoga: 'იოგა',
         specOther: 'სხვა',
-        closedShort: 'დახ.',
-        spotsShort: 'ადგ.',
+        closedShort: 'დახურული',
+        spotsShort: 'ადგილი',
         // HallModal extra
         editHall: 'დარბაზის ჩასწ.',
         newHall: 'ახალი დარბაზი',
@@ -1787,7 +1826,7 @@ export const translations: Record<Lang, Translations> = {
         allowedBranches: 'ნებადართული ფილიალები',
         canEditCalendar: 'კალენდრის რედაქტირების უფლება',
         permViewAttendance: 'დასწრება',
-        permViewSubscriptions: 'აბონიმენტები',
+        permViewSubscriptions: 'აბონემენტები',
         permViewStudents: 'სტუდენტები',
         permViewCalendar: 'კალენდარი',
         permEditCalendar: 'კალენდრის რედაქტირება',
@@ -1823,7 +1862,7 @@ export const translations: Record<Lang, Translations> = {
         notFoundCloud: 'არ მოიძებნა',
         checkingStatus: 'მოწმდება...',
         forceSyncAction: 'სინქრონიზაციის იძულება',
-        syncSuccess: 'მონაცემები წარმატებით აიტვირთა',
+        syncSuccess: 'მონაცემები წარმატებით აიტვირთვა',
         registrationLink: 'რეგისტრაციის ლინკი',
         registrationLinkDesc: 'კლიენტის სარეგისტრაციო ლინკი',
         colorThemes: 'ფერთა პალიტრა',
@@ -1905,6 +1944,7 @@ export const translations: Record<Lang, Translations> = {
         deleteBranchPasswordConfirm: 'ფილიალის წასაშლელად შეიყვანეთ ადმინისტრატორის პაროლი დასადასტურებლად.',
         adminPasswordLabel: 'ადმინისტრატორის პაროლი',
         branchDeletedSuccessfully: 'ფილიალი წარმატებით წაიშალა',
+        incorrectPassword: 'პაროლი არასწორია',
         // Branches
         selectBranch: 'აირჩიეთ ფილიალი',
         branchLabel: 'ფილიალი',
@@ -1926,6 +1966,20 @@ export const translations: Record<Lang, Translations> = {
         oldLabel: 'ძველი',
         leftLabel: 'წავიდა',
         thisMonthAve: 'ამ თვის საშუალო',
+        today: 'დღეს',
+        myClass: 'ჩემი',
+        reminder30m: 'შეტყობინება 30 წუთით ადრე',
+        qrCode: 'QR კოდი',
+        hideQr: 'დამალვა',
+        showQr: 'ჩვენება',
+        viewList: 'სია',
+        viewDaily: 'დღიური',
+        viewWeekly: 'კვირა',
+        aiRevenueUp: 'თქვენი შემოსავალი გაიზარდა {percent}%-ით. დეტალებისთვის დააჭირეთ ღილაკს.',
+        aiRevenueStable: 'შემოსავალი სტაბილურია. გირჩევთ ახალი ჯგუფების გახსნას.',
+        aiAnalysisReady: 'AI ანალიზი მზად არის',
+        reminder: 'შეხსენება',
+        week: 'კვირა',
     },
     ru: {
         // Nav core
@@ -1994,6 +2048,7 @@ export const translations: Record<Lang, Translations> = {
         todayAttendance: 'Сегодняшняя посещаемость',
         monthlyRevenue: 'Ежемесячный доход',
         recentActivity: 'Последняя активность',
+        noActivityToday: 'Сегодня активности не зафиксировано',
         quickActions: 'Быстрые действия',
         // Students
         addStudent: 'Доб. ученика',
@@ -2012,7 +2067,7 @@ export const translations: Record<Lang, Translations> = {
         absent: 'Отсут.',
         selectDate: 'Дата',
         selectGroup: 'Группа',
-        markAllPresent: 'Все присут.',
+        markAllPresent: 'Все присутствие',
         attendanceSheet: 'Журнал',
         notes: 'Примечание',
         clear: 'Очистить',
@@ -2023,6 +2078,7 @@ export const translations: Record<Lang, Translations> = {
         onLeave: 'Отпуск',
         // Teachers
         addTeacher: 'Доб. препод.',
+        noTeacher: 'Преподаватель не назначен',
         teacherName: 'Имя преподавателя',
         teacherPhone: 'Телефон преподавателя',
         teacherPhoto: 'Фото преподавателя',
@@ -2066,8 +2122,6 @@ export const translations: Record<Lang, Translations> = {
         rental: 'Аренда',
         trialStatus: 'Пробная версия',
         minAgo: '{n} минут назад',
-        ninoBeridze: 'Нино Беридзе',
-        giorgiKvirikashvili: 'Георгий Квирикашвили',
         contemporaryDance: 'Контемпорари',
         threeMonthsPlan: '3-месячный план',
         recurring: 'Повторяющееся',
@@ -2092,6 +2146,18 @@ export const translations: Record<Lang, Translations> = {
         revenueBySource: 'По источн.',
         studentGrowth: 'Рост уч.',
         attendanceRate: 'Посещаемость',
+        expenses: 'Расходы',
+        rent: 'Аренда',
+        electricity: 'Электричество',
+        gas: 'Газ',
+        water: 'Вода',
+        cleaner: 'Уборка',
+        accountant: 'Бухгалтер',
+        manager: 'Менеджер',
+        otherExpenses: 'Другие расходы',
+        totalExpenses: 'Всего расходов',
+        netProfit: 'Чистая прибыль',
+        manageExpenses: 'Управление расходами',
         teacherLoad: 'Нагрузка',
         exportExcel: 'Excel',
         exportPdf: 'PDF',
@@ -2860,6 +2926,7 @@ export const translations: Record<Lang, Translations> = {
         removeStaffAction: 'Удалить сотрудника',
         deleteBranchPasswordConfirm: 'Для удаления филиала введите пароль администратора для подтверждения.',
         adminPasswordLabel: 'Пароль администратора',
+        incorrectPassword: 'Неверный пароль',
         branchDeletedSuccessfully: 'Филиал успешно удален',
         newPasswordLabel: 'Новый пароль',
         confirmPasswordLabel: 'Повторите пароль',
@@ -2885,6 +2952,20 @@ export const translations: Record<Lang, Translations> = {
         oldLabel: 'Старые',
         leftLabel: 'Ушли',
         thisMonthAve: 'В этом месяце',
+        today: 'Сегодня',
+        myClass: 'Мой',
+        reminder30m: 'Напоминание за 30 минут',
+        qrCode: 'QR Код',
+        hideQr: 'Скрыть',
+        showQr: 'Показать',
+        viewList: 'Список',
+        viewDaily: 'Дневной',
+        viewWeekly: 'Неделя',
+        aiRevenueUp: 'Ваш доход вырос на {percent}%. Нажмите для подробностей.',
+        aiRevenueStable: 'Доход стабилен. Рекомендуем открыть новые группы.',
+        aiAnalysisReady: 'AI анализ готов',
+        reminder: 'Напоминание',
+        week: 'Неделя',
     },
     en: {
         // Nav core
@@ -2953,6 +3034,7 @@ export const translations: Record<Lang, Translations> = {
         todayAttendance: "Today's Attendance",
         monthlyRevenue: 'Monthly Revenue',
         recentActivity: 'Recent Activity',
+        noActivityToday: 'No activities recorded today',
         quickActions: 'Quick Actions',
         // Students
         addStudent: 'Add Student',
@@ -2983,6 +3065,7 @@ export const translations: Record<Lang, Translations> = {
         // Teachers
         addTeacher: 'Add Teacher',
         teacherName: 'Teacher Name',
+        noTeacher: 'No Teacher',
         teacherPhone: 'Teacher Phone',
         teacherPhoto: 'Teacher Photo',
         specialty: 'Specialty',
@@ -3025,8 +3108,6 @@ export const translations: Record<Lang, Translations> = {
         rental: 'Rental',
         trialStatus: 'Trial Version',
         minAgo: '{n} minutes ago',
-        ninoBeridze: 'Nino Beridze',
-        giorgiKvirikashvili: 'Giorgi Kvirikashvili',
         contemporaryDance: 'Contemporary',
         threeMonthsPlan: '3 Months Plan',
         recurring: 'Recurring',
@@ -3051,6 +3132,18 @@ export const translations: Record<Lang, Translations> = {
         revenueBySource: 'By Source',
         studentGrowth: 'Growth',
         attendanceRate: 'Attendance',
+        expenses: 'Expenses',
+        rent: 'Rent',
+        electricity: 'Electricity',
+        gas: 'Gas',
+        water: 'Water',
+        cleaner: 'Cleaner',
+        accountant: 'Accountant',
+        manager: 'Manager',
+        otherExpenses: 'Other Expenses',
+        totalExpenses: 'Total Expenses',
+        netProfit: 'Net Profit',
+        manageExpenses: 'Manage Expenses',
         teacherLoad: 'Load',
         exportExcel: 'Excel',
         exportPdf: 'PDF',
@@ -3818,6 +3911,7 @@ export const translations: Record<Lang, Translations> = {
         removeStaffAction: 'Remove Staff Member',
         deleteBranchPasswordConfirm: 'To delete the branch, enter the admin password to confirm.',
         adminPasswordLabel: 'Admin Password',
+        incorrectPassword: 'Incorrect password',
         branchDeletedSuccessfully: 'Branch deleted successfully',
         newPasswordLabel: 'New Password',
         confirmPasswordLabel: 'Confirm Password',
@@ -3843,6 +3937,20 @@ export const translations: Record<Lang, Translations> = {
         oldLabel: 'Old',
         leftLabel: 'Left',
         thisMonthAve: 'This Month Average',
+        today: 'Today',
+        myClass: 'My',
+        reminder30m: 'Reminder 30m before',
+        qrCode: 'QR Code',
+        hideQr: 'Hide QR',
+        showQr: 'Show QR',
+        viewList: 'List',
+        viewDaily: 'Daily',
+        viewWeekly: 'Weekly',
+        aiRevenueUp: 'Your revenue is up {percent}%. Click for details.',
+        aiRevenueStable: 'Revenue is stable. Consider opening new groups.',
+        aiAnalysisReady: 'AI Analysis Ready',
+        reminder: 'Reminder',
+        week: 'Week',
     },
 };
 

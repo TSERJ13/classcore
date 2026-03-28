@@ -59,16 +59,16 @@ export default function TrashPage() {
         <div className="flex flex-col h-screen">
             <Header />
             <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-surface/30">
-                <div className="max-w-5xl mx-auto space-y-6">
+                <div className="max-w-6xl mx-auto space-y-8">
                     <div className="flex items-start gap-4">
                         <div className="w-16 h-16 rounded-3xl bg-rose-500/10 flex items-center justify-center text-rose-500 shrink-0 shadow-2xl border border-rose-500/20">
                             <Trash2 className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black text-primary uppercase tracking-tight">
+                            <h1 className="text-3xl font-black text-primary tracking-tight">
                                 {t.trash}
                             </h1>
-                            <p className="text-sm text-muted font-bold uppercase tracking-widest mt-1 opacity-60">
+                            <p className="text-sm text-muted font-bold tracking-widest mt-1 opacity-60">
                                 {lang === 'ka' ? 'წაშლილი მონაცემების შენახვა (30 დღე)' : 'Deleted items storage (30 days)'}
                             </p>
                         </div>
@@ -76,7 +76,7 @@ export default function TrashPage() {
 
                     <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-3">
                         <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                        <p className="text-xs font-bold text-amber-200/80 uppercase tracking-wider">
+                        <p className="text-xs font-bold text-amber-200/80 tracking-wider">
                             {lang === 'ka'
                                 ? 'მონაცემები ავტომატურად წაიშლება 30 დღის შემდეგ.'
                                 : 'Data will be permanently deleted after 30 days.'}
@@ -97,7 +97,7 @@ export default function TrashPage() {
                         {filtered.map(item => (
                             <Card key={item.id} className="p-6 rounded-[2rem] border-border-subtle hover:border-rose-500/30 transition-all group relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-4">
-                                    <span className="text-[10px] font-black text-rose-500/40 uppercase tracking-widest">
+                                    <span className="text-[10px] font-black text-rose-500/40 tracking-widest">
                                         Expires in 30 days
                                     </span>
                                 </div>
@@ -107,14 +107,14 @@ export default function TrashPage() {
                                         <Building2 className="w-6 h-6" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="text-base font-black text-primary truncate uppercase tracking-tight">
+                                        <h3 className="text-base font-black text-primary truncate tracking-tight">
                                             {item.data.name || item.data.fullName || 'Unnamed Item'}
                                         </h3>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-[10px] font-black text-indigo-400 uppercase bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/10">
+                                            <span className="text-[10px] font-black text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/10">
                                                 {item.type}
                                             </span>
-                                            <span className="text-[10px] font-bold text-muted uppercase">
+                                            <span className="text-[10px] font-bold text-muted">
                                                 Deleted {new Date(item.deletedAt).toLocaleDateString()}
                                             </span>
                                         </div>
@@ -132,7 +132,7 @@ export default function TrashPage() {
                         {filtered.length === 0 && (
                             <div className="col-span-full py-20 bg-surface/10 rounded-[3rem] border-2 border-dashed border-border-subtle flex flex-col items-center justify-center text-muted opacity-20">
                                 <Trash2 className="w-16 h-16 mb-4" />
-                                <p className="text-sm font-black uppercase tracking-widest">{t.noData}</p>
+                                <p className="text-sm font-black tracking-widest">{t.noData}</p>
                             </div>
                         )}
                     </div>

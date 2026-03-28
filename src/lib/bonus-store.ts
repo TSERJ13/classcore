@@ -2,7 +2,7 @@
  * bonus-store.ts
  * Stores monthly bonuses for teachers.
  */
-import { getScopedKey } from './settings-store';
+import { getScopedKey } from './utils';
 
 export interface MonthlyBonus {
     id: string;

@@ -91,13 +91,13 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                 ) : (
                                     <div className="flex flex-col items-center gap-1 text-indigo-500/40 group-hover:text-indigo-500 transition-colors">
                                         <Camera className="w-5 h-5" />
-                                        <span className="text-[10px] font-black uppercase">{t.hallPhoto}</span>
+                                        <span className="text-[10px] font-black">{t.hallPhoto}</span>
                                     </div>
                                 )}
                             </button>
                             <div className="min-w-0">
                                 <p className="text-sm font-black text-primary truncate">{(t as any)[form.name!] || form.name || t.hallName}</p>
-                                <p className="text-[10px] text-muted font-medium opacity-60 uppercase tracking-wider">{t.uploadHallPhoto}</p>
+                                <p className="text-[10px] text-muted font-medium opacity-60 tracking-wider">{t.uploadHallPhoto}</p>
                             </div>
                         </div>
 
@@ -127,7 +127,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                         </div>
 
                         <div>
-                            <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70 flex items-center gap-2">
+                            <label className="text-[10px] text-muted mb-2 block tracking-wider font-bold opacity-70 flex items-center gap-2">
                                 <Palette className="w-3 h-3" /> {t.hallColor}
                             </label>
                             <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">

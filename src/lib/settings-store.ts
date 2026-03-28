@@ -1,155 +1,20 @@
-import { compactSlugify } from './utils';
+import { compactSlugify, STORAGE_KEY, ACTIVE_SLUG_KEY, REGISTRY_KEY, getActiveSlug as getActiveSlugLowLevel, getScopedKey, markLocalUpdate } from './utils';
+export { STORAGE_KEY, ACTIVE_SLUG_KEY, REGISTRY_KEY, getScopedKey };
 import { syncStaffToCloud, fetchStaffFromCloud } from './sync-store';
 
-export type ThemeKey = 'indigo' | 'violet' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'fuchsia';
-export type BgKey = 'charcoal' | 'midnight' | 'abyss' | 'forest' | 'white' | 'ivory' | 'cocoa';
+import { 
+    type ThemeKey, 
+    type BgKey, 
+    type StaffRole as UserRole, 
+    type StaffPermissions, 
+    type TrashItem, 
+    type SubscriptionLog, 
+    type StaffMember, 
+    type Branch, 
+    type StudioSettings 
+} from '@/types';
 
-export type UserRole = 'owner' | 'manager' | 'teacher';
-
-export interface StaffPermissions {
-    canViewAttendance: boolean;
-    canViewSubscriptions: boolean;
-    canViewStudents: boolean;
-    canViewCalendar: boolean;
-    canEditCalendar: boolean;
-    canViewGroups: boolean;
-    canViewTeachers: boolean;
-    canViewHalls: boolean;
-    canViewShop: boolean;
-    canViewAnalytics: boolean;
-    canViewSMS: boolean;
-    // Legacy / Admin
-    canAddStudents?: boolean;
-    canDeleteRecords?: boolean;
-    manageBilling?: boolean;
-    viewFinancials?: boolean;
-    manageInventory?: boolean;
-}
-
-export interface TrashItem {
-    id: string;
-    type: 'student' | 'subscription' | 'sale' | 'staff' | 'hall';
-    data: any;
-    branchId: string;
-    deletedAt: string;
-    deletedBy: string;
-}
-
-export interface SubscriptionLog {
-    id: string;
-    studentId: string;
-    studentName: string;
-    planName: string;
-    amount: number;
-    date: string;
-    issuedBy: string;
-    issuedByName?: string;
-    branchId: string;
-    branchName?: string;
-    groupName?: string;
-}
-
-export interface StaffMember {
-    id: string;
-    org_id: string;
-    full_name: string;
-    first_name?: string;
-    last_name?: string;
-    phone: string;
-    email?: string;
-    password?: string;
-    role: UserRole | string;
-    permissions: StaffPermissions;
-    photo_url?: string;
-    allowedBranchIds?: string[];
-    // Teacher specific
-    specialty?: string[];
-    bio?: string;
-    rate_per_hour?: number;
-    rate_per_month?: number;
-    salary_percentage?: number;
-    assigned_group_ids?: string[];
-    assigned_individual?: boolean;
-    status: 'active' | 'on_leave' | 'inactive';
-    created_at: string;
-}
-
-export interface Branch {
-    id: string;
-    name: string;
-    address?: string;
-    is_active: boolean;
-    created_at?: string;
-}
-
-export interface StudioSettings {
-    studioName: string;
-    studioSlug: string;
-    logoDataUrl: string | null;   // base64 image or null
-    currency: 'GEL' | 'USD' | 'EUR';
-    language: 'ka' | 'ru' | 'en';
-    timezone: string;
-    googleCalendarEnabled: boolean;
-    themeKey: ThemeKey;
-    bgKey: BgKey;
-    accentColor: string;          // CSS HSL value
-    notifications: {
-        newStudent: boolean;
-        lowSessions: boolean;
-        dailyReport: boolean;
-        telegramBot: boolean;
-        autoSms: boolean;
-    };
-    security: {
-        twoFactor: boolean;
-        sessionTimeout: number; // minutes
-    };
-    pausePrices: {
-        '7': number;
-        '14': number;
-        '30': number;
-        '60': number;
-    };
-    landingContent: {
-        heroTitle: string;
-        heroSubtitle: string;
-        features: Array<{ title: string; desc: string; icon: string }>;
-    };
-    sms_templates: {
-        ka: {
-            expiration_day_0: string;
-            birthday: string;
-            new_year: string;
-            easter: string;
-            march_8: string;
-            sept_1: string;
-        };
-        ru: {
-            expiration_day_0: string;
-            birthday: string;
-            new_year: string;
-            easter: string;
-            march_8: string;
-            sept_1: string;
-        };
-        en: {
-            expiration_day_0: string;
-            birthday: string;
-            new_year: string;
-            easter: string;
-            march_8: string;
-            sept_1: string;
-        };
-    };
-    cabinetCode?: string;
-    customRoles?: string[];
-    branches: Branch[];
-    staff: StaffMember[];
-    trash?: TrashItem[];
-    subscriptionLogs?: SubscriptionLog[];
-    // Non-synced / Local only
-    activeBranchId: string;
-}
+export type { ThemeKey, BgKey, UserRole, StaffPermissions, TrashItem, SubscriptionLog, StaffMember, Branch, StudioSettings };
 
 export const THEMES: Record<ThemeKey, { label: string; accent: string; accentHex: string; bg: string; text: string; border: string; from: string; to: string }> = {
     indigo: { label: 'Indigo', accent: '239 84% 67%', accentHex: '#6366f1', bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30', from: 'from-indigo-500', to: 'to-violet-600' },
@@ -172,20 +37,17 @@ export const BG_THEMES: Record<BgKey, BgTheme> = {
     cocoa: { label: 'Cocoa', base: '#faf5ed', surface: '#f3ede4', card: '#ffffff', preview: 'bg-[#faf5ed]' },
 };
 
-export const STORAGE_KEY = 'cc_studio_settings';
-export const REGISTRY_KEY = 'cc_studios_list';
-export const ACTIVE_SLUG_KEY = 'cc_active_studio_slug';
-
 /** Get the currently active studio slug for the dashboard */
 export function getActiveSlug(): string {
     if (typeof window === 'undefined') return DEFAULT_SETTINGS.studioSlug;
-    return localStorage.getItem(ACTIVE_SLUG_KEY) || DEFAULT_SETTINGS.studioSlug;
+    return getActiveSlugLowLevel() || DEFAULT_SETTINGS.studioSlug;
 }
 
 /** Set the currently active studio slug */
 export function setActiveSlug(slug: string) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(ACTIVE_SLUG_KEY, slug);
+    setCookie('cc_active_slug', slug, 365);
 }
 
 const STAFF_SESSION_KEY = 'cc_staff_session';
@@ -239,29 +101,35 @@ export async function validateStaffLogin(email: string, password: string): Promi
     // 4. CLOUD FALLBACK: If local check fails, we might be on a new machine.
     console.log('🔍 Staff not found locally. Starting Cloud Fallback for:', cleanEmail);
 
-    // Search the global database for a studio containing this staff email.
+    // Search the global database for studios containing this staff email.
     try {
-        const { findStudioByStaffEmail, fetchStaffFromCloud } = await import('./sync-store');
-        const cloudResult = await findStudioByStaffEmail(cleanEmail);
+        const { findAllStudiosByStaffEmail, fetchStaffFromCloud } = await import('./sync-store');
+        const cloudResults = await findAllStudiosByStaffEmail(cleanEmail);
 
-        if (cloudResult) {
-            console.log('📡 Cloud Found! Studio Slug:', cloudResult.slug);
-            // IMPORTANT: Verify password before allowing access!
-            if (cloudResult.staff.password !== password) {
-                console.warn('❌ Password mismatch for cloud staff.');
-                return { error: 'არასწორი პაროლი' }; // Password mismatch
+        if (cloudResults.length > 0) {
+            console.log(`📡 Cloud Found ${cloudResults.length} studios!`);
+            
+            // Find a studio where password matches
+            const matchingResult = cloudResults.find(r => r.staff.password === password);
+
+            if (!matchingResult) {
+                console.warn('❌ Password mismatch for all cloud studios.');
+                return { error: 'არასწორი პაროლი' };
             }
 
-            console.log('✅ Password verified. Hydrating local store...');
-            // Hydrate local store with cloud data for faster future logins
-            const cloudStaff = await fetchStaffFromCloud(cloudResult.slug);
+            console.log('✅ Password verified for:', matchingResult.slug, '. Hydrating local store...');
+            
+            // Reclaim the entire registry in the background
+            cloudResults.forEach(r => addToRegistry(r.slug));
+
+            // Hydrate local store with cloud data for the current matching studio
+            const cloudStaff = await fetchStaffFromCloud(matchingResult.slug);
             if (cloudStaff) {
-                saveSettings({ staff: cloudStaff }, undefined, cloudResult.slug);
+                saveSettings({ staff: cloudStaff }, undefined, matchingResult.slug);
             }
-            return cloudResult;
+            return matchingResult;
         } else {
             console.warn('❌ Staff not found in cloud registry for:', cleanEmail);
-            // Check if we are searching for something that might be stuck on a demo slug
             return { error: 'მომხმარებელი ვერ მოიძებნა. თუ ახალ კომპიუტერზე ხართ, დარწმუნდით რომ ძველ კომპიუტერზე "პარამეტრებში" დაყენებული გაქვთ საკუთარი (უნიკალური) სტუდიის მისამართი (Slug).' };
         }
     } catch (err: any) {
@@ -278,10 +146,14 @@ export function setStaffSession(session: { staff: StaffMember, slug: string } | 
     if (session) {
         localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(session));
         setCookie(STAFF_COOKIE_NAME, 'true', 7); // Set auth cookie for middleware
+        setCookie('cc_active_slug', session.slug, 7);
+        setCookie('cc_studio_name', encodeURIComponent(session.staff.org_id || ''), 7); // org_id often used as fallback name
         setActiveSlug(session.slug);
     } else {
         localStorage.removeItem(STAFF_SESSION_KEY);
-        deleteCookie(STAFF_COOKIE_NAME); // Clear auth cookie
+        deleteCookie(STAFF_COOKIE_NAME); 
+        deleteCookie('cc_active_slug');
+        deleteCookie('cc_studio_name');
     }
 }
 
@@ -300,29 +172,7 @@ export function getStaffSession(): { staff: StaffMember, slug: string } | null {
     return getStaffSessionRaw();
 }
 
-export function getScopedKey(base: string, slug?: string, branchId?: string) {
-    const finalSlug = slug || getActiveSlug();
-    if (!finalSlug) return base;
-
-    // Use raw session for scoping to avoid infinite recursion
-    const session = getStaffSessionRaw();
-
-    // If branchId is explicitly provided or we should use the active one
-    const bId = branchId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_active_branch_${finalSlug}`) : 'main');
-
-    // Certain keys should always be studio-level (not branch-scoped)
-    const sharedKeys = [STORAGE_KEY, 'cc_studios_list', 'cc_active_studio_slug', 'cc_global_history', 'cc_global_trash'];
-    if (sharedKeys.includes(base)) {
-        return `${base}_${finalSlug}`;
-    }
-
-    // ALWAYS scope by branch ID if available, including 'main'
-    if (bId) {
-        return `${base}_${finalSlug}_${bId}`;
-    }
-
-    return `${base}_${finalSlug}`;
-}
+/** Centralized key generator - Moved to utils */
 
 /**
  * Studio Registry to track all unique studios on this machine.
@@ -365,6 +215,29 @@ export function cleanupRegistry() {
     if (next.length !== list.length) {
         localStorage.setItem(REGISTRY_KEY, JSON.stringify(next));
         console.log('🧹 [SettingsStore] Registry cleaned. Removed orphans:', list.length - next.length);
+    }
+}
+
+/** 
+ * Reclaims the entire studio registry for a given email from the cloud.
+ * Useful for syncing across multiple devices.
+ */
+export async function reclaimStudioRegistry(email: string) {
+    if (typeof window === 'undefined') return;
+    const cleanEmail = email.trim().toLowerCase();
+    
+    try {
+        const { findAllStudiosByStaffEmail } = await import('./sync-store');
+        const results = await findAllStudiosByStaffEmail(cleanEmail);
+        
+        if (results.length > 0) {
+            console.log(`📡 [SettingsStore] Reclaiming ${results.length} studios from cloud for ${cleanEmail}`);
+            results.forEach(r => addToRegistry(r.slug));
+            // Trigger an event so UI (like StudioSwitcher) can refresh
+            window.dispatchEvent(new Event('cc_settings_update'));
+        }
+    } catch (err) {
+        console.error('❌ [SettingsStore] Failed to reclaim registry:', err);
     }
 }
 
@@ -435,6 +308,7 @@ export function generateCabinetCode(slug: string): string {
 }
 
 export const DEFAULT_SETTINGS: StudioSettings = {
+    orgId: '',
     studioName: '',
     studioSlug: 'demo.classcore.ge',
     logoDataUrl: null,
@@ -554,10 +428,17 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
             const finalSlug = slug || next.studioSlug || getActiveSlug();
             const scopedKey = getScopedKey(STORAGE_KEY, finalSlug);
             localStorage.setItem(scopedKey, JSON.stringify(next));
+            markLocalUpdate();
 
             // Update active slug if it changed
             if (next.studioSlug) {
                 setActiveSlug(next.studioSlug);
+            }
+            if (next.studioName) {
+                setCookie('cc_studio_name', encodeURIComponent(next.studioName), 365);
+            }
+            if (next.language) {
+                setCookie('cc_lang', next.language, 365);
             }
 
             // Also register the slug
@@ -755,4 +636,138 @@ export function getUnreadSupportCount(): number {
         } catch { }
     });
     return total;
+}
+/**
+ * Wipes all local data associated with the current studio slug.
+ * This includes students, check-ins, sales, and settings stored in localStorage.
+ */
+export function clearAllStudioData(slug: string) {
+    if (typeof window === 'undefined') return;
+    
+    const keys = Object.keys(localStorage);
+    let count = 0;
+    
+    keys.forEach(k => {
+        // Match keys like cc_student_data_slug, cc_checkins_slug_2023-01-01, etc.
+        // Also cleanup EVERYTHING for the demo slug if we are currently logged into one
+        const isTargetSlug = k.includes(`_${slug}`) || k.includes(`${slug}_`) || k.includes(`:${slug}`);
+        const isDemoSlug = k.includes('demo.classcore.ge');
+        
+        if (isTargetSlug || isDemoSlug) {
+            localStorage.removeItem(k);
+            count++;
+        }
+    });
+
+    console.log(`🧹 [SettingsStore] Master Clear: Removed ${count} keys for studio ${slug}`);
+    
+    // Also clear ANY keys related to active slugs/branches to force clean discovery
+    localStorage.removeItem(ACTIVE_SLUG_KEY);
+    localStorage.removeItem(`cc_active_branch_${slug}`);
+    
+    // Also remove registry entry to force a clean reload from cloud or defaults
+    removeFromRegistry(slug);
+    
+    // Reload if current slug matches to refresh state
+    const currentSlug = localStorage.getItem('cc_active_studio_slug');
+    if (currentSlug === slug) {
+        window.location.reload();
+    }
+}
+
+export type ResetCategories = {
+    plans?: boolean;
+    students?: boolean;
+    groups?: boolean;
+    calendar?: boolean;
+    halls?: boolean;
+    teachers?: boolean;
+    shop?: boolean;
+    analytics?: boolean;
+    notifications?: boolean;
+};
+
+/**
+ * SELECTIVE RESET: Clears all student, group, sales, and calendar data 
+ * but PRESERVES studio identity (name, logo, slug, branches).
+ */
+export function resetStudioData(slug: string, options?: ResetCategories) {
+    if (typeof window === 'undefined') return;
+
+    // Default to everything if no options provided
+    const cats = options || {
+        plans: true, students: true, groups: true, calendar: true, halls: true,
+        teachers: true, shop: true, analytics: true, notifications: true
+    };
+
+    const prefixMap: Record<string, string[]> = {
+        plans: ['cc_subscription_plans'],
+        students: ['cc_student_data', 'cc_student_subscriptions', 'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_student_plans', 'cc_student_groups'],
+        groups: ['cc_groups', 'cc_group_data', 'cc_attendance'],
+        calendar: ['cc_calendar_events', 'cc_events'],
+        halls: ['cc_halls', 'cc_hall_rental', 'cc_hall_rentals', 'cc_halls_data'],
+        teachers: ['cc_teachers', 'cc_staff'],
+        shop: ['cc_shop_sales', 'cc_shop_products', 'cc_shop_inventory', 'cc_inventory', 'cc_sales', 'cc_shop_categories'],
+        analytics: ['cc_expenses', 'cc_audit_logs', 'cc_salary_status', 'cc_salary_payouts', 'cc_attendance_archive', 'cc_uid_registry', 'cc_trash_bin', 'cc_attendance_data', 'cc_checkins', 'cc_salary_history', 'cc_salary_config'],
+        notifications: ['cc_notifications']
+    };
+
+    const settings = loadSettings(slug);
+    const orgId = settings.orgId;
+
+    const keys = Object.keys(localStorage);
+    let count = 0;
+
+    keys.forEach(k => {
+        // Key is for this studio if it contains slug OR orgId (standard scoping)
+        const isTargetStudio = k.includes(`_${slug}`) || (orgId && k.includes(`_${orgId}`));
+        if (!isTargetStudio) return;
+
+        // Check each enabled category
+        Object.entries(cats).forEach(([cat, enabled]) => {
+            if (enabled && prefixMap[cat]?.some(p => k.startsWith(p))) {
+                // To suppress mock data, we set to empty instead of removing
+                // ONLY specific structured records are Maps ({}), everything else is an Array ([])
+                const mapPrefixes = ['cc_student_data', 'cc_student_subscriptions', 'cc_attendance_archive', 'cc_uid_registry'];
+                const isMap = mapPrefixes.some(p => k.startsWith(p));
+                
+                localStorage.setItem(k, isMap ? '{}' : '[]');
+                count++;
+            }
+        });
+    });
+
+    // Handle settings cleanup
+    const updates: Partial<StudioSettings> = {};
+    
+    if (cats.teachers) {
+        updates.staff = [];
+    }
+    if (cats.analytics) {
+        (updates as any).trash = [];
+        (updates as any).subscriptionLogs = [];
+    }
+
+    if (Object.keys(updates).length > 0) {
+        saveSettings(updates, settings, slug);
+    }
+
+    // CRITICAL: Seed deleted registries with mock IDs if cleared to ensure they stay hidden
+    if (cats.students) {
+        const mockSubs = ['sub1', 'sub2', 'sub3', 'sub4'];
+        const mockStudents = ['S-2051', 'S-2052', 'S-2053', 'S-2054'];
+        localStorage.setItem(getScopedKey('cc_deleted_subscriptions', slug), JSON.stringify(mockSubs));
+        localStorage.setItem(getScopedKey('cc_deleted_students', slug), JSON.stringify(mockStudents));
+    }
+    if (cats.calendar) {
+        localStorage.setItem(getScopedKey('cc_deleted_events', slug), JSON.stringify(['cls1', 'e1']));
+    }
+    if (cats.halls) {
+         localStorage.setItem(getScopedKey('cc_deleted_halls', slug), JSON.stringify(['h1']));
+    }
+
+    console.log(`🧹 [SettingsStore] Selective Reset: Removed ${count} keys for studio ${slug}. Options:`, cats);
+
+    // Reload page to re-initialize stores
+    window.location.reload();
 }

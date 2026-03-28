@@ -80,7 +80,7 @@ export default function TermsPage() {
 
             <footer className="py-12 border-t border-slate-100 bg-slate-50/50">
                 <div className="max-w-7xl mx-auto px-6 text-center">
-                    <p className="text-slate-400 text-sm font-medium uppercase tracking-widest">© 2026 ClassCore. All rights reserved.</p>
+                    <p className="text-slate-400 text-sm font-medium tracking-widest">© 2026 ClassCore. All rights reserved.</p>
                 </div>
             </footer>
         </div>

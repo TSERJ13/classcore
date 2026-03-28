@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck } from 'lucide-react';
-import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms } from '@/lib/saas-billing';
+import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw } from 'lucide-react';
+import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms, extendSubscriptionByDays } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
-import { getStudioRegistry, loadSettings, saveSettings } from '@/lib/settings-store';
+import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, type ResetCategories } from '@/lib/settings-store';
+import { getScopedKey } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
@@ -13,7 +14,8 @@ interface StudioRecord {
     studentCount: number; subsCount: number; suspended: boolean;
     notes: string; plan: 'trial' | 'pro' | 'custom';
     nextDue: string | null; status: string; daysOverdue: number;
-    ownerPhone: string; ownerEmail: string;
+    ownerPhone: string; ownerEmail: string; ownerName?: string;
+    isCloudOnly?: boolean;
 }
 
 function loadStudio(slug: string): StudioRecord {
@@ -22,9 +24,18 @@ function loadStudio(slug: string): StudioRecord {
     const billing = getBillingState(slug);
     
     let studentCount = 0;
-    try { const raw = localStorage.getItem(`cc_student_data_${slug}`) || localStorage.getItem('cc_student_data'); if (raw) studentCount = Object.keys(JSON.parse(raw)).length; } catch { }
+    try { 
+        const key = getScopedKey('cc_student_data', slug);
+        const raw = localStorage.getItem(key);
+        if (raw) studentCount = Object.keys(JSON.parse(raw)).length; 
+    } catch { }
+
     let subsCount = 0;
-    try { const raw = localStorage.getItem(`cc_student_subscriptions_${slug}`) || localStorage.getItem('cc_student_subscriptions'); if (raw) Object.values(JSON.parse(raw)).forEach((subs: unknown) => { if (Array.isArray(subs)) subsCount += subs.filter((s: { status?: string }) => s.status === 'active').length; }); } catch { }
+    try { 
+        const key = getScopedKey('cc_student_subscriptions', slug);
+        const raw = localStorage.getItem(key);
+        if (raw) Object.values(JSON.parse(raw)).forEach((subs: unknown) => { if (Array.isArray(subs)) subsCount += subs.filter((s: { status?: string }) => s.status === 'active').length; }); 
+    } catch { }
     
     const owner = s.staff.find(m => m.role === 'owner');
     
@@ -79,13 +90,105 @@ export default function StudiosPage() {
         loading?: boolean
     }>({ type: null, title: '', message: '' });
 
-    const loadData = () => { setStudios(getStudioRegistry().map(loadStudio)); };
+    // Reset Modal State
+    const [resetModal, setResetModal] = useState<{
+        open: boolean,
+        slug: string,
+        categories: ResetCategories
+    }>({ 
+        open: false, 
+        slug: '', 
+        categories: { 
+            students: true, groups: true, halls: true, plans: true,
+            teachers: false, shop: false, analytics: false, calendar: false, notifications: false
+        } 
+    });
+
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [cloudStudios, setCloudStudios] = useState<any[]>([]);
+
+    const syncFromCloud = async () => {
+        setIsSyncing(true);
+        try {
+            const res = await fetch('/api/superadmin/studios/list');
+            const data = await res.json();
+            if (data.studios) {
+                setCloudStudios(data.studios);
+                
+                const cloudSlugs = data.studios.map((s: any) => s.slug);
+                const existing = getStudioRegistry();
+                
+                // 1. Add new slugs from cloud
+                const newSlugs = cloudSlugs.filter((s: string) => !existing.includes(s));
+                
+                // 2. PRUNE: Remove local slugs that don't exist in cloud anymore
+                // (except maybe 'demo' or others we want to keep, but here we want strict parity)
+                const prunedList = existing.filter(s => cloudSlugs.includes(s) || s === 'demo');
+                
+                const nextList = [...prunedList, ...newSlugs];
+                localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(nextList)]));
+                
+                // Trigger local refresh
+                loadData();
+            }
+        } catch (err) {
+            console.error('Failed to sync from cloud:', err);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const loadData = () => { 
+        const registry = getStudioRegistry();
+        const loaded = registry.map(slug => {
+            const s = loadSettings(slug);
+            const meta = (() => { try { return JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); } catch { return {}; } })();
+            const billing = getBillingState(slug);
+            
+            let studentCount = 0;
+            try { 
+                const key = getScopedKey('cc_student_data', slug);
+                const raw = localStorage.getItem(key);
+                if (raw) studentCount = Object.keys(JSON.parse(raw)).length; 
+            } catch { }
+
+            // Find matching cloud data for owner info if local is missing
+            const cloud = cloudStudios.find(c => c.slug === slug);
+            const owner = s.staff.find(m => m.role === 'owner');
+
+            return { 
+                slug, 
+                name: s.studioName || cloud?.name || slug, 
+                logoUrl: s.logoDataUrl || cloud?.logoUrl, 
+                studentCount, 
+                subsCount: 0, 
+                suspended: meta.suspended || false, 
+                notes: meta.notes || '', 
+                plan: meta.plan || 'trial',
+                nextDue: billing.nextDueDate, 
+                status: billing.status, 
+                daysOverdue: billing.daysOverdue,
+                ownerPhone: owner?.phone || cloud?.ownerPhone || 'N/A',
+                ownerEmail: owner?.email || cloud?.ownerEmail || 'N/A',
+                ownerName: owner ? `${owner.first_name} ${owner.last_name}` : cloud?.ownerName
+            };
+        });
+        setStudios(loaded);
+    };
+
     useEffect(() => { 
         setMounted(true);
-        loadData(); 
+        const init = async () => {
+            await syncFromCloud();
+        };
+        init();
         const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
         if (storedLang) setLang(storedLang);
     }, []);
+
+    useEffect(() => {
+        if (mounted) loadData();
+    }, [cloudStudios, mounted]);
 
     const toggleSuspend = (slug: string) => {
         const studio = studios.find(s => s.slug === slug);
@@ -130,6 +233,15 @@ export default function StudiosPage() {
         logAction('studio_impersonate', slug);
         localStorage.setItem('cc_sa_impersonate', slug);
         localStorage.setItem('cc_active_studio_slug', slug);
+        
+        // Also set org_id hint for the session if available
+        const s = loadSettings(slug);
+        if (s.orgId) {
+            localStorage.setItem('cc_sa_impersonate_org_id', s.orgId);
+        } else {
+            localStorage.removeItem('cc_sa_impersonate_org_id');
+        }
+        
         router.push('/dashboard');
     };
 
@@ -191,6 +303,34 @@ export default function StudiosPage() {
         });
     };
 
+    const handleResetStudio = (slug: string) => {
+        setResetModal({
+            open: true,
+            slug,
+            categories: { 
+                students: true, groups: true, halls: true, plans: true,
+                teachers: false, shop: false, analytics: false, calendar: false, notifications: false
+            }
+        });
+    };
+
+    const confirmReset = () => {
+        const { slug, categories } = resetModal;
+        setModal({
+            type: 'confirm',
+            title: lang === 'ka' ? 'მონაცემების გასუფთავება' : 'Data Reset',
+            message: lang === 'ka' 
+                ? `ნამდვილად გსურთ არჩეული კატეგორიების გასუფთავება სტუდიისთვის "${slug}"?`
+                : `Are you sure you want to clear the selected categories for studio "${slug}"?`,
+            onConfirm: () => {
+                resetStudioData(slug, categories);
+                setResetModal(prev => ({ ...prev, open: false }));
+                setModal({ type: 'alert', title: lang === 'ka' ? 'წარმატება' : 'Success', message: lang === 'ka' ? 'მონაცემები გასუფთავდა!' : 'Data cleared successfully!' });
+                loadData();
+            }
+        });
+    };
+
     const deleteStudio = (slug: string) => {
         setModal({
             type: 'confirm',
@@ -198,14 +338,39 @@ export default function StudiosPage() {
             message: lang === 'ka'
                 ? `ნამდვილად გსურთ სტუდიის "${slug}" სრულად წაშლა? ეს ქმედება შეუქცევადია და ყველა მონაცემი გაინადგურდება!`
                 : `Are you sure you want to completely delete the studio "${slug}"? This action cannot be undone.`,
-            onConfirm: () => {
-                const list = getStudioRegistry().filter(s => s !== slug);
+            onConfirm: async () => {
+                const s = loadSettings(slug);
+                const scopeId = s.orgId || slug;
+                
+                // 1. Purge Supabase Auth account first
+                const owner = s.staff?.find(m => m.role === 'owner');
+                const ownerEmail = owner?.email;
+                
+                if (ownerEmail) {
+                    try {
+                        await fetch('/api/superadmin/delete-studio', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: ownerEmail, userId: owner?.id })
+                        });
+                    } catch (err) {
+                        console.error('Failed to purge auth account:', err);
+                    }
+                }
+
+                // 2. Clear local storage
+                const list = getStudioRegistry().filter(item => item !== slug);
                 localStorage.setItem('cc_studios_list', JSON.stringify(list));
+                
                 Object.keys(localStorage).forEach(key => {
-                    if (key.endsWith(`_${slug}`)) localStorage.removeItem(key);
+                    // Match slug-scoped OR orgId-scoped keys
+                    if (key.endsWith(`_${slug}`) || key.includes(`_${scopeId}_`)) {
+                        localStorage.removeItem(key);
+                    }
                 });
+                
                 loadData();
-                setModal({ type: null, title: '', message: '' });
+                setModal({ type: 'alert', title: lang === 'ka' ? 'წარმატება' : 'Success', message: lang === 'ka' ? 'სტუდია წაიშალა!' : 'Studio deleted successfully!' });
             }
         });
     };
@@ -215,8 +380,18 @@ export default function StudiosPage() {
         const oldSlug = editingProfile.slug;
 
         if (oldSlug !== profileSlug) {
+            const s = loadSettings(oldSlug);
+            const scopeId = s.orgId || oldSlug;
+
             Object.keys(localStorage).forEach(key => {
-                if (key.endsWith(`_${oldSlug}`)) {
+                // Settings key is always slug-based
+                if (key === `cc_studio_settings_${oldSlug}`) {
+                    const newKey = `cc_studio_settings_${profileSlug}`;
+                    localStorage.setItem(newKey, localStorage.getItem(key) || '');
+                    localStorage.removeItem(key);
+                } 
+                // Other data keys might be org_id based (scopedId) or slug based
+                else if (key.endsWith(`_${oldSlug}`)) {
                     const newKey = key.replace(`_${oldSlug}`, `_${profileSlug}`);
                     localStorage.setItem(newKey, localStorage.getItem(key) || '');
                     localStorage.removeItem(key);
@@ -266,27 +441,76 @@ export default function StudiosPage() {
                     <h1 className="text-2xl font-black text-primary tracking-tight">{lang === 'ka' ? 'სტუდიები' : 'Studios'}</h1>
                     <p className="text-sm text-muted mt-1">{studios.length} {lang === 'ka' ? 'რეგისტრირებული სტუდია' : 'registered studios'}</p>
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted opacity-40" />
-                    <input 
-                        value={search} 
-                        onChange={e => setSearch(e.target.value)} 
-                        placeholder={lang === 'ka' ? 'ძიება...' : 'Search studios...'} 
-                        className="bg-black/5 border border-black/5 dark:border-border-subtle rounded-2xl pl-10 pr-4 py-3 text-sm text-primary dark:text-white placeholder:text-muted outline-none focus:border-indigo-500/50 w-72 shadow-sm transition-all" 
-                    />
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={() => {
+                            setModal({
+                                type: 'confirm',
+                                title: lang === 'ka' ? 'Master System Reset' : 'Master System Reset',
+                                message: lang === 'ka' 
+                                    ? 'გაფრთხილება: ეს წაშლის ყველა სტუდიას გარდა "stdancestudio"-სა და გაასუფთავებს ყველა მონაცემს. გსურთ გაგრძელება?'
+                                    : 'WARNING: This will delete ALL studios except "stdancestudio" and purge all associated data. Proceed?',
+                                onConfirm: async () => {
+                                    setModal(m => ({ ...m, loading: true }));
+                                    try {
+                                        const res = await fetch('/api/superadmin/system-reset', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ keepSlug: 'stdancestudio' })
+                                        });
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            setModal({ type: 'alert', title: 'Success', message: data.message });
+                                            syncFromCloud();
+                                        } else {
+                                            setModal({ type: 'alert', title: 'Error', message: data.error || 'Reset failed' });
+                                        }
+                                    } catch (err) {
+                                        setModal({ type: 'alert', title: 'Error', message: 'Network error' });
+                                    }
+                                }
+                            });
+                        }}
+                        className="group flex items-center gap-2 px-4 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-rose-500/20 shadow-lg shadow-rose-500/5"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {lang === 'ka' ? 'Master Reset' : 'Master Reset'}
+                    </button>
+
+                    <button 
+                        onClick={syncFromCloud}
+                        disabled={isSyncing}
+                        className={cn(
+                            "group flex items-center gap-2 px-4 py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-indigo-500/20 shadow-lg shadow-indigo-500/5",
+                            isSyncing && "opacity-50"
+                        )}
+                    >
+                        <RefreshCcw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
+                        {isSyncing ? (lang === 'ka' ? 'სინქრონიზაცია...' : 'Syncing...') : (lang === 'ka' ? 'ქლაუდ სინქრონიზაცია' : 'Cloud Sync')}
+                    </button>
+
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted opacity-40" />
+                        <input 
+                            value={search} 
+                            onChange={e => setSearch(e.target.value)} 
+                            placeholder={lang === 'ka' ? 'ძიება...' : 'Search studios...'} 
+                            className="bg-black/5 border border-black/5 dark:border-border-subtle rounded-2xl pl-10 pr-4 py-3 text-sm text-primary dark:text-white placeholder:text-muted outline-none focus:border-indigo-500/50 w-72 shadow-sm transition-all" 
+                        />
+                    </div>
                 </div>
             </div>
 
             <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm">
-                <div className="grid grid-cols-[1.5fr_0.8fr_1fr_1fr_1fr_1fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5">
+                <div className="grid grid-cols-[2fr_0.8fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
                     <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span>
                     <span className="text-center">{lang === 'ka' ? 'მოსწავლეები' : 'Students'}</span>
                     <span className="text-center">{lang === 'ka' ? 'გეგმა' : 'Plan'}</span>
                     <span className="text-center">{lang === 'ka' ? 'დარჩენილია' : 'Days Left'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'დღეები' : 'Add Days'}</span>
                     <span className="text-center">{lang === 'ka' ? 'ბალანსი' : 'Balance'}</span>
                     <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
-                    <span />
-                    <span />
+                    <span className="text-right">{lang === 'ka' ? 'მართვა' : 'Actions'}</span>
                 </div>
                 {filtered.length === 0 ? (
                     <div className="py-24 text-center text-muted">
@@ -299,7 +523,7 @@ export default function StudiosPage() {
                             const diffDays = studio.nextDue ? Math.ceil((new Date(studio.nextDue).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 0;
                             return (
                                 <div key={studio.slug} className="group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2">
-                                    <div className="grid grid-cols-[1.5fr_0.8fr_1fr_1fr_1fr_1fr_0.8fr_auto] gap-4 items-center px-8 py-5 transition-colors">
+                                    <div className="grid grid-cols-[2fr_0.8fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 items-center px-8 py-5 transition-colors">
                                         <div className="flex items-center gap-4 min-w-0">
                                             <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
                                                 {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-5 h-5 text-zinc-300 opacity-40" />}
@@ -350,7 +574,36 @@ export default function StudiosPage() {
                                                         {new Date(studio.nextDue).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short', day: 'numeric' })}
                                                     </span>
                                                 </div>
-                                            ) : <span className="text-xs text-muted opacity-20">—</span>}
+                                            ) : (
+                                                <span className="text-[10px] font-black text-muted opacity-40 uppercase tracking-widest">{lang === 'ka' ? 'გამორთული' : 'Inactive'}</span>
+                                            )}
+                                        </div>
+
+                                        {/* Activation Days Tool */}
+                                        <div className="text-center">
+                                            <button 
+                                                onClick={() => {
+                                                    setModal({
+                                                        type: 'input',
+                                                        title: lang === 'ka' ? 'დამატებითი დღეები' : 'Extend Activation',
+                                                        message: lang === 'ka' ? `რამდენი დღით გსურთ ვადის გაგრძელება?` : `How many days to add?`,
+                                                        inputVal: '30',
+                                                        onConfirm: (val) => {
+                                                            const days = Number(val);
+                                                            if (!isNaN(days) && days !== 0) {
+                                                                extendSubscriptionByDays(studio.slug, days);
+                                                                loadData();
+                                                            }
+                                                            setModal({ type: null, title: '', message: '' });
+                                                        }
+                                                    });
+                                                }}
+                                                className="px-4 py-2 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl hover:border-indigo-500/30 transition-all group/days shadow-inner"
+                                            >
+                                                <span className="text-sm font-black text-primary dark:text-white tabular-nums group-hover/days:text-indigo-600 dark:group-hover/days:text-indigo-400 transition-colors">
+                                                    + {lang === 'ka' ? 'დღე' : 'Days'}
+                                                </span>
+                                            </button>
                                         </div>
 
                                         <div className="text-center">
@@ -386,25 +639,24 @@ export default function StudiosPage() {
                                             </button>
                                         </div>
 
-                                        <div className="flex items-center gap-1.5">
-                                            <button onClick={() => sendReminder(studio)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-amber-500 hover:text-white hover:bg-amber-500 hover:border-amber-500 transition-all shadow-sm" title={lang === 'ka' ? 'სმს შეხსენება' : 'Send SMS Reminder'}><Smartphone className="w-4 h-4" /></button>
-                                            <button onClick={() => manualActivate(studio.slug)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-indigo-500 hover:text-white hover:bg-indigo-500 hover:border-indigo-500 transition-all shadow-sm" title={lang === 'ka' ? 'აქტივაცია (30 დღე)' : 'Manual Activate'}><Zap className="w-4 h-4" /></button>
-                                            <button onClick={() => impersonate(studio.slug)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-emerald-500 hover:text-white hover:bg-emerald-500 hover:border-emerald-500 transition-all shadow-sm" title={lang === 'ka' ? 'შესვლა' : 'Impersonate'}><LogIn className="w-4 h-4" /></button>
+                                        <div className="flex items-center justify-end gap-1">
+                                            <button onClick={() => sendReminder(studio)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-amber-500 hover:text-white hover:bg-amber-500 transition-all" title={lang === 'ka' ? 'სმს შეხსენება' : 'Send SMS Reminder'}><Smartphone className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => impersonate(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-emerald-500 hover:text-white hover:bg-emerald-500 transition-all" title={lang === 'ka' ? 'შესვლა' : 'Impersonate'}><LogIn className="w-3.5 h-3.5" /></button>
                                             <button 
                                                 onClick={() => { 
                                                     setEditingProfile(studio); 
                                                     setProfileName(studio.name); 
                                                     setProfileSlug(studio.slug);
                                                     setProfileEmail(studio.ownerEmail);
-                                                    setProfilePhone(studio.ownerPhone);
+                                                    setProfilePhone(studio.ownerPhone || 'N/A');
                                                     setProfileLogo(studio.logoUrl || '');
                                                 }} 
-                                                className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all shadow-sm"
+                                                className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
                                                 title={lang === 'ka' ? 'მართვა' : 'Full Control'}
                                             >
-                                                <Settings className="w-4 h-4" />
+                                                <Settings className="w-3.5 h-3.5" />
                                             </button>
-                                            <button onClick={() => deleteStudio(studio.slug)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-rose-500 hover:text-white hover:bg-rose-500 transition-all shadow-sm" title={lang === 'ka' ? 'წაშლა' : 'Delete'}><Trash2 className="w-4 h-4" /></button>
+                                            <button onClick={() => deleteStudio(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-rose-500 hover:text-white hover:bg-rose-500 transition-all" title={lang === 'ka' ? 'წაშლა' : 'Delete'}><Trash2 className="w-3.5 h-3.5" /></button>
                                         </div>
                                     </div>
                                     {(editingNote === studio.slug || studio.notes) && (
@@ -496,6 +748,19 @@ export default function StudiosPage() {
                                         : 'Changing the slug will migrate all local storage data and break existing admin links!'}
                                 </p>
                             </div>
+
+                            <div className="pt-6 border-t border-border-subtle/30">
+                                <button 
+                                    onClick={() => {
+                                        setEditingProfile(null);
+                                        handleResetStudio(profileSlug);
+                                    }}
+                                    className="w-full py-4 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-2"
+                                >
+                                    <RefreshCcw className="w-4 h-4" />
+                                    {lang === 'ka' ? 'სისტემური რესეტი (მონაცემების გასუფთავება)' : 'System Reset (Clear All Data)'}
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex gap-4 mt-10">
@@ -570,6 +835,72 @@ export default function StudiosPage() {
                                     </button>
                                 </>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Granular Reset Modal */}
+            {resetModal.open && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setResetModal(prev => ({ ...prev, open: false }))} />
+                    <div className="relative bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] w-full max-w-md p-10 animate-in zoom-in-95 duration-200 shadow-2xl">
+                        <div className="w-16 h-16 rounded-[1.5rem] bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-6 shadow-xl">
+                            <RefreshCcw className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-xl font-black text-primary mb-2 tracking-tight uppercase tracking-widest text-center">
+                            {lang === 'ka' ? 'მონაცემების გასუფთავება' : 'Data Reset'}
+                        </h3>
+                        <p className="text-xs text-muted font-bold text-center mb-8">
+                            {lang === 'ka' ? 'აირჩიეთ კატეგორიები, რომელთა გასუფთავებაც გსურთ:' : 'Select categories you want to clear:'}
+                        </p>
+
+                        <div className="space-y-3 mb-8">
+                            {(Object.keys(resetModal.categories) as Array<keyof ResetCategories>).map(cat => (
+                                <button 
+                                    key={String(cat)}
+                                    onClick={() => setResetModal(prev => ({ 
+                                        ...prev, 
+                                        categories: { ...prev.categories, [cat]: !prev.categories[cat] } 
+                                    }))}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-6 py-4 rounded-2xl border transition-all font-black uppercase tracking-widest text-[11px]",
+                                        resetModal.categories[cat] 
+                                            ? "bg-rose-500/10 border-rose-500 text-rose-600 shadow-lg shadow-rose-500/5" 
+                                            : "bg-black/5 border-transparent text-muted opacity-60"
+                                    )}
+                                >
+                                    <span>
+                                        {cat === 'students' ? (lang === 'ka' ? 'მოსწავლეები' : 'Students') :
+                                         cat === 'groups' ? (lang === 'ka' ? 'ჯგუფები' : 'Groups') :
+                                         cat === 'halls' ? (lang === 'ka' ? 'დარბაზები' : 'Halls') :
+                                         cat === 'plans' ? (lang === 'ka' ? 'ტარიფები' : 'Plans') :
+                                         cat === 'teachers' ? (lang === 'ka' ? 'მასწავლებლები' : 'Teachers') :
+                                         cat === 'shop' ? (lang === 'ka' ? 'მარაგი / მაღაზია' : 'Shop / Inventory') :
+                                         cat === 'analytics' ? (lang === 'ka' ? 'ხარჯები / ანალიტიკა' : 'Analytics / Expenses') :
+                                         cat === 'calendar' ? (lang === 'ka' ? 'განრიგი' : 'Calendar Events') :
+                                         (lang === 'ka' ? 'შეტყობინებები' : 'Notifications')}
+                                    </span>
+                                    <div className={cn(
+                                        "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all",
+                                        resetModal.categories[cat] ? "border-rose-600 bg-rose-600" : "border-muted"
+                                    )}>
+                                        {resetModal.categories[cat] && <ShieldCheck className="w-3 h-3 text-white" />}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button onClick={() => setResetModal(prev => ({ ...prev, open: false }))} className="flex-1 py-4 bg-zinc-500/10 hover:bg-zinc-500/20 text-muted text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all">
+                                {lang === 'ka' ? 'გაუქმება' : 'Cancel'}
+                            </button>
+                            <button 
+                                onClick={confirmReset}
+                                className="flex-1 py-4 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-rose-600/30"
+                            >
+                                {lang === 'ka' ? 'გასუფთავება' : 'Clear Data'}
+                            </button>
                         </div>
                     </div>
                 </div>

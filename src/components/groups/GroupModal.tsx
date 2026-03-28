@@ -72,11 +72,14 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     const [showDelete, setShowDelete] = useState(false);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
 
-    const teacherOptions: SearchSelectOption[] = teachers.map(tc => ({
-        value: tc.id,
-        label: tc.full_name || '',
-        subLabel: tc.phone
-    }));
+    const teacherOptions: SearchSelectOption[] = teachers.map(tc => {
+        const name = tc.full_name || `${tc.first_name || ''} ${tc.last_name || ''}`.trim() || tc.phone || tc.id;
+        return {
+            value: tc.id,
+            label: name,
+            subLabel: tc.phone
+        };
+    });
 
     const dayLabels = lang === 'ka' ? DAY_LABELS_KA : lang === 'ru' ? DAY_LABELS_RU : DAY_LABELS_EN;
 
@@ -178,7 +181,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
                     {/* Group name */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
                             <BookOpen className="w-3 h-3" /> {t.groupName}
                         </label>
                         <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Dance Group..." className={inputCls} />
@@ -186,7 +189,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
                     {/* Teacher */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
                             <GraduationCap className="w-3 h-3" /> {t.teachers}
                         </label>
                         <SearchSelect
@@ -194,7 +197,8 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             value={form.teacherId || ''}
                             onChange={val => {
                                 const teacher = teachers.find(tc => tc.id === val);
-                                setForm({ ...form, teacherId: val, coach: teacher?.full_name || '' });
+                                const name = teacher ? (teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim()) : '';
+                                setForm({ ...form, teacherId: val, coach: name });
                             }}
                             placeholder={t.selectTeacher}
                         />
@@ -202,7 +206,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
                     {/* Color selector */}
                     <div>
-                        <label className="text-[10px] text-muted mb-2 block uppercase tracking-wider font-bold opacity-70 flex items-center gap-2">
+                        <label className="text-[10px] text-muted mb-2 block tracking-wider font-bold opacity-70 flex items-center gap-2">
                             <Plus className="w-3 h-3" /> {t.groupColor}
                         </label>
                         <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
@@ -218,13 +222,13 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     {/* ─── Schedule Builder (Simplified Multi-Day) ─────────────────────────────── */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
                                 <Calendar className="w-3 h-3" /> {t.schedule}
                             </label>
                         </div>
 
                         <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
-                            <label className="text-[10px] text-muted block uppercase tracking-wider font-black opacity-40">{t.selectDaysAndTimes}</label>
+                            <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">{t.selectDaysAndTimes}</label>
                             <div className="flex flex-wrap gap-2">
                                 {[0, 1, 2, 3, 4, 5, 6].map(d => {
                                     const isActive = slots.some(s => s.dayOfWeek === d);
@@ -277,13 +281,13 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     {/* Capacity & Type */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
                                 <Users className="w-3 h-3" /> {t.capacity}
                             </label>
                             <input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })} className={inputCls} />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
                                 <BookOpen className="w-3 h-3" /> {t.subscriptionType}
                             </label>
                             <SearchSelect
@@ -302,7 +306,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
                     {/* Difficulty */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 px-1">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1">
                             {t.difficulty}
                         </label>
                         <SearchSelect

@@ -11,7 +11,8 @@ const SUPER_ADMIN_EMAILS = [
     'adminclasscore@gmail.com',
     'support@classcore.ge', 
     'admin@classcore.ge',
-    'tserj13@classcore.ge'
+    'tserj13@classcore.ge',
+    'sergi.tsivtsivadze@gmail.com'
 ];
 
 export default function SALoginPage() {
@@ -107,21 +108,21 @@ export default function SALoginPage() {
                     <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto shadow-2xl">
                         <ShieldCheck className="w-8 h-8 text-white relative z-10" />
                     </div>
-                    <h1 className="text-3xl font-black text-white tracking-tight uppercase">{t.adminLogin}</h1>
-                    <p className="text-zinc-500 font-black tracking-[0.2em] text-[10px] uppercase">{t.hqLoginSub}</p>
+                    <h1 className="text-3xl font-black text-white tracking-tight">{t.adminLogin}</h1>
+                    <p className="text-zinc-500 font-black tracking-[0.2em] text-[10px]">{t.hqLoginSub}</p>
                 </div>
 
                 {/* Form Card */}
                 <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 p-10 rounded-[2.5rem] shadow-2xl">
                     {error && (
                         <div className="mb-6 space-y-4">
-                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-[11px] font-bold text-red-500 uppercase tracking-widest text-center animate-fade-up">
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-[11px] font-bold text-red-500 tracking-widest text-center animate-fade-up">
                                 {error}
                             </div>
                             {user && (
                                 <button 
                                     onClick={() => logout()}
-                                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-[10px] font-black tracking-widest transition-all"
                                 >
                                     Sign Out & Try Another Account
                                 </button>
@@ -130,7 +131,7 @@ export default function SALoginPage() {
                     )}
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest pl-1">{t.adminEmail}</label>
+                            <label className="text-[10px] font-black text-zinc-500 tracking-widest pl-1">{t.adminEmail}</label>
                             <div className="relative group">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-500 group-focus-within:text-white transition-colors" />
                                 <input
@@ -144,7 +145,7 @@ export default function SALoginPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest pl-1">{t.passcode}</label>
+                            <label className="text-[10px] font-black text-zinc-500 tracking-widest pl-1">{t.passcode}</label>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-500 group-focus-within:text-white transition-colors" />
                                 <input
@@ -167,7 +168,7 @@ export default function SALoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full mt-4 py-5 bg-white text-black hover:bg-zinc-200 border border-transparent rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
+                            className="w-full mt-4 py-5 bg-white text-black hover:bg-zinc-200 border border-transparent rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
                         >
                             {loading ? (
                                 <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -178,7 +179,7 @@ export default function SALoginPage() {
                     </form>
                 </div>
             </div>
-            <div className="absolute bottom-6 text-[10px] font-black tracking-widest text-zinc-600 uppercase">
+            <div className="absolute bottom-6 text-[10px] font-black tracking-widest text-zinc-600">
                 {t.restrictedZone}
             </div>
         </div>

@@ -2,15 +2,18 @@
  * audit-store.ts
  * Centrally tracks important actions (payments, subscriptions) studio-wide.
  */
-import { getScopedKey } from './settings-store';
+import { getScopedKey, getActiveSlug } from './utils';
 
 export interface AuditEntry {
     id: string;
-    action: 'payment' | 'subscription_issued' | 'subscription_extended' | 'subscription_deleted' | 'lesson_checkin';
+    action: 'payment' | 'subscription_issued' | 'subscription_extended' | 'subscription_deleted' | 'lesson_checkin' | 'student_deleted' | 'staff_deleted';
     details: string;
     amount?: number;
+    paymentMethod?: 'cash' | 'card' | 'transfer';
     studentId?: string;
     studentName?: string;
+    groupName?: string;
+    category?: string;
     branchId: string;
     branchName: string;
     timestamp: string;

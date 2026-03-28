@@ -6,7 +6,9 @@ import {
     CalendarCheck, ArrowUpRight, ArrowDownRight,
     Download, X, Lightbulb, BarChart3,
     Banknote, Clock, Wallet, CheckCircle2, Eye, EyeOff,
-    Edit2, ChevronLeft, ChevronRight, Calculator
+    Edit2, ChevronLeft, ChevronRight, Calculator,
+    LayoutGrid, GraduationCap, ShoppingBag, Receipt, Settings2,
+    Sparkles, AlertCircle
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
@@ -24,6 +26,8 @@ import { TeacherModal } from '@/components/teachers/TeacherModal';
 import { getGroups } from '@/lib/group-store';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
+import { getExpenses, saveExpenses, MonthlyExpenses } from '@/lib/expense-store';
+import { getStudentCheckins } from '@/lib/checkin-store';
 
 // ─── Month Navigator ─────────────────────────────────────────────────────────
 
@@ -62,11 +66,111 @@ function MonthNavigator({ selectedMonth, onSelect, t, className }: { selectedMon
                 <ChevronLeft className="w-4 h-4" strokeWidth={3} />
             </button>
             <div className="min-w-[110px] text-center px-1">
-                <p className="text-[10px] font-black text-primary uppercase tracking-wider">{displayMonth} {year}</p>
+                <p className="text-[10px] font-black text-primary tracking-wider">{displayMonth} {year}</p>
             </div>
             <button onClick={goToNext} disabled={isCurrentMonth()} className="w-7 h-7 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
                 <ChevronRight className="w-4 h-4" strokeWidth={3} />
             </button>
+        </div>
+    );
+}
+
+// ─── Expense Modal ───────────────────────────────────────────────────────────
+
+function ExpenseModal({ open, onClose, selectedMonth, branchId, t, l, settings }: any) {
+    const [expenses, setExpenses] = useState<MonthlyExpenses>(getExpenses(selectedMonth, branchId));
+    useEffect(() => {
+        if (open) {
+            setExpenses(getExpenses(selectedMonth, branchId));
+        }
+    }, [open, selectedMonth, branchId]);
+
+    if (!open) return null;
+
+    const fields = [
+        { key: 'rent', label: t.rent, icon: Banknote },
+        { key: 'electricity', label: t.electricity, icon: Settings2 },
+        { key: 'gas', label: t.gas, icon: Settings2 },
+        { key: 'water', label: t.water, icon: Settings2 },
+        { key: 'cleaner', label: t.cleaner, icon: Users },
+        { key: 'accountant', label: t.accountant, icon: CreditCard },
+        { key: 'manager', label: t.manager, icon: Users },
+        { key: 'other', label: t.otherExpenses, icon: Receipt },
+    ];
+
+    const total = Object.values(expenses).reduce((a, b) => (a || 0) + (b || 0), 0);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-card border border-border-subtle w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-500">
+                <div className="px-8 py-6 border-b border-border-subtle flex items-center justify-between bg-surface/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                            <Receipt className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black text-primary tracking-tight">{t.manageExpenses}</h2>
+                            <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{selectedMonth}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-surface text-muted transition-colors">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {fields.map((f) => (
+                            <div key={f.key} className="space-y-1.5 focus-within:scale-[1.02] transition-transform">
+                                <label className="text-[10px] font-black text-muted tracking-widest uppercase ml-1 opacity-50 flex items-center gap-1.5">
+                                    <f.icon className="w-3 h-3" />
+                                    {f.label}
+                                </label>
+                                <div className="relative group">
+                                    <input
+                                        type="number"
+                                        value={expenses[f.key as keyof MonthlyExpenses] || ''}
+                                        onChange={(e) => setExpenses(prev => ({ ...prev, [f.key]: Number(e.target.value) }))}
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-4 text-sm font-black text-primary transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 group-hover:bg-card"
+                                        placeholder="0"
+                                    />
+                                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted/30 uppercase">{settings.currency}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="px-8 py-6 bg-surface/50 border-t border-border-subtle flex flex-col sm:flex-row items-center gap-4 justify-between">
+                    <div>
+                        <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.totalExpenses}</p>
+                        <p className="text-2xl font-black text-primary">{formatCurrency(total, settings.currency)}</p>
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={() => {
+                                const zeroed = {
+                                    rent: 0, electricity: 0, gas: 0, water: 0,
+                                    cleaner: 0, accountant: 0, manager: 0, other: 0
+                                };
+                                setExpenses(zeroed);
+                            }}
+                            className="flex-1 sm:flex-none px-6 py-4 bg-rose-500/10 text-rose-600 text-[10px] font-black rounded-2xl hover:bg-rose-500/20 active:scale-95 transition-all tracking-widest uppercase"
+                        >
+                            {l('ყველას განულება', 'Обнулить всё', 'Reset to Zero')}
+                        </button>
+                        <button
+                            onClick={() => {
+                                saveExpenses(selectedMonth, branchId, expenses);
+                                onClose();
+                            }}
+                            className="flex-1 sm:flex-none px-8 py-4 bg-indigo-600 text-white text-[10px] font-black rounded-2xl shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all tracking-widest uppercase"
+                        >
+                            {t.saveAction}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -91,7 +195,7 @@ function StatCard({ label, value, change, trend, icon: Icon, color }: any) {
                     <Icon className="w-6 h-6" />
                 </div>
                 <div className={cn(
-                    "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
+                    "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider border",
                     isUp ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-red-500/10 text-red-600 border-red-500/20"
                 )}>
                     {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
@@ -99,7 +203,7 @@ function StatCard({ label, value, change, trend, icon: Icon, color }: any) {
                 </div>
             </div>
             <p className="text-2xl font-black text-primary tabular-nums tracking-tighter mb-1">{value}</p>
-            <p className="text-[11px] font-black text-muted uppercase tracking-[0.15em] opacity-40">{(t[label as keyof typeof t] as string) || label}</p>
+            <p className="text-[11px] font-black text-muted tracking-[0.15em] opacity-40">{(t[label as keyof typeof t] as string) || label}</p>
         </div>
     );
 }
@@ -110,8 +214,8 @@ function SimpleBarChart({ data, maxValue, colorClass }: { data: { label: string,
     return (
         <div className="flex items-end justify-between h-48 gap-3 px-2 mt-6">
             {data.map((d, i) => {
-                const height = maxValue > 0 ? Math.max((d.value / maxValue) * 100, d.value > 0 ? 8 : 2) : 2;
-                // Get the base color from colorClass (extracting-from-indigo-600)
+                const height = maxValue > 0 ? Math.max((d.value / maxValue) * 100, d.value > 0 ? 8 : 4) : 4;
+                // Get the base color from colorClass
                 const isEmerald = colorClass.includes('emerald');
                 const isViolet = colorClass.includes('violet');
                 const isIndigo = colorClass.includes('indigo');
@@ -126,8 +230,8 @@ function SimpleBarChart({ data, maxValue, colorClass }: { data: { label: string,
                             {/* Bar Container */}
                             <div className="w-full max-w-[28px] bg-surface/50 border border-border-subtle/20 rounded-xl relative flex items-end overflow-hidden h-full group-hover/bar:bg-surface/80 transition-colors">
                                 {/* Bar Fill */}
-                                <div className={cn("w-full transition-all duration-1000 ease-out z-10", barBg)}
-                                    style={{ height: `${height}%`, boxShadow: `0 0 20px ${shadowColor}` }}>
+                                <div className={cn("w-full transition-all duration-1000 ease-out z-10 rounded-t-lg", barBg)}
+                                    style={{ height: `${height}%`, boxShadow: d.value > 0 ? `0 0 20px ${shadowColor}` : 'none' }}>
                                     {/* Shimmer Effect */}
                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/bar:translate-x-full transition-transform duration-1000" />
                                 </div>
@@ -137,7 +241,7 @@ function SimpleBarChart({ data, maxValue, colorClass }: { data: { label: string,
                                 </div>
                             </div>
                         </div>
-                        <span className="text-[9px] font-black text-muted uppercase tracking-[0.2em] opacity-30 group-hover/bar:opacity-100 transition-opacity truncate w-full text-center">{d.label}</span>
+                        <span className="text-[10px] font-black text-muted tracking-wide opacity-60 group-hover/bar:opacity-100 transition-opacity truncate w-full text-center">{d.label}</span>
                     </div>
                 );
             })}
@@ -202,16 +306,16 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
         <>
             <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose} />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-card border border-border-subtle rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+                <div className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto bg-card border border-border-subtle rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
                     {/* Header */}
-                    <div className="sticky top-0 bg-card/90 backdrop-blur-sm border-b border-border-subtle rounded-t-[2.5rem] px-8 py-6 flex items-center justify-between z-10">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                                <Lightbulb className="w-6 h-6 text-indigo-500" />
+                    <div className="sticky top-0 bg-card/90 backdrop-blur-sm border-b border-border-subtle rounded-t-[2rem] px-6 py-4 flex items-center justify-between z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                                <Lightbulb className="w-5 h-5 text-indigo-500" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-primary">{t.aiInsightTitle}</h2>
-                                <p className="text-xs text-muted font-medium opacity-60">{monthName} {year}</p>
+                                <h2 className="text-lg font-black text-primary">{t.aiInsightTitle}</h2>
+                                <p className="text-[10px] text-muted font-medium opacity-60">{monthName} {year}</p>
                             </div>
                         </div>
                         <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all">
@@ -220,39 +324,39 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
                     </div>
 
                     {/* Stats Summary */}
-                    <div className="px-8 py-6 grid grid-cols-2 gap-4 border-b border-border-subtle">
-                        <div className={cn("p-4 rounded-2xl border", revenueGrowth >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20")}>
-                            <p className="text-xs font-bold text-muted opacity-60 mb-1">{t.totalRevenue || 'Revenue'}</p>
-                            <p className={cn("text-xl font-black", revenueGrowth >= 0 ? "text-emerald-600" : "text-red-500")}>
+                    <div className="px-6 py-4 grid grid-cols-2 gap-3 border-b border-border-subtle">
+                        <div className={cn("p-3 rounded-xl border", revenueGrowth >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20")}>
+                            <p className="text-[10px] font-bold text-muted opacity-60 mb-0.5">{t.totalRevenue || 'Revenue'}</p>
+                            <p className={cn("text-lg font-black", revenueGrowth >= 0 ? "text-emerald-600" : "text-red-500")}>
                                 {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth}%
                             </p>
-                            <p className="text-[10px] text-muted opacity-50">{t.vsLastMonth}</p>
+                            <p className="text-[9px] text-muted opacity-50">{t.vsLastMonth}</p>
                         </div>
-                        <div className={cn("p-4 rounded-2xl border", attendanceGrowth >= 0 ? "bg-violet-500/5 border-violet-500/20" : "bg-amber-500/5 border-amber-500/20")}>
-                            <p className="text-xs font-bold text-muted opacity-60 mb-1">{t.attendanceRate || 'Attendance'}</p>
-                            <p className={cn("text-xl font-black", attendanceGrowth >= 0 ? "text-violet-600" : "text-amber-500")}>
+                        <div className={cn("p-3 rounded-xl border", attendanceGrowth >= 0 ? "bg-violet-500/5 border-violet-500/20" : "bg-amber-500/5 border-amber-500/20")}>
+                            <p className="text-[10px] font-bold text-muted opacity-60 mb-0.5">{t.attendanceRate || 'Attendance'}</p>
+                            <p className={cn("text-lg font-black", attendanceGrowth >= 0 ? "text-violet-600" : "text-amber-500")}>
                                 {attendanceGrowth >= 0 ? '+' : ''}{attendanceGrowth}%
                             </p>
-                            <p className="text-[10px] text-muted opacity-50">{t.vsLastMonth}</p>
+                            <p className="text-[9px] text-muted opacity-50">{t.vsLastMonth}</p>
                         </div>
                     </div>
 
                     {/* Insights */}
-                    <div className="px-8 py-6 space-y-4">
+                    <div className="px-6 py-4 space-y-3">
                         {insights.map((insight, i) => (
-                            <div key={i} className="p-5 bg-surface/50 border border-border-subtle/50 rounded-2xl">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <span className="text-2xl">{insight.icon}</span>
-                                    <h3 className="text-sm font-black text-primary uppercase tracking-wider">{insight.title}</h3>
+                            <div key={i} className="p-3 sm:p-4 bg-surface/50 border border-border-subtle/50 rounded-xl">
+                                <div className="flex items-center gap-2.5 mb-1.5">
+                                    <span className="text-xl">{insight.icon}</span>
+                                    <h3 className="text-[11px] font-black text-primary tracking-wider uppercase">{insight.title}</h3>
                                 </div>
-                                <p className="text-sm text-muted leading-relaxed opacity-80">{insight.text}</p>
+                                <p className="text-[11px] sm:text-xs text-muted leading-relaxed opacity-80">{insight.text}</p>
                             </div>
                         ))}
                     </div>
 
-                    <div className="px-8 pb-8">
+                    <div className="px-6 pb-6">
                         <button onClick={onClose}
-                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all">
+                            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-xl transition-all uppercase tracking-widest">
                             {t.close}
                         </button>
                     </div>
@@ -282,6 +386,10 @@ export default function AnalyticsPage() {
     const [currentMonthStats, setCurrentMonthStats] = useState<any>(null);
     const [editingTeacher, setEditingTeacher] = useState<any>(null);
     const [showInsightsModal, setShowInsightsModal] = useState(false);
+    const [showExpenseModal, setShowExpenseModal] = useState(false);
+    const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpenses>(getExpenses(selectedMonth, settings.activeBranchId || 'default'));
+    const [showDetailed, setShowDetailed] = useState(false);
+    const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
     const [extraStats, setExtraStats] = useState<any>({
         inactiveSubs: 0,
         newStudents3m: 0,
@@ -289,6 +397,15 @@ export default function AnalyticsPage() {
         yearlyRevenue: 0,
         activeSubs: 0
     });
+
+    const [currentInsightIndex, setCurrentInsightIndex] = useState(0);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentInsightIndex(prev => (prev + 1) % Math.max(1, extraStats.suggestions?.length || 1));
+        }, 6000);
+        return () => clearInterval(timer);
+    }, [extraStats.suggestions]);
 
     const handleExport = () => {
         // Collect Analytics Data
@@ -338,6 +455,7 @@ export default function AnalyticsPage() {
             const teachers = getTeachers();
             const events = getEvents();
             const plans = getPlans();
+            const groups = getGroups();
 
             // Plan prices map
             const planPrices: Record<string, number> = {};
@@ -407,18 +525,16 @@ export default function AnalyticsPage() {
             const calculatedSalaries = teachers.map(t => {
                 const teacherGroups = (t.assigned_group_ids && t.assigned_group_ids.length > 0)
                     ? t.assigned_group_ids
-                    : events.filter(e => e.teacher_id === t.id).map(e => e.id);
+                    : events.filter(ev => ev.teacher_id === t.id).map(ev => ev.id);
                 
                 const subsForTeacher = filteredSubs.filter(sub => {
                     const plan = plans.find(p => p.name === sub.plan);
-                    return plan && plan.group_id && teacherGroups.includes(plan.group_id);
+                    const groupId = (sub as any).group_id || (plan && plan.group_id);
+                    return groupId && teacherGroups.includes(groupId);
                 });
 
                 const subRevenue = subsForTeacher.reduce((sum, sub) => {
-                    const price = planPrices[sub.plan] || (sub as any).price || 0;
-                    if (price > 0) return sum + price;
-                    const match = sub.teacher_comment?.match(/(\d+\.?\d*)/);
-                    return sum + (match ? parseFloat(match[0]) : 0);
+                    return sum + (sub.amount_paid || planPrices[sub.plan] || 0);
                 }, 0);
 
                 const bonus = getTeacherBonusForMonth(t.id, monthStr);
@@ -478,19 +594,19 @@ export default function AnalyticsPage() {
 
             const totalSalaryAmount = calculatedSalaries.reduce((sum, s) => sum + s.total, 0);
 
-            // Top Groups - all events (not just group_class for broader data)
-            const groupStats = events
-                .map(ev => {
-                    const count = students.filter(s =>
-                        s.enrolled_group_ids?.includes(ev.id)
-                    ).length;
-                    const groupSubs = filteredSubs.filter(sub => {
-                        const plan = plans.find(p => p.name === sub.plan);
-                        return plan && plan.group_id === ev.id;
-                    });
-                    const revenue = groupSubs.reduce((sum, sub) => sum + (planPrices[sub.plan] || 0), 0);
-                    return { name: ev.title, students: count, revenue: revenue, growth: '+0%' };
-                })
+            // Top Groups
+            const groupStats = groups.map(g => {
+                const groupSubs = filteredSubs.filter(sub => {
+                    const plan = plans.find(p => p.name === sub.plan);
+                    const isLinked = (sub as any).group_id === g.id || (plan && plan.group_id === g.id);
+                    if (isLinked) return true;
+                    // Fallback: check if the student is enrolled in this group
+                    const student = students.find(s => s.id === sub.student_id);
+                    return student?.enrolled_group_ids?.includes(g.id);
+                });
+                const revenue = groupSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                return { name: g.name, students: g.enrolled || 0, revenue: revenue, growth: '+0%' };
+            })
                 .filter(g => g.students > 0 || g.revenue > 0)
                 .sort((a, b) => b.students - a.students || b.revenue - a.revenue)
                 .slice(0, 5);
@@ -518,20 +634,181 @@ export default function AnalyticsPage() {
             const newStudents3m = students.filter(s => (s as any).created_at && (s as any).created_at >= threeMonthsAgoStr && (s as any).created_at <= endMonthStr).length;
             const leftStudents3m = students.filter(s => s.status === 'inactive' && (s as any).updated_at && (s as any).updated_at >= threeMonthsAgoStr && (s as any).updated_at <= endMonthStr).length;
 
+            // Manual Expenses for this month
+            const manualExpenses = getExpenses(monthStr, settings.activeBranchId || 'default');
+            const manualExpensesTotal = Object.values(manualExpenses).reduce((a, b) => (a || 0) + (b || 0), 0);
+            const totalExpenses = totalSalaryAmount + manualExpensesTotal;
+            const netProfit = totalRevenue - totalExpenses;
+
+            // Deep Financial Metrics
+            const subRevenue = filteredSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+            const prodRevenue = filteredSales.reduce((sum, s) => sum + s.price * s.quantity, 0);
+            const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+            const arpu = activeSubCount > 0 ? totalRevenue / activeSubCount : (students.length > 0 ? totalRevenue / students.length : 0);
+
+            // --- Creative AI Logic ---
+            
+            // 1. Churn Risk Analysis
+            const churnRiskStudents = students.filter(s => s.status === 'active').map(s => {
+                const checkins = getStudentCheckins(s.id);
+                if (checkins.length === 0) return { id: s.id, name: s.full_name || `${s.first_name} ${s.last_name}`, risk: 'high', reason: l('ჩეკინი არ დაფიქსირებულა', 'Нет посещений', 'No check-ins') };
+                
+                const lastCheckin = new Date(checkins[0].date);
+                const daysSinceLast = Math.floor((new Date().getTime() - lastCheckin.getTime()) / (1000 * 3600 * 24));
+                
+                let risk: 'low' | 'medium' | 'high' | 'lost' = 'low';
+                let reason = '';
+                if (daysSinceLast >= 60) {
+                    risk = 'lost';
+                    reason = l('დაკარგული კლიენტი (60+ დღე)', 'Потерянный клиент (60+ дней)', 'Lost client (60+ days)');
+                } else if (daysSinceLast > 14) {
+                    risk = 'high';
+                    reason = l('არ გამოჩენილა 2 კვირაზე მეტია', 'Не был более 2 недель', 'Absent for 2+ weeks');
+                } else if (daysSinceLast > 7) {
+                    risk = 'medium';
+                    reason = l('არ გამოჩენილა 1 კვირაა', 'Не был 1 неделю', 'Absent for 1 week');
+                }
+                
+                return { id: s.id, name: s.full_name || `${s.first_name} ${s.last_name}`, risk, reason, daysSinceLast };
+            }).filter(s => s.risk !== 'low').sort((a, b) => (b.daysSinceLast || 0) - (a.daysSinceLast || 0)).slice(0, 5);
+
+            // 2. Occupancy Analysis
+            const occupancyStats = groups.map(g => ({
+                name: g.name,
+                rate: g.capacity > 0 ? Math.round((g.enrolled / g.capacity) * 100) : 0,
+                enrolled: g.enrolled,
+                capacity: g.capacity
+            })).sort((a,b) => b.rate - a.rate);
+
+            // 3. Peak Hours (Current Month)
+            const hourCounts: Record<string, number> = {};
+            const prefix = getScopedKey('cc_checkins_');
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith(prefix) && key.includes(monthStr)) {
+                   const dayCheckins = JSON.parse(localStorage.getItem(key) || '[]');
+                   dayCheckins.forEach((c: any) => {
+                       const hour = c.time?.split(':')[0] || '00';
+                       hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+                   });
+                }
+            });
+            const peakHours = Object.entries(hourCounts)
+                .map(([hour, count]) => ({ hour: `${hour}:00`, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 3);
+
+            // 4. AI Live Highlights & Trends
+            const today = getLocalISODate();
+            const newStudentsToday = students.filter(s => (s as any).created_at === today).length;
+            const revenueToday = filteredSales.filter(s => s.date === today).reduce((sum, s) => sum + s.price * s.quantity, 0) +
+                                filteredSubs.filter(sub => sub.purchased_at === today).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+            
+            // Financial Comparison Logic
+            const lastMonthDate = new Date(selectedMonthDate); lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+            const lastMonthStr = lastMonthDate.toISOString().substring(0, 7);
+            const lastYearDate = new Date(selectedMonthDate); lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
+            const lastYearStr = lastYearDate.toISOString().substring(0, 7);
+
+            const getMonthRevenue = (m: string) => {
+                const subRev = allSubs.filter(sub => sub.purchased_at.startsWith(m)).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                const prodRev = sales.filter(s => s.date.startsWith(m)).reduce((sum, s) => sum + s.price * s.quantity, 0);
+                return subRev + prodRev;
+            };
+
+            const prevMonthRevenue = getMonthRevenue(lastMonthStr);
+            const prevYearRevenue = getMonthRevenue(lastYearStr);
+            
+            // Weekly Trend (Last 7 days vs previous 7 days)
+            const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const fourteenDaysAgo = new Date(); fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+            const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+            const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().split('T')[0];
+            
+            const thisWeekRevenue = allSubs.filter(s => s.purchased_at >= sevenDaysAgoStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0) +
+                                  sales.filter(s => s.date >= sevenDaysAgoStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
+            const lastWeekRevenue = allSubs.filter(s => s.purchased_at >= fourteenDaysAgoStr && s.purchased_at < sevenDaysAgoStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0) +
+                                  sales.filter(s => s.date >= fourteenDaysAgoStr && s.date < sevenDaysAgoStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
+            const weeklyGrowthPercent = lastWeekRevenue > 0 ? Math.round(((thisWeekRevenue / lastWeekRevenue) - 1) * 100) : 0;
+
+            // 5. AI Smart Suggestions (YouTube Studio Style)
+            const suggestions: string[] = [];
+            
+            if (newStudentsToday > 0) {
+                suggestions.push(l(`გილოცავ! დღეს ${newStudentsToday} ახალი სტუდენტი დაგემატა! 🚀`, `Поздравляем! Сегодня добавилось ${newStudentsToday} новых студентов! 🚀`, `Congrats! ${newStudentsToday} new students joined today! 🚀`));
+            }
+            if (revenueToday > 0) {
+                suggestions.push(l(`დღევანდელი შემოსავალი: ${formatCurrency(revenueToday, settings.currency)}! შესანიშნავი შედეგია! 💰`, `Доход за сегодня: ${formatCurrency(revenueToday, settings.currency)}! Отличный результат! 💰`, `Today's revenue: ${formatCurrency(revenueToday, settings.currency)}! Great result! 💰`));
+            }
+            if (weeklyGrowthPercent > 5) {
+                suggestions.push(l(`ამ კვირაში შემოსავალი ${weeklyGrowthPercent}%-ით გაიზარდა წინა კვირასთან შედარებით! 📈`, `На этой неделе доход вырос на ${weeklyGrowthPercent}% по сравнению с прошлой! 📈`, `Revenue increased by ${weeklyGrowthPercent}% this week compared to last! 📈`));
+            }
+            
+            if (occupancyStats.filter(g => g.rate > 90).length > 0) {
+                const fullGroups = occupancyStats.filter(g => g.rate > 90).map(g => g.name).join(', ');
+                suggestions.push(l(`ყურადღება! ჯგუფები ${fullGroups} თითქმის სავსეა. 🈵`, `Внимание! Группы ${fullGroups} почти заполнены. 🈵`, `Heads up! Groups ${fullGroups} are almost full. 🈵`));
+            }
+
+            if (suggestions.length === 0) {
+                if (churnRiskStudents.length > 0) {
+                    suggestions.push(l(`${churnRiskStudents.length} სტუდენტია სტუდიის დატოვების რისკის ქვეშ. სცადეთ მათთან დაკავშირება.`, `${churnRiskStudents.length} студентов под риском ухода. Свяжитесь с ними.`, `${churnRiskStudents.length} students are at risk of leaving. Reach out to them.`));
+                } else {
+                    suggestions.push(l('სტუდია სტაბილურად მუშაობს. ფოკუსირდით მარკეტინგზე.', 'Студия работает стабильно. Фокус на маркетинг.', 'Studio is stable. Focus on marketing.'));
+                }
+            }
+
+            const totalGrossRevenue = subRevenue + prodRevenue;
+
             setExtraStats({
                 inactiveSubs: students.length - activeSubCount,
                 newStudents3m,
                 leftStudents3m,
                 yearlyRevenue: yearSalesRevenue + yearSubRevenue,
-                activeSubs: activeSubCount
+                activeSubs: activeSubCount,
+                totalExpenses,
+                netProfit,
+                manualExpenses,
+                manualExpensesTotal,
+                totalStudents: students.length,
+                subRevenue,
+                prodRevenue,
+                profitMargin,
+                arpu,
+                churnRiskStudents,
+                occupancyStats,
+                peakHours,
+                suggestions,
+                totalGrossRevenue,
+                prevMonthRevenue,
+                prevYearRevenue,
+                lateRenewals: students.filter(s => {
+                    const studentSubs = Object.values(allSubsMap[s.id] || []);
+                    const active = studentSubs.find(sub => sub.status === 'active');
+                    const expired = studentSubs.filter(sub => sub.status === 'expired').sort((a, b) => b.expires_at.localeCompare(a.expires_at))[0];
+                    return !active && expired && expired.expires_at < getLocalISODate();
+                }).map(s => ({
+                    id: s.id,
+                    name: `${s.first_name || ''} ${s.last_name || s.full_name || ''}`,
+                    lastExpiry: (Object.values(allSubsMap[s.id] || []).filter(sub => sub.status === 'expired').sort((a, b) => b.expires_at.localeCompare(a.expires_at))[0] as any)?.expires_at
+                })),
+                topPayers: students.map(s => {
+                    const studentUnits = Object.values(allSubsMap[s.id] || []);
+                    const totalSpent = studentUnits.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                    return { id: s.id, name: `${s.first_name || ''} ${s.last_name || s.full_name || ''}`, totalSpent };
+                }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 10),
+                branchStats: settings.branches.map(b => {
+                    const branchStudents = students.filter(s => s.branch_id === b.id || (!s.branch_id && b.id === 'main'));
+                    const branchRevenue = filteredSales.filter(s => s.studentId && students.find(st => st.id === s.studentId && (st.branch_id === b.id || (!st.branch_id && b.id === 'main')))).reduce((sum, s) => sum + s.price * s.quantity, 0) +
+                        filteredSubs.filter(sub => students.find(st => st.id === sub.student_id && (st.branch_id === b.id || (!st.branch_id && b.id === 'main')))).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                    return { name: b.name, students: branchStudents.length, revenue: branchRevenue };
+                })
             });
 
             return {
-                totalRevenue, attendanceRate, totalSalaryAmount, daysData, daysAttData, calculatedSalaries, overview: [
+                totalRevenue, attendanceRate, totalSalaryAmount, totalExpenses, netProfit, manualExpenses, daysData, daysAttData, calculatedSalaries, overview: [
                     { label: 'totalRevenue', value: formatCurrency(totalRevenue, settings.currency), change: '+0%', trend: 'up', icon: CreditCard, color: 'indigo' },
-                    { label: 'totalStudents', value: String(students.length), change: '0', trend: 'up', icon: Users, color: 'emerald' },
+                    { label: 'totalExpenses', value: formatCurrency(totalExpenses, settings.currency), change: '0', trend: 'down', icon: Receipt, color: 'rose' },
+                    { label: 'netProfit', value: formatCurrency(netProfit, settings.currency), change: '0%', trend: 'up', icon: TrendingUp, color: 'emerald' },
                     { label: 'attendanceRate', value: `${Math.round(attendanceRate)}%`, change: '0%', trend: 'up', icon: CalendarCheck, color: 'violet' },
-                    { label: 'totalSalaries', value: formatCurrency(totalSalaryAmount, settings.currency), change: '0%', trend: 'up', icon: Wallet, color: 'rose' },
                 ], finalGroups
             };
         };
@@ -542,7 +819,13 @@ export default function AnalyticsPage() {
         setSalaryData(result.calculatedSalaries);
         setStats(result.overview);
         setTopGroupsData(result.finalGroups);
-        setCurrentMonthStats({ totalRevenue: result.totalRevenue, attendanceRate: result.attendanceRate });
+        setCurrentMonthStats({ 
+            totalRevenue: result.totalRevenue, 
+            attendanceRate: result.attendanceRate,
+            totalExpenses: result.totalExpenses,
+            netProfit: result.netProfit,
+            manualExpensesTotal: Object.values(result.manualExpenses).reduce((a: any, b: any) => (a || 0) + (b || 0), 0)
+        });
 
         // Prev month for comparison
         const [y, m] = selectedMonth.split('-').map(Number);
@@ -557,198 +840,487 @@ export default function AnalyticsPage() {
         const h = () => setRefreshToggle(v => v + 1);
         window.addEventListener('cc_bonuses_updated', h);
         window.addEventListener('cc_salary_statuses_updated', h);
+        window.addEventListener('cc_expenses_updated', h);
         return () => {
             window.removeEventListener('cc_bonuses_updated', h);
             window.removeEventListener('cc_salary_statuses_updated', h);
+            window.removeEventListener('cc_expenses_updated', h);
         };
     }, []);
 
     const totalCalculated = salaryData.reduce((acc, s) => acc + s.total, 0);
-
     const revenueMax = Math.max(...revenueChartData.map(d => d.value), 100);
 
     return (
-        <div className="max-w-6xl mx-auto space-y-10 animate-fade-up pb-20">
-            {/* Header Controls */}
-            <div className="flex items-center justify-between sm:justify-end gap-2 px-2 sm:px-0">
-                <div className="flex items-center gap-2">
+        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-20">
+            {/* Standard Header Actions */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 px-4 sm:px-0">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-500/20">
+                        <BarChart3 className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-black text-primary tracking-tight leading-none">{t.analytics}</h1>
+                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40 uppercase mt-1.5">{l('თვიური მიმოხილვა', 'Ежемесячный обзор', 'Monthly Overview')}</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <MonthNavigator
+                        selectedMonth={selectedMonth}
+                        onSelect={setSelectedMonth}
+                        t={t}
+                        className="flex-1 sm:flex-none"
+                    />
+                    <button onClick={() => setShowExpenseModal(true)}
+                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-indigo-50/50 text-indigo-600 border border-indigo-200/50 hover:bg-indigo-100 transition-all shadow-sm shrink-0 active:scale-95"
+                        title={t.manageExpenses}>
+                        <Receipt className="w-5 h-5" />
+                    </button>
                     <button onClick={() => handleExport()}
-                        className="w-10 h-10 flex items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/20 transition-all shrink-0"
+                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-black border border-border-subtle hover:bg-surface transition-all shadow-sm shrink-0 active:scale-95"
                         title={l('ჩამოტვირთვა', 'Скачать', 'Download')}>
                         <Download className="w-5 h-5" />
                     </button>
                 </div>
-                <MonthNavigator selectedMonth={selectedMonth} onSelect={setSelectedMonth} t={t} />
             </div>
 
-            {/* ─── 2-2-1 Analytics Grid (Unified) ─── */}
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6">
-                {/* 1. Revenue Overview (Merged Gauges) */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 shadow-lg flex flex-col items-center justify-between min-h-[220px] sm:min-h-[280px]">
-                    <div className="flex items-center justify-center text-center w-full mb-2">
-                        <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-[0.1em] sm:tracking-[0.2em]">{t.revenueOverview || l('მიმოხილვა', 'Обзор', 'Overview')}</p>
+            <div className="space-y-6 px-4 sm:px-0">
+            {/* 1. AI Studio Assistant - Premium Dynamic Hero */}
+            <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 rounded-[2.5rem] p-6 md:p-8 relative overflow-hidden group shadow-2xl shadow-indigo-600/30 mb-8 transition-all duration-500 hover:scale-[1.01]">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 animate-pulse" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
+                
+                <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="relative">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner group-hover:rotate-6 transition-transform">
+                                <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-pulse" />
+                            </div>
+                            <div className="absolute -top-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 bg-emerald-400 rounded-full border-2 border-indigo-600 animate-ping" />
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 text-[8px] sm:text-[10px] font-black uppercase tracking-widest border border-emerald-400/30">
+                                    {l('ლაივ რეჟიმი', 'Live Режим', 'Live Mode')}
+                                </span>
+                                <h2 className="text-base sm:text-xl font-black text-white tracking-tight uppercase">AI Assistant</h2>
+                            </div>
+                            <p className="text-indigo-100/60 text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em]">{l('სტუდიის ინტელექტი', 'Интеллект студии', 'Studio Intelligence')}</p>
+                        </div>
                     </div>
                     
-                    <div className="flex-1 flex flex-col sm:flex-row items-center justify-around w-full gap-4 py-2">
-                        {/* Daily Gauge */}
-                        <div className="flex flex-col items-center text-center">
-                            <div className="scale-[0.6] sm:scale-75 origin-center">
+                    <div className="flex-1 w-full lg:max-w-2xl px-1 sm:px-2">
+                        <div className="bg-white/10 backdrop-blur-md rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-white/15 shadow-2xl overflow-hidden relative min-h-[60px] sm:min-h-[80px] flex items-center group/card">
+                            <div className="absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-emerald-400 opacity-60 group-hover/card:bg-white transition-colors" />
+                            <p className="text-xs sm:text-base font-bold text-white leading-tight sm:leading-relaxed italic animate-in fade-in slide-in-from-right-8 duration-700">
+                                "{(extraStats.suggestions || [])[currentInsightIndex] || l('მონაცემების ანალიზი...', 'Аналиზ მონაცემების...', 'Analyzing studio data...')}"
+                            </p>
+                            <div className="absolute bottom-2 right-4 flex gap-1.5 opacity-40">
+                                {(extraStats.suggestions || []).map((_: any, i: number) => (
+                                    <div key={i} className={cn("w-1.5 h-1.5 rounded-full bg-white transition-all", i === currentInsightIndex ? "w-4 opacity-100" : "opacity-40")} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                {/* Round Charts Row */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    {/* 1. Net Profit (Gauge) */}
+                    <div className="bg-card border border-border-subtle rounded-3xl p-5 sm:p-6 shadow-lg flex flex-col items-center min-h-[340px] h-full">
+                        <div className="w-full h-8 flex items-start justify-center">
+                            <p className="text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight uppercase opacity-60 px-2 line-clamp-2">{t.netProfit}</p>
+                        </div>
+                        <div className="h-44 w-full flex items-center justify-center">
+                            <div className="relative flex items-center justify-center scale-110">
                                 <GaugeChart
                                     size={100}
-                                    thickness={14}
-                                    value={currentMonthStats?.totalRevenue / 30 || 0}
-                                    total={currentMonthStats?.totalRevenue / 10 || 1}
-                                    color="#f59e0b"
+                                    thickness={12}
+                                    value={Math.max(0, currentMonthStats?.netProfit || 0)}
+                                    total={currentMonthStats?.totalRevenue || 1}
+                                    color="#10b981"
                                     centerLabel={
-                                        <div className="space-y-0.5">
-                                            <span className="text-xl font-black text-primary block leading-none">{Math.round((currentMonthStats?.totalRevenue / 30) / (currentMonthStats?.totalRevenue / 10) * 100 || 0)}%</span>
+                                        <div className="text-center">
+                                            <span className="text-xl font-black text-primary block leading-none">{Math.round((currentMonthStats?.netProfit / (currentMonthStats?.totalRevenue || 1)) * 100 || 0)}%</span>
                                         </div>
                                     }
                                 />
                             </div>
-                            <p className="text-[8px] font-black text-muted uppercase mt-1">{t.averageDaily}</p>
-                            <p className="text-[10px] font-black text-primary">{formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)}</p>
                         </div>
+                        <div className="mt-auto pt-4 w-full flex flex-col items-center gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <p className="text-[10px] font-black text-emerald-500">{formatCurrency(currentMonthStats?.netProfit || 0, settings.currency)}</p>
+                            </div>
+                            <p className="text-[8px] font-bold text-muted uppercase tracking-[0.1em] opacity-40">{t.netProfit}</p>
+                        </div>
+                    </div>
 
-                        {/* Monthly Gauge */}
-                        <div className="flex flex-col items-center text-center">
-                            <div className="scale-[0.6] sm:scale-75 origin-center">
-                                <GaugeChart
+                    {/* 2. Expense Breakdown (Pie Chart) */}
+                    <div className="bg-card border border-border-subtle rounded-3xl p-5 sm:p-6 shadow-lg flex flex-col items-center min-h-[340px] h-full">
+                        <div className="w-full h-8 flex items-start justify-center">
+                            <p className="text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight uppercase opacity-60 px-2 line-clamp-2">{t.expenses}</p>
+                        </div>
+                        <div className="h-44 w-full flex items-center justify-center">
+                            <div className="scale-110">
+                                <PieChart
                                     size={100}
-                                    thickness={14}
-                                    value={currentMonthStats?.totalRevenue || 0}
-                                    total={extraStats.yearlyRevenue * 1.2 || 1}
-                                    color="#8b5cf6"
+                                    thickness={12}
+                                    data={[
+                                        { label: t.totalSalaries, value: currentMonthStats?.totalSalaryAmount || 0, color: '#f43f5e' },
+                                        { label: t.rent, value: extraStats.manualExpenses?.rent || 0, color: '#fb923c' },
+                                        { label: t.electricity + '/' + t.gas + '/' + t.water, value: (extraStats.manualExpenses?.electricity || 0) + (extraStats.manualExpenses?.gas || 0) + (extraStats.manualExpenses?.water || 0), color: '#facc15' },
+                                        { label: t.otherExpenses, value: (extraStats.manualExpenses?.cleaner || 0) + (extraStats.manualExpenses?.accountant || 0) + (extraStats.manualExpenses?.manager || 0) + (extraStats.manualExpenses?.other || 0), color: '#94a3b8' },
+                                    ]}
                                     centerLabel={
-                                        <div className="space-y-0.5">
-                                            <span className="text-xl font-black text-primary block leading-none">{Math.round((currentMonthStats?.totalRevenue / (extraStats.yearlyRevenue * 1.2 || 1)) * 100 || 0)}%</span>
+                                        <div className="text-center px-2">
+                                            <span className="text-[10px] font-black text-primary leading-tight block">{formatCurrency(currentMonthStats?.totalExpenses || 0, settings.currency).split('.')[0]}</span>
                                         </div>
                                     }
                                 />
                             </div>
-                            <p className="text-[8px] font-black text-muted uppercase mt-1">{t.thisMonthAve}</p>
-                            <p className="text-[10px] font-black text-primary">{formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)}</p>
                         </div>
-                    </div>
-                </div>
-
-                {/* 2. Students Pie Chart */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 flex flex-col items-center shadow-lg min-h-[220px] sm:min-h-[280px]">
-                    <div className="flex items-center justify-center text-center w-full mb-3">
-                        <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-[0.1em] sm:tracking-[0.2em]">{t.students3m}</p>
-                    </div>
-                    <div className="scale-[0.6] sm:scale-[0.85] origin-center">
-                        <PieChart
-                            size={120}
-                            thickness={18}
-                            data={[
-                                { label: 'Existing', value: Math.max(0, stats[1]?.value ? parseInt(stats[1].value) - extraStats.newStudents3m : 0), color: '#6366f1' },
-                                { label: 'New', value: extraStats.newStudents3m, color: '#10b981' },
-                                { label: 'Left', value: extraStats.leftStudents3m, color: '#ef4444' }
-                            ]}
-                            centerLabel={
-                                <div className="space-y-0.5">
-                                    <span className="text-xl sm:text-2xl font-black text-primary block leading-none">{stats[1]?.value || 0}</span>
-                                    <span className="text-[8px] sm:text-[10px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.total}</span>
-                                </div>
-                            }
-                        />
-                    </div>
-                    <div className="mt-auto flex flex-wrap justify-center gap-2 sm:gap-4 pb-2">
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-indigo-500" />
-                            <span className="text-[7px] sm:text-[9px] font-bold text-primary/60">{t.oldLabel}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[7px] sm:text-[9px] font-bold text-emerald-500">{t.new}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500" />
-                            <span className="text-[7px] sm:text-[9px] font-bold text-red-500">{t.leftLabel}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 3. Subscriptions Pie Chart */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 flex flex-col items-center shadow-lg min-h-[220px] sm:min-h-[280px]">
-                    <div className="flex items-center justify-center text-center w-full mb-3">
-                        <p className="text-[8px] sm:text-[10px] font-black text-muted uppercase tracking-[0.1em] sm:tracking-[0.2em]">{t.activeSubscriptions}</p>
-                    </div>
-                    <div className="scale-[0.6] sm:scale-[0.85] origin-center">
-                        <PieChart
-                            size={120}
-                            thickness={18}
-                            data={[
-                                { label: 'Active', value: extraStats.activeSubs, color: '#10b981' },
-                                { label: 'Inactive', value: extraStats.inactiveSubs, color: '#64748b20' }
-                            ]}
-                            centerLabel={
-                                <div className="space-y-0.5">
-                                    <span className="text-xl sm:text-2xl font-black text-primary block leading-none">{extraStats.activeSubs}</span>
-                                    <span className="text-[8px] sm:text-[10px] text-muted font-bold block uppercase tracking-tighter opacity-40">{t.active}</span>
-                                </div>
-                            }
-                        />
-                    </div>
-                    <div className="mt-auto flex justify-center gap-4 pb-2">
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[7px] sm:text-[9px] font-bold text-emerald-500">{t.active}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-200" />
-                            <span className="text-[7px] sm:text-[9px] font-bold text-primary/30 uppercase">{t.more}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4. Attendance Rate Chart */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 shadow-sm flex flex-col min-h-[220px] sm:min-h-[280px]">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2 min-h-[24px] sm:min-h-[32px]">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-600 shrink-0">
-                            <CalendarCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </div>
-                        <h2 className="text-[10px] sm:text-sm font-black text-primary tracking-tight leading-tight">{t.attendanceRateShort || t.attendanceRate}</h2>
-                    </div>
-                    <div className="flex-1 scale-90 sm:scale-100 origin-bottom">
-                        {attendanceChartData.length > 0 ? (
-                            <SimpleBarChart
-                                data={attendanceChartData}
-                                maxValue={100}
-                                colorClass="bg-gradient-to-t from-violet-500 to-violet-400"
-                            />
-                        ) : (
-                            <div className="h-32 sm:h-48 flex items-center justify-center text-muted opacity-40 text-[10px]">
-                                {t.noData}
+                        <div className="mt-auto pt-4 flex flex-col items-start gap-1 w-full max-w-[140px] border-t border-border-subtle/30 cursor-default">
+                            <div className="flex items-center gap-2 group transition-opacity">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.totalSalaries}</p>
                             </div>
-                        )}
+                            <div className="flex items-center gap-2 group transition-opacity">
+                                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.rent}</p>
+                            </div>
+                            <div className="flex items-center gap-2 group transition-opacity">
+                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
+                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{l('კომუნალურები', 'Коммунальные', 'Utilities')}</p>
+                            </div>
+                            <div className="flex items-center gap-2 group transition-opacity">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.otherExpenses}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 3. Students Pie Chart */}
+                    <div className="bg-card border border-border-subtle rounded-3xl p-5 sm:p-6 shadow-lg flex flex-col items-center min-h-[340px] h-full">
+                        <div className="w-full h-8 flex items-start justify-center">
+                            <p className="text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight uppercase opacity-60 px-2 line-clamp-2">{t.students3m}</p>
+                        </div>
+                        <div className="h-44 w-full flex items-center justify-center">
+                            <div className="scale-110">
+                                <PieChart
+                                    size={100}
+                                    thickness={12}
+                                    data={[
+                                        { label: t.oldLabel, value: Math.max(0, extraStats.totalStudents - extraStats.newStudents3m), color: '#6366f1' },
+                                        { label: t.new, value: extraStats.newStudents3m, color: '#10b981' },
+                                        { label: t.leftLabel, value: extraStats.leftStudents3m, color: '#ef4444' }
+                                    ]}
+                                    centerLabel={
+                                        <div className="text-center">
+                                            <span className="text-xl font-black text-primary block leading-none">{extraStats.totalStudents}</span>
+                                            <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.total}</span>
+                                        </div>
+                                    }
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-auto pt-4 flex flex-col items-start gap-1 w-full max-w-[140px] border-t border-border-subtle/30 cursor-default">
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.oldLabel}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-tight">{t.new}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                <p className="text-[8px] font-black text-red-500 uppercase tracking-tight">{t.leftLabel}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 4. Subscriptions Pie Chart */}
+                    <div className="bg-card border border-border-subtle rounded-3xl p-5 sm:p-6 shadow-lg flex flex-col items-center min-h-[340px] h-full">
+                        <div className="w-full h-8 flex items-start justify-center">
+                            <p className="text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight uppercase opacity-60 px-2 line-clamp-2">{t.activeSubscriptions}</p>
+                        </div>
+                        <div className="h-44 w-full flex items-center justify-center">
+                            <div className="scale-110">
+                                <PieChart
+                                    size={100}
+                                    thickness={12}
+                                    data={[
+                                        { label: t.active, value: extraStats.activeSubs, color: '#10b981' },
+                                        { label: t.inactive, value: extraStats.inactiveSubs, color: '#e2e8f080' }
+                                    ]}
+                                    centerLabel={
+                                        <div className="text-center">
+                                            <span className="text-xl font-black text-primary block leading-none">{extraStats.activeSubs}</span>
+                                            <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.active}</span>
+                                        </div>
+                                    }
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-auto pt-4 flex flex-col items-start gap-1 w-full max-w-[140px] border-t border-border-subtle/30 cursor-default">
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-tight">{t.active}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
+                                <p className="text-[8px] font-black text-primary opacity-20 uppercase tracking-tight">{t.inactive}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* 5. Revenue Dynamics (Full Width - THE '1') */}
-                <div className="col-span-2 bg-card border border-border-subtle rounded-[1.5rem] sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm flex flex-col min-h-[220px] sm:min-h-[320px]">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2 min-h-[32px] sm:min-h-[48px]">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shrink-0">
-                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </div>
-                        <h2 className="text-xs sm:text-lg font-black text-primary tracking-tight leading-tight">{t.revenueDynamics}</h2>
-                    </div>
-                    <p className="text-[8px] sm:text-xs font-bold text-muted opacity-40 mb-2 sm:mb-4 uppercase tracking-wider">{t.revenue} ({settings.currency})</p>
-                    <div className="flex-1 scale-95 sm:scale-100 origin-bottom">
-                        {revenueChartData.length > 0 ? (
-                            <SimpleBarChart
-                                data={revenueChartData}
-                                maxValue={revenueMax}
-                                colorClass="bg-gradient-to-t from-emerald-500 to-emerald-400"
-                            />
-                        ) : (
-                            <div className="h-32 sm:h-48 flex items-center justify-center text-muted opacity-40 text-[10px]">
-                                {t.noData}
+
+                {/* Bar Charts Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    {/* 5. Revenue Chart (Bar) */}
+                    <div className="bg-card border border-border-subtle rounded-3xl p-6 sm:p-8 shadow-lg min-h-[320px] flex flex-col">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                                <CreditCard className="w-5 h-5" />
                             </div>
-                        )}
+                            <h2 className="text-sm sm:text-base font-black text-primary tracking-tight">{t.revenue}</h2>
+                        </div>
+                        <div className="flex-1">
+                            {revenueChartData.length > 0 ? (
+                                <SimpleBarChart data={revenueChartData} maxValue={revenueMax} colorClass="bg-gradient-to-t from-indigo-500 to-indigo-400" />
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-muted opacity-40 text-xs">{t.noData}</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 6. Attendance Chart (Bar) */}
+                    <div className="bg-card border border-border-subtle rounded-3xl p-6 sm:p-8 shadow-lg min-h-[320px] flex flex-col">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-600">
+                                <CalendarCheck className="w-5 h-5" />
+                            </div>
+                            <h2 className="text-sm sm:text-base font-black text-primary tracking-tight">{t.attendanceRate}</h2>
+                        </div>
+                        <div className="flex-1">
+                            {attendanceChartData.length > 0 ? (
+                                <SimpleBarChart data={attendanceChartData} maxValue={100} colorClass="bg-gradient-to-t from-violet-500 to-violet-400" />
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-muted opacity-40 text-xs">{t.noData}</div>
+                            )}
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Detailed Analytics Section - Premium Bento Evolution */}
+            <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm mt-12 mb-12 group/bento">
+                <button 
+                    onClick={() => setShowDetailed(!showDetailed)}
+                    className="w-full px-8 py-8 flex items-center justify-between hover:bg-surface/30 transition-all group"
+                >
+                    <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200 group-hover:scale-110 transition-transform">
+                            <Calculator className="w-7 h-7" />
+                        </div>
+                        <div className="text-left">
+                            <h2 className="text-2xl font-black text-primary tracking-tighter uppercase">{l('ვრცელი სტატისტიკა', 'Подробная статистика', 'Detailed Statistics')}</h2>
+                            <p className="text-xs font-bold text-muted tracking-wide opacity-60 mt-1">
+                                {showDetailed ? l('დახურვა', 'Закрыть', 'Click to collapse summary') : l('გაშლა დეტალური ინტელექტისთვის', 'Развернуть для детального интеллекта', 'Expand for deep business intelligence')}
+                            </p>
+                        </div>
+                    </div>
+                    <div className={cn("w-12 h-12 rounded-full bg-surface border border-border-subtle flex items-center justify-center transition-all duration-500 shadow-inner", showDetailed ? "rotate-90 bg-indigo-600 text-white border-indigo-600" : "group-hover:bg-card")}>
+                        <ChevronRight className="w-6 h-6 opacity-60 group-hover:opacity-100" />
+                    </div>
+                </button>
+
+                {showDetailed && (
+                    <div className="px-8 pb-10 animate-in fade-in slide-in-from-top-4 duration-700">
+                        {/* Premium Bento Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            
+                            {/* 1. Student Intelligence (MoM Performance) */}
+                            <div className="lg:col-span-2 bg-gradient-to-br from-indigo-50/50 to-white rounded-[2rem] border border-indigo-100/50 p-6 flex flex-col md:flex-row gap-6 relative overflow-hidden group hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-500">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+                                
+                                <div className="flex-1 space-y-8">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
+                                            <TrendingUp className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-black text-primary uppercase tracking-tight">{l('ფინანსური ზრდის ანალიზი', 'Анализ финансового роста', 'Financial Growth Analysis')}</h4>
+                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40">{l('თვიური დინამიკა (MoM)', 'Месячная динамика', 'Monthly Pulse')}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-60">{l('შემოსავალი', 'Доход', 'Revenue')}</p>
+                                            <p className="text-2xl font-black text-primary tabular-nums tracking-tighter">{formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)}</p>
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <span className={cn("text-[9px] font-black flex items-center", currentMonthStats?.totalRevenue >= (extraStats.prevMonthRevenue || 0) ? "text-emerald-500" : "text-rose-500")}>
+                                                    {currentMonthStats?.totalRevenue >= (extraStats.prevMonthRevenue || 0) ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                                                    {extraStats.prevMonthRevenue > 0 
+                                                        ? (currentMonthStats?.totalRevenue >= extraStats.prevMonthRevenue 
+                                                            ? `${Math.round((currentMonthStats.totalRevenue / extraStats.prevMonthRevenue - 1) * 100)}%`
+                                                            : formatCurrency(Math.abs(currentMonthStats.totalRevenue - extraStats.prevMonthRevenue), settings.currency))
+                                                        : '+100%'}
+                                                </span>
+                                                <span className="text-[8px] text-muted font-bold opacity-40 uppercase">vs Last Month</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-60">{l('ზრდა', 'Рост', 'Growth')}</p>
+                                            <p className="text-2xl font-black text-emerald-600 tabular-nums tracking-tighter">+{Math.round((currentMonthStats?.newStudents || 0) / (extraStats.totalStudents || 1) * 100)}%</p>
+                                            <p className="text-[8px] text-muted font-bold opacity-40 uppercase mt-1">Expansion Index</p>
+                                        </div>
+                                        <div className="hidden lg:block space-y-1">
+                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-60">{l('შენარჩუნება', 'Удержание', 'Retention')}</p>
+                                            <p className="text-2xl font-black text-indigo-600 tabular-nums tracking-tighter">
+                                                {extraStats.totalStudents > 0 ? Math.round((extraStats.activeSubs / extraStats.totalStudents) * 100) : 0}%
+                                            </p>
+                                            <p className="text-[8px] text-muted font-bold opacity-40 uppercase mt-1">Loyalty Score</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-2.5 bg-indigo-100 rounded-full overflow-hidden shadow-inner">
+                                        <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000 w-[65%]" />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* 2. Churn Risk (Alert Card) */}
+                            <div className="bg-rose-500/5 rounded-[2rem] border border-rose-500/10 p-6 hover:bg-rose-500/10 transition-all duration-300 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-[60px]" />
+                                <div className="space-y-4 relative z-10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 shadow-sm border border-rose-500/20">
+                                            <AlertCircle className="w-5 h-5" />
+                                        </div>
+                                        <h4 className="text-sm font-black text-rose-700 uppercase tracking-wider">{l('სტუდიის დატოვების რისკი', 'Риск ухода из студии', 'Risk of leaving')}</h4>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        {extraStats.churnRiskStudents?.slice(0, 3).map((s: any) => (
+                                            <div key={s.id} className="flex items-center justify-between group/item p-3 bg-white/40 rounded-2xl border border-rose-500/10 hover:bg-white transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn("w-2 h-2 rounded-full", s.risk === 'high' ? "bg-red-500 animate-pulse" : "bg-orange-400")} />
+                                                    <span className="text-sm font-bold text-primary">{s.name}</span>
+                                                </div>
+                                                <ArrowUpRight className="w-4 h-4 text-rose-500 opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                                            </div>
+                                        ))}
+                                        {(extraStats.churnRiskStudents?.length || 0) === 0 && (
+                                            <div className="flex flex-col items-center justify-center py-6 text-center">
+                                                <CheckCircle2 className="w-8 h-8 text-emerald-500 opacity-20 mb-2" />
+                                                <p className="text-xs text-muted font-bold opacity-60 uppercase tracking-widest">{l('რისკები არ არის', 'Рисков нет', 'Healthy metrics')}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {extraStats.churnRiskStudents?.length > 3 && (
+                                        <button className="w-full py-3 bg-rose-500 text-white text-[10px] font-black rounded-xl uppercase tracking-[0.2em] shadow-lg shadow-rose-200 hover:scale-105 active:scale-95 transition-all">
+                                            {l('იხილეთ ყველა', 'Смотреть всех', 'View All Risks')}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 3. Financial Intelligence Card */}
+                            <div className="bg-emerald-500/5 rounded-[2rem] border border-emerald-500/10 p-6 flex flex-col justify-between hover:bg-emerald-500/10 transition-all duration-300">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
+                                            <TrendingUp className="w-5 h-5" />
+                                        </div>
+                                        <h4 className="text-sm font-black text-primary uppercase tracking-wider opacity-60">{l('მოგების ანალიზი', 'Анализ прибыли', 'Profit Intelligence')}</h4>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-black text-muted uppercase tracking-[0.2em]">{l('სუფთა მოგება (მარჟა)', 'Чистая прибыль (Маржа)', 'Net Profit (Margin)')}</p>
+                                        <div className="flex items-end gap-2">
+                                            <p className="text-3xl font-black text-emerald-600 tabular-nums">{extraStats.profitMargin?.toFixed(1)}%</p>
+                                            <ArrowUpRight className="w-5 h-5 text-emerald-500 mb-1" />
+                                        </div>
+                                        <p className="text-[11px] font-bold text-muted/60 mt-2">
+                                            {l(
+                                                `თქვენი სუფთა მოგება ამ თვეში არის ${formatCurrency(extraStats.netProfit || 0, settings.currency)} ${formatCurrency(extraStats.subRevenue + extraStats.prodRevenue, settings.currency)}-დან.`,
+                                                `Ваша чистая прибыль за этот месяц составляет ${formatCurrency(extraStats.netProfit || 0, settings.currency)} из ${formatCurrency(extraStats.subRevenue + extraStats.prodRevenue, settings.currency)}.`,
+                                                `Your net profit this month is ${formatCurrency(extraStats.netProfit || 0, settings.currency)} out of ${formatCurrency(extraStats.subRevenue + extraStats.prodRevenue, settings.currency)}.`
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div className="pt-4 grid grid-cols-2 gap-4">
+                                        <div className="p-4 bg-white/40 rounded-2xl border border-emerald-500/5">
+                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest mb-1">{l('საშ. ჩეკი (ARPU)', 'Ср. чек (ARPU)', 'Avg Ticket (ARPU)')}</p>
+                                            <p className="text-sm font-black text-primary">{formatCurrency(extraStats.arpu || 0, settings.currency)}</p>
+                                        </div>
+                                        <div className="p-4 bg-white/40 rounded-2xl border border-emerald-500/5">
+                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest mb-1">{l('წლიური პროგნოზი', 'Годовой прогноз', 'Annual Forecast')}</p>
+                                            <p className="text-sm font-black text-emerald-700">{formatCurrency(Math.round(extraStats.yearlyRevenue || 0), settings.currency)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 3. Financial Comparison (Yearly/Monthly Focus) */}
+                            <div className="bg-blue-500/5 rounded-[2rem] border border-blue-500/10 p-6 flex flex-col justify-between hover:bg-blue-500/10 transition-all duration-300">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600">
+                                            <BarChart3 className="w-5 h-5" />
+                                        </div>
+                                        <h4 className="text-sm font-black text-primary uppercase tracking-wider opacity-60">{l('ზრდის შედარება', 'Сравнение роста', 'Growth Comparison')}</h4>
+                                    </div>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-2xl bg-white/40 border border-blue-500/5">
+                                            <p className="text-[8px] font-black text-muted uppercase tracking-widest mb-1">{l('წინა თვე (MoM)', 'Прошлый месяц (MoM)', 'vs Last Month (MoM)')}</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-lg font-black text-primary tabular-nums">{formatCurrency(extraStats.prevMonthRevenue || 0, settings.currency)}</p>
+                                                <span className={cn(
+                                                    "px-2 py-0.5 rounded-lg text-[9px] font-black",
+                                                    (extraStats.totalGrossRevenue >= (extraStats.prevMonthRevenue || 0)) ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"
+                                                )}>
+                                                    {extraStats.prevMonthRevenue > 0 
+                                                        ? (extraStats.totalGrossRevenue >= extraStats.prevMonthRevenue 
+                                                            ? `${Math.round(((extraStats.totalGrossRevenue / extraStats.prevMonthRevenue) - 1) * 100)}%`
+                                                            : formatCurrency(Math.abs(extraStats.totalGrossRevenue - extraStats.prevMonthRevenue), settings.currency))
+                                                        : '+100%'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-white/40 border border-blue-500/5">
+                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest mb-1">{l('წინა წელი (YoY)', 'Прошлый год (YoY)', 'vs Last Year (YoY)')}</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xl font-black text-primary tabular-nums">{formatCurrency(extraStats.prevYearRevenue || 0, settings.currency)}</p>
+                                                <span className={cn(
+                                                    "px-2 py-0.5 rounded-lg text-[10px] font-black",
+                                                    (extraStats.totalGrossRevenue >= (extraStats.prevYearRevenue || 0)) ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"
+                                                )}>
+                                                    {extraStats.prevYearRevenue > 0 ? `${Math.round(((extraStats.totalGrossRevenue / extraStats.prevYearRevenue) - 1) * 100)}%` : '+100%'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="mt-6 pt-4 border-t border-blue-500/5">
+                                    <p className="text-[10px] font-bold text-muted/60 leading-relaxed italic">
+                                        {l('ფინანსური აქცენტი: სტაბილური ზრდა უზრუნველყოფს სტუდიის განვითარებას.', 'Финансовый акцент: стабильный рост обеспечивает развитие студии.', 'Financial Focus: Consistent growth ensures studio development.')}
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Salary Calculation Section */}
@@ -771,7 +1343,7 @@ export default function AnalyticsPage() {
                         <div className="h-8 w-px bg-border-subtle mx-2 hidden md:block" />
                         <div className="flex items-center gap-2">
                             <div className="text-right hidden sm:block">
-                                <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-40">{t.totalSalaries}</p>
+                                <p className="text-[9px] font-black text-muted tracking-widest opacity-40">{t.totalSalaries}</p>
                                 <p className="text-sm font-black text-primary tabular-nums">{formatCurrency(totalCalculated, settings.currency)}</p>
                             </div>
                             <button
@@ -787,31 +1359,31 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="bg-surface/30">
-                                <th className="px-8 py-4 text-left text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.teacherTable}</th>
-                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.typeTable}</th>
-                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.volumeTable}</th>
+                                <th className="px-8 py-4 text-left text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.teacherTable}</th>
+                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.typeTable}</th>
+                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.volumeTable}</th>
                                 {showSalaries && (
                                     <>
-                                        <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.bonusTable}</th>
-                                        <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.totalAmount}</th>
+                                        <th className="px-8 py-4 text-center text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.bonusTable}</th>
+                                        <th className="px-8 py-4 text-center text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.totalAmount}</th>
                                     </>
                                 )}
-                                <th className="px-8 py-4 text-right text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.statusTable}</th>
+                                <th className="px-8 py-4 text-right text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.statusTable}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border-subtle/50">
                             {salaryData.length > 0 ? salaryData.map((item, i) => (
                                 <tr key={i} className="group hover:bg-surface/40 transition-colors">
                                     <td className="px-8 py-5">
-                                        <p className="text-sm font-black text-primary group-hover:text-rose-600 transition-colors uppercase tracking-tight">{item.teacher}</p>
+                                        <p className="text-sm font-black text-primary group-hover:text-rose-600 transition-colors tracking-tight">{item.teacher}</p>
                                     </td>
                                     <td className="px-8 py-5 text-center">
                                         <span className={cn(
-                                            "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border",
+                                            "px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider border",
                                             item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : 
                                             item.type === 'Hourly' ? "bg-violet-500/10 text-violet-600 border-violet-500/20" :
                                             item.type === 'Combined' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
@@ -861,7 +1433,7 @@ export default function AnalyticsPage() {
                                             {getStatusForTeacher(item.id, selectedMonth) === 'pending' ? (
                                                 <button 
                                                     onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
-                                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black tracking-wider shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
                                                 >
                                                     <Banknote className="w-3.5 h-3.5" />
                                                     {t.pay}
@@ -869,7 +1441,7 @@ export default function AnalyticsPage() {
                                             ) : (
                                                 <button 
                                                     onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-sm"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-sm"
                                                 >
                                                     <CheckCircle2 className="w-3 h-3" />
                                                     {t.paidAmount}
@@ -887,10 +1459,90 @@ export default function AnalyticsPage() {
                             )}
                         </tbody>
                     </table>
-                    <div className="bg-surface/30 px-8 py-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
+                </div>
+
+                {/* Mobile Salary View */}
+                <div className="md:hidden divide-y divide-border-subtle/30 px-4">
+                    {salaryData.length > 0 ? salaryData.map((item, i) => (
+                        <div key={i} className="py-4 space-y-3">
+                            <div className="flex items-start justify-between">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[13px] font-black text-primary tracking-tight truncate mb-0.5">{item.teacher}</p>
+                                    <span className={cn(
+                                        "px-1.5 py-0 rounded-md text-[7px] font-black tracking-wider border inline-block",
+                                        item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : 
+                                        item.type === 'Hourly' ? "bg-violet-500/10 text-violet-600 border-violet-500/20" :
+                                        item.type === 'Combined' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                                        "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                    )}>
+                                        {item.type === 'Monthly' ? t.monthly : 
+                                         item.type === 'Hourly' ? t.hourly : 
+                                         item.type === 'Percentage' ? t.percentageShort || 'Share' :
+                                         item.type === 'Combined' ? l('კომბინირებული', 'Комбинир.', 'Combined') : item.type}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => setEditingTeacher(item.fullObject)} className="p-1.5 rounded-lg bg-violet-500/5 text-violet-600">
+                                        <Edit2 className="w-3 h-3" />
+                                    </button>
+                                    {getStatusForTeacher(item.id, selectedMonth) === 'pending' ? (
+                                        <button 
+                                            onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
+                                            className="px-2.5 py-1.5 rounded-xl bg-emerald-600 text-white text-[8px] font-black tracking-wider shadow-lg active:scale-95"
+                                        >
+                                            {t.pay}
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
+                                            className="h-7 px-2 rounded-full text-[8px] font-black tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                        >
+                                            {t.paidAmount}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                    <p className="text-[7px] font-black text-muted tracking-widest uppercase opacity-40 mb-0.5">{t.volumeTable}</p>
+                                    <p className="text-[10px] font-black text-primary tabular-nums truncate">{typeof item.rate === 'number' ? formatCurrency(item.rate, settings.currency) : item.rate}</p>
+                                </div>
+                                <div className="p-2 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                    <p className="text-[7px] font-black text-muted tracking-widest uppercase opacity-40 mb-0.5">{t.bonusTable}</p>
+                                    <div className="flex items-center gap-0.5">
+                                        <span className="text-[9px] font-black text-emerald-600/40">+</span>
+                                        <input
+                                            type="number"
+                                            value={item.bonus || ''}
+                                            onChange={(e) => setTeacherBonus(item.id, selectedMonth, Number(e.target.value))}
+                                            className="w-full bg-transparent border-none focus:outline-none text-[10px] font-black text-emerald-600 tabular-nums p-0"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center justify-between">
+                                <span className="text-[9px] font-black text-indigo-600/60 tracking-widest uppercase">{t.totalAmount}</span>
+                                {showSalaries ? (
+                                    <span className="text-sm font-black text-indigo-600 tabular-nums">{formatCurrency(item.total, settings.currency)}</span>
+                                ) : (
+                                    <span className="text-sm font-black text-indigo-600/20 select-none">••••</span>
+                                )}
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="py-10 text-center">
+                            <p className="text-xs text-muted/40 font-medium italic">{t.salaryEmpty}</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="bg-surface/30 px-8 py-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-8">
                         <div>
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 mb-1">{t.totalPaidThisMonth}</p>
+                            <p className="text-[10px] font-black text-muted tracking-widest opacity-40 mb-1">{t.totalPaidThisMonth}</p>
                             <p className="text-xl font-black text-emerald-600 tabular-nums">
                                 {formatCurrency(
                                     salaryData.filter(s => getStatusForTeacher(s.id, selectedMonth) === 'paid').reduce((acc, curr) => acc + curr.total, 0),
@@ -900,7 +1552,7 @@ export default function AnalyticsPage() {
                         </div>
                         <div className="w-px h-8 bg-border-subtle hidden sm:block" />
                         <div>
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest opacity-40 mb-1">{t.totalPendingThisMonth}</p>
+                            <p className="text-[10px] font-black text-muted tracking-widest opacity-40 mb-1">{t.totalPendingThisMonth}</p>
                             <p className="text-xl font-black text-amber-600 tabular-nums">
                                 {formatCurrency(
                                     salaryData.filter(s => getStatusForTeacher(s.id, selectedMonth) === 'pending').reduce((acc, curr) => acc + curr.total, 0),
@@ -910,7 +1562,6 @@ export default function AnalyticsPage() {
                         </div>
                     </div>
                 </div>
-            </div>
             </div>
 
             {/* Top Groups Table */}
@@ -923,14 +1574,14 @@ export default function AnalyticsPage() {
                         <h2 className="text-xl font-black text-primary tracking-tight">{t.popularGroups}</h2>
                     </div>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="bg-surface/10">
-                                <th className="px-8 py-4 text-left text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.groupName}</th>
-                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.students}</th>
-                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.revenue}</th>
-                                <th className="px-8 py-4 text-right text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.growthTable || 'Growth'}</th>
+                                <th className="px-8 py-4 text-left text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.groupName}</th>
+                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.students}</th>
+                                <th className="px-8 py-4 text-center text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{t.revenue}</th>
+                                <th className="px-8 py-4 text-right text-[10px] font-black text-muted tracking-[0.2em] opacity-40">{l('ზრდა', 'Рост', 'Growth')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border-subtle/50">
@@ -966,38 +1617,67 @@ export default function AnalyticsPage() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Mobile Popular Groups UI */}
+                <div className="md:hidden divide-y divide-border-subtle/30 px-4">
+                    {topGroupsData.length > 0 ? topGroupsData.map((group, i) => (
+                        <div key={i} className="py-5">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-surface border border-border-subtle flex items-center justify-center text-[10px] font-black text-primary opacity-60">
+                                        {String(i + 1).padStart(2, '0')}
+                                    </div>
+                                    <span className="text-sm font-black text-primary">{group.name}</span>
+                                </div>
+                                <span className={cn("text-xs font-black tracking-tight", group.growth.startsWith('+') ? "text-emerald-600" : "text-red-500")}>
+                                    {group.growth}
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 bg-surface/30 rounded-2xl p-4 border border-border-subtle/20">
+                                <div>
+                                    <p className="text-[9px] font-black text-muted tracking-widest uppercase opacity-40 mb-1">{t.students}</p>
+                                    <p className="text-sm font-black text-primary tabular-nums">{group.students}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-black text-muted tracking-widest uppercase opacity-40 mb-1">{t.revenue}</p>
+                                    <p className="text-sm font-black text-primary tabular-nums">{formatCurrency(group.revenue, settings.currency)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="py-10 text-center">
+                            <p className="text-xs text-muted/40 font-medium italic">{t.groupsEmpty}</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* AI Insights Footer */}
-            <div className="bg-indigo-600 rounded-[2.5rem] p-10 flex flex-col md:flex-row items-center gap-10 shadow-2xl shadow-indigo-600/40 relative overflow-hidden">
+            <div className="bg-indigo-600 rounded-[2rem] p-6 sm:p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 sm:gap-8 md:gap-10 shadow-2xl shadow-indigo-600/40 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
 
-                <div className="flex-1 text-center md:text-left space-y-4 relative z-10">
-                    <h3 className="text-3xl font-black text-white tracking-tight leading-tight">{t.aiInsightTitle}</h3>
-                    <div className="space-y-2">
-                        <p className="text-indigo-100 text-base font-medium opacity-90 max-w-md">
+                <div className="flex-1 text-center md:text-left space-y-2 relative z-10">
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">{t.aiInsightTitle || l('AI ანალიტიკა', 'AI Аналитика', 'AI Analytics')}</h3>
+                    <div className="space-y-1.5">
+                        <p className="text-indigo-100 text-xs sm:text-sm md:text-base font-medium opacity-90 max-w-md">
                             {prevMonthStats && currentMonthStats ? (
                                 currentMonthStats.totalRevenue > prevMonthStats.totalRevenue
-                                    ? l(
-                                        `თქვენი შემოსავალი გაიზარდა ${Math.round((currentMonthStats.totalRevenue / (prevMonthStats.totalRevenue || 1) - 1) * 100)}%-ით. დეტალები — დააწვდით ღილაკს.`,
-                                        `Доход вырос на ${Math.round((currentMonthStats.totalRevenue / (prevMonthStats.totalRevenue || 1) - 1) * 100)}%. Подробности — нажмите кнопку.`,
-                                        `Revenue up ${Math.round((currentMonthStats.totalRevenue / (prevMonthStats.totalRevenue || 1) - 1) * 100)}%. See details.`
-                                    )
-                                    : l('შემოსავალი სტაბილურია. გირჩევთ ახალი ჯგუფების გახსნა.', 'Доход стабилен. Рекомендуем открыть новые группы.', 'Revenue stable. Consider opening new groups.')
+                                    ? t.aiRevenueUp.replace('{percent}', Math.round((currentMonthStats.totalRevenue / (prevMonthStats.totalRevenue || 1) - 1) * 100).toString())
+                                    : t.aiRevenueStable
                             ) : t.aiInsightDesc}
                         </p>
-                        <p className="text-indigo-200/60 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                        <p className="text-indigo-200/60 text-xs font-bold tracking-widest flex items-center gap-2">
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            {l('AI ანალიზი მზად არის', 'AI анализ готов', 'AI analysis ready')}
+                            {t.aiAnalysisReady}
                         </p>
                     </div>
                 </div>
 
                 <div className="flex flex-col gap-3 relative z-10">
                     <button onClick={() => setShowInsightsModal(true)}
-                        className="px-10 py-5 bg-white text-indigo-600 text-sm font-black rounded-3xl transition-all shadow-2xl shadow-black/10 hover:shadow-black/20 hover:scale-105 active:scale-95 whitespace-nowrap uppercase tracking-widest">
-                        {t.aiInsightDetails || l('დეტალებად', 'Подробнее', 'View Details')}
+                        className="px-10 py-5 bg-white text-indigo-600 text-sm font-black rounded-3xl transition-all shadow-2xl shadow-black/10 hover:shadow-black/20 hover:scale-105 active:scale-95 whitespace-nowrap tracking-widest">
+                        {t.aiInsightDetails}
                     </button>
                 </div>
             </div>
@@ -1026,6 +1706,17 @@ export default function AnalyticsPage() {
                     }
                     setEditingTeacher(null);
                 }}
+            />
+
+            {/* Expense Manager Modal */}
+            <ExpenseModal 
+                open={showExpenseModal}
+                onClose={() => setShowExpenseModal(false)}
+                selectedMonth={selectedMonth}
+                branchId={settings.activeBranchId || 'default'}
+                t={t}
+                l={l}
+                settings={settings}
             />
         </div>
     );

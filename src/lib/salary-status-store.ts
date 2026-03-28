@@ -2,7 +2,7 @@
  * salary-status-store.ts
  * Persists payment status (paid/pending) for teacher salaries per month.
  */
-import { getScopedKey } from './settings-store';
+import { getScopedKey } from './utils';
 
 export type SalaryStatus = 'paid' | 'pending';
 

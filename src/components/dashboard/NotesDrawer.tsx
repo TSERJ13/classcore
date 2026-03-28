@@ -107,7 +107,7 @@ export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-primary">{l('ჩანაწერები', 'Заметки', 'Notes')}</h2>
-                            <p className="text-[11px] font-bold text-muted uppercase tracking-wider">{notes.length} {l('ჩანაწერი', 'записей', 'items')}</p>
+                            <p className="text-[11px] font-bold text-muted tracking-wider">{notes.length} {l('ჩანაწერი', 'записей', 'items')}</p>
                         </div>
                     </div>
                     <button
@@ -190,7 +190,7 @@ export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
                                     )}>
                                         {note.text}
                                     </p>
-                                    <div className="flex items-center gap-2 text-[10px] font-bold text-muted/40 uppercase tracking-tighter">
+                                    <div className="flex items-center gap-2 text-[10px] font-bold text-muted/40 tracking-tighter">
                                         <Clock className="w-3 h-3" />
                                         {new Date(note.createdAt).toLocaleString(lang === 'ka' ? 'ka-GE' : 'en-US', {
                                             month: 'short',
@@ -227,14 +227,14 @@ export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-muted/30 py-10">
                             <StickyNote className="w-12 h-12 mb-3 opacity-10" />
-                            <p className="text-sm font-bold uppercase tracking-widest">{searchQuery ? l('ვერ მოიძებნა', 'Не найдено', 'No results') : l('ჩანაწერები ცარიელია', 'Заметок нет', 'No notes found')}</p>
+                            <p className="text-sm font-bold tracking-widest">{searchQuery ? l('ვერ მოიძებნა', 'Не найдено', 'No results') : l('ჩანაწერები ცარიელია', 'Заметок нет', 'No notes found')}</p>
                         </div>
                     )}
                 </div>
 
                 {/* Footer Info */}
                 <div className="p-4 border-t border-border-subtle bg-surface/20 text-center">
-                    <p className="text-[10px] font-black text-muted/30 uppercase tracking-[0.2em]">
+                    <p className="text-[10px] font-black text-muted/30 tracking-[0.2em]">
                         ClassCore Notes System
                     </p>
                 </div>

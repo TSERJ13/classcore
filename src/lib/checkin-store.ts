@@ -1,5 +1,7 @@
 import { incrementSessionsUsed, getSubscription, refundSessionsUsed } from './subscription-store';
-import { getScopedKey } from './settings-store';
+import { getScopedKey, markLocalUpdate } from './utils';
+import { getStaffSession, getActiveSlug, loadSettings } from './settings-store';
+import { recordAuditAction } from './audit-store';
 /**
  * checkin-store.ts
  * localStorage-based store for attendance records.
@@ -131,6 +133,7 @@ export function refundCheckin(studentId: string): void {
         const idx = updated.findLastIndex(r => r.studentId === studentId);
         if (idx > -1) updated.splice(idx, 1);
         localStorage.setItem(dayKey(), JSON.stringify(updated));
+        markLocalUpdate();
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }
@@ -160,6 +163,26 @@ function _writeCheckin(
     const existing = getTodayCheckins();
     const key = dayKey();
     localStorage.setItem(key, JSON.stringify([...existing, record]));
+    markLocalUpdate();
+
+    // GLOBAL AUDIT LOG
+    const session = typeof window !== 'undefined' ? getStaffSession() : null;
+    const activeSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
+    if (activeSlug) {
+        const settings = loadSettings(activeSlug);
+        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
+
+        recordAuditAction({
+            action: 'lesson_checkin',
+            details: `Check-in via ${via.toUpperCase()}${classId ? ` (Class ID: ${classId})` : ''}`,
+            studentId,
+            studentName,
+            branchId: settings.activeBranchId || 'main',
+            branchName,
+            performedBy: session?.staff.full_name || 'System'
+        });
+    }
+
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
 
     return { success: true, alreadyCheckedIn: false, sessionsRemaining: next, record };
@@ -214,6 +237,7 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
         } else {
             localStorage.setItem(key, JSON.stringify(updated));
         }
+        markLocalUpdate();
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }

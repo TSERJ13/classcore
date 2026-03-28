@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home
+    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus
 } from 'lucide-react';
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
@@ -88,35 +88,35 @@ export default function PlansManagementPage() {
     }
 
     return (
-        <div className="space-y-6 animate-fade-up max-w-3xl mx-auto pb-10">
+        <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
             {/* Header */}
-            <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-4">
-                    <Link href="/subscriptions" className="p-2 bg-surface border border-border-subtle rounded-xl text-muted hover:text-primary transition-all">
+            <div className="flex flex-row items-stretch justify-between gap-3">
+                <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                    <Link href="/subscriptions" className="flex items-center justify-center w-12 h-12 bg-surface border border-border-subtle rounded-[1.25rem] text-muted hover:text-primary hover:bg-surface-hover transition-all flex-shrink-0">
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
-                    <div>
-                        <h1 className="text-base sm:text-xl font-bold text-primary">{t.subscriptions}</h1>
-                        <p className="text-xs sm:text-sm text-muted">{t.priceManagementDesc || 'აბონიმენტების ფასები და მართვა'}</p>
+                    <div className="min-w-0 flex flex-col justify-center">
+                        <h1 className="text-sm sm:text-xl font-bold text-primary truncate leading-tight">{t.priceManagement || 'ტარიფები'}</h1>
+                        <p className="text-[10px] sm:text-sm text-muted truncate">{t.priceManagementDesc || 'აბონემენტების ფასები და მართვა'}</p>
                     </div>
                 </div>
                 <button onClick={openAdd}
-                    className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.97] touch-manipulation">
-                    <Plus className="w-3.5 h-3.5" />
-                    {t.add}
+                    className="flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-[10px] sm:text-xs px-3 sm:px-5 h-12 rounded-[1.25rem] tracking-widest shadow-lg shadow-indigo-500/25 transition-all flex-shrink-0">
+                    <FolderPlus className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{t.add}</span>
                 </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2">
+            <div className="flex w-full h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1">
                 {([['group', t.groupClass, Users], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const).map(([v, lbl, Icon]) => (
                     <button key={v} onClick={() => setTab(v as PlanType)}
                         className={cn(
-                            'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all touch-manipulation',
-                            tab === v ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25' : 'bg-surface border border-border-subtle text-muted hover:text-primary'
+                            'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all truncate',
+                            tab === v ? 'bg-indigo-500 text-white shadow-md' : 'text-muted hover:text-primary hover:bg-surface-hover'
                         )}>
-                        <Icon className="w-4 h-4" />
-                        {lbl}
+                        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{lbl}</span>
                     </button>
                 ))}
             </div>
@@ -263,14 +263,14 @@ export default function PlansManagementPage() {
                 <div className="px-6 border-b border-border-subtle pb-4 flex items-center justify-between">
                     <div>
                         <h2 className="text-base font-bold text-primary">{t.pauseMgmt || 'შეჩერების მართვა'}</h2>
-                        <p className="text-sm text-muted mt-1">{t.pausePricesDesc || 'აბონიმენტის გაყინვის ფასების მართვა'}</p>
+                        <p className="text-sm text-muted mt-1">{t.pausePricesDesc || 'აბონემენტის გაყინვის ფასების მართვა'}</p>
                     </div>
                 </div>
                 <div className="p-6">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {(['7', '14', '30', '60'] as const).map(days => (
                             <div key={days} className="space-y-2">
-                                <label className="text-xs font-bold text-muted uppercase tracking-widest px-1">{days} {t.day}</label>
+                                <label className="text-xs font-bold text-muted tracking-widest px-1">{days} {t.day}</label>
                                 <div className="relative">
                                     <input
                                         type="number"

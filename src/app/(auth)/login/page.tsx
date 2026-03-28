@@ -118,7 +118,7 @@ export default function LoginPage() {
                     )}
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">{t.email}</label>
+                            <label className="text-[11px] font-black text-slate-400 tracking-widest pl-1">{t.email}</label>
                             <div className="relative group">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
@@ -133,8 +133,8 @@ export default function LoginPage() {
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between pl-1 pr-1">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t.password}</label>
-                                <button type="button" className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700">{t.forgotPassword}</button>
+                                <label className="text-[11px] font-black text-slate-400 tracking-widest">{t.password}</label>
+                                <button type="button" className="text-[10px] font-black text-indigo-600 tracking-widest hover:text-indigo-700">{t.forgotPassword}</button>
                             </div>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
@@ -158,7 +158,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="w-full py-5 bg-slate-900 border border-slate-800 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50"
+                            className="w-full py-5 bg-slate-900 border border-slate-800 text-white rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50"
                         >
                             {isSubmitting ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -171,7 +171,7 @@ export default function LoginPage() {
                     <div className="mt-8 pt-8 border-t border-slate-100 space-y-6">
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
-                            <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest"><span className="bg-white/50 px-4 text-slate-400">{t.orOtherMethod}</span></div>
+                            <div className="relative flex justify-center text-[10px] font-black tracking-widest"><span className="bg-white/50 px-4 text-slate-400">{t.orOtherMethod}</span></div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

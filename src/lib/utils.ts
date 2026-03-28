@@ -88,3 +88,61 @@ export function getLocalISODate(d?: Date): string {
     const tzOffset = date.getTimezoneOffset() * 60000;
     return new Date(date.getTime() - tzOffset).toISOString().split('T')[0];
 }
+
+// Storage Constants
+export const STORAGE_KEY = 'cc_studio_settings';
+export const ACTIVE_SLUG_KEY = 'cc_active_studio_slug';
+export const REGISTRY_KEY = 'cc_studios_list';
+
+/** Helper to get active studio slug from URL or localStorage */
+export function getActiveSlug(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(ACTIVE_SLUG_KEY) || (typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null);
+}
+
+/** 
+ * Centralized key generator for all studio-scoped data.
+ * Supports legacy slug-based and new orgId-based scoping.
+ */
+export function getScopedKey(base: string, slug?: string, branchId?: string) {
+    const finalSlug = slug || getActiveSlug();
+    if (!finalSlug) return base;
+
+    // Stable scoping: If we have an orgId for this slug, use it for the key to survive slug changes
+    // CRITICAL: Read raw from localStorage to avoid circular dependency with settings-store.ts
+    let scopeId = finalSlug;
+    if (typeof window !== 'undefined') {
+        try {
+            const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
+            if (raw) {
+                const settings = JSON.parse(raw);
+                if (settings.orgId) scopeId = settings.orgId;
+            }
+        } catch { }
+    }
+
+    // If branchId is explicitly provided or we should use the active one
+    const bId = branchId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_active_branch_${finalSlug}`) : 'main');
+
+    // Certain keys should always be studio-level (not branch-scoped)
+    const sharedKeys = [STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 'cc_global_history', 'cc_global_trash'];
+    if (sharedKeys.includes(base)) {
+        return `${base}_${finalSlug}`; // Settings itself and registration list must stay slug-based for discovery
+    }
+
+    // ALWAYS scope by branch ID if available, including 'main'
+    if (bId) {
+        return `${base}_${scopeId}_${bId}`;
+    }
+
+    return `${base}_${scopeId}`;
+}
+/** 
+ * Signals that a local update has occurred.
+ * Used by StudioContext to skip cloud-to-local merges for a short window.
+ */
+export function markLocalUpdate() {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('cc_last_local_update', Date.now().toString());
+    }
+}

@@ -2,20 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { recordCheckin } from '@/lib/checkin-store';
+import { lookupByUid, getStudents } from '@/lib/student-store';
 import { QrCode, XCircle, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-
-// QR code → student lookup (id matches checkin-store INITIAL_SESSIONS keys)
-const STUDENT_DB: Record<string, { id: string; name: string; group: string }> = {
-    'ID4A3B': { id: '1', name: 'ნინო ბერიძე', group: 'Contemporary Dance' },
-    'ID7X9C': { id: '2', name: 'გიორგი კვირიკაშვილი', group: 'Ballet' },
-    'ID2M5K': { id: '3', name: 'ანა ჩხეიძე', group: 'Ballet' },
-    'ID8R1N': { id: '4', name: 'დავით მეფარიშვილი', group: 'Ballet' },
-    'ID3Q6P': { id: '5', name: 'მარიამ ლომიძე', group: 'Ballet' },
-    'ID9T2W': { id: '6', name: 'ლუკა ჯავახიშვილი', group: 'Contemporary Dance' },
-    'ID5H4V': { id: '7', name: 'სოფო კაციტაძე', group: 'Contemporary Dance' },
-    'ID1D8U': { id: '8', name: 'თამო ღვინიაშვილი', group: 'Ballet' },
-};
 
 type CheckStatus = 'idle' | 'checking' | 'success' | 'already' | 'error';
 
@@ -25,8 +14,9 @@ export default function CheckInPage({
     searchParams: { code?: string };
 }) {
     const code = (searchParams.code ?? '').toUpperCase().trim();
-    const student = STUDENT_DB[code];
-
+    
+    // Lookup student by UID or Student ID
+    const [student, setStudent] = useState<{ id: string; name: string; group: string } | null>(null);
     const [status, setStatus] = useState<CheckStatus>('idle');
     const [time, setTime] = useState('');
     const [sessionsRemaining, setSessionsRemaining] = useState<number | null>(null);
@@ -34,9 +24,26 @@ export default function CheckInPage({
     useEffect(() => {
         if (!code) return;
         setStatus('checking');
+        
+        // Try lookup by UID first
+        const foundUid = lookupByUid(code);
+        let foundStudent = null;
+        
+        if (foundUid) {
+            foundStudent = { id: foundUid.studentId, name: foundUid.studentName, group: 'ClassCore Student' };
+        } else {
+            // Fallback: try lookup by Student ID directly (for legacy QR codes that were just IDs)
+            const all = getStudents();
+            const byId = all.find(s => s.id.toUpperCase() === code);
+            if (byId) {
+                foundStudent = { id: byId.id, name: byId.full_name || `${byId.first_name} ${byId.last_name}`, group: 'ClassCore Student' };
+            }
+        }
+
         const t = setTimeout(() => {
-            if (student) {
-                const result = recordCheckin(student.id, student.name, 'qr');
+            if (foundStudent) {
+                setStudent(foundStudent);
+                const result = recordCheckin(foundStudent.id, foundStudent.name, 'qr');
                 setTime(new Date().toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }));
                 setSessionsRemaining(result.sessionsRemaining);
                 setStatus(result.alreadyCheckedIn ? 'already' : 'success');
@@ -45,7 +52,7 @@ export default function CheckInPage({
             }
         }, 800);
         return () => clearTimeout(t);
-    }, [code, student]);
+    }, [code]);
 
 
     // ─── Idle / no code ───────────────────────────────────────────
@@ -112,7 +119,7 @@ export default function CheckInPage({
                         <AlertCircle className="w-12 h-12 text-amber-400" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-amber-400/70 uppercase tracking-widest mb-1">უკვე შემოსულია</p>
+                        <p className="text-xs font-bold text-amber-400/70 tracking-widest mb-1">უკვე შემოსულია</p>
                         <h2 className="text-xl font-black text-white">{student!.name}</h2>
                         <p className="text-sm text-white/40 mt-1">დღეს უკვე დაფიქსირებულია. სესია არ ჩამოიქვია.</p>
                     </div>
@@ -138,7 +145,7 @@ export default function CheckInPage({
 
                 {/* Name */}
                 <div>
-                    <p className="text-xs font-bold text-emerald-400/70 uppercase tracking-widest mb-1">დასწრება დადასტურდა</p>
+                    <p className="text-xs font-bold text-emerald-400/70 tracking-widest mb-1">დასწრება დადასტურდა</p>
                     <h2 className="text-2xl font-black text-white">{student!.name}</h2>
                     <p className="text-sm text-white/40 mt-1">{student!.group}</p>
                 </div>

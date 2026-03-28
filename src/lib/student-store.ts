@@ -1,6 +1,7 @@
-import type { Student } from '@/types';
-
-import { getScopedKey } from './settings-store';
+import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate } from './utils';
+import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-store';
+import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
+import { recordAuditAction } from './audit-store';
 
 const BASE_UID_REGISTRY_KEY = 'cc_uid_registry';
 const BASE_STUDENT_DATA_KEY = 'cc_student_data';
@@ -17,7 +18,8 @@ export interface UidEntry {
 
 import { ALL_STUDENTS } from './student-data';
 
-export const INITIAL_STUDENTS: Student[] = ALL_STUDENTS as Student[];
+export const INITIAL_STUDENTS: Student[] = [];
+
 
 export function getStudents(): Student[] {
     if (typeof window === 'undefined') return INITIAL_STUDENTS;
@@ -118,7 +120,9 @@ export function getStudentsAllBranches(): Student[] {
             const stored = localStorage.getItem(dataKey);
             
             const deletedKey = `cc_deleted_students_${activeSlug}_${branchId}`;
-            const deletedIds = new Set(JSON.parse(localStorage.getItem(deletedKey) || '[]'));
+            const deletedRaw = localStorage.getItem(deletedKey);
+            const parsedDeleted = deletedRaw ? JSON.parse(deletedRaw) : [];
+            const deletedIds = new Set(Array.isArray(parsedDeleted) ? parsedDeleted : []);
 
             let branchStudents: Student[] = [];
             const isMainBranch = branchId === 'main';
@@ -190,6 +194,7 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     }
 
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
+    markLocalUpdate();
     window.dispatchEvent(new Event('cc_student_update'));
 }
 
@@ -197,6 +202,7 @@ export function deleteStudent(studentId: string): void {
     const patches = getStudentPatches();
     delete patches[studentId];
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
+    markLocalUpdate();
 
     // Persist deletion for mock data
     const deletedKey = getDeletedStudentsKey();
@@ -206,8 +212,25 @@ export function deleteStudent(studentId: string): void {
         localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
     }
 
-    // Also clear UID
+    // also clear UID
     unregisterStudentUid(studentId);
+
+    // GLOBAL AUDIT LOG
+    const session = typeof window !== 'undefined' ? getStaffSession() : null;
+        const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
+    if (slug && studentId) {
+        const settings = loadSettings(slug);
+        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
+
+        recordAuditAction({
+            action: 'student_deleted',
+            details: `Student Deleted: ${studentId}`,
+            studentId,
+            branchId: settings.activeBranchId || 'main',
+            branchName,
+            performedBy: session?.staff.full_name || 'System'
+        });
+    }
 
     window.dispatchEvent(new Event('cc_student_update'));
 }
@@ -290,18 +313,7 @@ export function getStudentUid(studentId: string): string {
 // ─── Student profile data ──────────────────────────────────────────────────────
 // Persist minimal student profile overrides (photo, nfc_uid, qr_code) by id
 
-interface StudentPatch {
-    nfc_uid?: string;
-    qr_code?: string;
-    photo_url?: string;
-    social_links?: {
-        facebook?: string;
-        instagram?: string;
-        telegram?: string;
-        whatsapp?: string;
-    };
-    [key: string]: unknown; // Allow other properties including objects
-}
+// StudentPatch type is now imported from @/types
 
 export function getStudentPatches(): Record<string, StudentPatch> {
     if (typeof window === 'undefined') return {};
@@ -331,8 +343,6 @@ export function getStudentPatch(studentId: string): StudentPatch {
 export function generateFormattedStudentId(firstName: string, lastName: string): string {
     if (!firstName && !lastName) return '';
 
-    // Convert Georgian initials to Latin if necessary, or just use first chars
-    // Based on user request "AE00001 (afshilava elene)", we use Latin mapping
     const geoToLat: Record<string, string> = {
         'ა': 'A', 'ბ': 'B', 'გ': 'G', 'დ': 'D', 'ე': 'E', 'ვ': 'V', 'ზ': 'Z', 'თ': 'T', 'ი': 'I', 'კ': 'K', 'ლ': 'L', 'მ': 'M', 'ნ': 'N', 'ო': 'O', 'პ': 'P', 'ჟ': 'ZH', 'რ': 'R', 'ს': 'S', 'ტ': 'T', 'უ': 'U', 'ფ': 'F', 'ქ': 'K', 'ღ': 'GH', 'ყ': 'Q', 'შ': 'SH', 'ჩ': 'CH', 'ც': 'TS', 'ძ': 'DZ', 'წ': 'TS', 'ჭ': 'CH', 'ხ': 'KH', 'ჯ': 'J', 'ჰ': 'H'
     };
@@ -345,22 +355,26 @@ export function generateFormattedStudentId(firstName: string, lastName: string):
 
     const firstI = getInitial(firstName);
     const lastI = getInitial(lastName);
-    const prefix = `${lastI}${firstI}`.slice(0, 2).toUpperCase();
+    const prefix = `${firstI}${lastI}`.slice(0, 2).toUpperCase();
 
-    // Find highest sequence for this prefix
     const allStudents = getStudents();
-    let maxSeq = 0;
+    
+    // Generate a unique 7-digit random number
+    let uniqueId = '';
+    let isUnique = false;
+    let attempts = 0;
 
-    allStudents.forEach(s => {
-        if (s.id.startsWith(prefix)) {
-            const seqPart = s.id.slice(prefix.length);
-            const seq = parseInt(seqPart, 10);
-            if (!isNaN(seq) && seq > maxSeq) {
-                maxSeq = seq;
-            }
+    while (!isUnique && attempts < 100) {
+        const randomNum = Math.floor(1000000 + Math.random() * 9000000).toString(); // 7 digits
+        uniqueId = `${prefix}${randomNum}`;
+        
+        // Check if this ID already exists
+        const exists = allStudents.some(s => s.id === uniqueId);
+        if (!exists) {
+            isUnique = true;
         }
-    });
+        attempts++;
+    }
 
-    const nextSeq = (maxSeq + 1).toString().padStart(5, '0');
-    return `${prefix}${nextSeq}`;
+    return uniqueId || `${prefix}${Math.floor(Date.now() % 10000000).toString().padStart(7, '0')}`;
 }

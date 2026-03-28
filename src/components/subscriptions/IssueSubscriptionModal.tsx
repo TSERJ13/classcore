@@ -26,9 +26,18 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const { t, lang } = useT();
     const { settings, logSubscription } = useStudio();
     const { user, profile } = useUser();
-    const [students, setStudents] = useState(() => getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
-    const [plans, setPlans] = useState(() => getPlans().filter(p => p.is_active));
-    const [groups, setGroups] = useState(() => getGroups());
+    const [students, setStudents] = useState(() => {
+        const s = getStudents();
+        return (Array.isArray(s) ? s : []).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    });
+    const [plans, setPlans] = useState(() => {
+        const p = getPlans();
+        return (Array.isArray(p) ? p : []).filter(p => p.is_active);
+    });
+    const [groups, setGroups] = useState(() => {
+        const g = getGroups();
+        return Array.isArray(g) ? g : [];
+    });
 
     useEffect(() => {
         const refresh = () => {
@@ -282,8 +291,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             <CreditCard className="w-4 h-4" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-black text-primary uppercase tracking-tight">{t.issueSubscription}</h2>
-                            <p className="text-[9px] font-bold text-muted uppercase opacity-40">{t.newSale}</p>
+                            <h2 className="text-sm font-black text-primary tracking-tight">{t.issueSubscription}</h2>
+                            <p className="text-[9px] font-bold text-muted opacity-40">{t.newSale}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface text-muted transition-colors">
@@ -308,13 +317,13 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-xs font-black uppercase tracking-tight">{t.groupSubscription}</h3>
+                                            <h3 className="text-xs font-black tracking-tight">{t.groupSubscription}</h3>
                                         </div>
                                     </button>
                                     <div className="h-px bg-border-subtle w-full" />
                                     <button
                                         onClick={() => { setSelectedType('group'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-emerald-600 bg-surface/50 hover:bg-emerald-500/10 transition-colors uppercase tracking-widest group/btn"
+                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-emerald-600 bg-surface/50 hover:bg-emerald-500/10 transition-colors tracking-widest group/btn"
                                     >
                                         <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover/btn:scale-110 transition-transform">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
@@ -333,13 +342,13 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-xs font-black uppercase tracking-tight">{t.individualSubscription}</h3>
+                                            <h3 className="text-xs font-black tracking-tight">{t.individualSubscription}</h3>
                                         </div>
                                     </button>
                                     <div className="h-px bg-border-subtle w-full" />
                                     <button
                                         onClick={() => { setSelectedType('individual'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-indigo-600 bg-surface/50 hover:bg-indigo-500/10 transition-colors uppercase tracking-widest group/btn"
+                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-indigo-600 bg-surface/50 hover:bg-indigo-500/10 transition-colors tracking-widest group/btn"
                                     >
                                         <div className="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover/btn:scale-110 transition-transform">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
@@ -358,13 +367,13 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-xs font-black uppercase tracking-tight">{t.rentalSubscription}</h3>
+                                            <h3 className="text-xs font-black tracking-tight">{t.rentalSubscription}</h3>
                                         </div>
                                     </button>
                                     <div className="h-px bg-border-subtle w-full" />
                                     <button
                                         onClick={() => { setSelectedType('rental'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-amber-600 bg-surface/50 hover:bg-amber-500/10 transition-colors uppercase tracking-widest group/btn"
+                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-amber-600 bg-surface/50 hover:bg-amber-500/10 transition-colors tracking-widest group/btn"
                                     >
                                         <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover/btn:scale-110 transition-transform">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
@@ -384,7 +393,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
                                 <div className="space-y-1.5 relative">
-                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.selectClient}</label>
+                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.selectClient}</label>
                                     <SearchSelect
                                         options={studentOptions}
                                         value={studentId}
@@ -394,7 +403,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.selectPlan}</label>
+                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.selectPlan}</label>
                                     <SearchSelect
                                         options={planOptions}
                                         value={planId}
@@ -405,7 +414,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {plans.find(p => p.id === planId)?.type === 'group' && (
                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.addToGroup}</label>
+                                        <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.addToGroup}</label>
                                         <SearchSelect
                                             options={groupOptions}
                                             value={groupId}
@@ -421,7 +430,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 <div className="grid grid-cols-2 gap-3 items-end">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between px-1 h-5">
-                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest flex items-center gap-1">
+                                            <label className="text-[9px] font-black text-muted tracking-widest flex items-center gap-1">
                                                 <Tag className="w-3 h-3" /> {t.price} ({settings.currency})
                                             </label>
                                         </div>
@@ -434,7 +443,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </div>
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between px-1 h-5">
-                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest flex items-center gap-1">
+                                            <label className="text-[9px] font-black text-muted tracking-widest flex items-center gap-1">
                                                 <Percent className="w-3 h-3" /> {t.discount}
                                             </label>
                                             <div className="flex bg-border-subtle/50 rounded-lg p-0.5 relative">
@@ -471,7 +480,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {/* Payment Method */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">გადახდის მეთოდი</label>
+                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">გადახდის მეთოდი</label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {PAY_METHODS.map(m => (
                                             <button
@@ -498,7 +507,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             <span className="text-[10px] font-bold text-primary">{t.clientBalance}: <span className="text-emerald-500">{formatCurrency(studentBalance, settings.currency)}</span></span>
                                         </div>
                                         <label className="flex items-center gap-1.5 cursor-pointer">
-                                            <span className="text-[9px] font-bold text-muted uppercase">{t.useBalance}</span>
+                                            <span className="text-[9px] font-bold text-muted">{t.useBalance}</span>
                                             <div
                                                 onClick={() => setUseBalance(v => !v)}
                                                 className={`w-8 h-4 rounded-full transition-colors cursor-pointer relative ${useBalance ? 'bg-emerald-500' : 'bg-border-subtle'}`}
@@ -511,7 +520,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {/* Amount paid input */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1">{t.amountPaid} ({settings.currency})</label>
+                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.amountPaid} ({settings.currency})</label>
                                     <input
                                         type="number"
                                         value={amountPaid}
@@ -548,7 +557,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                             {/* Validity Period */}
                             <div className="space-y-3">
-                                <label className="text-[9px] font-black text-muted uppercase tracking-widest px-1 border-b border-border-subtle pb-1.5 block">{t.periodDuration}</label>
+                                <label className="text-[9px] font-black text-muted tracking-widest px-1 border-b border-border-subtle pb-1.5 block">{t.periodDuration}</label>
                                 <div className="flex items-center gap-2">
                                     <div className="flex-1 relative">
                                         <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" />
@@ -575,10 +584,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between px-1">
-                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest">{t.days}</label>
+                                            <label className="text-[9px] font-black text-muted tracking-widest">{t.days}</label>
                                             <label className="flex items-center gap-1 cursor-pointer">
                                                 <input type="checkbox" checked={neverExpires} onChange={e => setNeverExpires(e.target.checked)} className="w-3 h-3 accent-indigo-500 rounded" />
-                                                <span className="text-[8px] font-bold text-muted uppercase">{t.neverExpires}</span>
+                                                <span className="text-[8px] font-bold text-muted">{t.neverExpires}</span>
                                             </label>
                                         </div>
                                         <input
@@ -592,10 +601,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between px-1">
-                                            <label className="text-[9px] font-black text-muted uppercase tracking-widest">{t.lessons}</label>
+                                            <label className="text-[9px] font-black text-muted tracking-widest">{t.lessons}</label>
                                             <label className="flex items-center gap-1 cursor-pointer">
                                                 <input type="checkbox" checked={unlimited} onChange={e => setUnlimited(e.target.checked)} className="w-3 h-3 accent-indigo-500 rounded" />
-                                                <span className="text-[8px] font-bold text-muted uppercase">{t.unlimited}</span>
+                                                <span className="text-[8px] font-bold text-muted">{t.unlimited}</span>
                                             </label>
                                         </div>
                                         <input

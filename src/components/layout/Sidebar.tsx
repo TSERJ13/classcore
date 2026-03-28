@@ -40,16 +40,33 @@ const ALL_ITEMS: NavItem[] = [
     { href: '/settings', labelKey: 'settings', icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaultExpanded?: boolean | null; defaultRole?: string | null }) {
     const pathname = usePathname();
     const { t, lang } = useT();
     const { isOpen, close } = useMobileMenu();
     const { settings, activeBranchId, setActiveBranch, addBranch } = useStudio();
     const { profile, user, logout } = useUser();
+    const activeRole = profile?.role || defaultRole;
     const theme = THEMES[settings.themeKey] || THEMES.indigo;
 
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(defaultExpanded ?? true);
     const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        // Sync to cookie/localStorage for future consistency
+        if (defaultExpanded === null) {
+            if (typeof window !== 'undefined') {
+                const stored = localStorage.getItem('cc_sidebar_expanded');
+                if (stored !== null) {
+                    setExpanded(stored === 'true');
+                } else if (window.innerWidth <= 1024) {
+                    setExpanded(false);
+                }
+            }
+        }
+    }, [defaultExpanded]);
+
     const [studioMenuOpen, setStudioMenuOpen] = useState(false);
     const [branchModalOpen, setBranchModalOpen] = useState(false);
     const [newBranchName, setNewBranchName] = useState('');
@@ -57,20 +74,12 @@ export function Sidebar() {
 
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
-    useEffect(() => {
-        setMounted(true);
-        const stored = localStorage.getItem('cc_sidebar_expanded');
-        if (stored === 'true') setExpanded(true);
-        else if (stored === 'false') setExpanded(false);
-        else setExpanded(window.innerWidth > 1024);
-    }, []);
-
-    if (!mounted) return null;
-
     const toggleExpanded = () => {
         setExpanded(v => {
-            localStorage.setItem('cc_sidebar_expanded', String(!v));
-            return !v;
+            const next = !v;
+            localStorage.setItem('cc_sidebar_expanded', String(next));
+            document.cookie = `cc_sidebar_expanded=${next}; path=/; max-age=31536000`;
+            return next;
         });
     };
 
@@ -111,7 +120,7 @@ export function Sidebar() {
                         "flex flex-col items-start transition-all duration-300 min-w-0 flex-1",
                         exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                     )}>
-                        <h1 className="text-[15px] font-black text-white/80 tracking-tight leading-tight uppercase truncate w-full">
+                        <h1 className="text-[15px] font-black text-white/80 tracking-tight leading-tight truncate w-full">
                             {settings.studioName || 'Studio'}
                         </h1>
 
@@ -120,7 +129,7 @@ export function Sidebar() {
                                 {profile?.first_name} {profile?.last_name}
                             </span>
                             <span className={cn(
-                                "px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-wider border shrink-0",
+                                "px-1.5 py-0.5 rounded-md text-[7px] font-black tracking-wider border shrink-0",
                                 (profile?.role || 'admin') === 'owner' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
                                     (profile?.role || 'admin') === 'manager' ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" :
                                         "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
@@ -136,7 +145,7 @@ export function Sidebar() {
                             )}
                         >
                             <Building2 className={cn("w-3 h-3 transition-colors", isHovered ? "text-indigo-400" : "text-white/40")} />
-                            <span className={cn("text-[9px] font-black uppercase tracking-widest truncate max-w-[140px]", isHovered ? "text-indigo-400" : "text-white/60")}>
+                            <span className={cn("text-[9px] font-black tracking-widest truncate max-w-[140px]", isHovered ? "text-indigo-400" : "text-white/60")}>
                                 {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                             </span>
                             <ChevronRight className={cn("w-2.5 h-2.5 text-white/20 transition-all", isHovered && "rotate-90 text-indigo-400")} />
@@ -191,7 +200,7 @@ export function Sidebar() {
                                     className="w-full py-2 flex items-center justify-center gap-1.5 text-indigo-400 hover:text-indigo-300 transition-colors group/add-branch"
                                 >
                                     <Plus className="w-3.5 h-3.5" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">{l('ფილიალის დამატება', 'Добавить филиал', 'Add Branch')}</span>
+                                    <span className="text-[10px] font-black tracking-widest">{l('ფილიალის დამატება', 'Добавить филиал', 'Add Branch')}</span>
                                 </button>
                             )}
                         </div>
@@ -206,10 +215,11 @@ export function Sidebar() {
         <nav className="flex-1 py-2 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-1">
             {ALL_ITEMS.filter(item => {
                 // Admin/Owner see everything
-                if (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role) return true;
+                const role = profile?.role || defaultRole;
+                if (role === 'owner' || role === 'manager' || role === 'admin' || !role) return true;
 
                 // For staff, check granular permissions
-                const mapping: Record<string, keyof typeof profile | undefined> = {
+                const mapping: Record<string, string> = {
                     '/attendance': 'canViewAttendance',
                     '/subscriptions': 'canViewSubscriptions',
                     '/students': 'canViewStudents',
@@ -224,14 +234,12 @@ export function Sidebar() {
 
                 const permKey = mapping[item.href];
                 if (permKey) {
-                    return !!profile[permKey];
+                    return !!(profile as any)?.[permKey];
                 }
 
                 // Hide restricted admin-only pages for anyone else
                 const adminOnly = ['/billing', '/settings'];
                 if (adminOnly.includes(item.href)) {
-                    // Only owners/admins on the 'main' branch can see these
-                    if (activeBranchId !== 'main') return false;
                     if (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role) return true;
                     return false;
                 }
@@ -274,49 +282,90 @@ export function Sidebar() {
     );
 
     const SidebarContent = ({ exp, isMobile = false }: { exp: boolean; isMobile?: boolean }) => (
-        <aside className={cn(
-            'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-visible transition-[width] duration-300 ease-in-out',
-            exp ? 'w-64' : 'w-[76px]'
-        )}>
-            <StudioBlock exp={exp} />
-            <div className="relative flex-1 overflow-hidden flex flex-col no-scrollbar">
-                <NavItems exp={exp} />
-            </div>
-            {!isMobile && (
-                <button
-                    onClick={toggleExpanded}
-                    className={cn(
-                        'absolute z-30 top-1/2 -translate-y-1/2 -right-3 w-6 h-10 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-md transform active:scale-95'
-                    )}
-                >
-                    <ChevronRight className={cn('w-3.5 h-3.5 transition-transform duration-300', exp && 'rotate-180')} />
-                </button>
+        <aside 
+            suppressHydrationWarning
+            className={cn(
+                'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-visible transition-[width] duration-300 ease-in-out',
+                exp ? 'w-64' : 'w-[76px]'
             )}
-            <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
-                <LanguageSwitcher compact={!exp} />
-                <div className={cn("flex-1 flex justify-center", exp ? "pl-4" : "hidden")}>
-                    <button
-                        onClick={logout}
-                        className={cn(
-                            "w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 shrink-0",
-                            "bg-[var(--sidebar-hover)] border border-[var(--sidebar-border)] shadow-sm"
-                        )}
-                        title={l('გასვლა', 'Выйти', 'Logout')}
-                    >
-                        <LogOut className="w-4 h-4" strokeWidth={2.5} />
-                    </button>
+        >
+            {!mounted && defaultExpanded === null ? (
+                <div className="flex-1 flex flex-col animate-in fade-in duration-500">
+                    {/* Skeleton Header */}
+                    <div className="px-4 py-6 border-b border-[var(--sidebar-border)] bg-white/[0.01]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-white/5 animate-pulse shrink-0" />
+                            {exp && (
+                                <div className="flex-1 space-y-2">
+                                    <div className="w-2/3 h-4 bg-white/5 rounded-md animate-pulse" />
+                                    <div className="w-1/2 h-3 bg-white/5 rounded-md animate-pulse opacity-50" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    {/* Skeleton Nav */}
+                    <div className="flex-1 p-2 space-y-2">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="flex items-center gap-3 px-4 h-11">
+                                <div className="w-6 h-6 rounded-lg bg-white/5 animate-pulse shrink-0" />
+                                {exp && <div className="flex-1 h-3 bg-white/5 rounded-md animate-pulse" />}
+                            </div>
+                        ))}
+                    </div>
+                    {/* Skeleton Footer */}
+                    <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
+                        <div className="w-10 h-10 rounded-xl bg-white/5 animate-pulse" />
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <>
+                    <StudioBlock exp={exp} />
+                    <div className="relative flex-1 overflow-hidden flex flex-col no-scrollbar">
+                        <NavItems exp={exp} />
+                    </div>
+                    {!isMobile && (
+                        <button
+                            onClick={toggleExpanded}
+                            className={cn(
+                                'absolute z-30 top-1/2 -translate-y-1/2 -right-3 w-6 h-10 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-md transform active:scale-95'
+                            )}
+                        >
+                            <ChevronRight className={cn('w-3.5 h-3.5 transition-transform duration-300', exp && 'rotate-180')} />
+                        </button>
+                    )}
+                    <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
+                        <LanguageSwitcher compact={!exp} />
+                        <div className={cn("flex-1 flex justify-center", exp ? "pl-4" : "hidden")}>
+                            <button
+                                onClick={logout}
+                                className={cn(
+                                    "w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 shrink-0",
+                                    "bg-[var(--sidebar-hover)] border border-[var(--sidebar-border)] shadow-sm"
+                                )}
+                                title={l('გასვლა', 'Выйти', 'Logout')}
+                            >
+                                <LogOut className="w-4 h-4" strokeWidth={2.5} />
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </aside>
     );
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-64' : 'w-[76px]')}>
+            <div 
+                suppressHydrationWarning
+                className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-64' : 'w-[76px]')}
+            >
                 <SidebarContent exp={expanded} />
             </div>
             <div className={cn('fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
-            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-64', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+            <div 
+                suppressHydrationWarning
+                className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-64', isOpen ? 'translate-x-0' : '-translate-x-full')}
+            >
                 <SidebarContent exp={true} isMobile={true} />
             </div>
 
@@ -344,7 +393,7 @@ export function Sidebar() {
                                 className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
                             />
                             <div className="flex gap-3 mt-2">
-                                <button onClick={() => setBranchModalOpen(false)} className="flex-1 py-3 bg-surface text-muted text-xs font-black rounded-xl border border-border-subtle hover:bg-surface/80 transition-all uppercase tracking-widest">{l('გაუქმება', 'Отмена', 'Cancel')}</button>
+                                <button onClick={() => setBranchModalOpen(false)} className="flex-1 py-3 bg-surface text-muted text-xs font-black rounded-xl border border-border-subtle hover:bg-surface/80 transition-all tracking-widest">{l('გაუქმება', 'Отмена', 'Cancel')}</button>
                                 <button
                                     onClick={() => {
                                         if (!newBranchName.trim()) return;
@@ -353,7 +402,7 @@ export function Sidebar() {
                                         setNewBranchName('');
                                         setNewBranchAddress('');
                                     }}
-                                    className="flex-2 py-3 bg-indigo-600 text-white text-xs font-black rounded-xl shadow-xl active:scale-95 transition-all uppercase tracking-widest"
+                                    className="flex-2 py-3 bg-indigo-600 text-white text-xs font-black rounded-xl shadow-xl active:scale-95 transition-all tracking-widest"
                                 >
                                     {l('შექმნა', 'Создать', 'Create')}
                                 </button>

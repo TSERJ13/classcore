@@ -19,15 +19,12 @@ export interface Plan {
     is_active: boolean;
 }
 
-import { getScopedKey } from './settings-store';
+import { getScopedKey } from './utils';
 
 const BASE_PLANS_KEY = 'cc_subscription_plans';
 function getPlansKey() { return getScopedKey(BASE_PLANS_KEY); }
 
-const INITIAL_PLANS: Plan[] = [
-    { id: '1', name: '8 გაკვეთილი (ჯგუფური)', type: 'group', period: 'sessions', session_count: 8, validity_days: 45, price: 150, is_active: true, group_id: 'g1' },
-    { id: '2', name: 'ინდ. ერთჯერადი', type: 'individual', period: 'sessions', session_count: 1, validity_days: 7, price: 50, coach: 'ნინო ბერიძე', is_active: true },
-];
+const INITIAL_PLANS: Plan[] = [];
 
 export function getPlans(): Plan[] {
     if (typeof window === 'undefined') return INITIAL_PLANS;
@@ -54,13 +51,27 @@ export function getPlans(): Plan[] {
             if (isMainBranch) localStorage.setItem(key, JSON.stringify(data));
             return data;
         }
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : INITIAL_PLANS;
     } catch {
         return INITIAL_PLANS;
     }
 }
 
-export function savePlans(plans: Plan[]): void {
+export async function savePlans(plans: Plan[]): Promise<void> {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getPlansKey(), JSON.stringify(plans));
+    const key = getPlansKey();
+    localStorage.setItem(key, JSON.stringify(plans));
+
+    // Trigger Cloud Sync
+    try {
+        const { getActiveSlug } = await import('./settings-store');
+        const { syncStudioDataToCloud } = await import('./sync-store');
+        const slug = getActiveSlug();
+        if (slug && slug !== 'demo.classcore.ge') {
+            await syncStudioDataToCloud(slug, { [key]: plans });
+        }
+    } catch (err) {
+        console.error('Plan sync error:', err);
+    }
 }

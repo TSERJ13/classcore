@@ -1,0 +1,80 @@
+
+> classcore.ge@0.1.0 build
+> next build
+
+  ▲ Next.js 14.2.35
+  - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/47) ...
+   Generating static pages (11/47) 
+   Generating static pages (23/47) 
+   Generating static pages (35/47) 
+ ✓ Generating static pages (47/47)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ƒ /                                    11.8 kB         220 kB
+├ ƒ /_not-found                          880 B          88.7 kB
+├ ƒ /[studio]/[studentId]                14.6 kB         166 kB
+├ ƒ /[studio]/[studentId]/history        2.03 kB         144 kB
+├ ƒ /[studio]/registration               7.39 kB         145 kB
+├ ƒ /analytics                           23.3 kB         232 kB
+├ ƒ /api/contact                         0 B                0 B
+├ ○ /api/sms/logs                        0 B                0 B
+├ ƒ /api/sms/send                        0 B                0 B
+├ ƒ /api/webhooks/gosms                  0 B                0 B
+├ ƒ /attendance                          15 kB           240 kB
+├ ƒ /auth/confirm                        0 B                0 B
+├ ƒ /billing                             7.34 kB         207 kB
+├ ƒ /calendar                            16.4 kB         220 kB
+├ ƒ /checkin                             3.99 kB         118 kB
+├ ƒ /dashboard                           11.4 kB         245 kB
+├ ƒ /forgot-password                     2.5 kB         99.1 kB
+├ ƒ /groups                              10.2 kB         218 kB
+├ ƒ /hall-rental                         8.47 kB         208 kB
+├ ƒ /halls                               5.86 kB         210 kB
+├ ƒ /history                             5.46 kB         205 kB
+├ ƒ /login                               3.04 kB         207 kB
+├ ○ /manifest.webmanifest                0 B                0 B
+├ ƒ /nfc-checkin                         4.62 kB         110 kB
+├ ƒ /privacy                             4.15 kB         138 kB
+├ ƒ /profile                             12.4 kB         220 kB
+├ ƒ /registration                        3.26 kB         137 kB
+├ ƒ /sa-login                            3.56 kB         199 kB
+├ ƒ /settings                            15.3 kB         214 kB
+├ ƒ /shop                                10.5 kB         210 kB
+├ ƒ /sms-manager                         8.74 kB         208 kB
+├ ƒ /students                            7.13 kB         232 kB
+├ ƒ /subscriptions                       6.71 kB         219 kB
+├ ƒ /subscriptions/plans                 5.58 kB         213 kB
+├ ƒ /superadmin                          6.29 kB         116 kB
+├ ƒ /superadmin/billing                  2.97 kB         104 kB
+├ ƒ /superadmin/broadcast                3.83 kB        91.7 kB
+├ ƒ /superadmin/clients                  4.42 kB         105 kB
+├ ƒ /superadmin/insights                 3.37 kB        91.2 kB
+├ ƒ /superadmin/monitor                  2.95 kB         111 kB
+├ ƒ /superadmin/promos                   4.23 kB        99.3 kB
+├ ƒ /superadmin/studios                  9.36 kB         110 kB
+├ ƒ /superadmin/system                   4.13 kB         105 kB
+├ ƒ /superadmin/users                    3.11 kB         104 kB
+├ ƒ /teachers                            4.46 kB         217 kB
+├ ƒ /terms                               3.13 kB         137 kB
+├ ƒ /terms-and-conditions                2.52 kB        99.1 kB
+└ ƒ /trash                               3.69 kB         228 kB
++ First Load JS shared by all            87.8 kB
+  ├ chunks/2117-05266b517c0ea1eb.js      31.9 kB
+  ├ chunks/fd9d1056-f7c5d7ec739b7cde.js  53.6 kB
+  └ other shared chunks (total)          2.31 kB
+
+
+ƒ Middleware                             74.7 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

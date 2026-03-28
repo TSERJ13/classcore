@@ -85,14 +85,14 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                         <p className="text-sm font-medium text-muted mb-8 text-balance">{opts.message}</p>
                         <div className="flex flex-col sm:flex-row gap-3">
                             {!opts.isAlert && (
-                                <button onClick={() => handleClose(false)} className="flex-1 py-3 px-2 rounded-2xl bg-surface hover:bg-surface/80 text-muted hover:text-primary font-black text-xs uppercase tracking-widest transition-all">
+                                <button onClick={() => handleClose(false)} className="flex-1 py-3 px-2 rounded-2xl bg-surface hover:bg-surface/80 text-muted hover:text-primary font-black text-xs tracking-widest transition-all">
                                     {opts.cancelText}
                                 </button>
                             )}
                             <button 
                                 onClick={() => handleClose(true)} 
                                 className={cn(
-                                    "flex-1 py-3 px-2 rounded-2xl text-white font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all",
+                                    "flex-1 py-3 px-2 rounded-2xl text-white font-black text-xs tracking-widest shadow-lg active:scale-95 transition-all",
                                     opts.danger ? "bg-red-500 hover:bg-red-600 shadow-red-500/20" : "bg-indigo-500 hover:bg-indigo-600 shadow-indigo-500/20"
                                 )}
                             >
@@ -109,5 +109,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
 export function useConfirm() {
     const context = useContext(ConfirmContext);
     if (!context) throw new Error('useConfirm must be used within ConfirmProvider');
-    return context;
+    
+    // Create a hybrid callable object so we don't break existing codebase
+    const confirmFn = ((...args: Parameters<typeof context.confirm>) => context.confirm(...args)) as typeof context.confirm & { confirm: typeof context.confirm, alert: typeof context.alert };
+    
+    confirmFn.confirm = context.confirm;
+    confirmFn.alert = context.alert;
+    
+    return confirmFn;
 }

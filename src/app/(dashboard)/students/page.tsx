@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, UserPlus, Users, Phone, ShieldAlert, Heart, ChevronRight, AlertTriangle, SortAsc, BookOpen, X, ChevronDown, Link2, Check, Edit2, Trash2 } from 'lucide-react';
+import { Search, UserPlus, Users, Phone, ShieldAlert, Heart, ChevronRight, AlertTriangle, SortAsc, BookOpen, X, ChevronDown, Link2, Check, Edit2, Trash2, Zap, AlertCircle, Filter } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
@@ -43,7 +43,7 @@ export default function StudentsPage() {
 
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-    const [sortBy, setSortBy] = useState<'first_name' | 'last_name'>('first_name');
+    const [sortBy, setSortBy] = useState<'none' | 'first_name' | 'last_name'>('none');
     const [groupFilter, setGroupFilter] = useState<string | null>(null);
     const [groups, setGroups] = useState<Group[]>([]);
     const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
@@ -86,6 +86,9 @@ export default function StudentsPage() {
 
         return matchesSearch && matchesStatus && matchesGroup;
     }).sort((a, b) => {
+        if (sortBy === 'none') {
+            return new Date(b.created_at || parseInt(b.id)).getTime() - new Date(a.created_at || parseInt(a.id)).getTime();
+        }
         const nameA = a.full_name || '';
         const nameB = b.full_name || '';
         const valA = sortBy === 'first_name'
@@ -101,8 +104,13 @@ export default function StudentsPage() {
     function openEdit(s: Student) { setEditing(s); setModalOpen(true); }
 
     function handleSave(data: Partial<Student>) {
-        import('@/lib/student-store').then(mod => {
-            const studentId = data.id || (editing?.id) || `new_${Date.now()}`;
+        import('@/lib/student-store').then(async mod => {
+            let studentId = data.id || editing?.id;
+            
+            if (!studentId && (data.first_name || data.last_name)) {
+                studentId = mod.generateFormattedStudentId(data.first_name || '', data.last_name || '');
+            }
+            if (!studentId) studentId = `ST${Date.now().toString().slice(-7)}`;
 
             // Duplicate check for new students
             if (!editing) {
@@ -130,7 +138,7 @@ export default function StudentsPage() {
 
     async function handleDelete(id: string) {
         if (!await confirm(t.confirmDelete)) return;
-        
+
         const student = students.find(s => s.id === id);
         if (student) {
             addToTrash({
@@ -148,85 +156,112 @@ export default function StudentsPage() {
 
     return (
         <>
-            <div className="space-y-6 animate-fade-up max-w-6xl mx-auto pb-10">
+            <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
                 {/* Header / Actions - Responsive Layout */}
-                <div className="flex flex-col sm:flex-row-reverse sm:items-center gap-3 w-full">
-                    {/* Top Row (Mobile) / Right Side (Desktop): Actions */}
-                    <div className="flex items-center justify-center sm:justify-end flex-wrap gap-2 w-full sm:w-auto flex-shrink-0">
-                        {/* Status Filter */}
-                        <div className="flex-shrink-0 flex bg-card border border-border-subtle p-1 rounded-[1.25rem] shadow-sm">
-                            <button onClick={() => setStatusFilter('all')} className={cn("px-2.5 sm:px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all", statusFilter === 'all' ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/20" : "text-muted hover:bg-surface")}>{t.allFilter}</button>
-                            <button onClick={() => setStatusFilter('active')} className={cn("px-2.5 sm:px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all", statusFilter === 'active' ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" : "text-muted hover:bg-surface")}>{t.active}</button>
-                            <button onClick={() => setStatusFilter('inactive')} className={cn("px-2.5 sm:px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all", statusFilter === 'inactive' ? "bg-rose-500 text-white shadow-md shadow-rose-500/20" : "text-muted hover:bg-surface")}>{t.expired}</button>
+                <div className="flex flex-col gap-3 w-full">
+
+                    {/* Top Section: Status & Add */}
+                    <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-3 w-full">
+                        {/* Row 1 on Mobile: Status Filter */}
+                        <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle p-1 rounded-[1.25rem] gap-1 shrink-0">
+                            {[
+                                { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-emerald-500', hoverColor: 'hover:text-emerald-600' },
+                                { id: 'inactive', label: t.expired, icon: AlertCircle, activeColor: 'bg-rose-500', hoverColor: 'hover:text-rose-600' },
+                            ].map(v => (
+                                <button key={v.id} onClick={() => setStatusFilter(v.id as any)}
+                                    className={cn(
+                                        'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all truncate',
+                                        statusFilter === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface-hover', v.hoverColor)
+                                    )}>
+                                    <v.icon className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                    <span className="hidden sm:inline truncate">{v.label}</span>
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Sort + Group filter pill */}
-                        <div className="relative flex-shrink-0 flex bg-card border border-border-subtle p-1 rounded-[1.25rem] shadow-sm" ref={groupDropdownRef}>
-                            {/* Sort toggle */}
-                            <button onClick={() => setSortBy(p => p === 'first_name' ? 'last_name' : 'first_name')}
-                                className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2.5 sm:px-3 py-1.5 rounded-xl text-muted hover:bg-surface transition-all">
-                                <SortAsc className="w-3.5 h-3.5 text-indigo-500" />
-                                <span className="hidden sm:inline">{sortBy === 'first_name' ? t.byFirstName : t.byLastName}</span>
+                        {/* Add Button */}
+                        <div className="flex flex-shrink-0 items-center h-12">
+                            <button onClick={openAdd}
+                                className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all text-white text-[10px] sm:text-xs font-black tracking-widest w-12 h-12 sm:w-auto px-0 sm:px-5 rounded-[1.25rem] shadow-lg shadow-indigo-500/20">
+                                <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden sm:inline truncate">{t.addStudent}</span>
                             </button>
+                        </div>
+                    </div>
 
-                            {/* Divider */}
-                            <div className="w-px bg-border-subtle my-1" />
+                    {/* Bottom Section: Filter + Search */}
+                    <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-3 w-full">
 
-                            {/* Group filter */}
+                        {/* Unified Filter Dropdown */}
+                        <div className="relative flex flex-shrink-0 h-12" ref={groupDropdownRef}>
                             <button
                                 onClick={() => setGroupDropdownOpen(v => !v)}
                                 className={cn(
-                                    "flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all",
-                                    groupFilter ? "bg-violet-500/10 text-violet-600" : "text-muted hover:bg-surface"
+                                    "flex items-center justify-center w-12 sm:w-auto sm:px-4 h-full rounded-[1.25rem] border border-border-subtle bg-surface transition-all gap-1.5",
+                                    groupDropdownOpen || groupFilter ? "bg-violet-500/10 text-violet-600 border-violet-500/30 shadow-sm" : "text-muted hover:bg-surface-hover"
                                 )}>
-                                <BookOpen className={cn("w-3.5 h-3.5", groupFilter ? "text-violet-500" : "text-indigo-500")} />
-                                <span className="hidden sm:inline max-w-[70px] truncate">
-                                    {groupFilter ? (groups.find(g => g.id === groupFilter)?.name ?? t.group) : t.filterByGroups}
+                                <Filter className={cn("w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0", (groupDropdownOpen || groupFilter) ? "text-violet-500" : "text-indigo-500")} />
+                                <span className="hidden sm:inline text-[10px] sm:text-xs font-black tracking-widest truncate max-w-[100px]">
+                                    {groupFilter ? groups.find(g => g.id === groupFilter)?.name : (t.filterByGroups || 'ფილტრი')}
                                 </span>
-                                {groupFilter ? (
-                                    <X className="w-3 h-3 ml-0.5" onClick={(e) => { e.stopPropagation(); setGroupFilter(null); }} />
-                                ) : (
-                                    <ChevronDown className={cn("w-3 h-3 ml-0.5 transition-transform", groupDropdownOpen && "rotate-180")} />
-                                )}
                             </button>
 
-                            {/* Dropdown */}
+                            {/* Dropdown Menu */}
                             {groupDropdownOpen && (
-                                <div className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[180px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden animate-fade-up">
-                                    <div className="p-1 space-y-0.5">
-                                        <button
-                                            onClick={() => { setGroupFilter(null); setGroupDropdownOpen(false); }}
-                                            className={cn("w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all", !groupFilter ? "bg-indigo-500/10 text-indigo-600" : "text-muted hover:bg-surface")}>
-                                            {t.allGroups}
+                                <div className="absolute left-0 lg:left-auto lg:right-0 top-[calc(100%+6px)] z-50 w-[240px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden animate-fade-up">
+                                    <div className="p-1 space-y-1">
+                                        {/* Sort Section */}
+                                        <div className="px-3 pt-2 pb-1 text-[10px] font-black text-muted tracking-widest">{'დახარისხება'}</div>
+                                        <button onClick={() => { setSortBy('none'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'none' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                            <span>{'ნაგულისხმევი'}</span>
+                                            {sortBy === 'none' && <Check className="w-4 h-4" />}
                                         </button>
-                                        {groups.map(g => (
+                                        <button onClick={() => { setSortBy('first_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'first_name' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                            <span>{t.byFirstName}</span>
+                                            {sortBy === 'first_name' && <Check className="w-4 h-4" />}
+                                        </button>
+                                        <button onClick={() => { setSortBy('last_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'last_name' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                            <span>{t.byLastName}</span>
+                                            {sortBy === 'last_name' && <Check className="w-4 h-4" />}
+                                        </button>
+                                        
+                                        <div className="h-px bg-border-subtle my-1 mx-2" />
+
+                                        {/* Group Section */}
+                                        <div className="px-3 pt-2 pb-1 text-[10px] font-black text-muted tracking-widest">{t.group}</div>
+                                        <div className="max-h-[160px] overflow-y-auto no-scrollbar pb-1 px-1">
                                             <button
-                                                key={g.id}
-                                                onClick={() => { setGroupFilter(g.id); setGroupDropdownOpen(false); }}
-                                                className={cn("w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between", groupFilter === g.id ? "bg-violet-500/10 text-violet-600" : "text-muted hover:bg-surface")}>
-                                                <span className="truncate">{g.name}</span>
-                                                <span className="text-[9px] opacity-60 ml-2 flex-shrink-0">{g.enrolled}</span>
+                                                onClick={() => { setGroupFilter(null); setGroupDropdownOpen(false); }}
+                                                className={cn("w-full text-left px-3 py-2.5 mb-0.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", !groupFilter ? "bg-violet-50 text-violet-600 dark:bg-violet-500/10" : "text-muted hover:bg-surface-hover")}>
+                                                    <span>{t.allGroups}</span>
+                                                    {!groupFilter && <Check className="w-4 h-4" />}
                                             </button>
-                                        ))}
+                                            {groups.map(g => (
+                                                <button
+                                                    key={g.id}
+                                                    onClick={() => { setGroupFilter(g.id); setGroupDropdownOpen(false); }}
+                                                    className={cn("w-full text-left px-3 py-2.5 mb-0.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", groupFilter === g.id ? "bg-violet-50 text-violet-600 dark:bg-violet-500/10" : "text-muted hover:bg-surface-hover")}>
+                                                    <span className="truncate pr-2">{g.name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded-md", groupFilter === g.id ? "bg-violet-100 text-violet-700 dark:bg-violet-500/20" : "bg-surface border border-border-subtle")}>{g.enrolled}</span>
+                                                        {groupFilter === g.id && <Check className="w-4 h-4" />}
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* Add Button */}
-                        <button onClick={openAdd}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all text-white text-xs sm:text-sm font-bold px-4 sm:px-5 py-2.5 sm:py-3 rounded-[1.25rem] shadow-lg shadow-indigo-600/20 whitespace-nowrap">
-                            <UserPlus className="w-4 h-4" />
-                            <span className="hidden sm:inline">{t.addStudent}</span>
-                        </button>
-                    </div>
-
-                    {/* Bottom Row (Mobile) / Left Side (Desktop): Search */}
-                    <div className="relative w-full sm:flex-1 group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
-                        <input type="text" placeholder={t.search} value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-full bg-card border border-border-subtle rounded-[1.25rem] pl-9 pr-3 py-2.5 sm:py-3 text-xs sm:text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/60 transition-all shadow-sm" />
+                        {/* Search */}
+                        <div className="relative flex-1 group h-12">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
+                            <input type="text" placeholder={t.search} value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="w-full h-full bg-surface border border-border-subtle rounded-[1.25rem] pl-10 pr-4 text-xs sm:text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/40 transition-all font-medium" />
+                        </div>
                     </div>
                 </div>
 
@@ -331,7 +366,7 @@ export default function StudentsPage() {
                                         {sub && sub.sessions_total !== null ? (
                                             <div className="space-y-1.5">
                                                 <div className="flex items-center justify-between px-0.5">
-                                                    <span className="text-[10px] text-muted font-black uppercase tracking-wider opacity-60">{t.remaining}</span>
+                                                    <span className="text-[10px] text-muted font-black tracking-wider opacity-60">{t.remaining}</span>
                                                     <span className="text-[10px] text-primary font-black tabular-nums">
                                                         {sub.sessions_total - sub.sessions_used} / {sub.sessions_total}
                                                     </span>

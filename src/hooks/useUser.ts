@@ -7,7 +7,7 @@ export function useUser() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<{
-        studio_name?: string; first_name?: string; last_name?: string; role?: string; photo_url?: string; allowedBranchIds?: string[];
+        studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; role?: string; photo_url?: string; allowedBranchIds?: string[];
         canViewAttendance?: boolean;
         canViewSubscriptions?: boolean;
         canViewStudents?: boolean;
@@ -42,10 +42,14 @@ export function useUser() {
             const u = session?.user;
 
             if (u) {
+                console.log('👤 [useUser] Supabase session found for:', u.email);
                 setUser(u);
                 const meta = u.user_metadata || {};
+                console.log('👤 [useUser] Metadata org_id:', meta.org_id);
                 setProfile({
                     studio_name: meta.studio_name,
+                    studio_slug: meta.studio_slug,
+                    org_id: meta.org_id,
                     first_name: meta.first_name,
                     last_name: meta.last_name,
                     photo_url: meta.photo_url || meta.avatar_url,
@@ -74,7 +78,7 @@ export function useUser() {
                     can_view_halls: meta.canViewHalls ?? meta.can_view_halls ?? true,
                     can_view_shop: meta.canViewShop ?? meta.can_view_shop ?? true,
                     can_view_analytics: meta.canViewAnalytics ?? meta.can_view_analytics ?? true,
-                    can_view_sms: meta.can_view_sms ?? meta.can_view_sms ?? true,
+                    can_view_sms: meta.canViewSMS ?? meta.can_view_sms ?? true,
                 });
                 setLoading(false);
                 return;
@@ -142,6 +146,7 @@ export function useUser() {
             console.log('🔄 [useUser] Staff update event received, refreshing session...');
             refreshSession();
         };
+
         window.addEventListener('cc_staff_update', handleRefresh);
 
         return () => {
@@ -149,6 +154,18 @@ export function useUser() {
             window.removeEventListener('cc_staff_update', handleRefresh);
         };
     }, []);
+
+    // Sync profile to cookies for SSR navigation/header consistency
+    useEffect(() => {
+        if (profile) {
+            if (profile.role) {
+                document.cookie = `cc_user_role=${profile.role}; path=/; max-age=31536000; SameSite=Lax`;
+            }
+            if (profile.studio_name) {
+                document.cookie = `cc_studio_name=${encodeURIComponent(profile.studio_name)}; path=/; max-age=31536000; SameSite=Lax`;
+            }
+        }
+    }, [profile]);
 
     const logout = async () => {
         const supabase = createClient();

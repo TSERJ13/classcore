@@ -31,7 +31,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         'adminclasscore@gmail.com',
         'support@classcore.ge', 
         'admin@classcore.ge',
-        'tserj13@classcore.ge'
+        'tserj13@classcore.ge',
+        'sergi.tsivtsivadze@gmail.com'
     ];
     const isSuperAdmin = user?.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
 

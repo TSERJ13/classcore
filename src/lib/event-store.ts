@@ -4,13 +4,10 @@
  */
 import type { CalendarEvent, EventType } from '@/types';
 
-import { getScopedKey } from './settings-store';
-
 const BASE_EVENTS_KEY = 'cc_calendar_events';
 function getEventsKey() { return getScopedKey(BASE_EVENTS_KEY); }
 
-import { getActiveSlug } from './settings-store';
-import { getLocalISODate } from './utils';
+import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate } from './utils';
 
 function toDateStr(d: Date) {
     return getLocalISODate(d);
@@ -21,11 +18,11 @@ const TODAY = new Date();
 function makeEvent(id: string, title: string, type: EventType, hallId: string, teacherId: string, dayOffset: number, start: string, end: string, recurring: 'none' | 'weekly' = 'none', groupId?: string): CalendarEvent {
     const d = new Date(TODAY);
     d.setDate(TODAY.getDate() + dayOffset);
-    return { id, org_id: typeof window !== 'undefined' ? getActiveSlug() : 'demo', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, created_at: '' };
+    return { id, org_id: getActiveSlug() || 'demo', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, reminder_30m: false, created_at: '' };
 }
 
 const SEED_WEEK: CalendarEvent[] = [
-    makeEvent('cls1', 'Contemporary Dance', 'group_class', 'h1', 't1', 0, '09:00', '10:30', 'weekly', 'g1'),
+    makeEvent('cls1', 'Contemporary Dance', 'group_class', 'h1', '', 0, '09:00', '10:30', 'weekly', 'g1'),
 ];
 
 export function getEvents(): CalendarEvent[] {
@@ -95,6 +92,8 @@ export function getEvents(): CalendarEvent[] {
 export function saveEvents(events: CalendarEvent[]) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getEventsKey(), JSON.stringify(events));
+    markLocalUpdate();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_calendar_events_update'));
 }
 
 export function addEvent(ev: CalendarEvent) {
@@ -181,7 +180,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
 
         return {
             id,
-            org_id: getActiveSlug(),
+            org_id: getActiveSlug() || '',
             title: groupTitle,
             type: 'group_class' as const,
             hall_id: hallId || 'h1',
@@ -192,6 +191,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
             end_time: slot.endTime,
             color: color || '#6366f1',
             recurring: 'weekly' as const,
+            reminder_30m: false,
             created_at: new Date().toISOString(),
         };
     });
@@ -215,9 +215,11 @@ export function addIndividualLesson(studentId: string, title: string, teacherId:
         start_time: start,
         end_time: end,
         color: '#10b981', // emerald for individual
-        recurring: 'none',
+        recurring: 'none' as const,
+        reminder_30m: false,
         created_at: new Date().toISOString(),
     };
+
     const updated = [...events, newEvent];
     saveEvents(updated);
     return newEvent;
