@@ -351,43 +351,60 @@ export default function SettingsPage() {
                     </Row>
                     <Row label={t.studioNameLabel} sub={t.sidebarShow}>
                         <div className="flex items-center gap-2">
-                            <input value={nameVal} onChange={e => setNameVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveName()} className="w-48 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all" />
-                            <button onClick={saveName} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
-                                {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                            </button>
+                            <input 
+                                value={nameVal} 
+                                onChange={e => setNameVal(e.target.value)} 
+                                onKeyDown={e => e.key === 'Enter' && saveName()} 
+                                readOnly={profile?.role !== 'superadmin'}
+                                className={cn(
+                                    "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    profile?.role !== 'superadmin' && "opacity-60 cursor-not-allowed"
+                                )} 
+                            />
+                            {profile?.role === 'superadmin' && (
+                                <button onClick={saveName} className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
+                                    {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                                </button>
+                            )}
                         </div>
                     </Row>
                     <Row label={t.emailLabel} sub={t.emailDesc}>
-                        <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-xs font-medium text-muted/60 min-w-[12rem] text-right">
+                        <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-[10px] font-medium text-muted/60 min-w-[10rem] text-right truncate">
                             {user?.email || 'N/A'}
                         </div>
                     </Row>
                     <Row label={t.urlSlugLabel} sub={t.slugWarning}>
                         <div className="flex flex-col gap-2 items-end">
-                            <div className="flex items-center gap-2">
-                                <span className="text-muted/40 text-xs">/</span>
-                                <div className="relative flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full justify-end">
+                                <span className="text-muted/40 text-[10px]">/</span>
+                                <div className="relative flex items-center gap-2 w-full max-w-[200px]">
                                     <input
                                         value={slugVal}
                                         onChange={e => setSlugVal(compactSlugify(e.target.value))}
                                         onKeyDown={e => e.key === 'Enter' && saveSlug()}
-                                        className="w-48 bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors"
+                                        readOnly={profile?.role !== 'superadmin'}
+                                        className={cn(
+                                            "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors",
+                                            profile?.role !== 'superadmin' && "opacity-60 cursor-not-allowed"
+                                        )}
                                     />
                                     {profile?.role === 'superadmin' && (
-                                        <button
-                                            onClick={handleReclaimSlug}
-                                            className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
-                                            title={t.reclaimName}
-                                        >
-                                            {t.reclaimAction}
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={handleReclaimSlug}
+                                                className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
+                                                title={t.reclaimName}
+                                            >
+                                                {t.reclaimAction}
+                                            </button>
+                                            <button
+                                                onClick={saveSlug}
+                                                className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
+                                            >
+                                                {slugSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </>
                                     )}
-                                    <button
-                                        onClick={saveSlug}
-                                        className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
-                                    >
-                                        {slugSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -417,7 +434,7 @@ export default function SettingsPage() {
                     )}
                     <Row label={t.registrationLink} sub={t.registrationLinkDesc}>
                         <div className="flex items-center gap-2">
-                            <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[160px] transition-colors">
+                            <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[140px] transition-colors">
                                 <ExternalLink className="w-3 h-3 flex-shrink-0" />
                                 <span className="truncate">/{settings.studioSlug}/registration</span>
                             </a>
@@ -426,6 +443,26 @@ export default function SettingsPage() {
                             </button>
                         </div>
                     </Row>
+                </Section>
+            )}
+
+            {/* Account Owner Info */}
+            {profile && (
+                <Section title={lang === 'ka' ? 'ანგარიშის მფლობელი' : 'Account Owner'} icon={UserCircle}>
+                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.firstNameLabel} & {t.lastNameLabel}</p>
+                            <p className="text-sm font-black text-primary">{profile.first_name} {profile.last_name}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.phoneLabel}</p>
+                            <p className="text-sm font-black text-primary">{profile.phone || 'N/A'}</p>
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                             <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.emailLabel}</p>
+                             <p className="text-sm font-black text-primary">{user?.email}</p>
+                        </div>
+                    </div>
                 </Section>
             )}
 

@@ -7,7 +7,7 @@ export function useUser() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<{
-        studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; role?: string; photo_url?: string; allowedBranchIds?: string[];
+        studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; phone?: string; role?: string; photo_url?: string; allowedBranchIds?: string[];
         canViewAttendance?: boolean;
         canViewSubscriptions?: boolean;
         canViewStudents?: boolean;
@@ -52,6 +52,7 @@ export function useUser() {
                     org_id: meta.org_id,
                     first_name: meta.first_name,
                     last_name: meta.last_name,
+                    phone: meta.phone,
                     photo_url: meta.photo_url || meta.avatar_url,
                     role: meta.role || 'admin',
                     allowedBranchIds: meta.allowedBranchIds || [],
@@ -98,6 +99,7 @@ export function useUser() {
                     studio_name: settings.studioName,
                     first_name: staff.first_name,
                     last_name: staff.last_name,
+                    phone: staff.phone,
                     photo_url: staff.photo_url,
                     role: staff.role,
                     allowedBranchIds: staff.allowedBranchIds || [],
