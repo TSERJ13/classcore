@@ -346,16 +346,14 @@ export default function StudiosPage() {
                 const owner = s.staff?.find(m => m.role === 'owner');
                 const ownerEmail = owner?.email;
                 
-                if (ownerEmail) {
-                    try {
-                        await fetch('/api/superadmin/delete-studio', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: ownerEmail, userId: owner?.id, slug: slug })
-                        });
-                    } catch (err) {
-                        console.error('Failed to purge auth account:', err);
-                    }
+                try {
+                    await fetch('/api/superadmin/delete-studio', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: ownerEmail, userId: owner?.id, slug: slug })
+                    });
+                } catch (err) {
+                    console.error('Failed to purge cloud records:', err);
                 }
 
                 // 2. Clear local storage
