@@ -3,6 +3,11 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { getStaffSession, setStaffSession, loadSettings } from '@/lib/settings-store';
 
+const SUPER_ADMIN_EMAILS = [
+    'adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge', 
+    'tserj13@classcore.ge', 'sergi.tsivtsivadze@gmail.com'
+];
+
 export function useUser() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -37,15 +42,23 @@ export function useUser() {
         const supabase = createClient();
 
         const refreshSession = async () => {
+            const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
+            
             // 1. Check Supabase (Admins)
             const { data: { session } } = await supabase.auth.getSession();
             const u = session?.user;
+            const staffSess = getStaffSession();
 
-            if (u) {
+            // SSS (Smart Session Selection): 
+            // If on a regular route and we have both a SuperAdmin Supabase session AND a Staff session, 
+            // we PRIORITIZE the Staff session to prevent account override.
+            const isSuperAccount = u?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === u.email?.toLowerCase());
+            const shouldPrioritizeStaff = !isSuperAdminRoute && isSuperAccount && staffSess;
+
+            if (u && !shouldPrioritizeStaff) {
                 console.log('👤 [useUser] Supabase session found for:', u.email);
                 setUser(u);
                 const meta = u.user_metadata || {};
-                console.log('👤 [useUser] Metadata org_id:', meta.org_id);
                 setProfile({
                     studio_name: meta.studio_name,
                     studio_slug: meta.studio_slug,
@@ -56,7 +69,7 @@ export function useUser() {
                     photo_url: meta.photo_url || meta.avatar_url,
                     role: meta.role || 'admin',
                     allowedBranchIds: meta.allowedBranchIds || [],
-                    // camelCase
+                    // ... permissions logic remains same ...
                     canViewAttendance: meta.canViewAttendance ?? meta.can_view_attendance ?? true,
                     canViewSubscriptions: meta.canViewSubscriptions ?? meta.can_view_subscriptions ?? true,
                     canViewStudents: meta.canViewStudents ?? meta.can_view_students ?? true,
@@ -86,7 +99,6 @@ export function useUser() {
             }
 
             // 2. Check Staff Session (Non-Admins)
-            const staffSess = getStaffSession();
             if (staffSess) {
                 const { staff: sessionStaff, slug } = staffSess;
                 const settings = loadSettings(slug);

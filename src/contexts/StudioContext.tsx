@@ -59,6 +59,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         return 'main';
     });
     const [isLoaded, setIsLoaded] = useState(false);
+    const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [pushCounter, setPushCounter] = useState(0);
     const triggerPush = useCallback(() => setPushCounter(prev => prev + 1), []);
     const hasSyncedRef = useRef(false);
@@ -361,68 +362,70 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
         }
 
-        setIsLoaded(true);
-        cleanupRegistry();
+        const timer = setTimeout(() => {
+            const activeSlug = local.studioSlug;
+            // Immediate release for demo or empty slugs
+            if (!activeSlug || activeSlug === 'demo.classcore.ge') {
+                setFirstSyncDone(true);
+                setIsLoaded(true);
+                return;
+            }
 
-        // Fetch remaining studio data from cloud if available
-        if (local.studioSlug && local.studioSlug !== 'demo.classcore.ge') {
-            import('@/lib/sync-store').then(({ fetchStudioDataFromCloud, fetchStaffFromCloud }) => {
-                // Sync staff list (permissions, etc)
-                fetchStaffFromCloud(local.studioSlug).then(cloudStaff => {
-                    const lastLocal = parseInt(localStorage.getItem('cc_last_local_update') || '0');
-                    if (Date.now() - lastLocal < 5000) {
-                        console.log('📡 [StudioContext] Staff sync from cloud skipped: Local update too recent');
-                        return;
+            console.log('📡 [StudioContext] Mounting & Pulling latest state for:', activeSlug);
+            
+            import('@/lib/sync-store').then(({ fetchStaffFromCloud, fetchStudioDataFromCloud }) => {
+                Promise.all([
+                    fetchStaffFromCloud(activeSlug),
+                    fetchStudioDataFromCloud(activeSlug)
+                ]).then(([cloudStaff, cloudData]) => {
+                    // 1. Staff Sync
+                    if (cloudStaff && cloudStaff.length > 0) {
+                        setSettings(prev => saveSettings({ staff: cloudStaff }, prev, activeSlug));
                     }
 
-                    if (cloudStaff && JSON.stringify(cloudStaff) !== JSON.stringify(local.staff)) {
-                        console.log('📡 [StudioContext] Syncing staff data from cloud');
-                        setSettings(prev => {
-                            const next = saveSettings({ staff: cloudStaff }, prev, local.studioSlug);
-                            // Notify session/hooks that staff data (permissions/branches) changed
-                            window.dispatchEvent(new Event('cc_staff_update'));
-                            return next;
-                        });
-                    }
-                });
-
-                // Sync other collection data
-                fetchStudioDataFromCloud(local.studioSlug).then(cloudData => {
+                    // 2. Collection Sync
                     if (cloudData) {
-                        // RACE CONDITION GUARD: Skip initial merge if we recently updated locally (e.g. just before refresh)
                         const lastLocal = parseInt(localStorage.getItem('cc_last_local_update') || '0');
                         const timeSinceUpdate = Date.now() - lastLocal;
-                        if (timeSinceUpdate < 12000) {
-                            console.log('📡 [StudioContext] Initial cloud merge skipped: Local update too recent (' + timeSinceUpdate + 'ms)');
-                            return;
-                        }
+                        
+                        // Only merge if not recently updated locally to avoid overwriting newer local state
+                        if (timeSinceUpdate > 12000) {
+                            let anyChanged = false;
+                            Object.entries(cloudData).forEach(([key, val]) => {
+                                const localVal = localStorage.getItem(key);
+                                const cloudValStr = JSON.stringify(val);
+                                if (localVal !== cloudValStr) {
+                                    localStorage.setItem(key, cloudValStr);
+                                    anyChanged = true;
+                                }
+                            });
 
-                        console.log('📡 [StudioContext] Merging cloud data into local storage');
-                        let anyChanged = false;
-                        Object.entries(cloudData).forEach(([key, val]) => {
-                            const localVal = localStorage.getItem(key);
-                            const cloudValStr = JSON.stringify(val);
-                            if (localVal !== cloudValStr) {
-                                localStorage.setItem(key, cloudValStr);
-                                anyChanged = true;
+                            if (anyChanged) {
+                                const updatedLocal = loadSettings(activeSlug);
+                                setSettings(updatedLocal);
+                                // Trigger global refreshes
+                                window.dispatchEvent(new Event('cc_settings_update'));
+                                window.dispatchEvent(new Event('cc_staff_update'));
+                                window.dispatchEvent(new Event('cc_active_branch_change'));
                             }
-                        });
-
-                        if (anyChanged) {
-                            // Reload settings and notify app
-                            const updatedLocal = loadSettings(local.studioSlug);
-                            setSettings(updatedLocal);
-                            window.dispatchEvent(new Event('cc_student_update'));
-                            window.dispatchEvent(new Event('cc_groups_update'));
-                            window.dispatchEvent(new Event('cc_subscription_update'));
-                            window.dispatchEvent(new Event('cc_teacher_update'));
-                            window.dispatchEvent(new Event('cc_staff_update'));
-                            window.dispatchEvent(new Event('cc_active_branch_change'));
                         }
                     }
+
+                    // Hydration complete: Release the loading guard
+                    setFirstSyncDone(true);
+                    // Small visual buffer for smooth transition
+                    setTimeout(() => setIsLoaded(true), 150);
+                }).catch(err => {
+                    console.error('📡 [StudioContext] Initial Cloud Sync Failed:', err);
+                    setFirstSyncDone(true);
+                    setIsLoaded(true);
                 });
             });
-        }
+        }, 800);
+
+        cleanupRegistry();
+
+        return () => clearTimeout(timer);
     }, []);
 
 
@@ -670,14 +673,53 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             setCustomRoles,
             setSettings: (s: StudioSettings) => setSettings(s)
         }}>
-            {(!isLoaded || authLoading) ? (
-                <div className="fixed inset-0 bg-white dark:bg-zinc-950 z-[9999] flex flex-col items-center justify-center p-4">
-                    <div className="relative">
-                        <div className="w-12 h-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
+            {(!isLoaded || authLoading || !firstSyncDone) ? (
+                <div className="fixed inset-0 bg-white dark:bg-[#0e0e12] z-[9999] flex flex-col items-center justify-center p-6 select-none transition-colors duration-500">
+                    <div className="relative mb-12 animate-in fade-in zoom-in duration-700">
+                        <div className="absolute inset-0 bg-indigo-600/10 blur-[60px] rounded-full animate-pulse-slow"></div>
+                        <div className="relative w-24 h-24 bg-zinc-900 rounded-[2rem] border border-zinc-800 flex items-center justify-center shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] overflow-hidden">
+                             <img 
+                                src="/logo.svg" 
+                                alt="ClassCore" 
+                                className="w-14 h-14 animate-breathing"
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent animate-loading-bar"></div>
+                        </div>
                     </div>
-                    <div className="mt-4 text-zinc-500 font-medium animate-pulse">
-                        ClassCore Loading...
+                    
+                    <div className="flex flex-col items-center gap-3">
+                        <h2 className="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-[0.3em] animate-pulse">
+                            ClassCore
+                        </h2>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.03] rounded-full border border-black/[0.05] dark:border-white/[0.05]">
+                            <div className="flex gap-1">
+                                <div className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce"></div>
+                            </div>
+                            <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
+                                Secure Initialization
+                            </span>
+                        </div>
                     </div>
+
+                    <style jsx global>{`
+                        @keyframes breathing {
+                            0%, 100% { transform: scale(0.92); opacity: 0.8; }
+                            50% { transform: scale(1.05); opacity: 1; }
+                        }
+                        @keyframes pulse-slow {
+                            0%, 100% { transform: scale(1); opacity: 0.3; }
+                            50% { transform: scale(1.3); opacity: 0.6; }
+                        }
+                        @keyframes loading-bar {
+                            0% { transform: translateX(-100%); }
+                            100% { transform: translateX(100%); }
+                        }
+                        .animate-breathing { animation: breathing 3s ease-in-out infinite; }
+                        .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }
+                        .animate-loading-bar { animation: loading-bar 2s linear infinite; }
+                    `}</style>
                 </div>
             ) : children}
         </StudioContext.Provider>
