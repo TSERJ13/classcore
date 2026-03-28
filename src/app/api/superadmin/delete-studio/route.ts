@@ -26,40 +26,48 @@ export async function POST(req: Request) {
             const { error } = await supabase.auth.admin.deleteUser(userId);
             if (error) {
                 console.warn('⚠️ Could not delete auth user by ID:', error.message);
-                // Continue with studio_settings deletion even if user deletion fails
             }
-        } else if (email) {
+        } 
+        
+        // Always try to find and delete by email as well to be safe
+        if (email) {
             console.log('🔍 Finding and deleting user by email:', email);
-            const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+            // Fetch more users to avoid pagination issues (max 1000)
+            const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({
+                perPage: 1000
+            });
+            
             if (listError) {
                 console.warn('⚠️ Could not list users for email deletion:', listError.message);
             } else {
                 const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-                if (user) {
+                if (user && user.id !== userId) { // Avoid double delete if ID matched
                     const { error: delError } = await supabase.auth.admin.deleteUser(user.id);
                     if (delError) console.warn('⚠️ Could not delete auth user by email:', delError.message);
                     else console.log('✅ User deleted successfully:', email);
-                } else {
+                } else if (!user) {
                     console.warn('⚠️ User not found for deletion:', email);
                 }
             }
         }
 
+        const targetSlug = slug?.trim();
+
         // 2. Delete from studio_settings table (THIS IS THE CLOUD PERSISTENCE)
         let deletedCount = 0;
-        if (slug) {
-            console.log('🗑️ Purging studio_settings for slug:', slug);
+        if (targetSlug) {
+            console.log('🗑️ Purging studio_settings for slug:', targetSlug);
             const { error: settingsError, count } = await supabase
                 .from('studio_settings')
                 .delete({ count: 'exact' })
-                .eq('studio_slug', slug);
+                .eq('studio_slug', targetSlug);
             
             if (settingsError) {
                 console.error('❌ Could not delete studio settings row by slug:', settingsError.message);
                 throw settingsError;
             } else {
                 deletedCount = count || 0;
-                console.log(`✅ Studio settings row purged for slug: ${slug} (${deletedCount} rows)`);
+                console.log(`✅ Studio settings row purged for slug: ${targetSlug} (${deletedCount} rows)`);
             }
         } else if (email) {
             console.log('🗑️ Purging studio_settings for email:', email);

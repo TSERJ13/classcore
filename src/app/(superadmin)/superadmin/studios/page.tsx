@@ -359,9 +359,17 @@ export default function StudiosPage() {
                     }
 
                     const data = await res.json();
-                    if (data.success && data.count === 0) {
+                    
+                    // HARD ALERT FOR VERIFICATION
+                    const count = data.count || 0;
+                    if (lang === 'ka') {
+                        alert(`მოქმედება შესრულდა: ბაზიდან ამოიშალა ${count} ჩანაწერი.`);
+                    } else {
+                        alert(`Action complete: ${count} cloud record(s) removed.`);
+                    }
+
+                    if (data.success && count === 0) {
                         console.warn('⚠️ Cloud deletion returned 0 rows affected for slug:', slug);
-                        // We might want to alert here, but let's see if it's common
                     }
                 } catch (err: any) {
                     console.error('❌ Failed to purge cloud records:', err);
