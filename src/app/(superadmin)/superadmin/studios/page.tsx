@@ -365,6 +365,8 @@ Results: ${data.count} deleted
 Auth Purge: ${diag.authPurge}
 Found in DB: ${diag.settingsFound}
 Service Role set: ${diag.usingServiceRole}
+URL: ${diag.urlPrefix}
+Avail Slugs: ${diag.availableSlugs?.join(', ') || 'None'}
 DB Error: ${diag.settingsPurgeError || 'None'}
 `.trim();
                     alert(diagMsg);
