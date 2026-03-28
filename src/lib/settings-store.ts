@@ -231,10 +231,15 @@ export async function reclaimStudioRegistry(email: string) {
         const results = await findAllStudiosByStaffEmail(cleanEmail);
         
         if (results.length > 0) {
-            console.log(`📡 [SettingsStore] Reclaiming ${results.length} studios from cloud for ${cleanEmail}`);
-            results.forEach(r => addToRegistry(r.slug));
-            // Trigger an event so UI (like StudioSwitcher) can refresh
-            window.dispatchEvent(new Event('cc_settings_update'));
+            const currentList = getStudioRegistry();
+            const newSlugs = results.filter(r => !currentList.includes(r.slug));
+            
+            if (newSlugs.length > 0) {
+                console.log(`📡 [SettingsStore] Reclaiming ${newSlugs.length} new studios from cloud for ${cleanEmail}`);
+                newSlugs.forEach(r => addToRegistry(r.slug));
+                // ONLY trigger event if we actually added something new
+                window.dispatchEvent(new Event('cc_settings_update'));
+            }
         }
     } catch (err) {
         console.error('❌ [SettingsStore] Failed to reclaim registry:', err);
