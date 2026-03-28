@@ -15,20 +15,7 @@ import { getStudentsAllBranches } from '@/lib/student-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 
-const INITIAL_PRODUCTS: Product[] = [
-    {
-        id: 'p1', org_id: 'demo', name: 'Ballet Shoes', category: 'categoryShoes',
-        price: 45, quantity: 12, size: '38', weight: '200g', is_active: true, created_at: '2025-01-01'
-    },
-    {
-        id: 'p2', org_id: 'demo', name: 'Studio T-shirt', category: 'categoryClothing',
-        price: 35, quantity: 8, size: 'M', weight: '150g', is_active: true, created_at: '2025-01-01'
-    },
-    {
-        id: 'p3', org_id: 'demo', name: 'Water Bottle ClassCore', category: 'categoryAccessories',
-        price: 25, quantity: 20, is_active: true, created_at: '2025-01-01'
-    }
-];
+const INITIAL_PRODUCTS: Product[] = [];
 
 export default function ShopPage() {
     const { t } = useT();

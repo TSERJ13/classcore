@@ -21,9 +21,7 @@ function makeEvent(id: string, title: string, type: EventType, hallId: string, t
     return { id, org_id: getActiveSlug() || 'demo', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, reminder_30m: false, created_at: '' };
 }
 
-const SEED_WEEK: CalendarEvent[] = [
-    makeEvent('cls1', 'Contemporary Dance', 'group_class', 'h1', '', 0, '09:00', '10:30', 'weekly', 'g1'),
-];
+const SEED_WEEK: CalendarEvent[] = [];
 
 export function getEvents(): CalendarEvent[] {
     if (typeof window === 'undefined') return SEED_WEEK;

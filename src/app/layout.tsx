@@ -6,6 +6,7 @@ import { StudioProvider } from '@/contexts/StudioContext';
 import { ConfirmProvider } from '@/contexts/ConfirmContext';
 import { cookies } from 'next/headers';
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary';
+import { CacheBuster } from '@/components/CacheBuster';
 
 export const metadata: Metadata = {
     title: 'ClassCore | სტუდიის მართვის სისტემა',
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <link rel="apple-touch-icon" href="/logo.svg" />
             </head>
             <body className="min-h-screen bg-base antialiased font-sans">
+                    <CacheBuster />
                     <LanguageProvider defaultLang={activeLang}>
                         <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
                             <ConfirmProvider>
