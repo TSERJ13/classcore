@@ -45,7 +45,7 @@ interface StudioContextValue {
 const StudioContext = createContext<StudioContextValue | null>(null);
 
 export function StudioProvider({ children, defaultSlug, defaultStudioName }: { children: React.ReactNode; defaultSlug?: string | null; defaultStudioName?: string }) {
-    const { user, profile } = useUser();
+    const { user, profile, loading: authLoading } = useUser();
     const [settings, setSettings] = useState<StudioSettings>(() => {
         if (defaultSlug) {
             return { ...DEFAULT_SETTINGS, studioSlug: defaultSlug, studioName: defaultStudioName || DEFAULT_SETTINGS.studioName };
@@ -650,7 +650,16 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             setCustomRoles,
             setSettings: (s: StudioSettings) => setSettings(s)
         }}>
-            {children}
+            {(!isLoaded || authLoading) ? (
+                <div className="fixed inset-0 bg-white dark:bg-zinc-950 z-[9999] flex flex-col items-center justify-center p-4">
+                    <div className="relative">
+                        <div className="w-12 h-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
+                    </div>
+                    <div className="mt-4 text-zinc-500 font-medium animate-pulse">
+                        ClassCore Loading...
+                    </div>
+                </div>
+            ) : children}
         </StudioContext.Provider>
     );
 }
