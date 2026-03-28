@@ -16,6 +16,7 @@ interface StudioRecord {
     nextDue: string | null; status: string; daysOverdue: number;
     ownerPhone: string; ownerEmail: string; ownerName?: string;
     isCloudOnly?: boolean;
+    updatedAt?: string | null;
 }
 
 function loadStudio(slug: string): StudioRecord {
@@ -44,7 +45,8 @@ function loadStudio(slug: string): StudioRecord {
         suspended: meta.suspended || false, notes: meta.notes || '', plan: meta.plan || 'trial',
         nextDue: billing.nextDueDate, status: billing.status, daysOverdue: billing.daysOverdue,
         ownerPhone: owner?.phone || 'N/A',
-        ownerEmail: owner?.email || 'N/A'
+        ownerEmail: owner?.email || 'N/A',
+        updatedAt: s.updatedAt || null
     };
 }
 
@@ -549,8 +551,8 @@ export default function StudiosPage() {
                     <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span>
                     <span className="text-center">{lang === 'ka' ? 'მოსწავლეები' : 'Students'}</span>
                     <span className="text-center">{lang === 'ka' ? 'გეგმა' : 'Plan'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'ბოლო სინქ.' : 'Last Sync'}</span>
                     <span className="text-center">{lang === 'ka' ? 'დარჩენილია' : 'Days Left'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'დღეები' : 'Add Days'}</span>
                     <span className="text-center">{lang === 'ka' ? 'ბალანსი' : 'Balance'}</span>
                     <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
                     <span className="text-right">{lang === 'ka' ? 'მართვა' : 'Actions'}</span>
@@ -587,6 +589,23 @@ export default function StudiosPage() {
                                         <div className="text-center">
                                             <span className="text-sm font-black text-primary dark:text-white tabular-nums">{studio.studentCount}</span>
                                             <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest">{lang === 'ka' ? 'მოსწავლე' : 'students'}</p>
+                                        </div>
+
+                                        <div className="text-center">
+                                            <span className="text-[10px] font-black text-zinc-400 tabular-nums">
+                                                {studio.updatedAt ? new Date(studio.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
+                                            </span>
+                                            <p className="text-[9px] font-black text-zinc-500/40 uppercase tracking-widest">{studio.updatedAt ? new Date(studio.updatedAt).toLocaleDateString() : '-'}</p>
+                                        </div>
+
+                                        <div className="text-center">
+                                            <span className="text-sm font-black text-primary dark:text-white tabular-nums">{diffDays}</span>
+                                            <p className="text-[9px] font-black text-zinc-500/60 uppercase tracking-widest">{lang === 'ka' ? 'დღე' : 'days'}</p>
+                                        </div>
+
+                                        <div className="text-center">
+                                            <span className="text-sm font-black text-primary dark:text-white tabular-nums">{studio.subsCount}</span>
+                                            <p className="text-[9px] font-black text-indigo-500/60 uppercase tracking-widest">{lang === 'ka' ? 'ბალანსი' : 'balance'}</p>
                                         </div>
 
                                         <div className="relative text-center">

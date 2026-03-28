@@ -99,46 +99,66 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     }, []);
 
     const setLogo = useCallback((dataUrl: string | null) => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({ logoDataUrl: dataUrl }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setNotification = useCallback((key: keyof StudioSettings['notifications'], val: boolean) => {
+        markLocalUpdate();
         setSettings(prev => patchNotifications({ [key]: val }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setSecurity = useCallback((key: keyof StudioSettings['security'], val: number | boolean) => {
+        markLocalUpdate();
         setSettings(prev => patchSecurity({ [key]: val }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setLandingContent = useCallback((content: Partial<StudioSettings['landingContent']>) => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({ landingContent: { ...prev.landingContent, ...content } }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setSmsTemplates = useCallback((templates: StudioSettings['sms_templates']) => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({ sms_templates: templates }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setCurrency = useCallback((c: 'GEL' | 'USD' | 'EUR') => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({ currency: c }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setLanguage = useCallback((l: 'ka' | 'ru' | 'en') => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({ language: l }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setTimezone = useCallback((t: string) => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({ timezone: t }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setGoogleCalendar = useCallback((v: boolean) => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({ googleCalendarEnabled: v }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const setPausePrice = useCallback((days: '7' | '14' | '30' | '60', price: number) => {
+        markLocalUpdate();
         setSettings(prev => saveSettings({
             pausePrices: { ...prev.pausePrices, [days]: price }
         }, prev, prev.studioSlug));
-    }, []);
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
 
     const addBranch = useCallback((name: string, address?: string) => {
         setSettings(prev => {
@@ -533,7 +553,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             clearTimeout(timer);
             clearInterval(pullInterval);
         };
-    }, [isLoaded, settings.staff, settings.branches, settings.studioName, settings.studioSlug, profile?.role, getStaffSession()?.slug, pushCounter]);
+    }, [isLoaded, settings, profile?.role, getStaffSession()?.slug, pushCounter]);
 
     // Auto-mark local update when store events fire
     useEffect(() => {

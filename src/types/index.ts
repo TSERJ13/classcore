@@ -146,6 +146,7 @@ export interface StudioSettings {
             sept_1: string;
         };
     };
+    updatedAt?: string;
     cabinetCode?: string;
     customRoles?: string[];
     branches: Branch[];
