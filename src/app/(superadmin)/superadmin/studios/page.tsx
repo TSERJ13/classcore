@@ -359,20 +359,8 @@ export default function StudiosPage() {
                     }
 
                     const data = await res.json();
-                    const diag = data.diag || {};
-                    const diagMsg = `
-Results: ${data.count} deleted
-Auth Purge: ${diag.authPurge}
-Found in DB: ${diag.settingsFound}
-Service Role set: ${diag.usingServiceRole}
-URL: ${diag.urlPrefix}
-Avail Slugs: ${diag.availableSlugs?.join(', ') || 'None'}
-DB Error: ${diag.settingsPurgeError || 'None'}
-`.trim();
-                    alert(diagMsg);
-
-                    if (data.success && data.count === 0) {
-                        console.warn('⚠️ Cloud deletion returned 0 rows affected for slug:', slug);
+                    if (!data.success || data.count === 0) {
+                        console.warn('⚠️ Cloud deletion may have failed or 0 rows affected:', data.diag);
                     }
                 } catch (err: any) {
                     console.error('❌ Failed to purge cloud records:', err);
