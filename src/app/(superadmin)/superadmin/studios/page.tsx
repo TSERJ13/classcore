@@ -347,13 +347,26 @@ export default function StudiosPage() {
                 const ownerEmail = owner?.email;
                 
                 try {
-                    await fetch('/api/superadmin/delete-studio', {
+                    const res = await fetch('/api/superadmin/delete-studio', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email: ownerEmail, userId: owner?.id, slug: slug })
                     });
-                } catch (err) {
-                    console.error('Failed to purge cloud records:', err);
+                    
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        throw new Error(errorData.error || 'API deletion failed');
+                    }
+
+                    const data = await res.json();
+                    if (data.success && data.count === 0) {
+                        console.warn('⚠️ Cloud deletion returned 0 rows affected for slug:', slug);
+                        // We might want to alert here, but let's see if it's common
+                    }
+                } catch (err: any) {
+                    console.error('❌ Failed to purge cloud records:', err);
+                    alert(lang === 'ka' ? `ქლაუდზე წაშლა ვერ მოხერხდა: ${err.message}` : `Cloud deletion failed: ${err.message}`);
+                    return; // Stop local deletion if cloud fails
                 }
 
                 // 2. Clear local storage

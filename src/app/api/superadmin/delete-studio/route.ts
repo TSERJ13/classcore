@@ -46,34 +46,37 @@ export async function POST(req: Request) {
         }
 
         // 2. Delete from studio_settings table (THIS IS THE CLOUD PERSISTENCE)
+        let deletedCount = 0;
         if (slug) {
             console.log('🗑️ Purging studio_settings for slug:', slug);
-            const { error: settingsError } = await supabase
+            const { error: settingsError, count } = await supabase
                 .from('studio_settings')
-                .delete()
+                .delete({ count: 'exact' })
                 .eq('studio_slug', slug);
             
             if (settingsError) {
                 console.error('❌ Could not delete studio settings row by slug:', settingsError.message);
                 throw settingsError;
             } else {
-                console.log('✅ Studio settings row purged for slug:', slug);
+                deletedCount = count || 0;
+                console.log(`✅ Studio settings row purged for slug: ${slug} (${deletedCount} rows)`);
             }
         } else if (email) {
             console.log('🗑️ Purging studio_settings for email:', email);
-            const { error: settingsError } = await supabase
+            const { error: settingsError, count } = await supabase
                 .from('studio_settings')
-                .delete()
+                .delete({ count: 'exact' })
                 .contains('staff_emails', [email.toLowerCase().trim()]);
             
             if (settingsError) {
                 console.error('⚠️ Could not delete studio settings row by email:', settingsError.message);
             } else {
-                console.log('✅ Studio settings row purged for owner email:', email);
+                deletedCount = count || 0;
+                console.log(`✅ Studio settings row purged for owner email: ${email} (${deletedCount} rows)`);
             }
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, count: deletedCount });
     } catch (err: any) {
         console.error('❌ Deletion API Error:', err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });
