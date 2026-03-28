@@ -359,16 +359,17 @@ export default function StudiosPage() {
                     }
 
                     const data = await res.json();
-                    
-                    // HARD ALERT FOR VERIFICATION
-                    const count = data.count || 0;
-                    if (lang === 'ka') {
-                        alert(`მოქმედება შესრულდა: ბაზიდან ამოიშალა ${count} ჩანაწერი.`);
-                    } else {
-                        alert(`Action complete: ${count} cloud record(s) removed.`);
-                    }
+                    const diag = data.diag || {};
+                    const diagMsg = `
+Results: ${data.count} deleted
+Auth Purge: ${diag.authPurge}
+Found in DB: ${diag.settingsFound}
+Service Role set: ${diag.usingServiceRole}
+DB Error: ${diag.settingsPurgeError || 'None'}
+`.trim();
+                    alert(diagMsg);
 
-                    if (data.success && count === 0) {
+                    if (data.success && data.count === 0) {
                         console.warn('⚠️ Cloud deletion returned 0 rows affected for slug:', slug);
                     }
                 } catch (err: any) {
