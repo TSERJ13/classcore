@@ -67,6 +67,7 @@
         height: -webkit-fill-available;
         min-height: 100dvh;
         overscroll-behavior-y: none;
+        overflow-x: hidden;
     }
 
     body {
@@ -75,6 +76,7 @@
         font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
         position: relative;
         width: 100%;
+        overflow-x: hidden;
         transition: background-color 0.3s ease, color 0.3s ease;
     }
 }

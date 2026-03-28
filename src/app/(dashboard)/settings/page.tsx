@@ -37,18 +37,28 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
     );
 }
 
-function Section({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+function Section({ title, icon: Icon, children, defaultOpen = false }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; defaultOpen?: boolean }) {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
     return (
-        <div className="bg-card border border-border-subtle rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-all border-border-subtle/60">
-            <div className="w-full flex items-center justify-between px-6 py-5 border-b border-border-subtle/30 bg-surface/30">
-                <div className="flex items-center gap-3.5">
-                    <div className="p-2 rounded-xl bg-muted/5 text-muted">
-                        <Icon className="w-4 h-4" />
+        <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-md transition-all border-border-subtle/60">
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between px-8 py-6 border-b border-border-subtle/30 bg-surface/30 hover:bg-surface/50 transition-colors"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="p-2.5 rounded-2xl bg-muted/5 text-muted group-hover:bg-indigo-500/10 group-hover:text-indigo-500 transition-all">
+                        <Icon className="w-5 h-5 transition-transform" />
                     </div>
-                    <h2 className="text-[13px] font-black text-primary tracking-tight opacity-80">{title}</h2>
+                    <h2 className="text-[14px] font-black text-primary tracking-tight opacity-90">{title}</h2>
                 </div>
-            </div>
-            <div className="divide-y divide-border-subtle/20 bg-card">
+                <div className={cn("p-2 rounded-xl bg-muted/5 text-muted transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")}>
+                    <ChevronDown className="w-4 h-4" />
+                </div>
+            </button>
+            <div className={cn(
+                "divide-y divide-border-subtle/20 bg-card transition-all duration-300 ease-in-out",
+                isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+            )}>
                 {children}
             </div>
         </div>
@@ -318,7 +328,7 @@ export default function SettingsPage() {
 
 
             {isAdmin && (
-                <Section title={t.studioSettings} icon={Building2}>
+                <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
                     {/* Logo */}
                     <Row label={t.logoLabel} sub={t.logoDesc}>
                         <div className="flex items-center gap-3">
@@ -466,7 +476,7 @@ export default function SettingsPage() {
                 </Section>
             )}
 
-            {/* ─── Aesthetics (Collapsible) ─── */}
+            {/* Aesthetics */}
             <Section title={t.colorThemes} icon={Palette}>
                 <div className="px-6 py-6">
                     <p className="text-xs text-muted mb-4">{t.colorThemesDesc}</p>

@@ -45,6 +45,7 @@ export default function RegisterPage() {
                         last_name: lastName,
                         full_name: `${firstName} ${lastName}`.trim(),
                         phone: phone,
+                        phone_number: phone,
                         studio_name: studioName,
                         org_id: crypto.randomUUID(),
                         studio_slug: studioSlug

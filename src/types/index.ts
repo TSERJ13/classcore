@@ -59,6 +59,7 @@ export interface StaffMember {
     first_name?: string;
     last_name?: string;
     phone: string;
+    phone_number?: string;
     email?: string;
     password?: string;
     role: StaffRole | string;
