@@ -90,6 +90,39 @@ export default function StudiosPage() {
         loading?: boolean
     }>({ type: null, title: '', message: '' });
 
+    const [isPurging, setIsPurging] = useState(false);
+
+    const handlePurgeTestData = () => {
+        setModal({
+            type: 'confirm',
+            title: lang === 'ka' ? 'ტესტ-მონაცემების გასუფთავება' : 'Purge Test Data',
+            message: lang === 'ka' 
+                ? 'ნამდვილად გსურთ ყველა "load-test-*" სტუდიის წაშლა ბაზიდან? ეს ქმედება შეუქცევადია!'
+                : 'Are you sure you want to delete all "load-test-*" studios from the database? This action is irreversible!',
+            onConfirm: async () => {
+                setIsPurging(true);
+                try {
+                    const res = await fetch('/api/superadmin/global-purge', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pattern: 'load-test-' })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        setModal({ type: 'alert', title: 'Success', message: `Purged ${data.deleted} test studios.` });
+                        loadData();
+                    } else {
+                        throw new Error(data.error);
+                    }
+                } catch (err: any) {
+                    setModal({ type: 'alert', title: 'Error', message: err.message });
+                } finally {
+                    setIsPurging(false);
+                }
+            }
+        });
+    };
+
     // Reset Modal State
     const [resetModal, setResetModal] = useState<{
         open: boolean,

@@ -39,6 +39,22 @@ export async function middleware(request: NextRequest) {
         });
 
         const { data: { user } } = await supabase.auth.getUser();
+        
+        // SYNC: Ensure cc_active_slug cookie matches user metadata to prevent flickering
+        if (user?.user_metadata?.studio_slug) {
+            const metaSlug = user.user_metadata.studio_slug;
+            const cookieSlug = request.cookies.get('cc_active_slug')?.value;
+            
+            if (cookieSlug !== metaSlug) {
+                // Set cookie on response so SSR picks it up immediately on redirect or next load
+                response.cookies.set('cc_active_slug', metaSlug, {
+                    path: '/',
+                    maxAge: 60 * 60 * 24 * 365,
+                    sameSite: 'lax'
+                });
+            }
+        }
+
         const { pathname } = request.nextUrl;
         const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
 

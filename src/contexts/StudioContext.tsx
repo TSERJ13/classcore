@@ -565,16 +565,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         if (isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
             console.log('📡 [StudioContext] Auto-syncing real studio from profile:', profile.studio_slug);
             
-            // ONE-TIME PURGE: If switching from demo to real for the first time on this machine,
-            // we MUST clear any stale mock data that might be stuck in localStorage.
+            // ONE-TIME PURGE logic intact...
             const hasCleansed = localStorage.getItem(`cc_cleansed_${profile.studio_slug}`);
             if (!hasCleansed) {
                 console.log('🧹 [StudioContext] First-time initialization: Purging stale mock keys');
                 const keys = Object.keys(localStorage);
                 keys.forEach(k => {
-                    // Only purge keys that look like they belong to this studio but might contain mock seeds
                     if (k.includes(profile.studio_slug!) || k.includes('demo.classcore.ge')) {
-                        // Keep settings, purge data collections
                         const dataPrefixes = [
                             'cc_checkins', 'cc_shop_sales', 'cc_notifications', 
                             'cc_calendar_events', 'cc_student_data', 'cc_student_subscriptions',
