@@ -351,7 +351,7 @@ export default function StudiosPage() {
                         await fetch('/api/superadmin/delete-studio', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: ownerEmail, userId: owner?.id })
+                            body: JSON.stringify({ email: ownerEmail, userId: owner?.id, slug: slug })
                         });
                     } catch (err) {
                         console.error('Failed to purge auth account:', err);
