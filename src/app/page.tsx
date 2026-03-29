@@ -153,7 +153,7 @@ export default function LandingPage() {
     useEffect(() => {
         setMounted(true);
         setHeroSet(Math.floor(Math.random() * 3));
-        const handleScroll = () => setScrolled(window.scrollY > 20);
+        const handleScroll = () => setScrolled(window.scrollY > 10);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
@@ -214,7 +214,7 @@ export default function LandingPage() {
             <header className={cn(
                 "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-4 md:px-6 py-2 md:py-4",
                 scrolled 
-                    ? "bg-white border-b border-slate-100 shadow-2xl transition-shadow" 
+                    ? "!bg-white border-b border-slate-100 shadow-2xl !opacity-100" 
                     : "bg-white/90 backdrop-blur-xl border-b border-transparent"
             )}>
                 <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
