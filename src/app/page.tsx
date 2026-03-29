@@ -225,9 +225,9 @@ export default function LandingPage() {
                     ? "!bg-white border-b border-slate-100 shadow-2xl !opacity-100" 
                     : "bg-white/90 backdrop-blur-xl border-b border-transparent"
             )}>
-                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-                    <Link href="/" className="flex items-center gap-2 md:gap-3 group shrink-0">
-                        <div className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-2xl flex items-center justify-center shadow-md relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100 shrink-0">
+                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-8 md:h-12">
+                    <Link href="/" className="flex items-center gap-2 md:gap-3 group shrink-0 h-full">
+                        <div className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-2xl flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100 shrink-0">
                             <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
                         </div>
                         <span className="text-[14px] md:text-2xl font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap">ClassCore</span>
@@ -241,8 +241,8 @@ export default function LandingPage() {
                         ))}
                     </nav>
 
-                    <div className="flex items-center gap-2 md:gap-4 shrink-0">
-                        <Link href={user ? "/dashboard" : "/login"} className="h-9 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] md:text-[13px] font-black px-4 md:px-8 rounded-lg md:rounded-2xl shadow-lg shadow-indigo-600/20 transition-all tracking-wide whitespace-nowrap">
+                    <div className="flex items-center gap-2 md:gap-4 shrink-0 h-full">
+                        <Link href={user ? "/dashboard" : "/login"} className="h-8 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[10px] md:text-[13px] font-black px-3.5 md:px-8 rounded-lg md:rounded-2xl shadow-lg shadow-indigo-600/20 transition-all tracking-wide whitespace-nowrap">
                             {user ? t.dashboard : t.login}
                         </Link>
                         <LanguageSwitcher compact={true} variant="landing" align="right" />
