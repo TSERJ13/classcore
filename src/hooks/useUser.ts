@@ -48,14 +48,24 @@ export function useUser() {
             const { data: { session } } = await supabase.auth.getSession();
             const u = session?.user;
             const staffSess = getStaffSession();
+            const activeSlug = typeof window !== 'undefined' ? (localStorage.getItem('cc_active_studio_slug') || window.location.pathname.split('/')[1]) : null;
 
             // SSS (Smart Session Selection): 
             // If on a regular route and we have both a SuperAdmin Supabase session AND a Staff session, 
             // we PRIORITIZE the Staff session to prevent account override.
             const isSuperAccount = u?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === u.email?.toLowerCase());
-            const shouldPrioritizeStaff = !isSuperAdminRoute && isSuperAccount && staffSess;
+            
+            // CRITICAL: Even if there is no staffSess, if we are on a regular route and the Supabase user 
+            // is a SuperAdmin, we should verify if they are actually the owner of THIS specific studio.
+            // If it's a general SuperAdmin account without a matching slug, we might want to keep looking 
+            // at staffSess (which could be the valid owner identity).
+            const shouldPrioritizeStaff = !isSuperAdminRoute && (
+                (isSuperAccount && staffSess) || 
+                (isSuperAccount && activeSlug && u.user_metadata?.studio_slug !== activeSlug && staffSess)
+            );
 
             if (u && !shouldPrioritizeStaff) {
+                // ... same profile logic ...
                 console.log('👤 [useUser] Supabase session found for:', u.email);
                 setUser(u);
                 const meta = u.user_metadata || {};

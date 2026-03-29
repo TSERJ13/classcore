@@ -324,6 +324,55 @@ export default function SettingsPage() {
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-10">
+            {settings.studioSlug === 'demo.classcore.ge' && (
+                <div className="bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-transparent border border-amber-500/20 rounded-[2.5rem] p-8 mb-8 animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 flex-shrink-0 animate-pulse">
+                            <AlertTriangle className="w-8 h-8" />
+                        </div>
+                        <div className="flex-1 text-center md:text-left">
+                            <h3 className="text-lg font-black text-primary tracking-tight mb-1">
+                                {lang === 'ka' ? 'თქვენ იმყოფებით დემო რეჟიმში' : 'You are in Demo Mode'}
+                            </h3>
+                            <p className="text-xs text-muted/60 font-medium leading-relaxed">
+                                {lang === 'ka' 
+                                    ? 'თქვენი მონაცემები ინახება მხოლოდ ამ ბრაუზერში. იმისთვის, რომ სტუდია გამოჩნდეს სუპერადმინის პანელში და ჩაირთოს სრული სინქრონიზაცია, აირჩიეთ მუდმივი მისამართი (Slug).'
+                                    : 'Your data is stored locally in this browser. To see your studio in the SuperAdmin dashboard and enable full cloud sync, please choose a permanent URL slug.'}
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                            <div className="relative w-full sm:w-48">
+                                <input
+                                    value={slugVal}
+                                    onChange={e => setSlugVal(compactSlugify(e.target.value))}
+                                    placeholder="new-slug"
+                                    className="w-full bg-surface/50 border border-amber-500/30 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-amber-500 transition-all font-black text-amber-500 placeholder:text-amber-500/20"
+                                />
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    if (!slugVal || slugVal === 'demo.classcore.ge') return;
+                                    const { claimStudio } = (useStudio() as any);
+                                    const ok = await confirm({
+                                        title: lang === 'ka' ? 'სტუდიის რეგისტრაცია' : 'Claim Studio',
+                                        message: lang === 'ka' ? `დარწმუნებული ხართ, რომ გსურთ გადახვიდეთ მისამართზე: /${slugVal}? ყველა თქვენი მონაცემი გადავა ახალ მისამართზე.` : `Are you sure you want to move to /${slugVal}? All your local data will be transferred.`,
+                                        confirmText: lang === 'ka' ? 'გაგრძელება' : 'Continue'
+                                    });
+                                    if (ok) {
+                                        setIsSyncing(true);
+                                        const email = user?.email || 'stdancegroup@gmail.com'; 
+                                        await (useStudio() as any).claimStudio(slugVal, email);
+                                    }
+                                }}
+                                disabled={isSyncing || !slugVal || slugVal === 'demo.classcore.ge'}
+                                className="w-full sm:w-auto px-8 py-3 bg-amber-500 text-white text-[10px] font-black rounded-xl shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all tracking-widest disabled:opacity-50"
+                            >
+                                {isSyncing ? '...' : (lang === 'ka' ? 'ჩემი სტუდიის რეგისტრაცია' : 'REGISTER MY STUDIO')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
 
 
@@ -392,21 +441,23 @@ export default function SettingsPage() {
                                         value={slugVal}
                                         onChange={e => setSlugVal(compactSlugify(e.target.value))}
                                         onKeyDown={e => e.key === 'Enter' && saveSlug()}
-                                        readOnly={profile?.role !== 'superadmin'}
+                                        readOnly={profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge'}
                                         className={cn(
                                             "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors",
-                                            profile?.role !== 'superadmin' && "opacity-60 cursor-not-allowed"
+                                            (profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
                                         )}
                                     />
-                                    {profile?.role === 'superadmin' && (
+                                    {(profile?.role === 'superadmin' || settings.studioSlug === 'demo.classcore.ge') && (
                                         <>
-                                            <button
-                                                onClick={handleReclaimSlug}
-                                                className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
-                                                title={t.reclaimName}
-                                            >
-                                                {t.reclaimAction}
-                                            </button>
+                                            {profile?.role === 'superadmin' && (
+                                                <button
+                                                    onClick={handleReclaimSlug}
+                                                    className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
+                                                    title={t.reclaimName}
+                                                >
+                                                    {t.reclaimAction}
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={saveSlug}
                                                 className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}

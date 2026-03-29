@@ -212,18 +212,18 @@ export default function LandingPage() {
         <div className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white overflow-x-hidden">
             {/* Header */}
             <header className={cn(
-                "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-4 md:px-6 py-3 md:py-4",
-                scrolled ? "bg-white/80 backdrop-blur-xl border-b border-slate-100 shadow-sm" : "bg-transparent"
+                "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-2 md:px-6 py-1.5 md:py-4 bg-white/70 backdrop-blur-xl",
+                scrolled ? "border-b border-slate-100 shadow-sm" : "border-b border-transparent"
             )}>
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-3 group">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/10 relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100">
+                <div className="max-w-7xl mx-auto flex items-center justify-between gap-0.5">
+                    <Link href="/" className="flex items-center gap-1.5 group shrink-0">
+                        <div className="w-7 h-7 md:w-12 md:h-12 rounded-lg md:rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/10 relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100">
                             <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
                         </div>
-                        <span className="text-2xl font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors">ClassCore</span>
+                        <span className="text-xs md:text-2xl font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap hidden min-[320px]:block">ClassCore</span>
                     </Link>
 
-                    <nav className="hidden md:flex items-center gap-8">
+                    <nav className="hidden lg:flex items-center gap-8">
                         {['Features', 'Pricing', 'About', 'Contact'].map(item => (
                             <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors tracking-widest">
                                 {item === 'Features' ? t.navFeatures : item === 'Pricing' ? t.navPricing : item === 'About' ? t.navAbout : t.navContact}
@@ -231,8 +231,8 @@ export default function LandingPage() {
                         ))}
                     </nav>
 
-                    <div className="flex items-center gap-4">
-                        <Link href={user ? "/dashboard" : "/login"} className="h-11 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] md:text-[13px] font-black px-4 md:px-8 rounded-xl md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all tracking-wide">
+                    <div className="flex items-center gap-1 md:gap-4 shrink-0">
+                        <Link href={user ? "/dashboard" : "/login"} className="h-7 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[8px] md:text-[13px] font-black px-2 md:px-8 rounded-lg md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all tracking-wide whitespace-nowrap">
                             {user ? t.dashboard : t.login}
                         </Link>
                         <LanguageSwitcher compact={true} variant="landing" align="right" />

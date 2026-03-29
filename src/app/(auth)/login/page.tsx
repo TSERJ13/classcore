@@ -167,24 +167,6 @@ export default function LoginPage() {
                             )}
                         </button>
                     </form>
-
-                    <div className="mt-8 pt-8 border-t border-slate-100 space-y-6">
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
-                            <div className="relative flex justify-center text-[10px] font-black tracking-widest"><span className="bg-white/50 px-4 text-slate-400">{t.orOtherMethod}</span></div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <button className="flex items-center justify-center gap-2 py-3 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm text-slate-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-[#4285F4]"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><path d="M21.17 8H12"></path><path d="M3.95 6.06a9 9 0 0 1 0 11.88"></path><path d="M8.54 21.17a9 9 0 0 1 7.08 0"></path></svg> Google
-                            </button>
-                            <button className="flex items-center justify-center gap-2 py-3 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm text-slate-600">
-                                <svg className="w-4 h-4 text-[#0088cc]" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.93 1.23-5.46 3.62-.51.35-.98.52-1.4.51-.46-.01-1.35-.26-2.01-.48-.81-.27-1.45-.42-1.39-.89.03-.24.37-.49 1-.74 3.92-1.7 6.54-2.83 7.85-3.37 3.73-1.55 4.51-1.82 5.02-1.83.11 0 .36.03.52.17.13.12.17.28.19.4z" />
-                                </svg> Telegram
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 <p className="text-center text-sm font-semibold text-slate-500">

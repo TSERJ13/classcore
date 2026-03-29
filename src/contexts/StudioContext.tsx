@@ -40,6 +40,7 @@ interface StudioContextValue {
     logSubscription: (log: Omit<SubscriptionLog, 'id' | 'date'>) => void;
     setCustomRoles: (roles: string[]) => void;
     setSettings: (s: StudioSettings) => void;
+    claimStudio: (newSlug: string, ownerEmail: string) => Promise<void>;
 }
 
 const StudioContext = createContext<StudioContextValue | null>(null);
@@ -627,12 +628,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             setSettings(prev => saveSettings({ orgId: profile.org_id }, prev, prev.studioSlug));
         }
 
-        // RECLAIM REGISTRY: Ensure all user's studios are in the local list
-        if (user?.email) {
-            import('@/lib/settings-store').then(({ reclaimStudioRegistry }) => {
-                reclaimStudioRegistry(user.email!);
-            });
-        }
+        // RECLAIM REGISTRY: Removed automatic reclaim to prevent ghost studios from reappearing.
+        // It should be triggered manually if needed or during initial login.
     }, [user?.email, profile?.studio_name, profile?.studio_slug, profile?.org_id, settings.studioName, settings.studioSlug, setStudioName, setStudioSlug, isLoaded, settings.orgId]);
 
     // Apply theme on mount + whenever theme/bg changes
@@ -671,57 +668,74 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             clearOldTrash,
             logSubscription,
             setCustomRoles,
-            setSettings: (s: StudioSettings) => setSettings(s)
-        }}>
-            {(!isLoaded || authLoading || !firstSyncDone) ? (
-                <div className="fixed inset-0 bg-white dark:bg-[#0e0e12] z-[9999] flex flex-col items-center justify-center p-6 select-none transition-colors duration-500">
-                    <div className="relative mb-12 animate-in fade-in zoom-in duration-700">
-                        <div className="absolute inset-0 bg-indigo-600/10 blur-[60px] rounded-full animate-pulse-slow"></div>
-                        <div className="relative w-24 h-24 bg-zinc-900 rounded-[2rem] border border-zinc-800 flex items-center justify-center shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] overflow-hidden">
-                             <img 
-                                src="/logo.svg" 
-                                alt="ClassCore" 
-                                className="w-14 h-14 animate-breathing"
-                            />
-                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent animate-loading-bar"></div>
-                        </div>
-                    </div>
-                    
-                    <div className="flex flex-col items-center gap-3">
-                        <h2 className="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-[0.3em] animate-pulse">
-                            ClassCore
-                        </h2>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.03] rounded-full border border-black/[0.05] dark:border-white/[0.05]">
-                            <div className="flex gap-1">
-                                <div className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]"></div>
-                                <div className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]"></div>
-                                <div className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce"></div>
-                            </div>
-                            <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
-                                Secure Initialization
-                            </span>
-                        </div>
-                    </div>
+            setSettings: (s: StudioSettings) => setSettings(s),
+            claimStudio: async (newSlug: string, ownerEmail: string) => {
+                if (typeof window === 'undefined') return;
+                console.log('🚀 [StudioContext] Starting Studio Claim (Migration) for:', newSlug);
+                
+                const oldSlug = 'demo.classcore.ge';
+                const allKeys = Object.keys(localStorage);
+                const prefixes = [
+                    'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
+                    'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
+                    'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications',
+                    'cc_attendance_archive', 'cc_expenses', 'cc_audit_logs'
+                ];
 
-                    <style jsx global>{`
-                        @keyframes breathing {
-                            0%, 100% { transform: scale(0.92); opacity: 0.8; }
-                            50% { transform: scale(1.05); opacity: 1; }
-                        }
-                        @keyframes pulse-slow {
-                            0%, 100% { transform: scale(1); opacity: 0.3; }
-                            50% { transform: scale(1.3); opacity: 0.6; }
-                        }
-                        @keyframes loading-bar {
-                            0% { transform: translateX(-100%); }
-                            100% { transform: translateX(100%); }
-                        }
-                        .animate-breathing { animation: breathing 3s ease-in-out infinite; }
-                        .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }
-                        .animate-loading-bar { animation: loading-bar 2s linear infinite; }
-                    `}</style>
-                </div>
-            ) : children}
+                // 1. Copy Data
+                const migratedData: Record<string, any> = {};
+                prefixes.forEach(prefix => {
+                    const oldKey = `${prefix}_${oldSlug}`;
+                    const val = localStorage.getItem(oldKey);
+                    if (val) {
+                        const newKey = `${prefix}_${newSlug}`;
+                        localStorage.setItem(newKey, val);
+                        migratedData[newKey] = JSON.parse(val);
+                    }
+                });
+
+                // 2. Prep New Settings
+                const newSettingsKey = `${STORAGE_KEY}_${newSlug}`;
+                const rawSettings = localStorage.getItem(newSettingsKey);
+                let newSettings = rawSettings ? JSON.parse(rawSettings) : { ...settings, studioSlug: newSlug };
+                
+                // Ensure owner is set
+                const currentStaff = newSettings.staff || [];
+                if (!currentStaff.find((s: any) => s.role === 'owner')) {
+                    const owner: StaffMember = {
+                        id: Math.random().toString(36).substring(2, 9),
+                        org_id: newSettings.orgId || Math.random().toString(36).substring(2, 12),
+                        first_name: profile?.first_name || 'Owner',
+                        last_name: profile?.last_name || 'Studio',
+                        full_name: `${profile?.first_name || 'Owner'} ${profile?.last_name || 'Studio'}`.trim(),
+                        email: ownerEmail,
+                        phone: profile?.phone || '',
+                        status: 'active',
+                        role: 'owner',
+                        permissions: {
+                            canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
+                            canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
+                            canViewTeachers: true, canViewHalls: true, canViewShop: true,
+                            canViewAnalytics: true, canViewSMS: true
+                        },
+                        created_at: new Date().toISOString()
+                    };
+                    newSettings.staff = [owner, ...currentStaff.filter((s: any) => s.role !== 'owner')];
+                }
+                
+                localStorage.setItem(newSettingsKey, JSON.stringify(newSettings));
+                localStorage.setItem(ACTIVE_SLUG_KEY, newSlug);
+
+                // 3. Push to Cloud immediately
+                const { pushStudioStateToCloud } = await import('@/lib/sync-store');
+                await pushStudioStateToCloud(newSlug, newSettings.staff, migratedData, 0, newSettings.orgId);
+
+                // 4. Finalize
+                console.log('✅ [StudioContext] Migration complete. Redirecting...');
+                window.location.href = `/${newSlug}/settings`;
+            }
+        }}>
+            {children}
         </StudioContext.Provider>
     );
 }

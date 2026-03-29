@@ -294,11 +294,11 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                     {/* Skeleton Header */}
                     <div className="px-4 py-6 border-b border-[var(--sidebar-border)] bg-white/[0.01]">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-white/5 animate-pulse shrink-0" />
+                            <div className="w-12 h-12 rounded-2xl bg-white/5 shrink-0" />
                             {exp && (
                                 <div className="flex-1 space-y-2">
-                                    <div className="w-2/3 h-4 bg-white/5 rounded-md animate-pulse" />
-                                    <div className="w-1/2 h-3 bg-white/5 rounded-md animate-pulse opacity-50" />
+                                    <div className="w-2/3 h-4 bg-white/5 rounded-md" />
+                                    <div className="w-1/2 h-3 bg-white/5 rounded-md opacity-50" />
                                 </div>
                             )}
                         </div>
@@ -307,14 +307,14 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                     <div className="flex-1 p-2 space-y-2">
                         {[1, 2, 3, 4, 5, 6].map(i => (
                             <div key={i} className="flex items-center gap-3 px-4 h-11">
-                                <div className="w-6 h-6 rounded-lg bg-white/5 animate-pulse shrink-0" />
-                                {exp && <div className="flex-1 h-3 bg-white/5 rounded-md animate-pulse" />}
+                                <div className="w-6 h-6 rounded-lg bg-white/5 shrink-0" />
+                                {exp && <div className="flex-1 h-3 bg-white/5 rounded-md" />}
                             </div>
                         ))}
                     </div>
                     {/* Skeleton Footer */}
                     <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
-                        <div className="w-10 h-10 rounded-xl bg-white/5 animate-pulse" />
+                        <div className="w-10 h-10 rounded-xl bg-white/5" />
                     </div>
                 </div>
             ) : (

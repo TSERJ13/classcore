@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Camera, User, Phone, Calendar, CheckCircle, ArrowRight, Loader2, Mail, MapPin } from 'lucide-react';
 import { loadSettings, DEFAULT_SETTINGS, type Branch } from '@/lib/settings-store';
-import { updateStudent, generateFormattedStudentId } from '@/lib/student-store';
+import { updateStudent, generateFormattedStudentId, getStudents } from '@/lib/student-store';
+import { pushStudioStateToCloud } from '@/lib/sync-store';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
@@ -71,16 +72,15 @@ export default function StudentRegistrationPage() {
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
-
     const handleSubmit = async () => {
         if (!validate()) return;
         setSaving(true);
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 400));
 
         const id = generateFormattedStudentId(form.first_name, form.last_name);
         const full_name = `${form.first_name} ${form.last_name}`.trim();
 
-        updateStudent(id, {
+        const student = {
             id,
             org_id: studio,
             full_name,
@@ -90,11 +90,29 @@ export default function StudentRegistrationPage() {
             email: form.email || undefined,
             birth_date: form.birth_date || undefined,
             photo_url: photoPreview || undefined,
-            status: 'active',
+            status: 'active' as const,
             enrolled_group_ids: [],
             created_at: new Date().toISOString(),
             branch_id: form.branch_id,
-        });
+        };
+
+        // 1. Update local storage for immediate feedback (though user is redirected)
+        updateStudent(id, student);
+        
+        // 2. Push to cloud via specialized public API to ensure atomic append
+        try {
+            console.log('📡 [Registration] Registering student via API:', id);
+            const res = await fetch('/api/public/register-student', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studio, student })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to save to cloud');
+            console.log('✅ [Registration] Cloud registration successful');
+        } catch (e) {
+            console.error('❌ [Registration] Cloud registration failed:', e);
+        }
 
         setSavedId(id);
         setSaving(false);

@@ -626,13 +626,20 @@ export default function DashboardPage() {
     }) : null;
 
     // Billing state monitoring
-    const [billing, setBilling] = useState<any>(null);
+    const [billing, setBilling] = useState<any>(() => {
+        if (typeof window !== 'undefined' && settings.studioSlug) {
+            const { getBillingState } = require('@/lib/saas-billing');
+            return getBillingState(settings.studioSlug);
+        }
+        return null;
+    });
+
     useEffect(() => {
-        if (settings.studioSlug) {
+        if (settings.studioSlug && !billing) {
             const { getBillingState } = require('@/lib/saas-billing');
             setBilling(getBillingState(settings.studioSlug));
         }
-    }, [settings.studioSlug]);
+    }, [settings.studioSlug, billing]);
 
 
     return (
@@ -674,21 +681,23 @@ export default function DashboardPage() {
                                     const { clearAllStudioData } = await import('@/lib/settings-store');
                                     clearAllStudioData(settings.studioSlug);
                                 }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-xl text-[10px] font-black tracking-widest transition-all animate-pulse"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-xl text-[10px] font-black tracking-widest transition-all"
                             >
                                 <RefreshCcw className="w-3 h-3" />
                                 {l('სისტემის გასუფთავება (Reset)', 'Сброс системы', 'System Reset')}
                             </button>
                         )}
-                        <span className={cn(
-                            "px-2 py-0.5 rounded-lg text-white text-[10px] font-black tracking-tighter shadow-lg animate-pulse",
-                            billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
-                            billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
-                            billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
-                            "bg-emerald-500 shadow-emerald-500/20"
-                        )}>
-                            {billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')}
-                        </span>
+                        {billing && (
+                            <span className={cn(
+                                "px-2 py-0.5 rounded-lg text-white text-[10px] font-black tracking-tighter shadow-lg",
+                                billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
+                                billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
+                                billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
+                                "bg-emerald-500 shadow-emerald-500/20"
+                            )}>
+                                {billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')}
+                            </span>
+                        )}
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted font-black mt-1 tracking-[0.15em] opacity-40">
                         {profile?.studio_name || 'ClassCore Studio'} · <span suppressHydrationWarning className="text-indigo-500">{dateStr}</span>

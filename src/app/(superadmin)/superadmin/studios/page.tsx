@@ -491,17 +491,17 @@ export default function StudiosPage() {
                         onClick={() => {
                             setModal({
                                 type: 'confirm',
-                                title: lang === 'ka' ? 'Master System Reset' : 'Master System Reset',
+                                title: lang === 'ka' ? 'სისტემის სრული გასუფთავება' : 'Master System Reset',
                                 message: lang === 'ka' 
-                                    ? 'გაფრთხილება: ეს წაშლის ყველა სტუდიას გარდა "stdancestudio"-სა და გაასუფთავებს ყველა მონაცემს. გსურთ გაგრძელება?'
-                                    : 'WARNING: This will delete ALL studios except "stdancestudio" and purge all associated data. Proceed?',
+                                    ? 'ყურადღება: ეს წაშლის ყველა სტუდიას და გაასუფთავებს ყველა მონაცემს. გსურთ გაგრძელება?'
+                                    : 'WARNING: This will delete ALL studios and purge all associated data. Proceed?',
                                 onConfirm: async () => {
                                     setModal(m => ({ ...m, loading: true }));
                                     try {
                                         const res = await fetch('/api/superadmin/system-reset', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ keepSlug: 'stdancestudio' })
+                                            body: JSON.stringify({ keepSlug: '___temp___' }) // Use a dummy slug that doesn't exist
                                         });
                                         const data = await res.json();
                                         if (data.success) {

@@ -5,18 +5,18 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     try {
-        const { pattern, secret } = await request.json();
+        const { pattern, slugs: targetSlugs, secret } = await request.json();
 
-        // Security check: Only allow if service role key is present and a pattern is provided
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        // Security check: Only allow if service role key is present and a pattern/slugs are provided
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
         if (!serviceKey || !supabaseUrl) {
             return NextResponse.json({ error: 'Missing environment variables' }, { status: 500 });
         }
 
-        if (!pattern || pattern.length < 5) {
-            return NextResponse.json({ error: 'Pattern too short or missing' }, { status: 400 });
+        if ((!pattern || pattern.length < 5) && (!targetSlugs || !Array.isArray(targetSlugs))) {
+            return NextResponse.json({ error: 'Pattern too short or slugs array missing' }, { status: 400 });
         }
 
         const supabase = createClient(supabaseUrl, serviceKey, {
@@ -26,13 +26,18 @@ export async function POST(request: Request) {
             }
         });
 
-        console.log(`🧹 Starting global purge for pattern: ${pattern}`);
+        console.log(`🧹 Starting global purge for ${pattern ? 'pattern: ' + pattern : targetSlugs?.length + ' specific slugs'}`);
 
         // 1. Find all matching studios
-        const { data: studios, error: fetchError } = await supabase
-            .from('studio_settings')
-            .select('studio_slug')
-            .like('studio_slug', `${pattern}%`);
+        let query = supabase.from('studio_settings').select('studio_slug');
+        
+        if (targetSlugs && Array.isArray(targetSlugs)) {
+            query = query.in('studio_slug', targetSlugs);
+        } else {
+            query = query.like('studio_slug', `${pattern}%`);
+        }
+
+        const { data: studios, error: fetchError } = await query;
 
         if (fetchError) throw fetchError;
 
@@ -41,7 +46,7 @@ export async function POST(request: Request) {
         }
 
         const slugs = studios.map(s => s.studio_slug);
-        console.log(`🗑️ Found ${slugs.length} studios to purge.`);
+        console.log(`🗑️ Found ${slugs.length} studios to purge: ${slugs.join(', ')}`);
 
         // 2. Delete from studio_settings
         const { count, error: deleteError } = await supabase
