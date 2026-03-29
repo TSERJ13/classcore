@@ -153,9 +153,17 @@ export default function LandingPage() {
     useEffect(() => {
         setMounted(true);
         setHeroSet(Math.floor(Math.random() * 3));
-        const handleScroll = () => setScrolled(window.scrollY > 10);
+        const handleScroll = () => {
+            const offset = window.scrollY || document.documentElement.scrollTop;
+            setScrolled(offset > 10);
+        };
+        const content = document.getElementById('main-content');
         window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+        if (content) content.addEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            if (content) content.removeEventListener('scroll', handleScroll);
+        };
     }, []);
 
     const l = (ge: string, ru: string, en: string) =>
@@ -209,7 +217,7 @@ export default function LandingPage() {
     if (!mounted) return null;
 
     return (
-        <div className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white overflow-x-hidden">
+        <div id="main-content" className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white overflow-x-hidden">
             {/* Header */}
             <header className={cn(
                 "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-4 md:px-6 py-2 md:py-4",
