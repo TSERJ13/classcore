@@ -164,12 +164,27 @@ export default function StudiosPage() {
                 const cloudSlugs = data.studios.map((s: any) => s.slug);
                 const existing = getStudioRegistry();
                 
-                // 1. ADDITIVE SYNC: Add new slugs from cloud (don't prune local ones)
-                const newSlugs = cloudSlugs.filter((s: string) => !existing.includes(s));
+                // 1. SMART PRUNING: Remove slugs that were previously synced to cloud but are now missing
+                const prunedList = existing.filter(slug => {
+                    // Always keep the demo
+                    if (slug === 'demo.classcore.ge') return true;
+                    // If it's in the cloud, keep it
+                    if (cloudSlugs.includes(slug)) return true;
+                    
+                    // If it's NOT in the cloud, check if it was previously synced
+                    // Cloud-synced studios have an orgId. Local-only ones do not.
+                    const settings = loadSettings(slug);
+                    const isPreviouslySynced = !!settings.orgId;
+                    
+                    // If it was synced but now it's gone from cloud list, it was deleted -> Prune it.
+                    // If it was never synced (Local Only), keep it.
+                    return !isPreviouslySynced;
+                });
+
+                // 2. Add new slugs discovered in cloud
+                const newSlugs = cloudSlugs.filter((s: string) => !prunedList.includes(s));
+                const nextList = [...prunedList, ...newSlugs];
                 
-                // We no longer PRUNE here to prevent accidental local data loss 
-                // and to allow SuperAdmin to see libraries that haven't synced yet.
-                const nextList = [...existing, ...newSlugs];
                 localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(nextList)]));
                 
                 // Trigger local refresh
