@@ -180,7 +180,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             </header>
 
             {/* Mobile Sidebar Overlay */}
-            <div className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] lg:hidden transition-opacity duration-300", 
+            <div className={cn("fixed inset-0 bg-black/20 z-[90] lg:hidden transition-opacity duration-300", 
                 isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none")} 
                 onClick={() => setIsMobileMenuOpen(false)} 
             />
@@ -368,7 +368,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             {/* Global Chat Overlay */}
             {isChatOpen && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-0 md:p-6 lg:p-12 animate-in fade-in duration-300">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setIsChatOpen(false)} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsChatOpen(false)} />
                     <div className="relative w-full h-full max-w-7xl bg-white dark:bg-[#0c0c0e]/80 backdrop-blur-3xl border border-black/5 dark:border-white/5 rounded-none md:rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
                         <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
                             <div className="flex items-center gap-3">

@@ -26,12 +26,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Sidebar defaultExpanded={defaultExpanded} defaultRole={defaultRole} />
 
                         {/* Main area */}
-                        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+                        <div className="flex-1 flex flex-col min-w-0">
                             {/* Mobile header with hamburger + notifications */}
                             <Header />
 
                             {/* Page content */}
-                            <main className="flex-1 overflow-y-auto">
+                            <main className="flex-1">
                                 <div className="p-4 pb-24 md:p-8 md:pb-8">
                                     {children}
                                 </div>

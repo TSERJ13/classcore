@@ -4,7 +4,7 @@
  * to ensure no legacy mock data persists in users' browsers.
  */
 
-const CURRENT_CACHE_VERSION = 'v1.1.0-production';
+const CURRENT_CACHE_VERSION = 'v1.1.2-production';
 const VERSION_KEY = 'cc_system_version';
 
 export function checkCacheVersion(): void {
@@ -33,8 +33,8 @@ export function checkCacheVersion(): void {
             
             console.log('[CacheBuster] Purge complete. System is now at version:', CURRENT_CACHE_VERSION);
             
-            // Optional: trigger a one-time reload to ensure all stores re-initialize from scratch
-            // window.location.reload();
+            // Forces a one-time reload to ensure all stores re-initialize from scratch
+            window.location.reload();
         }
     } catch (e) {
         console.error('[CacheBuster] Failed to process cache version check', e);

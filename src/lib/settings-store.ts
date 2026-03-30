@@ -297,6 +297,58 @@ export function ensureUniqueSlug(name: string, currentSlug?: string): string {
     return uniqueSlug;
 }
 
+/**
+ * Migrates ALL studio-scoped data from oldSlug to newSlug in localStorage.
+ * This is CRITICAL to prevent data loss when changing studio slugs.
+ */
+export function migrateSlugData(oldSlug: string, newSlug: string) {
+    if (typeof window === 'undefined' || !oldSlug || !newSlug || oldSlug === newSlug) return;
+
+    console.log(`🚀 [SettingsStore] Migrating data: ${oldSlug} -> ${newSlug}`);
+
+    const keys = Object.keys(localStorage);
+    const affectedKeys: string[] = [];
+
+    // 1. Re-map the settings and all scoped data keys
+    keys.forEach(k => {
+        // Match various patterns: _slug, :slug, etc.
+        const matches = k.endsWith(`_${oldSlug}`) || k.includes(`_${oldSlug}_`) || k.includes(`:${oldSlug}`);
+        
+        if (matches) {
+            const newVal = localStorage.getItem(k);
+            if (newVal) {
+                // Use a safe replace to switch the slug while preserving surrounding delimiters
+                const newKey = k.replace(oldSlug, newSlug);
+                localStorage.setItem(newKey, newVal);
+                localStorage.removeItem(k);
+                affectedKeys.push(`${k} -> ${newKey}`);
+            }
+        }
+    });
+
+    // 2. Update the Registry
+    const list = getStudioRegistry();
+    const nextList = list.map(s => s === oldSlug ? newSlug : s);
+    localStorage.setItem(REGISTRY_KEY, JSON.stringify([...new Set(nextList)]));
+
+    // 3. Update the Staff Session if active
+    const session = getStaffSessionRaw();
+    if (session && session.slug === oldSlug) {
+        localStorage.setItem('cc_staff_session', JSON.stringify({ ...session, slug: newSlug }));
+    }
+
+    // 4. Update the Active Slug
+    const active = localStorage.getItem(ACTIVE_SLUG_KEY);
+    if (active === oldSlug) {
+        localStorage.setItem(ACTIVE_SLUG_KEY, newSlug);
+    }
+
+    console.log(`✅ [SettingsStore] Migration complete. Moved ${affectedKeys.length} keys.`);
+    
+    // Broadcast for UI sync
+    window.dispatchEvent(new Event('cc_settings_update'));
+}
+
 /** Generates a deterministic 6-digit numeric Cabinet Code from a studio's slug */
 export function generateCabinetCode(slug: string): string {
     let hash = 0;
@@ -649,22 +701,28 @@ export function getUnreadSupportCount(): number {
 export function clearAllStudioData(slug: string) {
     if (typeof window === 'undefined') return;
     
+    // 1. Get OrgId if possible for deeper cleanup
+    const settings = loadSettings(slug);
+    const orgId = settings.orgId;
+    
     const keys = Object.keys(localStorage);
     let count = 0;
     
     keys.forEach(k => {
-        // Match keys like cc_student_data_slug, cc_checkins_slug_2023-01-01, etc.
-        // Also cleanup EVERYTHING for the demo slug if we are currently logged into one
+        // Scoped keys: cc_student_data_slug, cc_checkins_slug_2023-01-01, cc:slug:data
+        // OR OrgId scoped: cc_student_data_UUID
         const isTargetSlug = k.includes(`_${slug}`) || k.includes(`${slug}_`) || k.includes(`:${slug}`);
+        const isOrgScoped = orgId && (k.includes(`_${orgId}`) || k.includes(`${orgId}_`) || k.includes(`:${orgId}`));
         const isDemoSlug = k.includes('demo.classcore.ge');
         
-        if (isTargetSlug || isDemoSlug) {
+        if (isTargetSlug || isOrgScoped || isDemoSlug) {
             localStorage.removeItem(k);
             count++;
         }
     });
 
-    console.log(`🧹 [SettingsStore] Master Clear: Removed ${count} keys for studio ${slug}`);
+    console.log(`🧹 [SettingsStore] Master Clear: Removed ${count} keys for studio ${slug} (OrgID: ${orgId})`);
+
     
     // Also clear ANY keys related to active slugs/branches to force clean discovery
     localStorage.removeItem(ACTIVE_SLUG_KEY);

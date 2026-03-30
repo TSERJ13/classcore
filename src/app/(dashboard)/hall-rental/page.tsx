@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Plus, CalendarDays, Clock, CalendarRange, Phone, Banknote,
     CheckCircle2, XCircle, AlertCircle, ChevronRight, X, Search, Filter, FileText, Trash2
@@ -11,6 +11,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import type { HallRental, RentalType, PaymentStatus } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 
 const RENTAL_TYPES: { value: RentalType; label: string; icon: React.ReactNode; desc: string }[] = [
     { value: 'hourly', label: 'საათობრივი/დღიური', icon: <Clock className="w-4 h-4" />, desc: 'ერთი დღე, კონკრეტული საათები' },
@@ -57,6 +58,37 @@ export default function HallRentalPage() {
     const [step, setStep] = useState(1);
     const [search, setSearch] = useState('');
     const [hallFilter, setHallFilter] = useState('all');
+
+    const { lang } = useT();
+    const timeOptions = generateTimeOptions(15);
+    const dayOptions = generateDayOptions();
+    const monthOptions = generateMonthOptions(lang);
+    const yearOptions = generateYearOptions(new Date().getFullYear(), new Date().getFullYear() + 2);
+
+    const [startDateParts, setStartDateParts] = useState({ day: '', month: '', year: '' });
+    const [endDateParts, setEndDateParts] = useState({ day: '', month: '', year: '' });
+
+    useEffect(() => {
+        if (form.start_date) {
+            const [y, m, d] = form.start_date.split('-');
+            setStartDateParts({ year: y || '', month: m || '', day: d || '' });
+        } else {
+            setStartDateParts({ day: '', month: '', year: '' });
+        }
+        if (form.end_date) {
+            const [y, m, d] = form.end_date.split('-');
+            setEndDateParts({ year: y || '', month: m || '', day: d || '' });
+        } else {
+            setEndDateParts({ day: '', month: '', year: '' });
+        }
+    }, [form.start_date, form.end_date]);
+
+    function updateDateFromParts(type: 'start' | 'end', parts: { day: string, month: string, year: string }) {
+        if (parts.day && parts.month && parts.year) {
+            const iso = `${parts.year}-${parts.month}-${parts.day}`;
+            set(type === 'start' ? 'start_date' : 'end_date', iso);
+        }
+    }
 
     function set(k: string, v: string | number) { setForm(p => ({ ...p, [k]: v })); }
     function openAdd() { setEditing(null); setForm(EMPTY); setStep(1); setModalOpen(true); }
@@ -239,7 +271,7 @@ export default function HallRentalPage() {
             {/* ─── Add Rental Modal ──────────────────────────── */}
             {modalOpen && (
                 <>
-                    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
+                    <div className="fixed inset-0 z-[60] bg-black/20" onClick={() => setModalOpen(false)} />
                     <div className="fixed inset-y-0 right-0 z-[70] w-full max-w-md flex flex-col bg-card border-l border-border-subtle shadow-2xl animate-in slide-in-from-right duration-300">
                         <div className="flex items-center justify-between px-8 py-6 border-b border-border-subtle flex-shrink-0">
                             <div>
@@ -312,32 +344,102 @@ export default function HallRentalPage() {
                                     </div>
 
                                     {/* Dates */}
-                                    <div className="border-t border-border-subtle/50 pt-6 grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დაწყება *</label>
-                                            <input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)}
-                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner" />
+                                    <div className="border-t border-border-subtle/50 pt-6 space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დაწყების თარიღი *</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <SearchSelect 
+                                                    options={dayOptions}
+                                                    value={startDateParts.day}
+                                                    onChange={val => {
+                                                        const p = { ...startDateParts, day: val };
+                                                        setStartDateParts(p);
+                                                        updateDateFromParts('start', p);
+                                                    }}
+                                                    placeholder="დღე"
+                                                />
+                                                <SearchSelect 
+                                                    options={monthOptions}
+                                                    value={startDateParts.month}
+                                                    onChange={val => {
+                                                        const p = { ...startDateParts, month: val };
+                                                        setStartDateParts(p);
+                                                        updateDateFromParts('start', p);
+                                                    }}
+                                                    placeholder="თვე"
+                                                />
+                                                <SearchSelect 
+                                                    options={yearOptions}
+                                                    value={startDateParts.year}
+                                                    onChange={val => {
+                                                        const p = { ...startDateParts, year: val };
+                                                        setStartDateParts(p);
+                                                        updateDateFromParts('start', p);
+                                                    }}
+                                                    placeholder="წელი"
+                                                />
+                                            </div>
                                         </div>
-                                        <div>
+
+                                        <div className="space-y-2">
                                             <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">
-                                                {form.rental_type === 'hourly' ? 'დამთავრება' : 'ბოლო თარიღი'}
+                                                {form.rental_type === 'hourly' ? 'დასრულების თარიღი' : 'ბოლო თარიღი'}
                                             </label>
-                                            <input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)}
-                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner" />
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <SearchSelect 
+                                                    options={dayOptions}
+                                                    value={endDateParts.day}
+                                                    onChange={val => {
+                                                        const p = { ...endDateParts, day: val };
+                                                        setEndDateParts(p);
+                                                        updateDateFromParts('end', p);
+                                                    }}
+                                                    placeholder="დღე"
+                                                />
+                                                <SearchSelect 
+                                                    options={monthOptions}
+                                                    value={endDateParts.month}
+                                                    onChange={val => {
+                                                        const p = { ...endDateParts, month: val };
+                                                        setEndDateParts(p);
+                                                        updateDateFromParts('end', p);
+                                                    }}
+                                                    placeholder="თვე"
+                                                />
+                                                <SearchSelect 
+                                                    options={yearOptions}
+                                                    value={endDateParts.year}
+                                                    onChange={val => {
+                                                        const p = { ...endDateParts, year: val };
+                                                        setEndDateParts(p);
+                                                        updateDateFromParts('end', p);
+                                                    }}
+                                                    placeholder="წელი"
+                                                />
+                                            </div>
                                         </div>
+
                                         {form.rental_type === 'hourly' && (
-                                            <>
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დაწყ. საათი</label>
-                                                    <input type="time" value={form.start_time ?? ''} onChange={e => set('start_time', e.target.value)}
-                                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner" />
+                                                    <SearchSelect 
+                                                        options={timeOptions}
+                                                        value={form.start_time ?? ''}
+                                                        onChange={val => set('start_time', val)}
+                                                        placeholder="09:00"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დამთ. საათი</label>
-                                                    <input type="time" value={form.end_time ?? ''} onChange={e => set('end_time', e.target.value)}
-                                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-primary outline-none shadow-inner" />
+                                                    <SearchSelect 
+                                                        options={timeOptions}
+                                                        value={form.end_time ?? ''}
+                                                        onChange={val => set('end_time', val)}
+                                                        placeholder="10:30"
+                                                    />
                                                 </div>
-                                            </>
+                                            </div>
                                         )}
                                     </div>
 

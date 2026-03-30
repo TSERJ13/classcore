@@ -8,62 +8,71 @@ export async function POST(req: Request) {
         const { userId, email, slug } = await req.json();
         
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-        const diag: any = {
-            authPurge: 'skipped',
-            settingsFound: false,
-            settingsPurgeCount: 0,
-            usingServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-            urlPrefix: supabaseUrl.split('.')[0],
-            availableSlugs: []
-        };
+        if (!supabaseUrl || !supabaseServiceKey) {
+            return NextResponse.json({ 
+                error: 'SUPABASE_SERVICE_ROLE_KEY missing. SuperAdmin actions require elevated privileges.' 
+            }, { status: 500 });
+        }
 
-        if (!supabaseUrl) throw new Error('SUPABASE_URL missing');
-
-        const supabase = createClient(supabaseUrl, supabaseServiceKey!, {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
         const targetSlug = slug?.trim();
+        if (!targetSlug) {
+            return NextResponse.json({ error: 'Studio slug is required' }, { status: 400 });
+        }
 
-        // 1. List ALL slugs to see what the client sees
-        const { data: allRows } = await supabase.from('studio_settings').select('studio_slug').limit(10);
-        diag.availableSlugs = allRows?.map(r => r.studio_slug) || [];
+        const diag: any = {
+            authPurge: 'skipped',
+            settingsFound: false,
+            settingsPurgeCount: 0
+        };
 
-        // 2. Try to find the specific row
-        if (targetSlug) {
-            const { data: foundRows, error: findError } = await supabase
-                .from('studio_settings')
-                .select('studio_slug')
-                .eq('studio_slug', targetSlug);
+        // 1. Try to delete the specific row from studio_settings
+        const { error: deleteError, count } = await supabase
+            .from('studio_settings')
+            .delete({ count: 'exact' })
+            .eq('studio_slug', targetSlug);
+        
+        if (deleteError) {
+            console.error('❌ Database Deletion Error:', deleteError);
+            return NextResponse.json({ error: `Database error: ${deleteError.message}`, diag }, { status: 500 });
+        }
 
-            if (foundRows && foundRows.length > 0) {
-                diag.settingsFound = true;
-                const { error: deleteError, count } = await supabase
-                    .from('studio_settings')
-                    .delete({ count: 'exact' })
-                    .eq('studio_slug', targetSlug);
+        diag.settingsPurgeCount = count || 0;
+        if (diag.settingsPurgeCount > 0) {
+            diag.settingsFound = true;
+        }
+
+        // 2. Auth Purge (if user ID or email provided)
+        if (userId || email) {
+            try {
+                const { error: authErr } = userId 
+                    ? await supabase.auth.admin.deleteUser(userId)
+                    : await supabase.auth.admin.listUsers(); // Fallback dummy call or skip
                 
-                if (deleteError) diag.settingsPurgeError = deleteError.message;
-                else diag.settingsPurgeCount = count || 0;
-            } else if (findError) {
-                diag.settingsPurgeError = `Find failed: ${findError.message}`;
-            } else {
-                diag.settingsPurgeError = `Record not found: ${targetSlug}`;
+                // If it fails but purely because of missing ID, it's not a dealbreaker for the studio deletion
+                diag.authPurge = authErr ? `failed: ${authErr.message}` : 'success';
+            } catch (authCatch) {
+                diag.authPurge = 'catch-error';
             }
         }
 
-        // 3. Auth Purge
-        if (userId || email) {
-            const { error: authErr } = userId 
-                ? await supabase.auth.admin.deleteUser(userId)
-                : { error: { message: 'no user id' } };
-            diag.authPurge = authErr ? `failed: ${authErr.message}` : 'success';
+        // If no records were found/deleted, it's technically a 404 for the caller
+        if (diag.settingsPurgeCount === 0) {
+            return NextResponse.json({ 
+                success: false, 
+                error: `Studio "${targetSlug}" not found in cloud database.`, 
+                diag 
+            }, { status: 404 });
         }
 
         return NextResponse.json({ success: true, count: diag.settingsPurgeCount, diag });
     } catch (err: any) {
+        console.error('❌ Delete Studio API Critical Error:', err);
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }

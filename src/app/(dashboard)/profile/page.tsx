@@ -501,7 +501,7 @@ export default function ProfilePage() {
             {/* ─── STAFF MODAL (ADD/EDIT) ─── */}
             {(isAddingStaff || !!editingStaff) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => { setIsAddingStaff(false); setEditingStaff(null); }} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => { setIsAddingStaff(false); setEditingStaff(null); }} />
                     <div className="bg-card w-full max-w-2xl rounded-[2.5rem] border border-border-subtle shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
                         <div className="p-8 border-b border-border-subtle flex items-center justify-between bg-surface/30 flex-shrink-0">
                             <div>
@@ -643,7 +643,7 @@ export default function ProfilePage() {
             {/* ─── BRANCH MODAL (ADD/EDIT) ─── */}
             {(isAddingBranch || !!editingBranch) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => { setIsAddingBranch(false); setEditingBranch(null); }} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => { setIsAddingBranch(false); setEditingBranch(null); }} />
                     <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border-subtle shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
                         <div className="p-8 border-b border-border-subtle flex items-center justify-between bg-surface/30">
                             <div>

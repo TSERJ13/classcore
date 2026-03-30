@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
@@ -58,14 +58,28 @@ export default function HallsPage() {
                     {[
                         { label: t.halls, value: halls.length, icon: DoorOpen, colorCls: 'text-violet-600', bgCls: 'bg-violet-500/5' },
                         { label: t.capacity, value: totalCapacity, icon: Users, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
-                        { label: t.lessonsPerWeek, value: totalWeekEvents, icon: Calendar, colorCls: 'text-emerald-600', bgCls: 'bg-emerald-500/5' },
+                        { 
+                            label: t.lessonsPerWeek, 
+                            mobileLabel: 'კვირაში',
+                            value: totalWeekEvents, 
+                            icon: Calendar, 
+                            colorCls: 'text-emerald-600', 
+                            bgCls: 'bg-emerald-500/5' 
+                        },
                     ].map(s => (
                         <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
                             <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                 <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
                                 <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums">{s.value}</span>
                             </div>
-                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase">{s.label}</p>
+                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase">
+                                {(s as any).mobileLabel ? (
+                                    <>
+                                        <span className="hidden sm:inline">{s.label}</span>
+                                        <span className="sm:hidden">{(s as any).mobileLabel}</span>
+                                    </>
+                                ) : s.label}
+                            </p>
                         </div>
                     ))}
                 </div>
@@ -119,19 +133,19 @@ export default function HallsPage() {
 
                             {/* Detailed Stats */}
                             <div className="grid grid-cols-2 gap-3 py-3 sm:py-4 border-y border-border-subtle/50">
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
+                                <div className="flex flex-col gap-1 text-center">
+                                    <div className="flex items-center justify-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
+                                        <Layout className="w-3 h-3" />
+                                        {t.sqMetersShort || 'SQ.M'}
+                                    </div>
+                                    <p className="text-sm sm:text-base font-black text-primary">{hall.sq_meters || '—'}</p>
+                                </div>
+                                <div className="flex flex-col gap-1 text-center">
+                                    <div className="flex items-center justify-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
                                         <Users className="w-3 h-3" />
                                         {t.spotsShort}
                                     </div>
                                     <p className="text-sm sm:text-base font-black text-primary">{hall.capacity || '—'}</p>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
-                                        <Calendar className="w-3 h-3" />
-                                        {t.lessonsPerWeek}
-                                    </div>
-                                    <p className="text-sm sm:text-base font-black text-primary">{HALL_WEEK_EVENTS[hall.id] ?? 0}</p>
                                 </div>
                             </div>
 

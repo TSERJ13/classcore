@@ -188,7 +188,7 @@ export default function PlansManagementPage() {
             {/* Plan Form Modal */}
             {showForm && (
                 <>
-                    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+                    <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setShowForm(false)} />
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <div className="bg-card border border-border-subtle rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">

@@ -100,7 +100,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
         return (
             <div
-                className="relative border-b border-[var(--sidebar-border)] bg-white/[0.01] px-4 py-6"
+                className="relative border-b border-[var(--sidebar-border)] bg-white/[0.01] px-4 py-3 md:py-6"
                 onMouseEnter={() => exp && setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
@@ -120,7 +120,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                         "flex flex-col items-start transition-all duration-300 min-w-0 flex-1",
                         exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                     )}>
-                        <h1 className="text-[15px] font-black text-white/80 tracking-tight leading-tight truncate w-full">
+                        <h1 className="text-[13px] md:text-[15px] font-black text-white/80 tracking-tight leading-tight truncate w-full">
                             {settings.studioName || 'Studio'}
                         </h1>
 
@@ -267,7 +267,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                                 <Icon className={cn('w-5 h-5 transition-transform duration-200', active ? 'scale-110' : 'group-hover/link:scale-110')} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className="truncate text-[13px] font-semibold transition-all duration-300 opacity-100 max-w-[160px]">
+                                <span className="truncate text-xs md:text-[13px] font-semibold transition-all duration-300 opacity-100 max-w-[160px]">
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -286,7 +286,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
             suppressHydrationWarning
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-visible transition-[width] duration-300 ease-in-out',
-                exp ? 'w-64' : 'w-[76px]'
+                exp ? (isMobile ? 'w-[240px]' : 'w-64') : 'w-[76px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -361,16 +361,16 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
             >
                 <SidebarContent exp={expanded} />
             </div>
-            <div className={cn('fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
+            <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
             <div 
                 suppressHydrationWarning
-                className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-64', isOpen ? 'translate-x-0' : '-translate-x-full')}
+                className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[240px]', isOpen ? 'translate-x-0' : '-translate-x-full')}
             >
                 <SidebarContent exp={true} isMobile={true} />
             </div>
 
             {branchModalOpen && (profile?.role === 'owner' || profile?.role === 'admin') && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setBranchModalOpen(false)}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 animate-in fade-in duration-300" onClick={() => setBranchModalOpen(false)}>
                     <div className="bg-card border border-border-subtle rounded-[2rem] w-full max-w-sm p-8 shadow-2xl flex flex-col gap-6 animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-center text-center gap-2">
                             <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-2">

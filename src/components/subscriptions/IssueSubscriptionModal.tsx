@@ -11,7 +11,7 @@ import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { SearchSelect } from '@/components/ui/SearchSelect';
-
+import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 interface IssueSubscriptionModalProps {
     open: boolean;
     onClose: () => void;
@@ -272,7 +272,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     return (
         <>
-            <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-[100] bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[101] flex flex-col bg-card border-border-subtle shadow-2xl overflow-hidden transition-all duration-300",
                 centered
@@ -556,27 +556,26 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             </div>
 
                             {/* Validity Period */}
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                 <label className="text-[9px] font-black text-muted tracking-widest px-1 border-b border-border-subtle pb-1.5 block">{t.periodDuration}</label>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex-1 relative">
-                                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" />
-                                        <input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="w-full bg-surface border border-border-subtle rounded-lg pl-8 pr-2 py-2 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle">
+                                        <label className="text-[9px] font-bold text-muted flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5 text-indigo-500"/> საწყისი თარიღი</label>
+                                        <DatePickerGrid 
+                                            value={startDate} 
+                                            onChange={(v) => setStartDate(v)} 
+                                            minYear={new Date().getFullYear() - 1}
+                                            maxYear={new Date().getFullYear() + 5}
                                         />
                                     </div>
-                                    <ArrowRight className="w-3.5 h-3.5 text-muted/40 flex-shrink-0" />
-                                    <div className="flex-1 relative">
-                                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" />
-                                        <input
-                                            type="date"
-                                            value={endDate}
+                                    <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle relative">
+                                        <label className="text-[9px] font-bold text-muted flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5 text-indigo-500"/> დასრულების თარიღი</label>
+                                        <DatePickerGrid 
+                                            value={endDate} 
+                                            onChange={(v) => setEndDate(v)}
                                             disabled={neverExpires}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            className="w-full bg-surface border border-border-subtle rounded-lg pl-8 pr-2 py-2 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
+                                            minYear={new Date().getFullYear() - 1}
+                                            maxYear={new Date().getFullYear() + 10}
                                         />
                                     </div>
                                 </div>

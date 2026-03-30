@@ -11,7 +11,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { THEMES, BG_THEMES, type ThemeKey, type BgKey, ensureUniqueName, ensureUniqueSlug, convertFinancialData, removeFromRegistry, cleanupRegistry } from '@/lib/settings-store';
+import { THEMES, BG_THEMES, type ThemeKey, type BgKey, ensureUniqueName, ensureUniqueSlug, convertFinancialData, removeFromRegistry, cleanupRegistry, migrateSlugData, addToRegistry, setActiveSlug } from '@/lib/settings-store';
 import { cn, getInitials, compactSlugify, formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -37,27 +37,27 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
     );
 }
 
-function Section({ title, icon: Icon, children, defaultOpen = false }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, icon: Icon, children, defaultOpen = true }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; defaultOpen?: boolean }) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
     return (
-        <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-md transition-all border-border-subtle/60">
+        <div className="bg-card border border-border-subtle rounded-2xl md:rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all">
             <button 
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between px-8 py-6 border-b border-border-subtle/30 bg-surface/30 hover:bg-surface/50 transition-colors"
+                className="w-full flex items-center justify-between px-5 py-4 md:px-6 md:py-5 bg-surface/10 hover:bg-surface/30 transition-colors group"
             >
-                <div className="flex items-center gap-4">
-                    <div className="p-2.5 rounded-2xl bg-muted/5 text-muted group-hover:bg-indigo-500/10 group-hover:text-indigo-500 transition-all">
-                        <Icon className="w-5 h-5 transition-transform" />
+                <div className="flex items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-2.5 rounded-xl md:rounded-2xl bg-indigo-500/5 text-indigo-500 group-hover:bg-indigo-500/10 transition-all">
+                        <Icon className="w-4 h-4 md:w-5 md:h-5 transition-transform" />
                     </div>
-                    <h2 className="text-[14px] font-black text-primary tracking-tight opacity-90">{title}</h2>
+                    <h2 className="text-sm md:text-base font-black text-primary tracking-tight">{title}</h2>
                 </div>
-                <div className={cn("p-2 rounded-xl bg-muted/5 text-muted transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")}>
-                    <ChevronDown className="w-4 h-4" />
+                <div className={cn("p-1.5 md:p-2 rounded-lg md:rounded-xl text-muted group-hover:text-primary transition-all duration-300", isOpen ? "rotate-180" : "rotate-0")}>
+                    <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
                 </div>
             </button>
             <div className={cn(
                 "divide-y divide-border-subtle/20 bg-card transition-all duration-300 ease-in-out",
-                isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+                isOpen ? "max-h-[2000px] opacity-100 border-t border-border-subtle/30" : "max-h-0 opacity-0 pointer-events-none"
             )}>
                 {children}
             </div>
@@ -67,12 +67,12 @@ function Section({ title, icon: Icon, children, defaultOpen = false }: { title: 
 
 function Row({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
     return (
-        <div className="flex items-center gap-6 px-6 py-5 hover:bg-surface/30 transition-colors group/row">
-            <div className="flex-1 min-w-0 max-w-[480px]">
-                <p className="text-[13px] font-bold text-primary tracking-tight group-hover/row:text-indigo-500/80 transition-colors">{label}</p>
-                {sub && <p className="text-[11px] text-muted/60 mt-1 leading-relaxed">{sub}</p>}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6 px-5 py-4 md:px-6 md:py-5 hover:bg-surface/30 transition-colors group/row">
+            <div className="flex-1 min-w-0 max-w-full sm:max-w-[480px]">
+                <p className="text-xs md:text-[13px] font-bold text-primary tracking-tight group-hover/row:text-indigo-500 transition-colors">{label}</p>
+                {sub && <p className="text-[10px] md:text-[11px] text-muted/70 mt-0.5 md:mt-1 leading-relaxed">{sub}</p>}
             </div>
-            <div className="flex flex-1 justify-end items-center">
+            <div className="flex justify-end items-center sm:w-auto w-full mt-1 sm:mt-0 shadow-none">
                 {children}
             </div>
         </div>
@@ -211,19 +211,49 @@ export default function SettingsPage() {
 
         // Auto-update slug on name save to follow the new rules
         const uniqueSlug = ensureUniqueSlug(uniqueName, settings.studioSlug);
-        setStudioSlug(uniqueSlug);
-        setSlugVal(uniqueSlug);
+        if (uniqueSlug !== settings.studioSlug) {
+            migrateSlugData(settings.studioSlug, uniqueSlug);
+            setStudioSlug(uniqueSlug);
+            setSlugVal(uniqueSlug);
+        }
 
         setNameSaved(true);
         setTimeout(() => setNameSaved(false), 2000);
     }
 
-    function saveSlug() {
-        const val = ensureUniqueSlug(slugVal || nameVal, settings.studioSlug);
-        setStudioSlug(val);
-        setSlugVal(val);
+    async function saveSlug() {
+        if (!slugVal || slugVal === settings.studioSlug) return;
+        
+        const ok = await confirm({
+            title: lang === 'ka' ? 'მისამართის შეცვლა' : 'Смена адреса',
+            message: lang === 'ka' 
+                ? `მისამართის შეცვლა (${settings.studioSlug} -> ${slugVal}) გამოიწვევს გვერდის გადატვირთვას. დარწმუნებული ხართ?` 
+                : `Смена адреса (${settings.studioSlug} -> ${slugVal}) приведет к перезагрузке страницы. Вы уверены?`,
+            confirmText: lang === 'ka' ? 'შეცვლა' : 'Сменить',
+            danger: true
+        });
+
+        if (!ok) return;
+
+        const val = ensureUniqueSlug(slugVal, settings.studioSlug);
+        
+        // 1. Migrate ALL local data keys
+        migrateSlugData(settings.studioSlug, val);
+        
+        // 2. Update Registry and Active Slug
+        addToRegistry(val);
+        setActiveSlug(val);
+        
+        // 3. Update cookie for SSR
+        document.cookie = `cc_active_slug=${val}; path=/; max-age=31536000; SameSite=Lax`;
+        
         setSlugSaved(true);
-        setTimeout(() => setSlugSaved(false), 2000);
+        addNotification(lang === 'ka' ? 'მისამართი წარმატებით შეიცვალა' : 'Адрес успешно изменен', 'success');
+        
+        // 4. Forced reload to the new slug URL
+        setTimeout(() => {
+            window.location.href = `/${val}/settings`;
+        }, 1000);
     }
 
     async function handleReclaimSlug() {
@@ -377,7 +407,7 @@ export default function SettingsPage() {
 
 
             {isAdmin && (
-                <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
+                <Section title={t.studioSettings} icon={Building2}>
                     {/* Logo */}
                     <Row label={t.logoLabel} sub={t.logoDesc}>
                         <div className="flex items-center gap-3">
@@ -412,7 +442,14 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-2">
                             <input 
                                 value={nameVal} 
-                                onChange={e => setNameVal(e.target.value)} 
+                                onChange={e => {
+                                    const nextName = e.target.value;
+                                    setNameVal(nextName);
+                                    // Real-time sync to slug if it was empty or matches old name-derived slug
+                                    if (!slugVal || slugVal === compactSlugify(nameVal)) {
+                                        setSlugVal(compactSlugify(nextName));
+                                    }
+                                }}
                                 onKeyDown={e => e.key === 'Enter' && saveName()} 
                                 readOnly={profile?.role !== 'superadmin'}
                                 className={cn(
@@ -448,7 +485,7 @@ export default function SettingsPage() {
                                         )}
                                     />
                                     {(profile?.role === 'superadmin' || settings.studioSlug === 'demo.classcore.ge') && (
-                                        <>
+                                        <div className="flex items-center gap-2">
                                             {profile?.role === 'superadmin' && (
                                                 <button
                                                     onClick={handleReclaimSlug}
@@ -460,11 +497,17 @@ export default function SettingsPage() {
                                             )}
                                             <button
                                                 onClick={saveSlug}
-                                                className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', slugSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}
+                                                disabled={!slugVal || slugVal === settings.studioSlug}
+                                                className={cn(
+                                                    'w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all shadow-lg',
+                                                    slugSaved ? 'bg-emerald-500 text-white' : 
+                                                    (!slugVal || slugVal === settings.studioSlug) ? 'bg-surface text-muted/20 border border-border-subtle/50' :
+                                                    'bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95'
+                                                )}
                                             >
-                                                {slugSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                                                {slugSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
                                             </button>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </div>

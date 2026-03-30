@@ -76,7 +76,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             {children}
             {opts && (
                 <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => handleClose(false)} />
+                    <div className="absolute inset-0 bg-black/20 animate-in fade-in" onClick={() => handleClose(false)} />
                     <div className="relative w-full max-w-sm bg-card border border-border-subtle rounded-[2.5rem] shadow-2xl p-8 text-center animate-in zoom-in-95 duration-200">
                         <div className={cn("w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-inner", opts.danger ? "bg-red-500/10 text-red-500" : "bg-indigo-500/10 text-indigo-500")}>
                             <AlertTriangle className="w-8 h-8" />

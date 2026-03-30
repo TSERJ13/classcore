@@ -10,6 +10,7 @@ import { syncGroupScheduleToCalendar } from '@/lib/event-store';
 import { type ScheduleSlot, slotsToDisplay } from '@/lib/group-store';
 import type { Teacher } from '@/types';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
+import { generateTimeOptions } from '@/lib/date-utils';
 
 interface GroupModalProps {
     open: boolean;
@@ -47,7 +48,7 @@ const DAY_FULL_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sa
 // Schedule display handled by group-store slotsToDisplay
 
 // ─── Default time slot ───────────────────────────────────────────
-const DEFAULT_SLOT: ScheduleSlot = { dayOfWeek: 0, startTime: '10:00', endTime: '11:30' };
+const DEFAULT_SLOT: ScheduleSlot = { dayOfWeek: 0, startTime: '13:00', endTime: '14:00' };
 
 export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModalProps) {
     const { t, lang } = useT();
@@ -82,6 +83,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     });
 
     const dayLabels = lang === 'ka' ? DAY_LABELS_KA : lang === 'ru' ? DAY_LABELS_RU : DAY_LABELS_EN;
+    const timeOptions = generateTimeOptions(30);
 
     useEffect(() => {
         setTeachers(getTeachers());
@@ -125,7 +127,20 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     };
 
     const updateSlotTime = (dayIdx: number, field: 'startTime' | 'endTime', val: string) => {
-        setSlots(prev => prev.map(s => s.dayOfWeek === dayIdx ? { ...s, [field]: val } : s));
+        setSlots(prev => prev.map(s => {
+            if (s.dayOfWeek === dayIdx) {
+                if (field === 'startTime') {
+                    const [h, m] = val.split(':').map(Number);
+                    if (!isNaN(h) && !isNaN(m)) {
+                        const endH = (h + 1) % 24;
+                        const endTime = `${endH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                        return { ...s, startTime: val, endTime };
+                    }
+                }
+                return { ...s, [field]: val };
+            }
+            return s;
+        }));
     };
 
     const save = async () => {
@@ -158,7 +173,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[min(100vw,480px)] max-h-[92dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-3xl sm:rounded-none">
 
                 {/* Handle for mobile */}
@@ -229,14 +244,14 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
                         <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
                             <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">{t.selectDaysAndTimes}</label>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex items-center justify-between sm:justify-center gap-1 sm:gap-2">
                                 {[0, 1, 2, 3, 4, 5, 6].map(d => {
                                     const isActive = slots.some(s => s.dayOfWeek === d);
                                     return (
                                         <button key={d} onClick={() => toggleDaySlot(d)}
                                             className={cn(
-                                                "w-10 h-10 rounded-xl text-[10px] font-black transition-all border",
-                                                isActive ? "bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                                "flex-1 sm:flex-none sm:w-10 h-9 sm:h-10 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black transition-all border",
+                                                isActive ? "bg-indigo-500 border-indigo-500 text-white shadow-md shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
                                             )}>
                                             {dayLabels[d]}
                                         </button>
@@ -247,13 +262,24 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             <div className="space-y-2">
                                 {slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((slot) => {
                                     return (
-                                        <div key={slot.dayOfWeek} className="flex items-center gap-3 bg-card/50 p-2 rounded-xl border border-border-subtle/30">
-                                            <span className="text-[10px] font-bold text-primary w-20">{dayFullLabels[slot.dayOfWeek]}</span>
-                                            <div className="flex-1 flex gap-2">
-                                                <input type="time" value={slot.startTime} onChange={e => updateSlotTime(slot.dayOfWeek, 'startTime', e.target.value)}
-                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
-                                                <input type="time" value={slot.endTime} onChange={e => updateSlotTime(slot.dayOfWeek, 'endTime', e.target.value)}
-                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
+                                        <div key={slot.dayOfWeek} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-card/50 p-2.5 rounded-xl border border-border-subtle/30">
+                                            <span className="text-[10px] font-black text-primary sm:w-20 pl-1">{dayFullLabels[slot.dayOfWeek]}</span>
+                                            <div className="flex-1 flex items-center gap-2">
+                                                <SearchSelect 
+                                                    options={timeOptions}
+                                                    value={slot.startTime}
+                                                    allowCustom
+                                                    onChange={val => updateSlotTime(slot.dayOfWeek, 'startTime', val)}
+                                                    className="flex-1 bg-surface border border-border-subtle rounded-lg !border-none [&>div]:px-2 [&>div]:py-1.5 [&>div]:text-[10px] [&>div]:min-h-[32px] sm:[&>div]:min-h-[28px]"
+                                                />
+                                                <span className="text-muted/30 font-black text-[10px]">-</span>
+                                                <SearchSelect 
+                                                    options={timeOptions}
+                                                    value={slot.endTime}
+                                                    allowCustom
+                                                    onChange={val => updateSlotTime(slot.dayOfWeek, 'endTime', val)}
+                                                    className="flex-1 bg-surface border border-border-subtle rounded-lg !border-none [&>div]:px-2 [&>div]:py-1.5 [&>div]:text-[10px] [&>div]:min-h-[32px] sm:[&>div]:min-h-[28px]"
+                                                />
                                             </div>
                                         </div>
                                     );
@@ -340,11 +366,11 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             <button onClick={() => setShowDelete(false)} className="text-[11px] font-bold text-muted hover:text-primary transition-colors">{t.cancel}</button>
                         </div>
                     )}
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-sm font-bold rounded-xl transition-all">{t.cancel}</button>
-                        <button onClick={save} disabled={!form.name || saving} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2">
-                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
-                            {saving ? t.loading : t.saveAndSync}
+                    <div className="flex gap-2 sm:gap-3">
+                        <button onClick={onClose} className="flex-1 py-2.5 sm:py-3 border border-border-subtle hover:bg-surface text-muted text-xs sm:text-sm font-bold rounded-xl transition-all">{t.cancel}</button>
+                        <button onClick={save} disabled={!form.name || saving} className="flex-[1.5] py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[11px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 sm:gap-2">
+                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5" />}
+                            <span className="truncate">{saving ? t.loading : t.saveAndSync}</span>
                         </button>
                     </div>
                 </div>

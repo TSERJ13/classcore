@@ -220,32 +220,34 @@ export default function LandingPage() {
         <div id="main-content" className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white overflow-x-hidden">
             {/* Header */}
             <header className={cn(
-                "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-4 md:px-6 py-2 md:py-4",
+                "fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-4 md:px-8 py-3 md:py-5",
                 scrolled 
-                    ? "!bg-white border-b border-slate-100 shadow-2xl !opacity-100" 
-                    : "bg-white/90 backdrop-blur-xl border-b border-transparent"
+                    ? "bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] opacity-100" 
+                    : "bg-white/90 backdrop-blur-xl border-b border-transparent shadow-sm"
             )}>
-                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-8 md:h-12">
+                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-10 md:h-14">
                     <Link href="/" className="flex items-center gap-2 md:gap-3 group shrink-0 h-full">
-                        <div className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-2xl flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100 shrink-0">
-                            <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
+                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100 shrink-0">
+                            <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover p-0.5" />
                         </div>
-                        <span className="text-[14px] md:text-2xl font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap">ClassCore</span>
+                        <span className="text-[16px] md:text-[26px] font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap">ClassCore</span>
                     </Link>
 
-                    <nav className="hidden lg:flex items-center gap-8">
+                    <nav className="hidden lg:flex items-center gap-8 translate-y-0.5">
                         {['Features', 'Pricing', 'About', 'Contact'].map(item => (
-                            <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors tracking-widest">
+                            <a key={item} href={`#${item.toLowerCase()}`} className="text-[15px] font-bold text-slate-600 hover:text-indigo-600 transition-colors tracking-widest">
                                 {item === 'Features' ? t.navFeatures : item === 'Pricing' ? t.navPricing : item === 'About' ? t.navAbout : t.navContact}
                             </a>
                         ))}
                     </nav>
 
-                    <div className="flex items-center gap-2 md:gap-4 shrink-0 h-full">
-                        <Link href={user ? "/dashboard" : "/login"} className="h-8 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[10px] md:text-[13px] font-black px-3.5 md:px-8 rounded-lg md:rounded-2xl shadow-lg shadow-indigo-600/20 transition-all tracking-wide whitespace-nowrap">
+                    <div className="flex items-center gap-3 md:gap-5 shrink-0 h-full">
+                        <Link href={user ? "/dashboard" : "/login"} className="h-10 md:h-14 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] md:text-[14px] font-black px-5 md:px-10 rounded-xl md:rounded-[1.25rem] shadow-xl shadow-indigo-600/20 transition-all tracking-wide whitespace-nowrap">
                             {user ? t.dashboard : t.login}
                         </Link>
-                        <LanguageSwitcher compact={true} variant="landing" align="right" />
+                        <div className="scale-110 origin-right transition-transform">
+                            <LanguageSwitcher compact={true} variant="landing" align="right" />
+                        </div>
                     </div>
                 </div>
             </header>
@@ -631,28 +633,28 @@ export default function LandingPage() {
                 </section>
 
                 {/* Contact Section */}
-                <section id="contact" className="py-24 bg-slate-50">
-                    <div className="max-w-7xl mx-auto px-6">
-                        <div className="grid lg:grid-cols-2 gap-16 items-center">
-                            <div className="space-y-8">
+                <section id="contact" className="py-16 md:py-24 bg-slate-50 overflow-hidden">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full">
+                        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center w-full">
+                            <div className="space-y-6 md:space-y-8 text-center lg:text-left">
                                 <h2 className="text-xs font-black text-indigo-600 tracking-[0.3em]">{t.navContact}</h2>
-                                <h3 className="text-4xl lg:text-5xl font-black text-slate-900">{l('დაგვიკავშირდით', 'Свяжитесь с нами', 'Get in Touch')}</h3>
-                                <div className="space-y-4 pt-4">
-                                    <div className="flex items-center gap-4 text-slate-600 font-bold"><Globe className="w-5 h-5 text-indigo-500" /> support@classcore.ge</div>
-                                    <div className="flex items-center gap-4 text-slate-600 font-bold"><Zap className="w-5 h-5 text-indigo-500" /> +995 555 13 00 13</div>
+                                <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900">{l('დაგვიკავშირდით', 'Свяжитесь с нами', 'Get in Touch')}</h3>
+                                <div className="space-y-4 pt-2 md:pt-4 flex flex-col items-center lg:items-start text-sm md:text-base">
+                                    <div className="flex items-center gap-3 md:gap-4 text-slate-600 font-bold"><Globe className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> support@classcore.ge</div>
+                                    <div className="flex items-center gap-3 md:gap-4 text-slate-600 font-bold"><Zap className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> +995 555 13 00 13</div>
                                 </div>
                             </div>
 
-                            <form onSubmit={handleContactSubmit} className="bg-white p-8 lg:p-12 rounded-[3.5rem] border border-slate-100 shadow-2xl space-y-6">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <input type="text" placeholder={l('სახელი', 'Имя', 'Name')} required className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                    <input type="text" placeholder={l('ტელეფონი', 'Телефон', 'Phone')} required className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                            <form onSubmit={handleContactSubmit} className="bg-white p-5 md:p-8 lg:p-12 rounded-3xl md:rounded-[3.5rem] border border-slate-100 shadow-2xl space-y-4 md:space-y-6 w-full max-w-full mx-auto">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                                    <input type="text" placeholder={l('სახელი', 'Имя', 'Name')} required className="w-full text-sm md:text-base px-5 py-3.5 md:px-6 md:py-4 bg-slate-50 rounded-xl md:rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                    <input type="text" placeholder={l('ტელეფონი', 'Телефон', 'Phone')} required className="w-full text-sm md:text-base px-5 py-3.5 md:px-6 md:py-4 bg-slate-50 rounded-xl md:rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                                 </div>
-                                <textarea rows={4} placeholder={l('შეტყობინება', 'Сообщение', 'Message')} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} />
-                                <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black tracking-widest hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
+                                <textarea rows={4} placeholder={l('შეტყობინება', 'Сообщение', 'Message')} className="w-full text-sm md:text-base px-5 py-3.5 md:px-6 md:py-4 bg-slate-50 rounded-xl md:rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} />
+                                <button type="submit" disabled={submitting} className="w-full py-4 md:py-5 bg-indigo-600 text-white rounded-xl md:rounded-2xl font-black md:tracking-widest text-sm md:text-base hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
                                     {submitting ? '...' : l('გაგზავნა', 'Отправить', 'Send')}
                                 </button>
-                                {submitStatus === 'success' && <p className="text-center text-emerald-600 font-black text-sm">{l('წარმატებით გაიგზავნა', 'Отправлено успешно', 'Sent successfully')}</p>}
+                                {submitStatus === 'success' && <p className="text-center text-emerald-600 font-black text-[11px] md:text-sm">{l('წარმატებით გაიგზავნა', 'Отправлено успешно', 'Sent successfully')}</p>}
                             </form>
                         </div>
                     </div>

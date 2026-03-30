@@ -20,6 +20,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import { getGroups, addSlotToGroup, removeSlotFromGroup, createGroup, saveGroups, type Group } from '@/lib/group-store';
 import { saveSubscription } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 
 /* ─── Constants ──────────────────────────────────────────────── */
 const PALETTES = [
@@ -191,7 +192,7 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
     const oldDayOfWeek = new Date(ev.date + 'T00:00:00').getDay();
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onCancel}>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/20" />
             <div className="relative z-10 w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
@@ -358,6 +359,26 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
     const [selectedColor, setSelectedColor] = useState<string>(ev.color || color);
 
+    const { lang } = useT();
+    const timeOptions = generateTimeOptions(15);
+    const dayOptions = generateDayOptions();
+    const monthOptions = generateMonthOptions(lang);
+    const yearOptions = generateYearOptions(new Date().getFullYear() - 1, new Date().getFullYear() + 2);
+
+    const [dateParts, setDateParts] = useState({ day: '', month: '', year: '' });
+    useEffect(() => {
+        if (form.date) {
+            const [y, m, d] = form.date.split('-');
+            setDateParts({ year: y || '', month: m || '', day: d || '' });
+        }
+    }, [form.date]);
+
+    const updateDateFromParts = (parts: { day: string, month: string, year: string }) => {
+        if (parts.day && parts.month && parts.year) {
+            setF('date', `${parts.year}-${parts.month}-${parts.day}`);
+        }
+    };
+
     const group = groups.find(g => g.id === ev.group_id);
 
     // Auto-update color if group changes in edit mode
@@ -412,7 +433,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
     if (mode === 'edit') {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+                <div className="fixed inset-0 bg-black/20" />
                 <div className="relative z-10 w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
                         <h2 className="text-sm font-bold text-primary">{t.calEventEdit}</h2>
@@ -486,21 +507,61 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         </div>
 
                         {form.recurring !== 'weekly' && (
-                            <div className="grid grid-cols-3 gap-2">
-                                <div>
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
                                     <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calDate}</label>
-                                    <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <SearchSelect 
+                                            options={dayOptions}
+                                            value={dateParts.day}
+                                            onChange={val => {
+                                                const p = { ...dateParts, day: val };
+                                                setDateParts(p);
+                                                updateDateFromParts(p);
+                                            }}
+                                            placeholder="დღე"
+                                        />
+                                        <SearchSelect 
+                                            options={monthOptions}
+                                            value={dateParts.month}
+                                            onChange={val => {
+                                                const p = { ...dateParts, month: val };
+                                                setDateParts(p);
+                                                updateDateFromParts(p);
+                                            }}
+                                            placeholder="თვე"
+                                        />
+                                        <SearchSelect 
+                                            options={yearOptions}
+                                            value={dateParts.year}
+                                            onChange={val => {
+                                                const p = { ...dateParts, year: val };
+                                                setDateParts(p);
+                                                updateDateFromParts(p);
+                                            }}
+                                            placeholder="წელი"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
-                                    <input type="time" value={form.start_time} onChange={e => setF('start_time', e.target.value)}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
-                                    <input type="time" value={form.end_time} onChange={e => setF('end_time', e.target.value)}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={form.start_time}
+                                            onChange={val => setF('start_time', val)}
+                                            placeholder="09:00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={form.end_time}
+                                            onChange={val => setF('end_time', val)}
+                                            placeholder="10:30"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -543,10 +604,18 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                             <div key={d} className="flex items-center gap-3 bg-card p-2 rounded-xl border border-border-subtle/30">
                                                 <span className="text-[10px] font-bold text-primary w-20">{dayFullNames[d]}</span>
                                                 <div className="flex-1 flex gap-2">
-                                                    <input type="time" value={recurringDays[d].start} onChange={e => setDayTime(d, 'start', e.target.value)}
-                                                        className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
-                                                    <input type="time" value={recurringDays[d].end} onChange={e => setDayTime(d, 'end', e.target.value)}
-                                                        className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
+                                                    <SearchSelect 
+                                                        options={timeOptions}
+                                                        value={recurringDays[d].start}
+                                                        onChange={val => setDayTime(d, 'start', val)}
+                                                        className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                    />
+                                                    <SearchSelect 
+                                                        options={timeOptions}
+                                                        value={recurringDays[d].end}
+                                                        onChange={val => setDayTime(d, 'end', val)}
+                                                        className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                    />
                                                 </div>
                                             </div>
                                         );
@@ -594,7 +663,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
         const isGroupEvent = !!ev.group_id;
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+                <div className="fixed inset-0 bg-black/20" />
                 <div className="relative z-10 w-full max-w-xs bg-card border border-border-subtle rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
@@ -645,7 +714,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
     // View mode
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/20" />
             <div className="relative z-10 w-full max-w-xs bg-card border border-border-subtle rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
                 {/* Title + close */}
                 <div className="flex items-start gap-3">
@@ -776,6 +845,26 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
         });
     }
 
+    const { lang } = useT();
+    const timeOptions = generateTimeOptions(15);
+    const dayOptions = generateDayOptions();
+    const monthOptions = generateMonthOptions(lang);
+    const yearOptions = generateYearOptions(new Date().getFullYear() - 1, new Date().getFullYear() + 2);
+
+    const [dateParts, setDateParts] = useState({ day: '', month: '', year: '' });
+    useEffect(() => {
+        if (form.date) {
+            const [y, m, d] = form.date.split('-');
+            setDateParts({ year: y || '', month: m || '', day: d || '' });
+        }
+    }, [form.date]);
+
+    const updateDateFromParts = (parts: { day: string, month: string, year: string }) => {
+        if (parts.day && parts.month && parts.year) {
+            setF('date', `${parts.year}-${parts.month}-${parts.day}`);
+        }
+    };
+
     const [selectedColor, setSelectedColor] = useState<string>('#6366f1'); // Default color
 
     // Auto-select group color if group selected
@@ -863,7 +952,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
 
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 animate-in fade-in slide-in-from-bottom-4 duration-300" onClick={onClose}>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/20" />
             <div className="relative z-10 w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
                     <h2 className="text-sm font-bold text-primary">{t.calEventNew}</h2>
@@ -965,21 +1054,61 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     </div>
 
                     {form.recurring !== 'weekly' && (
-                        <div className="grid grid-cols-3 gap-2">
-                            <div>
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
                                 <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calDate}</label>
-                                <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
+                                <div className="grid grid-cols-3 gap-2">
+                                    <SearchSelect 
+                                        options={dayOptions}
+                                        value={dateParts.day}
+                                        onChange={val => {
+                                            const p = { ...dateParts, day: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        placeholder="დღე"
+                                    />
+                                    <SearchSelect 
+                                        options={monthOptions}
+                                        value={dateParts.month}
+                                        onChange={val => {
+                                            const p = { ...dateParts, month: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        placeholder="თვე"
+                                    />
+                                    <SearchSelect 
+                                        options={yearOptions}
+                                        value={dateParts.year}
+                                        onChange={val => {
+                                            const p = { ...dateParts, year: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        placeholder="წელი"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
-                                <input type="time" value={form.start_time} onChange={e => setF('start_time', e.target.value)}
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
-                                <input type="time" value={form.end_time} onChange={e => setF('end_time', e.target.value)}
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
+                                    <SearchSelect 
+                                        options={timeOptions}
+                                        value={form.start_time}
+                                        onChange={val => setF('start_time', val)}
+                                        placeholder="09:00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
+                                    <SearchSelect 
+                                        options={timeOptions}
+                                        value={form.end_time}
+                                        onChange={val => setF('end_time', val)}
+                                        placeholder="10:30"
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1022,10 +1151,18 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                         <div key={d} className="flex items-center gap-3 bg-card/50 p-2 rounded-xl border border-border-subtle/30">
                                             <span className="text-[10px] font-bold text-primary w-16">{dayNames[d]}</span>
                                             <div className="flex-1 flex gap-2">
-                                                <input type="time" value={recurringDays[d].start} onChange={e => setDayTime(d, 'start', e.target.value)}
-                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
-                                                <input type="time" value={recurringDays[d].end} onChange={e => setDayTime(d, 'end', e.target.value)}
-                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
+                                                <SearchSelect 
+                                                    options={timeOptions}
+                                                    value={recurringDays[d].start}
+                                                    onChange={val => setDayTime(d, 'start', val)}
+                                                    className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                />
+                                                <SearchSelect 
+                                                    options={timeOptions}
+                                                    value={recurringDays[d].end}
+                                                    onChange={val => setDayTime(d, 'end', val)}
+                                                    className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                />
                                             </div>
                                         </div>
                                     );

@@ -43,7 +43,7 @@ export default function ShopPage() {
             if (saved) {
                 setProducts(JSON.parse(saved));
             } else {
-                setProducts(isDemo ? INITIAL_PRODUCTS : [INITIAL_PRODUCTS[0]]);
+                setProducts(isDemo && INITIAL_PRODUCTS.length > 0 ? [INITIAL_PRODUCTS[0]] : []);
             }
         };
 
@@ -223,7 +223,7 @@ export default function ShopPage() {
             {/* Modal */}
             {isAddOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
                     <div className="relative bg-card border border-border-subtle w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h2 className="text-xl font-black text-primary mb-6">{editingProduct ? t.edit : t.addNew}</h2>
                         <div className="space-y-4">
@@ -443,7 +443,7 @@ export default function ShopPage() {
             {/* Sell Modal */}
             {isSellOpen && selectedProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSellOpen(false)} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsSellOpen(false)} />
                     <div className="relative bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
@@ -509,7 +509,7 @@ export default function ShopPage() {
             {/* Edit Sale Modal */}
             {isEditSaleOpen && selectedSale && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsEditSaleOpen(false)} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsEditSaleOpen(false)} />
                     <div className="relative bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">

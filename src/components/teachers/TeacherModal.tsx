@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent } from 'lucide-react';
+import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent, Calendar, Plus } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, getCurrencySymbol } from '@/lib/utils';
 import type { Teacher, TeacherStatus } from '@/types';
 import type { Translations } from '@/lib/i18n';
+import { SearchSelect } from '@/components/ui/SearchSelect';
+import { generateTimeOptions } from '@/lib/date-utils';
 
 interface Group { id: string; name: string; }
 
@@ -39,6 +41,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const { t } = useT();
     const { settings } = useStudio();
     const { lang } = useT();
+    const timeOptions = generateTimeOptions(15);
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [form, setForm] = useState<Partial<Teacher>>({ ...EMPTY });
     const [activeRateType, setActiveRateType] = useState<RateType>('hourly');
@@ -257,6 +260,91 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             </div>
                         </section>
                     </div>
+
+                    {/* Working Schedule */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
+                                <Calendar className="w-3 h-3" /> {t.workingSchedule}
+                            </p>
+                            <button 
+                                onClick={() => {
+                                    const current = form.working_schedule || [];
+                                    setF('working_schedule', [...current, { day: 1, start_time: '10:00', end_time: '18:00' }]);
+                                }}
+                                className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                            >
+                                <Plus className="w-3 h-3" /> {t.add}
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            {(form.working_schedule || []).map((sched, idx) => (
+                                <div key={idx} className="flex items-center gap-2 p-3 rounded-xl bg-surface border border-border-subtle shadow-sm animate-in slide-in-from-top-1 duration-200">
+                                    <select 
+                                        value={sched.day}
+                                        onChange={e => {
+                                            const next = [...(form.working_schedule || [])];
+                                            next[idx] = { ...next[idx], day: Number(e.target.value) };
+                                            setF('working_schedule', next);
+                                        }}
+                                        className="bg-transparent text-xs font-bold text-primary outline-none min-w-[100px]"
+                                    >
+                                        <option value={1}>{t.monday}</option>
+                                        <option value={2}>{t.tuesday}</option>
+                                        <option value={3}>{t.wednesday}</option>
+                                        <option value={4}>{t.thursday}</option>
+                                        <option value={5}>{t.friday}</option>
+                                        <option value={6}>{t.saturday}</option>
+                                        <option value={0}>{t.sunday}</option>
+                                    </select>
+                                    
+                                    <div className="flex items-center gap-1.5 flex-1 select-none">
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={sched.start_time}
+                                            onChange={val => {
+                                                const next = [...(form.working_schedule || [])];
+                                                next[idx] = { ...next[idx], start_time: val };
+                                                setF('working_schedule', next);
+                                            }}
+                                            className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px] !bg-card"
+                                            placeholder="10:00"
+                                        />
+                                        <span className="text-muted opacity-40">—</span>
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={sched.end_time}
+                                            onChange={val => {
+                                                const next = [...(form.working_schedule || [])];
+                                                next[idx] = { ...next[idx], end_time: val };
+                                                setF('working_schedule', next);
+                                            }}
+                                            className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px] !bg-card"
+                                            placeholder="18:00"
+                                        />
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            const next = (form.working_schedule || []).filter((_, i) => i !== idx);
+                                            setF('working_schedule', next);
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-all"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ))}
+                            
+                            {(!form.working_schedule || form.working_schedule.length === 0) && (
+                                <div className="p-4 rounded-xl border border-dashed border-border-subtle flex flex-col items-center justify-center gap-2 opacity-50">
+                                    <Calendar className="w-5 h-5 text-muted/40" />
+                                    <p className="text-[10px] font-medium text-muted">{t.availability}</p>
+                                </div>
+                            )}
+                        </div>
+                    </section>
 
                     {/* Branch Access */}
                     <section className="space-y-4">

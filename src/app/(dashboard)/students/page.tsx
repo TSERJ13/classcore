@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, UserPlus, Users, Phone, ShieldAlert, Heart, ChevronRight, AlertTriangle, SortAsc, BookOpen, X, ChevronDown, Link2, Check, Edit2, Trash2, Zap, AlertCircle, Filter } from 'lucide-react';
+import { Search, UserPlus, Users, User, Calendar, Phone, ShieldAlert, Heart, ChevronRight, AlertTriangle, SortAsc, BookOpen, X, ChevronDown, Link2, Check, Edit2, Trash2, Zap, AlertCircle, Filter } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
@@ -43,7 +43,8 @@ export default function StudentsPage() {
 
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-    const [sortBy, setSortBy] = useState<'none' | 'first_name' | 'last_name'>('none');
+    const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+    const [sortBy, setSortBy] = useState<'none' | 'first_name' | 'last_name' | 'gender'>('none');
     const [groupFilter, setGroupFilter] = useState<string | null>(null);
     const [groups, setGroups] = useState<Group[]>([]);
     const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
@@ -73,6 +74,7 @@ export default function StudentsPage() {
         const sub = getSubscription(s.id);
         const isActive = sub?.status === 'active';
         const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && isActive) || (statusFilter === 'inactive' && !isActive);
+        const matchesGender = genderFilter === 'all' || s.gender === genderFilter;
 
         const st = s as Student & { enrolled_group_ids?: string[]; classes?: string[] };
         const enrolledGroupIds = st.enrolled_group_ids || [];
@@ -84,10 +86,13 @@ export default function StudentsPage() {
         const allGroupIds = [...enrolledGroupIds, ...classesAsGroupIds];
         const matchesGroup = !groupFilter || allGroupIds.includes(groupFilter);
 
-        return matchesSearch && matchesStatus && matchesGroup;
+        return matchesSearch && matchesStatus && matchesGroup && matchesGender;
     }).sort((a, b) => {
         if (sortBy === 'none') {
             return new Date(b.created_at || parseInt(b.id)).getTime() - new Date(a.created_at || parseInt(a.id)).getTime();
+        }
+        if (sortBy === 'gender') {
+            return (a.gender || '').localeCompare(b.gender || '');
         }
         const nameA = a.full_name || '';
         const nameB = b.full_name || '';
@@ -163,7 +168,7 @@ export default function StudentsPage() {
                     {/* Top Section: Status & Add */}
                     <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-3 w-full">
                         {/* Row 1 on Mobile: Status Filter */}
-                        <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle p-1 rounded-[1.25rem] gap-1 shrink-0">
+                        <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-10 sm:h-12 bg-surface border border-border-subtle p-1 rounded-2xl sm:rounded-[1.25rem] gap-1 shrink-0">
                             {[
                                 { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
                                 { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-emerald-500', hoverColor: 'hover:text-emerald-600' },
@@ -174,17 +179,17 @@ export default function StudentsPage() {
                                         'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all truncate',
                                         statusFilter === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface-hover', v.hoverColor)
                                     )}>
-                                    <v.icon className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                    <v.icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
                                     <span className="hidden sm:inline truncate">{v.label}</span>
                                 </button>
                             ))}
                         </div>
 
                         {/* Add Button */}
-                        <div className="flex flex-shrink-0 items-center h-12">
+                        <div className="flex flex-shrink-0 items-center h-10 sm:h-12">
                             <button onClick={openAdd}
-                                className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all text-white text-[10px] sm:text-xs font-black tracking-widest w-12 h-12 sm:w-auto px-0 sm:px-5 rounded-[1.25rem] shadow-lg shadow-indigo-500/20">
-                                <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all text-white text-[10px] sm:text-xs font-black tracking-widest w-10 h-10 sm:w-auto px-0 sm:px-5 rounded-2xl sm:rounded-[1.25rem] shadow-lg shadow-indigo-500/20">
+                                <UserPlus className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden sm:inline truncate">{t.addStudent}</span>
                             </button>
                         </div>
@@ -194,14 +199,14 @@ export default function StudentsPage() {
                     <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-3 w-full">
 
                         {/* Unified Filter Dropdown */}
-                        <div className="relative flex flex-shrink-0 h-12" ref={groupDropdownRef}>
+                        <div className="relative flex flex-shrink-0 h-10 sm:h-12" ref={groupDropdownRef}>
                             <button
                                 onClick={() => setGroupDropdownOpen(v => !v)}
                                 className={cn(
-                                    "flex items-center justify-center w-12 sm:w-auto sm:px-4 h-full rounded-[1.25rem] border border-border-subtle bg-surface transition-all gap-1.5",
+                                    "flex items-center justify-center w-10 sm:w-auto sm:px-4 h-full rounded-2xl sm:rounded-[1.25rem] border border-border-subtle bg-surface transition-all gap-1.5",
                                     groupDropdownOpen || groupFilter ? "bg-violet-500/10 text-violet-600 border-violet-500/30 shadow-sm" : "text-muted hover:bg-surface-hover"
                                 )}>
-                                <Filter className={cn("w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0", (groupDropdownOpen || groupFilter) ? "text-violet-500" : "text-indigo-500")} />
+                                <Filter className={cn("w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0", (groupDropdownOpen || groupFilter) ? "text-violet-500" : "text-indigo-500")} />
                                 <span className="hidden sm:inline text-[10px] sm:text-xs font-black tracking-widest truncate max-w-[100px]">
                                     {groupFilter ? groups.find(g => g.id === groupFilter)?.name : (t.filterByGroups || 'ფილტრი')}
                                 </span>
@@ -224,6 +229,27 @@ export default function StudentsPage() {
                                         <button onClick={() => { setSortBy('last_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'last_name' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.byLastName}</span>
                                             {sortBy === 'last_name' && <Check className="w-4 h-4" />}
+                                        </button>
+                                        <button onClick={() => { setSortBy('gender'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'gender' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                            <span>{t.gender}</span>
+                                            {sortBy === 'gender' && <Check className="w-4 h-4" />}
+                                        </button>
+
+                                        <div className="h-px bg-border-subtle my-1 mx-2" />
+
+                                        {/* Gender Section */}
+                                        <div className="px-3 pt-2 pb-1 text-[10px] font-black text-muted tracking-widest">{t.gender}</div>
+                                        <button onClick={() => { setGenderFilter('all'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'all' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                            <span>{t.allFilter}</span>
+                                            {genderFilter === 'all' && <Check className="w-4 h-4" />}
+                                        </button>
+                                        <button onClick={() => { setGenderFilter('male'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'male' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                            <span>{t.male}</span>
+                                            {genderFilter === 'male' && <Check className="w-4 h-4" />}
+                                        </button>
+                                        <button onClick={() => { setGenderFilter('female'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'female' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                            <span>{t.female}</span>
+                                            {genderFilter === 'female' && <Check className="w-4 h-4" />}
                                         </button>
                                         
                                         <div className="h-px bg-border-subtle my-1 mx-2" />
@@ -256,11 +282,11 @@ export default function StudentsPage() {
                         </div>
 
                         {/* Search */}
-                        <div className="relative flex-1 group h-12">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
+                        <div className="relative flex-1 group h-10 sm:h-12">
+                            <Search className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
                             <input type="text" placeholder={t.search} value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                className="w-full h-full bg-surface border border-border-subtle rounded-[1.25rem] pl-10 pr-4 text-xs sm:text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/40 transition-all font-medium" />
+                                className="w-full h-full bg-surface border border-border-subtle rounded-2xl sm:rounded-[1.25rem] pl-9 sm:pl-10 pr-4 text-xs sm:text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/40 transition-all font-medium" />
                         </div>
                     </div>
                 </div>
@@ -299,6 +325,23 @@ export default function StudentsPage() {
                                                 <Phone className="w-3 h-3 opacity-50" />
                                                 <span>{student.phone}</span>
                                             </div>
+                                            
+                                            {(student.gender || student.birth_date) && (
+                                                <div className="flex items-center gap-3 pt-0.5 opacity-60">
+                                                    {student.gender && (
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
+                                                            <User className="w-2.5 h-2.5" />
+                                                            {student.gender === 'male' ? t.male : t.female}
+                                                        </div>
+                                                    )}
+                                                    {student.birth_date && (
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
+                                                            <Calendar className="w-2.5 h-2.5" />
+                                                            {student.birth_date}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Social Links */}
                                             {student.social_links && Object.entries(student.social_links).some(([_, v]) => v) && (

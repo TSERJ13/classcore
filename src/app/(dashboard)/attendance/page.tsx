@@ -27,6 +27,7 @@ import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
 import { getStudentSales, recordSale, type ShopSale } from '@/lib/sales-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
 
     return (
         <>
-            <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={autoClose && !hasMultipleSubs ? onClose : undefined} />
+            <div className="fixed inset-0 z-[60] bg-black/20" onClick={autoClose && !hasMultipleSubs ? onClose : undefined} />
             <div className="fixed inset-x-0 bottom-0 z-[70] flex justify-center pb-24 px-4 items-center sm:inset-0 sm:pb-0 animate-in fade-in zoom-in-95 duration-200">
                 <div className={cn(
                     'w-[calc(100vw-4rem)] max-w-[280px] sm:w-full sm:max-w-sm rounded-[2.5rem] border shadow-2xl overflow-hidden bg-card',
@@ -208,6 +209,34 @@ export default function AttendancePage() {
             setSelectedClass(filteredSchedule[0].id);
         }
     }, [selectedDate, filteredSchedule, selectedClass]); // Added filteredSchedule and selectedClass
+
+    const { lang } = useT();
+    const dayOptions = generateDayOptions();
+    const monthOptions = generateMonthOptions(lang);
+    const yearOptions = generateYearOptions(new Date().getFullYear() - 1, new Date().getFullYear() + 1);
+
+    const [dateParts, setDateParts] = useState({ 
+        day: String(selectedDate.getDate()).padStart(2, '0'), 
+        month: String(selectedDate.getMonth() + 1).padStart(2, '0'), 
+        year: String(selectedDate.getFullYear()) 
+    });
+
+    useEffect(() => {
+        setDateParts({
+            day: String(selectedDate.getDate()).padStart(2, '0'),
+            month: String(selectedDate.getMonth() + 1).padStart(2, '0'),
+            year: String(selectedDate.getFullYear())
+        });
+    }, [selectedDate]);
+
+    const updateDateFromParts = (parts: { day: string, month: string, year: string }) => {
+        if (parts.day && parts.month && parts.year) {
+            const newDate = new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`);
+            if (!isNaN(newDate.getTime())) {
+                setSelectedDate(newDate);
+            }
+        }
+    };
 
     // ── Persistence ──
 
@@ -674,35 +703,60 @@ export default function AttendancePage() {
 
                         {/* Stretched Date Picker (Mobile) */}
                         {mounted && (
-                            <div className="w-full flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle shadow-sm group/picker relative z-20">
-                                <button
-                                    onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
-                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <div className="flex-1 flex items-center justify-center gap-1.5 px-1 py-1 cursor-pointer hover:bg-card rounded-lg transition-colors relative group"
-                                    onClick={() => dateInputRef.current?.showPicker()}>
-                                    <div className="w-6 h-6 rounded-md bg-indigo-500/10 flex items-center justify-center text-indigo-500 transition-colors group-hover:bg-indigo-500 group-hover:text-white ring-1 ring-indigo-500/20 flex-shrink-0">
-                                        <Calendar className="w-3 h-3" />
+                            <div className="w-full flex flex-col gap-2 relative z-20">
+                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle shadow-sm mb-1">
+                                    <button
+                                        onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <div className="flex-1 flex items-center justify-center gap-1.5 px-2">
+                                        <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-60" />
+                                        <span className="text-[10px] font-black text-primary tracking-[0.05em]">{dateStr}</span>
                                     </div>
-                                    <span className="text-[10px] font-black text-primary tracking-[0.05em]">{dateStr}</span>
-                                    <input
-                                        ref={dateInputRef}
-                                        type="date"
-                                        className="absolute inset-0 opacity-0 pointer-events-none"
-                                        value={getLocalISODate(selectedDate)}
-                                        onChange={(e) => {
-                                            if (e.target.value) setSelectedDate(new Date(e.target.value));
+                                    <button
+                                        onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                    <SearchSelect 
+                                        options={dayOptions}
+                                        value={dateParts.day}
+                                        onChange={val => {
+                                            const p = { ...dateParts, day: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
                                         }}
+                                        className="!border-border-subtle [&>div]:py-2 [&>div]:px-2 [&>div]:text-[10px]"
+                                        placeholder="დღე"
+                                    />
+                                    <SearchSelect 
+                                        options={monthOptions}
+                                        value={dateParts.month}
+                                        onChange={val => {
+                                            const p = { ...dateParts, month: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        className="!border-border-subtle [&>div]:py-2 [&>div]:px-2 [&>div]:text-[10px]"
+                                        placeholder="თვე"
+                                    />
+                                    <SearchSelect 
+                                        options={yearOptions}
+                                        value={dateParts.year}
+                                        onChange={val => {
+                                            const p = { ...dateParts, year: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        className="!border-border-subtle [&>div]:py-2 [&>div]:px-2 [&>div]:text-[10px]"
+                                        placeholder="წელი"
                                     />
                                 </div>
-                                <button
-                                    onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
-                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-500 transition-colors active:scale-95 flex-shrink-0"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
                             </div>
                         )}
                     </div>
@@ -713,33 +767,60 @@ export default function AttendancePage() {
                             <div className="p-4 border-b border-border-subtle/50 flex flex-col gap-3">
                                 {/* Desktop Date Picker */}
                                 {mounted && (
-                                    <div className="flex items-center justify-between bg-card p-1.5 rounded-xl border border-border-subtle shadow-sm group/picker">
-                                        <button
-                                            onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
-                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-indigo-600 transition-colors active:scale-95"
-                                        >
-                                            <ChevronLeft className="w-4 h-4" />
-                                        </button>
-                                        <div className="flex-1 flex items-center justify-center gap-2 cursor-pointer hover:bg-surface rounded-lg py-1 transition-colors relative group"
-                                            onClick={() => dateInputRef.current?.showPicker()}>
-                                            <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-70 group-hover:opacity-100 transition-opacity" />
-                                            <span className="text-xs font-black text-primary tracking-[0.05em]">{dateStr}</span>
-                                            <input
-                                                ref={dateInputRef}
-                                                type="date"
-                                                className="absolute inset-0 opacity-0 pointer-events-none"
-                                                value={getLocalISODate(selectedDate)}
-                                                onChange={(e) => {
-                                                    if (e.target.value) setSelectedDate(new Date(e.target.value));
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between bg-card p-1.5 rounded-xl border border-border-subtle shadow-sm">
+                                            <button
+                                                onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-indigo-600 transition-colors active:scale-95"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                            <div className="flex-1 flex items-center justify-center gap-2">
+                                                <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-70" />
+                                                <span className="text-xs font-black text-primary tracking-[0.05em]">{dateStr}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-indigo-600 transition-colors active:scale-95"
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            <SearchSelect 
+                                                options={dayOptions}
+                                                value={dateParts.day}
+                                                onChange={val => {
+                                                    const p = { ...dateParts, day: val };
+                                                    setDateParts(p);
+                                                    updateDateFromParts(p);
                                                 }}
+                                                className="!border-border-subtle [&>div]:py-1.5 [&>div]:px-2 [&>div]:text-[10px]"
+                                                placeholder="დღე"
+                                            />
+                                            <SearchSelect 
+                                                options={monthOptions}
+                                                value={dateParts.month}
+                                                onChange={val => {
+                                                    const p = { ...dateParts, month: val };
+                                                    setDateParts(p);
+                                                    updateDateFromParts(p);
+                                                }}
+                                                className="!border-border-subtle [&>div]:py-1.5 [&>div]:px-2 [&>div]:text-[10px]"
+                                                placeholder="თვე"
+                                            />
+                                            <SearchSelect 
+                                                options={yearOptions}
+                                                value={dateParts.year}
+                                                onChange={val => {
+                                                    const p = { ...dateParts, year: val };
+                                                    setDateParts(p);
+                                                    updateDateFromParts(p);
+                                                }}
+                                                className="!border-border-subtle [&>div]:py-1.5 [&>div]:px-2 [&>div]:text-[10px]"
+                                                placeholder="წელი"
                                             />
                                         </div>
-                                        <button
-                                            onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
-                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-indigo-500 transition-colors active:scale-95"
-                                        >
-                                            <ChevronRight className="w-4 h-4" />
-                                        </button>
                                     </div>
                                 )}
                                 <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
@@ -1461,7 +1542,7 @@ export default function AttendancePage() {
 
                     {
                         freezeModal && selStudent && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20">
                                 <div className="bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
                                     <h3 className="text-xl font-black text-primary mb-2 text-center">{t.pauseSubscription}</h3>
                                     <p className="text-xs font-medium text-muted mb-6 text-center">{t.choosePauseDays}</p>

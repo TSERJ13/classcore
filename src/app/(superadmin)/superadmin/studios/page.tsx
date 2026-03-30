@@ -4,18 +4,19 @@ import { useState, useEffect } from 'react';
 import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw } from 'lucide-react';
 import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms, extendSubscriptionByDays } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
-import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, type ResetCategories } from '@/lib/settings-store';
-import { getScopedKey } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrateSlugData, clearAllStudioData, type ResetCategories } from '@/lib/settings-store';
+import { getScopedKey, cn, compactSlugify } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 interface StudioRecord {
     slug: string; name: string; logoUrl: string | null;
     studentCount: number; subsCount: number; suspended: boolean;
+    isDeleted: boolean; // Flag for Recycle Bin
     notes: string; plan: 'trial' | 'pro' | 'custom';
     nextDue: string | null; status: string; daysOverdue: number;
     ownerPhone: string; ownerEmail: string; ownerName?: string;
     isCloudOnly?: boolean;
+    isLocalOnly?: boolean;
     updatedAt?: string | null;
 }
 
@@ -42,7 +43,9 @@ function loadStudio(slug: string): StudioRecord {
     
     return { 
         slug, name: s.studioName, logoUrl: s.logoDataUrl, studentCount, subsCount, 
-        suspended: meta.suspended || false, notes: meta.notes || '', plan: meta.plan || 'trial',
+        suspended: meta.suspended || false, 
+        isDeleted: meta.deleted || false, 
+        notes: meta.notes || '', plan: meta.plan || 'trial',
         nextDue: billing.nextDueDate, status: billing.status, daysOverdue: billing.daysOverdue,
         ownerPhone: owner?.phone || 'N/A',
         ownerEmail: owner?.email || 'N/A',
@@ -80,7 +83,11 @@ export default function StudiosPage() {
     const [profileSlug, setProfileSlug] = useState('');
     const [profileEmail, setProfileEmail] = useState('');
     const [profilePhone, setProfilePhone] = useState('');
+    const [profileFirstName, setProfileFirstName] = useState('');
+    const [profileLastName, setProfileLastName] = useState('');
     const [profileLogo, setProfileLogo] = useState('');
+    const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
+    const [isPurging, setIsPurging] = useState(false);
 
     // Custom Modal State
     const [modal, setModal] = useState<{
@@ -91,8 +98,6 @@ export default function StudiosPage() {
         onConfirm?: (val?: string) => void,
         loading?: boolean
     }>({ type: null, title: '', message: '' });
-
-    const [isPurging, setIsPurging] = useState(false);
 
     const handlePurgeTestData = () => {
         setModal({
@@ -153,14 +158,12 @@ export default function StudiosPage() {
                 const cloudSlugs = data.studios.map((s: any) => s.slug);
                 const existing = getStudioRegistry();
                 
-                // 1. Add new slugs from cloud
+                // 1. ADDITIVE SYNC: Add new slugs from cloud (don't prune local ones)
                 const newSlugs = cloudSlugs.filter((s: string) => !existing.includes(s));
                 
-                // 2. PRUNE: Remove local slugs that don't exist in cloud anymore
-                // (except maybe 'demo' or others we want to keep, but here we want strict parity)
-                const prunedList = existing.filter(s => cloudSlugs.includes(s) || s === 'demo');
-                
-                const nextList = [...prunedList, ...newSlugs];
+                // We no longer PRUNE here to prevent accidental local data loss 
+                // and to allow SuperAdmin to see libraries that haven't synced yet.
+                const nextList = [...existing, ...newSlugs];
                 localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(nextList)]));
                 
                 // Trigger local refresh
@@ -175,7 +178,7 @@ export default function StudiosPage() {
 
     const loadData = () => { 
         const registry = getStudioRegistry();
-        const loaded = registry.map(slug => {
+        const loaded: StudioRecord[] = registry.map(slug => {
             const s = loadSettings(slug);
             const meta = (() => { try { return JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); } catch { return {}; } })();
             const billing = getBillingState(slug);
@@ -189,7 +192,7 @@ export default function StudiosPage() {
 
             // Find matching cloud data for owner info if local is missing
             const cloud = cloudStudios.find(c => c.slug === slug);
-            const owner = s.staff.find(m => m.role === 'owner');
+            const owner = s.owner_info || s.staff.find(m => m.role === 'owner');
 
             return { 
                 slug, 
@@ -198,6 +201,7 @@ export default function StudiosPage() {
                 studentCount, 
                 subsCount: 0, 
                 suspended: meta.suspended || false, 
+                isDeleted: meta.deleted || false, 
                 notes: meta.notes || '', 
                 plan: meta.plan || 'trial',
                 nextDue: billing.nextDueDate, 
@@ -205,7 +209,8 @@ export default function StudiosPage() {
                 daysOverdue: billing.daysOverdue,
                 ownerPhone: owner?.phone || cloud?.ownerPhone || 'N/A',
                 ownerEmail: owner?.email || cloud?.ownerEmail || 'N/A',
-                ownerName: owner ? `${owner.first_name} ${owner.last_name}` : cloud?.ownerName
+                ownerName: owner ? (('first_name' in owner) ? `${owner.first_name} ${owner.last_name}` : (owner as any).full_name) : cloud?.ownerName,
+                isLocalOnly: !cloud // Set flag if not found in cloudStudios list
             };
         });
         setStudios(loaded);
@@ -366,107 +371,181 @@ export default function StudiosPage() {
         });
     };
 
-    const deleteStudio = (slug: string) => {
+    const moveToTrash = (slug: string) => {
         setModal({
             type: 'confirm',
-            title: lang === 'ka' ? 'სტუდიის წაშლა' : 'Delete Studio',
+            title: lang === 'ka' ? 'სტუდიის სანაგვეში გადატანა' : 'Move to Trash',
             message: lang === 'ka'
-                ? `ნამდვილად გსურთ სტუდიის "${slug}" სრულად წაშლა? ეს ქმედება შეუქცევადია და ყველა მონაცემი გაინადგურდება!`
-                : `Are you sure you want to completely delete the studio "${slug}"? This action cannot be undone.`,
+                ? `ნამდვილად გსურთ სტუდიის "${slug}" სანაგვეში გადატანა? მისი აღდგენა მოგვიანებით შესაძლებელი იქნება.`
+                : `Are you sure you want to move the studio "${slug}" to the trash? You can restore it later.`,
+            onConfirm: () => {
+                saveMeta(slug, { deleted: true });
+                loadData();
+                setModal({ type: null, title: '', message: '' });
+            }
+        });
+    };
+
+    const restoreStudio = (slug: string) => {
+        saveMeta(slug, { deleted: false });
+        loadData();
+        setModal({ 
+            type: 'alert', 
+            title: lang === 'ka' ? 'აღდგენილია' : 'Restored', 
+            message: lang === 'ka' ? 'სტუდია აღდგენილია!' : 'Studio restored successfully!' 
+        });
+    };
+
+    const purgeStudio = (slug: string) => {
+        setModal({
+            type: 'confirm',
+            title: lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Permanent Delete',
+            message: lang === 'ka'
+                ? `ყურადღება! სტუდია "${slug}" წაიშლება სამუდამოდ ბაზიდან. ეს ქმედება შეუქცევადია!`
+                : `Warning! The studio "${slug}" will be permanently deleted from the database. This action cannot be undone!`,
             onConfirm: async () => {
-                const s = loadSettings(slug);
-                const scopeId = s.orgId || slug;
+                setModal(m => ({ ...m, loading: true }));
                 
-                // 1. Purge Supabase Auth account first
+                const s = loadSettings(slug);
                 const owner = s.staff?.find(m => m.role === 'owner');
-                const ownerEmail = owner?.email;
                 
                 try {
                     const res = await fetch('/api/superadmin/delete-studio', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: ownerEmail, userId: owner?.id, slug: slug })
+                        body: JSON.stringify({ email: owner?.email, userId: owner?.id, slug: slug })
                     });
                     
-                    if (!res.ok) {
-                        const errorData = await res.json();
-                        throw new Error(errorData.error || 'API deletion failed');
-                    }
-
                     const data = await res.json();
-                    if (!data.success || data.count === 0) {
-                        console.warn('⚠️ Cloud deletion may have failed or 0 rows affected:', data.diag);
+                    
+                    if (!res.ok) {
+                        throw new Error(data.error || 'API deletion failed');
                     }
-                } catch (err: any) {
-                    console.error('❌ Failed to purge cloud records:', err);
-                    alert(lang === 'ka' ? `ქლაუდზე წაშლა ვერ მოხერხდა: ${err.message}` : `Cloud deletion failed: ${err.message}`);
-                    return; // Stop local deletion if cloud fails
-                }
 
-                // 2. Clear local storage
-                const list = getStudioRegistry().filter(item => item !== slug);
-                localStorage.setItem('cc_studios_list', JSON.stringify(list));
-                
-                Object.keys(localStorage).forEach(key => {
-                    // Match slug-scoped OR orgId-scoped keys
-                    if (key.endsWith(`_${slug}`) || key.includes(`_${scopeId}_`)) {
-                        localStorage.removeItem(key);
-                    }
-                });
-                
-                loadData();
-                setModal({ type: 'alert', title: lang === 'ka' ? 'წარმატება' : 'Success', message: lang === 'ka' ? 'სტუდია წაიშალა!' : 'Studio deleted successfully!' });
+                    clearAllStudioData(slug);
+                    await syncFromCloud();
+                    
+                    setModal({ 
+                        type: 'alert', 
+                        title: lang === 'ka' ? 'წარმატება' : 'Success', 
+                        message: lang === 'ka' ? 'სტუდია წაიშალა!' : 'Studio deleted successfully!' 
+                    });
+                } catch (err: any) {
+                    console.error('❌ Failed to delete studio:', err);
+                    setModal({ 
+                        type: 'alert', 
+                        title: lang === 'ka' ? 'შეცდომა' : 'Error', 
+                        message: lang === 'ka' 
+                            ? `წაშლა ვერ მოხერხდა: ${err.message}` 
+                            : `Deletion failed: ${err.message}` 
+                    });
+                }
             }
         });
     };
 
-    const saveProfile = () => {
+    const saveProfile = async () => {
         if (!editingProfile) return;
         const oldSlug = editingProfile.slug;
+        const cleanSlug = compactSlugify(profileSlug);
 
-        if (oldSlug !== profileSlug) {
-            const s = loadSettings(oldSlug);
-            const scopeId = s.orgId || oldSlug;
+        // Show loading if slug changed as it's a heavier operation
+        if (oldSlug !== cleanSlug) {
+            setModal(m => ({ ...m, loading: true }));
+            try {
+                // 1. Update Cloud first
+                const updateRes = await fetch('/api/superadmin/studios/update-slug', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oldSlug, newSlug: cleanSlug })
+                });
+                const updateData = await updateRes.json();
+                if (!updateData.success) throw new Error(updateData.error || 'Unknown error');
 
-            Object.keys(localStorage).forEach(key => {
-                // Settings key is always slug-based
-                if (key === `cc_studio_settings_${oldSlug}`) {
-                    const newKey = `cc_studio_settings_${profileSlug}`;
-                    localStorage.setItem(newKey, localStorage.getItem(key) || '');
-                    localStorage.removeItem(key);
-                } 
-                // Other data keys might be org_id based (scopedId) or slug based
-                else if (key.endsWith(`_${oldSlug}`)) {
-                    const newKey = key.replace(`_${oldSlug}`, `_${profileSlug}`);
-                    localStorage.setItem(newKey, localStorage.getItem(key) || '');
-                    localStorage.removeItem(key);
-                }
-            });
-            const list = getStudioRegistry().filter(s => s !== oldSlug);
-            list.push(profileSlug);
-            localStorage.setItem('cc_studios_list', JSON.stringify(list));
+                // 2. Migrate local data
+                migrateSlugData(oldSlug, cleanSlug);
+
+                // 3. Update local registry list immediately to prevent "revert" flash
+                const list = getStudioRegistry();
+                const newList = list.map(s => s === oldSlug ? cleanSlug : s);
+                localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(newList)]));
+                
+            } catch (err: any) {
+                console.error('❌ Slug update failed:', err);
+                alert(lang === 'ka' ? `სლაგის განახლება ვერ მოხერხდა: ${err.message}` : `Failed to update slug: ${err.message}`);
+                setModal(m => ({ ...m, loading: false }));
+                return;
+            }
         }
-
         // Update settings record
-        const settingsRaw = localStorage.getItem(`cc_studio_settings_${profileSlug}`);
+        const settingsRaw = localStorage.getItem(`cc_studio_settings_${cleanSlug}`);
         try {
-            const settings = settingsRaw ? JSON.parse(settingsRaw) : { staff: [] };
+            const settings = settingsRaw ? JSON.parse(settingsRaw) : { staff: [], studioSlug: cleanSlug, studioName: profileName };
             settings.studioName = profileName;
-            settings.studioSlug = profileSlug;
+            settings.studioSlug = cleanSlug;
             settings.logoDataUrl = profileLogo;
             
-            // Update owner staff details if found
-            const owner = settings.staff?.find((m: any) => m.role === 'owner');
+            // New persistent owner info
+            settings.owner_info = {
+                first_name: profileFirstName,
+                last_name: profileLastName,
+                email: profileEmail,
+                phone: profilePhone
+            };
+
+            // Also sync to staff for compatibility
+            if (!settings.staff) settings.staff = [];
+            let owner = settings.staff.find((m: any) => m.role === 'owner');
             if (owner) {
                 owner.email = profileEmail;
                 owner.phone = profilePhone;
+                owner.first_name = profileFirstName;
+                owner.last_name = profileLastName;
+                owner.full_name = `${profileFirstName} ${profileLastName}`.trim();
             }
             
-            localStorage.setItem(`cc_studio_settings_${profileSlug}`, JSON.stringify(settings));
-        } catch { }
+            localStorage.setItem(`cc_studio_settings_${cleanSlug}`, JSON.stringify(settings));
+
+        } catch (e) {
+            console.error('❌ Error updating local settings:', e);
+        }
 
         setEditingProfile(null);
+        setModal(m => ({ ...m, loading: false }));
+        await syncFromCloud(); // Refresh to catch all changes
         loadData();
+    };
+
+    const emptyTrash = () => {
+        const trashed = studios.filter(s => s.isDeleted);
+        if (trashed.length === 0) return;
+        
+        setModal({
+            type: 'confirm',
+            title: lang === 'ka' ? 'სანაგვის დაცლა' : 'Empty Trash',
+            message: lang === 'ka' 
+                ? `ნამდვილად გსურთ ყველა (${trashed.length}) წაშლილი სტუდიის სამუდამოდ წაშლა? ეს ქმედება საბოლოოა.`
+                : `Are you sure you want to permanently delete all (${trashed.length}) trashed studios? This action is final.`,
+            onConfirm: async () => {
+                setModal(m => ({ ...m, loading: true }));
+                try {
+                    // Loop through and purge each one locally and ideally on cloud
+                    // Note: In a real app we'd have a batch API for this
+                    trashed.forEach(s => {
+                        clearAllStudioData(s.slug);
+                    });
+                    
+                    await syncFromCloud();
+                    setModal({ 
+                        type: 'alert', 
+                        title: lang === 'ka' ? 'წარმატება' : 'Success', 
+                        message: lang === 'ka' ? 'სანაგვე გასუფთავდა!' : 'Trash emptied successfully!' 
+                    });
+                } catch (err) {
+                    setModal({ type: 'alert', title: 'Error', message: 'Failed to empty trash' });
+                }
+            }
+        });
     };
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -477,16 +556,34 @@ export default function StudiosPage() {
         reader.readAsDataURL(file);
     };
 
-    const filtered = studios.filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.slug.toLowerCase().includes(search.toLowerCase()));
+    const filtered = studios
+        .filter(s => activeTab === 'active' ? !s.isDeleted : s.isDeleted)
+        .filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.slug.toLowerCase().includes(search.toLowerCase()));
 
     return (
         <div className="space-y-6 animate-fade-up">
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-2xl font-black text-primary tracking-tight">{lang === 'ka' ? 'სტუდიები' : 'Studios'}</h1>
-                    <p className="text-sm text-muted mt-1">{studios.length} {lang === 'ka' ? 'რეგისტრირებული სტუდია' : 'registered studios'}</p>
+                    <h1 className="text-2xl font-black text-primary tracking-tight">
+                        {activeTab === 'active' 
+                            ? (lang === 'ka' ? 'აქტიური სტუდიები' : 'Active Studios')
+                            : (lang === 'ka' ? 'სანაგვე (Recycle Bin)' : 'Recycle Bin')}
+                    </h1>
+                    <p className="text-sm text-muted mt-1">
+                        {filtered.length} {lang === 'ka' ? 'სტუდია მოიძებნა' : 'studios found'}
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
+                    {activeTab === 'trash' && filtered.length > 0 && (
+                        <button 
+                            onClick={emptyTrash}
+                            className="group flex items-center gap-2 px-4 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-rose-500/20 shadow-lg shadow-rose-500/5"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {lang === 'ka' ? 'სანაგვის დაცლა' : 'Empty Trash'}
+                        </button>
+                    )}
+
                     <button 
                         onClick={() => {
                             setModal({
@@ -518,7 +615,7 @@ export default function StudiosPage() {
                         }}
                         className="group flex items-center gap-2 px-4 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-rose-500/20 shadow-lg shadow-rose-500/5"
                     >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <ShieldCheck className="w-3.5 h-3.5" />
                         {lang === 'ka' ? 'Master Reset' : 'Master Reset'}
                     </button>
 
@@ -546,13 +643,41 @@ export default function StudiosPage() {
                 </div>
             </div>
 
-            <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm">
-                <div className="grid grid-cols-[2fr_0.8fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
+            {/* Tab Switcher */}
+            <div className="flex gap-2 p-1.5 bg-black/5 dark:bg-zinc-500/5 border border-black/5 dark:border-border-subtle rounded-3xl w-fit">
+                <button 
+                    onClick={() => setActiveTab('active')}
+                    className={cn(
+                        "px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all",
+                        activeTab === 'active' ? "bg-white dark:bg-zinc-800 text-indigo-500 shadow-sm border border-black/5 dark:border-border-subtle" : "text-muted hover:text-primary"
+                    )}
+                >
+                    {lang === 'ka' ? 'აქტიური' : 'Active'}
+                </button>
+                <button 
+                    onClick={() => setActiveTab('trash')}
+                    className={cn(
+                        "px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center gap-2",
+                        activeTab === 'trash' ? "bg-white dark:bg-zinc-800 text-rose-500 shadow-sm border border-black/5 dark:border-border-subtle" : "text-muted hover:text-primary"
+                    )}
+                >
+                    <Trash2 className="w-3 h-3" />
+                    {lang === 'ka' ? 'სანაგვე' : 'Trash'}
+                    {studios.filter(s => s.isDeleted).length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-md bg-rose-500 text-white text-[8px] leading-none">
+                            {studios.filter(s => s.isDeleted).length}
+                        </span>
+                    )}
+                </button>
+            </div>
+
+            <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-hidden">
+                <div className="grid grid-cols-[1.5fr_0.6fr_1fr_1.2fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
                     <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'მოსწავლეები' : 'Students'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'მოსწ.' : 'Stud.'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'მფლობელი' : 'Owner'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'საკონტაქტო' : 'Contact'}</span>
                     <span className="text-center">{lang === 'ka' ? 'გეგმა' : 'Plan'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'ბოლო სინქ.' : 'Last Sync'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'დარჩენილია' : 'Days Left'}</span>
                     <span className="text-center">{lang === 'ka' ? 'ბალანსი' : 'Balance'}</span>
                     <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
                     <span className="text-right">{lang === 'ka' ? 'მართვა' : 'Actions'}</span>
@@ -560,15 +685,19 @@ export default function StudiosPage() {
                 {filtered.length === 0 ? (
                     <div className="py-24 text-center text-muted">
                         <Building2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                        <p className="text-sm font-black uppercase tracking-[0.2em]">{lang === 'ka' ? 'სტუდიები არ მოიძებნა' : 'No studios found'}</p>
+                        <p className="text-sm font-black uppercase tracking-[0.2em]">
+                            {activeTab === 'active' 
+                                ? (lang === 'ka' ? 'სტუდიები არ მოიძებნა' : 'No studios found')
+                                : (lang === 'ka' ? 'სანაგვე ცარიელია' : 'Recycle bin is empty')}
+                        </p>
                     </div>
                 ) : (
                     <div className="divide-y divide-border-subtle/50">
                         {filtered.map(studio => {
                             const diffDays = studio.nextDue ? Math.ceil((new Date(studio.nextDue).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 0;
                             return (
-                                <div key={studio.slug} className="group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2">
-                                    <div className="grid grid-cols-[2fr_0.8fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 items-center px-8 py-5 transition-colors">
+                                        <div key={studio.slug} className="group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2">
+                                    <div className="grid grid-cols-[1.5fr_0.6fr_1fr_1.2fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-5 transition-colors">
                                         <div className="flex items-center gap-4 min-w-0">
                                             <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
                                                 {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-5 h-5 text-zinc-300 opacity-40" />}
@@ -579,44 +708,43 @@ export default function StudiosPage() {
                                                     {studio.studentCount > 150 && <span title="High Activity"><AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-pulse" /></span>}
                                                 </p>
                                                 <div className="flex items-center gap-2">
-                                                     <p className="text-[10px] text-muted font-mono uppercase tracking-tighter">/{studio.slug}</p>
-                                                     <div className="h-1 w-1 rounded-full bg-zinc-700 opacity-30" />
-                                                     <p className="text-[10px] text-zinc-500 font-bold">{studio.ownerPhone}</p>
+                                                    <p className="text-[10px] text-muted font-mono uppercase tracking-tighter">/{studio.slug}</p>
+                                                    {studio.isLocalOnly && (
+                                                        <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-widest border border-amber-500/20">
+                                                            Local Only
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
                                         
                                         <div className="text-center">
                                             <span className="text-sm font-black text-primary dark:text-white tabular-nums">{studio.studentCount}</span>
-                                            <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest">{lang === 'ka' ? 'მოსწავლე' : 'students'}</p>
+                                            <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest">{lang === 'ka' ? 'მოსწავლე' : 'stud.'}</p>
+                                        </div>
+
+                                        <div className="text-center min-w-0">
+                                            <p className="text-[10px] font-black text-primary dark:text-white truncate">{studio.ownerName || 'N/A'}</p>
+                                            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest truncate">{studio.ownerEmail}</p>
                                         </div>
 
                                         <div className="text-center">
-                                            <span className="text-[10px] font-black text-zinc-400 tabular-nums">
-                                                {studio.updatedAt ? new Date(studio.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
-                                            </span>
-                                            <p className="text-[9px] font-black text-zinc-500/40 uppercase tracking-widest">{studio.updatedAt ? new Date(studio.updatedAt).toLocaleDateString() : '-'}</p>
-                                        </div>
-
-                                        <div className="text-center">
-                                            <span className="text-sm font-black text-primary dark:text-white tabular-nums">{diffDays}</span>
-                                            <p className="text-[9px] font-black text-zinc-500/60 uppercase tracking-widest">{lang === 'ka' ? 'დღე' : 'days'}</p>
-                                        </div>
-
-                                        <div className="text-center">
-                                            <span className="text-sm font-black text-primary dark:text-white tabular-nums">{studio.subsCount}</span>
-                                            <p className="text-[9px] font-black text-indigo-500/60 uppercase tracking-widest">{lang === 'ka' ? 'ბალანსი' : 'balance'}</p>
+                                            <p className="text-[10px] font-black text-primary dark:text-white">{studio.ownerPhone}</p>
+                                            <div className="flex items-center justify-center gap-1.5 mt-1">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.3)]" />
+                                                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-tighter">Verified</p>
+                                            </div>
                                         </div>
 
                                         <div className="relative text-center">
-                                            <button onClick={() => setOpenMenu(openMenu === studio.slug + '_plan' ? null : studio.slug + '_plan')} className={cn('px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 mx-auto border transition-all hover:scale-105 active:scale-95', PLAN_COLORS[studio.plan], openMenu === studio.slug + '_plan' ? 'border-indigo-500 shadow-lg shadow-indigo-500/20' : 'border-black/5')}>
-                                                {PLAN_LABELS[studio.plan]}<ChevronDown className="w-3 h-3 opacity-50" />
+                                            <button onClick={() => setOpenMenu(openMenu === studio.slug + '_plan' ? null : studio.slug + '_plan')} className={cn('px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 mx-auto border transition-all hover:scale-105 active:scale-95', PLAN_COLORS[studio.plan], openMenu === studio.slug + '_plan' ? 'border-indigo-500 shadow-lg shadow-indigo-500/20' : 'border-black/5')}>
+                                                {PLAN_LABELS[studio.plan]}<ChevronDown className="w-2.5 h-2.5 opacity-50" />
                                             </button>
                                             {openMenu === studio.slug + '_plan' && (
-                                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 bg-white/95 border border-black/10 dark:border-border-subtle rounded-2xl overflow-hidden shadow-2xl min-w-[170px] animate-in slide-in-from-top-2 duration-200">
+                                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-black/10 dark:border-border-subtle rounded-2xl overflow-hidden shadow-2xl min-w-[150px] animate-in slide-in-from-top-2 duration-200">
                                                     {PLAN_OPTIONS.map(p => (
                                                         <button key={p} onClick={() => setPlan(studio.slug, p)} className={cn(
-                                                            'w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-zinc-500/10 transition-colors border-l-2', 
+                                                            'w-full px-4 py-2.5 text-left text-[9px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-zinc-500/10 transition-colors border-l-2', 
                                                             studio.plan === p ? 'text-indigo-500 border-indigo-500 bg-indigo-500/5' : 'text-muted border-transparent'
                                                         )}>
                                                             {PLAN_LABELS[p]}
@@ -627,18 +755,30 @@ export default function StudiosPage() {
                                         </div>
 
                                         <div className="text-center">
-                                            {studio.nextDue ? (
-                                                <div className="flex flex-col items-center">
-                                                    <span className={cn("text-sm font-black tabular-nums", diffDays <= 3 ? "text-rose-500" : "text-primary dark:text-white")}>
-                                                        {diffDays} {lang === 'ka' ? 'დღე' : 'days'}
-                                                    </span>
-                                                    <span className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40">
-                                                        {new Date(studio.nextDue).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short', day: 'numeric' })}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-[10px] font-black text-muted opacity-40 uppercase tracking-widest">{lang === 'ka' ? 'გამორთული' : 'Inactive'}</span>
-                                            )}
+                                            <button 
+                                                onClick={() => {
+                                                    const currentBal = Math.round(getBillingState(studio.slug).accountBalance || 0);
+                                                    setModal({
+                                                        type: 'input',
+                                                        title: lang === 'ka' ? 'ბალანსი' : 'Balance',
+                                                        message: 'GEL',
+                                                        inputVal: String(currentBal),
+                                                        onConfirm: (val) => {
+                                                            const num = Number(val);
+                                                            if (!isNaN(num)) {
+                                                                updateBillingState(studio.slug, { accountBalance: num });
+                                                                loadData();
+                                                            }
+                                                            setModal({ type: null, title: '', message: '' });
+                                                        }
+                                                    });
+                                                }}
+                                                className="px-2 py-1 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-lg hover:border-indigo-500/30 transition-all group/bal shadow-inner"
+                                            >
+                                                <span className="text-xs font-black text-primary dark:text-white tabular-nums group-hover/bal:text-indigo-600 dark:group-hover/bal:text-indigo-400 transition-colors">
+                                                    {Math.round(getBillingState(studio.slug).accountBalance || 0)}₾
+                                                </span>
+                                            </button>
                                         </div>
 
                                         {/* Activation Days Tool */}
@@ -702,23 +842,41 @@ export default function StudiosPage() {
                                         </div>
 
                                         <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => sendReminder(studio)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-amber-500 hover:text-white hover:bg-amber-500 transition-all" title={lang === 'ka' ? 'სმს შეხსენება' : 'Send SMS Reminder'}><Smartphone className="w-3.5 h-3.5" /></button>
-                                            <button onClick={() => impersonate(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-emerald-500 hover:text-white hover:bg-emerald-500 transition-all" title={lang === 'ka' ? 'შესვლა' : 'Impersonate'}><LogIn className="w-3.5 h-3.5" /></button>
-                                            <button 
-                                                onClick={() => { 
-                                                    setEditingProfile(studio); 
-                                                    setProfileName(studio.name); 
-                                                    setProfileSlug(studio.slug);
-                                                    setProfileEmail(studio.ownerEmail);
-                                                    setProfilePhone(studio.ownerPhone || 'N/A');
-                                                    setProfileLogo(studio.logoUrl || '');
-                                                }} 
-                                                className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
-                                                title={lang === 'ka' ? 'მართვა' : 'Full Control'}
-                                            >
-                                                <Settings className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button onClick={() => deleteStudio(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-rose-500 hover:text-white hover:bg-rose-500 transition-all" title={lang === 'ka' ? 'წაშლა' : 'Delete'}><Trash2 className="w-3.5 h-3.5" /></button>
+                                            {activeTab === 'active' ? (
+                                                <>
+                                                    <button onClick={() => sendReminder(studio)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-amber-500 hover:text-white hover:bg-amber-500 transition-all" title={lang === 'ka' ? 'სმს შეხსენება' : 'Send SMS Reminder'}><Smartphone className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => impersonate(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-emerald-500 hover:text-white hover:bg-emerald-500 transition-all" title={lang === 'ka' ? 'შესვლა' : 'Impersonate'}><LogIn className="w-3.5 h-3.5" /></button>
+                                                    <button 
+                                                        onClick={() => { 
+                                                            const s = loadSettings(studio.slug);
+                                                            setEditingProfile(studio); 
+                                                            setProfileName(s.studioName || studio.name); 
+                                                            setProfileSlug(studio.slug);
+                                                            setProfileEmail(s.owner_info?.email || studio.ownerEmail);
+                                                            setProfilePhone(s.owner_info?.phone || studio.ownerPhone || 'N/A');
+                                                            setProfileFirstName(s.owner_info?.first_name || '');
+                                                            setProfileLastName(s.owner_info?.last_name || '');
+                                                            setProfileLogo(s.logoDataUrl || studio.logoUrl || '');
+                                                        }} 
+                                                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
+                                                        title={lang === 'ka' ? 'მართვა' : 'Full Control'}
+                                                    >
+                                                        <Settings className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button onClick={() => moveToTrash(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-rose-500 hover:text-white hover:bg-rose-500 transition-all" title={lang === 'ka' ? 'სანაგვეში გადატანა' : 'Move to Trash'}><Trash2 className="w-3.5 h-3.5" /></button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button onClick={() => restoreStudio(studio.slug)} className="group flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-emerald-500/20" title={lang === 'ka' ? 'აღდგენა' : 'Restore'}>
+                                                        <RefreshCcw className="w-3 h-3 group-hover:rotate-180 transition-all duration-500" />
+                                                        {lang === 'ka' ? 'აღდგენა' : 'Restore'}
+                                                    </button>
+                                                    <button onClick={() => purgeStudio(studio.slug)} className="group flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-rose-500/20" title={lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Permanent Delete'}>
+                                                        <Zap className="w-3 h-3" />
+                                                        {lang === 'ka' ? 'წაშლა' : 'Purge'}
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                     {(editingNote === studio.slug || studio.notes) && (
@@ -753,7 +911,7 @@ export default function StudiosPage() {
             {/* Full Control / Edit Profile Modal */}
             {editingProfile && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setEditingProfile(null)} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => setEditingProfile(null)} />
                     <div className="relative bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] w-full max-w-lg p-10 animate-in zoom-in-95 duration-200 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
                         <div className="flex items-center justify-between mb-8">
                              <div>
@@ -783,11 +941,37 @@ export default function StudiosPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'სტუდიის დასახელება' : 'Studio Name'}</label>
-                                    <input value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
+                                    <input 
+                                        value={profileName} 
+                                        onChange={e => {
+                                            const nextName = e.target.value;
+                                            setProfileName(nextName);
+                                            // Real-time sync to slug
+                                            if (!profileSlug || profileSlug === compactSlugify(profileName)) {
+                                                setProfileSlug(compactSlugify(nextName));
+                                            }
+                                        }} 
+                                        className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" 
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'ბმული / Slug' : 'Studio Slug'}</label>
-                                    <input value={profileSlug} onChange={e => setProfileSlug(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
+                                    <input 
+                                        value={profileSlug} 
+                                        onChange={e => setProfileSlug(compactSlugify(e.target.value))} 
+                                        className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'მფლობელის სახელი' : 'Owner First Name'}</label>
+                                    <input value={profileFirstName} onChange={e => setProfileFirstName(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'მფლობელის გვარი' : 'Owner Last Name'}</label>
+                                    <input value={profileLastName} onChange={e => setProfileLastName(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
                                 </div>
                             </div>
 
@@ -801,6 +985,7 @@ export default function StudiosPage() {
                                     <input value={profilePhone} onChange={e => setProfilePhone(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
                                 </div>
                             </div>
+
 
                             <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl">
                                 <p className="text-[10px] text-rose-600 dark:text-rose-500/70 font-bold leading-relaxed flex gap-2">
@@ -836,7 +1021,7 @@ export default function StudiosPage() {
             {/* Custom Global Modal */}
             {modal.type && (
                 <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => !modal.loading && setModal({ type: null, title: '', message: '' })} />
+                    <div className="absolute inset-0 bg-black/20 animate-in fade-in duration-300" onClick={() => !modal.loading && setModal({ type: null, title: '', message: '' })} />
                     <div className="relative bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] w-full max-w-md p-10 animate-in zoom-in-95 duration-200 shadow-2xl text-center">
                         <div className={cn(
                             "w-16 h-16 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 shadow-xl",
@@ -905,7 +1090,7 @@ export default function StudiosPage() {
             {/* Granular Reset Modal */}
             {resetModal.open && (
                 <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setResetModal(prev => ({ ...prev, open: false }))} />
+                    <div className="absolute inset-0 bg-black/20 animate-in fade-in duration-300" onClick={() => setResetModal(prev => ({ ...prev, open: false }))} />
                     <div className="relative bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] w-full max-w-md p-10 animate-in zoom-in-95 duration-200 shadow-2xl">
                         <div className="w-16 h-16 rounded-[1.5rem] bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-6 shadow-xl">
                             <RefreshCcw className="w-8 h-8" />

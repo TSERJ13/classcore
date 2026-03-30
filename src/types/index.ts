@@ -32,6 +32,13 @@ export interface TrashItem {
     type: 'student' | 'subscription' | 'sale' | 'staff' | 'hall';
     data: any;
     branchId: string;
+    sms_templates?: Record<string, Record<string, string>>;
+    owner_info?: {
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        phone?: string;
+    };
     deletedAt: string;
     deletedBy: string;
 }
@@ -153,6 +160,12 @@ export interface StudioSettings {
     staff: StaffMember[];
     trash?: TrashItem[];
     subscriptionLogs?: SubscriptionLog[];
+    owner_info?: {
+        first_name: string;
+        last_name: string;
+        email: string;
+        phone: string;
+    };
     // Non-synced / Local only
     activeBranchId: string;
 }
@@ -163,6 +176,7 @@ export interface Hall {
     org_id: string;
     name: string;
     capacity?: number;
+    sq_meters?: number;
     color: string;        // hex or tailwind color token
     photo_url?: string;
     description?: string;
@@ -249,6 +263,7 @@ export interface Student {
     sms_reminders?: boolean;
     // branch
     branch_id?: string;
+    gender?: 'male' | 'female';
     created_at: string;
 }
 
@@ -355,6 +370,7 @@ export interface Teacher {
     rate_per_month?: number;      // GEL flat (for groups)
     salary_percentage?: number;   // percentage share of revenue
     assigned_group_ids: string[]; // group IDs
+    working_schedule?: any[];     // availability slots [{dayOfWeek, startTime, endTime}]
     assigned_individual: boolean; // takes individual sessions?
     status: TeacherStatus;
     allowedBranchIds?: string[]; // Standardized camelCase

@@ -675,18 +675,6 @@ export default function DashboardPage() {
                         <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
                             {t.welcomeBack} {profile?.first_name || ''} 👋
                         </h1>
-                        {(isDemo || profile?.role === 'owner') && (
-                            <button
-                                onClick={async () => {
-                                    const { clearAllStudioData } = await import('@/lib/settings-store');
-                                    clearAllStudioData(settings.studioSlug);
-                                }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-xl text-[10px] font-black tracking-widest transition-all"
-                            >
-                                <RefreshCcw className="w-3 h-3" />
-                                {l('სისტემის გასუფთავება (Reset)', 'Сброс системы', 'System Reset')}
-                            </button>
-                        )}
                         {billing && (
                             <span className={cn(
                                 "px-2 py-0.5 rounded-lg text-white text-[10px] font-black tracking-tighter shadow-lg",
@@ -1107,19 +1095,19 @@ export default function DashboardPage() {
 
             {/* Trial Banner at bottom */}
             {billing?.status === 'trial' && (
-                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl p-4 sm:p-6 text-white shadow-xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
-                    <div className="flex items-center gap-4 text-center sm:text-left">
-                        <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
-                            <Zap className="w-6 h-6 text-white" />
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 text-white shadow-2xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4 sm:gap-6 mt-6 sm:mt-12 mb-6 sm:mb-8 relative z-10 border border-white/10 w-full">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left">
+                        <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-inner">
+                            <Zap className="w-5 h-5 sm:w-7 sm:h-7 text-white animate-pulse" />
                         </div>
-                        <div>
-                            <h2 className="text-lg font-black tracking-tight">{t.trialActive}</h2>
-                            <p className="text-sm font-medium text-white/80">
+                        <div className="space-y-0.5 sm:space-y-1">
+                            <h2 className="text-[15px] sm:text-xl md:text-2xl font-black tracking-tight">{t.trialActive}</h2>
+                            <p className="text-[11px] sm:text-xs md:text-sm font-bold text-white/90">
                                 {t.trialEndingDesc.replace('{days}', billing.daysLeftInTrial.toString())}
                             </p>
                         </div>
                     </div>
-                    <Link href="/billing" className="w-full sm:w-auto px-6 py-3 bg-white text-indigo-600 rounded-xl font-black text-sm hover:scale-105 active:scale-95 transition-all shadow-lg text-center">
+                    <Link href="/billing" className="w-full sm:w-auto px-5 py-3.5 sm:px-8 sm:py-4 bg-white text-indigo-600 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:bg-opacity-90 active:scale-95 transition-all shadow-xl text-center flex-shrink-0">
                         {t.buyPlan || 'Buy Package'}
                     </Link>
                 </div>
