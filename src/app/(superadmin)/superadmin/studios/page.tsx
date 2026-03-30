@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw, ShieldAlert, RotateCcw } from 'lucide-react';
+import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw, ShieldAlert, RotateCcw, Eraser } from 'lucide-react';
 import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms, extendSubscriptionByDays } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
 import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrateSlugData, clearAllStudioData, removeFromRegistry, type ResetCategories } from '@/lib/settings-store';
@@ -456,6 +456,22 @@ export default function StudiosPage() {
         });
     };
 
+    const handleMasterReset = () => {
+        const confirmMsg = lang === 'ka' 
+            ? '⚠️ გსურთ ყველა ადგილობრივი მონაცემის გასუფთავება? ეს წაშლის თქვენს ლოკალურ ისტორიას ამ კომპიუტერზე.'
+            : '⚠️ Are you sure you want to clear ALL local data? This will wipe your local history on this machine.';
+        
+        if (confirm(confirmMsg)) {
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('cc_')) localStorage.removeItem(key);
+            });
+            Object.keys(sessionStorage).forEach(key => {
+                if (key.startsWith('cc_')) sessionStorage.removeItem(key);
+            });
+            window.location.reload();
+        }
+    };
+
     const confirmReset = () => {
         const { slug, categories } = resetModal;
         setModal({
@@ -719,25 +735,33 @@ export default function StudiosPage() {
                     )}
 
                     <button 
+                        onClick={handleMasterReset}
+                        className="group flex items-center gap-2 px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-amber-500/20 shadow-lg shadow-amber-500/5"
+                    >
+                        <Eraser className="w-3.5 h-3.5" />
+                        {lang === 'ka' ? 'ბრაუზერის ქეშის გასუფთავება' : 'Clear Browser Cache'}
+                    </button>
+
+                    <button 
                         onClick={() => {
                             setModal({
                                 type: 'confirm',
-                                title: lang === 'ka' ? 'სისტემის სრული გასუფთავება' : 'Master System Reset',
+                                title: lang === 'ka' ? 'ბაზის სრული გასუფთავება' : 'FORCE CLOUD PURGE',
                                 message: lang === 'ka' 
-                                    ? 'ყურადღება: ეს წაშლის ყველა სტუდიას და გაასუფთავებს ყველა მონაცემს. გსურთ გაგრძელება?'
-                                    : 'WARNING: This will delete ALL studios and purge all associated data. Proceed?',
+                                    ? 'ყურადღება: ეს წაშლის აბსოლუტურად ყველა სტუდიას ბაზიდან! გსურთ გაგრძელება?'
+                                    : 'WARNING: This will permanently delete EVERY studio from the cloud database! Proceed?',
                                 onConfirm: async () => {
                                     setModal(m => ({ ...m, loading: true }));
                                     try {
                                         const res = await fetch('/api/superadmin/system-reset', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ keepSlug: '___temp___' }) // Use a dummy slug that doesn't exist
+                                            body: JSON.stringify({ keepSlug: '___temp___' })
                                         });
                                         const data = await res.json();
                                         if (data.success) {
-                                            setModal({ type: 'alert', title: 'Success', message: data.message });
-                                            syncFromCloud();
+                                            setModal({ type: 'alert', title: 'Success', message: 'Cloud database has been purged.' });
+                                            handleMasterReset(); // Also clear local
                                         } else {
                                             setModal({ type: 'alert', title: 'Error', message: data.error || 'Reset failed' });
                                         }
@@ -750,7 +774,7 @@ export default function StudiosPage() {
                         className="group flex items-center gap-2 px-4 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-rose-500/20 shadow-lg shadow-rose-500/5"
                     >
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        {lang === 'ka' ? 'Master Reset' : 'Master Reset'}
+                        {lang === 'ka' ? 'ბაზის გასუფთავება' : 'Cloud Purge'}
                     </button>
 
                     <button 
