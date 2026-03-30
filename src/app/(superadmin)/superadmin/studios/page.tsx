@@ -258,6 +258,40 @@ export default function StudiosPage() {
         setMounted(true);
         const init = async () => {
             await syncFromCloud();
+            // Automatically fix any malformed slugs (containing dashes) on load
+            const currentRegistry = getStudioRegistry();
+            const malformed = currentRegistry.filter(s => s.includes('-'));
+            if (malformed.length > 0) {
+                console.log('🧹 Malformed slugs detected:', malformed);
+                for (const oldSlug of malformed) {
+                    const newSlug = compactSlugify(oldSlug);
+                    if (oldSlug === newSlug) continue;
+
+                    // Ensure no collision
+                    const existingList = getStudioRegistry();
+                    let finalNewSlug = newSlug;
+                    let counter = 1;
+                    while (existingList.includes(finalNewSlug)) {
+                        finalNewSlug = `${newSlug}${counter++}`;
+                    }
+
+                    try {
+                        const res = await fetch('/api/superadmin/studios/update-slug', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ oldSlug, newSlug: finalNewSlug })
+                        });
+                        if (res.ok) {
+                            migrateSlugData(oldSlug, finalNewSlug);
+                            console.log(`✅ Migrated malformed slug: ${oldSlug} -> ${finalNewSlug}`);
+                        }
+                    } catch (e) {
+                        console.error('❌ Migration failed:', e);
+                    }
+                }
+                await syncFromCloud();
+                loadData();
+            }
         };
         init();
         const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
@@ -1019,7 +1053,10 @@ export default function StudiosPage() {
                                     <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'ბმული / Slug' : 'Studio Slug'}</label>
                                     <input 
                                         value={profileSlug} 
-                                        onChange={e => setProfileSlug(compactSlugify(e.target.value))} 
+                                        onChange={e => {
+                                            const clean = compactSlugify(e.target.value);
+                                            setProfileSlug(clean);
+                                        }} 
                                         className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" 
                                     />
                                 </div>

@@ -80,7 +80,7 @@ export function compactSlugify(text: string): string {
         .split('')
         .map(char => geoToLat[char] || char)
         .join('')
-        .replace(/[^a-z0-9]/g, '');     // Remove EVERYTHING except a-z and 0-9
+        .replace(/[^a-z0-9]/g, '');     // STRICT: Remove EVERYTHING except a-z and 0-9 (No dashes, no spaces)
 }
 
 export function getLocalISODate(d?: Date): string {
