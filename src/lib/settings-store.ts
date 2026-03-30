@@ -704,6 +704,10 @@ export function clearAllStudioData(slug: string) {
     // 1. Get OrgId if possible for deeper cleanup
     const settings = loadSettings(slug);
     const orgId = settings.orgId;
+
+    // 2. Also clear meta and billing data
+    localStorage.removeItem(`cc_sa_meta_${slug}`);
+    localStorage.removeItem(`cc_sa_meta_billing_${slug}`); // Ensure billing meta is also gone
     
     const keys = Object.keys(localStorage);
     let count = 0;
@@ -713,7 +717,7 @@ export function clearAllStudioData(slug: string) {
         // OR OrgId scoped: cc_student_data_UUID
         const isTargetSlug = k.includes(`_${slug}`) || k.includes(`${slug}_`) || k.includes(`:${slug}`);
         const isOrgScoped = orgId && (k.includes(`_${orgId}`) || k.includes(`${orgId}_`) || k.includes(`:${orgId}`));
-        const isDemoSlug = k.includes('demo.classcore.ge');
+        const isDemoSlug = k.includes('demo.classcore.ge') && slug === 'demo.classcore.ge';
         
         if (isTargetSlug || isOrgScoped || isDemoSlug) {
             localStorage.removeItem(k);
@@ -723,13 +727,12 @@ export function clearAllStudioData(slug: string) {
 
     console.log(`🧹 [SettingsStore] Master Clear: Removed ${count} keys for studio ${slug} (OrgID: ${orgId})`);
 
+    // 3. Force remove from registry
+    removeFromRegistry(slug);
     
-    // Also clear ANY keys related to active slugs/branches to force clean discovery
+    // 4. Also clear ANY keys related to active slugs/branches to force clean discovery
     localStorage.removeItem(ACTIVE_SLUG_KEY);
     localStorage.removeItem(`cc_active_branch_${slug}`);
-    
-    // Also remove registry entry to force a clean reload from cloud or defaults
-    removeFromRegistry(slug);
     
     // Reload if current slug matches to refresh state
     const currentSlug = localStorage.getItem('cc_active_studio_slug');

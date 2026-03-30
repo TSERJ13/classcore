@@ -166,19 +166,25 @@ export default function StudiosPage() {
                 
                 // 1. SMART PRUNING: Remove slugs that were previously synced to cloud but are now missing
                 const prunedList = existing.filter(slug => {
-                    // Always keep the demo
+                    // Always keep the demo and our primary entry
                     if (slug === 'demo.classcore.ge') return true;
+                    
                     // If it's in the cloud, keep it
                     if (cloudSlugs.includes(slug)) return true;
                     
                     // If it's NOT in the cloud, check if it was previously synced
-                    // Cloud-synced studios have an orgId. Local-only ones do not.
+                    const settingsKey = `cc_studio_settings_${slug}`;
+                    const localDataExists = !!localStorage.getItem(settingsKey);
+                    
                     const settings = loadSettings(slug);
                     const isPreviouslySynced = !!settings.orgId;
                     
                     // If it was synced but now it's gone from cloud list, it was deleted -> Prune it.
-                    // If it was never synced (Local Only), keep it.
-                    return !isPreviouslySynced;
+                    if (isPreviouslySynced) return false;
+                    
+                    // If it was never synced (Local Only), KEEP it ONLY if there's actual data.
+                    // If there's no data (orphaned from a previous clear), PRUNE it from the registry.
+                    return localDataExists;
                 });
 
                 // 2. Add new slugs discovered in cloud
