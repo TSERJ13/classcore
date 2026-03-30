@@ -156,7 +156,10 @@ export default function StudiosPage() {
     const syncFromCloud = async () => {
         setIsSyncing(true);
         try {
-                const res = await fetch('/api/superadmin/studios/list');
+                const res = await fetch(`/api/superadmin/studios/list?t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Pragma': 'no-cache' }
+                });
                 const data = await res.json();
                 if (data.studios) {
                     setCloudStudios(data.studios);
@@ -190,7 +193,7 @@ export default function StudiosPage() {
                     const settings = loadSettings(slug);
                     const isPreviouslySynced = !!settings.orgId;
                     
-                    // If it was synced but now it's gone from cloud list, it was deleted -> Prune it.
+                    // If it was synced but now it's gone from cloud list, it was deleted -> Prune it AGGRESSIVELY.
                     if (isPreviouslySynced) return false;
                     
                     // If it was never synced (Local Only), KEEP it ONLY if there's actual data.
