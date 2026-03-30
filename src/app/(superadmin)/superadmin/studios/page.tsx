@@ -156,13 +156,24 @@ export default function StudiosPage() {
     const syncFromCloud = async () => {
         setIsSyncing(true);
         try {
-            const res = await fetch('/api/superadmin/studios/list');
-            const data = await res.json();
-            if (data.studios) {
-                setCloudStudios(data.studios);
-                
-                const cloudSlugs = data.studios.map((s: any) => s.slug);
-                const existing = getStudioRegistry();
+                const res = await fetch('/api/superadmin/studios/list');
+                const data = await res.json();
+                if (data.studios) {
+                    setCloudStudios(data.studios);
+
+                    // 0. Filter against the Blacklist (Ignore purged slugs for 10 min)
+                    const blacklistRaw = localStorage.getItem('cc_sa_purge_blacklist') || '[]';
+                    const now = Date.now();
+                    const tenMinutes = 10 * 60 * 1000;
+                    const blacklist = JSON.parse(blacklistRaw).filter((b: any) => now - b.timestamp < tenMinutes);
+                    localStorage.setItem('cc_sa_purge_blacklist', JSON.stringify(blacklist)); // Cleanup stale
+                    const blacklistedSlugs = blacklist.map((b: any) => b.slug);
+
+                    const cloudSlugs = data.studios
+                        .map((s: any) => s.slug)
+                        .filter((s: string) => !blacklistedSlugs.includes(s));
+                    
+                    const existing = getStudioRegistry();
                 
                 // 1. SMART PRUNING: Remove slugs that were previously synced to cloud but are now missing
                 const prunedList = existing.filter(slug => {
@@ -455,10 +466,12 @@ export default function StudiosPage() {
                     // 2. Remove from registry immediately to prevent re-addition
                     removeFromRegistry(slug);
 
-                    // 3. Clear any meta-persistence
-                    localStorage.removeItem(`cc_sa_meta_${slug}`);
-                    
-                    // 4. Update cloud state
+                    // 4. Add to Blacklist to prevent re-addition during cloud-sync latency
+                    const blacklist = JSON.parse(localStorage.getItem('cc_sa_purge_blacklist') || '[]');
+                    blacklist.push({ slug, timestamp: Date.now() });
+                    localStorage.setItem('cc_sa_purge_blacklist', JSON.stringify(blacklist));
+
+                    // 5. Update cloud state
                     await syncFromCloud();
                     
                     setModal({ 
@@ -728,8 +741,8 @@ export default function StudiosPage() {
                 </button>
             </div>
 
-            <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-hidden">
-                <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
+            <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-x-auto no-scrollbar">
+                <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center min-w-[1000px]">
                     <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span>
                     <span className="text-center">{lang === 'ka' ? 'მოსწ.' : 'Stud.'}</span>
                     <span className="text-left px-2">{lang === 'ka' ? 'მფლობელი' : 'Owner'}</span>
@@ -758,7 +771,7 @@ export default function StudiosPage() {
                                     "group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2 transition-colors",
                                     studio.isLocalOnly && "border-l-4 border-l-amber-500 bg-amber-500/[0.02]"
                                 )}>
-                                    <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-6">
+                                    <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-6 min-w-[1000px]">
                                         <div className="flex items-center gap-4 min-w-0">
                                             <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
                                                 {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6 text-zinc-300 opacity-40" />}
