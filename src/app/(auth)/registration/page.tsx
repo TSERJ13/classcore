@@ -443,10 +443,9 @@ export default function RegisterPage() {
                             <form onSubmit={(e) => {
                                 e.preventDefault();
                                 const f = new FormData(e.target as HTMLFormElement);
-                                const fullName = f.get('n') as string;
-                                const parts = fullName.split(' ');
-                                const first = parts[0] || '';
-                                const last = parts.slice(1).join(' ') || '';
+                                const first = f.get('f') as string;
+                                const last = f.get('l') as string;
+                                const fullName = `${first} ${last}`.trim();
                                 
                                 saveStepData('teachers', { 
                                     id: crypto.randomUUID(), 
@@ -460,9 +459,15 @@ export default function RegisterPage() {
                                 });
                                 nextStep('groups');
                             }} className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.teacherName}</label>
-                                    <input name="n" required placeholder="Nino Beridze" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 rounded-2xl px-5 py-3 text-sm font-bold shadow-sm outline-none transition-all" />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.firstName}</label>
+                                        <input name="f" required placeholder="Nino" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 rounded-2xl px-5 py-3 text-sm font-bold shadow-sm outline-none transition-all" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.lastName}</label>
+                                        <input name="l" required placeholder="Beridze" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 rounded-2xl px-5 py-3 text-sm font-bold shadow-sm outline-none transition-all" />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.teacherPhone}</label>
@@ -739,7 +744,10 @@ export default function RegisterPage() {
                                         <button type="button" onClick={goBack} className="flex-1 h-9 sm:h-11 text-slate-400 font-black text-[9px] sm:text-[10px] tracking-widest hover:text-slate-600 transition-colors uppercase border border-slate-100 rounded-2xl">
                                             {t.back}
                                         </button>
-                                        <button type="button" onClick={() => setStep('success')} className="flex-1 h-9 sm:h-11 text-slate-400 font-black text-[9px] sm:text-[10px] tracking-widest hover:text-slate-600 transition-colors uppercase border border-slate-100 rounded-2xl">
+                                        <button type="button" onClick={async () => {
+                                            const syncRes = await performFinalSync();
+                                            if (syncRes) setStep('success');
+                                        }} className="flex-1 h-9 sm:h-11 text-slate-400 font-black text-[9px] sm:text-[10px] tracking-widest hover:text-slate-600 transition-colors uppercase border border-slate-100 rounded-2xl">
                                             {t.skip}
                                         </button>
                                     </div>
