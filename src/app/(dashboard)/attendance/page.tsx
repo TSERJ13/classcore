@@ -196,6 +196,7 @@ export default function AttendancePage() {
 
     const [selectedDate, setSelectedDate] = useState(new Date());
     const dateInputRef = useRef<HTMLInputElement>(null);
+    const dateInputSidebarRef = useRef<HTMLInputElement>(null);
     const dateKey = getLocalISODate(selectedDate);
     const filteredSchedule = getEventsByDate(dateKey);
 
@@ -210,33 +211,6 @@ export default function AttendancePage() {
         }
     }, [selectedDate, filteredSchedule, selectedClass]); // Added filteredSchedule and selectedClass
 
-    const { lang } = useT();
-    const dayOptions = generateDayOptions();
-    const monthOptions = generateMonthOptions(lang);
-    const yearOptions = generateYearOptions(new Date().getFullYear() - 1, new Date().getFullYear() + 1);
-
-    const [dateParts, setDateParts] = useState({ 
-        day: String(selectedDate.getDate()).padStart(2, '0'), 
-        month: String(selectedDate.getMonth() + 1).padStart(2, '0'), 
-        year: String(selectedDate.getFullYear()) 
-    });
-
-    useEffect(() => {
-        setDateParts({
-            day: String(selectedDate.getDate()).padStart(2, '0'),
-            month: String(selectedDate.getMonth() + 1).padStart(2, '0'),
-            year: String(selectedDate.getFullYear())
-        });
-    }, [selectedDate]);
-
-    const updateDateFromParts = (parts: { day: string, month: string, year: string }) => {
-        if (parts.day && parts.month && parts.year) {
-            const newDate = new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`);
-            if (!isNaN(newDate.getTime())) {
-                setSelectedDate(newDate);
-            }
-        }
-    };
 
     // ── Persistence ──
 
@@ -704,58 +678,39 @@ export default function AttendancePage() {
                         {/* Stretched Date Picker (Mobile) */}
                         {mounted && (
                             <div className="w-full flex flex-col gap-2 relative z-20">
-                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle shadow-sm mb-1">
+                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle shadow-sm mb-1 relative overflow-hidden group">
                                     <button
                                         onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0"
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                     >
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
-                                    <div className="flex-1 flex items-center justify-center gap-1.5 px-2">
+                                    
+                                    <button 
+                                        onClick={() => dateInputRef.current?.showPicker()}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-2 hover:bg-indigo-500/5 transition-all py-1.5 rounded-lg active:scale-95"
+                                    >
                                         <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-60" />
                                         <span className="text-[10px] font-black text-primary tracking-[0.05em]">{dateStr}</span>
-                                    </div>
+                                    </button>
+
+                                    <input 
+                                        ref={dateInputRef}
+                                        type="date"
+                                        className="absolute inset-0 opacity-0 -z-10 pointer-events-none"
+                                        value={dateKey}
+                                        onChange={(e) => {
+                                            const d = new Date(e.target.value);
+                                            if (!isNaN(d.getTime())) setSelectedDate(d);
+                                        }}
+                                    />
+
                                     <button
                                         onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0"
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                     >
                                         <ChevronRight className="w-4 h-4" />
                                     </button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-1.5">
-                                    <SearchSelect 
-                                        options={dayOptions}
-                                        value={dateParts.day}
-                                        onChange={val => {
-                                            const p = { ...dateParts, day: val };
-                                            setDateParts(p);
-                                            updateDateFromParts(p);
-                                        }}
-                                        className="!border-border-subtle [&>div]:py-2 [&>div]:px-2 [&>div]:text-[10px]"
-                                        placeholder="დღე"
-                                    />
-                                    <SearchSelect 
-                                        options={monthOptions}
-                                        value={dateParts.month}
-                                        onChange={val => {
-                                            const p = { ...dateParts, month: val };
-                                            setDateParts(p);
-                                            updateDateFromParts(p);
-                                        }}
-                                        className="!border-border-subtle [&>div]:py-2 [&>div]:px-2 [&>div]:text-[10px]"
-                                        placeholder="თვე"
-                                    />
-                                    <SearchSelect 
-                                        options={yearOptions}
-                                        value={dateParts.year}
-                                        onChange={val => {
-                                            const p = { ...dateParts, year: val };
-                                            setDateParts(p);
-                                            updateDateFromParts(p);
-                                        }}
-                                        className="!border-border-subtle [&>div]:py-2 [&>div]:px-2 [&>div]:text-[10px]"
-                                        placeholder="წელი"
-                                    />
                                 </div>
                             </div>
                         )}
@@ -768,58 +723,39 @@ export default function AttendancePage() {
                                 {/* Desktop Date Picker */}
                                 {mounted && (
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between bg-card p-1.5 rounded-xl border border-border-subtle shadow-sm">
+                                        <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle shadow-sm mb-1 relative overflow-hidden group">
                                             <button
                                                 onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-indigo-600 transition-colors active:scale-95"
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                             >
                                                 <ChevronLeft className="w-4 h-4" />
                                             </button>
-                                            <div className="flex-1 flex items-center justify-center gap-2">
-                                                <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-70" />
-                                                <span className="text-xs font-black text-primary tracking-[0.05em]">{dateStr}</span>
-                                            </div>
+                                            
+                                            <button 
+                                                onClick={() => dateInputSidebarRef.current?.showPicker()}
+                                                className="flex-1 flex items-center justify-center gap-1.5 px-2 hover:bg-indigo-500/5 transition-all py-1.5 rounded-lg active:scale-95"
+                                            >
+                                                <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-60" />
+                                                <span className="text-[10px] font-black text-primary tracking-[0.05em]">{dateStr}</span>
+                                            </button>
+
+                                            <input 
+                                                ref={dateInputSidebarRef}
+                                                type="date"
+                                                className="absolute inset-0 opacity-0 -z-10 pointer-events-none"
+                                                value={dateKey}
+                                                onChange={(e) => {
+                                                    const d = new Date(e.target.value);
+                                                    if (!isNaN(d.getTime())) setSelectedDate(d);
+                                                }}
+                                            />
+
                                             <button
                                                 onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-indigo-600 transition-colors active:scale-95"
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                             >
                                                 <ChevronRight className="w-4 h-4" />
                                             </button>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-1.5">
-                                            <SearchSelect 
-                                                options={dayOptions}
-                                                value={dateParts.day}
-                                                onChange={val => {
-                                                    const p = { ...dateParts, day: val };
-                                                    setDateParts(p);
-                                                    updateDateFromParts(p);
-                                                }}
-                                                className="!border-border-subtle [&>div]:py-1.5 [&>div]:px-2 [&>div]:text-[10px]"
-                                                placeholder="დღე"
-                                            />
-                                            <SearchSelect 
-                                                options={monthOptions}
-                                                value={dateParts.month}
-                                                onChange={val => {
-                                                    const p = { ...dateParts, month: val };
-                                                    setDateParts(p);
-                                                    updateDateFromParts(p);
-                                                }}
-                                                className="!border-border-subtle [&>div]:py-1.5 [&>div]:px-2 [&>div]:text-[10px]"
-                                                placeholder="თვე"
-                                            />
-                                            <SearchSelect 
-                                                options={yearOptions}
-                                                value={dateParts.year}
-                                                onChange={val => {
-                                                    const p = { ...dateParts, year: val };
-                                                    setDateParts(p);
-                                                    updateDateFromParts(p);
-                                                }}
-                                                className="!border-border-subtle [&>div]:py-1.5 [&>div]:px-2 [&>div]:text-[10px]"
-                                                placeholder="წელი"
-                                            />
                                         </div>
                                     </div>
                                 )}

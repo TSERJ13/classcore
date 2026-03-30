@@ -25,74 +25,6 @@ import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@
 
 /* ─── Shared Components ──────────────────────────────────────── */
 
-function DatePickerGrid({ value, onChange, minYear, maxYear }: { value: string, onChange: (v: string) => void, minYear?: number, maxYear?: number }) {
-    const { lang } = useT();
-    const dayOptions = generateDayOptions();
-    const monthOptions = generateMonthOptions(lang);
-    
-    const currentYear = new Date().getFullYear();
-    const yearOptions = generateYearOptions(minYear ?? currentYear - 100, maxYear ?? currentYear + 10);
-
-    const initialDate = value ? new Date(value) : null;
-    const [parts, setParts] = useState({
-        day: initialDate ? String(initialDate.getDate()).padStart(2, '0') : '',
-        month: initialDate ? String(initialDate.getMonth() + 1).padStart(2, '0') : '',
-        year: initialDate ? String(initialDate.getFullYear()) : ''
-    });
-
-    useEffect(() => {
-        if (value) {
-            const d = new Date(value);
-            if (!isNaN(d.getTime())) {
-                setParts({
-                    day: String(d.getDate()).padStart(2, '0'),
-                    month: String(d.getMonth() + 1).padStart(2, '0'),
-                    year: String(d.getFullYear())
-                });
-            }
-        } else {
-            setParts({ day: '', month: '', year: '' });
-        }
-    }, [value]);
-
-    const update = (newParts: typeof parts) => {
-        setParts(newParts);
-        if (newParts.day && newParts.month && newParts.year) {
-            const d = new Date(`${newParts.year}-${newParts.month}-${newParts.day}T12:00:00`);
-            if (!isNaN(d.getTime())) {
-                onChange(d.toISOString().split('T')[0]);
-            }
-        } else {
-            onChange('');
-        }
-    };
-
-    return (
-        <div className="grid grid-cols-3 gap-1.5 w-full">
-            <SearchSelect 
-                options={dayOptions} 
-                value={parts.day} 
-                onChange={v => update({ ...parts, day: v })} 
-                placeholder="დღე"
-                className="[&>div]:py-2 [&>div]:px-2 [&>div]:text-[11px]"
-            />
-            <SearchSelect 
-                options={monthOptions} 
-                value={parts.month} 
-                onChange={v => update({ ...parts, month: v })} 
-                placeholder="თვე"
-                className="[&>div]:py-2 [&>div]:px-2 [&>div]:text-[11px]"
-            />
-            <SearchSelect 
-                options={yearOptions} 
-                value={parts.year} 
-                onChange={v => update({ ...parts, year: v })} 
-                placeholder="წელი"
-                className="[&>div]:py-2 [&>div]:px-2 [&>div]:text-[11px]"
-            />
-        </div>
-    );
-}
 
 /* ─── Balance Card ───────────────────────────────────────────── */
 
@@ -852,9 +784,11 @@ export function StudentModal({
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <Field icon={<Calendar className="w-4 h-4" />} label={t.birthDate}>
-                                        <DatePickerGrid 
+                                        <input 
+                                            type="date"
                                             value={form.birth_date} 
-                                            onChange={v => set('birth_date', v)} 
+                                            onChange={e => set('birth_date', e.target.value)} 
+                                            className={inputCls}
                                         />
                                     </Field>
                                 </div>
@@ -934,11 +868,11 @@ export function StudentModal({
                                     </button>
                                     <Field icon={<Calendar className="w-4 h-4" />} label={t.passportExpiry}>
                                         <div className="space-y-2">
-                                            <DatePickerGrid 
+                                            <input 
+                                                type="date"
                                                 value={form.passport_expires_at} 
-                                                onChange={v => set('passport_expires_at', v)}
-                                                minYear={new Date().getFullYear() - 10}
-                                                maxYear={new Date().getFullYear() + 20}
+                                                onChange={e => set('passport_expires_at', e.target.value)} 
+                                                className={inputCls}
                                             />
                                             {passportExpired && (
                                                 <p className="text-[10px] font-black text-red-500 flex items-center gap-1.5 px-1 animate-pulse">
