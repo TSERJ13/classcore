@@ -47,14 +47,21 @@ export async function POST(req: Request) {
             diag.settingsFound = true;
         }
 
-        // 2. Auth Purge (if user ID or email provided)
-        if (userId || email) {
+        // 2. Auth Purge (Lookup by email if ID missing)
+        let targetId = userId;
+        if (!targetId && email) {
             try {
-                const { error: authErr } = userId 
-                    ? await supabase.auth.admin.deleteUser(userId)
-                    : await supabase.auth.admin.listUsers(); // Fallback dummy call or skip
-                
-                // If it fails but purely because of missing ID, it's not a dealbreaker for the studio deletion
+                const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+                if (!listError) {
+                    const found = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+                    if (found) targetId = found.id;
+                }
+            } catch (e) {}
+        }
+
+        if (targetId) {
+            try {
+                const { error: authErr } = await supabase.auth.admin.deleteUser(targetId);
                 diag.authPurge = authErr ? `failed: ${authErr.message}` : 'success';
             } catch (authCatch) {
                 diag.authPurge = 'catch-error';

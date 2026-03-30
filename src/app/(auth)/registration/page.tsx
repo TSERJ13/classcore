@@ -212,6 +212,50 @@ export default function RegisterPage() {
         setStep(next);
     };
 
+    const performFinalSync = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const slug = regData.studioSlug;
+            // 1. Gather all local setup data
+            const categories = ['halls', 'teachers', 'groups', 'student_data'];
+            const studioData: any = {};
+            
+            categories.forEach(cat => {
+                const key = getScopedKey(`cc_${cat}`, slug, 'main');
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    try {
+                        studioData[cat] = JSON.parse(raw);
+                    } catch (e) {}
+                }
+            });
+
+            // Handle keys that might have different internal names
+            if (studioData.student_data) {
+                studioData.students = studioData.student_data;
+                delete studioData.student_data;
+            }
+
+            // 2. Load settings for staff list
+            const settingsKey = `cc_studio_settings_${slug}`;
+            const settingsRaw = localStorage.getItem(settingsKey);
+            const settings = settingsRaw ? JSON.parse(settingsRaw) : {};
+            const staff = settings.staff || [];
+
+            // 3. Batch push to cloud
+            await pushStudioStateToCloud(slug, staff, studioData, 0, regData.orgId);
+            
+            setLoading(false);
+            return true;
+        } catch (err: any) {
+            console.error('Final sync failed:', err);
+            setError(lang === 'ka' ? 'სინქრონიზაცია ვერ მოხერხდა. სცადეთ თავიდან.' : 'Sync failed. Please try again.');
+            setLoading(false);
+            return false;
+        }
+    };
+
     const goBack = () => {
         if (prevSteps.length > 0) {
             const last = prevSteps[prevSteps.length - 1];
@@ -586,7 +630,7 @@ export default function RegisterPage() {
                                 <h3 className="text-xl font-black text-slate-800">{l('დაამატეთ სტუდენტი', 'Добавьте ученика', 'Add a Student')}</h3>
                                 <p className="text-sm text-slate-500 font-medium">{l('პირველი მოსწავლე თქვენს სტუდიაში', 'Первый ученик в вашей студии', 'The first student in your studio')}</p>
                             </div>
-                            <form onSubmit={(e) => {
+                            <form onSubmit={async (e) => {
                                 e.preventDefault();
                                 const f = new FormData(e.target as HTMLFormElement);
                                 saveStepData('student_data', { 
@@ -597,9 +641,10 @@ export default function RegisterPage() {
                                     birth_date: `${birthDateParts.year}-${birthDateParts.month}-${birthDateParts.day}`,
                                     gender: selectedGender,
                                     status: 'active', 
-                                    registered_at: new Date().toISOString() 
+                                    registered_at: new Date().toISOString()
                                 });
-                                setStep('success');
+                                const syncRes = await performFinalSync();
+                                if (syncRes) setStep('success');
                             }} className="space-y-4">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
