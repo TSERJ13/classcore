@@ -95,6 +95,7 @@ export interface Branch {
 
 export interface StudioSettings {
     orgId?: string;               // Persistent UUID for the studio
+    suspended?: boolean;          // Platform-level lock
     studioName: string;
     studioSlug: string;
     logoDataUrl: string | null;   // base64 image or null

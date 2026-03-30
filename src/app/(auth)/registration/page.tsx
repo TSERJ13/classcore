@@ -1,4 +1,6 @@
 'use client';
+import { pushStudioStateToCloud } from '@/lib/sync-store';
+import { type StaffMember } from '@/types';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -162,6 +164,10 @@ export default function RegisterPage() {
                     }]
                 };
                 localStorage.setItem(key, JSON.stringify(basicSettings));
+
+                // Push initial owner info and settings to cloud immediately
+                // so Superadmin sees the names right away even if they don't finish the wizard
+                pushStudioStateToCloud(studioSlug, basicSettings.staff as StaffMember[], basicSettings, 0, orgId);
             }
 
             setRegData(userData as any);

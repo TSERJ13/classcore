@@ -20,7 +20,7 @@ export async function POST(req: Request) {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
-        const targetSlug = slug?.trim();
+        const targetSlug = slug?.trim().toLowerCase();
         if (!targetSlug) {
             return NextResponse.json({ error: 'Studio slug is required' }, { status: 400 });
         }
@@ -61,13 +61,13 @@ export async function POST(req: Request) {
             }
         }
 
-        // If no records were found/deleted, it's technically a 404 for the caller
+        // If no records were found/deleted, we still consider it a success state (it's gone now)
         if (diag.settingsPurgeCount === 0) {
             return NextResponse.json({ 
-                success: false, 
-                error: `Studio "${targetSlug}" not found in cloud database.`, 
+                success: true, 
+                message: `Studio "${targetSlug}" was not found in cloud, but clean-up is complete.`, 
                 diag 
-            }, { status: 404 });
+            });
         }
 
         return NextResponse.json({ success: true, count: diag.settingsPurgeCount, diag });

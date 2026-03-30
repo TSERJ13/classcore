@@ -720,11 +720,11 @@ export default function StudiosPage() {
             </div>
 
             <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-hidden">
-                <div className="grid grid-cols-[1.5fr_0.6fr_1fr_1.2fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
+                <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.5fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
                     <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span>
                     <span className="text-center">{lang === 'ka' ? 'მოსწ.' : 'Stud.'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'მფლობელი' : 'Owner'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'საკონტაქტო' : 'Contact'}</span>
+                    <span className="text-left px-2">{lang === 'ka' ? 'მფლობელი' : 'Owner'}</span>
+                    <span className="text-left px-2">{lang === 'ka' ? 'საკონტაქტო' : 'Contact'}</span>
                     <span className="text-center">{lang === 'ka' ? 'გეგმა' : 'Plan'}</span>
                     <span className="text-center">{lang === 'ka' ? 'ბალანსი' : 'Balance'}</span>
                     <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
@@ -744,21 +744,24 @@ export default function StudiosPage() {
                         {filtered.map(studio => {
                             const diffDays = studio.nextDue ? Math.ceil((new Date(studio.nextDue).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 0;
                             return (
-                                        <div key={studio.slug} className="group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2">
-                                    <div className="grid grid-cols-[1.5fr_0.6fr_1fr_1.2fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-5 transition-colors">
+                                        <div key={studio.slug} className={cn(
+                                            "group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2 transition-colors",
+                                            studio.isLocalOnly && "border-l-4 border-l-amber-500 bg-amber-500/[0.02]"
+                                        )}>
+                                    <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.5fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-6">
                                         <div className="flex items-center gap-4 min-w-0">
-                                            <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
-                                                {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-5 h-5 text-zinc-300 opacity-40" />}
+                                            <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
+                                                {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6 text-zinc-300 opacity-40" />}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-sm font-black text-primary dark:text-white truncate flex items-center gap-2">
+                                                <p className="text-[15px] font-black text-primary dark:text-white truncate flex items-center gap-2 leading-none">
                                                     {studio.name}
                                                     {studio.studentCount > 150 && <span title="High Activity"><AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-pulse" /></span>}
                                                 </p>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-[10px] text-muted font-mono uppercase tracking-tighter">/{studio.slug}</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <p className="text-[10px] text-muted font-mono uppercase tracking-tighter opacity-60">/{studio.slug}</p>
                                                     {studio.isLocalOnly && (
-                                                        <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-widest border border-amber-500/20">
+                                                        <span className="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest">
                                                             Local Only
                                                         </span>
                                                     )}
@@ -767,20 +770,20 @@ export default function StudiosPage() {
                                         </div>
                                         
                                         <div className="text-center">
-                                            <span className="text-sm font-black text-primary dark:text-white tabular-nums">{studio.studentCount}</span>
-                                            <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest">{lang === 'ka' ? 'მოსწავლე' : 'stud.'}</p>
+                                            <span className="text-base font-black text-primary dark:text-white tabular-nums">{studio.studentCount}</span>
+                                            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">{lang === 'ka' ? 'მოსწავლე' : 'stud.'}</p>
                                         </div>
 
-                                        <div className="text-center min-w-0">
-                                            <p className="text-[10px] font-black text-primary dark:text-white truncate">{studio.ownerName || 'N/A'}</p>
-                                            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest truncate">{studio.ownerEmail}</p>
+                                        <div className="px-2 min-w-0">
+                                            <p className="text-xs font-black text-primary dark:text-white truncate leading-tight">{studio.ownerName || 'N/A'}</p>
+                                            <p className="text-[10px] font-bold text-zinc-400 truncate opacity-70">{studio.ownerEmail}</p>
                                         </div>
 
-                                        <div className="text-center">
-                                            <p className="text-[10px] font-black text-primary dark:text-white">{studio.ownerPhone}</p>
-                                            <div className="flex items-center justify-center gap-1.5 mt-1">
+                                        <div className="px-2 min-w-0">
+                                            <p className="text-xs font-black text-primary dark:text-white leading-tight">{studio.ownerPhone}</p>
+                                            <div className="flex items-center gap-1.5 mt-1">
                                                 <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.3)]" />
-                                                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-tighter">Verified</p>
+                                                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter">Verified</p>
                                             </div>
                                         </div>
 
