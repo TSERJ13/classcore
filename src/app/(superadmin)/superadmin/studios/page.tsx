@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw } from 'lucide-react';
+import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw, ShieldAlert, RotateCcw } from 'lucide-react';
 import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms, extendSubscriptionByDays } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
 import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrateSlugData, clearAllStudioData, removeFromRegistry, type ResetCategories } from '@/lib/settings-store';
@@ -413,7 +413,7 @@ export default function StudiosPage() {
         });
     };
 
-    const restoreStudio = (slug: string) => {
+    const restoreFromTrash = (slug: string) => {
         saveMeta(slug, { deleted: false });
         loadData();
         setModal({ 
@@ -455,7 +455,10 @@ export default function StudiosPage() {
                     // 2. Remove from registry immediately to prevent re-addition
                     removeFromRegistry(slug);
 
-                    // 3. Refresh cloud state before updating UI
+                    // 3. Clear any meta-persistence
+                    localStorage.removeItem(`cc_sa_meta_${slug}`);
+                    
+                    // 4. Update cloud state
                     await syncFromCloud();
                     
                     setModal({ 
@@ -726,13 +729,14 @@ export default function StudiosPage() {
             </div>
 
             <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-hidden">
-                <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.5fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
+                <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center">
                     <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span>
                     <span className="text-center">{lang === 'ka' ? 'მოსწ.' : 'Stud.'}</span>
                     <span className="text-left px-2">{lang === 'ka' ? 'მფლობელი' : 'Owner'}</span>
                     <span className="text-left px-2">{lang === 'ka' ? 'საკონტაქტო' : 'Contact'}</span>
                     <span className="text-center">{lang === 'ka' ? 'გეგმა' : 'Plan'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'ბალანსი' : 'Balance'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'ბალანსი' : 'Bal.'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'ვადა' : 'Add'}</span>
                     <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
                     <span className="text-right">{lang === 'ka' ? 'მართვა' : 'Actions'}</span>
                 </div>
@@ -750,11 +754,11 @@ export default function StudiosPage() {
                         {filtered.map(studio => {
                             const diffDays = studio.nextDue ? Math.ceil((new Date(studio.nextDue).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 0;
                             return (
-                                        <div key={studio.slug} className={cn(
-                                            "group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2 transition-colors",
-                                            studio.isLocalOnly && "border-l-4 border-l-amber-500 bg-amber-500/[0.02]"
-                                        )}>
-                                    <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.5fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-6">
+                                <div key={studio.slug} className={cn(
+                                    "group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2 transition-colors",
+                                    studio.isLocalOnly && "border-l-4 border-l-amber-500 bg-amber-500/[0.02]"
+                                )}>
+                                    <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-6">
                                         <div className="flex items-center gap-4 min-w-0">
                                             <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
                                                 {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6 text-zinc-300 opacity-40" />}
@@ -786,7 +790,7 @@ export default function StudiosPage() {
                                         </div>
 
                                         <div className="px-2 min-w-0">
-                                            <p className="text-xs font-black text-primary dark:text-white leading-tight">{studio.ownerPhone}</p>
+                                            <p className="text-xs font-black text-primary dark:text-white leading-tight">{studio.ownerPhone || 'N/A'}</p>
                                             <div className="flex items-center gap-1.5 mt-1">
                                                 <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.3)]" />
                                                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter">Verified</p>
@@ -830,21 +834,20 @@ export default function StudiosPage() {
                                                         }
                                                     });
                                                 }}
-                                                className="px-2 py-1 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-lg hover:border-indigo-500/30 transition-all group/bal shadow-inner"
+                                                className="px-2 py-1 bg-black/5 dark:bg-zinc-500/5 border border-black/5 dark:border-border-subtle/50 rounded-lg hover:border-indigo-500/30 transition-all group/bal"
                                             >
-                                                <span className="text-xs font-black text-primary dark:text-white tabular-nums group-hover/bal:text-indigo-600 dark:group-hover/bal:text-indigo-400 transition-colors">
+                                                <span className="text-xs font-black text-primary dark:text-white tabular-nums">
                                                     {Math.round(getBillingState(studio.slug).accountBalance || 0)}₾
                                                 </span>
                                             </button>
                                         </div>
 
-                                        {/* Activation Days Tool */}
                                         <div className="text-center">
                                             <button 
                                                 onClick={() => {
                                                     setModal({
                                                         type: 'input',
-                                                        title: lang === 'ka' ? 'დამატებითი დღეები' : 'Extend Activation',
+                                                        title: lang === 'ka' ? 'ვადის გაგრძელება' : 'Extend Validity',
                                                         message: lang === 'ka' ? `რამდენი დღით გსურთ ვადის გაგრძელება?` : `How many days to add?`,
                                                         inputVal: '30',
                                                         onConfirm: (val) => {
@@ -857,52 +860,27 @@ export default function StudiosPage() {
                                                         }
                                                     });
                                                 }}
-                                                className="px-4 py-2 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl hover:border-indigo-500/30 transition-all group/days shadow-inner"
+                                                className="px-2.5 py-1 bg-black/5 dark:bg-zinc-500/5 border border-black/5 dark:border-border-subtle/50 rounded-lg hover:border-indigo-500/30 transition-all font-black text-[9px] uppercase tracking-widest text-muted"
                                             >
-                                                <span className="text-sm font-black text-primary dark:text-white tabular-nums group-hover/days:text-indigo-600 dark:group-hover/days:text-indigo-400 transition-colors">
-                                                    + {lang === 'ka' ? 'დღე' : 'Days'}
-                                                </span>
-                                            </button>
-                                        </div>
-
-                                        <div className="text-center">
-                                            <button 
-                                                onClick={() => {
-                                                    const currentBal = Math.round(getBillingState(studio.slug).accountBalance || 0);
-                                                    setModal({
-                                                        type: 'input',
-                                                        title: lang === 'ka' ? 'ბალანსის შეცვლა' : 'Adjust Balance',
-                                                        message: lang === 'ka' ? `მიუთითეთ ახალი ბალანსი სტუდიისთვის ${studio.name}` : `Enter new balance for ${studio.name}`,
-                                                        inputVal: String(currentBal),
-                                                        onConfirm: (val) => {
-                                                            const num = Number(val);
-                                                            if (!isNaN(num)) {
-                                                                updateBillingState(studio.slug, { accountBalance: num });
-                                                                loadData();
-                                                            }
-                                                            setModal({ type: null, title: '', message: '' });
-                                                        }
-                                                    });
-                                                }}
-                                                className="px-4 py-2 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl hover:border-indigo-500/30 transition-all group/bal shadow-inner"
-                                            >
-                                                <span className="text-sm font-black text-primary dark:text-white tabular-nums group-hover/bal:text-indigo-600 dark:group-hover/bal:text-indigo-400 transition-colors">
-                                                    {Math.round(getBillingState(studio.slug).accountBalance || 0)} ₾
-                                                </span>
+                                                + {lang === 'ka' ? 'დღე' : 'Days'}
                                             </button>
                                         </div>
 
                                         <div className="flex items-center justify-center">
-                                            <button onClick={() => toggleSuspend(studio.slug)} className={cn('flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95', studio.suspended ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20')}>
-                                                <Power className="w-3.5 h-3.5" />{studio.suspended ? (lang === 'ka' ? 'შეჩერებული' : 'Blocked') : (lang === 'ka' ? 'აქტიური' : 'Active')}
+                                            <button onClick={() => toggleSuspend(studio.slug)} className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border', studio.suspended ? 'bg-rose-500/5 text-rose-500 border-rose-500/20' : 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20')}>
+                                                <Power className="w-3 h-3" />{studio.suspended ? 'Locked' : 'Active'}
                                             </button>
                                         </div>
 
-                                        <div className="flex items-center justify-end gap-1">
+                                        <div className="flex items-center justify-end gap-1.5 pr-4">
                                             {activeTab === 'active' ? (
                                                 <>
-                                                    <button onClick={() => sendReminder(studio)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-amber-500 hover:text-white hover:bg-amber-500 transition-all" title={lang === 'ka' ? 'სმს შეხსენება' : 'Send SMS Reminder'}><Smartphone className="w-3.5 h-3.5" /></button>
-                                                    <button onClick={() => impersonate(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-emerald-500 hover:text-white hover:bg-emerald-500 transition-all" title={lang === 'ka' ? 'შესვლა' : 'Impersonate'}><LogIn className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => sendReminder(studio)} className="p-2 text-zinc-400 hover:text-amber-500 transition-colors" title={lang === 'ka' ? 'შეხსენება' : 'Reminder'}>
+                                                        <Smartphone className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => impersonate(studio.slug)} className="p-2 text-zinc-400 hover:text-emerald-500 transition-colors" title={lang === 'ka' ? 'შესვლა' : 'Impersonate'}>
+                                                        <LogIn className="w-4 h-4" />
+                                                    </button>
                                                     <button 
                                                         onClick={() => { 
                                                             const s = loadSettings(studio.slug);
@@ -915,27 +893,40 @@ export default function StudiosPage() {
                                                             setProfileLastName(s.owner_info?.last_name || '');
                                                             setProfileLogo(s.logoDataUrl || studio.logoUrl || '');
                                                         }} 
-                                                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
-                                                        title={lang === 'ka' ? 'მართვა' : 'Full Control'}
+                                                        className="p-2 text-zinc-400 hover:text-indigo-500 transition-colors"
+                                                        title={lang === 'ka' ? 'მართვა' : 'Control'}
                                                     >
-                                                        <Settings className="w-3.5 h-3.5" />
+                                                        <Settings className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => moveToTrash(studio.slug)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 text-rose-500 hover:text-white hover:bg-rose-500 transition-all" title={lang === 'ka' ? 'სანაგვეში გადატანა' : 'Move to Trash'}><Trash2 className="w-3.5 h-3.5" /></button>
+                                                    <button 
+                                                        onClick={() => moveToTrash(studio.slug)}
+                                                        className="p-2 text-zinc-300 hover:text-rose-500 transition-colors"
+                                                        title={lang === 'ka' ? 'სანაგვეში გადატანა' : 'Move to Trash'}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                 </>
                                             ) : (
-                                                <>
-                                                    <button onClick={() => restoreStudio(studio.slug)} className="group flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-emerald-500/20" title={lang === 'ka' ? 'აღდგენა' : 'Restore'}>
-                                                        <RefreshCcw className="w-3 h-3 group-hover:rotate-180 transition-all duration-500" />
-                                                        {lang === 'ka' ? 'აღდგენა' : 'Restore'}
+                                                <div className="flex items-center gap-1">
+                                                    <button 
+                                                        onClick={() => restoreFromTrash(studio.slug)}
+                                                        className="p-2 text-zinc-300 hover:text-emerald-500 transition-colors"
+                                                        title={lang === 'ka' ? 'აღდგენა' : 'Restore'}
+                                                    >
+                                                        <RotateCcw className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => purgeStudio(studio.slug)} className="group flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-rose-500/20" title={lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Permanent Delete'}>
-                                                        <Zap className="w-3 h-3" />
-                                                        {lang === 'ka' ? 'წაშლა' : 'Purge'}
+                                                    <button 
+                                                        onClick={() => purgeStudio(studio.slug)}
+                                                        className="p-2 text-zinc-300 hover:text-rose-600 transition-colors"
+                                                        title={lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Purge Forever'}
+                                                    >
+                                                        <ShieldAlert className="w-4 h-4" />
                                                     </button>
-                                                </>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
+
                                     {(editingNote === studio.slug || studio.notes) && (
                                         <div className="px-8 pb-5 flex items-start gap-3">
                                             <div className="flex-1">
