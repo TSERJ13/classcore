@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw } from 'lucide-react';
 import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms, extendSubscriptionByDays } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
-import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrateSlugData, clearAllStudioData, type ResetCategories } from '@/lib/settings-store';
+import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrateSlugData, clearAllStudioData, removeFromRegistry, type ResetCategories } from '@/lib/settings-store';
 import { getScopedKey, cn, compactSlugify } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { pushStudioStateToCloud } from '@/lib/sync-store';
 
 interface StudioRecord {
     slug: string; name: string; logoUrl: string | null;
@@ -116,6 +117,11 @@ export default function StudiosPage() {
                     });
                     const data = await res.json();
                     if (res.ok) {
+                        // Clean local registry for matching pattern to avoid "revert" flash
+                        const list = getStudioRegistry();
+                        const nextList = list.filter(s => !s.startsWith('load-test-'));
+                        localStorage.setItem('cc_studios_list', JSON.stringify(nextList));
+                        
                         setModal({ type: 'alert', title: 'Success', message: `Purged ${data.deleted} test studios.` });
                         loadData();
                     } else {
@@ -422,7 +428,13 @@ export default function StudiosPage() {
                         throw new Error(data.error || 'API deletion failed');
                     }
 
+                    // 1. Clear local data first
                     clearAllStudioData(slug);
+                    
+                    // 2. Remove from registry immediately to prevent re-addition
+                    removeFromRegistry(slug);
+
+                    // 3. Refresh cloud state before updating UI
                     await syncFromCloud();
                     
                     setModal({ 
@@ -506,6 +518,9 @@ export default function StudiosPage() {
             
             localStorage.setItem(`cc_studio_settings_${cleanSlug}`, JSON.stringify(settings));
 
+            // CRITICAL: Push updated state to cloud so it's no longer "Local Only"
+            await pushStudioStateToCloud(cleanSlug, settings.staff || [], settings);
+
         } catch (e) {
             console.error('❌ Error updating local settings:', e);
         }
@@ -529,20 +544,38 @@ export default function StudiosPage() {
             onConfirm: async () => {
                 setModal(m => ({ ...m, loading: true }));
                 try {
-                    // Loop through and purge each one locally and ideally on cloud
-                    // Note: In a real app we'd have a batch API for this
-                    trashed.forEach(s => {
-                        clearAllStudioData(s.slug);
+                    const slugs = trashed.map(s => s.slug);
+                    
+                    // 1. Cloud Batch Deletion
+                    const res = await fetch('/api/superadmin/global-purge', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ slugs })
                     });
                     
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Batch deletion failed');
+                    
+                    // 2. Local Cleanup
+                    slugs.forEach(slug => {
+                        clearAllStudioData(slug);
+                        removeFromRegistry(slug);
+                    });
+                    
+                    // 3. Sync & Inform
                     await syncFromCloud();
                     setModal({ 
                         type: 'alert', 
                         title: lang === 'ka' ? 'წარმატება' : 'Success', 
                         message: lang === 'ka' ? 'სანაგვე გასუფთავდა!' : 'Trash emptied successfully!' 
                     });
-                } catch (err) {
-                    setModal({ type: 'alert', title: 'Error', message: 'Failed to empty trash' });
+                } catch (err: any) {
+                    console.error('❌ Failed to empty trash:', err);
+                    setModal({ 
+                        type: 'alert', 
+                        title: lang === 'ka' ? 'შეცდომა' : 'Error', 
+                        message: lang === 'ka' ? `სანაგვის დაცლა ვერ მოხერხდა: ${err.message}` : `Failed to empty trash: ${err.message}` 
+                    });
                 }
             }
         });

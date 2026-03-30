@@ -22,10 +22,13 @@ export async function POST(req: Request) {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
-        // Update the studio_slug in the studio_settings table
+        // Update the studio_slug and timestamp in the studio_settings table
         const { error, count } = await supabase
             .from('studio_settings')
-            .update({ studio_slug: newSlug })
+            .update({ 
+                studio_slug: newSlug,
+                updated_at: new Date().toISOString()
+            })
             .eq('studio_slug', oldSlug)
             .select();
 
