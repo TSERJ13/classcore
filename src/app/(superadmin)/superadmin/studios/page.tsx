@@ -151,6 +151,7 @@ export default function StudiosPage() {
     });
 
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isInitialSyncDone, setIsInitialSyncDone] = useState(false);
     const [cloudStudios, setCloudStudios] = useState<any[]>([]);
 
     const syncFromCloud = async () => {
@@ -178,7 +179,7 @@ export default function StudiosPage() {
                     
                     const existing = getStudioRegistry();
                 
-                // 1. SMART PRUNING: Remove slugs that were previously synced to cloud but are now missing
+                // 1. SMART PRUNING: Remove slugs that are not in the live cloud list
                 const prunedList = existing.filter(slug => {
                     // Always keep the demo and our primary entry
                     if (slug === 'demo.classcore.ge') return true;
@@ -186,28 +187,35 @@ export default function StudiosPage() {
                     // If it's in the cloud, keep it
                     if (cloudSlugs.includes(slug)) return true;
                     
-                    // If it's NOT in the cloud, check if it was previously synced
-                    const settingsKey = `cc_studio_settings_${slug}`;
-                    const localDataExists = !!localStorage.getItem(settingsKey);
-                    
+                    // If it's NOT in the cloud, check the blacklist (allow 10 min window for deletion sync)
+                    if (blacklistedSlugs.includes(slug)) return false;
+
+                    // AGGRESSIVE: If it was synced once (has orgId) but is missing from live cloud list, 
+                    // it was deleted elsewhere -> Wipe it.
                     const settings = loadSettings(slug);
-                    const isPreviouslySynced = !!settings.orgId;
-                    
-                    // If it was synced but now it's gone from cloud list, it was deleted -> Prune it AGGRESSIVELY.
-                    if (isPreviouslySynced) return false;
-                    
-                    // If it was never synced (Local Only), KEEP it ONLY if there's actual data.
-                    // If there's no data (orphaned from a previous clear), PRUNE it from the registry.
-                    return localDataExists;
+                    if (settings.orgId) return false;
+
+                    // If it's pure "Local Only" (never synced), only keep it if there's actual settings.
+                    // But for Superadmins, we should almost ALWAYS trust the cloud.
+                    return !!localStorage.getItem(`cc_studio_settings_${slug}`);
                 });
 
                 // 2. Add new slugs discovered in cloud
                 const newSlugs = cloudSlugs.filter((s: string) => !prunedList.includes(s));
                 const nextList = [...prunedList, ...newSlugs];
                 
+                // 3. FINAL PURGE: If a slug was removed during pruning, also delete its settings from localStorage
+                existing.forEach(slug => {
+                    if (!nextList.includes(slug) && slug !== 'demo.classcore.ge') {
+                        localStorage.removeItem(`cc_studio_settings_${slug}`);
+                        localStorage.removeItem(`cc_sa_meta_${slug}`);
+                    }
+                });
+
                 localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(nextList)]));
                 
-                // Trigger local refresh
+                // 4. Mark initial sync complete and refresh list
+                setIsInitialSyncDone(true);
                 loadData();
             }
         } catch (err) {
@@ -233,6 +241,12 @@ export default function StudiosPage() {
 
             // Find matching cloud data for owner info if local is missing
             const cloud = cloudStudios.find(c => c.slug === slug);
+            
+            // STRICT FILTER FOR SUPERADMIN: Hide "Local Only" ghosts unless it's the demo.
+            // also hide everything until the first sync is DONE to prevent flicker.
+            if (!isInitialSyncDone) return null;
+            if (!cloud && slug !== 'demo.classcore.ge') return null;
+
             const owner = s.owner_info || s.staff.find(m => m.role === 'owner');
 
             return { 
@@ -253,7 +267,7 @@ export default function StudiosPage() {
                 ownerName: owner ? (('first_name' in owner) ? `${owner.first_name} ${owner.last_name}` : (owner as any).full_name) : cloud?.ownerName,
                 isLocalOnly: !cloud // Set flag if not found in cloudStudios list
             };
-        });
+        }).filter(Boolean) as StudioRecord[];
         setStudios(loaded);
     };
 
@@ -270,13 +284,26 @@ export default function StudiosPage() {
                     const newSlug = compactSlugify(oldSlug);
                     if (oldSlug === newSlug) continue;
 
-                    // Ensure no collision
+                    // Strategy: If mystudio already exists, we should only append a suffix 
+                    // if it belongs to a DIFFERENT owner. If it's the SAME owner, the migration 
+                    // should just happen (or skip if already matched).
                     const existingList = getStudioRegistry();
+                    const cloudOriginal = cloudStudios.find(s => s.slug === oldSlug);
+                    
                     let finalNewSlug = newSlug;
                     let counter = 1;
+                    
+                    // IF Target exists but has a DIFFERENT owner email/ID, then we suffix.
                     while (existingList.includes(finalNewSlug)) {
+                        const targetInfo = cloudStudios.find(s => s.slug === finalNewSlug);
+                        if (targetInfo && cloudOriginal && targetInfo.ownerEmail === cloudOriginal.ownerEmail) {
+                            // Same owner - don't create a suffix, just use the exists one or skip
+                            break; 
+                        }
                         finalNewSlug = `${newSlug}${counter++}`;
                     }
+
+                    if (oldSlug === finalNewSlug) continue;
 
                     try {
                         const res = await fetch('/api/superadmin/studios/update-slug', {

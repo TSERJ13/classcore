@@ -85,7 +85,24 @@ export default function RegisterPage() {
             const { createClient } = await import('@/lib/supabase/client');
             const supabase = createClient();
 
-            const studioSlug = compactSlugify(studioName);
+            // 1. ATOMIC SLUG RESERVATION: Ensure the slug is unique before proceeding
+            let studioSlug = compactSlugify(studioName);
+            
+            const { data: cloudList, error: listError } = await supabase.from('studio_settings').select('studio_slug, owner_email');
+            if (!listError && cloudList) {
+                const existingSlugs = cloudList.map(s => s.studio_slug);
+                let counter = 1;
+                const baseSlug = studioSlug;
+                
+                while (existingSlugs.includes(studioSlug)) {
+                    const targetInfo = cloudList.find(s => s.studio_slug === studioSlug);
+                    if (targetInfo && targetInfo.owner_email === email) {
+                        break; 
+                    }
+                    studioSlug = `${baseSlug}${counter++}`;
+                }
+            }
+
             const orgId = crypto.randomUUID();
 
             const { data, error: signUpError } = await supabase.auth.signUp({
