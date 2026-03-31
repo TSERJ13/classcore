@@ -599,7 +599,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         const dataPrefixes = [
                             'cc_checkins', 'cc_shop_sales', 'cc_notifications', 
                             'cc_calendar_events', 'cc_student_data', 'cc_student_subscriptions',
-                            'cc_group_data', 'cc_attendance_data', 'cc_subscription_plans',
+                            'cc_groups', 'cc_halls', 'cc_attendance_data', 'cc_subscription_plans',
                             'cc_shop_products', 'cc_teachers', 'cc_sales'
                         ];
                         if (dataPrefixes.some(p => k.includes(p))) {

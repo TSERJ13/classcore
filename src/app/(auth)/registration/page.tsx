@@ -281,19 +281,21 @@ export default function RegisterPage() {
             const slug = regData.studioSlug;
             // 1. Gather all local setup data
             const categories = [
-                { id: 'halls', base: 'cc_halls' },
-                { id: 'groups', base: 'cc_groups' },
-                { id: 'student_data', base: 'cc_student_data' }
+                'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
+                'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
+                'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications',
+                'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_hall_rental',
+                'cc_uid_registry', 'cc_attendance_archive', 'cc_expenses',
+                'cc_audit_logs', 'cc_salary_status', 'cc_trash_bin'
             ];
             const studioData: any = {};
             
-            categories.forEach(cat => {
-                const key = getScopedKey(cat.base, slug, 'main');
+            categories.forEach(prefix => {
+                const key = getScopedKey(prefix, slug, 'main');
                 const raw = localStorage.getItem(key);
                 if (raw) {
                     try {
-                        const parsed = JSON.parse(raw);
-                        studioData[cat.id === 'student_data' ? 'students' : cat.id] = parsed;
+                        studioData[key] = JSON.parse(raw);
                     } catch (e) {}
                 }
             });
@@ -306,6 +308,9 @@ export default function RegisterPage() {
 
             // 3. Batch push to cloud
             await pushStudioStateToCloud(slug, staff, studioData, 0, regData.orgId);
+            
+            // 4. Mark as cleansed so Dashboard doesn't wipe it
+            localStorage.setItem(`cc_cleansed_${slug}`, 'true');
             
             setLoading(false);
             return true;
@@ -843,6 +848,7 @@ export default function RegisterPage() {
                             <div className="flex justify-center pt-2">
                                 <button
                                     onClick={() => {
+                                        localStorage.setItem(`cc_cleansed_${regData.studioSlug}`, 'true');
                                         sessionStorage.removeItem('cc_registration_wizard_state');
                                         window.location.href = '/dashboard';
                                     }}
