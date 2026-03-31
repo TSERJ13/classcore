@@ -22,7 +22,8 @@ export default function RegisterPage() {
     const [selectedGender, setSelectedGender] = useState<'male' | 'female'>('male');
     const [regData, setRegData] = useState({
         email: '', password: '', firstName: '', lastName: '', 
-        studioName: '', studioSlug: '', phone: '', orgId: ''
+        studioName: '', studioSlug: '', phone: '', orgId: '',
+        hallId: '', teacherId: '', groupId: '', studentId: ''
     });
 
     const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -136,7 +137,11 @@ export default function RegisterPage() {
             const userData = {
                 email, password, firstName, lastName, 
                 studioName, studioSlug, phone, orgId,
-                userId: data.user?.id
+                userId: data.user?.id,
+                hallId: crypto.randomUUID(),
+                teacherId: crypto.randomUUID(),
+                groupId: crypto.randomUUID(),
+                studentId: `S-${Math.floor(1000 + Math.random() * 9000)}`
             };
             
             if (typeof window !== 'undefined') {
@@ -203,25 +208,65 @@ export default function RegisterPage() {
         
         let baseType = `cc_${type}`;
         if (type === 'halls') baseType = 'cc_halls';
-        if (type === 'teachers') baseType = 'cc_teachers';
         if (type === 'groups') baseType = 'cc_groups';
         if (type === 'student_data') baseType = 'cc_student_data';
 
+        // SPECIAL CASE: Teachers are part of studio_settings/staff
+        if (type === 'teachers') {
+            const settingsKey = `cc_studio_settings_${slug}`;
+            try {
+                const raw = localStorage.getItem(settingsKey);
+                const settings = raw ? JSON.parse(raw) : { staff: [] };
+                
+                // Use the persistent teacherId
+                const tid = regData.teacherId || data.id;
+                const finalData = { ...data, id: tid };
+
+                const existingIdx = (settings.staff || []).findIndex((s: any) => s.id === tid);
+                if (existingIdx > -1) {
+                    settings.staff[existingIdx] = { ...settings.staff[existingIdx], ...finalData };
+                } else {
+                    settings.staff = [...(settings.staff || []), finalData];
+                }
+                
+                localStorage.setItem(settingsKey, JSON.stringify(settings));
+                return;
+            } catch (e) {
+                console.error('Failed to save teacher to settings', e);
+            }
+        }
+
         const key = getScopedKey(baseType, slug, 'main');
         
-        let existing: any = (type === 'student_data') ? {} : [];
-        try {
-            const raw = localStorage.getItem(key);
-            existing = raw ? JSON.parse(raw) : existing;
-        } catch {}
-        
         if (type === 'student_data') {
-            const id = data.id || `S-${Math.floor(1000 + Math.random() * 9000)}`;
-            localStorage.setItem(key, JSON.stringify({ ...existing, [id]: { ...data, id } }));
+            const sid = regData.studentId || data.id || `S-${Math.floor(1000 + Math.random() * 9000)}`;
+            let existing: any = {};
+            try {
+                const raw = localStorage.getItem(key);
+                existing = raw ? JSON.parse(raw) : {};
+            } catch {}
+            localStorage.setItem(key, JSON.stringify({ ...existing, [sid]: { ...data, id: sid } }));
             return;
         }
 
-        localStorage.setItem(key, JSON.stringify([...(Array.isArray(existing) ? existing : []), data]));
+        // For Halls and Groups: find and update by ID to prevent duplication
+        let list: any[] = [];
+        try {
+            const raw = localStorage.getItem(key);
+            list = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(list)) list = [];
+        } catch {}
+
+        const targetId = data.id;
+        const idx = list.findIndex((item: any) => item.id === targetId);
+        
+        if (idx > -1) {
+            list[idx] = { ...list[idx], ...data };
+        } else {
+            list.push(data);
+        }
+
+        localStorage.setItem(key, JSON.stringify(list));
     };
 
     const nextStep = (next: Step) => {
@@ -235,24 +280,23 @@ export default function RegisterPage() {
         try {
             const slug = regData.studioSlug;
             // 1. Gather all local setup data
-            const categories = ['halls', 'teachers', 'groups', 'student_data'];
+            const categories = [
+                { id: 'halls', base: 'cc_halls' },
+                { id: 'groups', base: 'cc_groups' },
+                { id: 'student_data', base: 'cc_student_data' }
+            ];
             const studioData: any = {};
             
             categories.forEach(cat => {
-                const key = getScopedKey(`cc_${cat}`, slug, 'main');
+                const key = getScopedKey(cat.base, slug, 'main');
                 const raw = localStorage.getItem(key);
                 if (raw) {
                     try {
-                        studioData[cat] = JSON.parse(raw);
+                        const parsed = JSON.parse(raw);
+                        studioData[cat.id === 'student_data' ? 'students' : cat.id] = parsed;
                     } catch (e) {}
                 }
             });
-
-            // Handle keys that might have different internal names
-            if (studioData.student_data) {
-                studioData.students = studioData.student_data;
-                delete studioData.student_data;
-            }
 
             // 2. Load settings for staff list
             const settingsKey = `cc_studio_settings_${slug}`;
@@ -410,11 +454,12 @@ export default function RegisterPage() {
                                 e.preventDefault();
                                 const f = new FormData(e.target as HTMLFormElement);
                                 saveStepData('halls', { 
-                                    id: crypto.randomUUID(), 
+                                    id: regData.hallId || crypto.randomUUID(), 
                                     name: f.get('name'), 
-                                    capacity: parseInt(f.get('capacity') as string) || 0, 
+                                    capacity: parseInt(f.get('capacity') as string) || 20, 
                                     sq_meters: parseInt(f.get('sq_meters') as string) || 0,
-                                    is_active: true 
+                                    is_active: true,
+                                    status: 'active'
                                 });
                                 nextStep('teachers');
                             }} className="space-y-4">
@@ -465,14 +510,20 @@ export default function RegisterPage() {
                                 const fullName = `${first} ${last}`.trim();
                                 
                                 saveStepData('teachers', { 
-                                    id: crypto.randomUUID(), 
+                                    id: regData.teacherId || crypto.randomUUID(), 
                                     first_name: first, 
                                     last_name: last, 
                                     full_name: fullName,
                                     phone: f.get('p'), 
                                     specialty: [f.get('s')], 
                                     role: 'teacher', 
-                                    status: 'active' 
+                                    status: 'active',
+                                    permissions: { 
+                                        canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
+                                        canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
+                                        canViewTeachers: true, canViewHalls: true, canViewShop: true,
+                                        canViewAnalytics: true, canViewSMS: true
+                                    }
                                 });
                                 nextStep('groups');
                             }} className="space-y-4">
@@ -522,7 +573,7 @@ export default function RegisterPage() {
                             <form onSubmit={(e) => {
                                 e.preventDefault();
                                 const f = new FormData(e.target as HTMLFormElement);
-                                const gId = crypto.randomUUID();
+                                const gId = regData.groupId || crypto.randomUUID();
                                 const gName = f.get('name') as string;
 
                                 const dayMap: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
@@ -542,7 +593,11 @@ export default function RegisterPage() {
                                     name: gName, 
                                     schedule: selectedDays.map(d => d.toUpperCase()).join('/'), 
                                     schedule_slots: slots,
-                                    studio_slug: regData.studioSlug 
+                                    studio_slug: regData.studioSlug,
+                                    capacity: 20,
+                                    enrolled: 0,
+                                    type: 'Dance',
+                                    status: 'active'
                                 });
 
                                 import('@/lib/event-store').then(mod => {
@@ -656,6 +711,7 @@ export default function RegisterPage() {
                                 e.preventDefault();
                                 const f = new FormData(e.target as HTMLFormElement);
                                 saveStepData('student_data', { 
+                                    id: regData.studentId || crypto.randomUUID(),
                                     first_name: f.get('f'), 
                                     last_name: f.get('l'), 
                                     full_name: `${f.get('f')} ${f.get('l')}`.trim(),
