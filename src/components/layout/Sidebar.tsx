@@ -107,12 +107,12 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                 <div className="flex items-center gap-3">
                     <div className={cn(
                         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0",
-                        !settings.logoDataUrl ? `bg-gradient-to-br ${theme.from} ${theme.to} border-white/20` : "bg-card border-border-subtle shadow-inner"
+                        !settings.logoDataUrl ? "bg-indigo-500/10 border-indigo-500/20" : "bg-card border-border-subtle shadow-inner"
                     )} style={settings.logoDataUrl ? { borderColor: theme.accentHex } : {}}>
                         {settings.logoDataUrl ? (
                             <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
                         ) : (
-                            <span className="text-lg font-black text-white">{getInitial(settings.studioName)}</span>
+                            <span className="text-lg font-black text-indigo-500">{getInitial(settings.studioName)}</span>
                         )}
                     </div>
 
@@ -120,7 +120,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                         "flex flex-col items-start transition-all duration-300 min-w-0 flex-1",
                         exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                     )}>
-                        <span className="text-[14px] font-black text-[#1e293b] dark:text-white truncate tracking-tight leading-tight transition-colors">
+                        <span className="text-[14px] font-black text-white truncate tracking-tight leading-tight transition-colors">
                             {(settings.studioName && settings.studioName.toLowerCase() !== 'studio') 
                                 ? settings.studioName 
                                 : (profile?.studio_name && profile.studio_name.toLowerCase() !== 'studio')
