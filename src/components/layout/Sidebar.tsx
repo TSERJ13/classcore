@@ -120,8 +120,8 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                         "flex flex-col items-start transition-all duration-300 min-w-0 flex-1",
                         exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                     )}>
-                        <span className="text-[14px] font-black text-[#1e293b] dark:text-white truncate tracking-tight leading-tight group-hover:text-indigo-600 transition-colors">
-                            {settings.studioName && !settings.studioName.toLowerCase().includes('demo') ? settings.studioName : (profile?.studio_name || 'Studio')}
+                        <span className="text-[14px] font-black text-[#1e293b] dark:text-white truncate tracking-tight leading-tight transition-colors">
+                            {settings.studioName && !settings.studioName.toLowerCase().includes('dance studio') ? settings.studioName : (profile?.studio_name || settings.studioName || 'Studio')}
                         </span>
 
                         <div className="flex items-center gap-2 mt-0.5">

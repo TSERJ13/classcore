@@ -174,7 +174,7 @@ export default function StudentsPage() {
                                 { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-emerald-500', hoverColor: 'hover:text-emerald-600' },
                                 { id: 'inactive', label: t.expired, icon: AlertCircle, activeColor: 'bg-rose-500', hoverColor: 'hover:text-rose-600' },
                             ].map(v => (
-                                <button key={v.id} onClick={() => setStatusFilter(v.id as any)}
+                                <button key={v.id} onClick={() => setStatusFilter(prev => prev === v.id ? 'all' : v.id as any)}
                                     className={cn(
                                         'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all truncate',
                                         statusFilter === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface-hover', v.hoverColor)
@@ -243,11 +243,11 @@ export default function StudentsPage() {
                                             <span>{t.allFilter}</span>
                                             {genderFilter === 'all' && <Check className="w-4 h-4" />}
                                         </button>
-                                        <button onClick={() => { setGenderFilter('male'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'male' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setGenderFilter(prev => prev === 'male' ? 'all' : 'male'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'male' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.male}</span>
                                             {genderFilter === 'male' && <Check className="w-4 h-4" />}
                                         </button>
-                                        <button onClick={() => { setGenderFilter('female'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'female' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setGenderFilter(prev => prev === 'female' ? 'all' : 'female'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'female' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.female}</span>
                                             {genderFilter === 'female' && <Check className="w-4 h-4" />}
                                         </button>
@@ -266,7 +266,7 @@ export default function StudentsPage() {
                                             {groups.map(g => (
                                                 <button
                                                     key={g.id}
-                                                    onClick={() => { setGroupFilter(g.id); setGroupDropdownOpen(false); }}
+                                                    onClick={() => { setGroupFilter(prev => prev === g.id ? null : g.id); setGroupDropdownOpen(false); }}
                                                     className={cn("w-full text-left px-3 py-2.5 mb-0.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", groupFilter === g.id ? "bg-violet-50 text-violet-600 dark:bg-violet-500/10" : "text-muted hover:bg-surface-hover")}>
                                                     <span className="truncate pr-2">{g.name}</span>
                                                     <div className="flex items-center gap-2">
