@@ -40,6 +40,8 @@ interface StudioContextValue {
     logSubscription: (log: Omit<SubscriptionLog, 'id' | 'date'>) => void;
     setCustomRoles: (roles: string[]) => void;
     setSettings: (s: StudioSettings) => void;
+    setWizardCompleted: (completed: boolean) => void;
+    setOwnerInfo: (info: Partial<StudioSettings['owner_info']>) => void;
     claimStudio: (newSlug: string, ownerEmail: string) => Promise<void>;
 }
 
@@ -158,6 +160,23 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         markLocalUpdate();
         setSettings(prev => saveSettings({
             pausePrices: { ...prev.pausePrices, [days]: price }
+        }, prev, prev.studioSlug));
+        triggerPush();
+    }, [markLocalUpdate, triggerPush]);
+    
+    const setWizardCompleted = useCallback((completed: boolean) => {
+        markLocalUpdate();
+        setSettings(prev => saveSettings({ isWizardCompleted: completed }, prev, prev.studioSlug));
+        triggerPush();
+        if (completed && typeof window !== 'undefined') {
+            localStorage.setItem('cc_onboarding_done', 'true');
+        }
+    }, [markLocalUpdate, triggerPush]);
+
+    const setOwnerInfo = useCallback((info: Partial<StudioSettings['owner_info']>) => {
+        markLocalUpdate();
+        setSettings(prev => saveSettings({ 
+            owner_info: { ...prev.owner_info, ...info } 
         }, prev, prev.studioSlug));
         triggerPush();
     }, [markLocalUpdate, triggerPush]);
@@ -679,6 +698,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             logSubscription,
             setCustomRoles,
             setSettings: (s: StudioSettings) => setSettings(s),
+            setWizardCompleted,
+            setOwnerInfo,
             claimStudio: async (newSlug: string, ownerEmail: string) => {
                 if (typeof window === 'undefined') return;
                 console.log('🚀 [StudioContext] Starting Studio Claim (Migration) for:', newSlug);

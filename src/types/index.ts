@@ -98,6 +98,7 @@ export interface StudioSettings {
     suspended?: boolean;          // Platform-level lock
     studioName: string;
     studioSlug: string;
+    isWizardCompleted?: boolean;
     logoDataUrl: string | null;   // base64 image or null
     currency: 'GEL' | 'USD' | 'EUR';
     language: 'ka' | 'ru' | 'en';
@@ -154,6 +155,12 @@ export interface StudioSettings {
             sept_1: string;
         };
     };
+    owner_info: {
+        first_name: string;
+        last_name: string;
+        email: string;
+        phone: string;
+    };
     updatedAt?: string;
     cabinetCode?: string;
     customRoles?: string[];
@@ -161,12 +168,6 @@ export interface StudioSettings {
     staff: StaffMember[];
     trash?: TrashItem[];
     subscriptionLogs?: SubscriptionLog[];
-    owner_info?: {
-        first_name: string;
-        last_name: string;
-        email: string;
-        phone: string;
-    };
     // Non-synced / Local only
     activeBranchId: string;
 }

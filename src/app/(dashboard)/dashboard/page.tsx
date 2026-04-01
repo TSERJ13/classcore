@@ -261,8 +261,8 @@ export default function DashboardPage() {
             });
             const studentsWithActiveSub = activeSubStudentIds.size;
 
-            // Attendance Count: Only count check-ins from students who HAVE an active sub
-            const checkins = getTodayCheckins().filter(c => activeSubStudentIds.has(c.studentId));
+            // Attendance Count: Count all check-ins for the day
+            const checkins = getTodayCheckins();
             const attendance = checkins.length;
 
             const todayStr = getLocalISODate(new Date());
@@ -298,7 +298,7 @@ export default function DashboardPage() {
                 sub.expires_at <= sevenDaysFromNowStr
             ).length;
 
-            // Attendance Rate based on active subscriber count (monthly average)
+            // Attendance Rate based on total students if no active subs (monthly average)
             let totalCheckinsMonth = 0;
             let daysWithCheckinsMonth = 0;
             const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -316,8 +316,8 @@ export default function DashboardPage() {
                 } catch (e) { }
             }
             const avgDailyCheckins = daysWithCheckinsMonth > 0 ? totalCheckinsMonth / daysWithCheckinsMonth : 0;
-            const denominator = activeCount > 0 ? activeCount : students;
-            const attendanceRateMonth = denominator > 0 ? Math.round((avgDailyCheckins / denominator) * 100) : 0;
+            const denominator = activeCount > 0 ? activeCount : (students > 0 ? students : 1);
+            const attendanceRateMonth = Math.min(100, Math.round((avgDailyCheckins / denominator) * 100));
 
             setLiveStats({
                 totalStudents: students,

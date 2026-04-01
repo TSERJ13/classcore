@@ -138,15 +138,46 @@ export default function RegisterPage() {
                 localStorage.setItem(`cc_active_branch_${studioSlug}`, 'main');
                 const key = `cc_studio_settings_${studioSlug}`;
                 const basicSettings = {
-                    orgId, studioName, studioSlug, language: 'ka', currency: 'GEL',
+                    orgId, 
+                    studioName, 
+                    studioSlug, 
+                    isWizardCompleted: false,
+                    language: 'ka', 
+                    currency: 'GEL',
                     branches: [{ id: 'main', name: 'მთავარი ფილიალი', is_active: true }],
-                    owner_info: { first_name: firstName, last_name: lastName, email, phone: fullPhone },
+                    owner_info: { 
+                        first_name: firstName, 
+                        last_name: lastName, 
+                        email: email.toLowerCase().trim(), 
+                        phone: fullPhone 
+                    },
                     staff: [{
-                        id: data?.user?.id || crypto.randomUUID(), org_id: orgId, firstName, lastName,
-                        role: 'owner', status: 'active', permissions: { admin: true }, created_at: new Date().toISOString()
+                        id: data?.user?.id || crypto.randomUUID(), 
+                        org_id: orgId, 
+                        first_name: firstName, 
+                        last_name: lastName,
+                        full_name: `${firstName} ${lastName}`.trim(),
+                        email: email.toLowerCase().trim(),
+                        phone: fullPhone,
+                        role: 'owner', 
+                        status: 'active', 
+                        permissions: { 
+                            canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
+                            canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
+                            canViewTeachers: true, canViewHalls: true, canViewShop: true,
+                            canViewAnalytics: true, canViewSMS: true
+                        }, 
+                        created_at: new Date().toISOString()
                     }]
                 };
                 localStorage.setItem(key, JSON.stringify(basicSettings));
+                // Force sync registry
+                const registry = JSON.parse(localStorage.getItem('cc_studio_registry') || '[]');
+                if (!registry.includes(studioSlug)) {
+                    registry.push(studioSlug);
+                    localStorage.setItem('cc_studio_registry', JSON.stringify(registry));
+                }
+                
                 await pushStudioStateToCloud(studioSlug, basicSettings.staff as any, basicSettings, 0, orgId);
                 localStorage.setItem('cc_force_initial_sync', 'true');
             }

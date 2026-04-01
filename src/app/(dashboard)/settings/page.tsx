@@ -84,7 +84,7 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 export default function SettingsPage() {
     const { t, lang, setLang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const { settings, isLoaded, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff } = useStudio();
+    const { settings, isLoaded, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
     const isAdmin = profile?.role === 'admin' || profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'staff' || !profile?.role; // Default true if logged in but role not fetched yet
@@ -560,22 +560,42 @@ export default function SettingsPage() {
                 </Section>
             )}
 
-            {/* Account Owner Info */}
-            {profile && (
-                <Section title={l('ანგარიშის მფლობელი', 'Владелец аккаунта', 'Account Owner')} icon={UserCircle}>
-                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.firstNameLabel} & {t.lastNameLabel}</p>
-                            <p className="text-sm font-black text-primary">{profile.first_name} {profile.last_name}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.phoneLabel}</p>
-                            <p className="text-sm font-black text-primary">{profile.phone || 'N/A'}</p>
-                        </div>
-                        <div className="space-y-1 sm:col-span-2">
-                             <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.emailLabel}</p>
-                             <p className="text-sm font-black text-primary">{user?.email}</p>
-                        </div>
+            {/* Studio Owner Section */}
+            {isOwner && (
+                <Section title={l('სტუდიის მფლობელი', 'Владелец студии', 'Studio Owner')} icon={UserCircle}>
+                    <div className="p-1 md:p-2 divide-y divide-border-subtle/10">
+                        <Row label={l('სახელი და გვარი', 'Имя и Фамилия', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
+                            <div className="flex gap-2">
+                                <input 
+                                    value={settings.owner_info?.first_name || ''} 
+                                    onChange={e => setOwnerInfo({ first_name: e.target.value })}
+                                    placeholder={t.firstNameLabel}
+                                    className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
+                                />
+                                <input 
+                                    value={settings.owner_info?.last_name || ''} 
+                                    onChange={e => setOwnerInfo({ last_name: e.target.value })}
+                                    placeholder={t.lastNameLabel}
+                                    className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
+                                />
+                            </div>
+                        </Row>
+                        <Row label={t.emailLabel} sub={l('საკონტაქტო ელ-ფოსტა', 'Контактный email', 'Owner contact email')}>
+                            <input 
+                                value={settings.owner_info?.email || ''} 
+                                onChange={e => setOwnerInfo({ email: e.target.value })}
+                                placeholder="owner@email.com"
+                                className="w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
+                            />
+                        </Row>
+                        <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
+                            <input 
+                                value={settings.owner_info?.phone || ''} 
+                                onChange={e => setOwnerInfo({ phone: e.target.value })}
+                                placeholder="+995 ..."
+                                className="w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
+                            />
+                        </Row>
                     </div>
                 </Section>
             )}

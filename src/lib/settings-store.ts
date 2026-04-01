@@ -368,6 +368,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     orgId: '',
     studioName: '',
     studioSlug: 'demo.classcore.ge',
+    isWizardCompleted: false,
     logoDataUrl: null,
     currency: 'GEL',
     language: 'ka',
@@ -427,6 +428,12 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     branches: [
         { id: 'main', name: 'მთავარი ფილიალი', is_active: true }
     ],
+    owner_info: {
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: ''
+    },
     customRoles: ['manager', 'teacher', 'receptionist', 'accountant'],
     activeBranchId: 'main',
     staff: [],
@@ -460,6 +467,8 @@ export function loadSettings(slug?: string): StudioSettings {
             notifications: { ...DEFAULT_SETTINGS.notifications, ...(parsed.notifications || {}) },
             security: { ...DEFAULT_SETTINGS.security, ...(parsed.security || {}) },
             landingContent: { ...DEFAULT_SETTINGS.landingContent, ...(parsed.landingContent || {}) },
+            owner_info: { ...DEFAULT_SETTINGS.owner_info, ...(parsed.owner_info || {}) },
+            isWizardCompleted: !!parsed.isWizardCompleted,
             sms_templates: {
                 ka: { ...DEFAULT_SETTINGS.sms_templates.ka, ...(parsed.sms_templates?.ka || {}) },
                 ru: { ...DEFAULT_SETTINGS.sms_templates.ru, ...(parsed.sms_templates?.ru || {}) },

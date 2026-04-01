@@ -15,7 +15,7 @@ import { generateTimeOptions } from '@/lib/date-utils';
 
 export function SetupWizard() {
     const { t, lang } = useT();
-    const { settings, addStaff } = useStudio();
+    const { settings, addStaff, setWizardCompleted } = useStudio();
     const [isOpen, setIsOpen] = useState(false);
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -33,15 +33,15 @@ export function SetupWizard() {
     const timeOptions = generateTimeOptions(30);
 
     useEffect(() => {
-        const done = localStorage.getItem('cc_onboarding_done');
+        const done = settings.isWizardCompleted || localStorage.getItem('cc_onboarding_done') === 'true';
         if (!done) {
             const timer = setTimeout(() => setIsOpen(true), 1000);
             return () => clearTimeout(timer);
         }
-    }, []);
+    }, [settings.isWizardCompleted]);
 
     const handleClose = () => {
-        localStorage.setItem('cc_onboarding_done', 'true');
+        setWizardCompleted(true);
         setIsOpen(false);
     };
 
