@@ -121,7 +121,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                         exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                     )}>
                         <span className="text-[14px] font-black text-[#1e293b] dark:text-white truncate tracking-tight leading-tight transition-colors">
-                            {settings.studioName || profile?.studio_name || 'Studio'}
+                            {settings.studioName || profile?.studio_name || (typeof window !== 'undefined' ? localStorage.getItem('cc_studio_name') : null) || 'Studio'}
                         </span>
 
                         <div className="flex items-center gap-2 mt-0.5">

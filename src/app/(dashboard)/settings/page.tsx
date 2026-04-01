@@ -142,9 +142,15 @@ export default function SettingsPage() {
     const fileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        setSlugVal(settings.studioSlug);
+        if (settings.studioName && !nameVal) {
+            setNameVal(settings.studioName);
+        }
+        if (settings.studioSlug && !slugVal) {
+            setSlugVal(settings.studioSlug);
+        }
+    }, [settings.studioName, settings.studioSlug]);
 
-        // Initial cloud check
+    useEffect(() => {
         if (settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge') {
             checkCloudConnection(settings.studioSlug).then(setCloudSynced);
         }
@@ -198,10 +204,7 @@ export default function SettingsPage() {
 
 
 
-    useEffect(() => {
-        setNameVal(settings.studioName);
-        setSlugVal(settings.studioSlug);
-    }, [settings.studioName, settings.studioSlug]);
+
 
     function saveName() {
         if (!nameVal.trim()) return;
@@ -560,42 +563,79 @@ export default function SettingsPage() {
                 </Section>
             )}
 
-            {/* Studio Owner Section */}
+            {/* Account Owner Section */}
             {isOwner && (
-                <Section title={l('სტუდიის მფლობელი', 'Владелец студии', 'Studio Owner')} icon={UserCircle}>
-                    <div className="p-1 md:p-2 divide-y divide-border-subtle/10">
-                        <Row label={l('სახელი და გვარი', 'Имя и Фамилия', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
-                            <div className="flex gap-2">
-                                <input 
-                                    value={settings.owner_info?.first_name || ''} 
-                                    onChange={e => setOwnerInfo({ first_name: e.target.value })}
-                                    placeholder={t.firstNameLabel}
-                                    className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
-                                />
-                                <input 
-                                    value={settings.owner_info?.last_name || ''} 
-                                    onChange={e => setOwnerInfo({ last_name: e.target.value })}
-                                    placeholder={t.lastNameLabel}
-                                    className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
-                                />
+                <Section title={l('ანგარიშის მფლობელი', 'Владелец аккаунта', 'Account Owner')} icon={UserCircle}>
+                    <div className="p-6 md:p-8">
+                        <div className="flex flex-col md:flex-row items-center gap-8">
+                            {/* Avatar & Basics */}
+                            <div className="flex flex-col items-center gap-4">
+                                <div className={cn(
+                                    "w-32 h-32 rounded-[2.5rem] flex items-center justify-center text-4xl font-black shadow-2xl border-4 border-white/10 relative group/avatar overflow-hidden",
+                                    `bg-gradient-to-br ${theme.from} ${theme.to} text-white`
+                                )}>
+                                    {getInitials(`${settings.owner_info?.first_name || profile?.first_name || ''} ${settings.owner_info?.last_name || profile?.last_name || ''}`)}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Camera className="w-8 h-8 text-white/80" />
+                                    </div>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-lg font-black text-primary tracking-tight">
+                                        {(settings.owner_info?.first_name || profile?.first_name) ? `${settings.owner_info?.first_name || profile?.first_name || ''} ${settings.owner_info?.last_name || profile?.last_name || ''}`.trim() : t.user}
+                                    </p>
+                                    <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-black tracking-widest uppercase">
+                                        {profile?.role || 'STUDIO OWNER'}
+                                    </span>
+                                </div>
                             </div>
-                        </Row>
-                        <Row label={t.emailLabel} sub={l('საკონტაქტო ელ-ფოსტა', 'Контактный email', 'Owner contact email')}>
-                            <input 
-                                value={settings.owner_info?.email || ''} 
-                                onChange={e => setOwnerInfo({ email: e.target.value })}
-                                placeholder="owner@email.com"
-                                className="w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
-                            />
-                        </Row>
-                        <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
-                            <input 
-                                value={settings.owner_info?.phone || ''} 
-                                onChange={e => setOwnerInfo({ phone: e.target.value })}
-                                placeholder="+995 ..."
-                                className="w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
-                            />
-                        </Row>
+
+                            {/* Details Grid */}
+                            <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-2 gap-6 bg-surface/30 p-6 rounded-[2rem] border border-border-subtle/30 shadow-inner">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted/40 uppercase tracking-[0.2em] ml-1">{t.firstNameLabel}</label>
+                                    <input 
+                                        value={settings.owner_info?.first_name || ''} 
+                                        onChange={e => setOwnerInfo({ first_name: e.target.value })}
+                                        placeholder="John"
+                                        className="w-full bg-card border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-3 text-sm font-bold text-primary outline-none transition-all shadow-sm"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted/40 uppercase tracking-[0.2em] ml-1">{t.lastNameLabel}</label>
+                                    <input 
+                                        value={settings.owner_info?.last_name || ''} 
+                                        onChange={e => setOwnerInfo({ last_name: e.target.value })}
+                                        placeholder="Doe"
+                                        className="w-full bg-card border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-3 text-sm font-bold text-primary outline-none transition-all shadow-sm"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted/40 uppercase tracking-[0.2em] ml-1">{t.emailLabel}</label>
+                                    <div className="w-full bg-surface/50 border border-border-subtle/50 rounded-xl px-4 py-3 text-sm font-bold text-muted/40 cursor-not-allowed">
+                                        {settings.owner_info?.email || user?.email || 'N/A'}
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted/40 uppercase tracking-[0.2em] ml-1">{t.phoneLabel}</label>
+                                    <input 
+                                        value={settings.owner_info?.phone || ''} 
+                                        onChange={e => setOwnerInfo({ phone: e.target.value })}
+                                        placeholder="+995 ..."
+                                        className="w-full bg-card border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-3 text-sm font-bold text-primary outline-none transition-all shadow-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-8 pt-6 border-t border-border-subtle/10 flex justify-end">
+                             <button
+                                onClick={() => forceSync()}
+                                className="flex items-center gap-2 px-6 py-3 bg-surface border border-border-subtle text-muted hover:text-indigo-500 hover:bg-indigo-500/5 rounded-xl text-[10px] font-black tracking-widest transition-all group"
+                             >
+                                <RefreshCcw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                                {l('მონაცემების სინქრონიზაცია', 'Синхронизировать данные', 'Sync Profile Data')}
+                             </button>
+                        </div>
                     </div>
                 </Section>
             )}

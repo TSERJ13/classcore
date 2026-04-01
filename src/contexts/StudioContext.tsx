@@ -608,7 +608,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         const isDefaultSlug = settings.studioSlug === 'demo.classcore.ge';
         const isDefaultName = settings.studioName.toLowerCase().includes('demo') ||
-            settings.studioName === 'ჩემი სტუდია' || settings.studioName === '';
+            settings.studioName === 'ჩემი სტუდია' || settings.studioName === '' || settings.studioName === 'Studio';
 
         // If we have a profile with a real slug/name, and we are currently on demo
         if (isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
@@ -651,15 +651,23 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             hasSyncedRef.current = true;
         }
 
+        // Also sync owner_info if it's missing locally but exists in profile
+        if (profile.first_name && !settings.owner_info?.first_name) {
+            console.log('📡 [StudioContext] Auto-syncing owner_info from profile:', profile.first_name);
+            setOwnerInfo({
+                first_name: profile.first_name,
+                last_name: profile.last_name || '',
+                email: user?.email || '',
+                phone: profile.phone || ''
+            });
+        }
+
         // Also sync org_id if it's missing locally but exists in profile
         if (profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
             console.log('📡 [StudioContext] Auto-syncing org_id from profile:', profile.org_id);
             setSettings(prev => saveSettings({ orgId: profile.org_id }, prev, prev.studioSlug));
         }
-
-        // RECLAIM REGISTRY: Removed automatic reclaim to prevent ghost studios from reappearing.
-        // It should be triggered manually if needed or during initial login.
-    }, [user?.email, profile?.studio_name, profile?.studio_slug, profile?.org_id, settings.studioName, settings.studioSlug, setStudioName, setStudioSlug, isLoaded, settings.orgId]);
+    }, [user?.email, profile?.first_name, profile?.last_name, profile?.phone, profile?.studio_name, profile?.studio_slug, profile?.org_id, settings, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
 
     // Apply theme on mount + whenever theme/bg changes
     useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);

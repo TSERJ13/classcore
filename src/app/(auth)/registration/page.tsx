@@ -125,7 +125,7 @@ export default function RegisterPage() {
             const { data, error: signUpError } = await supabase.auth.signUp({
                 email, password, options: { 
                     emailRedirectTo: `${window.location.origin}/auth/confirm`,
-                    data: { role: 'owner', first_name: firstName, last_name: lastName, org_id: orgId, studio_slug: studioSlug, studio_name: studioName, phone: fullPhone, phone_number: fullPhone }
+                    data: { role: 'owner', first_name: firstName, last_name: lastName, org_id: orgId, studio_slug: studioSlug, studio_name: studioName, phone: fullPhone }
                 }
             });
 
@@ -135,6 +135,7 @@ export default function RegisterPage() {
 
             if (typeof window !== 'undefined') {
                 localStorage.setItem('cc_active_studio_slug', studioSlug);
+                localStorage.setItem('cc_studio_name', studioName);
                 localStorage.setItem(`cc_active_branch_${studioSlug}`, 'main');
                 const key = `cc_studio_settings_${studioSlug}`;
                 const basicSettings = {
