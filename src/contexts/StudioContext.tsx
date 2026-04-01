@@ -464,6 +464,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             ? sessionSlug
             : settings.studioSlug;
         
+        const displayStudioName = (settings.studioName && settings.studioName.toLowerCase() !== 'studio') 
+            ? settings.studioName 
+            : (profile?.studio_name && profile.studio_name.toLowerCase() !== 'studio')
+                ? profile.studio_name
+                : (typeof window !== 'undefined' ? localStorage.getItem('cc_studio_name') : null) || 'Studio';
+        
         const activeOrgId = session?.staff?.org_id || profile?.org_id || settings.orgId || (typeof window !== 'undefined' ? (localStorage.getItem('cc_sa_impersonate') === activeSlug ? localStorage.getItem('cc_sa_impersonate_org_id') : undefined) : undefined) || undefined;
 
         if (!isLoaded || !activeSlug || activeSlug === 'demo.classcore.ge') return;
@@ -652,13 +658,18 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
 
         // Also sync owner_info if it's missing locally but exists in profile
-        if (profile.first_name && !settings.owner_info?.first_name) {
+        const needsOwnerSync = profile.first_name && (
+            !settings.owner_info?.first_name || 
+            (profile.phone && !settings.owner_info?.phone)
+        );
+
+        if (needsOwnerSync) {
             console.log('📡 [StudioContext] Auto-syncing owner_info from profile:', profile.first_name);
             setOwnerInfo({
-                first_name: profile.first_name,
-                last_name: profile.last_name || '',
-                email: user?.email || '',
-                phone: profile.phone || ''
+                first_name: profile.first_name || settings.owner_info?.first_name || '',
+                last_name: profile.last_name || settings.owner_info?.last_name || '',
+                email: user?.email || settings.owner_info?.email || '',
+                phone: profile.phone || settings.owner_info?.phone || ''
             });
         }
 
