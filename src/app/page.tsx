@@ -14,6 +14,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { Logo } from '@/components/ui/Logo';
 
 const ICON_MAP: Record<string, any> = {
     Globe, Zap, Users, MessageSquare: Sparkles, Shield, Laptop, Check, LayoutDashboard, Banknote, Calendar, Sparkles
@@ -231,14 +232,8 @@ export default function LandingPage() {
             )}>
                 <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-10 md:h-14">
                     <Link href="/" className="flex items-center gap-2 md:gap-3 group shrink-0 h-full">
-                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100 shrink-0">
-                            <Image 
-                                src="/logo.svg" 
-                                alt="Logo" 
-                                fill 
-                                className="object-contain p-0.5" 
-                                priority
-                            />
+                        <div className="group-hover:scale-105 transition-transform shrink-0 h-full flex items-center">
+                            <Logo size={48} className="md:w-14 md:h-14 w-10 h-10" />
                         </div>
                         <span className="text-[16px] md:text-[26px] font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap">ClassCore</span>
                     </Link>
@@ -543,16 +538,16 @@ export default function LandingPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="relative grid grid-cols-2 gap-6 p-8 bg-white rounded-[3rem] border border-slate-200 shadow-2xl group overflow-hidden">
+                            <div className="relative grid grid-cols-2 gap-4 md:gap-6 p-6 md:p-8 bg-white rounded-[2.5rem] md:rounded-[3rem] border border-slate-200 shadow-2xl group overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
                                 {FEATURES_LIST.slice(0, 4).map((f, i) => (
-                                    <div key={i} className="relative z-10 p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-white hover:shadow-xl transition-all duration-300 group/item">
-                                        <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600 mb-4 group-hover/item:scale-110 transition-transform">
+                                    <div key={i} className="relative z-10 p-4 md:p-6 rounded-2xl md:rounded-3xl bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-white hover:shadow-xl transition-all duration-300 group/item">
+                                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600 mb-3 md:mb-4 group-hover/item:scale-110 transition-transform">
                                             {/* @ts-ignore */}
-                                            {ICON_MAP[f.icon] ? React.createElement(ICON_MAP[f.icon], { className: "w-6 h-6" }) : <Star className="w-6 h-6" />}
+                                            {ICON_MAP[f.icon] ? React.createElement(ICON_MAP[f.icon], { className: "w-5 h-5 md:w-6 md:h-6" }) : <Star className="w-5 h-5 md:w-6 md:h-6" />}
                                         </div>
-                                        <h4 className="text-sm font-black text-slate-900 tracking-wider">{f.title}</h4>
+                                        <h4 className="text-[10px] md:text-sm font-black text-slate-900 tracking-wider leading-tight">{f.title}</h4>
                                     </div>
                                 ))}
 
@@ -689,14 +684,14 @@ export default function LandingPage() {
                     <div className="flex flex-col md:flex-row justify-between items-center gap-12">
                         <div className="space-y-6">
                             <div className="flex items-center gap-2 justify-center md:justify-start">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white"><Zap className="w-5 h-5" /></div>
+                                <Logo size={32} animated={false} />
                                 <span className="text-xl font-black">ClassCore</span>
                             </div>
                             <p className="text-slate-500 font-medium max-w-sm">© 2026 ClassCore. {t.allRightsReserved}</p>
                         </div>
-                        <div className="flex gap-12 text-sm font-black text-slate-400 tracking-widest">
-                            <Link href="/privacy" className="hover:text-indigo-600">{l('კონფიდენციალურობა', 'Конфиденциальность', 'Privacy')}</Link>
-                            <Link href="/terms" className="hover:text-indigo-600">{l('წესები და პირობები', 'Условия', 'Terms')}</Link>
+                        <div className="flex flex-wrap justify-center md:justify-start gap-6 md:gap-12 text-[10px] md:text-sm font-black text-slate-400 tracking-widest uppercase">
+                            <Link href="/privacy" className="hover:text-indigo-600 transition-colors">{l('კონფიდენციალურობა', 'Конфиденциальность', 'Privacy')}</Link>
+                            <Link href="/terms" className="hover:text-indigo-600 transition-colors">{l('წესები და პირობები', 'Условия', 'Terms')}</Link>
                         </div>
                     </div>
                 </div>

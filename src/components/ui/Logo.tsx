@@ -33,7 +33,7 @@ export const Logo: React.FC<LogoProps> = ({
           
           <style>{`
             @keyframes draw-c {
-              0% { stroke-dashoffset: 200; opacity: 0; }
+              0% { stroke-dashoffset: 200; opacity: 1; }
               50% { opacity: 1; }
               100% { stroke-dashoffset: 0; }
             }

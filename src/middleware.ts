@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest) {
         const { pathname } = request.nextUrl;
         const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
 
-        const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
+        const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
         const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
 
         // Portal routes are like /[studio]/[studentId] - 2 segments

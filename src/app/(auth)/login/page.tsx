@@ -168,9 +168,9 @@ export default function LoginPage() {
                                     <Lock className="w-3 h-3" />
                                     {l('პაროლი', 'Паროль', 'Security Key')}
                                 </label>
-                                <button type="button" className="text-[9px] font-black text-indigo-600 tracking-tighter hover:text-indigo-700 transition-colors uppercase decoration-indigo-200 hover:underline">
+                                <Link href="/forgot-password" className="text-[11px] font-black text-indigo-600 px-1 tracking-tighter hover:text-indigo-700 transition-colors uppercase decoration-indigo-200 hover:underline">
                                     {l('დაგავიწყდათ?', 'Забыли?', 'Recovery')}
-                                </button>
+                                </Link>
                             </div>
                             <div className="relative group">
                                 <input
@@ -211,7 +211,7 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                <p className="text-center text-[10px] font-bold text-slate-400 tracking-tight mt-8">
+                <p className="text-center text-[12px] font-bold text-slate-400 tracking-tight mt-8">
                     {l('არ გაქვთ ანგარიში?', 'Нет аккаунта?', 'New pilot in HQ?')}{' '}
                     <Link href="/registration" className="text-indigo-600 hover:text-indigo-700 font-black decoration-indigo-200 hover:underline underline-offset-4">
                         {l('რეგისტრაცია', 'Регистрация', 'Activate Signal')}
