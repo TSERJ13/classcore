@@ -120,10 +120,12 @@ export default function RegisterPage() {
                 Object.keys(localStorage).forEach(k => { if (k.startsWith('cc_')) localStorage.removeItem(k); });
             }
 
+            const fullPhone = `${country.dial}${phone}`;
+
             const { data, error: signUpError } = await supabase.auth.signUp({
                 email, password, options: { 
                     emailRedirectTo: `${window.location.origin}/auth/confirm`,
-                    data: { role: 'owner', first_name: firstName, last_name: lastName, org_id: orgId, studio_slug: studioSlug, studio_name: studioName }
+                    data: { role: 'owner', first_name: firstName, last_name: lastName, org_id: orgId, studio_slug: studioSlug, studio_name: studioName, phone: fullPhone, phone_number: fullPhone }
                 }
             });
 
@@ -131,8 +133,6 @@ export default function RegisterPage() {
                 throw signUpError;
             }
 
-            const fullPhone = `${country.dial}${phone}`;
-            
             if (typeof window !== 'undefined') {
                 localStorage.setItem('cc_active_studio_slug', studioSlug);
                 localStorage.setItem(`cc_active_branch_${studioSlug}`, 'main');
