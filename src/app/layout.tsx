@@ -46,13 +46,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <html lang={activeLang || 'ka'} suppressHydrationWarning>
             <head>
                 <link rel="apple-touch-icon" href="/logo.svg" />
+                <link rel="apple-touch-icon" sizes="152x152" href="/logo.svg" />
+                <link rel="apple-touch-icon" sizes="180x180" href="/logo.svg" />
+                <link rel="apple-touch-icon" sizes="167x167" href="/logo.svg" />
                 <meta name="apple-mobile-web-app-capable" content="yes" />
-                <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <meta name="apple-mobile-web-app-title" content="ClassCore" />
                 <meta name="mobile-web-app-capable" content="yes" />
                 <meta name="format-detection" content="telephone=no" />
                 <meta name="msapplication-TileColor" content="#4f46e5" />
                 <meta name="msapplication-tap-highlight" content="no" />
+                {/* Splash screens could be added here if we had the specific sizes */}
             </head>
             <body className="min-h-screen bg-base antialiased font-sans">
                     <CacheBuster />
