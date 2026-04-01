@@ -22,6 +22,7 @@ export interface Group {
     difficulty: string | null;
     hall_id?: string; // linked hall
     color?: string;
+    org_id?: string;
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
@@ -77,12 +78,15 @@ export function getGroupById(id: string): Group | null {
 
 export function createGroup(group: Omit<Group, 'id' | 'enrolled' | 'schedule'>): Group {
     const groups = getGroups();
+    const id = 'g' + Math.random().toString(36).substr(2, 9);
+    const slots = group.schedule_slots || [];
+    
     const newGroup: Group = {
         ...group,
-        id: 'g' + Math.random().toString(36).substr(2, 9),
+        id,
         enrolled: 0,
-        schedule: '',
-        schedule_slots: [],
+        schedule_slots: slots,
+        schedule: slotsToDisplay(slots),
     };
     groups.push(newGroup);
     saveGroups(groups);

@@ -32,16 +32,18 @@ export async function POST(req: Request) {
         };
 
         // 1. Try to delete the specific row from studio_settings
+        // We use the slug as provided, trimmed. 
         const { error: deleteError, count } = await supabase
             .from('studio_settings')
             .delete({ count: 'exact' })
             .eq('studio_slug', targetSlug);
         
         if (deleteError) {
-            console.error('❌ Database Deletion Error:', deleteError);
+            console.error(`❌ Database Deletion Error for ${targetSlug}:`, deleteError);
             return NextResponse.json({ error: `Database error: ${deleteError.message}`, diag }, { status: 500 });
         }
 
+        console.log(`🗑️ Deleted ${count} records for slug: ${targetSlug}`);
         diag.settingsPurgeCount = count || 0;
         if (diag.settingsPurgeCount > 0) {
             diag.settingsFound = true;

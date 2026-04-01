@@ -244,13 +244,13 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
                         <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
                             <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">{t.selectDaysAndTimes}</label>
-                            <div className="flex items-center justify-between sm:justify-center gap-1 sm:gap-2">
+                            <div className="flex items-center justify-between gap-1">
                                 {[0, 1, 2, 3, 4, 5, 6].map(d => {
                                     const isActive = slots.some(s => s.dayOfWeek === d);
                                     return (
                                         <button key={d} onClick={() => toggleDaySlot(d)}
                                             className={cn(
-                                                "flex-1 sm:flex-none sm:w-10 h-9 sm:h-10 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black transition-all border",
+                                                "flex-1 h-9 rounded-lg text-[10px] font-black transition-all border shrink-0",
                                                 isActive ? "bg-indigo-500 border-indigo-500 text-white shadow-md shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
                                             )}>
                                             {dayLabels[d]}
@@ -262,23 +262,23 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             <div className="space-y-2">
                                 {slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((slot) => {
                                     return (
-                                        <div key={slot.dayOfWeek} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-card/50 p-2.5 rounded-xl border border-border-subtle/30">
-                                            <span className="text-[10px] font-black text-primary sm:w-20 pl-1">{dayFullLabels[slot.dayOfWeek]}</span>
-                                            <div className="flex-1 flex items-center gap-2">
+                                        <div key={slot.dayOfWeek} className="flex flex-row items-center gap-2 bg-card/30 p-2 rounded-xl border border-border-subtle/20">
+                                            <span className="text-[10px] font-black text-primary w-12 pl-1 truncate">{dayLabels[slot.dayOfWeek]}</span>
+                                            <div className="flex-1 flex items-center gap-1.5">
                                                 <SearchSelect 
                                                     options={timeOptions}
                                                     value={slot.startTime}
                                                     allowCustom
                                                     onChange={val => updateSlotTime(slot.dayOfWeek, 'startTime', val)}
-                                                    className="flex-1 bg-surface border border-border-subtle rounded-lg !border-none [&>div]:px-2 [&>div]:py-1.5 [&>div]:text-[10px] [&>div]:min-h-[32px] sm:[&>div]:min-h-[28px]"
+                                                    className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
                                                 />
-                                                <span className="text-muted/30 font-black text-[10px]">-</span>
+                                                <span className="text-muted/20 font-black text-[10px]">-</span>
                                                 <SearchSelect 
                                                     options={timeOptions}
                                                     value={slot.endTime}
                                                     allowCustom
                                                     onChange={val => updateSlotTime(slot.dayOfWeek, 'endTime', val)}
-                                                    className="flex-1 bg-surface border border-border-subtle rounded-lg !border-none [&>div]:px-2 [&>div]:py-1.5 [&>div]:text-[10px] [&>div]:min-h-[32px] sm:[&>div]:min-h-[28px]"
+                                                    className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
                                                 />
                                             </div>
                                         </div>

@@ -9,7 +9,7 @@ export interface HallData {
     color: string;
     capacity?: number;
     description?: string;
-    photo_url?: string;
+    sq_meters?: number;
     is_active: boolean;
 }
 
@@ -65,4 +65,5 @@ export function saveHalls(halls: HallData[]): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getHallsKey(), JSON.stringify(halls));
     markLocalUpdate();
+    window.dispatchEvent(new Event('cc_halls_update'));
 }

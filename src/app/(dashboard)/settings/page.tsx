@@ -225,11 +225,13 @@ export default function SettingsPage() {
         if (!slugVal || slugVal === settings.studioSlug) return;
         
         const ok = await confirm({
-            title: lang === 'ka' ? 'მისამართის შეცვლა' : 'Смена адреса',
-            message: lang === 'ka' 
-                ? `მისამართის შეცვლა (${settings.studioSlug} -> ${slugVal}) გამოიწვევს გვერდის გადატვირთვას. დარწმუნებული ხართ?` 
-                : `Смена адреса (${settings.studioSlug} -> ${slugVal}) приведет к перезагрузке страницы. Вы уверены?`,
-            confirmText: lang === 'ka' ? 'შეცვლა' : 'Сменить',
+            title: l('მისამართის შეცვლა', 'Смена адреса', 'Change URL Address'),
+            message: l(
+                `მისამართის შეცვლა (${settings.studioSlug} -> ${slugVal}) გამოიწვევს გვერდის გადატვირთვას. დარწმუნებული ხართ?`,
+                `Смена адреса (${settings.studioSlug} -> ${slugVal}) приведет к перезагрузке страницы. Вы уверены?`,
+                `Changing the address (${settings.studioSlug} -> ${slugVal}) will cause the page to reload. Are you sure?`
+            ),
+            confirmText: l('შეცვლა', 'Сменить', 'Change'),
             danger: true
         });
 
@@ -248,7 +250,7 @@ export default function SettingsPage() {
         document.cookie = `cc_active_slug=${val}; path=/; max-age=31536000; SameSite=Lax`;
         
         setSlugSaved(true);
-        addNotification(lang === 'ka' ? 'მისამართი წარმატებით შეიცვალა' : 'Адрес успешно изменен', 'success');
+        addNotification(l('მისამართი წარმატებით შეიცვალა', 'Адрес успешно изменен', 'Address successfully changed'), 'success');
         
         // 4. Forced reload to the new slug URL
         setTimeout(() => {
@@ -278,9 +280,11 @@ export default function SettingsPage() {
     async function handleCurrencyChange(newCurrency: 'GEL' | 'USD' | 'EUR') {
         if (newCurrency === settings.currency) return;
 
-        const confirmMsg = lang === 'ka'
-            ? `ყურადღება! ხდება მხოლოდ ვალუტის ნიშნის (სიმბოლოს) ცვლილება (${settings.currency} -> ${newCurrency}). არსებული თანხების კონვერტაცია არ მოხდება. გნებავთ გაგრძელება?`
-            : `Внимание! Изменяется только символ валюты (${settings.currency} -> ${newCurrency}). Существующие суммы не будут конвертированы. Хотите продолжить?`;
+        const confirmMsg = l(
+            `ყურადღება! ხდება მხოლოდ ვალუტის ნიშნის (სიმბოლოს) ცვლილება (${settings.currency} -> ${newCurrency}). არსებული თანხების კონვერტაცია არ მოხდება. გნებავთ გაგრძელება?`,
+            `Внимание! Изменяется только символ валюты (${settings.currency} -> ${newCurrency}). Существующие суммы не будут конвертированы. Хотите продолжить?`,
+            `Attention! Only the currency symbol will be changed (${settings.currency} -> ${newCurrency}). Existing amounts will not be converted. Do you want to continue?`
+        );
 
         const ok = await confirm({
             title: t.currencyChangeTitle,
@@ -362,12 +366,14 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex-1 text-center md:text-left">
                             <h3 className="text-lg font-black text-primary tracking-tight mb-1">
-                                {lang === 'ka' ? 'თქვენ იმყოფებით დემო რეჟიმში' : 'You are in Demo Mode'}
+                                {l('თქვენ იმყოფებით დემო რეჟიმში', 'Вы находитесь в демо-режиме', 'You are in Demo Mode')}
                             </h3>
                             <p className="text-xs text-muted/60 font-medium leading-relaxed">
-                                {lang === 'ka' 
-                                    ? 'თქვენი მონაცემები ინახება მხოლოდ ამ ბრაუზერში. იმისთვის, რომ სტუდია გამოჩნდეს სუპერადმინის პანელში და ჩაირთოს სრული სინქრონიზაცია, აირჩიეთ მუდმივი მისამართი (Slug).'
-                                    : 'Your data is stored locally in this browser. To see your studio in the SuperAdmin dashboard and enable full cloud sync, please choose a permanent URL slug.'}
+                                {l(
+                                    'თქვენი მონაცემები ინახება მხოლოდ ამ ბრაუზერში. იმისთვის, რომ სტუდია გამოჩნდეს სუპერადმინის პანელში და ჩაირთოს სრული სინქრონიზაცია, აირჩიეთ მუდმივი მისამართი (Slug).',
+                                    'Ваши данные хранятся только в этом браузере. Чтобы ваша студия появилась в панели SuperAdmin и включилась полная синхронизация, выберите постоянный адрес (Slug).',
+                                    'Your data is stored locally in this browser. To see your studio in the SuperAdmin dashboard and enable full cloud sync, please choose a permanent URL slug.'
+                                )}
                             </p>
                         </div>
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
@@ -384,9 +390,13 @@ export default function SettingsPage() {
                                     if (!slugVal || slugVal === 'demo.classcore.ge') return;
                                     const { claimStudio } = (useStudio() as any);
                                     const ok = await confirm({
-                                        title: lang === 'ka' ? 'სტუდიის რეგისტრაცია' : 'Claim Studio',
-                                        message: lang === 'ka' ? `დარწმუნებული ხართ, რომ გსურთ გადახვიდეთ მისამართზე: /${slugVal}? ყველა თქვენი მონაცემი გადავა ახალ მისამართზე.` : `Are you sure you want to move to /${slugVal}? All your local data will be transferred.`,
-                                        confirmText: lang === 'ka' ? 'გაგრძელება' : 'Continue'
+                                        title: l('სტუდიის რეგისტრაცია', 'Регистрация студии', 'Claim Studio'),
+                                        message: l(
+                                            `დარწმუნებული ხართ, რომ გსურთ გადახვიდეთ მისამართზე: /${slugVal}? ყველა თქვენი მონაცემი გადავა ახალ მისამართზე.`,
+                                            `Вы уверены, что хотите перейти на адрес: /${slugVal}? Все ваши данные будут перенесены.`,
+                                            `Are you sure you want to move to /${slugVal}? All your local data will be transferred.`
+                                        ),
+                                        confirmText: l('გაგრძელება', 'Продолжить', 'Continue')
                                     });
                                     if (ok) {
                                         setIsSyncing(true);
@@ -397,7 +407,7 @@ export default function SettingsPage() {
                                 disabled={isSyncing || !slugVal || slugVal === 'demo.classcore.ge'}
                                 className="w-full sm:w-auto px-8 py-3 bg-amber-500 text-white text-[10px] font-black rounded-xl shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all tracking-widest disabled:opacity-50"
                             >
-                                {isSyncing ? '...' : (lang === 'ka' ? 'ჩემი სტუდიის რეგისტრაცია' : 'REGISTER MY STUDIO')}
+                                {isSyncing ? '...' : l('სტუდიის რეგისტრაცია', 'РЕГИСТРАЦИЯ СТУДИИ', 'REGISTER MY STUDIO')}
                             </button>
                         </div>
                     </div>
@@ -552,7 +562,7 @@ export default function SettingsPage() {
 
             {/* Account Owner Info */}
             {profile && (
-                <Section title={lang === 'ka' ? 'ანგარიშის მფლობელი' : 'Account Owner'} icon={UserCircle}>
+                <Section title={l('ანგარიშის მფლობელი', 'Владелец аккаунта', 'Account Owner')} icon={UserCircle}>
                     <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">{t.firstNameLabel} & {t.lastNameLabel}</p>

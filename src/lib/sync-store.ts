@@ -56,12 +56,16 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         const nextUpdatedAt = new Date().toISOString();
         const staffEmails = finalStaff.filter(s => s.email).map(s => s.email!.toLowerCase().trim());
 
+        // Resolve orgId: prioritize the passed argument, then the setting inside finalStudioData
+        const finalOrgId = orgId || finalStudioData.orgId || finalStudioData.org_id || '';
+
         if (!current) {
             // First time: Use insert to fail on conflict, triggering retry + pull/merge
             const { error: insertError } = await supabase
                 .from(SETTINGS_TABLE)
                 .insert({
                     studio_slug: slug,
+                    org_id: finalOrgId, // PERSIST ORG_ID EXPLICITLY
                     staff_data: consolidatedStaff,
                     staff_emails: staffEmails,
                     updated_at: nextUpdatedAt
@@ -76,12 +80,19 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
             }
         } else {
             // Optimistic Update: Only update if updated_at matches what we just pulled
-            let updateQuery = supabase.from(SETTINGS_TABLE).update({
+            const updatePayload: any = {
                 staff_data: consolidatedStaff,
                 staff_emails: staffEmails,
                 updated_at: nextUpdatedAt,
                 studio_slug: slug, // Keep slug in sync if it changed
-            }, { count: 'exact' });
+            };
+
+            // Only update org_id if it's currently missing or we have a more authoritative one
+            if (finalOrgId) {
+                updatePayload.org_id = finalOrgId;
+            }
+
+            let updateQuery = supabase.from(SETTINGS_TABLE).update(updatePayload, { count: 'exact' });
 
             updateQuery = updateQuery.eq('studio_slug', current.studio_slug);
 
@@ -95,7 +106,7 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
             }
         }
 
-        console.log('✅ Cloud Sync Consolidated Push Successful for:', slug, orgId ? `(ID: ${orgId})` : '');
+        console.log('✅ Cloud Sync Consolidated Push Successful for:', slug, finalOrgId ? `(ID: ${finalOrgId})` : '');
     } catch (err: any) {
         if (retryCount < 5) {
             console.warn(`🔄 Cloud Sync Conflict detected, retrying (${retryCount + 1}/5)...`, err.message);

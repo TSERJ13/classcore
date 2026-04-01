@@ -1,5 +1,14 @@
 [
   {
+    "id": "ddm1gex8",
+    "timestamp": "2026-04-01T12:57:49.342Z",
+    "studentName": "სერგო წივწივაძე",
+    "to": "995514199966",
+    "text": "ClassCore Test: Gamarjoba! SMS datserebis shemowmeba.",
+    "status": "error",
+    "error": "Internal server error"
+  },
+  {
     "id": 551410809,
     "timestamp": "2026-03-22T06:44:23.497Z",
     "studentName": "ელენე დავიტაძე",

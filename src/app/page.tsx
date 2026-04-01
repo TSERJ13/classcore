@@ -7,6 +7,7 @@ import {
     Activity, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
@@ -66,10 +67,13 @@ const SystemVideoOverview = ({ t, lang }: { t: any, lang: string }) => {
                             scene === i ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-110 rotate-1"
                         )}
                     >
-                        <img
+                        <Image
                             src={s.img}
                             alt={s.title}
-                            className="w-full h-full object-cover opacity-60 brightness-75"
+                            fill
+                            className="object-cover opacity-60 brightness-75"
+                            priority={i === 0}
+                            sizes="(max-width: 768px) 100vw, 1200px"
                         />
                     </div>
                 ))}
@@ -228,7 +232,13 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-10 md:h-14">
                     <Link href="/" className="flex items-center gap-2 md:gap-3 group shrink-0 h-full">
                         <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform overflow-hidden bg-white border border-slate-100 shrink-0">
-                            <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover p-0.5" />
+                            <Image 
+                                src="/logo.svg" 
+                                alt="Logo" 
+                                fill 
+                                className="object-contain p-0.5" 
+                                priority
+                            />
                         </div>
                         <span className="text-[16px] md:text-[26px] font-black tracking-tighter text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap">ClassCore</span>
                     </Link>
@@ -319,8 +329,13 @@ export default function LandingPage() {
                                                         </div>
                                                         <div className="flex -space-x-2.5">
                                                             {[1, 2, 3].map(i => (
-                                                                <div key={i} className="w-8 h-8 rounded-full border-2 border-slate-900 bg-slate-800 overflow-hidden">
-                                                                    <img src={`/avatars/student_${i}.png`} alt="Student" className="w-full h-full object-cover" />
+                                                                <div key={i} className="w-8 h-8 rounded-full border-2 border-slate-900 bg-slate-800 overflow-hidden relative">
+                                                                    <Image 
+                                                                        src={`/avatars/student_${i}.png`} 
+                                                                        alt="Student" 
+                                                                        fill 
+                                                                        className="object-cover" 
+                                                                    />
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -393,8 +408,13 @@ export default function LandingPage() {
                                                 </div>
                                                 <div className="flex -space-x-2">
                                                     {[1, 2, 3, 4].map(i => (
-                                                        <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 overflow-hidden">
-                                                            <img src={`/avatars/student_${i}.png`} alt="Student" className="w-full h-full object-cover" />
+                                                        <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 overflow-hidden relative">
+                                                            <Image 
+                                                                src={`/avatars/student_${i}.png`} 
+                                                                alt="Student" 
+                                                                fill 
+                                                                className="object-cover" 
+                                                            />
                                                         </div>
                                                     ))}
                                                 </div>
@@ -417,12 +437,15 @@ export default function LandingPage() {
                                 )}
 
                                 {/* Main Mockup Wrapper */}
-                                <div className="relative z-10 p-2.5 bg-white/30 backdrop-blur-md rounded-[2.5rem] border border-white/50 shadow-[0_40px_100px_rgba(0,0,0,0.1)] transition-all duration-700 hover:scale-[1.01] group">
+                                <div className="relative z-10 p-2.5 bg-white/30 backdrop-blur-md rounded-[2.5rem] border border-white/50 shadow-[0_40px_100px_rgba(0,0,0,0.1)] transition-all duration-700 hover:scale-[1.01] group aspect-[16/10] md:aspect-video lg:h-[480px]">
                                     <div className="absolute -inset-0.5 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-[2.5rem] blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <img
+                                    <Image
                                         src="/overview.webp"
                                         alt="ClassCore Dashboard Mockup"
-                                        className="rounded-[2rem] w-full h-auto shadow-2xl relative z-10"
+                                        fill
+                                        className="rounded-[2rem] object-cover shadow-2xl relative z-10"
+                                        priority
+                                        sizes="(max-width: 1024px) 100vw, 800px"
                                     />
                                 </div>
                             </div>

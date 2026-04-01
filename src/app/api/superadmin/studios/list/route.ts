@@ -43,6 +43,22 @@ export async function GET() {
                     ? `${ownerFromStaff.first_name} ${ownerFromStaff.last_name || ''}`.trim() 
                     : 'N/A';
 
+            // Extract counts for students, groups, halls
+            let studentCount = 0;
+            let groupCount = 0;
+            let hallCount = 0;
+
+            Object.entries(studioConfig || {}).forEach(([key, value]) => {
+                const lowerKey = key.toLowerCase();
+                if (lowerKey.includes('cc_student_data')) {
+                    studentCount += Object.keys(value as any || {}).length;
+                } else if (lowerKey.includes('cc_groups')) {
+                    groupCount += (value as any[] || []).length;
+                } else if (lowerKey.includes('cc_halls')) {
+                    hallCount += (value as any[] || []).length;
+                }
+            });
+
             return {
                 slug: row.studio_slug,
                 name: studioConfig.studioName || row.studio_slug,
@@ -50,7 +66,10 @@ export async function GET() {
                 ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || 'N/A',
                 ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || 'N/A',
                 updatedAt: row.updated_at,
-                logoUrl: studioConfig.logoDataUrl || null
+                logoUrl: studioConfig.logoDataUrl || null,
+                studentCount,
+                groupCount,
+                hallCount
             };
         });
 

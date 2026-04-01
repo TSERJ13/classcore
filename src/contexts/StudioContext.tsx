@@ -388,9 +388,15 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     if (cloudData) {
                         const lastLocal = parseInt(localStorage.getItem('cc_last_local_update') || '0');
                         const timeSinceUpdate = Date.now() - lastLocal;
+                        const forceSync = localStorage.getItem('cc_force_initial_sync') === 'true';
                         
                         // Only merge if not recently updated locally to avoid overwriting newer local state
-                        if (timeSinceUpdate > 12000) {
+                        // UNLESS forceSync is active (set after registration)
+                        if (timeSinceUpdate > 12000 || forceSync) {
+                            if (forceSync) {
+                                console.log('🚀 [StudioContext] Force Initial Sync: Bypassing 12s lock');
+                                localStorage.removeItem('cc_force_initial_sync');
+                            }
                             let anyChanged = false;
                             Object.entries(cloudData).forEach(([key, val]) => {
                                 const localVal = localStorage.getItem(key);
@@ -568,9 +574,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         };
 
         const events = [
-            'cc_groups_update', 'cc_student_update', 'cc_teacher_update',
+            'cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
             'cc_subscription_update', 'cc_calendar_events_update', 
-            'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update'
+            'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update'
         ];
 
         events.forEach(e => window.addEventListener(e, handleAutoMark));
@@ -589,18 +595,20 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         if (isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
             console.log('📡 [StudioContext] Auto-syncing real studio from profile:', profile.studio_slug);
             
-            // ONE-TIME PURGE logic intact...
+            // ONE-TIME PURGE logic: protects against mock data contamination
+            // BUT: if we just registered, the wizard already set this to 'true' to PROTECT our new data.
             const hasCleansed = localStorage.getItem(`cc_cleansed_${profile.studio_slug}`);
             if (!hasCleansed) {
                 console.log('🧹 [StudioContext] First-time initialization: Purging stale mock keys');
                 const keys = Object.keys(localStorage);
                 keys.forEach(k => {
+                    // Only purge keys related to this studio or demo
                     if (k.includes(profile.studio_slug!) || k.includes('demo.classcore.ge')) {
                         const dataPrefixes = [
                             'cc_checkins', 'cc_shop_sales', 'cc_notifications', 
                             'cc_calendar_events', 'cc_student_data', 'cc_student_subscriptions',
                             'cc_groups', 'cc_halls', 'cc_attendance_data', 'cc_subscription_plans',
-                            'cc_shop_products', 'cc_teachers', 'cc_sales'
+                            'cc_shop_products', 'cc_teachers', 'cc_sales', 'cc_uid_registry'
                         ];
                         if (dataPrefixes.some(p => k.includes(p))) {
                             localStorage.removeItem(k);
@@ -608,6 +616,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     }
                 });
                 localStorage.setItem(`cc_cleansed_${profile.studio_slug}`, 'true');
+            } else {
+                console.log('🛡️ [StudioContext] Studio already cleansed or marked as safe. Skipping purge.');
             }
 
             setStudioSlug(profile.studio_slug);

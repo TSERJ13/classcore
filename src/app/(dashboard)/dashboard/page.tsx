@@ -20,6 +20,7 @@ import { StudentModal } from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
+import { SetupWizard } from '@/components/onboarding/SetupWizard';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 const toDateStr = (d: Date) => d.toISOString().split('T')[0];
@@ -643,7 +644,8 @@ export default function DashboardPage() {
 
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in relative">
+            <SetupWizard />
 
 
             {/* Billing Expiration Notification */}

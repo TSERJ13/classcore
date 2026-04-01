@@ -64,16 +64,17 @@ const PLAN_COLORS: Record<string, string> = {
     custom: 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 border-amber-500' 
 };
 const PLAN_LABELS: Record<string, string> = {
-    trial: 'ტრიალი (Trial)',
+    trial: 'საცდელი (Trial)',
     pro: 'პრო (Pro)',
-    custom: 'სპეციალური'
+    custom: 'ინდივიდუალური'
 };
 const PLAN_OPTIONS = ['trial', 'pro', 'custom'] as const;
 
 export default function StudiosPage() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
-    const [lang, setLang] = useState<'ka' | 'en'>('ka');
+    const [lang, setLang] = useState<'ka' | 'en' | 'ru'>('ka');
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [studios, setStudios] = useState<StudioRecord[]>([]);
     const [search, setSearch] = useState('');
     const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -103,10 +104,12 @@ export default function StudiosPage() {
     const handlePurgeTestData = () => {
         setModal({
             type: 'confirm',
-            title: lang === 'ka' ? 'ტესტ-მონაცემების გასუფთავება' : 'Purge Test Data',
-            message: lang === 'ka' 
-                ? 'ნამდვილად გსურთ ყველა "load-test-*" სტუდიის წაშლა ბაზიდან? ეს ქმედება შეუქცევადია!'
-                : 'Are you sure you want to delete all "load-test-*" studios from the database? This action is irreversible!',
+            title: l('ტესტ-მონაცემების გასუფთავება', 'Очистка тестовых данных', 'Purge Test Data'),
+            message: l(
+                'ნამდვილად გსურთ ყველა "load-test-*" სტუდიის წაშლა ბაზიდან? ეს ქმედება შეუქცევადია!',
+                'Вы уверены, что хотите удалить все студии "load-test-*" из базы? Это действие необратимо!',
+                'Are you sure you want to delete all "load-test-*" studios from the database? This action is irreversible!'
+            ),
             onConfirm: async () => {
                 setIsPurging(true);
                 try {
@@ -242,6 +245,15 @@ export default function StudiosPage() {
             // Find matching cloud data for owner info if local is missing
             const cloud = cloudStudios.find(c => c.slug === slug);
             
+            // USE CLOUD COUNTS if local is 0 (prevents false zeros in Superadmin list)
+            if (studentCount === 0 && cloud?.studentCount > 0) {
+                studentCount = cloud.studentCount;
+            }
+            let groupCount = 0;
+            if (cloud?.groupCount > 0) {
+                groupCount = cloud.groupCount;
+            }
+
             // STRICT FILTER FOR SUPERADMIN: Hide "Local Only" ghosts unless it's the demo.
             // also hide everything until the first sync is DONE to prevent flicker.
             if (!isInitialSyncDone) return null;
@@ -254,7 +266,7 @@ export default function StudiosPage() {
                 name: s.studioName || cloud?.name || slug, 
                 logoUrl: s.logoDataUrl || cloud?.logoUrl, 
                 studentCount, 
-                subsCount: 0, 
+                subsCount: groupCount, // Using subsCount slot for groups in this view for now
                 suspended: meta.suspended || false, 
                 isDeleted: meta.deleted || false, 
                 notes: meta.notes || '', 
@@ -264,7 +276,19 @@ export default function StudiosPage() {
                 daysOverdue: billing.daysOverdue,
                 ownerPhone: owner?.phone || cloud?.ownerPhone || 'N/A',
                 ownerEmail: owner?.email || cloud?.ownerEmail || 'N/A',
-                ownerName: owner ? (('first_name' in owner) ? `${owner.first_name} ${owner.last_name}` : (owner as any).full_name) : cloud?.ownerName,
+                ownerName: (() => {
+                    if (!owner) return cloud?.ownerName || 'N/A';
+                    
+                    const o = owner as any;
+                    // Priority 1: Direct first/last name
+                    if (o.first_name || o.firstName) {
+                        const f = o.first_name || o.firstName || '';
+                        const l = o.last_name || o.lastName || '';
+                        return `${f} ${l}`.trim();
+                    }
+                    // Priority 2: full_name or fullName
+                    return o.full_name || o.fullName || cloud?.ownerName || 'N/A';
+                })(),
                 isLocalOnly: !cloud // Set flag if not found in cloudStudios list
             };
         }).filter(Boolean) as StudioRecord[];
@@ -352,10 +376,12 @@ export default function StudiosPage() {
         if (oldPlan === 'trial' && plan !== 'trial') {
             setModal({
                 type: 'confirm',
-                title: lang === 'ka' ? 'გეგმის შეცვლა' : 'Change Plan',
-                message: lang === 'ka' 
-                    ? `სტუდია "${slug}" გადადის ფასიან გეგმაზე (${plan.toUpperCase()}). გსურთ საწყისი გადახდის დაფიქსირება და მომსახურების გააქტიურება?`
-                    : `Studio "${slug}" is being moved from Trial to ${plan.toUpperCase()}. Record an initial payment and activate subscription?`,
+                title: l('გეგმის შეცვლა', 'Смена тарифного плана', 'Change Plan'),
+                message: l(
+                    `სტუდია "${slug}" გადადის ფასიან გეგმაზე (${plan.toUpperCase()}). გსურთ საწყისი გადახდის დაფიქსირება და მომსახურების გააქტიურება?`,
+                    `Студия "${slug}" переходит на платный тариф (${plan.toUpperCase()}). Хотите зафиксировать первоначальный платеж и активировать подписку?`,
+                    `Studio "${slug}" is being moved from Trial to ${plan.toUpperCase()}. Record an initial payment and activate subscription?`
+                ),
                 onConfirm: () => {
                     recordPayment(slug, 'cash', 49, 1);
                     loadData();
@@ -397,10 +423,12 @@ export default function StudiosPage() {
     const manualActivate = (slug: string) => {
         setModal({
             type: 'confirm',
-            title: lang === 'ka' ? 'მექანიკური გააქტიურება' : 'Manual Activation',
-            message: lang === 'ka'
-                ? `ნამდვილად გსურთ 49₾ გადახდის დაფიქსირება სტუდიისთვის "${slug}" და ვადის 30 დღით გაგრძელება?`
-                : `Manually record a 49 GEL payment for "${slug}" and extend subscription by 30 days?`,
+            title: l('მექანიკური გააქტიურება', 'Ручная активация', 'Manual Activation'),
+            message: l(
+                `ნამდვილად გსურთ 49₾ გადახდის დაფიქსირება სტუდიისთვის "${slug}" და ვადის 30 დღით გაგრძელება?`,
+                `Вы уверены, что хотите зафиксировать платеж 49₾ для студии "${slug}" и продлить срок на 30 дней?`,
+                `Manually record a 49 GEL payment for "${slug}" and extend subscription by 30 days?`
+            ),
             onConfirm: () => {
                 recordPayment(slug, 'cash', 49, 1);
                 loadData();

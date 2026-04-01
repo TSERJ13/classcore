@@ -10,6 +10,7 @@ import { getGroups, saveGroups, type Group, slotsToDisplay } from '@/lib/group-s
 import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
+import { cn } from '@/lib/utils';
 
 const typeColor: Record<string, string> = {
     Dance: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
@@ -194,28 +195,42 @@ export default function GroupsPage() {
                                 </button>
                             </div>
 
-                            <div className="mt-auto">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex-1 min-w-0 flex items-center gap-2 bg-surface/50 p-2 py-1.5 rounded-xl border border-border-subtle/30">
-                                        <Clock className="w-3 h-3 text-muted shrink-0 opacity-40" />
-                                        <span className="text-[9px] font-bold text-primary truncate">
-                                            {slotsToDisplay(group.schedule_slots || [], lang)}
-                                        </span>
+                                <div className="mt-auto">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                                            {[0, 1, 2, 3, 4, 5, 6].map(d => {
+                                                const isActive = group.schedule_slots?.some(s => s.dayOfWeek === d);
+                                                const labels = lang === 'ka' ? ['ო', 'ს', 'ო', 'ხ', 'პ', 'შ', 'კ'] : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                                                return (
+                                                    <div key={d} className={cn(
+                                                        "w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black border transition-all shrink-0",
+                                                        isActive 
+                                                            ? "bg-indigo-500 border-indigo-500/20 text-white shadow-sm" 
+                                                            : "bg-surface border-border-subtle/30 text-muted opacity-30"
+                                                    )}>
+                                                        {labels[d]}
+                                                    </div>
+                                                );
+                                            })}
+                                            <div className="w-px h-4 bg-border-subtle/30 mx-1" />
+                                            <span className="text-[10px] font-black text-primary/60 whitespace-nowrap">
+                                                {group.schedule_slots?.[0]?.startTime}
+                                            </span>
+                                        </div>
+                                        <div className="shrink-0 flex items-center gap-1.5 bg-indigo-500/5 px-2 py-1.5 rounded-xl border border-indigo-500/10 h-8">
+                                            <span className="text-[9px] font-black text-indigo-600 tracking-tight">{group.enrolled}/{group.capacity}</span>
+                                            <div className="w-px h-3 bg-indigo-500/20" />
+                                            <span className="text-[9px] font-black text-indigo-500/60">{fillPct}%</span>
+                                        </div>
                                     </div>
-                                    <div className="shrink-0 flex items-center gap-1.5 bg-indigo-500/5 px-2 py-1.5 rounded-xl border border-indigo-500/10 h-8">
-                                        <span className="text-[9px] font-black text-indigo-600 tracking-tight">{group.enrolled}/{group.capacity}</span>
-                                        <div className="w-px h-3 bg-indigo-500/20" />
-                                        <span className="text-[9px] font-black text-indigo-500/60">{fillPct}%</span>
-                                    </div>
-                                </div>
 
-                                <div className="relative w-full bg-surface rounded-full h-1 overflow-hidden shadow-inner mt-2">
-                                    <div
-                                        className="h-full rounded-full transition-all duration-1000"
-                                        style={{ width: `${Math.min(100, fillPct)}%`, backgroundColor: fillPct > 85 ? '#f59e0b' : gColor, boxShadow: `0 0 8px ${fillPct > 85 ? '#f59e0b' : gColor}40` }}
-                                    />
+                                    <div className="relative w-full bg-surface rounded-full h-1 overflow-hidden shadow-inner mt-2">
+                                        <div
+                                            className="h-full rounded-full transition-all duration-1000"
+                                            style={{ width: `${Math.min(100, fillPct)}%`, backgroundColor: fillPct > 85 ? '#f59e0b' : gColor, boxShadow: `0 0 8px ${fillPct > 85 ? '#f59e0b' : gColor}40` }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
                         </div>
                     );
                 })}
