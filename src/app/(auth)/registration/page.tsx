@@ -123,7 +123,7 @@ export default function RegisterPage() {
             const { data, error: signUpError } = await supabase.auth.signUp({
                 email, password, options: { 
                     emailRedirectTo: `${window.location.origin}/auth/confirm`,
-                    data: { role: 'owner', first_name: firstName, last_name: lastName, org_id: orgId, studio_slug: studioSlug }
+                    data: { role: 'owner', first_name: firstName, last_name: lastName, org_id: orgId, studio_slug: studioSlug, studio_name: studioName }
                 }
             });
 
@@ -190,11 +190,13 @@ export default function RegisterPage() {
             )}
 
             <div className="w-full max-w-[480px] lg:max-w-[1000px] space-y-10 py-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                <div className="flex flex-col items-center gap-8 mb-4">
-                    <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={96} transparent />
-                    </Link>
-                </div>
+                {step !== 'success' && (
+                    <div className="flex flex-col items-center gap-8 mb-4">
+                        <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
+                            <Logo size={96} transparent />
+                        </Link>
+                    </div>
+                )}
 
                 <div className="bg-white p-10 sm:p-14 lg:p-16 rounded-[3rem] border border-slate-100 shadow-2xl shadow-indigo-500/5 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
@@ -228,7 +230,7 @@ export default function RegisterPage() {
                                             <input 
                                                 value={firstName} onChange={e => setFirstName(e.target.value)}
                                                 required 
-                                                className="w-full h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs" 
+                                                className="w-full h-12 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs" 
                                                 placeholder="John"
                                             />
                                         </div>
@@ -240,7 +242,7 @@ export default function RegisterPage() {
                                             <input 
                                                 value={lastName} onChange={e => setLastName(e.target.value)}
                                                 required 
-                                                className="w-full h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                className="w-full h-12 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                                 placeholder="Doe"
                                             />
                                         </div>
@@ -254,7 +256,7 @@ export default function RegisterPage() {
                                         <input 
                                             value={studioName} onChange={e => setStudioName(e.target.value)}
                                             required 
-                                            className="w-full h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                            className="w-full h-12 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                             placeholder="Gravity Dance Studio"
                                         />
                                     </div>
@@ -269,7 +271,7 @@ export default function RegisterPage() {
                                                 <select 
                                                     value={country.code} 
                                                     onChange={(e) => setCountry(COUNTRIES.find(c => c.code === e.target.value)!)}
-                                                    className="h-10 w-[90px] bg-slate-50/50 border border-slate-100 rounded-xl pl-3 pr-1 text-xs font-black text-slate-900 appearance-none outline-none focus:border-indigo-500/30 transition-all cursor-pointer shadow-xs"
+                                                    className="h-12 w-[90px] bg-slate-50/50 border border-slate-100 rounded-2xl pl-3 pr-1 text-xs font-black text-slate-900 appearance-none outline-none focus:border-indigo-500/30 transition-all cursor-pointer shadow-xs"
                                                 >
                                                     {COUNTRIES.map(c => (
                                                         <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>
@@ -281,7 +283,7 @@ export default function RegisterPage() {
                                                 value={phone} onChange={e => setPhone(e.target.value)}
                                                 required 
                                                 type="tel"
-                                                className="flex-1 h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                className="flex-1 h-12 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                                 placeholder="555..."
                                             />
                                         </div>
@@ -298,7 +300,7 @@ export default function RegisterPage() {
                                         <input 
                                             value={email} onChange={e => handleEmailChange(e.target.value)}
                                             name="email" type="email" required 
-                                            className="w-full h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                            className="w-full h-12 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                             placeholder="your@email.com"
                                         />
                                         {showEmailSuggestions && (
@@ -324,7 +326,7 @@ export default function RegisterPage() {
                                         <input 
                                             value={password} onChange={e => setPassword(e.target.value)}
                                             type="password" required 
-                                            className="w-full h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                            className="w-full h-12 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                             placeholder="••••••••"
                                         />
                                         {password.length > 0 && (

@@ -573,7 +573,7 @@ export default function DashboardPage() {
         });
     }, [selectedDate, settings, t]);
 
-    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+    const isDemo = (!user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name) && liveStats.totalStudents === 0;
 
     const getLocalizedDate = (date: Date, t: any) => {
         const weekdays = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
@@ -1020,17 +1020,17 @@ export default function DashboardPage() {
                         <p className="text-[11px] text-muted mt-0.5">
                             {t.ofStudents
                                 .replace('{count}', isDemo ? '34' : String(liveStats.attendance))
-                                .replace('{total}', isDemo ? '41' : String(liveStats.activeStudents))
+                                .replace('{total}', isDemo ? '41' : String(liveStats.activeStudents || liveStats.totalStudents))
                             }
                         </p>
                     </div>
                     <span className="text-2xl font-black text-primary">
-                        {isDemo ? '83%' : (liveStats.activeStudents > 0 ? Math.round((liveStats.attendance / liveStats.activeStudents) * 100) + '%' : '0%')}
+                        {isDemo ? '83%' : ( (liveStats.activeStudents || liveStats.totalStudents) > 0 ? Math.round((liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents)) * 100) + '%' : '0%')}
                     </span>
                 </div>
                 <div className="w-full bg-surface rounded-full h-3 overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full relative overflow-hidden transition-all duration-1000"
-                        style={{ width: isDemo ? '83%' : (liveStats.activeStudents > 0 ? (liveStats.attendance / liveStats.activeStudents * 100) + '%' : '0%') }}>
+                        style={{ width: isDemo ? '83%' : ((liveStats.activeStudents || liveStats.totalStudents) > 0 ? (liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents) * 100) + '%' : '0%') }}>
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
                     </div>
                 </div>
