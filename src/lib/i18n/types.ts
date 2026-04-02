@@ -527,8 +527,10 @@ export interface Translations {
     heroTrust: string;
     leadingStudios: string;
     mainFeatures: string;
+    platformFeatures: string;
     allYourStudioNeeds: string;
     fullControl: string;
+    controlEveryAspect: string;
     controlDesc: string;
     featureIntuitive: string;
     featureThemes: string;

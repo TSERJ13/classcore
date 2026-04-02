@@ -123,34 +123,36 @@ export default function LoginPage() {
                 </div>
             )}
             
-            <div className="w-full max-w-[480px] space-y-8 py-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
-                <div className="flex flex-col items-center gap-8 mb-4">
+            <div className="w-full max-w-[440px] flex flex-col gap-8 pt-0 pb-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="flex flex-col items-center gap-6">
                     <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={96} transparent />
+                        <Logo size={110} transparent />
                     </Link>
                 </div>
 
-                <div className="bg-white p-10 sm:p-14 rounded-[3rem] border border-slate-100 shadow-2xl shadow-indigo-500/5 relative overflow-hidden">
+                <div className="bg-white p-8 sm:p-10 rounded-[3rem] border border-slate-100 shadow-2xl shadow-indigo-500/5 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
                     
-                    <div className="text-center space-y-3 mb-12 relative">
+                    <div className="text-center space-y-3 mb-10 relative">
                         <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('ავტორიზაცია', 'Вход', 'Access Portal')}</h2>
-                        <p className="text-xs text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-2.5 opacity-80">
-                            <Sparkles className="w-4 h-4" />
+                        <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
+                            <Sparkles className="w-4 h-4 animate-pulse" />
                             {l('სტუდიის მართვის სისტემა', 'Система управления', 'Studio Management OS')}
                         </p>
                     </div>
 
                     {error && (
-                        <div className="mb-12 p-6 bg-red-50/50 border border-red-100 rounded-2xl text-[11px] font-black text-red-500 uppercase tracking-tighter text-center animate-shake">
+                        <div className="mb-8 p-6 bg-red-50/50 border border-red-100 rounded-2xl text-[11px] font-black text-red-500 uppercase tracking-tighter text-center animate-shake">
                             {error}
                         </div>
                     )}
 
-                    <form onSubmit={handleLogin} className="space-y-8 relative">
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2 opacity-70">
-                                <Mail className="w-3 h-3" />
+                    <form onSubmit={handleLogin} className="space-y-6 relative">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                    <Mail className="w-3.5 h-3.5" />
+                                </div>
                                 {l('ფოსტა', 'Почта', 'Identity (Email)')}
                             </label>
                             <input
@@ -158,15 +160,17 @@ export default function LoginPage() {
                                 type="email"
                                 required
                                 placeholder={l('შეიყვანეთ იმეილი...', 'Введите почту...', 'your@frequency.com')}
-                                className="w-full h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                             />
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <div className="flex items-center justify-between pl-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 opacity-70">
-                                    <Lock className="w-3 h-3" />
-                                    {l('პაროლი', 'Паროль', 'Security Key')}
+                                <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest flex items-center gap-3 opacity-90">
+                                    <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                        <Lock className="w-3.5 h-3.5" />
+                                    </div>
+                                    {l('პაროლი', 'Пароль', 'Security Key')}
                                 </label>
                                 <Link href="/forgot-password" className="text-[11px] font-black text-indigo-600 px-1 tracking-tighter hover:text-indigo-700 transition-colors uppercase decoration-indigo-200 hover:underline">
                                     {l('დაგავიწყდათ?', 'Забыли?', 'Recovery')}
@@ -178,7 +182,7 @@ export default function LoginPage() {
                                     type={showPassword ? "text" : "password"}
                                     required
                                     placeholder={l('შეიყვანეთ პაროლი...', 'Введите пароль...', '••••••••')}
-                                    className="w-full h-10 bg-slate-50/50 border border-slate-100 rounded-xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                    className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                 />
                                 <button
                                     type="button"
@@ -194,29 +198,31 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full h-12 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-sm shadow-xl shadow-slate-900/10 active:scale-[0.98] transition-all hover:bg-slate-800 flex items-center justify-center gap-2 mt-6 relative overflow-hidden group disabled:opacity-50"
-                        >
-                            {isSubmitting ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <>
-                                    {l('შესვლა', 'Войти', 'Authorization')}
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </>
-                            )}
-                        </button>
+                        <div className="flex flex-col items-center space-y-6 pt-4 border-t border-slate-50 mt-6">
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-sm shadow-xl shadow-slate-900/10 active:scale-[0.98] transition-all hover:bg-slate-800 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-50"
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <>
+                                        {l('შესვლა', 'Войти', 'Authorization')}
+                                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
+                            </button>
+                            
+                            <p className="text-center text-sm font-black text-slate-400 tracking-tight">
+                                {l('არ გაქვთ ანგარიში?', 'Нет аккаунта?', 'New pilot in HQ?')}{' '}
+                                <Link href="/registration" className="text-indigo-600 hover:text-indigo-700 font-black decoration-indigo-200 hover:underline underline-offset-4">
+                                    {l('რეგისტრაცია', 'Регистрация', 'Activate Signal')}
+                                </Link>
+                            </p>
+                        </div>
                     </form>
                 </div>
-
-                <p className="text-center text-[12px] font-bold text-slate-400 tracking-tight mt-8">
-                    {l('არ გაქვთ ანგარიში?', 'Нет аккаунта?', 'New pilot in HQ?')}{' '}
-                    <Link href="/registration" className="text-indigo-600 hover:text-indigo-700 font-black decoration-indigo-200 hover:underline underline-offset-4">
-                        {l('რეგისტრაცია', 'Регистрация', 'Activate Signal')}
-                    </Link>
-                </p>
 
                 <div className="text-center space-y-4 opacity-40 pt-10">
                     <div className="flex items-center justify-center gap-4">

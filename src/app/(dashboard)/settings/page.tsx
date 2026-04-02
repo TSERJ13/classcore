@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
-    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle
+    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages
 } from 'lucide-react';
 import { checkCloudConnection, syncStaffToCloud } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
 import { useT } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -422,7 +423,7 @@ export default function SettingsPage() {
 
             {isAdmin && (
                 <>
-                    <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
+                    <Section title={t.studioSettings} icon={Building2} defaultOpen={false}>
                         {/* Logo */}
                         <Row label={t.logoLabel} sub={t.logoDesc}>
                             <div className="flex items-center gap-3">
@@ -473,11 +474,6 @@ export default function SettingsPage() {
                                         {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
                                     </button>
                                 )}
-                            </div>
-                        </Row>
-                        <Row label={t.emailLabel} sub={t.emailDesc}>
-                            <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-[10px] font-medium text-muted/60 min-w-[10rem] text-right truncate">
-                                {user?.email || 'N/A'}
                             </div>
                         </Row>
                         <Row label={t.urlSlugLabel} sub={t.slugWarning}>
@@ -780,17 +776,24 @@ export default function SettingsPage() {
                             )}
                         />
                     </Row>
-                    <Row label={l('კლიენტის ნომერი', 'Номер клиента', 'Client ID')} sub={l('კაბინეტის ნომერი', 'Номер кабинета', 'Cabinet Number')}>
-                        <input 
-                            value={settings.owner_info?.client_id || ''} 
-                            onChange={e => setOwnerInfo({ client_id: e.target.value })}
-                            placeholder="KB-..."
-                            readOnly={!isSuperAdmin}
-                            className={cn(
-                                "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
-                            )}
-                        />
+                    <Row label={l('კაბინეტის ნომერი', 'Номер кабинета', 'Cabinet Number')} sub={l('უნიკალური საიდენტიფიკაციო კოდი', 'Уникальный идентификационный код', 'Unique identification code')}>
+                        <div className="flex items-center gap-2">
+                            <div className="px-4 py-2 bg-surface border border-border-subtle rounded-xl text-xs font-mono font-black text-indigo-500 shadow-inner">
+                                {settings.cabinetCode || '---'}
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    navigator.clipboard.writeText(settings.cabinetCode || '');
+                                    addNotification(l('კოდი დაკოპირდა', 'Код скопирован', 'Code copied'), 'success');
+                                }}
+                                className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary transition-all"
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </Row>
+                    <Row label={l('პლატფორმის ენა', 'Язык платформы', 'Platform Language')} sub={l('თქვენი ძირითადი ენა სისტემაში', 'Ваш основной язык в системе', 'Your primary language in the system')}>
+                        <LanguageSwitcher mode="persistent" />
                     </Row>
                     <Row label={l('სისტემიდან გამოსვლა', 'Выйти из системы', 'Logout')} sub={t.logoutDesc}>
                         <button onClick={logout} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group">

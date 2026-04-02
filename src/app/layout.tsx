@@ -15,11 +15,12 @@ export const metadata: Metadata = {
     authors: [{ name: 'ClassCore', url: 'https://classcore.ge' }],
     icons: {
         icon: [
-            { url: '/logo.svg' },
+            { url: '/logo.svg', type: 'image/svg+xml' },
+            { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
         ],
         shortcut: '/logo.svg',
         apple: [
-            { url: '/logo.svg' },
+            { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
         ],
     },
     manifest: '/manifest.webmanifest',
@@ -45,17 +46,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang={activeLang || 'ka'} suppressHydrationWarning>
             <head>
-                <link rel="apple-touch-icon" href="/logo.svg" />
-                <link rel="apple-touch-icon" sizes="152x152" href="/logo.svg" />
-                <link rel="apple-touch-icon" sizes="180x180" href="/logo.svg" />
-                <link rel="apple-touch-icon" sizes="167x167" href="/logo.svg" />
+                <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+                <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png" />
+                <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+                <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png" />
                 <meta name="apple-mobile-web-app-capable" content="yes" />
-                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="default" />
                 <meta name="apple-mobile-web-app-title" content="ClassCore" />
                 <meta name="mobile-web-app-capable" content="yes" />
                 <meta name="format-detection" content="telephone=no" />
                 <meta name="msapplication-TileColor" content="#4f46e5" />
                 <meta name="msapplication-tap-highlight" content="no" />
+                <meta name="msapplication-TileImage" content="/icon-192.png" />
                 {/* Splash screens could be added here if we had the specific sizes */}
             </head>
             <body className="min-h-screen bg-base antialiased font-sans">

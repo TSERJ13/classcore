@@ -437,6 +437,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         <input
                                             type="number"
                                             value={price}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => setPrice(parseInt(e.target.value) || '')}
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
                                         />
@@ -471,6 +472,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         <input
                                             type="number"
                                             value={discount}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
                                             placeholder="0"
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-emerald-500 outline-none focus:border-emerald-500/40 transition-all"
@@ -524,6 +526,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <input
                                         type="number"
                                         value={amountPaid}
+                                        onFocus={(e) => e.target.select()}
                                         onChange={(e) => setAmountPaid(parseFloat(e.target.value) || '')}
                                         placeholder={remaining.toFixed(2)}
                                         className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
@@ -593,6 +596,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             type="number"
                                             value={days}
                                             disabled={neverExpires}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => setDays(parseInt(e.target.value) || '')}
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
                                         />
@@ -610,6 +614,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             type="number"
                                             value={sessions}
                                             disabled={unlimited}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => setSessions(parseInt(e.target.value) || '')}
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
                                         />

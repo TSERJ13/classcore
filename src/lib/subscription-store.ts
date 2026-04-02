@@ -192,8 +192,8 @@ export function getSubscription(
         // New logic for portal: Include expired if they have sessions left
         if (includeExpiredWithSessions) {
             const used = s.sessions_used || 0;
-            const total = s.sessions_total || 0;
-            return total > 0 && used < total;
+            if (s.sessions_total === null) return true;
+            return used < s.sessions_total;
         }
         return false;
     });
@@ -212,9 +212,9 @@ export function getSubscription(
 
         const isSessionBased = s.type === 'sessions' || (s.sessions_total !== null && !s.type);
         if (isSessionBased) {
+            if (s.sessions_total === null) return true;
             const used = s.sessions_used || 0;
-            const total = s.sessions_total || 0;
-            return used < total;
+            return used < s.sessions_total;
         }
         return true; // monthly
     });

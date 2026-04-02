@@ -107,12 +107,12 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                 <div className="flex items-center gap-3">
                     <div className={cn(
                         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
-                        !settings.logoDataUrl ? "bg-indigo-500/10 border-indigo-500/20" : "bg-card border-border-subtle shadow-inner"
-                    )} style={settings.logoDataUrl ? { borderColor: theme.accentHex } : {}}>
+                        !settings.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
+                    )} style={settings.logoDataUrl ? { borderColor: theme.accentHex } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}>
                         {settings.logoDataUrl ? (
                             <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
                         ) : (
-                            <span className="text-lg font-black text-indigo-500">{getInitial(settings.studioName)}</span>
+                            <span className="text-lg font-black" style={{ color: theme.accentHex }}>{getInitial(settings.studioName)}</span>
                         )}
                     </div>
 
@@ -121,11 +121,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                         exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                     )}>
                         <span className="text-[14px] font-black text-white truncate tracking-tight leading-tight transition-colors">
-                            {(settings.studioName && settings.studioName.toLowerCase() !== 'studio') 
-                                ? settings.studioName 
-                                : (profile?.studio_name && profile.studio_name.toLowerCase() !== 'studio')
-                                    ? profile.studio_name
-                                    : (typeof window !== 'undefined' ? localStorage.getItem('cc_studio_name') : null) || 'Studio'}
+                            {settings.studioName || profile?.studio_name || (typeof window !== 'undefined' ? localStorage.getItem('cc_studio_name') : null) || 'Studio'}
                         </span>
 
                         <div className="flex items-center gap-2 mt-0.5">
@@ -338,7 +334,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                         </button>
                     )}
                     <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
-                        <LanguageSwitcher compact={!exp} />
+                        <LanguageSwitcher compact={!exp} mode="session" />
                         <div className={cn("flex-1 flex justify-center", exp ? "pl-4" : "hidden")}>
                             <button
                                 onClick={logout}

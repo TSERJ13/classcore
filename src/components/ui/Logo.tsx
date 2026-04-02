@@ -17,7 +17,14 @@ export const Logo: React.FC<LogoProps> = ({
   loading = false
 }) => {
   return (
-    <div className={cn("relative flex items-center justify-center transition-all duration-700", loading && "animate-pulse scale-110", className)} style={{ width: size, height: size }}>
+    <div 
+      className={cn(
+        "relative flex items-center justify-center transition-all duration-700", 
+        loading && "animate-pulse scale-110", 
+        className
+      )} 
+      style={{ width: size, height: size }}
+    >
       <svg 
         width={size} 
         height={size} 
@@ -28,7 +35,7 @@ export const Logo: React.FC<LogoProps> = ({
         <defs>
           <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" style={{ stopColor: '#6366f1', stopOpacity: 1 }} />
-            <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#4f46e5', stopOpacity: 1 }} />
           </linearGradient>
           
           <style>{`
