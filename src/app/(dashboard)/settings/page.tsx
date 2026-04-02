@@ -87,8 +87,9 @@ export default function SettingsPage() {
     const { settings, isLoaded, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'staff' || !profile?.role; // Default true if logged in but role not fetched yet
-    const isOwner = profile?.role === 'owner' || profile?.role === 'admin';
+    const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin';
+    const isOwner = profile?.role === 'owner' || profile?.role === 'superadmin';
+    const isSuperAdmin = profile?.role === 'superadmin';
 
     const [nameVal, setNameVal] = useState(settings.studioName);
     const [slugVal, setSlugVal] = useState(settings.studioSlug);
@@ -208,16 +209,17 @@ export default function SettingsPage() {
 
     function saveName() {
         if (!nameVal.trim()) return;
-        const uniqueName = ensureUniqueName(nameVal.trim(), settings.studioSlug);
+        const uniqueName = nameVal.trim();
         setStudioName(uniqueName);
         setNameVal(uniqueName);
 
-        // Auto-update slug on name save to follow the new rules
-        const uniqueSlug = ensureUniqueSlug(uniqueName, settings.studioSlug);
-        if (uniqueSlug !== settings.studioSlug) {
-            migrateSlugData(settings.studioSlug, uniqueSlug);
-            setStudioSlug(uniqueSlug);
-            setSlugVal(uniqueSlug);
+        // Only superadmins can trigger slug changes, and we keep it safe
+        if (isSuperAdmin) {
+            const uniqueSlug = ensureUniqueSlug(uniqueName, settings.studioSlug);
+            if (uniqueSlug !== settings.studioSlug) {
+                // We DON'T auto-migrate here to avoid surprising the user
+                // They should change the slug input explicitly if they want a URL change
+            }
         }
 
         setNameSaved(true);
@@ -453,21 +455,17 @@ export default function SettingsPage() {
                     </Row>
                     <Row label={t.studioNameLabel} sub={t.sidebarShow}>
                         <div className="flex items-center gap-2">
-                            <input 
+                             <input 
                                 value={nameVal} 
                                 onChange={e => {
                                     const nextName = e.target.value;
                                     setNameVal(nextName);
-                                    // Real-time sync to slug if it was empty or matches old name-derived slug
-                                    if (!slugVal || slugVal === compactSlugify(nameVal)) {
-                                        setSlugVal(compactSlugify(nextName));
-                                    }
                                 }}
                                 onKeyDown={e => e.key === 'Enter' && saveName()} 
-                                readOnly={profile?.role !== 'superadmin'}
+                                readOnly={!isSuperAdmin}
                                 className={cn(
                                     "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                    profile?.role !== 'superadmin' && "opacity-60 cursor-not-allowed"
+                                    !isSuperAdmin && "opacity-60 cursor-not-allowed"
                                 )} 
                             />
                             {profile?.role === 'superadmin' && (
@@ -573,13 +571,21 @@ export default function SettingsPage() {
                                     value={settings.owner_info?.first_name || profile?.first_name || ''} 
                                     onChange={e => setOwnerInfo({ first_name: e.target.value })}
                                     placeholder={t.firstNameLabel}
-                                    className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
+                                    readOnly={!isSuperAdmin}
+                                    className={cn(
+                                        "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                        !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
+                                    )}
                                 />
                                 <input 
                                     value={settings.owner_info?.last_name || profile?.last_name || ''} 
                                     onChange={e => setOwnerInfo({ last_name: e.target.value })}
                                     placeholder={t.lastNameLabel}
-                                    className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
+                                    readOnly={!isSuperAdmin}
+                                    className={cn(
+                                        "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                        !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
+                                    )}
                                 />
                             </div>
                         </Row>
@@ -593,7 +599,11 @@ export default function SettingsPage() {
                                 value={settings.owner_info?.phone || profile?.phone || ''} 
                                 onChange={e => setOwnerInfo({ phone: e.target.value })}
                                 placeholder="+995 ..."
-                                className="w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
+                                readOnly={!isSuperAdmin}
+                                className={cn(
+                                    "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
+                                )}
                             />
                         </Row>
                     </div>
