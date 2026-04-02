@@ -439,15 +439,15 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                     // Hydration complete: Release the loading guard
                     setFirstSyncDone(true);
-                    // Small visual buffer for smooth transition
-                    setTimeout(() => setIsLoaded(true), 150);
                 }).catch(err => {
                     console.error('📡 [StudioContext] Initial Cloud Sync Failed:', err);
                     setFirstSyncDone(true);
-                    setIsLoaded(true);
                 });
             });
         }, 800);
+
+        // Immediate release for UI but keep small buffer for settings apply
+        setTimeout(() => setIsLoaded(true), 150);
 
         cleanupRegistry();
 
