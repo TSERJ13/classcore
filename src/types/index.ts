@@ -38,6 +38,7 @@ export interface TrashItem {
         last_name?: string;
         email?: string;
         phone?: string;
+        client_id?: string;
     };
     deletedAt: string;
     deletedBy: string;
@@ -160,7 +161,8 @@ export interface StudioSettings {
         last_name: string;
         email: string;
         phone: string;
-    };
+        client_id?: string;
+    } | null;
     updatedAt?: string;
     cabinetCode?: string;
     customRoles?: string[];

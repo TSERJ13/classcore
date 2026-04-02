@@ -173,10 +173,17 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
     }, [markLocalUpdate, triggerPush]);
 
-    const setOwnerInfo = useCallback((info: Partial<StudioSettings['owner_info']>) => {
+    const setOwnerInfo = useCallback((info: any) => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ 
-            owner_info: { ...prev.owner_info, ...info } 
+            owner_info: {
+                first_name: prev.owner_info?.first_name || '',
+                last_name: prev.owner_info?.last_name || '',
+                email: prev.owner_info?.email || '',
+                phone: prev.owner_info?.phone || '',
+                client_id: prev.owner_info?.client_id || '',
+                ...info
+            }
         }, prev, prev.studioSlug));
         triggerPush();
     }, [markLocalUpdate, triggerPush]);
@@ -444,7 +451,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     setFirstSyncDone(true);
                 });
             });
-        }, 800);
+        }, 0);
 
         // Immediate release for UI but keep small buffer for settings apply
         setTimeout(() => setIsLoaded(true), 0);

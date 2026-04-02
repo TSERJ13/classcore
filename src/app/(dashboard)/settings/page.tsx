@@ -420,193 +420,249 @@ export default function SettingsPage() {
                 </div>
             )}
 
-
-
             {isAdmin && (
-                <Section title={t.studioSettings} icon={Building2}>
-                    {/* Logo */}
-                    <Row label={t.logoLabel} sub={t.logoDesc}>
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl overflow-hidden border border-border-subtle flex-shrink-0 bg-surface flex items-center justify-center">
-                                {settings.logoDataUrl ? (
-                                    <img src={settings.logoDataUrl} alt="logo" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className={`w-full h-full bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center`}>
-                                        <span className="text-base font-black text-white">{getInitials(settings.studioName)}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <button
-                                    onClick={() => fileRef.current?.click()}
-                                    disabled={uploading}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm"
-                                >
-                                    {uploading ? <span className="animate-spin">⏳</span> : <Camera className="w-3.5 h-3.5" />}
-                                    {t.uploadAction}
-                                </button>
-                                {settings.logoDataUrl && (
-                                    <button onClick={() => setLogo(null)} className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors">
-                                        {t.removeAction}
-                                    </button>
-                                )}
-                            </div>
-                            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                        </div>
-                    </Row>
-                    <Row label={t.studioNameLabel} sub={t.sidebarShow}>
-                        <div className="flex items-center gap-2">
-                             <input 
-                                value={nameVal} 
-                                onChange={e => {
-                                    const nextName = e.target.value;
-                                    setNameVal(nextName);
-                                }}
-                                onKeyDown={e => e.key === 'Enter' && saveName()} 
-                                readOnly={!isSuperAdmin}
-                                className={cn(
-                                    "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                    !isSuperAdmin && "opacity-60 cursor-not-allowed"
-                                )} 
-                            />
-                            {profile?.role === 'superadmin' && (
-                                <button onClick={saveName} className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
-                                    {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                                </button>
-                            )}
-                        </div>
-                    </Row>
-                    <Row label={t.emailLabel} sub={t.emailDesc}>
-                        <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-[10px] font-medium text-muted/60 min-w-[10rem] text-right truncate">
-                            {user?.email || 'N/A'}
-                        </div>
-                    </Row>
-                    <Row label={t.urlSlugLabel} sub={t.slugWarning}>
-                        <div className="flex flex-col gap-2 items-end">
-                            <div className="flex items-center gap-2 w-full justify-end">
-                                <span className="text-muted/40 text-[10px]">/</span>
-                                <div className="relative flex items-center gap-2 w-full max-w-[200px]">
-                                    <input
-                                        value={slugVal}
-                                        onChange={e => setSlugVal(compactSlugify(e.target.value))}
-                                        onKeyDown={e => e.key === 'Enter' && saveSlug()}
-                                        readOnly={profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge'}
-                                        className={cn(
-                                            "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors",
-                                            (profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
-                                        )}
-                                    />
-                                    {(profile?.role === 'superadmin' || settings.studioSlug === 'demo.classcore.ge') && (
-                                        <div className="flex items-center gap-2">
-                                            {profile?.role === 'superadmin' && (
-                                                <button
-                                                    onClick={handleReclaimSlug}
-                                                    className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
-                                                    title={t.reclaimName}
-                                                >
-                                                    {t.reclaimAction}
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={saveSlug}
-                                                disabled={!slugVal || slugVal === settings.studioSlug}
-                                                className={cn(
-                                                    'w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all shadow-lg',
-                                                    slugSaved ? 'bg-emerald-500 text-white' : 
-                                                    (!slugVal || slugVal === settings.studioSlug) ? 'bg-surface text-muted/20 border border-border-subtle/50' :
-                                                    'bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95'
-                                                )}
-                                            >
-                                                {slugSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                                            </button>
+                <>
+                    <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
+                        {/* Logo */}
+                        <Row label={t.logoLabel} sub={t.logoDesc}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl overflow-hidden border border-border-subtle flex-shrink-0 bg-surface flex items-center justify-center">
+                                    {settings.logoDataUrl ? (
+                                        <img src={settings.logoDataUrl} alt="logo" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className={`w-full h-full bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center`}>
+                                            <span className="text-base font-black text-white">{getInitials(settings.studioName)}</span>
                                         </div>
                                     )}
                                 </div>
-                            </div>
-                        </div>
-                    </Row>
-
-                    {settings.studioSlug !== 'demo.classcore.ge' && (
-                        <Row label={t.cloudSyncLabel} sub={t.cloudSyncDesc}>
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border-subtle rounded-xl">
-                                    <div className={cn("w-2 h-2 rounded-full", cloudSynced === true ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : cloudSynced === false ? "bg-red-500" : "bg-amber-500 animate-pulse")} />
-                                    <span className="text-[10px] font-black tracking-widest text-muted">
-                                        {cloudSynced === true ? t.registeredFound :
-                                            cloudSynced === false ? t.notFoundCloud :
-                                                t.checkingStatus}
-                                    </span>
+                                <div className="flex flex-col gap-1.5">
+                                    <button
+                                        onClick={() => fileRef.current?.click()}
+                                        disabled={uploading}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm"
+                                    >
+                                        {uploading ? <span className="animate-spin">⏳</span> : <Camera className="w-3.5 h-3.5" />}
+                                        {t.uploadAction}
+                                    </button>
+                                    {settings.logoDataUrl && (
+                                        <button onClick={() => setLogo(null)} className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors">
+                                            {t.removeAction}
+                                        </button>
+                                    )}
                                 </div>
-                                <button
-                                    onClick={forceSync}
-                                    disabled={isSyncing}
-                                    className="w-10 h-10 flex items-center justify-center bg-surface border border-border-subtle hover:text-indigo-500 rounded-xl transition-all disabled:opacity-50"
-                                    title={t.forceSyncAction}
-                                >
-                                    <RefreshCcw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                            </div>
+                        </Row>
+                        <Row label={t.studioNameLabel} sub={t.sidebarShow}>
+                            <div className="flex items-center gap-2">
+                                 <input 
+                                    value={nameVal} 
+                                    onChange={e => {
+                                        const nextName = e.target.value;
+                                        setNameVal(nextName);
+                                    }}
+                                    onKeyDown={e => e.key === 'Enter' && saveName()} 
+                                    readOnly={!isSuperAdmin}
+                                    className={cn(
+                                        "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                        !isSuperAdmin && "opacity-60 cursor-not-allowed"
+                                    )} 
+                                />
+                                {profile?.role === 'superadmin' && (
+                                    <button onClick={saveName} className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
+                                        {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                                    </button>
+                                )}
+                            </div>
+                        </Row>
+                        <Row label={t.emailLabel} sub={t.emailDesc}>
+                            <div className="px-3 py-2 bg-surface/50 border border-border-subtle/50 rounded-xl text-[10px] font-medium text-muted/60 min-w-[10rem] text-right truncate">
+                                {user?.email || 'N/A'}
+                            </div>
+                        </Row>
+                        <Row label={t.urlSlugLabel} sub={t.slugWarning}>
+                            <div className="flex flex-col gap-2 items-end">
+                                <div className="flex items-center gap-2 w-full justify-end">
+                                    <span className="text-muted/40 text-[10px]">/</span>
+                                    <div className="relative flex items-center gap-2 w-full max-w-[200px]">
+                                        <input
+                                            value={slugVal}
+                                            onChange={e => setSlugVal(compactSlugify(e.target.value))}
+                                            onKeyDown={e => e.key === 'Enter' && saveSlug()}
+                                            readOnly={profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge'}
+                                            className={cn(
+                                                "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors",
+                                                (profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
+                                            )}
+                                        />
+                                        {(profile?.role === 'superadmin' || settings.studioSlug === 'demo.classcore.ge') && (
+                                            <div className="flex items-center gap-2">
+                                                {profile?.role === 'superadmin' && (
+                                                    <button
+                                                        onClick={handleReclaimSlug}
+                                                        className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
+                                                        title={t.reclaimName}
+                                                    >
+                                                        {t.reclaimAction}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={saveSlug}
+                                                    disabled={!slugVal || slugVal === settings.studioSlug}
+                                                    className={cn(
+                                                        'w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all shadow-lg',
+                                                        slugSaved ? 'bg-emerald-500 text-white' : 
+                                                        (!slugVal || slugVal === settings.studioSlug) ? 'bg-surface text-muted/20 border border-border-subtle/50' :
+                                                        'bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95'
+                                                    )}
+                                                >
+                                                    {slugSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </Row>
+
+                        {settings.studioSlug !== 'demo.classcore.ge' && (
+                            <Row label={t.cloudSyncLabel} sub={t.cloudSyncDesc}>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border-subtle rounded-xl">
+                                        <div className={cn("w-2 h-2 rounded-full", cloudSynced === true ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : cloudSynced === false ? "bg-red-500" : "bg-amber-500 animate-pulse")} />
+                                        <span className="text-[10px] font-black tracking-widest text-muted">
+                                            {cloudSynced === true ? t.registeredFound :
+                                                cloudSynced === false ? t.notFoundCloud :
+                                                    t.checkingStatus}
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={forceSync}
+                                        disabled={isSyncing}
+                                        className="w-10 h-10 flex items-center justify-center bg-surface border border-border-subtle hover:text-indigo-500 rounded-xl transition-all disabled:opacity-50"
+                                        title={t.forceSyncAction}
+                                    >
+                                        <RefreshCcw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                    </button>
+                                </div>
+                            </Row>
+                        )}
+                        <Row label={t.registrationLink} sub={t.registrationLinkDesc}>
+                            <div className="flex items-center gap-2">
+                                <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[140px] transition-colors">
+                                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">/{settings.studioSlug}/registration</span>
+                                </a>
+                                <button onClick={copyRegLink} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
+                                    {copiedRegLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                                 </button>
                             </div>
                         </Row>
-                    )}
-                    <Row label={t.registrationLink} sub={t.registrationLinkDesc}>
-                        <div className="flex items-center gap-2">
-                            <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[140px] transition-colors">
-                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">/{settings.studioSlug}/registration</span>
-                            </a>
-                            <button onClick={copyRegLink} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
-                                {copiedRegLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    </Section>
+
+                    {/* ─── Staff Access ─── */}
+                    <Section title={t.staffAccess} icon={Shield}>
+                        <div className="p-4 space-y-4">
+                            <button
+                                onClick={() => setStaffModalOpen(true)}
+                                className="w-full py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                {t.addStaffAction}
+                            </button>
+
+                            {settings.staff && settings.staff.length > 0 && (
+                                <div className="space-y-3">
+                                    {settings.staff.map((member: any) => {
+                                        return (
+                                            <div key={member.id} className="bg-surface/30 rounded-3xl border border-border-subtle/30 hover:border-indigo-500/30 hover:bg-surface/50 transition-all duration-300">
+                                                <div
+                                                    onClick={() => setEditingStaffId(member.id)}
+                                                    className="p-4 flex items-center justify-between cursor-pointer group"
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-black text-lg group-hover:scale-105 transition-transform">
+                                                            {getInitials(`${member.first_name} ${member.last_name}`)}
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-black text-primary tracking-tight">{member.first_name} {member.last_name}</p>
+                                                                <span className={cn(
+                                                                    "px-2 py-0.5 rounded-lg text-[9px] font-black tracking-widest border",
+                                                                    member.role === 'owner' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                                                                )}>
+                                                                    {member.role}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[10px] font-bold text-muted/40 tracking-widest mt-0.5">{member.email}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-10 h-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted group-hover:text-indigo-500 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all">
+                                                        <Settings2 className="w-5 h-5" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </Section>
+
+                    <Section title={t.branchManagement} icon={Building2}>
+                        <div className="p-4 space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {settings.branches.map(branch => (
+                                    <div key={branch.id} className="p-4 bg-surface/30 rounded-2xl border border-border-subtle/30 flex items-center justify-between group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                                                <Building2 className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-primary">{branch.id === 'main' ? t.mainBranch : branch.name}</p>
+                                                <p className="text-[10px] text-muted font-bold tracking-widest">{branch.address || t.noAddress}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingBranchId(branch.id);
+                                                    setNewBranchName(branch.name);
+                                                    setNewBranchAddress(branch.address || '');
+                                                    setBranchModalOpen(true);
+                                                }}
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-indigo-500/40 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            {branch.id !== 'main' && (
+                                                <button
+                                                    onClick={() => setBranchToDeleteId(branch.id)}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500/40 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setEditingBranchId(null);
+                                    setNewBranchName('');
+                                    setNewBranchAddress('');
+                                    setBranchModalOpen(true);
+                                }}
+                                className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-indigo-500/20 text-indigo-500/60 hover:text-indigo-500 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all font-black tracking-widest text-xs"
+                            >
+                                <Plus className="w-5 h-5" />
+                                {t.addNewBranchAction}
                             </button>
                         </div>
-                    </Row>
-                </Section>
-            )}
-
-            {/* Account Owner Section */}
-            {isOwner && (
-                <Section title={l('სტუდიის მფლობელი', 'Владелец студии', 'Studio Owner')} icon={User}>
-                    <Row label={l('სახელი და გვარი', 'Имя и Фаმილია', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
-                        <div className="flex gap-2">
-                            <input 
-                                value={settings.owner_info?.first_name || profile?.first_name || ''} 
-                                onChange={e => setOwnerInfo({ first_name: e.target.value })}
-                                placeholder={t.firstNameLabel}
-                                readOnly={!isSuperAdmin}
-                                className={cn(
-                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
-                                )}
-                            />
-                            <input 
-                                value={settings.owner_info?.last_name || profile?.last_name || ''} 
-                                onChange={e => setOwnerInfo({ last_name: e.target.value })}
-                                placeholder={t.lastNameLabel}
-                                readOnly={!isSuperAdmin}
-                                className={cn(
-                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
-                                )}
-                            />
-                        </div>
-                    </Row>
-                    <Row label={t.emailLabel} sub={l('საკონტაქტო ელ-ფოსტა', 'Контактный email', 'Owner contact email')}>
-                        <div className="px-3 py-2 text-xs font-medium text-muted bg-surface/50 border border-border-subtle/50 rounded-xl">
-                            {settings.owner_info?.email || user?.email || 'N/A'}
-                        </div>
-                    </Row>
-                    <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
-                        <input 
-                            value={settings.owner_info?.phone || profile?.phone || ''} 
-                            onChange={e => setOwnerInfo({ phone: e.target.value })}
-                            placeholder="+995 ..."
-                            readOnly={!isSuperAdmin}
-                            className={cn(
-                                "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
-                            )}
-                        />
-                    </Row>
-                </Section>
+                    </Section>
+                </>
             )}
 
             {/* Aesthetics */}
@@ -648,114 +704,6 @@ export default function SettingsPage() {
                 </div>
             </Section>
 
-
-            {isAdmin && (
-                <Section title={t.staffAccess} icon={Shield}>
-                    <div className="p-4 space-y-4">
-                        <button
-                            onClick={() => setStaffModalOpen(true)}
-                            className="w-full py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            {t.addStaffAction}
-                        </button>
-
-
-                        {settings.staff && settings.staff.length > 0 && (
-                            <div className="space-y-3">
-                                {settings.staff.map((member: any) => {
-                                    return (
-                                        <div key={member.id} className="bg-surface/30 rounded-3xl border border-border-subtle/30 hover:border-indigo-500/30 hover:bg-surface/50 transition-all duration-300">
-                                            <div
-                                                onClick={() => setEditingStaffId(member.id)}
-                                                className="p-4 flex items-center justify-between cursor-pointer group"
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-black text-lg group-hover:scale-105 transition-transform">
-                                                        {getInitials(`${member.first_name} ${member.last_name}`)}
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-black text-primary tracking-tight">{member.first_name} {member.last_name}</p>
-                                                            <span className={cn(
-                                                                "px-2 py-0.5 rounded-lg text-[9px] font-black tracking-widest border",
-                                                                member.role === 'owner' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-                                                            )}>
-                                                                {member.role}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-[10px] font-bold text-muted/40 tracking-widest mt-0.5">{member.email}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="w-10 h-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted group-hover:text-indigo-500 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all">
-                                                    <Settings2 className="w-5 h-5" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </Section>
-            )}
-
-            {isAdmin && (
-                <Section title={t.branchManagement} icon={Building2}>
-                    <div className="p-4 space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {settings.branches.map(branch => (
-                                <div key={branch.id} className="p-4 bg-surface/30 rounded-2xl border border-border-subtle/30 flex items-center justify-between group">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-                                            <Building2 className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-primary">{branch.id === 'main' ? t.mainBranch : branch.name}</p>
-                                            <p className="text-[10px] text-muted font-bold tracking-widest">{branch.address || t.noAddress}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                        <button
-                                            onClick={() => {
-                                                setEditingBranchId(branch.id);
-                                                setNewBranchName(branch.name);
-                                                setNewBranchAddress(branch.address || '');
-                                                setBranchModalOpen(true);
-                                            }}
-                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-indigo-500/40 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all"
-                                        >
-                                            <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-                                        {branch.id !== 'main' && (
-                                            <button
-                                                onClick={() => setBranchToDeleteId(branch.id)}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500/40 hover:text-red-500 hover:bg-red-500/10 transition-all"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                setEditingBranchId(null);
-                                setNewBranchName('');
-                                setNewBranchAddress('');
-                                setBranchModalOpen(true);
-                            }}
-                            className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-indigo-500/20 text-indigo-500/60 hover:text-indigo-500 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all font-black tracking-widest text-xs"
-                        >
-                            <Plus className="w-5 h-5" />
-                            {t.addNewBranchAction}
-                        </button>
-                    </div>
-                </Section>
-            )}
-
             {/* ─── Security ─── */}
             <Section title={t.settingsSecurity} icon={Shield}>
                 {isAdmin && (
@@ -767,57 +715,6 @@ export default function SettingsPage() {
                     <button onClick={() => setShowPwdModal(true)} className="px-4 py-2 rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface/80 text-xs font-medium transition-all shadow-sm">{t.editAction}</button>
                 </Row>
             </Section>
-
-
-
-            {isAdmin && (
-                <>
-                    {/* ─── Integrations (Collapsible) ─── */}
-                    <Section title={t.integrationsLabel} icon={Settings2}>
-                        <Row label="Google Calendar" sub={t.syncCalendarDesc}>
-                            <Toggle checked={settings.googleCalendarEnabled} onChange={setGoogleCalendar} />
-                        </Row>
-                        <Row label="Telegram Bot" sub={t.telegramNotifDesc}>
-                            <Toggle checked={settings.notifications.telegramBot} onChange={v => setNotification('telegramBot', v)} />
-                        </Row>
-                    </Section>
-
-                    {/* ─── Notifications (Collapsible) ─── */}
-                    <Section title={t.settingsNotif} icon={Bell}>
-                        <Row label={t.newStudentLabel} sub={t.newStudentNotifDesc}>
-                            <Toggle checked={settings.notifications.newStudent} onChange={v => setNotification('newStudent', v)} />
-                        </Row>
-                        <Row label={t.lowSessionsLabel} sub={t.lowSessionsNotifDesc}>
-                            <Toggle checked={settings.notifications.lowSessions} onChange={v => setNotification('lowSessions', v)} />
-                        </Row>
-                    </Section>
-
-                    <Section title={t.langRegionLabel} icon={Globe}>
-                        <Row label={t.interfaceLanguage} sub={t.interfaceLanguageDesc}>
-                            <SearchSelect options={[{ value: 'ka', label: '🇬🇪 ქართული' }, { value: 'en', label: '🇬🇧 English' }, { value: 'ru', label: '🇷🇺 Русский' }]} value={settings.language} onChange={val => { const nl = val as any; setLanguage(nl); setLang(nl); }} className="w-48 !border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-xs" />
-                        </Row>
-                        <Row label={t.currencyLabel} sub={t.currencyChangeDesc}>
-                            <SearchSelect options={[{ value: 'GEL', label: '₾ GEL' }, { value: 'USD', label: '$ USD' }, { value: 'EUR', label: '€ EUR' }]} value={settings.currency} onChange={val => handleCurrencyChange(val as any)} className="w-48 !border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-xs" />
-                        </Row>
-                        <Row label={t.timezoneLabel}>
-                            <SearchSelect options={[{ value: 'Asia/Tbilisi', label: 'Asia/Tbilisi (UTC+4)' }, { value: 'Europe/Moscow', label: 'Europe/Moscow (UTC+3)' }, { value: 'UTC', label: 'UTC' }]} value={settings.timezone} onChange={setTimezone} className="w-48 !border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2 [&>div]:px-3 [&>div]:text-xs" />
-                        </Row>
-                    </Section>
-
-                    {/* ─── Account / Logout ─── */}
-                    <Section title={t.accountLabel} icon={UserCircle}>
-                        <Row label={t.logoutLabel} sub={t.logoutDesc}>
-                            <button onClick={logout} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group">
-                                <LogOutIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                                {t.logoutLabel}
-                            </button>
-                        </Row>
-                    </Section>
-
-                </>
-            )}
- 
-
 
             {/* ─── Support Footer ─── */}
             <Section title={t.helpSupport} icon={MessageCircle}>
@@ -838,6 +735,71 @@ export default function SettingsPage() {
                     </button>
                 </div>
             </Section>
+
+            {/* Account (Merged) Section at the Bottom */}
+            {isOwner && (
+                <Section title={l('ანგარიში', 'Аккаунт', 'Account')} icon={User} defaultOpen={false}>
+                    <Row label={l('სახელი და გვარი', 'Имя и Фаმილია', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
+                        <div className="flex gap-2">
+                            <input 
+                                value={settings.owner_info?.first_name || profile?.first_name || ''} 
+                                onChange={e => setOwnerInfo({ first_name: e.target.value })}
+                                placeholder={t.firstNameLabel}
+                                readOnly={!isSuperAdmin}
+                                className={cn(
+                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
+                                )}
+                            />
+                            <input 
+                                value={settings.owner_info?.last_name || profile?.last_name || ''} 
+                                onChange={e => setOwnerInfo({ last_name: e.target.value })}
+                                placeholder={t.lastNameLabel}
+                                readOnly={!isSuperAdmin}
+                                className={cn(
+                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
+                                )}
+                            />
+                        </div>
+                    </Row>
+                    <Row label={t.emailLabel} sub={l('საკონტაქტო ელ-ფოსტა', 'Контактный email', 'Owner contact email')}>
+                        <div className="px-3 py-2 text-xs font-medium text-muted bg-surface/50 border border-border-subtle/50 rounded-xl">
+                            {settings.owner_info?.email || user?.email || 'N/A'}
+                        </div>
+                    </Row>
+                    <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
+                        <input 
+                            value={settings.owner_info?.phone || profile?.phone || ''} 
+                            onChange={e => setOwnerInfo({ phone: e.target.value })}
+                            placeholder="+995 ..."
+                            readOnly={!isSuperAdmin}
+                            className={cn(
+                                "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
+                            )}
+                        />
+                    </Row>
+                    <Row label={l('კლიენტის ნომერი', 'Номер клиента', 'Client ID')} sub={l('კაბინეტის ნომერი', 'Номер кабинета', 'Cabinet Number')}>
+                        <input 
+                            value={settings.owner_info?.client_id || ''} 
+                            onChange={e => setOwnerInfo({ client_id: e.target.value })}
+                            placeholder="KB-..."
+                            readOnly={!isSuperAdmin}
+                            className={cn(
+                                "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
+                            )}
+                        />
+                    </Row>
+                    <Row label={l('სისტემიდან გამოსვლა', 'Выйти из системы', 'Logout')} sub={t.logoutDesc}>
+                        <button onClick={logout} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group">
+                            <LogOutIcon className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                            {l('გამოსვლა', 'Выйти', 'Logout')}
+                        </button>
+                    </Row>
+                </Section>
+            )}
 
             <div className="flex items-center justify-center text-[10px] text-muted/20 px-1 font-bold tracking-widest">
                 <span>ClassCore v1.0 · classcore.ge</span>
