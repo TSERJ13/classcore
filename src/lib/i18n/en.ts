@@ -224,8 +224,8 @@ export const en: Translations = {
     gender: 'Gender',
     male: 'Male',
     female: 'Female',
-    boy: 'Boy',
-    girl: 'Girl',
+    boy: 'Male',
+    girl: 'Female',
     // Misc
     language: 'Language',
     todayDate: "Today's Date",
@@ -682,7 +682,7 @@ export const en: Translations = {
     days: 'Days',
     neverExpires: 'Never Expires',
     lessons: 'Lessons',
-    unlimited: 'Unlimited',
+    unlimited: 'Unlimited Days',
     issueAction: 'Issue (Sale)',
     paidAmountCurrency: 'Paid: {amount} GEL',
     // SMS

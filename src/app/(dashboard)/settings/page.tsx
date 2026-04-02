@@ -343,6 +343,7 @@ export default function SettingsPage() {
             const result = ev.target?.result as string;
             setLogo(result);
             setUploading(false);
+            if (fileRef.current) fileRef.current.value = '';
         };
         reader.readAsDataURL(file);
     }
@@ -476,7 +477,7 @@ export default function SettingsPage() {
                                 )}
                             </div>
                         </Row>
-                        <Row label={t.urlSlugLabel} sub={t.slugWarning}>
+                        <Row label={t.urlSlugLabel}>
                             <div className="flex flex-col gap-2 items-end">
                                 <div className="flex items-center gap-2 w-full justify-end">
                                     <span className="text-muted/40 text-[10px]">/</span>

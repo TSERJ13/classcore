@@ -64,9 +64,9 @@ export function LanguageSwitcher({
                     variant === 'sidebar'
                         ? "bg-[var(--sidebar-hover)] border-[var(--sidebar-border)] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)]"
                         : "bg-white border-slate-100 text-slate-600 hover:text-indigo-600 hover:border-indigo-100 shadow-xl shadow-slate-200/50",
-                    compact || hideLabel ? "w-9 h-9 md:w-12 md:h-12 justify-center rounded-xl md:rounded-2xl" : cn(
-                        "px-4 py-2 text-[11px] font-black tracking-widest rounded-xl",
-                        variant === 'landing' && "px-2 py-2 md:px-5 md:py-3 h-9 md:h-12 text-[9px] md:text-[11px] rounded-xl md:rounded-2xl"
+                    compact || hideLabel ? "w-10 h-10 md:w-12 md:h-12 justify-center rounded-xl md:rounded-2xl" : cn(
+                        "px-4 py-2.5 text-[11px] font-black tracking-widest rounded-xl",
+                        variant === 'landing' && "px-3 py-2.5 md:px-5 md:py-3 h-10 md:h-12 text-[10px] md:text-[11px] rounded-xl md:rounded-2xl"
                     ),
                     className
                 )}

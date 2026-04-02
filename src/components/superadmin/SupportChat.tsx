@@ -157,6 +157,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                 size: file.size,
                 data: prev.target?.result as string
             });
+            if (fileInputRef.current) fileInputRef.current.value = '';
         };
         reader.readAsDataURL(file);
     };

@@ -8,8 +8,9 @@ import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
 import { getHalls, saveHalls } from '@/lib/hall-store';
+import { getGroups } from '@/lib/group-store';
+import { useMemo } from 'react';
 
-const HALL_WEEK_EVENTS: Record<string, number> = { h1: 12, h2: 8, h3: 4, h4: 0 };
 
 export default function HallsPage() {
     const { t } = useT();
@@ -45,8 +46,20 @@ export default function HallsPage() {
         saveHalls(updated as any);
     }
 
+    const groups = getGroups();
+    const hallStats = useMemo(() => {
+        const stats: Record<string, number> = {};
+        groups.forEach(g => {
+            if (g.hall_id && g.schedule) {
+                const slots = Array.isArray(g.schedule) ? g.schedule.length : 0;
+                stats[g.hall_id] = (stats[g.hall_id] || 0) + slots;
+            }
+        });
+        return stats;
+    }, [groups]);
+
     const totalCapacity = halls.filter(h => h.is_active).reduce((s, h) => s + (h.capacity ?? 0), 0);
-    const totalWeekEvents = Object.values(HALL_WEEK_EVENTS).reduce((a, b) => a + b, 0);
+    const totalWeekEvents = Object.values(hallStats).reduce((a, b) => a + b, 0);
 
     return (
         <>

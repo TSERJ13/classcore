@@ -224,8 +224,8 @@ export const ka: Translations = {
     gender: 'სქესი',
     male: 'მამრობითი',
     female: 'მდედრობითი',
-    boy: 'ბიჭი',
-    girl: 'გოგო',
+    boy: 'მამრობითი',
+    girl: 'მდედრობითი',
     // Misc
     language: 'ენა',
     todayDate: 'დღევანდელი თარიღი',
@@ -682,7 +682,7 @@ export const ka: Translations = {
     days: 'დღეები',
     neverExpires: 'არასდროს გადის ვადა',
     lessons: 'გაკვეთილები',
-    unlimited: 'ულიმიტო',
+    unlimited: 'ულიმიტო დღეები',
     issueAction: 'გაფორმება (გაყიდვა)',
     paidAmountCurrency: 'გადახდილია: {amount} ლარი',
     // SMS

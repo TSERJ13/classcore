@@ -7,7 +7,7 @@ import { getSubscription, getSubscriptions } from '@/lib/subscription-store';
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -704,9 +704,9 @@ export default function DashboardPage() {
             </div>
 
             {/* ─── Statistics ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch overflow-x-auto pb-2 scrollbar-none no-scrollbar">
                 {/* 1. Student Dynamics (Active vs New/Churn) */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px] min-w-[160px] flex-shrink-0 lg:flex-shrink">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
                         <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.studentDynamicsMonth}</p>
                     </div>
@@ -728,17 +728,13 @@ export default function DashboardPage() {
                         />
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-sm animate-in fade-in zoom-in-50 duration-500">
+                            <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
+                            <p className="text-[8px] font-black text-emerald-500">12%</p>
+                        </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                             <p className="text-[8px] font-bold text-primary opacity-60">{t.activeLabel}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[8px] font-bold text-emerald-500">+{liveStats.newThisMonth}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                            <p className="text-[8px] font-bold text-red-500">-{liveStats.churnThisMonth}</p>
                         </div>
                     </div>
                 </div>
@@ -765,13 +761,13 @@ export default function DashboardPage() {
                         />
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 shadow-sm animate-in fade-in zoom-in-50 duration-500">
+                            <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
+                            <p className="text-[8px] font-black text-rose-500">4%</p>
+                        </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             <p className="text-[8px] font-bold text-emerald-500">{t.income}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                            <p className="text-[8px] font-bold text-red-500">{t.debtLabel}</p>
                         </div>
                     </div>
                 </div>

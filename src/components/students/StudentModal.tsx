@@ -160,9 +160,10 @@ function SubscriptionCard({ student }: { student: Student }) {
                 const diffTime = expiresAt.getTime() - today.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+                const isUnlimited = sub.expires_at === '2099-12-31';
                 const isSessions = sub.type === 'sessions';
                 const sessionsLeft = isSessions ? (sub.sessions_total - (sub.sessions_used || 0)) : null;
-                const isExpiring = diffDays <= 7;
+                const isExpiring = !isUnlimited && diffDays <= 7;
                 const isLowVisits = isSessions && sessionsLeft !== null && sessionsLeft <= 2;
                 const isDefault = sub.is_default;
 
@@ -194,7 +195,7 @@ function SubscriptionCard({ student }: { student: Student }) {
                             <div className="text-right">
                                 <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.remaining}</p>
                                 <p className={cn("text-lg font-black tabular-nums", (isExpiring || isLowVisits) ? "text-amber-500" : "text-indigo-500")}>
-                                    {isSessions ? `${sessionsLeft} ${t.visits}` : `${diffDays} ${t.day}`}
+                                    {isSessions ? `${sessionsLeft} ${t.visits}` : isUnlimited ? t.unlimited : `${diffDays} ${t.day}`}
                                 </p>
                             </div>
                         </div>
@@ -421,6 +422,7 @@ export function StudentModal({
             const result = ev.target?.result as string;
             setPhotoPreview(result);
             set('photo_url', result);
+            if (fileRef.current) fileRef.current.value = '';
         };
         reader.readAsDataURL(file);
     }

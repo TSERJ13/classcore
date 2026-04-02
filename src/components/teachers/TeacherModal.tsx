@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent, Calendar, Plus } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
@@ -44,6 +44,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const timeOptions = generateTimeOptions(15);
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [form, setForm] = useState<Partial<Teacher>>({ ...EMPTY });
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeRateType, setActiveRateType] = useState<RateType>('hourly');
     const [showDelete, setShowDelete] = useState(false);
     const isEdit = !!teacher;
@@ -115,22 +116,26 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     {/* Photo Upload & Role */}
                     <div className="flex gap-4">
                         <button
-                            onClick={() => {
-                                const input = document.createElement('input');
-                                input.type = 'file';
-                                input.accept = 'image/*';
-                                input.onchange = (e: Event) => {
-                                    const file = (e.target as HTMLInputElement).files?.[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (ev) => setF('photo_url', ev.target?.result as string);
-                                        reader.readAsDataURL(file);
-                                    }
-                                };
-                                input.click();
-                            }}
+                            onClick={() => fileInputRef.current?.click()}
                             className="relative w-20 h-20 rounded-2xl bg-violet-500/5 border-2 border-dashed border-violet-500/20 hover:border-violet-500/50 flex items-center justify-center flex-shrink-0 overflow-hidden group transition-all"
                         >
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (ev) => {
+                                            setF('photo_url', ev.target?.result as string);
+                                            if (fileInputRef.current) fileInputRef.current.value = '';
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                            />
                             {form.photo_url ? (
                                 <>
                                     <img src={form.photo_url} alt="" className="w-full h-full object-cover" />

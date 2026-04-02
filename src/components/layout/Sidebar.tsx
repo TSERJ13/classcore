@@ -101,8 +101,6 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
         return (
             <div
                 className="relative border-b border-[var(--sidebar-border)] bg-white/[0.01] px-4 py-3 md:py-6"
-                onMouseEnter={() => exp && setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
             >
                 <div className="flex items-center gap-3">
                     <div className={cn(
@@ -139,6 +137,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                         </div>
 
                         <button
+                            onClick={() => exp && setIsHovered(!isHovered)}
                             className={cn(
                                 "mt-2 flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn",
                                 isHovered && "border-indigo-500/40 bg-indigo-500/10"
@@ -153,7 +152,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                     </div>
                 </div>
 
-                {/* Hover Reveal Branch List */}
+                {/* Click/Toggle Reveal Branch List */}
                 {exp && (
                     <div className={cn(
                         "absolute left-4 right-4 top-[94%] z-50 bg-[#1c1c28] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 origin-top",

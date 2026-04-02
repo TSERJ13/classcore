@@ -447,13 +447,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             <label className="text-[9px] font-black text-muted tracking-widest flex items-center gap-1">
                                                 <Percent className="w-3 h-3" /> {t.discount}
                                             </label>
-                                            <div className="flex bg-border-subtle/50 rounded-lg p-0.5 relative">
-                                                {/* Animated slider background approach or just clean segments */}
+                                            <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-lg p-0.5 relative">
                                                 <button
                                                     onClick={() => setDiscountType('percent')}
                                                     className={cn(
-                                                        "px-2 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
-                                                        discountType === 'percent' ? "bg-white text-indigo-600 shadow-sm" : "text-muted/60 hover:text-muted"
+                                                        "px-2.5 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
+                                                        discountType === 'percent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500 hover:bg-indigo-500/5"
                                                     )}
                                                 >
                                                     %
@@ -461,8 +460,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                 <button
                                                     onClick={() => setDiscountType('fixed')}
                                                     className={cn(
-                                                        "px-2 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
-                                                        discountType === 'fixed' ? "bg-white text-indigo-600 shadow-sm" : "text-muted/60 hover:text-muted"
+                                                        "px-2.5 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
+                                                        discountType === 'fixed' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500 hover:bg-indigo-500/5"
                                                     )}
                                                 >
                                                     {settings.currency === 'GEL' ? '₾' : settings.currency === 'USD' ? '$' : '€'}

@@ -116,6 +116,7 @@ export function Header() {
                 size: file.size,
                 data: prev.target?.result as string
             });
+            if (fileInputRef.current) fileInputRef.current.value = '';
         };
         reader.readAsDataURL(file);
     };

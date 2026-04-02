@@ -224,8 +224,8 @@ export const ru: Translations = {
     gender: 'Пол',
     male: 'Мужской',
     female: 'Женский',
-    boy: 'Мальчик',
-    girl: 'Девочка',
+    boy: 'Мужской',
+    girl: 'Женский',
     // Misc
     language: 'Язык',
     todayDate: 'Сегодняшняя дата',
@@ -682,7 +682,7 @@ export const ru: Translations = {
     days: 'Дней',
     neverExpires: 'Никогда не истекает',
     lessons: 'Уроки',
-    unlimited: 'Безлимит',
+    unlimited: 'Безлимитные дни',
     issueAction: 'Оформить (продажа)',
     paidAmountCurrency: 'Оплачено: {amount} Лари',
     // SMS

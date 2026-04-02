@@ -410,16 +410,20 @@ export default function AnalyticsPage() {
     const handleExport = () => {
         // Collect Analytics Data
         const analyticsRows = [
-            ['Section', 'Metric', 'Value'],
-            ['Overview', t.averageDaily, formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)],
-            ['Overview', t.thisMonthAve, formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)],
-            ['Gauges', t.attendanceRate, `${Math.round(currentMonthStats?.attendanceRate || 0)}%`],
-            ['Gauges', t.yearlyRevenue || 'Yearly', formatCurrency(extraStats.yearlyRevenue || 0, settings.currency)],
-            ['Demographics', t.totalStudents || 'Total Students', stats[1]?.value || 0],
-            ['Demographics', t.activeSubscriptions, extraStats.activeSubs],
-            ['', '', ''], // Spacer
-            ['Teacher Salaries', '', ''],
-            ['Teacher', 'Type', 'Rate', 'Bonus', 'Total', 'Status']
+            ['STUDIOFLOW BUSINESS REPORT'],
+            [`Studio: ${settings.studioName || 'ClassCore Studio'}`],
+            [`Month: ${selectedMonth}`],
+            [''],
+            ['SECTION', 'METRIC', 'VALUE'],
+            ['Overview', 'Daily Average Revenue', formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)],
+            ['Overview', 'Total Monthly Revenue', formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)],
+            ['Gauges', 'Average Attendance Rate', `${Math.round(currentMonthStats?.attendanceRate || 0)}%`],
+            ['Gauges', 'Projected Yearly Revenue', formatCurrency(extraStats.yearlyRevenue || 0, settings.currency)],
+            ['Demographics', 'Total Registered Students', stats[1]?.value || 0],
+            ['Demographics', 'Total Active Subscriptions', extraStats.activeSubs],
+            [''],
+            ['TEACHER SALARY BREAKDOWN'],
+            ['TEACHER', 'TYPE', 'RATE', 'BONUS', 'TOTAL', 'STATUS']
         ];
 
         // Collect Salary Data
@@ -433,7 +437,7 @@ export default function AnalyticsPage() {
         ]);
 
         const allRows = [...analyticsRows, ...salaryRows];
-        const csvContent = allRows.map(row => row.join(',')).join('\n');
+        const csvContent = allRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
         
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -455,31 +459,55 @@ export default function AnalyticsPage() {
             <head>
                 <title>Salary Receipt - ${teacherData.teacher}</title>
                 <style>
-                    body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; color: #111; max-width: 800px; margin: 0 auto; }
-                    .header { text-align: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
-                    .title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-                    .subtitle { color: #666; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-                    .row { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f5f5f5; }
-                    .label { color: #666; font-weight: 600; font-size: 14px; }
-                    .value { font-weight: bold; font-size: 14px; }
-                    .total { font-size: 24px; margin-top: 30px; text-align: right; padding-top: 20px; border-top: 2px solid #111; }
+                    body { font-family: 'Inter', -apple-system, sans-serif; padding: 60px; color: #1e293b; max-width: 800px; margin: 0 auto; background: #fff; line-height: 1.5; }
+                    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 40px; }
+                    .studio-info { text-align: left; }
+                    .studio-name { font-size: 28px; font-weight: 800; color: #6366f1; letter-spacing: -0.025em; }
+                    .studio-tag { color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-top: 4px; }
+                    .receipt-info { text-align: right; }
+                    .receipt-title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #6366f1; letter-spacing: 0.05em; margin-bottom: 4px; }
+                    .receipt-date { font-size: 18px; font-weight: 700; color: #334155; }
+                    
+                    .content { background: #f8fafc; border-radius: 24px; padding: 32px; border: 1px solid #f1f5f9; }
+                    .row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #e2e8f0; }
+                    .row:last-of-type { border-bottom: none; }
+                    .label { color: #64748b; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+                    .value { color: #1e293b; font-weight: 700; font-size: 15px; }
+                    
+                    .total-box { margin-top: 40px; text-align: right; }
+                    .total-label { color: #64748b; font-weight: 800; font-size: 14px; text-transform: uppercase; margin-right: 20px; }
+                    .total-value { font-size: 32px; font-weight: 900; color: #6366f1; }
+                    
+                    .footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center; }
+                    .footer-text { color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <div class="title">${settings.studioName || 'ClassCore Studio'}</div>
-                    <div class="subtitle">${t.salaryCalculation || 'Salary Statement'} - ${selectedMonth}</div>
+                    <div class="studio-info">
+                        <div class="studio-name">${settings.studioName || 'ClassCore Studio'}</div>
+                        <div class="studio-tag">Professional Studio Management</div>
+                    </div>
+                    <div class="receipt-info">
+                        <div class="receipt-title">Salary Statement</div>
+                        <div class="receipt-date">${selectedMonth}</div>
+                    </div>
                 </div>
-                <div class="row"><span class="label">${t.teacherTable || 'Teacher'}:</span> <span class="value">${teacherData.teacher}</span></div>
-                <div class="row"><span class="label">${t.typeTable || 'Type'}:</span> <span class="value">${teacherData.type}</span></div>
-                <div class="row"><span class="label">${t.volumeTable || 'Rate'}:</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
-                <div class="row"><span class="label">${t.bonusTable || 'Bonus'}:</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
-                <div class="total">
-                    <span class="label" style="font-size: 16px; margin-right: 15px;">${t.totalAmount || 'Total'}:</span>
-                    <span class="value" style="font-size: 24px; color: #4f46e5;">${formatCurrency(teacherData.total, settings.currency)}</span>
+                
+                <div class="content">
+                    <div class="row"><span class="label">Teacher</span> <span class="value">${teacherData.teacher}</span></div>
+                    <div class="row"><span class="label">Payment Type</span> <span class="value">${teacherData.type}</span></div>
+                    <div class="row"><span class="label">Base Rate</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
+                    <div class="row"><span class="label">Monthly Bonus</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
                 </div>
-                <div style="margin-top: 60px; text-align: center; color: #999; font-size: 12px; font-weight: bold;">
-                    Generated by ClassCore Studio Management
+
+                <div class="total-box">
+                    <span class="total-label">Total Net Pay</span>
+                    <span class="total-value">${formatCurrency(teacherData.total, settings.currency)}</span>
+                </div>
+
+                <div class="footer">
+                    <div class="footer-text">Generated by StudioFlow Business Suite</div>
                 </div>
             </body>
             </html>
