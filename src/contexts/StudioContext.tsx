@@ -447,7 +447,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }, 800);
 
         // Immediate release for UI but keep small buffer for settings apply
-        setTimeout(() => setIsLoaded(true), 150);
+        setTimeout(() => setIsLoaded(true), 0);
 
         cleanupRegistry();
 

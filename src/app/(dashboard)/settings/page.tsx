@@ -37,7 +37,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
     );
 }
 
-function Section({ title, icon: Icon, children, defaultOpen = true }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, icon: Icon, children, defaultOpen = false }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; defaultOpen?: boolean }) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
     return (
         <div className="bg-card border border-border-subtle rounded-2xl md:rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all">
@@ -353,10 +353,11 @@ export default function SettingsPage() {
 
     if (!isLoaded) {
         return (
-            <div className="max-w-2xl mx-auto space-y-6 animate-pulse">
-                <div className="h-8 bg-muted/10 rounded-lg w-1/3" />
-                <div className="h-64 bg-muted/5 rounded-2xl border border-border-subtle" />
-                <div className="h-64 bg-muted/5 rounded-2xl border border-border-subtle" />
+            <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+                <div className="h-10 bg-muted/5 rounded-2xl w-1/4 animate-pulse ml-2" />
+                <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
+                <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
+                <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
             </div>
         );
     }
@@ -564,49 +565,47 @@ export default function SettingsPage() {
             {/* Account Owner Section */}
             {isOwner && (
                 <Section title={l('სტუდიის მფლობელი', 'Владелец студии', 'Studio Owner')} icon={User}>
-                    <div className="flex flex-col">
-                        <Row label={l('სახელი და გვარი', 'Имя и Фаმილია', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
-                            <div className="flex gap-2">
-                                <input 
-                                    value={settings.owner_info?.first_name || profile?.first_name || ''} 
-                                    onChange={e => setOwnerInfo({ first_name: e.target.value })}
-                                    placeholder={t.firstNameLabel}
-                                    readOnly={!isSuperAdmin}
-                                    className={cn(
-                                        "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                        !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
-                                    )}
-                                />
-                                <input 
-                                    value={settings.owner_info?.last_name || profile?.last_name || ''} 
-                                    onChange={e => setOwnerInfo({ last_name: e.target.value })}
-                                    placeholder={t.lastNameLabel}
-                                    readOnly={!isSuperAdmin}
-                                    className={cn(
-                                        "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                        !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
-                                    )}
-                                />
-                            </div>
-                        </Row>
-                        <Row label={t.emailLabel} sub={l('საკონტაქტო ელ-ფოსტა', 'Контактный email', 'Owner contact email')}>
-                            <div className="px-3 py-2 text-xs font-medium text-muted bg-surface/50 border border-border-subtle/50 rounded-xl">
-                                {settings.owner_info?.email || user?.email || 'N/A'}
-                            </div>
-                        </Row>
-                        <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
+                    <Row label={l('სახელი და გვარი', 'Имя и Фаმილია', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
+                        <div className="flex gap-2">
                             <input 
-                                value={settings.owner_info?.phone || profile?.phone || ''} 
-                                onChange={e => setOwnerInfo({ phone: e.target.value })}
-                                placeholder="+995 ..."
+                                value={settings.owner_info?.first_name || profile?.first_name || ''} 
+                                onChange={e => setOwnerInfo({ first_name: e.target.value })}
+                                placeholder={t.firstNameLabel}
                                 readOnly={!isSuperAdmin}
                                 className={cn(
-                                    "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
+                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
                                 )}
                             />
-                        </Row>
-                    </div>
+                            <input 
+                                value={settings.owner_info?.last_name || profile?.last_name || ''} 
+                                onChange={e => setOwnerInfo({ last_name: e.target.value })}
+                                placeholder={t.lastNameLabel}
+                                readOnly={!isSuperAdmin}
+                                className={cn(
+                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
+                                )}
+                            />
+                        </div>
+                    </Row>
+                    <Row label={t.emailLabel} sub={l('საკონტაქტო ელ-ფოსტა', 'Контактный email', 'Owner contact email')}>
+                        <div className="px-3 py-2 text-xs font-medium text-muted bg-surface/50 border border-border-subtle/50 rounded-xl">
+                            {settings.owner_info?.email || user?.email || 'N/A'}
+                        </div>
+                    </Row>
+                    <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
+                        <input 
+                            value={settings.owner_info?.phone || profile?.phone || ''} 
+                            onChange={e => setOwnerInfo({ phone: e.target.value })}
+                            placeholder="+995 ..."
+                            readOnly={!isSuperAdmin}
+                            className={cn(
+                                "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
+                            )}
+                        />
+                    </Row>
                 </Section>
             )}
 
