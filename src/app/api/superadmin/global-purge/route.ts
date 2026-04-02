@@ -28,8 +28,8 @@ export async function POST(request: Request) {
 
         console.log(`🧹 Starting global purge for ${pattern ? 'pattern: ' + pattern : targetSlugs?.length + ' specific slugs'}`);
 
-        // 1. Find all matching studios
-        let query = supabase.from('studio_settings').select('studio_slug');
+        // 1. Find all matching studios and their associated Owners (org_id)
+        let query = supabase.from('studio_settings').select('studio_slug, org_id');
         
         if (targetSlugs && Array.isArray(targetSlugs)) {
             query = query.in('studio_slug', targetSlugs);
@@ -46,9 +46,25 @@ export async function POST(request: Request) {
         }
 
         const slugs = studios.map(s => s.studio_slug);
-        console.log(`🗑️ Found ${slugs.length} studios to purge: ${slugs.join(', ')}`);
+        const orgIds = studios.map(s => s.org_id).filter(Boolean) as string[];
+        const uniqueOrgIds = [...new Set(orgIds)];
 
-        // 2. Delete from studio_settings
+        console.log(`🗑️ Found ${slugs.length} studios to purge (${uniqueOrgIds.length} unique owners).`);
+
+        // 2. Auth Purge: Delete each associated user from Supabase Auth
+        const authResults = { success: 0, failed: 0 };
+        for (const uid of uniqueOrgIds) {
+            try {
+                const { error: authErr } = await supabase.auth.admin.deleteUser(uid);
+                if (!authErr) authResults.success++;
+                else {
+                    console.error(`❌ Failed to delete Auth User ${uid}:`, authErr.message);
+                    authResults.failed++;
+                }
+            } catch (e) { authResults.failed++; }
+        }
+
+        // 3. Delete from studio_settings
         const { count, error: deleteError } = await supabase
             .from('studio_settings')
             .delete()
@@ -60,7 +76,9 @@ export async function POST(request: Request) {
             message: 'Purge complete', 
             found: slugs.length,
             deleted: count || slugs.length,
-            slugs: slugs.slice(0, 10) // Return first 10 for verification
+            auth_users_deleted: authResults.success,
+            auth_errors: authResults.failed,
+            slugs: slugs.slice(0, 10) 
         });
 
     } catch (err: any) {

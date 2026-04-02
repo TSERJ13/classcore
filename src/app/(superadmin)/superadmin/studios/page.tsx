@@ -586,7 +586,9 @@ export default function StudiosPage() {
                     setModal({ 
                         type: 'alert', 
                         title: lang === 'ka' ? 'წარმატება' : 'Success', 
-                        message: lang === 'ka' ? 'სტუდია წაიშალა!' : 'Studio deleted successfully!' 
+                        message: lang === 'ka' 
+                            ? 'სტუდია და მისი მფლობელის ექაუნთი წაიშალა!' 
+                            : 'Studio and associated owner account deleted successfully!' 
                     });
                 } catch (err: any) {
                     console.error('❌ Failed to delete studio:', err);
@@ -713,7 +715,9 @@ export default function StudiosPage() {
                     setModal({ 
                         type: 'alert', 
                         title: lang === 'ka' ? 'წარმატება' : 'Success', 
-                        message: lang === 'ka' ? 'სანაგვე გასუფთავდა!' : 'Trash emptied successfully!' 
+                        message: lang === 'ka' 
+                            ? 'სანაგვე გასუფთავდა და ყველა ასოცირებული ექაუნთი წაიშალა!' 
+                            : 'Trash emptied and all associated owner accounts deleted!' 
                     });
                 } catch (err: any) {
                     console.error('❌ Failed to empty trash:', err);

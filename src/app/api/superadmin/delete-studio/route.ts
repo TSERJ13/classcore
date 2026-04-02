@@ -31,44 +31,49 @@ export async function POST(req: Request) {
             settingsPurgeCount: 0
         };
 
-        // 1. Try to delete the specific row from studio_settings
-        // We use the slug as provided, trimmed. 
-        const { error: deleteError, count } = await supabase
+        // 1. Fetch the ORG_ID (the owner's user ID) from studio_settings before deletion
+        const { data: record, error: fetchError } = await supabase
             .from('studio_settings')
-            .delete({ count: 'exact' })
-            .eq('studio_slug', targetSlug);
+            .select('org_id, staff_data')
+            .eq('studio_slug', targetSlug)
+            .maybeSingle();
         
-        if (deleteError) {
-            console.error(`❌ Database Deletion Error for ${targetSlug}:`, deleteError);
-            return NextResponse.json({ error: `Database error: ${deleteError.message}`, diag }, { status: 500 });
+        if (fetchError) {
+            console.error(`❌ Fetch Error for ${targetSlug}:`, fetchError);
         }
 
-        console.log(`🗑️ Deleted ${count} records for slug: ${targetSlug}`);
-        diag.settingsPurgeCount = count || 0;
-        if (diag.settingsPurgeCount > 0) {
-            diag.settingsFound = true;
-        }
+        const cloudOrgId = record?.org_id;
 
-        // 2. Auth Purge (Lookup by email if ID missing)
-        let targetId = userId;
-        if (!targetId && email) {
+        // 2. Auth Purge: Prioritize the cloud-fetched org_id
+        let finalTargetId = userId || cloudOrgId;
+        
+        // Secondary Fallback: Lookup by email if ID is still missing
+        if (!finalTargetId && email) {
             try {
                 const { data: users, error: listError } = await supabase.auth.admin.listUsers();
                 if (!listError) {
                     const found = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-                    if (found) targetId = found.id;
+                    if (found) finalTargetId = found.id;
                 }
             } catch (e) {}
         }
 
-        if (targetId) {
+        // 3. Execute Auth Purge
+        if (finalTargetId) {
             try {
-                const { error: authErr } = await supabase.auth.admin.deleteUser(targetId);
+                const { error: authErr } = await supabase.auth.admin.deleteUser(finalTargetId);
                 diag.authPurge = authErr ? `failed: ${authErr.message}` : 'success';
+                console.log(`👤 Auth user deleted: ${finalTargetId}`);
             } catch (authCatch) {
                 diag.authPurge = 'catch-error';
             }
         }
+
+        // 4. Delete the database record
+        const { error: deleteError, count } = await supabase
+            .from('studio_settings')
+            .delete({ count: 'exact' })
+            .eq('studio_slug', targetSlug);
 
         // If no records were found/deleted, we still consider it a success state (it's gone now)
         if (diag.settingsPurgeCount === 0) {
