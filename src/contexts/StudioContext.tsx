@@ -646,25 +646,25 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }
 
             setStudioSlug(profile.studio_slug);
-            if (profile.studio_name) setStudioName(profile.studio_name);
+            if (profile.studio_name && (isDefaultName || !settings.studioName)) {
+                setStudioName(profile.studio_name);
+            }
             hasSyncedRef.current = true;
             return;
         }
 
-        if (isDefaultName && profile.studio_name && profile.studio_name !== settings.studioName) {
+        const shouldSyncName = isDefaultName && profile.studio_name && profile.studio_name !== settings.studioName;
+        if (shouldSyncName) {
             console.log('📡 [StudioContext] Auto-syncing studio name from profile:', profile.studio_name);
-            setStudioName(profile.studio_name);
-            hasSyncedRef.current = true;
+            setStudioName(profile.studio_name || '');
         }
 
         // Also sync owner_info if it's missing locally but exists in profile
-        const needsOwnerSync = profile.first_name && (
-            !settings.owner_info?.first_name || 
-            (profile.phone && !settings.owner_info?.phone)
-        );
+        const needsNameSync = profile.first_name && !settings.owner_info?.first_name;
+        const needsPhoneSync = profile.phone && !settings.owner_info?.phone;
 
-        if (needsOwnerSync) {
-            console.log('📡 [StudioContext] Auto-syncing owner_info from profile:', profile.first_name);
+        if (needsNameSync || needsPhoneSync) {
+            console.log('📡 [StudioContext] Auto-syncing owner_info from profile metadata');
             setOwnerInfo({
                 first_name: profile.first_name || settings.owner_info?.first_name || '',
                 last_name: profile.last_name || settings.owner_info?.last_name || '',

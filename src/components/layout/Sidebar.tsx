@@ -106,13 +106,13 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
             >
                 <div className="flex items-center gap-3">
                     <div className={cn(
-                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0",
-                        !settings.logoDataUrl ? "bg-indigo-500/10 border-indigo-500/20" : "bg-card border-border-subtle shadow-inner"
+                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 border-white/10",
+                        !settings.logoDataUrl ? "bg-indigo-600/90 shadow-indigo-500/20" : "bg-card border-border-subtle shadow-inner"
                     )} style={settings.logoDataUrl ? { borderColor: theme.accentHex } : {}}>
                         {settings.logoDataUrl ? (
                             <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
                         ) : (
-                            <span className="text-lg font-black text-indigo-500">{getInitial(settings.studioName)}</span>
+                            <span className="text-lg font-black text-white">{getInitial(settings.studioName)}</span>
                         )}
                     </div>
 

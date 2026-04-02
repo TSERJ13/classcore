@@ -570,13 +570,13 @@ export default function SettingsPage() {
                         <Row label={l('სახელი და გვარი', 'Имя и Фаმილია', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
                             <div className="flex gap-2">
                                 <input 
-                                    value={settings.owner_info?.first_name || ''} 
+                                    value={settings.owner_info?.first_name || profile?.first_name || ''} 
                                     onChange={e => setOwnerInfo({ first_name: e.target.value })}
                                     placeholder={t.firstNameLabel}
                                     className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
                                 />
                                 <input 
-                                    value={settings.owner_info?.last_name || ''} 
+                                    value={settings.owner_info?.last_name || profile?.last_name || ''} 
                                     onChange={e => setOwnerInfo({ last_name: e.target.value })}
                                     placeholder={t.lastNameLabel}
                                     className="w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
@@ -590,7 +590,7 @@ export default function SettingsPage() {
                         </Row>
                         <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
                             <input 
-                                value={settings.owner_info?.phone || ''} 
+                                value={settings.owner_info?.phone || profile?.phone || ''} 
                                 onChange={e => setOwnerInfo({ phone: e.target.value })}
                                 placeholder="+995 ..."
                                 className="w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all"
