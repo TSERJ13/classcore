@@ -710,8 +710,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         const events = [
             'cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
-            'cc_subscription_update', 'cc_calendar_events_update', 
-            'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update'
+            'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
+            'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
+            'cc_salary_update'
         ];
 
         events.forEach(e => window.addEventListener(e, handleAutoMark));

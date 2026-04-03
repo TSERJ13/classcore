@@ -39,8 +39,8 @@ export default function PlansManagementPage() {
     useEffect(() => {
         const load = () => setPlans(getPlans());
         load();
-        window.addEventListener('cc_subscription_update', load);
-        return () => window.removeEventListener('cc_subscription_update', load);
+        window.addEventListener('cc_subscription_plans_update', load);
+        return () => window.removeEventListener('cc_subscription_plans_update', load);
     }, []);
 
     const [showForm, setShowForm] = useState(false);
