@@ -73,24 +73,12 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                 </div>
 
                 <div className={cn(
-                    "flex flex-col items-start transition-all duration-300 min-w-0 flex-1",
+                    "flex flex-col justify-center h-12 transition-all duration-300 min-w-0 flex-1 py-0.5",
                     exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                 )}>
-                    <span className="text-[14px] font-black text-white truncate tracking-tight leading-tight transition-colors">
-                        {settings.studioName || profile?.studio_name || 'Studio'}
-                    </span>
-
-                    <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[11px] font-black text-white/40 truncate max-w-[120px]">
-                            {profile?.first_name || profile?.last_name ? `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() : (user?.email?.split('@')[0] || 'User')}
-                        </span>
-                        <span className={cn(
-                            "px-1.5 py-0.5 rounded-md text-[7px] font-black tracking-wider border shrink-0",
-                            (profile?.role || 'admin') === 'owner' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                                (profile?.role || 'admin') === 'manager' ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" :
-                                    "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
-                        )}>
-                            {profile?.role || 'Staff'}
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[14px] font-black text-white truncate tracking-tight leading-tight">
+                            {settings.studioName || profile?.studio_name || 'Studio'}
                         </span>
                     </div>
 
@@ -100,12 +88,12 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                             if (exp) setIsHovered(!isHovered);
                         }}
                         className={cn(
-                            "mt-2 flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn",
+                            "flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
                             isHovered && "border-indigo-500/40 bg-indigo-500/10"
                         )}
                     >
                         <Building2 className={cn("w-3 h-3 transition-colors", isHovered ? "text-indigo-400" : "text-white/40")} />
-                        <span className={cn("text-[9px] font-black tracking-widest truncate max-w-[140px]", isHovered ? "text-indigo-400" : "text-white/60")}>
+                        <span className={cn("text-[9px] font-black tracking-widest truncate max-w-[100px]", isHovered ? "text-indigo-400" : "text-white/60")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
                         <ChevronRight className={cn("w-2.5 h-2.5 text-white/20 transition-all", isHovered && "rotate-90 text-indigo-400")} />
@@ -173,7 +161,7 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
 // ── Nav Items ──
 function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any) {
     return (
-        <nav className="flex-1 py-2 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-1">
+        <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-0.5">
             {ALL_ITEMS.filter(item => {
                 const role = profile?.role || defaultRole;
                 if (role === 'owner' || role === 'manager' || role === 'admin' || !role) return true;
@@ -210,7 +198,7 @@ function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any)
                             href={href}
                             onClick={close}
                             className={cn(
-                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-11 w-full pl-5 gap-4',
+                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-10 w-full pl-5 gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -218,10 +206,10 @@ function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any)
                                 <span className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full', theme.text.replace('text-', 'bg-'))} />
                             )}
                             <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                                <Icon className={cn('w-5 h-5 transition-transform duration-200', active ? 'scale-110' : 'group-hover/link:scale-110')} strokeWidth={active ? 2.5 : 2} />
+                                <Icon className={cn('w-[19px] h-[19px] transition-transform duration-200', active ? 'scale-110' : 'group-hover/link:scale-110')} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className="truncate text-xs md:text-[13px] font-semibold transition-all duration-300 opacity-100 max-w-[160px]">
+                                <span className="truncate text-[13px] font-semibold transition-all duration-300 opacity-100 max-w-[160px]">
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -269,6 +257,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                         setActiveBranch={setActiveBranch} t={t} lang={lang}
                         profile={profile} user={user} theme={theme} setBranchModalOpen={setBranchModalOpen}
                     />
+
                     <div className="relative flex-1 overflow-hidden flex flex-col no-scrollbar">
                         <NavItems exp={exp} profile={profile} pathname={pathname} theme={theme} t={t} close={close} defaultRole={defaultRole} />
                     </div>
@@ -282,19 +271,19 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             <ChevronRight className={cn('w-3.5 h-3.5 transition-transform duration-300', exp && 'rotate-180')} />
                         </button>
                     )}
-                    <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
+                    <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[70px] px-4 pb-2">
                         <LanguageSwitcher compact={!exp} mode="session" align="left" />
                         <div className={cn("flex-1 flex justify-center", exp ? "pl-4" : "hidden")}>
-                            <button
-                                onClick={logout}
-                                className={cn(
-                                    "w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 shrink-0",
-                                    "bg-[var(--sidebar-hover)] border border-[var(--sidebar-border)] shadow-sm"
-                                )}
-                                title={l('გასვლა', 'Выйти', 'Logout')}
-                            >
-                                <LogOut className="w-4 h-4" strokeWidth={2.5} />
-                            </button>
+                                <button
+                                    onClick={logout}
+                                    className={cn(
+                                        "w-[34px] h-[34px] flex items-center justify-center rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 shrink-0",
+                                        "bg-[var(--sidebar-hover)] border border-[var(--sidebar-border)] shadow-sm"
+                                    )}
+                                    title={l('გასვლა', 'Выйти', 'Logout')}
+                                >
+                                    <LogOut className="w-4 h-4" strokeWidth={2.5} />
+                                </button>
                         </div>
                     </div>
                 </>

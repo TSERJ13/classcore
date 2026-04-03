@@ -28,7 +28,9 @@ export interface Group {
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
 
 const BASE_GROUPS_KEY = 'cc_groups';
+const BASE_DELETED_GROUPS_KEY = 'cc_deleted_groups';
 function getGroupsKey() { return getScopedKey(BASE_GROUPS_KEY); }
+function getDeletedGroupsKey() { return getScopedKey(BASE_DELETED_GROUPS_KEY); }
 
 // Matches teacher-store assigned_group_ids (g1 to g5)
 const INITIAL_GROUPS: Group[] = [];
@@ -53,6 +55,16 @@ export function getGroups(): Group[] {
             }
         }
 
+        const deletedKey = getDeletedGroupsKey();
+        let deletedIds = new Set<string>();
+        try {
+            const rawDeleted = localStorage.getItem(deletedKey);
+            if (rawDeleted) {
+                const parsed = JSON.parse(rawDeleted);
+                if (Array.isArray(parsed)) deletedIds = new Set(parsed);
+            }
+        } catch {}
+
         if (!saved) {
             const data = isMainBranch ? INITIAL_GROUPS : [];
             if (isMainBranch) localStorage.setItem(key, JSON.stringify(data));
@@ -65,7 +77,8 @@ export function getGroups(): Group[] {
             console.error('❌ [GroupStore] Corrupt groups data:', e);
             return isMainBranch ? INITIAL_GROUPS : [];
         }
-        return Array.isArray(parsed) ? (parsed as Group[]) : INITIAL_GROUPS;
+        const list = Array.isArray(parsed) ? (parsed as Group[]) : INITIAL_GROUPS;
+        return list.filter(g => !deletedIds.has(g.id));
     } catch {
         return INITIAL_GROUPS;
     }
@@ -73,8 +86,18 @@ export function getGroups(): Group[] {
 
 export function saveGroups(groups: Group[]): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getGroupsKey(), JSON.stringify(groups));
+    const key = getGroupsKey();
+    localStorage.setItem(key, JSON.stringify(groups));
     markLocalUpdate();
+    
+    // Immediate Cloud Sync
+    const activeSlug = localStorage.getItem('cc_active_studio_slug');
+    if (activeSlug) {
+        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            syncStudioDataToCloud(activeSlug, { [key]: groups });
+        });
+    }
+
     window.dispatchEvent(new Event('cc_groups_update'));
 }
 
@@ -190,4 +213,40 @@ export function updateTeacherGroups(teacherId: string, coachName: string, assign
     if (changed) {
         saveGroups(updated);
     }
+}
+
+export function deleteGroup(id: string): void {
+    const groups = getGroups();
+    const updated = groups.filter(g => g.id !== id);
+    
+    // Persist deletion for mock data / tombstone
+    const deletedKey = getDeletedGroupsKey();
+    let deletedIds: string[] = [];
+    try {
+        const raw = localStorage.getItem(deletedKey);
+        if (raw) deletedIds = JSON.parse(raw);
+        if (!Array.isArray(deletedIds)) deletedIds = [];
+    } catch {}
+    
+    if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    }
+
+    const key = getGroupsKey();
+    localStorage.setItem(key, JSON.stringify(updated));
+    markLocalUpdate();
+
+    // Immediate Cloud Sync
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            syncStudioDataToCloud(activeSlug, { 
+                [key]: updated,
+                [deletedKey]: deletedIds
+            });
+        });
+    }
+
+    window.dispatchEvent(new Event('cc_groups_update'));
 }

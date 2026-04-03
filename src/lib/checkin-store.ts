@@ -134,6 +134,15 @@ export function refundCheckin(studentId: string): void {
         if (idx > -1) updated.splice(idx, 1);
         localStorage.setItem(dayKey(), JSON.stringify(updated));
         markLocalUpdate();
+
+        // Immediate Cloud Sync
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            import('./sync-store').then(({ syncStudioDataToCloud }) => {
+                syncStudioDataToCloud(activeSlug, { [dayKey()]: updated });
+            });
+        }
+
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }
@@ -162,14 +171,23 @@ function _writeCheckin(
     };
     const existing = getTodayCheckins();
     const key = dayKey();
-    localStorage.setItem(key, JSON.stringify([...existing, record]));
+    const updated = [...existing, record];
+    localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
+
+    // Immediate Cloud Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            syncStudioDataToCloud(activeSlug, { [key]: updated });
+        });
+    }
 
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
-    const activeSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
-    if (activeSlug) {
-        const settings = loadSettings(activeSlug);
+    const currentSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
+    if (currentSlug) {
+        const settings = loadSettings(currentSlug);
         const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
 
         recordAuditAction({
@@ -245,6 +263,15 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
             localStorage.setItem(key, JSON.stringify(updated));
         }
         markLocalUpdate();
+
+        // Immediate Cloud Sync
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            import('./sync-store').then(({ syncStudioDataToCloud }) => {
+                syncStudioDataToCloud(activeSlug, { [key]: updated });
+            });
+        }
+
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }

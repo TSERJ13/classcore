@@ -24,6 +24,7 @@ import { getEvents } from '@/lib/event-store';
 import { logAction } from '@/lib/analytics';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHalls, type HallData } from '@/lib/hall-store';
+import { fetchStudioDataFromCloud } from '@/lib/sync-store';
 import type { Student, CalendarEvent, Teacher, Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
@@ -63,11 +64,25 @@ export default function StudentPortalPage() {
     const [runtimeError, setRuntimeError] = useState<string | null>(null);
 
     useEffect(() => {
-        try {
-            setSettings(loadSettings(studio));
-        } catch (err) {
-            console.error('Settings load error:', err);
-        }
+        const load = async () => {
+            try {
+                const local = loadSettings(studio);
+                if (local.studioName === DEFAULT_SETTINGS.studioName && local.studioSlug !== studio) {
+                    // Try cloud
+                    const cloud = await fetchStudioDataFromCloud(studio);
+                    if (cloud) {
+                        // Hydrate settings
+                        localStorage.setItem(`cc_settings_${studio}`, JSON.stringify(cloud));
+                        setSettings(cloud);
+                        return;
+                    }
+                }
+                setSettings(local);
+            } catch (err) {
+                console.error('Settings load error:', err);
+            }
+        };
+        load();
     }, [studio]);
 
     const [activeTab, setActiveTab] = useState<ActiveTab>('info');
@@ -99,7 +114,44 @@ export default function StudentPortalPage() {
                 if (!studentId || !studio) return;
 
                 const students = getStudents();
-                const student = students.find(st => st.id.toLowerCase() === studentId.toLowerCase());
+                let student = students.find(st => st.id.toLowerCase() === studentId.toLowerCase());
+
+                if (!student) {
+                    // CRITICAL: Force cloud fetch if student is not found locally
+                    const cloudData = await fetchStudioDataFromCloud(studio);
+                    if (cloudData) {
+                        console.log('☁️ [StudentPortal] Hydrating from cloud database');
+                        // Search for the specific student in ALL student data keys
+                        // Entries in cloudData are like: 'cc_student_data_SLUG_BRANCHID': { PATCHES }
+                        let foundInCloud: Student | null = null;
+                        
+                        Object.entries(cloudData).forEach(([key, val]: [string, any]) => {
+                            if (key.startsWith('cc_student_data_') && typeof val === 'object') {
+                                // If student is in this patch-block
+                                if (val[studentId]) {
+                                    foundInCloud = { ...val[studentId], id: studentId };
+                                    // Hydrate this specific student data key
+                                    localStorage.setItem(key, JSON.stringify(val));
+                                }
+                            }
+                        });
+
+                        if (foundInCloud) {
+                            student = foundInCloud;
+                            
+                            // Also hydrate other essential studio data (groups, subs)
+                            Object.entries(cloudData).forEach(([key, val]: [string, any]) => {
+                                if (key.startsWith('cc_group_data_') || 
+                                    key.startsWith('cc_subscription_') || 
+                                    key.startsWith('cc_all_subscriptions_') ||
+                                    key.startsWith('cc_hall_data_')) {
+                                    localStorage.setItem(key, JSON.stringify(val));
+                                }
+                            });
+                        }
+                    }
+                }
+
                 setStudentData(student || null);
 
                 if (student) {
@@ -180,6 +232,40 @@ export default function StudentPortalPage() {
         } catch { /* ignore */ }
     }, [studio]);
 
+    const syncChatWithCloud = async (currentMessages: ChatMessage[]) => {
+        if (!studio || !studentId) return;
+        try {
+            const res = await fetch('/api/public/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studio,
+                    studentId,
+                    messages: currentMessages
+                })
+            });
+            if (res.status === 409) {
+                // Conflict: Pull latest and merge
+                const syncRes = await fetch(`/api/public/chat?studio=${studio}&studentId=${studentId}`);
+                const { messages: cloudMsgs } = await syncRes.json();
+                if (cloudMsgs) {
+                    // Merge logic: prefer newer messages or unique IDs
+                    const merged = [...currentMessages];
+                    (cloudMsgs as ChatMessage[]).forEach(cm => {
+                        if (!merged.find(m => m.id === cm.id)) {
+                            merged.push(cm);
+                        }
+                    });
+                    merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                    setPrivateMessages(merged);
+                    localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(merged));
+                }
+            }
+        } catch (err) {
+            console.error('Chat sync push failed:', err);
+        }
+    };
+
     const handleSendMessage = () => {
         if (!chatInput.trim()) return;
         const msg: ChatMessage = {
@@ -194,11 +280,13 @@ export default function StudentPortalPage() {
             const updated = [...privateMessages, msg];
             setPrivateMessages(updated);
             localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(updated));
+            syncChatWithCloud(updated);
         } else if (selectedGroupChatId) {
             const current = groupMessages[selectedGroupChatId] || [];
             const updated = [...current, { ...msg, senderName: studentData?.full_name || 'Student' }];
             setGroupMessages(prev => ({ ...prev, [selectedGroupChatId]: updated }));
             localStorage.setItem(`group_chat_${studio}_${selectedGroupChatId}`, JSON.stringify(updated));
+            // Group chat sync can be added here if needed
         }
         setChatInput('');
     };
@@ -215,12 +303,13 @@ export default function StudentPortalPage() {
         const updated = [...privateMessages, msg];
         setPrivateMessages(updated);
         localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(updated));
+        syncChatWithCloud(updated);
         // Switch to chat tab and private subtab
         setActiveTab('chat');
         setChatTab('private');
     };
 
-    // Unified Storage Sync
+    // Unified Storage Sync & Cloud Polling
     useEffect(() => {
         if (!studentId || !studio) return;
 
@@ -243,13 +332,37 @@ export default function StudentPortalPage() {
         };
 
         refreshChats();
+
+        // Background Cloud Polling for Manager Replies
+        const pollChat = async () => {
+            try {
+                const res = await fetch(`/api/public/chat?studio=${studio}&studentId=${studentId}`);
+                if (res.ok) {
+                    const { messages: cloudMsgs } = await res.json();
+                    if (cloudMsgs && Array.isArray(cloudMsgs)) {
+                        const localPriv = JSON.parse(localStorage.getItem(`chat_${studio}_${studentId}`) || '[]');
+                        // Check if we have new messages from cloud
+                        if (cloudMsgs.length > localPriv.length) {
+                            setPrivateMessages(cloudMsgs);
+                            localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(cloudMsgs));
+                        }
+                    }
+                }
+            } catch (err) { /* ignore */ }
+        };
+
+        const interval = setInterval(pollChat, 7000); // Poll every 7 seconds
+
         window.dispatchEvent(new Event('cc_attendance_update'));
 
         const handleStorage = (e: StorageEvent) => {
             if (e.key?.includes(studio)) refreshChats();
         };
         window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('storage', handleStorage);
+        };
     }, [studentId, studio, studentData?.enrolled_group_ids]);
 
     useEffect(() => {

@@ -366,62 +366,6 @@ export default function SettingsPage() {
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-10">
-            {settings.studioSlug === 'demo.classcore.ge' && (
-                <div className="bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-transparent border border-amber-500/20 rounded-[2.5rem] p-8 mb-8 animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 flex-shrink-0 animate-pulse">
-                            <AlertTriangle className="w-8 h-8" />
-                        </div>
-                        <div className="flex-1 text-center md:text-left">
-                            <h3 className="text-lg font-black text-primary tracking-tight mb-1">
-                                {l('თქვენ იმყოფებით დემო რეჟიმში', 'Вы находитесь в демо-режиме', 'You are in Demo Mode')}
-                            </h3>
-                            <p className="text-xs text-muted/60 font-medium leading-relaxed">
-                                {l(
-                                    'თქვენი მონაცემები ინახება მხოლოდ ამ ბრაუზერში. იმისთვის, რომ სტუდია გამოჩნდეს სუპერადმინის პანელში და ჩაირთოს სრული სინქრონიზაცია, აირჩიეთ მუდმივი მისამართი (Slug).',
-                                    'Ваши данные хранятся только в этом браузере. Чтобы ваша студия появилась в панели SuperAdmin и включилась полная синхронизация, выберите постоянный адрес (Slug).',
-                                    'Your data is stored locally in this browser. To see your studio in the SuperAdmin dashboard and enable full cloud sync, please choose a permanent URL slug.'
-                                )}
-                            </p>
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                            <div className="relative w-full sm:w-48">
-                                <input
-                                    value={slugVal}
-                                    onChange={e => setSlugVal(compactSlugify(e.target.value))}
-                                    placeholder="new-slug"
-                                    className="w-full bg-surface/50 border border-amber-500/30 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-amber-500 transition-all font-black text-amber-500 placeholder:text-amber-500/20"
-                                />
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    if (!slugVal || slugVal === 'demo.classcore.ge') return;
-                                    const { claimStudio } = (useStudio() as any);
-                                    const ok = await confirm({
-                                        title: l('სტუდიის რეგისტრაცია', 'Регистрация студии', 'Claim Studio'),
-                                        message: l(
-                                            `დარწმუნებული ხართ, რომ გსურთ გადახვიდეთ მისამართზე: /${slugVal}? ყველა თქვენი მონაცემი გადავა ახალ მისამართზე.`,
-                                            `Вы уверены, что хотите перейти на адрес: /${slugVal}? Все ваши данные будут перенесены.`,
-                                            `Are you sure you want to move to /${slugVal}? All your local data will be transferred.`
-                                        ),
-                                        confirmText: l('გაგრძელება', 'Продолжить', 'Continue')
-                                    });
-                                    if (ok) {
-                                        setIsSyncing(true);
-                                        const email = user?.email || 'stdancegroup@gmail.com'; 
-                                        await (useStudio() as any).claimStudio(slugVal, email);
-                                    }
-                                }}
-                                disabled={isSyncing || !slugVal || slugVal === 'demo.classcore.ge'}
-                                className="w-full sm:w-auto px-8 py-3 bg-amber-500 text-white text-[10px] font-black rounded-xl shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all tracking-widest disabled:opacity-50"
-                            >
-                                {isSyncing ? '...' : l('სტუდიის რეგისტრაცია', 'РЕГИСТРАЦИЯ СТУДИИ', 'REGISTER MY STUDIO')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {isAdmin && (
                 <>
                     <Section title={t.studioSettings} icon={Building2} defaultOpen={false}>

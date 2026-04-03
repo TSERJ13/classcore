@@ -171,6 +171,15 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     }
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
+    
+    // Immediate Cloud Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            syncStudioDataToCloud(activeSlug, { [getSubsKey()]: data });
+        });
+    }
+
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
 }
 
@@ -250,8 +259,17 @@ export function setDefaultSubscription(studentId: string, subId: string): void {
             is_default: s.id === subId
         }));
         localStorage.setItem(getSubsKey(), JSON.stringify(all));
-    markLocalUpdate();
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
+        markLocalUpdate();
+
+        // Immediate Cloud Sync
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            import('./sync-store').then(({ syncStudioDataToCloud }) => {
+                syncStudioDataToCloud(activeSlug, { [getSubsKey()]: all });
+            });
+        }
+
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
     }
 }
 
@@ -265,14 +283,40 @@ export function deleteSubscription(studentId: string, subId: string): void {
 
     data[studentId] = data[studentId].filter(s => s.id !== subId);
     if (data[studentId].length === 0) delete data[studentId]; // Remove student entry if no subscriptions left
+    
+    // Persist deletion for tombstone
+    const deletedKey = getDeletedSubsKey();
+    let deletedIds: string[] = [];
+    try {
+        const raw = localStorage.getItem(deletedKey);
+        if (raw) deletedIds = JSON.parse(raw);
+        if (!Array.isArray(deletedIds)) deletedIds = [];
+    } catch {}
+    
+    if (!deletedIds.includes(subId)) {
+        deletedIds.push(subId);
+        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    }
+
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
 
+    // Immediate Cloud Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            syncStudioDataToCloud(activeSlug, { 
+                [getSubsKey()]: data,
+                [deletedKey]: deletedIds
+            });
+        });
+    }
+
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
-    const activeSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
-    if (activeSlug && sub) {
-        const settings = loadSettings(activeSlug);
+    const currentSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
+    if (currentSlug && sub) {
+        const settings = loadSettings(currentSlug);
         const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
 
         recordAuditAction({
@@ -283,14 +327,6 @@ export function deleteSubscription(studentId: string, subId: string): void {
             branchName,
             performedBy: session?.staff.full_name || 'System'
         });
-    }
-
-    // Persist deletion for mock data (to prevent it from reappearing on refresh)
-    const deletedKey = getDeletedSubsKey();
-    const deletedIds = JSON.parse(localStorage.getItem(deletedKey) || '[]');
-    if (!deletedIds.includes(subId)) {
-        deletedIds.push(subId);
-        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
     }
 
     if (typeof window !== 'undefined') {

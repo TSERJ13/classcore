@@ -8,6 +8,8 @@ import { useUser } from '@/hooks/useUser';
 import { recordAuditAction } from '@/lib/audit-store';
 import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
 
+const SETTINGS_TABLE = 'studio_settings';
+
 interface StudioContextValue {
     settings: StudioSettings;
     activeBranchId: string;
@@ -67,6 +69,114 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const triggerPush = useCallback(() => setPushCounter(prev => prev + 1), []);
     const hasSyncedRef = useRef(false);
     const lastLocalUpdateRef = useRef<number>(0);
+
+    /**
+     * Consolidates cloud state application logic with strict tombstone enforcement.
+     * Ensures that pulled data is filtered against local + cloud deletion lists.
+     */
+    const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any }) => {
+        if (!cloudState) return false;
+        let changed = false;
+
+        const TOMBSTONE_MAP: Record<string, string> = {
+            'cc_student_data': 'cc_deleted_students',
+            'cc_groups': 'cc_deleted_groups',
+            'cc_halls': 'cc_deleted_halls',
+            'cc_student_subscriptions': 'cc_deleted_subscriptions'
+        };
+
+        // 1. Sync Staff List
+        if (cloudState.staff_data && JSON.stringify(cloudState.staff_data) !== JSON.stringify(settings.staff)) {
+            console.log('📡 [StudioContext] Staff data update detected from cloud');
+            const key = getScopedKey(STORAGE_KEY, activeSlug);
+            const local = loadSettings(activeSlug);
+            const nextSettings = { ...local, staff: cloudState.staff_data };
+            localStorage.setItem(key, JSON.stringify(nextSettings));
+            setSettings(nextSettings);
+            changed = true;
+        }
+
+        // 2. Sync Studio Data WITH Tombstone Enforcement
+        if (cloudState.studio_data) {
+            Object.entries(cloudState.studio_data).forEach(([key, val]) => {
+                const localVal = localStorage.getItem(key);
+                const cloudValStr = JSON.stringify(val);
+                
+                // Identify if this is a collection key that needs filtering
+                let tombstoneType: string | undefined;
+                let tKey: string | undefined;
+
+                for (const [prefix, tPrefix] of Object.entries(TOMBSTONE_MAP)) {
+                    if (key.startsWith(prefix)) {
+                        const suffix = key.replace(prefix, '');
+                        tombstoneType = tPrefix;
+                        tKey = tPrefix + suffix;
+                        break;
+                    }
+                }
+                
+                if (tombstoneType && tKey) {
+                    // Merge local and cloud tombstones for maximum safety
+                    const localDeletedIds = JSON.parse(localStorage.getItem(tKey) || '[]');
+                    const cloudDeletedIds = (cloudState.studio_data[tKey] || []) as string[];
+                    const mergedDeleted = Array.from(new Set([...localDeletedIds, ...cloudDeletedIds]));
+                    const deletedSet = new Set(mergedDeleted);
+
+                    // Update local tombstone if cloud has more
+                    if (mergedDeleted.length > localDeletedIds.length) {
+                        localStorage.setItem(tKey, JSON.stringify(mergedDeleted));
+                        changed = true;
+                    }
+
+                    if (deletedSet.size > 0) {
+                        if (key.includes('cc_student_data') && typeof val === 'object' && val !== null) {
+                            const filtered = { ...(val as any) };
+                            Object.keys(filtered).forEach(id => { if (deletedSet.has(id)) delete filtered[id]; });
+                            const filteredStr = JSON.stringify(filtered);
+                            if (localVal !== filteredStr) {
+                                localStorage.setItem(key, filteredStr);
+                                changed = true;
+                                return; // Skip default set for this key
+                            }
+                        } else if (Array.isArray(val)) {
+                            const filtered = val.filter((item: any) => !item?.id || !deletedSet.has(item.id));
+                            const filteredStr = JSON.stringify(filtered);
+                            if (localVal !== filteredStr) {
+                                localStorage.setItem(key, filteredStr);
+                                changed = true;
+                                return; // Skip default set for this key
+                            }
+                        }
+                    }
+                }
+
+                // Default sync for non-collection keys or if no filtering was needed
+                if (localVal !== cloudValStr) {
+                    localStorage.setItem(key, cloudValStr);
+                    changed = true;
+                }
+            });
+        }
+
+        if (changed) {
+            console.log('📡 [StudioContext] UI update triggered from cloud pulse for:', activeSlug);
+            const next = loadSettings(activeSlug);
+            setSettings(next);
+            // Notify all system components to refresh consistently
+            window.dispatchEvent(new Event('cc_staff_update'));
+            window.dispatchEvent(new Event('cc_active_branch_change'));
+            window.dispatchEvent(new Event('cc_teacher_update'));
+            window.dispatchEvent(new Event('cc_settings_update'));
+            window.dispatchEvent(new Event('cc_student_update'));
+            window.dispatchEvent(new Event('cc_groups_update'));
+            window.dispatchEvent(new Event('cc_halls_update'));
+            window.dispatchEvent(new Event('cc_subscription_update'));
+            window.dispatchEvent(new Event('cc_calendar_events_update'));
+            window.dispatchEvent(new Event('cc_checkins_update'));
+        }
+
+        return changed;
+    }, [settings.staff]);
 
     const markLocalUpdate = useCallback(() => {
         const now = Date.now();
@@ -416,31 +526,22 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         const timeSinceUpdate = Date.now() - lastLocal;
                         const forceSync = localStorage.getItem('cc_force_initial_sync') === 'true';
                         
+                        // Map of collection keys to their corresponding deletion (tombstone) keys
+                        const TOMBSTONE_MAP: Record<string, string> = {
+                            'cc_student_data': 'cc_deleted_students',
+                            'cc_groups': 'cc_deleted_groups',
+                            'cc_halls': 'cc_deleted_halls',
+                            'cc_student_subscriptions': 'cc_deleted_subscriptions'
+                        };
+
                         // Only merge if not recently updated locally to avoid overwriting newer local state
-                        // UNLESS forceSync is active (set after registration)
-                        if (timeSinceUpdate > 12000 || forceSync) {
+                        if (timeSinceUpdate > 3000 || forceSync) {
                             if (forceSync) {
                                 console.log('🚀 [StudioContext] Force Initial Sync: Bypassing 12s lock');
                                 localStorage.removeItem('cc_force_initial_sync');
                             }
-                            let anyChanged = false;
-                            Object.entries(cloudData).forEach(([key, val]) => {
-                                const localVal = localStorage.getItem(key);
-                                const cloudValStr = JSON.stringify(val);
-                                if (localVal !== cloudValStr) {
-                                    localStorage.setItem(key, cloudValStr);
-                                    anyChanged = true;
-                                }
-                            });
-
-                            if (anyChanged) {
-                                const updatedLocal = loadSettings(activeSlug);
-                                setSettings(updatedLocal);
-                                // Trigger global refreshes
-                                window.dispatchEvent(new Event('cc_settings_update'));
-                                window.dispatchEvent(new Event('cc_staff_update'));
-                                window.dispatchEvent(new Event('cc_active_branch_change'));
-                            }
+                            
+                            applyCloudState(activeSlug, { staff_data: cloudStaff || [], studio_data: cloudData });
                         }
                     }
 
@@ -485,13 +586,16 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             console.log('📡 [StudioContext] Auto-syncing studio data to cloud:', activeSlug);
             const allKeys = Object.keys(localStorage);
             const studioData: Record<string, any> = {};
+            // MUST explicitly include deleted registries in the sync scope
             const prefixes = [
                 'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
                 'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
                 'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications',
-                'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_hall_rental',
-                'cc_uid_registry', 'cc_attendance_archive', 'cc_expenses',
-                'cc_audit_logs', 'cc_salary_status', 'cc_trash_bin'
+                'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_deleted_groups', 'cc_deleted_halls',
+                'cc_hall_rental', 'cc_uid_registry', 'cc_attendance_archive', 'cc_expenses',
+                'cc_audit_logs', 'cc_salary_status', 'cc_trash_bin',
+                'cc_sa_meta', 'cc_saas_billing', 'cc_saas_payments',
+                'cc_shop_products', 'cc_notifications_history'
             ];
 
             const adminRoles = ['admin', 'owner', 'manager'];
@@ -519,7 +623,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             });
         };
 
-        const timer = setTimeout(syncData, 2000); // Debounce sync
+        const timer = setTimeout(syncData, 1000); // Debounce sync faster for deletions
 
         // Also setup periodic cloud pull to keep tabs on branch/staff changes from other users
         const pullInterval = setInterval(() => {
@@ -530,72 +634,71 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         return;
                     }
 
-                    // RACE CONDITION GUARD: If we recently updated locally, skip pulling cloud state for a bit
-                    // to avoid overwriting fresh local data that hasn't finished pushing yet.
+                    // RACE CONDITION GUARD
                     const lastLocal = parseInt(localStorage.getItem('cc_last_local_update') || '0');
                     const lastMem = lastLocalUpdateRef.current;
                     const lastUpdate = Math.max(lastLocal, lastMem);
                     const timeSinceUpdate = Date.now() - lastUpdate;
                     
-                    if (timeSinceUpdate < 12000) {
+                    if (timeSinceUpdate < 3000) {
                         console.log('📡 [StudioContext] Cloud pull skipped: Local update too recent (' + timeSinceUpdate + 'ms)');
                         return;
                     }
 
-                    let changed = false;
-
-                    // 0. CHECK: If we are on demo slug but pulled real data, force local slug update
-                    if (settings.studioSlug === 'demo.classcore.ge' && activeSlug !== 'demo.classcore.ge') {
-                        console.log('📡 [StudioContext] Force-updating local slug from demo to:', activeSlug);
-                        const key = getScopedKey(STORAGE_KEY, activeSlug);
-                        localStorage.setItem(ACTIVE_SLUG_KEY, activeSlug);
-                        // Save a basic shell to local storage so loadSettings picks it up
-                        const shell = { ...DEFAULT_SETTINGS, studioSlug: activeSlug, studioName: cloudState.studio_data?.[getScopedKey(STORAGE_KEY, activeSlug)]?.studioName || 'Loading...' };
-                        localStorage.setItem(key, JSON.stringify(shell));
-                        changed = true;
-                    }
-
-                    // 1. Sync Staff List (Permissions, branches)
-                    if (cloudState.staff_data && JSON.stringify(cloudState.staff_data) !== JSON.stringify(settings.staff)) {
-                        console.log('📡 [StudioContext] Staff data update detected from cloud');
-                        const key = getScopedKey(STORAGE_KEY, activeSlug);
-                        const local = loadSettings(activeSlug);
-                        const nextSettings = { ...local, staff: cloudState.staff_data };
-                        localStorage.setItem(key, JSON.stringify(nextSettings));
-                        changed = true;
-                    }
-
-                    // 2. Sync Studio Data (Branches, name, logo, etc)
-                    if (cloudState.studio_data) {
-                        Object.entries(cloudState.studio_data).forEach(([key, val]) => {
-                            const localVal = localStorage.getItem(key);
-                            const cloudValStr = JSON.stringify(val);
-                            if (localVal !== cloudValStr) {
-                                localStorage.setItem(key, cloudValStr);
-                                changed = true;
-                            }
-                        });
-                    }
-
-                    if (changed) {
-                        console.log('📡 [StudioContext] UI update triggered from cloud pulse for:', activeSlug);
-                        const next = loadSettings(activeSlug);
-                        setSettings(next);
-                        // Notify app components to refresh
-                        window.dispatchEvent(new Event('cc_staff_update'));
-                        window.dispatchEvent(new Event('cc_active_branch_change'));
-                        window.dispatchEvent(new Event('cc_teacher_update'));
-                        window.dispatchEvent(new Event('cc_settings_update'));
-                    }
+                    applyCloudState(activeSlug, cloudState);
                 });
             });
-        }, 12000); // Pulse every 12s
+        }, 3000); // Pulse every 3s
+
+        // 3. Setup Supabase Realtime subscription for "Instant" updates between devices
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            import('@/lib/supabase/client').then(({ createClient }) => {
+                const supabase = createClient();
+                const channel = supabase.channel(`studio_sync_${activeSlug}`)
+                    .on('postgres_changes', {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: SETTINGS_TABLE,
+                        filter: `studio_slug=eq.${activeSlug}`
+                    }, (payload) => {
+                        console.log('📡 [StudioContext] Realtime Update Detected:', payload.new.updated_at);
+                        // Trigger immediate pull instead of waiting for interval
+                        window.dispatchEvent(new Event('cc_cloud_pulse_request'));
+                    })
+                    .subscribe();
+
+                return () => {
+                    supabase.removeChannel(channel);
+                };
+            });
+        }
 
         return () => {
             clearTimeout(timer);
             clearInterval(pullInterval);
         };
     }, [isLoaded, settings, profile?.role, getStaffSession()?.slug, pushCounter]);
+
+    // Handle manual cloud pulse requests (from Realtime)
+    useEffect(() => {
+        const handlePulse = () => {
+            console.log('📡 [StudioContext] Forcing immediate cloud pull due to Realtime trigger');
+            const session = getStaffSession();
+            const activeSlug = session?.slug || settings.studioSlug;
+            const activeOrgId = session?.staff?.org_id || profile?.org_id || settings.orgId;
+
+            if (!activeSlug || activeSlug === 'demo.classcore.ge') return;
+
+            import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
+                pullStudioStateFromCloud(activeSlug, activeOrgId).then(cloudState => {
+                    if (!cloudState) return;
+                    applyCloudState(activeSlug, cloudState);
+                });
+            });
+        };
+        window.addEventListener('cc_cloud_pulse_request', handlePulse);
+        return () => window.removeEventListener('cc_cloud_pulse_request', handlePulse);
+    }, [settings.studioSlug, settings.orgId, profile?.org_id, isLoaded]);
 
     // Auto-mark local update when store events fire
     useEffect(() => {

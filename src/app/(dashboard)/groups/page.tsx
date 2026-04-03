@@ -6,7 +6,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
-import { getGroups, saveGroups, type Group, slotsToDisplay } from '@/lib/group-store';
+import { getGroups, saveGroups, deleteGroup, type Group, slotsToDisplay } from '@/lib/group-store';
 import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
@@ -89,9 +89,7 @@ export default function GroupsPage() {
     }
 
     function handleDelete(id: string) {
-        const updated = groups.filter(g => g.id !== id);
-        setGroups(updated);
-        saveGroups(updated);
+        deleteGroup(id); // Store handles sync and state
         deleteGroupEvents(id);
     }
 

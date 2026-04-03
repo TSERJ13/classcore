@@ -72,6 +72,22 @@ export function Header() {
     const [chatInput, setChatInput] = useState('');
     const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const pulseInterval = useRef<NodeJS.Timeout | null>(null);
+
+    const scrollToBottom = () => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    };
+
+    // Auto-scroll on chat change or new messages
+    useEffect(() => {
+        if (messengerOpen && selectedChatId) {
+            const timer = setTimeout(scrollToBottom, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [messages.length, selectedChatId, messengerOpen]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [calLabel, setCalLabel] = useState('');
     const [uncompletedNotesCount, setUncompletedNotesCount] = useState(0);
@@ -221,7 +237,6 @@ export function Header() {
         return () => window.removeEventListener('toggle-support', handleToggleSupport);
     }, []);
 
-    // Sync with other tabs (Student Portal)
     useEffect(() => {
         const handleStorage = (e: StorageEvent) => {
             updateUnreadCounts();
@@ -243,9 +258,76 @@ export function Header() {
                 }
             }
         };
+
+        // Cloud Polling for Manager
+        const pollCloudChats = async () => {
+            if (!settings.studioSlug) return;
+            try {
+                const res = await fetch(`/api/public/chat?studio=${settings.studioSlug}`);
+                if (res.ok) {
+                    const { chats } = await res.json();
+                    if (chats) {
+                        let hasNew = false;
+                        for (const studentId in chats) {
+                            const cloudMsgs = chats[studentId] as ChatMessage[];
+                            const key = `chat_${settings.studioSlug}_${studentId}`;
+                            const localStr = localStorage.getItem(key);
+                            const localMsgs = JSON.parse(localStr || '[]') as ChatMessage[];
+
+                            if (cloudMsgs.length > localMsgs.length) {
+                                // New messages from student!
+                                const latest = cloudMsgs[cloudMsgs.length - 1];
+                                if (latest.sender === 'student') {
+                                    hasNew = true;
+                                    const student = students.find(s => s.id === studentId);
+                                    const name = student ? (student.full_name || `${student.first_name} ${student.last_name}`) : studentId;
+                                    
+                                    addNotification({
+                                        title: `💬 ${name}`,
+                                        message: latest.text,
+                                        type: 'info'
+                                    }, 'bg-red-500');
+                                }
+                                localStorage.setItem(key, JSON.stringify(cloudMsgs));
+                                if (selectedChatId === studentId) {
+                                    setMessages(cloudMsgs);
+                                }
+                            }
+                        }
+                        if (hasNew) {
+                            updateUnreadCounts();
+                            setNotifications(getNotifications());
+                        }
+                    }
+                }
+            } catch (err) { /* ignore */ }
+        };
+
+        const interval = setInterval(pollCloudChats, 8000); // Poll every 8 seconds
+
         window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, [selectedChatId, activeTab, settings.studioSlug]);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, [selectedChatId, activeTab, settings.studioSlug, students]);
+
+    const syncChatToCloud = async (chatId: string, currentMessages: ChatMessage[]) => {
+        if (!settings.studioSlug || !chatId) return;
+        try {
+            await fetch('/api/public/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studio: settings.studioSlug,
+                    studentId: chatId,
+                    messages: currentMessages
+                })
+            });
+        } catch (err) {
+            console.error('Manager chat sync failed:', err);
+        }
+    };
 
     const handleSendMessage = () => {
         if ((!chatInput.trim() && !attachment) || !selectedChatId) return;
@@ -269,6 +351,9 @@ export function Header() {
             : `group_chat_${settings.studioSlug}_${selectedChatId}`;
         
         localStorage.setItem(key, JSON.stringify(updated));
+        if (activeTab === 'private') {
+            syncChatToCloud(selectedChatId, updated);
+        }
         setChatInput('');
         setAttachment(null);
 
@@ -486,8 +571,8 @@ export function Header() {
                         <MessageSquare className="w-4 h-4" />
                         {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
                             <span className={cn(
-                                "absolute top-2 right-2 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
-                                unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
+                                "absolute top-2 right-2 w-2 h-2 rounded-full ring-2 ring-card shadow-sm animate-pulse bg-red-500",
+                                unreadCounts[SUPPORT_CHAT_ID] && "shadow-[0_0_8px_rgba(239,68,68,0.8)]"
                             )} />
                         )}
                     </button>
@@ -802,27 +887,29 @@ export function Header() {
                                     </button>
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
-                                            "w-10 h-10 rounded-xl flex items-center justify-center font-black",
-                                            selectedChatId === SUPPORT_CHAT_ID ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-indigo-500/10 text-indigo-500"
+                                            "w-10 h-10 rounded-xl flex items-center justify-center font-black overflow-hidden border border-border-subtle shadow-sm",
+                                            selectedChatId === SUPPORT_CHAT_ID ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/10"
                                         )}>
                                             {selectedChatId === SUPPORT_CHAT_ID ? (
                                                 <Shield className="w-5 h-5" />
-                                            ) : activeTab === 'private'
-                                                ? (students.find(s => s.id === selectedChatId)?.full_name?.[0] || students.find(s => s.id === selectedChatId)?.first_name?.[0])
-                                                : groups.find(g => g.id === selectedChatId)?.name[0]
-                                            }
+                                            ) : activeTab === 'private' ? (
+                                                (() => {
+                                                    const s = students.find(st => st.id === selectedChatId);
+                                                    if (s?.photo_url) return <img src={s.photo_url} className="w-full h-full object-cover" />;
+                                                    return (s?.full_name?.[0] || s?.first_name?.[0] || '?');
+                                                })()
+                                            ) : (
+                                                groups.find(g => g.id === selectedChatId)?.name[0] || '?'
+                                            )}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-black text-primary leading-none mb-1">
+                                            <p className="text-sm font-black text-primary leading-none">
                                                 {selectedChatId === SUPPORT_CHAT_ID ? (
                                                     "ClassCore Admin"
                                                 ) : activeTab === 'private'
                                                     ? (students.find(s => s.id === selectedChatId)?.full_name || `${students.find(s => s.id === selectedChatId)?.first_name} ${students.find(s => s.id === selectedChatId)?.last_name}`)
                                                     : groups.find(g => g.id === selectedChatId)?.name
                                                 }
-                                            </p>
-                                            <p className="text-[10px] font-bold text-emerald-500 tracking-widest leading-none">
-                                                {selectedChatId === SUPPORT_CHAT_ID ? "Official Support" : "Online"}
                                             </p>
                                         </div>
                                     </div>
@@ -927,6 +1014,7 @@ export function Header() {
                                             </div>
                                         ))
                                     )}
+                                    <div ref={messagesEndRef} className="h-px" />
                                 </div>
 
                                 {/* Input Area */}

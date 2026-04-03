@@ -22,7 +22,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { Logo } from "@/components/ui/Logo";
-import { cn } from "@/lib/utils";
+import { cn, compactSlugify } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
 const COUNTRIES = [
@@ -73,6 +73,11 @@ export default function RegistrationPage() {
         try {
             const supabase = createClient();
             const fullPhone = dialCode + phone.replace(/\s/g, '');
+            const studioSlug = compactSlugify(studioName);
+
+            if (!studioSlug) {
+                throw new Error(l('გთხოვთ შეიყვანოთ ვალიდური სტუდიის სახელი', 'Пожалуйста, введите корректное название студии', 'Please enter a valid studio name'));
+            }
             
             const { error: authError } = await supabase.auth.signUp({
                 email,
@@ -82,6 +87,7 @@ export default function RegistrationPage() {
                         first_name: firstName,
                         last_name: lastName,
                         studio_name: studioName,
+                        studio_slug: studioSlug,
                         phone: fullPhone,
                         primary_lang: lang,
                         role: 'owner'

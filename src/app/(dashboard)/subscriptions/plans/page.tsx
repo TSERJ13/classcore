@@ -230,18 +230,27 @@ export default function PlansManagementPage() {
                                     {form.period === 'sessions' && (
                                         <div>
                                             <label className="text-xs text-muted mb-1.5 block">{t.sessionCountLabel}</label>
-                                            <input type="number" value={form.session_count ?? ''} onChange={e => setForm(p => ({ ...p, session_count: Number(e.target.value) }))}
+                                            <input type="number" value={form.session_count || ''} onChange={e => {
+                                                const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                                setForm(p => ({ ...p, session_count: val }));
+                                            }}
                                                 className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                         </div>
                                     )}
                                     <div>
                                         <label className="text-xs text-muted mb-1.5 block">{t.validityDaysInput}</label>
-                                        <input type="number" value={form.validity_days ?? ''} onChange={e => setForm(p => ({ ...p, validity_days: Number(e.target.value) }))}
+                                        <input type="number" value={form.validity_days || ''} onChange={e => {
+                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                            setForm(p => ({ ...p, validity_days: val }));
+                                        }}
                                             className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted mb-1.5 block">{t.price} ({settings.currency})</label>
-                                        <input type="number" value={form.price || ''} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) }))}
+                                        <label className="text-xs text-muted mb-1.5 block">{t.price} ({settings.currency}) *</label>
+                                        <input type="number" value={form.price || ''} onChange={e => {
+                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                            setForm(p => ({ ...p, price: val }));
+                                        }}
                                             className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                     </div>
                                 </div>
@@ -275,9 +284,9 @@ export default function PlansManagementPage() {
                                     <input
                                         type="number"
                                         min="0"
-                                        value={settings.pausePrices?.[days] ?? 0}
+                                        value={settings.pausePrices?.[days] || ''}
                                         onChange={(e) => {
-                                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                                            const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
                                             saveSettings({ pausePrices: { ...settings.pausePrices, [days]: val } });
                                         }}
                                         className="w-full bg-card border border-border-subtle rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-colors"

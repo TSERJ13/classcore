@@ -108,19 +108,23 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-xs text-muted mb-1.5 flex items-center gap-1.5 block font-medium"><Users className="w-3 h-3" /> {t.capacity}</label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4">
+                                    <Users className="w-3 h-3" /> {t.capacity}
+                                </label>
                                 <input type="number" min="1" value={form.capacity ?? ''}
                                     onChange={e => setF('capacity', e.target.value ? Number(e.target.value) : undefined)}
                                     placeholder="30"
                                     className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
-                            <div>
-                                <label className="text-xs text-muted mb-1.5 flex items-center gap-1.5 block font-medium"><Layout className="w-3 h-3" /> {t.sqMeters || 'Sq. Meters'}</label>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4">
+                                    <Layout className="w-3 h-3" /> {t.sqMeters || 'Sq. Meters'}
+                                </label>
                                 <input type="number" min="1" value={form.sq_meters ?? ''}
                                     onChange={e => setF('sq_meters', e.target.value ? Number(e.target.value) : undefined)}
-                                    placeholder="50"
+                                    placeholder="150"
                                     className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
                         </div>

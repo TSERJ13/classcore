@@ -37,10 +37,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </div>
                             </main>
                         </div>
-
-                        {/* Mobile bottom nav */}
-                        <BottomNav />
                     </div>
+
+                    {/* Mobile bottom nav — kept outside the flex container to ensure stable fixed positioning */}
+                    <BottomNav />
                 </MobileMenuProvider>
             </KillSwitchGate>
         </DashboardHydrationGuard>

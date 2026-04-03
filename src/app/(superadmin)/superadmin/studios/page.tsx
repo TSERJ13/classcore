@@ -363,6 +363,35 @@ export default function StudiosPage() {
         const next = !studio.suspended;
         saveMeta(slug, { suspended: next });
         setStudios(prev => prev.map(s => s.slug === slug ? { ...s, suspended: next } : s));
+        syncStudio(slug);
+    };
+
+    const syncStudio = async (slug: string) => {
+        try {
+            const s = loadSettings(slug);
+            const allKeys = Object.keys(localStorage);
+            const studioData: Record<string, any> = {};
+            const prefixes = [
+                'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
+                'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
+                'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications',
+                'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_hall_rental',
+                'cc_uid_registry', 'cc_attendance_archive', 'cc_expenses',
+                'cc_audit_logs', 'cc_salary_status', 'cc_trash_bin',
+                'cc_sa_meta', 'cc_saas_billing', 'cc_saas_payments'
+            ];
+
+            allKeys.forEach(k => {
+                if (prefixes.some(p => k.startsWith(p)) && k.includes(`_${slug}`)) {
+                    try { studioData[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch { }
+                }
+            });
+
+            await pushStudioStateToCloud(slug, s.staff || [], studioData, 0, s.orgId);
+            console.log('📡 [Superadmin] Immediate sync successful for:', slug);
+        } catch (err) {
+            console.error('📡 [Superadmin] Sync failed:', err);
+        }
     };
 
     const setPlan = (slug: string, plan: string) => {
@@ -371,6 +400,7 @@ export default function StudiosPage() {
         
         saveMeta(slug, { plan });
         setStudios(prev => prev.map(s => s.slug === slug ? { ...s, plan: plan as StudioRecord['plan'] } : s));
+        syncStudio(slug);
         setOpenMenu(null);
 
         // If switching FROM trial TO a paid plan, also trigger a manual activation/payment record
@@ -385,6 +415,7 @@ export default function StudiosPage() {
                 ),
                 onConfirm: () => {
                     recordPayment(slug, 'cash', 49, 1);
+                    syncStudio(slug);
                     loadData();
                     setModal({ type: null, title: '', message: '' });
                 }
@@ -418,6 +449,7 @@ export default function StudiosPage() {
         const state = getBillingState(slug);
         const current = state.accountBalance || 0;
         updateBillingState(slug, { accountBalance: Math.max(0, current + delta) });
+        syncStudio(slug);
         loadData(); // refresh list
     };
 
@@ -432,6 +464,7 @@ export default function StudiosPage() {
             ),
             onConfirm: () => {
                 recordPayment(slug, 'cash', 49, 1);
+                syncStudio(slug);
                 loadData();
                 setModal({ type: null, title: '', message: '' });
             }

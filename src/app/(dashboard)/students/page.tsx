@@ -5,7 +5,7 @@ import { Search, UserPlus, Users, User, Calendar, Phone, ShieldAlert, Heart, Che
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { cn, getInitials, isExpiringSoon } from '@/lib/utils';
+import { cn, getInitials, isExpiringSoon, calculateAge } from '@/lib/utils';
 import { StudentModal } from '@/components/students/StudentModal';
 import { getStudents } from '@/lib/student-store';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -161,7 +161,7 @@ export default function StudentsPage() {
 
     return (
         <>
-            <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
+            <div className="space-y-8 animate-fade-up max-w-5xl mx-auto pb-10 px-4 md:px-0">
                 {/* Header / Actions - Responsive Layout */}
                 <div className="flex flex-col gap-3 w-full">
 
@@ -176,12 +176,12 @@ export default function StudentsPage() {
                             ].map(v => (
                                 <button key={v.id} onClick={() => setStatusFilter(prev => prev === v.id ? 'all' : v.id as any)}
                                     className={cn(
-                                        'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all truncate',
-                                        statusFilter === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface-hover', v.hoverColor)
-                                    )}>
-                                    <v.icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
-                                    <span className="hidden sm:inline truncate">{v.label}</span>
-                                </button>
+                                    'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all',
+                                    statusFilter === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface-hover', v.hoverColor)
+                                )}>
+                                <v.icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden sm:inline whitespace-nowrap">{v.label}</span>
+                            </button>
                             ))}
                         </div>
 
@@ -190,7 +190,7 @@ export default function StudentsPage() {
                             <button onClick={openAdd}
                                 className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all text-white text-[10px] sm:text-xs font-black tracking-widest w-10 h-10 sm:w-auto px-0 sm:px-5 rounded-2xl sm:rounded-[1.25rem] shadow-lg shadow-indigo-500/20">
                                 <UserPlus className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden sm:inline truncate">{t.addStudent}</span>
+                                <span className="hidden sm:inline whitespace-nowrap">{t.addStudent}</span>
                             </button>
                         </div>
                     </div>
@@ -292,7 +292,7 @@ export default function StudentsPage() {
                 </div>
 
                 {/* Student list */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
                     {filtered.map(student => {
                         const sub = getSubscription(student.id);
                         const certExpiring = student.medical_cert_expires_at ? isExpiringSoon(student.medical_cert_expires_at, 30) : false;
@@ -337,7 +337,7 @@ export default function StudentsPage() {
                                                     {student.birth_date && (
                                                         <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
                                                             <Calendar className="w-2.5 h-2.5" />
-                                                            {student.birth_date}
+                                                            {student.birth_date} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)})`}
                                                         </div>
                                                     )}
                                                 </div>

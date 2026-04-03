@@ -717,19 +717,34 @@ export default function AnalyticsPage() {
             });
             const peakHours = Object.entries(hourCounts).map(([hour, count]) => ({ hour: `${hour}:00`, count })).sort((a,b) => b.count - a.count).slice(0, 3);
 
-            // Churn Risk
-            const churnRiskStudents = students.filter(s => s.status === 'active').map(s => {
-                const checkins = getStudentCheckins(s.id);
-                if (checkins.length === 0) return { id: s.id, name: s.full_name || `${s.first_name} ${s.last_name}`, risk: 'high' as const, reason: l('ჩეკინი არ დაფიქსირებულა', 'Нет посещений', 'No check-ins'), daysSinceLast: 999 };
-                const lastCheckin = new Date(checkins[0].date);
-                const daysSinceLast = Math.floor((new Date().getTime() - lastCheckin.getTime()) / (1000 * 3600 * 24));
-                let risk: 'low' | 'medium' | 'high' | 'lost' = 'low';
-                let reason = '';
-                if (daysSinceLast >= 60) { risk = 'lost'; reason = l('დაკარგული კლიენტი (60+ დღე)', 'Потерянный клиент (60+ дней)', 'Lost client (60+ days)'); }
-                else if (daysSinceLast > 14) { risk = 'high'; reason = l('არ გამოჩენილა 2 კვირაზე მეტია', 'Не был более 2 недель', 'Absent for 2+ weeks'); }
-                else if (daysSinceLast > 7) { risk = 'medium'; reason = l('არ გამოჩენილა 1 კვირაა', 'Не был 1 неделю', 'Absent for 1 week'); }
-                return { id: s.id, name: s.full_name || `${s.first_name} ${s.last_name}`, risk, reason, daysSinceLast };
-            }).filter(s => (s as any).risk !== 'low').sort((a, b) => (b.daysSinceLast || 0) - (a.daysSinceLast || 0)).slice(0, 5);
+            // Churn Risk - Subscription Based (requested by user)
+            const churnRiskStudents = students.filter(s => {
+                const studentSubs = Object.values(allSubsMap[s.id] || []);
+                const active = studentSubs.find(sub => sub.status === 'active');
+                if (active) return false; // If they have an active sub, they aren't at risk based on sub status
+                
+                const expired = studentSubs.filter(sub => sub.status === 'expired').sort((a: any, b: any) => b.expires_at.localeCompare(a.expires_at))[0];
+                if (!expired) return false; // Never had a sub or info missing
+
+                const daysSinceExpiry = Math.floor((new Date().getTime() - new Date(expired.expires_at).getTime()) / (1000 * 3600 * 24));
+                return daysSinceExpiry > 7; // Only consider if expired more than a week ago
+            }).map(s => {
+                const studentSubs = Object.values(allSubsMap[s.id] || []);
+                const expired = studentSubs.filter(sub => sub.status === 'expired').sort((a: any, b: any) => b.expires_at.localeCompare(a.expires_at))[0] as any;
+                const daysSinceExpiry = Math.floor((new Date().getTime() - new Date(expired.expires_at).getTime()) / (1000 * 3600 * 24));
+                
+                let risk: 'medium' | 'high' | 'lost' = 'medium';
+                if (daysSinceExpiry > 30) risk = 'lost';
+                else if (daysSinceExpiry > 14) risk = 'high';
+                
+                return {
+                    id: s.id,
+                    name: s.full_name || `${s.first_name} ${s.last_name}`,
+                    risk,
+                    reason: l(`ვადა გაუვიდა ${daysSinceExpiry} დღის წინ`, `Срок истёк ${daysSinceExpiry} дн. назад`, `Expired ${daysSinceExpiry} days ago`),
+                    daysSinceLast: daysSinceExpiry
+                };
+            }).sort((a, b) => b.daysSinceLast - a.daysSinceLast).slice(0, 5);
 
             const occupancyStats = groups.map(g => ({ name: g.name, rate: g.capacity > 0 ? Math.round((g.enrolled / g.capacity) * 100) : 0, enrolled: g.enrolled, capacity: g.capacity })).sort((a,b) => b.rate - a.rate);
 
@@ -847,23 +862,25 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
                     <MonthNavigator
                         selectedMonth={selectedMonth}
                         onSelect={setSelectedMonth}
                         t={t}
-                        className="flex-1 sm:flex-none"
+                        className="flex-1 sm:flex-none min-w-[140px] sm:min-w-[160px]"
                     />
-                    <button onClick={() => setShowExpenseModal(true)}
-                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-indigo-50/50 text-indigo-600 border border-indigo-200/50 hover:bg-indigo-100 transition-all shadow-sm shrink-0 active:scale-95"
-                        title={t.manageExpenses}>
-                        <Receipt className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => handleExport()}
-                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-black border border-border-subtle hover:bg-surface transition-all shadow-sm shrink-0 active:scale-95"
-                        title={l('ჩამოტვირთვა', 'Скачать', 'Download')}>
-                        <Download className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+                        <button onClick={() => setShowExpenseModal(true)}
+                            className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-2xl bg-indigo-50/50 text-indigo-600 border border-indigo-200/50 hover:bg-indigo-100 transition-all shadow-sm shrink-0 active:scale-95"
+                            title={t.manageExpenses}>
+                            <Receipt className="w-5 h-5 sm:w-5 sm:h-5" />
+                        </button>
+                        <button onClick={() => handleExport()}
+                            className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-2xl bg-white text-black border border-border-subtle hover:bg-surface transition-all shadow-sm shrink-0 active:scale-95"
+                            title={l('ჩამოტვირთვა', 'Скачать', 'Download')}>
+                            <Download className="w-5 h-5 sm:w-5 sm:h-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
 

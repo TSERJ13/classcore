@@ -40,11 +40,85 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
             // The optimistic lock (updated_at) ensures we have recently pulled the latest cloud staff if we are pushing.
             finalStaff = staff;
 
-            // 2. Studio Data: Overwrite specific keys provided by local client
-            // This ensures deletions within collections (groups, halls, etc) are correctly persisted.
+            // 2. Studio Data: Deep Merge specific collections instead of overwriting whole arrays
             finalStudioData = { ...cloudConfig };
+            
+            // Base prefixes for collections and their corresponding tombstones
+            const TOMBSTONES: Record<string, string> = {
+                'cc_student_data': 'cc_deleted_students',
+                'cc_groups': 'cc_deleted_groups',
+                'cc_halls': 'cc_deleted_halls',
+                'cc_student_subscriptions': 'cc_deleted_subscriptions'
+            };
+
+            // 1. PRE-EXTRACT ALL TOMBSTONES from both sides to ensure they are available for any collection merge
+            const allTombstoneKeys = new Set<string>();
+            Object.values(TOMBSTONES).forEach(prefix => {
+                // Find all keys in cloud or local that match this tombstone prefix
+                Object.keys(cloudConfig).concat(Object.keys(studioData)).forEach(k => {
+                    if (k.startsWith(prefix)) allTombstoneKeys.add(k);
+                });
+            });
+
+            // Pre-calculate merged tombstones for all found keys
+            const mergedTombstones: Record<string, string[]> = {};
+            allTombstoneKeys.forEach(tKey => {
+                const local = (studioData[tKey] || []) as string[];
+                const cloud = (cloudConfig[tKey] || []) as string[];
+                mergedTombstones[tKey] = Array.from(new Set([...local, ...cloud]));
+                // ALWAYS PERSIST THE MERGED TOMBSTONE BACK TO CLOUD
+                finalStudioData[tKey] = mergedTombstones[tKey];
+            });
+
             for (const key in studioData) {
-                finalStudioData[key] = studioData[key];
+                const incoming = studioData[key];
+                const existing = cloudConfig[key];
+
+                // Skip if this key is ALREADY a tombstone (handled in pre-extraction above)
+                const isTombstone = Object.values(TOMBSTONES).some(p => key.startsWith(p));
+                if (isTombstone) continue;
+
+                // Identify if this key corresponds to any tombstone
+                let tKey: string | undefined;
+                for (const [prefix, tPrefix] of Object.entries(TOMBSTONES)) {
+                    if (key.startsWith(prefix)) {
+                        tKey = tPrefix + key.replace(prefix, '');
+                        break;
+                    }
+                }
+                
+                const deletedIds = new Set(tKey ? (mergedTombstones[tKey] || []) : []);
+
+                if (typeof incoming === 'object' && incoming !== null && !Array.isArray(incoming)) {
+                    // Record-based merge (e.g. students: Record<string, Student>)
+                    const merged = { ...((existing || {}) as Record<string, any>), ...incoming };
+                    
+                    // Strictly enforce tombstones: Remove any ID present in the deletion registry
+                    Object.keys(merged).forEach(id => {
+                        if (deletedIds.has(id)) delete merged[id];
+                    });
+                    
+                    finalStudioData[key] = merged;
+                } else if (Array.isArray(incoming)) {
+                    // Array-based deep merge for collections (groups, halls, etc.)
+                    const merged = Array.isArray(existing) ? [...existing] : [];
+                    incoming.forEach((newItem: any) => {
+                        if (newItem && newItem.id) {
+                            const idx = merged.findIndex((oldItem: any) => oldItem.id === newItem.id);
+                            if (idx !== -1) {
+                                merged[idx] = { ...merged[idx], ...newItem };
+                            } else {
+                                merged.push(newItem);
+                            }
+                        }
+                    });
+                    
+                    // Strictly enforce tombstones: Filter out items in deletion registry
+                    finalStudioData[key] = merged.filter((item: any) => !item?.id || !deletedIds.has(item.id));
+                } else {
+                    // Fallback: Overwrite for primitives or single-client fields
+                    finalStudioData[key] = incoming;
+                }
             }
         }
 

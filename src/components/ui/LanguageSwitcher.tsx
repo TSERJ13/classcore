@@ -119,7 +119,7 @@ export function LanguageSwitcher({
                                 lang === code
                                     ? variant === 'sidebar' ? "bg-white/10 text-white" : "bg-indigo-500/5 text-indigo-600"
                                     : variant === 'sidebar'
-                                        ? "text-white/60 hover:bg-white/5 hover:text-white"
+                                        ? "text-white/90 hover:bg-white/5 hover:text-white"
                                         : "text-primary/80 hover:bg-surface hover:text-primary"
                             )}
                         >
@@ -128,9 +128,19 @@ export function LanguageSwitcher({
                                     {meta.flag}
                                 </span>
                             )}
-                            {((!compact && !hideLabel) || variant === 'landing') && <span className="flex-1 ml-2">{meta.label}</span>}
+                            {((!compact && !hideLabel) || variant === 'landing') && (
+                                <span className={cn(
+                                    "flex-1 ml-2",
+                                    variant === 'sidebar' ? "text-white" : "text-slate-900"
+                                )}>
+                                    {meta.label}
+                                </span>
+                            )}
                             {(lang === code && ((!compact && !hideLabel) || variant === 'landing')) && (
-                                <Check className="w-3.5 h-3.5 opacity-60" />
+                                <Check className={cn(
+                                    "w-3.5 h-3.5 opacity-60",
+                                    variant === 'sidebar' ? "text-white" : "text-indigo-600"
+                                )} />
                             )}
                         </button>
                     ))}

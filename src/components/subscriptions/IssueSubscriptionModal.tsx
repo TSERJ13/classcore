@@ -442,17 +442,25 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
                                         />
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between px-1 h-5">
-                                            <label className="text-[9px] font-black text-muted tracking-widest flex items-center gap-1">
-                                                <Percent className="w-3 h-3" /> {t.discount}
-                                            </label>
-                                            <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-lg p-0.5 relative">
+                                    <div className="space-y-1.5 min-w-0">
+                                        <label className="text-[9px] font-black text-muted tracking-widest px-1 flex items-center gap-1">
+                                            <Percent className="w-3 h-3" /> {t.discount}
+                                        </label>
+                                        <div className="flex bg-surface border border-border-subtle rounded-lg p-1 gap-1">
+                                            <input
+                                                type="number"
+                                                value={discount || ''}
+                                                onFocus={(e) => e.target.select()}
+                                                onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
+                                                placeholder="0"
+                                                className="flex-1 bg-transparent px-2 py-1 text-xs font-bold text-emerald-500 outline-none"
+                                            />
+                                            <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-md p-0.5 shrink-0">
                                                 <button
                                                     onClick={() => setDiscountType('percent')}
                                                     className={cn(
-                                                        "px-2.5 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
-                                                        discountType === 'percent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500 hover:bg-indigo-500/5"
+                                                        "px-2 py-0.5 text-[10px] font-black rounded-sm transition-all",
+                                                        discountType === 'percent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
                                                     )}
                                                 >
                                                     %
@@ -460,22 +468,14 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                 <button
                                                     onClick={() => setDiscountType('fixed')}
                                                     className={cn(
-                                                        "px-2.5 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
-                                                        discountType === 'fixed' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500 hover:bg-indigo-500/5"
+                                                        "px-2 py-0.5 text-[10px] font-black rounded-sm transition-all",
+                                                        discountType === 'fixed' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
                                                     )}
                                                 >
                                                     {settings.currency === 'GEL' ? '₾' : settings.currency === 'USD' ? '$' : '€'}
                                                 </button>
                                             </div>
                                         </div>
-                                        <input
-                                            type="number"
-                                            value={discount}
-                                            onFocus={(e) => e.target.select()}
-                                            onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
-                                            placeholder="0"
-                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-emerald-500 outline-none focus:border-emerald-500/40 transition-all"
-                                        />
                                     </div>
                                 </div>
 

@@ -20,7 +20,6 @@ import { StudentModal } from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
-import { SetupWizard } from '@/components/onboarding/SetupWizard';
 import { Logo } from '@/components/ui/Logo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -711,7 +710,6 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-6 animate-fade-in relative">
-            <SetupWizard />
 
 
             {/* Billing Expiration Notification */}
@@ -739,19 +737,30 @@ export default function DashboardPage() {
             {/* ─── Top bar ─── */}
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
-                            {t.welcomeBack} {profile?.first_name || ''} 👋
-                        </h1>
+                    <div className="flex items-center flex-wrap gap-2.5 sm:gap-4">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
+                                {t.welcomeBack} {profile?.first_name || ''} 
+                            </h1>
+                            <div className={cn(
+                                "px-1.5 py-0.5 rounded-md text-[8px] sm:text-[10px] font-black tracking-wider border shadow-sm",
+                                (profile?.role || 'admin') === 'owner' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                                    (profile?.role || 'admin') === 'manager' ? "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" :
+                                        "bg-zinc-500/10 text-zinc-500 border-zinc-500/20"
+                            )}>
+                                {(profile?.role || 'Staff').toUpperCase()}
+                            </div>
+                            <span className="text-xl sm:text-2xl">👋</span>
+                        </div>
                         {billing && (
                             <span className={cn(
-                                "px-2 py-0.5 rounded-lg text-white text-[10px] font-black tracking-tighter shadow-lg",
+                                "px-2.5 py-0.5 rounded-lg text-white text-[9px] sm:text-[11px] font-black tracking-tighter shadow-lg shrink-0",
                                 billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
                                     billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
                                         billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
                                             "bg-emerald-500 shadow-emerald-500/20"
                             )}>
-                                {billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')}
+                                {String(billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')).toUpperCase()}
                             </span>
                         )}
                     </div>
@@ -1030,12 +1039,6 @@ export default function DashboardPage() {
                                         <div className={`w-1 h-8 rounded-full flex-shrink-0`} style={{ backgroundColor: cls.color || '#6366f1' }} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-primary/75'}`}>{cls.title || t.unnamed}</p>
-                                            <p className="text-[11px] text-muted truncate">{(cls as any).teacherName || getTeacherName((cls as any).teacher_id) || t.teacherRole || 'მასწავლებელი'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                                            <span className={`text-xs font-bold ${isCurrent ? 'text-emerald-400' : 'text-primary/40'}`}>{(cls as any).studentCount || 0}</span>
-                                            <Users className="w-3 h-3 text-muted" />
-                                            {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                                         </div>
                                     </div>
                                 );
@@ -1177,7 +1180,7 @@ export default function DashboardPage() {
 
             {/* Trial Banner at bottom */}
             {billing?.status === 'trial' && (
-                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 text-white shadow-2xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4 sm:gap-6 mt-6 sm:mt-12 mb-6 sm:mb-8 relative z-10 border border-white/10 w-full">
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 text-white shadow-2xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4 sm:gap-6 mt-6 sm:mt-12 mb-32 sm:mb-8 relative z-10 border border-white/10 w-full">
                     <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left">
                         <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-inner">
                             <Zap className="w-5 h-5 sm:w-7 sm:h-7 text-white animate-pulse" />

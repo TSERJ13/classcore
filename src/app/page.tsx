@@ -88,7 +88,7 @@ function HighlightBillboard({ items }: { items: any[] }) {
             <div className={cn("transition-all duration-700 flex flex-col md:grid md:grid-cols-2", fade ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
                 {/* Visual Area */}
                 <div className="relative aspect-video bg-indigo-950 flex items-center justify-center overflow-hidden">
-                    <Image src={current.img} alt={current.title} fill className="object-contain p-4 group-hover:scale-105 transition-transform duration-1000" />
+                    <Image src={current.img} alt={current.title} fill className="object-cover group-hover:scale-105 transition-transform duration-1000" />
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-transparent to-black/20 pointer-events-none" />
                 </div>
 
@@ -218,7 +218,7 @@ export default function LandingPage() {
         { title: l('სმს სერვისი', 'СМС-сервис', 'SMS Service'), desc: l('ავტომატური შეტყობინებები მოსწავლეებისთვის და მშობლებისთვის.', 'Автоматические уведомления для учеников и родителей.', 'Auto-notifications for students and parents.'), img: '/gallery/sms_service.png' },
         { title: l('ანალიტიკა', 'Аналитика', 'Analytics'), desc: l('სტუდიის შემოსავლების და ზრდის სრული კონტროლი.', 'Полный контроль доходов и роста студии.', 'Full control over studio revenue and growth.'), img: '/gallery/analytics.png' },
         { title: l('ხელფასების გამოთვლა', 'Расчет зарплат', 'Salary Calculation'), desc: l('მასწავლებლების ანაზღაურების ავტომატური დარიცხვა.', 'Автоматический расчет вознаграждения преподавателей.', 'Automated teacher payroll calculation.'), img: '/gallery/salary.png' },
-        { title: l('AI ასისტენტი', 'AI Ассиსტენტი', 'AI Assistant'), desc: l('ჭკვიანი დახმარება მონაცემების მართვასა და ანალიზში.', 'Уმная помощь в управлении и анализе данных.', 'Smart assistance in data management and analysis.'), img: '/gallery/ai_assistant.png' },
+        { title: l('AI ასისტენტი', 'AI Ассистент', 'AI Assistant'), desc: l('ჭკვიანი დახმარება მონაცემების მართვასა და ანალიზში.', 'Умная помощь в управлении и анализе данных.', 'Smart assistance in data management and analysis.'), img: '/gallery/ai_assistant.png' },
         { title: l('შიდა ჩატი', 'Внутренний чат', 'Internal Chat'), desc: l('მარიამი და ლუკა ურთიერთობენ მასწავლებლებთან ერთ სივრცეში.', 'Мариам и Лука общаются с преподавателями в едином пространстве.', 'Mariam and Luka communicate with teachers in one space.'), img: '/gallery/chat.png' }
     ], [l]);
 

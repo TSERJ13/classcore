@@ -16,7 +16,9 @@ export interface HallData {
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
 
 const BASE_HALLS_KEY = 'cc_halls';
+const BASE_DELETED_HALLS_KEY = 'cc_deleted_halls';
 function getHallsKey() { return getScopedKey(BASE_HALLS_KEY); }
+function getDeletedHallsKey() { return getScopedKey(BASE_DELETED_HALLS_KEY); }
 
 const INITIAL_HALLS: HallData[] = [];
 
@@ -29,6 +31,16 @@ export function getHalls(): HallData[] {
 
         const key = getHallsKey();
         let saved = localStorage.getItem(key);
+
+        const deletedKey = getDeletedHallsKey();
+        let deletedIds = new Set<string>();
+        try {
+            const rawDeleted = localStorage.getItem(deletedKey);
+            if (rawDeleted) {
+                const parsed = JSON.parse(rawDeleted);
+                if (Array.isArray(parsed)) deletedIds = new Set(parsed);
+            }
+        } catch {}
 
         // Migration: If new scoped key is empty, check old unscoped key
         if (!saved && isMainBranch) {
@@ -55,7 +67,7 @@ export function getHalls(): HallData[] {
             return h;
         });
         if (needsSave) localStorage.setItem(getHallsKey(), JSON.stringify(migrated));
-        return migrated;
+        return migrated.filter(h => !deletedIds.has(h.id));
     } catch {
         return INITIAL_HALLS;
     }
@@ -63,7 +75,53 @@ export function getHalls(): HallData[] {
 
 export function saveHalls(halls: HallData[]): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getHallsKey(), JSON.stringify(halls));
+    const key = getHallsKey();
+    localStorage.setItem(key, JSON.stringify(halls));
     markLocalUpdate();
+    
+    // Immediate Cloud Sync
+    const activeSlug = localStorage.getItem('cc_active_studio_slug');
+    if (activeSlug) {
+        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            syncStudioDataToCloud(activeSlug, { [key]: halls });
+        });
+    }
+
+    window.dispatchEvent(new Event('cc_halls_update'));
+}
+
+export function deleteHall(id: string): void {
+    const halls = getHalls();
+    const updated = halls.filter(h => h.id !== id);
+    
+    // Persist deletion for tombstone
+    const deletedKey = getDeletedHallsKey();
+    let deletedIds: string[] = [];
+    try {
+        const raw = localStorage.getItem(deletedKey);
+        if (raw) deletedIds = JSON.parse(raw);
+        if (!Array.isArray(deletedIds)) deletedIds = [];
+    } catch {}
+    
+    if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    }
+
+    const key = getHallsKey();
+    localStorage.setItem(key, JSON.stringify(updated));
+    markLocalUpdate();
+
+    // Immediate Cloud Sync
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            syncStudioDataToCloud(activeSlug, { 
+                [key]: updated,
+                [deletedKey]: deletedIds
+            });
+        });
+    }
+
     window.dispatchEvent(new Event('cc_halls_update'));
 }

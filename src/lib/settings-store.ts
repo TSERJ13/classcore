@@ -500,6 +500,26 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
             if (next.studioSlug) {
                 setActiveSlug(next.studioSlug);
             }
+            
+            // Immediate Cloud Sync for Staff/Security/Vital Settings
+            if (finalSlug && finalSlug !== 'demo.classcore.ge') {
+                const isVitalUpdate = s.staff || s.security || s.branches || s.studioName;
+                if (isVitalUpdate) {
+                    import('./sync-store').then(({ pushStudioStateToCloud }) => {
+                        // Push full state including staff and studioData
+                        const allKeys = Object.keys(localStorage);
+                        const studioData: Record<string, any> = {};
+                        // Simple scan for scoped keys to include in this instant push
+                        allKeys.forEach(k => {
+                            if (k.includes(`_${finalSlug}`) || (next.orgId && k.includes(`_${next.orgId}`))) {
+                                try { studioData[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch {}
+                            }
+                        });
+                        pushStudioStateToCloud(finalSlug, next.staff, studioData, 0, next.orgId);
+                    });
+                }
+            }
+
             if (next.studioName) {
                 setCookie('cc_studio_name', encodeURIComponent(next.studioName), 365);
             }

@@ -790,11 +790,9 @@ export function StudentModal({
                                             type="date"
                                             value={form.birth_date} 
                                             onChange={e => set('birth_date', e.target.value)} 
-                                            className={inputCls}
+                                            className={cn(inputCls, "h-[42px]")}
                                         />
                                     </Field>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
                                     <Field icon={<MessageCircle className="w-4 h-4" />} label={t.preferredLanguage}>
                                         <SearchSelect
                                             options={[
@@ -804,6 +802,7 @@ export function StudentModal({
                                             ]}
                                             value={form.preferred_language || 'ka'}
                                             onChange={val => set('preferred_language', val)}
+                                            className="h-[42px]"
                                         />
                                     </Field>
                                 </div>
