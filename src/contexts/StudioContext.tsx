@@ -69,6 +69,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const triggerPush = useCallback(() => setPushCounter(prev => prev + 1), []);
     const hasSyncedRef = useRef(false);
     const lastLocalUpdateRef = useRef<number>(0);
+    const lastPushedTimestampRef = useRef<string | null>(null);
 
     /**
      * Consolidates cloud state application logic with strict tombstone enforcement.
@@ -583,6 +584,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         if (!isLoaded || !activeSlug || activeSlug === 'demo.classcore.ge') return;
 
         const syncData = () => {
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+                console.log('📡 [StudioContext] Sync skipped: Page is hidden');
+                return;
+            }
             console.log('📡 [StudioContext] Auto-syncing studio data to cloud:', activeSlug);
             const allKeys = Object.keys(localStorage);
             const studioData: Record<string, any> = {};
@@ -619,36 +624,35 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
             import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
                 // SECURITY: consolidated push handles role-based setting sync internally in sync-store
-                pushStudioStateToCloud(activeSlug, settings.staff, studioData, 0, activeOrgId);
+                pushStudioStateToCloud(activeSlug, settings.staff, studioData, 0, activeOrgId).then(() => {
+                    // Update ref to prevent self-sync from Realtime trigger
+                    lastPushedTimestampRef.current = new Date().toISOString();
+                });
             });
         };
 
-        const timer = setTimeout(syncData, 1000); // Debounce sync faster for deletions
+        const timer = setTimeout(syncData, 2000); // Debounce sync slower (2s) to batch updates
 
-        // Also setup periodic cloud pull to keep tabs on branch/staff changes from other users
+        // 2. Setup periodic cloud pull (Slow fallback for inactive tabs/sync gaps)
         const pullInterval = setInterval(() => {
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+                return; // Suppress polling for background/inactive tabs
+            }
             import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
                 pullStudioStateFromCloud(activeSlug, activeOrgId).then(cloudState => {
-                    if (!cloudState) {
-                        console.warn('📡 [StudioContext] Cloud pull returned no data for:', activeSlug);
-                        return;
-                    }
+                    if (!cloudState) return;
 
-                    // RACE CONDITION GUARD
+                    // RACE CONDITION GUARD: Don't overwrite if local changes just happened
                     const lastLocal = parseInt(localStorage.getItem('cc_last_local_update') || '0');
-                    const lastMem = lastLocalUpdateRef.current;
-                    const lastUpdate = Math.max(lastLocal, lastMem);
+                    const lastUpdate = Math.max(lastLocal, lastLocalUpdateRef.current);
                     const timeSinceUpdate = Date.now() - lastUpdate;
                     
-                    if (timeSinceUpdate < 3000) {
-                        console.log('📡 [StudioContext] Cloud pull skipped: Local update too recent (' + timeSinceUpdate + 'ms)');
-                        return;
-                    }
+                    if (timeSinceUpdate < 3000) return;
 
                     applyCloudState(activeSlug, cloudState);
                 });
             });
-        }, 3000); // Pulse every 3s
+        }, 60000); // Reduce background pulse to 60s (Realtime handles instant sync)
 
         // 3. Setup Supabase Realtime subscription for "Instant" updates between devices
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
@@ -661,7 +665,17 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         table: SETTINGS_TABLE,
                         filter: `studio_slug=eq.${activeSlug}`
                     }, (payload) => {
-                        console.log('📡 [StudioContext] Realtime Update Detected:', payload.new.updated_at);
+                        // FEEDBACK LOOP GUARD: Skip if this update was triggered by OUR OWN recent push
+                        if (payload.new.updatedAt && lastPushedTimestampRef.current) {
+                            const cloudTime = new Date(payload.new.updatedAt).getTime();
+                            const ourTime = new Date(lastPushedTimestampRef.current).getTime();
+                            // If cloud timestamp is within 1s of our push, skip redundant pull
+                            if (Math.abs(cloudTime - ourTime) < 1500) {
+                                console.log('📡 [StudioContext] Realtime Update Skipped: Self-push detected');
+                                return;
+                            }
+                        }
+                        console.log('📡 [StudioContext] Realtime Update Detected:', payload.new.updatedAt);
                         // Trigger immediate pull instead of waiting for interval
                         window.dispatchEvent(new Event('cc_cloud_pulse_request'));
                     })
@@ -682,6 +696,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     // Handle manual cloud pulse requests (from Realtime)
     useEffect(() => {
         const handlePulse = () => {
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+                return; // Don't pull in hidden tabs even on realtime triggers
+            }
             console.log('📡 [StudioContext] Forcing immediate cloud pull due to Realtime trigger');
             const session = getStaffSession();
             const activeSlug = session?.slug || settings.studioSlug;
