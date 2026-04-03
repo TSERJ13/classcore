@@ -681,9 +681,9 @@ export default function DashboardPage() {
                             <span className={cn(
                                 "px-2 py-0.5 rounded-lg text-white text-[10px] font-black tracking-tighter shadow-lg",
                                 billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
-                                billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
-                                billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
-                                "bg-emerald-500 shadow-emerald-500/20"
+                                    billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
+                                        billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
+                                            "bg-emerald-500 shadow-emerald-500/20"
                             )}>
                                 {billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')}
                             </span>
@@ -1021,7 +1021,7 @@ export default function DashboardPage() {
                         </p>
                     </div>
                     <span className="text-2xl font-black text-primary">
-                        {isDemo ? '83%' : ( (liveStats.activeStudents || liveStats.totalStudents) > 0 ? Math.round((liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents)) * 100) + '%' : '0%')}
+                        {isDemo ? '83%' : ((liveStats.activeStudents || liveStats.totalStudents) > 0 ? Math.round((liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents)) * 100) + '%' : '0%')}
                     </span>
                 </div>
                 <div className="w-full bg-surface rounded-full h-3 overflow-hidden">

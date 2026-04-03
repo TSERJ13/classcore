@@ -195,6 +195,13 @@ export function useUser() {
         const supabase = createClient();
         await supabase.auth.signOut();
         setStaffSession(null);
+        
+        // Clear all cc_ related cookies to ensure SSR components (like the landing page) stay in sync
+        document.cookie = "cc_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "cc_studio_name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "cc_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "cc_active_slug=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        
         window.location.href = '/login';
     };
 

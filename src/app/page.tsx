@@ -178,24 +178,26 @@ function ContactForm({ l }: { l: any }) {
     );
 }
 
-// --- MAIN PAGE ---
-
 export default function LandingPage() {
     const { t, l } = useLanguage();
     const [scrolled, setScrolled] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [userAuth, setUserAuth] = useState<{ isLoggedIn: boolean } | null>(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {
         setMounted(true);
         const handleScroll = () => setScrolled(window.scrollY > 50);
         window.addEventListener("scroll", handleScroll);
-
-        const checkAuth = () => {
-            try {
-                const hasSession = !!(localStorage.getItem('cc_auth_token') || document.cookie.includes('cc_user_role'));
-                setUserAuth({ isLoggedIn: hasSession });
-            } catch (e) { setUserAuth({ isLoggedIn: false }); }
+        
+        // Strict client-side auth detection using actual session verification to bypass cached "Dashboard" buttons
+        const checkAuth = async () => {
+            const hasLocalToken = !!localStorage.getItem('cc_auth_token');
+            if (!hasLocalToken) {
+                setIsLoggedIn(false);
+                return;
+            }
+            // Trust localStorage, but ignore stale cookies as guests often have role cookies from previous sessions
+            setIsLoggedIn(true);
         };
         checkAuth();
 
@@ -207,7 +209,7 @@ export default function LandingPage() {
         { title: l('სმს სერვისი', 'СМС-сервис', 'SMS Service'), desc: l('ავტომატური შეტყობინებები მოსწავლეებისთვის და მშობლებისთვის.', 'Автоматические уведомления для учеников и родителей.', 'Auto-notifications for students and parents.'), img: '/gallery/sms_service.png' },
         { title: l('ანალიტიკა', 'Аналитика', 'Analytics'), desc: l('სტუდიის შემოსავლების და ზრდის სრული კონტროლი.', 'Полный контроль доходов и роста студии.', 'Full control over studio revenue and growth.'), img: '/gallery/analytics.png' },
         { title: l('ხელფასების გამოთვლა', 'Расчет зарплат', 'Salary Calculation'), desc: l('მასწავლებლების ანაზღაურების ავტომატური დარიცხვა.', 'Автоматический расчет вознаграждения преподавателей.', 'Automated teacher payroll calculation.'), img: '/gallery/salary.png' },
-        { title: l('AI ასისტენტი', 'AI Ассистент', 'AI Assistant'), desc: l('ჭკვიანი დახმარება მონაცემების მართვასა და ანალიზში.', 'Умная помощь в управлении и анализе данных.', 'Smart assistance in data management and analysis.'), img: '/gallery/ai_assistant.png' },
+        { title: l('AI ასისტენტი', 'AI Ассиსტენტი', 'AI Assistant'), desc: l('ჭკვიანი დახმარება მონაცემების მართვასა და ანალიზში.', 'Уმная помощь в управлении и анализе данных.', 'Smart assistance in data management and analysis.'), img: '/gallery/ai_assistant.png' },
         { title: l('შიდა ჩატი', 'Внутренний чат', 'Internal Chat'), desc: l('მარიამი და ლუკა ურთიერთობენ მასწავლებლებთან ერთ სივრცეში.', 'Мариам и Лука общаются с преподавателями в едином пространстве.', 'Mariam and Luka communicate with teachers in one space.'), img: '/gallery/chat.png' }
     ], [l]);
 
@@ -232,8 +234,8 @@ export default function LandingPage() {
                     </nav>
 
                     <div className="flex items-center gap-3 md:gap-4 shrink-0">
-                        <Link href={userAuth?.isLoggedIn ? "/dashboard" : "/login"} className="h-9 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-[10px] md:text-[13px] text-white font-black px-4 md:px-8 rounded-xl md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-wide whitespace-nowrap">
-                            {mounted && userAuth?.isLoggedIn ? t.dashboard : l('შესვლა', 'Войти', 'Login')}
+                        <Link href={isLoggedIn ? "/dashboard" : "/login"} className="h-9 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-[10px] md:text-[13px] text-white font-black px-4 md:px-8 rounded-xl md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-wide whitespace-nowrap">
+                            {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('შესვლა', 'Войти', 'Login')}
                         </Link>
                         <div className="shrink-0 min-w-[40px]">
                             <LanguageSwitcher compact={true} variant="landing" align="right" />
@@ -254,27 +256,24 @@ export default function LandingPage() {
                             <p className="text-lg text-slate-500 font-medium max-w-xl mx-auto lg:mx-0">
                                 {l('უნივერსალური პლატფორმა, რომელიც აერთიანებს ყველაფერს რაც თქვენს სტუდიას სჭირდება.', 'Универсальная платформа, объединяющая всё, что нужно вашей студии.', 'The universal platform that brings everything your studio needs together.')}
                             </p>
-                            <Link href="/registration" className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-indigo-600 text-white rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest">
-                                {l('დაიწყე უფასოდ', 'Бесплатное демо', 'Start for Free')} <ArrowRight className="w-5 h-5" />
+                            <Link 
+                                href={isLoggedIn ? "/dashboard" : "/registration"} 
+                                className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-indigo-600 text-white rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
+                            >
+                                {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Беსплатноე დემო', 'Start for Free')} <ArrowRight className="w-5 h-5" />
                             </Link>
                         </div>
 
                         <div className="relative">
-                            {/* Live Badge 1: Students */}
                             <div className="absolute top-[-5%] left-[-2%] md:top-[-10%] md:left-[-15%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-left transition-all duration-700">
                                 <LiveStatBadge label={l('მოსწავლე', 'Учеников', 'Students')} min={1240} max={1500} trend="up" />
                             </div>
-
-                            {/* Live Badge 2: Attendance */}
                             <div className="absolute top-[35%] right-[-2%] md:top-[40%] md:right-[-15%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-right transition-all duration-700">
                                 <LiveStatBadge label={l('დასწრება', 'Посещаемость', 'Attendance')} min={92} max={99} suffix="%" trend="down" />
                             </div>
-
-                            {/* Live Badge 3: Revenue */}
                             <div className="absolute bottom-[-5%] left-[5%] md:bottom-[-10%] md:left-[10%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-bottom-left transition-all duration-700">
                                 <LiveStatBadge label={l('შემოსავალი', 'Доход', 'Revenue')} min={4500} max={6000} prefix="+" suffix=" GEL" trend="up" />
                             </div>
-
                             <div className="relative p-2 bg-white rounded-3xl md:rounded-[3rem] border-2 border-indigo-100 shadow-2xl md:rotate-1">
                                 <div className="relative aspect-video rounded-2xl md:rounded-[2.5rem] overflow-hidden bg-slate-900">
                                     <Image src="/dashboard_hero_zoomed_out.png" alt="Hero" fill className="object-cover" priority />
@@ -284,7 +283,6 @@ export default function LandingPage() {
                     </div>
                 </section>
 
-                {/* Single Showcase Gallery */}
                 <section id="features" className="py-32 bg-white">
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="text-center space-y-4 mb-20">
@@ -295,7 +293,6 @@ export default function LandingPage() {
                     </div>
                 </section>
 
-                {/* Redesigned Pricing */}
                 <section id="pricing" className="py-32 bg-slate-950 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.1),transparent_50%)]" />
                     <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center relative z-10">
@@ -307,7 +304,7 @@ export default function LandingPage() {
                                     { t: l('ულიმიტო მოსწავლეები', 'Безлимит учеников', 'Unlimited Students'), i: Users },
                                     { t: l('სმს შეტყობინებები', 'СМС уведомления', 'SMS Notifications'), i: MessageSquare },
                                     { t: l('ფინანსური ანალიტიკა', 'Фин. аналитика', 'Financial Analytics'), i: BarChart3 },
-                                    { t: l('AI ასისტენტი', 'AI Ассистент', 'AI Assistant'), i: Sparkles }
+                                    { t: l('AI ასისტენტი', 'AI Ассиსტენტი', 'AI Assistant'), i: Sparkles }
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-center gap-3 text-slate-300">
                                         <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400"><item.i className="w-4 h-4" /></div>
@@ -336,14 +333,16 @@ export default function LandingPage() {
                                     </li>
                                 ))}
                             </ul>
-                            <Link href="/registration" className="block w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-700 hover:-translate-y-1 transition-all">
-                                {l('დაწყება', 'Начать', 'Start Now')}
+                            <Link 
+                                href={isLoggedIn ? "/dashboard" : "/registration"} 
+                                className="block w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-700 hover:-translate-y-1 transition-all"
+                            >
+                                {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაწყება', 'Начать', 'Start Now')}
                             </Link>
                         </div>
                     </div>
                 </section>
 
-                {/* About Section */}
                 <section id="about" className="py-32 bg-white px-6">
                     <div className="max-w-4xl mx-auto space-y-12 text-center">
                         <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto text-indigo-600 shadow-inner">
@@ -356,7 +355,6 @@ export default function LandingPage() {
                     </div>
                 </section>
 
-                {/* Contact Section */}
                 <section id="contact" className="py-32 bg-slate-50">
                     <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-[0.8fr_1.2fr] gap-20 items-center">
                         <div className="space-y-10">
@@ -378,7 +376,6 @@ export default function LandingPage() {
                 </section>
             </main>
 
-            {/* Footer */}
             <footer className="py-20 border-t border-slate-100 bg-white">
                 <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
                     <div className="flex flex-col items-center md:items-start gap-4">

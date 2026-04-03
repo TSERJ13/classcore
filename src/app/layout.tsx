@@ -15,10 +15,9 @@ export const metadata: Metadata = {
     authors: [{ name: 'ClassCore', url: 'https://classcore.ge' }],
     icons: {
         icon: [
-            { url: '/logo.svg', type: 'image/svg+xml' },
-            { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { url: '/favicon-v4.png', type: 'image/png' },
+            { url: '/icon-v4.png', sizes: '512x512', type: 'image/png' },
         ],
-        shortcut: '/logo.svg',
         apple: [
             { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
         ],
@@ -61,16 +60,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 {/* Splash screens could be added here if we had the specific sizes */}
             </head>
             <body className="min-h-screen bg-base antialiased font-sans">
-                    <CacheBuster />
-                    <LanguageProvider defaultLang={activeLang}>
-                        <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
-                            <ConfirmProvider>
-                                <GlobalErrorBoundary>
-                                    {children}
-                                </GlobalErrorBoundary>
-                            </ConfirmProvider>
-                        </StudioProvider>
-                    </LanguageProvider>
+                <CacheBuster />
+                <LanguageProvider defaultLang={activeLang}>
+                    <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
+                        <ConfirmProvider>
+                            <GlobalErrorBoundary>
+                                {children}
+                            </GlobalErrorBoundary>
+                        </ConfirmProvider>
+                    </StudioProvider>
+                </LanguageProvider>
             </body>
         </html>
     );

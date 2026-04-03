@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 type PieData = {
@@ -17,6 +18,7 @@ interface PieChartProps {
 }
 
 export function PieChart({ data, size = 160, thickness = 20, className, centerLabel }: PieChartProps) {
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0);
     const radius = Math.max(0, (size - thickness) / 2);
     const center = size / 2;
@@ -25,12 +27,12 @@ export function PieChart({ data, size = 160, thickness = 20, className, centerLa
     let currentOffset = 0;
 
     return (
-        <div 
-            className={cn("relative flex items-center justify-center shrink-0 overflow-hidden", className)}
+        <div
+            className={cn("relative flex items-center justify-center shrink-0", className)}
             style={{ width: size, height: size }}
         >
-            <svg 
-                viewBox={`0 0 ${size} ${size}`} 
+            <svg
+                viewBox={`0 0 ${size} ${size}`}
                 className="w-full h-full transform -rotate-90"
                 preserveAspectRatio="xMidYMid meet"
             >
@@ -64,7 +66,12 @@ export function PieChart({ data, size = 160, thickness = 20, className, centerLa
                             strokeDasharray={strokeDasharray}
                             strokeDashoffset={strokeDashoffset}
                             strokeLinecap="round"
-                            className="transition-all duration-1000 ease-out"
+                            onMouseEnter={() => setHoveredIndex(i)}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                            className={cn(
+                                "transition-all duration-500 ease-out cursor-pointer",
+                                hoveredIndex !== null && hoveredIndex !== i ? "opacity-20 blur-[1px]" : "opacity-100"
+                            )}
                         />
                     );
                 }) : (
@@ -80,11 +87,16 @@ export function PieChart({ data, size = 160, thickness = 20, className, centerLa
                 )}
             </svg>
 
-            {centerLabel && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    {centerLabel}
-                </div>
-            )}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                {hoveredIndex !== null ? (
+                    <div className="animate-in fade-in zoom-in duration-200">
+                        <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest">{data[hoveredIndex].label}</p>
+                        <p className="text-sm font-black text-primary tabular-nums">{Math.round(data[hoveredIndex].value).toLocaleString()}</p>
+                    </div>
+                ) : (
+                    centerLabel
+                )}
+            </div>
         </div>
     );
 }

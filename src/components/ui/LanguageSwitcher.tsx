@@ -62,10 +62,10 @@ export function LanguageSwitcher({
                 className={cn(
                     "flex items-center gap-2 rounded-xl transition-all duration-200 border group",
                     variant === 'sidebar'
-                        ? "bg-[var(--sidebar-hover)] border-[var(--sidebar-border)] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)]"
+                        ? "bg-surface/50 border-border-subtle text-primary hover:bg-surface"
                         : "bg-white border-slate-100 text-slate-600 hover:text-indigo-600 hover:border-indigo-100 shadow-xl shadow-slate-200/50",
                     compact || hideLabel ? "w-10 h-10 md:w-12 md:h-12 justify-center rounded-xl md:rounded-2xl" : cn(
-                        "px-4 py-2.5 text-[11px] font-black tracking-widest rounded-xl",
+                        "px-4 py-2.5 text-[11px] font-black tracking-widest rounded-xl min-w-[120px]",
                         variant === 'landing' && "px-3 py-2.5 md:px-5 md:py-3 h-10 md:h-12 text-[10px] md:text-[11px] rounded-xl md:rounded-2xl"
                     ),
                     className
@@ -79,11 +79,10 @@ export function LanguageSwitcher({
                 )}
                 {!compact && !hideLabel && (
                     <>
-                        <span className="flex-1 text-left truncate ml-2 font-black tracking-widest">{current.label}</span>
+                        <span className="flex-1 text-left truncate ml-2 font-black tracking-widest uppercase">{current.label}</span>
                         <ChevronDown className={cn(
                             "w-3 h-3 opacity-40 transition-transform duration-200 shrink-0",
-                            open && "rotate-180",
-                            variant === 'landing' && "hidden md:block"
+                            open && "rotate-180"
                         )} />
                     </>
                 )}
