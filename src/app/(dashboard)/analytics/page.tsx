@@ -453,72 +453,87 @@ export default function AnalyticsPage() {
     const handleDownloadTeacherPDF = (teacherData: any) => {
         const salaryWin = window.open('', '_blank');
         if (!salaryWin) return;
+
+        const getLocalizedType = (type: string) => {
+            if (type === 'Monthly') return t.monthly;
+            if (type === 'Hourly') return t.hourly;
+            if (type === 'Percentage') return t.percentageShort || 'Share';
+            if (type === 'Combined') return l('კომბინირებული', 'Комбинир.', 'Combined');
+            return type;
+        };
         
         const html = `
+            <!DOCTYPE html>
             <html>
             <head>
-                <title>Salary Receipt - ${teacherData.teacher}</title>
+                <meta charset="UTF-8">
+                <title>${t.salaryCalculation || 'Salary Statement'} - ${teacherData.teacher}</title>
                 <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
                     body { font-family: 'Inter', -apple-system, sans-serif; padding: 60px; color: #1e293b; max-width: 800px; margin: 0 auto; background: #fff; line-height: 1.5; }
                     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 40px; }
                     .studio-info { text-align: left; }
-                    .studio-name { font-size: 28px; font-weight: 800; color: #6366f1; letter-spacing: -0.025em; }
-                    .studio-tag { color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-top: 4px; }
+                    .studio-name { font-size: 28px; font-weight: 900; color: #4f46e5; letter-spacing: -0.025em; }
+                    .studio-tag { color: #94a3b8; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.1em; }
                     .receipt-info { text-align: right; }
-                    .receipt-title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #6366f1; letter-spacing: 0.05em; margin-bottom: 4px; }
+                    .receipt-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #4f46e5; letter-spacing: 0.1em; margin-bottom: 4px; }
                     .receipt-date { font-size: 18px; font-weight: 700; color: #334155; }
                     
                     .content { background: #f8fafc; border-radius: 24px; padding: 32px; border: 1px solid #f1f5f9; }
                     .row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #e2e8f0; }
                     .row:last-of-type { border-bottom: none; }
-                    .label { color: #64748b; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+                    .label { color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
                     .value { color: #1e293b; font-weight: 700; font-size: 15px; }
                     
-                    .total-box { margin-top: 40px; text-align: right; }
-                    .total-label { color: #64748b; font-weight: 800; font-size: 14px; text-transform: uppercase; margin-right: 20px; }
-                    .total-value { font-size: 32px; font-weight: 900; color: #6366f1; }
+                    .total-box { margin-top: 40px; text-align: right; padding: 24px; border-radius: 20px; background: #4f46e5; color: #fff; }
+                    .total-label { font-weight: 900; font-size: 14px; text-transform: uppercase; margin-right: 20px; opacity: 0.8; }
+                    .total-value { font-size: 36px; font-weight: 900; }
                     
                     .footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center; }
-                    .footer-text { color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+                    .footer-text { color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
                 </style>
             </head>
             <body>
                 <div class="header">
                     <div class="studio-info">
                         <div class="studio-name">${settings.studioName || 'ClassCore Studio'}</div>
-                        <div class="studio-tag">Professional Studio Management</div>
+                        <div class="studio-tag">${l('პროფესიონალური სტუდიის მართვა', 'Проф. управление студией', 'Professional Management')}</div>
                     </div>
                     <div class="receipt-info">
-                        <div class="receipt-title">Salary Statement</div>
+                        <div class="receipt-title">${t.salaryCalculation || 'Salary Statement'}</div>
                         <div class="receipt-date">${selectedMonth}</div>
                     </div>
                 </div>
                 
                 <div class="content">
-                    <div class="row"><span class="label">Teacher</span> <span class="value">${teacherData.teacher}</span></div>
-                    <div class="row"><span class="label">Payment Type</span> <span class="value">${teacherData.type}</span></div>
-                    <div class="row"><span class="label">Base Rate</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
-                    <div class="row"><span class="label">Monthly Bonus</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
+                    <div class="row"><span class="label">${t.teacherName || 'Teacher'}</span> <span class="value">${teacherData.teacher}</span></div>
+                    <div class="row"><span class="label">${t.typeLabel || 'Type'}</span> <span class="value">${getLocalizedType(teacherData.type)}</span></div>
+                    <div class="row"><span class="label">${t.volumeTable || 'Volume'}</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
+                    <div class="row"><span class="label">${t.bonusTable || 'Bonus'}</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
                 </div>
 
                 <div class="total-box">
-                    <span class="total-label">Total Net Pay</span>
+                    <span class="total-label">${t.totalAmount || 'Total'}</span>
                     <span class="total-value">${formatCurrency(teacherData.total, settings.currency)}</span>
                 </div>
 
                 <div class="footer">
-                    <div class="footer-text">Generated by StudioFlow Business Suite</div>
+                    <div class="footer-text">© ${new Date().getFullYear()} ${settings.studioName || 'ClassCore'}. ${l('გენერირებულია ClassCore-ს მიერ', 'Сгенерировано ClassCore', 'Generated by ClassCore')}.</div>
                 </div>
+                
+                <script>
+                    window.onload = () => {
+                        window.print();
+                    };
+                </script>
             </body>
             </html>
         `;
         
         salaryWin.document.write(html);
         salaryWin.document.close();
-        setTimeout(() => {
-            salaryWin.print();
-        }, 500);
     };
+
 
     useEffect(() => {
         const refreshAnalytics = (monthStr: string) => {

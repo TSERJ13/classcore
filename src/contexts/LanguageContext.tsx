@@ -66,6 +66,11 @@ export function LanguageProvider({ children, defaultLang }: { children: React.Re
     );
 }
 
+// --- Hooks -----------------------------------------------------------
+
+/**
+ * useT: Base translation hook for internal dashboard components.
+ */
 export function useT() {
     const ctx = useContext(LangContext);
     if (!ctx) {
@@ -78,6 +83,9 @@ export function useT() {
     return ctx;
 }
 
+/**
+ * useLanguage: Comprehensive hook with 'l' helper used on the landing page.
+ */
 export function useLanguage() {
     const { lang, setLang, t } = useT();
     

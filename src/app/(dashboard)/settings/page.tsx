@@ -41,7 +41,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 function Section({ title, icon: Icon, children, defaultOpen = false }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; defaultOpen?: boolean }) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
     return (
-        <div className="bg-card border border-border-subtle rounded-2xl md:rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+        <div className="bg-card border border-border-subtle rounded-2xl md:rounded-3xl shadow-sm hover:shadow-md transition-all">
             <button 
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex items-center justify-between px-5 py-4 md:px-6 md:py-5 bg-surface/10 hover:bg-surface/30 transition-colors group"
@@ -58,7 +58,7 @@ function Section({ title, icon: Icon, children, defaultOpen = false }: { title: 
             </button>
             <div className={cn(
                 "divide-y divide-border-subtle/20 bg-card transition-all duration-300 ease-in-out",
-                isOpen ? "max-h-[2000px] opacity-100 border-t border-border-subtle/30" : "max-h-0 opacity-0 pointer-events-none"
+                isOpen ? "max-h-[2000px] opacity-100 border-t border-border-subtle/30 overflow-visible" : "max-h-0 opacity-0 pointer-events-none overflow-hidden"
             )}>
                 {children}
             </div>
@@ -794,7 +794,7 @@ export default function SettingsPage() {
                         </div>
                     </Row>
                     <Row label={l('პლატფორმის ენა', 'Язык платформы', 'Platform Language')} sub={l('თქვენი ძირითადი ენა სისტემაში', 'Ваш основной язык в системе', 'Your primary language in the system')}>
-                        <LanguageSwitcher mode="persistent" />
+                        <LanguageSwitcher variant="landing" mode="persistent" onChange={(l) => setLanguage(l as any)} />
                     </Row>
                     <Row label={l('სისტემიდან გამოსვლა', 'Выйти из системы', 'Logout')} sub={t.logoutDesc}>
                         <button onClick={logout} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group">

@@ -44,8 +44,13 @@ export function getEvents(): CalendarEvent[] {
         }
 
         if (!saved) return isMainBranch ? SEED_WEEK : [];
-
-        let events = JSON.parse(saved) || [];
+        let events = [];
+        try {
+            events = JSON.parse(saved) || [];
+        } catch (e) {
+            console.error('❌ [EventStore] Corrupt events data:', e);
+            return isMainBranch ? SEED_WEEK : [];
+        }
         if (!Array.isArray(events)) events = [];
 
         // Migration: Map old 'eX' IDs to new 'clsX' IDs if they still exist in localStorage

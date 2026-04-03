@@ -58,8 +58,14 @@ export function getGroups(): Group[] {
             if (isMainBranch) localStorage.setItem(key, JSON.stringify(data));
             return data;
         }
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : INITIAL_GROUPS;
+        let parsed = [];
+        try {
+            parsed = JSON.parse(saved);
+        } catch (e) {
+            console.error('❌ [GroupStore] Corrupt groups data:', e);
+            return isMainBranch ? INITIAL_GROUPS : [];
+        }
+        return Array.isArray(parsed) ? (parsed as Group[]) : INITIAL_GROUPS;
     } catch {
         return INITIAL_GROUPS;
     }

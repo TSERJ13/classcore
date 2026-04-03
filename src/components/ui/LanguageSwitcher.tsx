@@ -13,6 +13,7 @@ export function LanguageSwitcher({
     align = 'left',
     hideLabel = false,
     mode = 'session',
+    onChange,
     className
 }: {
     compact?: boolean;
@@ -21,6 +22,7 @@ export function LanguageSwitcher({
     align?: 'left' | 'right';
     hideLabel?: boolean;
     mode?: 'persistent' | 'session';
+    onChange?: (l: Lang) => void;
     className?: string;
 }) {
     const { lang, setLang } = useT();
@@ -62,11 +64,11 @@ export function LanguageSwitcher({
                 className={cn(
                     "flex items-center gap-2 rounded-xl transition-all duration-200 border group",
                     variant === 'sidebar'
-                        ? "bg-surface/50 border-border-subtle text-primary hover:bg-surface"
-                        : "bg-white border-slate-100 text-slate-600 hover:text-indigo-600 hover:border-indigo-100 shadow-xl shadow-slate-200/50",
+                        ? "bg-transparent border-none text-white hover:bg-white/5"
+                        : "bg-white border-slate-100 text-primary hover:text-indigo-600 hover:border-indigo-100 shadow-xl shadow-slate-200/50",
                     compact || hideLabel ? "w-10 h-10 md:w-12 md:h-12 justify-center rounded-xl md:rounded-2xl" : cn(
-                        "px-4 py-2.5 text-[11px] font-black tracking-widest rounded-xl min-w-[120px]",
-                        variant === 'landing' && "px-3 py-2.5 md:px-5 md:py-3 h-10 md:h-12 text-[10px] md:text-[11px] rounded-xl md:rounded-2xl"
+                        "px-4 py-2 text-[11px] font-black tracking-widest rounded-xl min-w-[120px]",
+                        variant === 'landing' && "px-3 py-1 md:px-4 md:py-1.5 h-8 md:h-9 text-[10px] rounded-xl"
                     ),
                     className
                 )}
@@ -93,7 +95,7 @@ export function LanguageSwitcher({
                     "absolute z-50 animate-in fade-in slide-in-from-bottom-2 duration-200",
                     variant === 'sidebar'
                         ? "bottom-[calc(100%+4px)] bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] rounded-2xl shadow-2xl overflow-hidden"
-                        : cn("top-full mt-2 bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden", (variant === 'landing' || (!compact && !hideLabel)) && "min-w-[160px]"),
+                        : cn("top-full mt-1 bg-card border border-border-subtle rounded-xl shadow-xl overflow-hidden", (variant === 'landing' || (!compact && !hideLabel)) && "min-w-[140px]"),
                     (compact || hideLabel) && variant === 'sidebar'
                         ? "w-[44px] left-1/2 -translate-x-1/2"
                         : (hideLabel && variant === 'landing' && !open) // This part was a bit confusing, simplifying
@@ -103,15 +105,22 @@ export function LanguageSwitcher({
                     {(Object.entries(LANG_META) as [Lang, typeof LANG_META[Lang]][]).map(([code, meta]) => (
                         <button
                             key={code}
-                            onClick={() => { setLang(code, mode); setOpen(false); }}
+                            onClick={() => { 
+                                setLang(code, mode); 
+                                setOpen(false); 
+                                if (onChange) onChange(code);
+                            }}
                             className={cn(
                                 "w-full flex items-center transition-all text-left group/item",
-                                (compact || hideLabel) && variant === 'sidebar' ? "justify-center py-2 px-2" : "gap-3 px-4 py-3 text-[10px] font-black tracking-widest",
+                                (compact || hideLabel) && variant === 'sidebar' ? "justify-center py-2 px-2" : cn(
+                                    "gap-3 px-4 py-2.5 text-[10px] font-black tracking-widest",
+                                    variant === 'landing' && "px-3 py-2 h-9"
+                                ),
                                 lang === code
-                                    ? variant === 'sidebar' ? "bg-indigo-500/20 text-indigo-300" : "bg-indigo-500/5 text-indigo-600"
+                                    ? variant === 'sidebar' ? "bg-white/10 text-white" : "bg-indigo-500/5 text-indigo-600"
                                     : variant === 'sidebar'
-                                        ? "text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]"
-                                        : "text-muted hover:bg-surface hover:text-primary"
+                                        ? "text-white/60 hover:bg-white/5 hover:text-white"
+                                        : "text-primary/80 hover:bg-surface hover:text-primary"
                             )}
                         >
                             {!noFlags && (

@@ -216,7 +216,9 @@ export default function DashboardPage() {
         expiringSoon: 0,
         inactiveSubs: 0,
         newStudents3m: 0,
-        leftStudents3m: 0
+        leftStudents3m: 0,
+        revenueChange: 0,
+        activeChange: 0
     });
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
@@ -299,22 +301,59 @@ export default function DashboardPage() {
                 sub.expires_at <= sevenDaysFromNowStr
             ).length;
 
+            // ─── MoM Growth Calculations ───
+            const lastMonthDate = new Date();
+            lastMonthDate.setMonth(now.getMonth() - 1);
+            const lastMonthStr = lastMonthDate.toISOString().split('-').slice(0, 2).join('-');
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(now.getDate() - 30);
+            const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+            // 1. Revenue Comparison
+            const lastMonthSalesRevenue = sales.filter(s => s.date?.startsWith(lastMonthStr)).reduce((sum, s) => sum + s.price * s.quantity, 0);
+            const lastMonthSubRevenue = allSubsList.filter(sub => sub.purchased_at?.startsWith(lastMonthStr)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
+            const lastMonthRevenue = lastMonthSalesRevenue + lastMonthSubRevenue;
+            const currentMonthRevenue = monthSalesRevenue + monthSubRevenue;
+            let revenueChange = 0;
+            if (lastMonthRevenue > 0) {
+                revenueChange = Math.round(((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100);
+            } else if (currentMonthRevenue > 0) {
+                revenueChange = 100;
+            }
+
+            // 2. Active Student Comparison (approximate active vs 30 days ago)
+            const activeThirtyDaysAgo = studentsList.filter(s => {
+                const subs = (allSubsList as any[]).filter(sub => sub.student_id === s.id);
+                return subs.some(sub => sub.purchased_at <= thirtyDaysAgoStr && sub.expires_at >= thirtyDaysAgoStr);
+            }).length;
+            let activeChange = 0;
+            if (activeThirtyDaysAgo > 0) {
+                activeChange = Math.round(((studentsWithActiveSub - activeThirtyDaysAgo) / activeThirtyDaysAgo) * 100);
+            } else if (studentsWithActiveSub > 0) {
+                activeChange = 100;
+            }
+
             // Attendance Rate based on total students if no active subs (monthly average)
             let totalCheckinsMonth = 0;
             let daysWithCheckinsMonth = 0;
             const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
             for (let d = 1; d <= daysInMonth; d++) {
-                const dDate = new Date(now.getFullYear(), now.getMonth(), d);
-                const dStr = dDate.toISOString().split('T')[0];
-                const key = getScopedKey(`cc_checkins_${dStr}`);
                 try {
-                    const recs = JSON.parse(localStorage.getItem(key) || '[]');
-                    if (recs.length > 0) {
-                        totalCheckinsMonth += recs.length;
-                        daysWithCheckinsMonth++;
+                    const dDate = new Date(now.getFullYear(), now.getMonth(), d);
+                    const dStr = dDate.toISOString().split('T')[0];
+                    const key = getScopedKey(`cc_checkins_${dStr}`);
+                    const rawRecords = localStorage.getItem(key);
+                    if (rawRecords) {
+                        const recs = JSON.parse(rawRecords);
+                        if (Array.isArray(recs) && recs.length > 0) {
+                            totalCheckinsMonth += recs.length;
+                            daysWithCheckinsMonth++;
+                        }
                     }
-                } catch (e) { }
+                } catch (e) {
+                    console.warn(`⚠️ [Dashboard] Failed to process check-ins for day ${d}:`, e);
+                }
             }
             const avgDailyCheckins = daysWithCheckinsMonth > 0 ? totalCheckinsMonth / daysWithCheckinsMonth : 0;
             const denominator = activeCount > 0 ? activeCount : (students > 0 ? students : 1);
@@ -334,7 +373,9 @@ export default function DashboardPage() {
                 monthlyRevenue: monthSalesRevenue + monthSubRevenue,
                 todayRevenue: todaySalesRevenue + todaySubRevenue,
                 totalDebt,
-                expiringSoon
+                expiringSoon,
+                revenueChange,
+                activeChange
             });
         };
 
@@ -366,13 +407,21 @@ export default function DashboardPage() {
         checkins.forEach((c: CheckinRecord) => {
             if (!activeIds.has(c.studentId)) return;
             const name = c.studentName || t.studentLabelGeneric;
+            let timestamp = 0;
+            try {
+                if (c.date && c.time) {
+                    const dt = new Date(`${c.date.trim()}T${c.time.trim()}`);
+                    if (!isNaN(dt.getTime())) timestamp = dt.getTime();
+                }
+            } catch (e) { }
+
             activityList.push({
                 name: name,
                 action: 'check-in',
                 group: t.groupSession,
                 time: c.time,
-                timestamp: new Date(`${c.date}T${c.time}`).getTime(),
-                avatar: name.split(' ').map((n: string) => n[0]).join(''),
+                timestamp,
+                avatar: name.split(' ').map((n: string) => n ? n[0] : '').join('').toUpperCase(),
                 color: 'from-indigo-500 to-blue-600'
             });
         });
@@ -381,12 +430,20 @@ export default function DashboardPage() {
             if (s.studentId && !activeIds.has(s.studentId)) return;
             const name = s.studentName || t.clientLabelGeneric;
             const initials = name.trim().split(' ').map((n: string) => n[0] || '').join('').toUpperCase();
+            let timestamp = 0;
+            try {
+                if (s.date && s.time) {
+                    const dt = new Date(`${s.date.trim()}T${s.time.trim()}`);
+                    if (!isNaN(dt.getTime())) timestamp = dt.getTime();
+                }
+            } catch (e) { }
+
             activityList.push({
                 name: name,
                 action: 'sale',
                 group: s.productName || t.saleActivity,
                 time: s.time || '',
-                timestamp: s.date && s.time ? new Date(`${s.date}T${s.time}`).getTime() : 0,
+                timestamp,
                 avatar: initials || 'K',
                 color: 'from-violet-500 to-fuchsia-600'
             });
@@ -606,10 +663,10 @@ export default function DashboardPage() {
     const dateStr = getLocalizedDate(selectedDate, t);
 
     const stats = [
-        { label: t.totalStudents, value: isDemo ? '142' : String(liveStats.totalStudents), change: isDemo ? '+8' : '0', sub: null, icon: Users, color: 'indigo' },
-        { label: t.activeSubscriptions, value: isDemo ? String(liveStats.activeSubs || 118) : String(liveStats.activeSubs), change: isDemo ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth), sub: null, icon: CreditCard, color: 'emerald' },
-        { label: t.todayRevenue, value: isDemo ? formatCurrency(850, settings.currency) : formatCurrency(liveStats.todayRevenue, settings.currency), change: isDemo ? '+12%' : '0%', sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
-        { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: isDemo ? formatCurrency(14200, settings.currency) : formatCurrency(liveStats.monthlyRevenue, settings.currency), change: isDemo ? '+18%' : '0%', sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
+        { label: t.totalStudents, value: isDemo ? '142' : String(liveStats.totalStudents), change: isDemo ? '+8' : (liveStats.activeChange >= 0 ? `+${liveStats.activeChange}%` : `${liveStats.activeChange}%`), sub: null, icon: Users, color: 'indigo' },
+        { label: t.activeSubscriptions, value: isDemo ? String(liveStats.activeSubs || 118) : String(liveStats.activeSubs), change: isDemo ? `+${liveStats.newThisMonth}` : (liveStats.newThisMonth >= 0 ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth)), sub: null, icon: CreditCard, color: 'emerald' },
+        { label: t.todayRevenue, value: isDemo ? formatCurrency(850, settings.currency) : formatCurrency(liveStats.todayRevenue, settings.currency), change: isDemo ? '+12%' : (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
+        { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: isDemo ? formatCurrency(14200, settings.currency) : formatCurrency(liveStats.monthlyRevenue, settings.currency), change: isDemo ? '+18%' : (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
     ];
 
     const colorMap: Record<string, { bg: string; text: string; border: string; glow: string }> = {
@@ -737,9 +794,18 @@ export default function DashboardPage() {
                         />
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2">
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-sm animate-in fade-in zoom-in-50 duration-500">
-                            <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
-                            <p className="text-[8px] font-black text-emerald-500">12%</p>
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in-50 duration-500",
+                            liveStats.activeChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
+                        )}>
+                            {liveStats.activeChange >= 0 ? (
+                                <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
+                            ) : (
+                                <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
+                            )}
+                            <p className={cn("text-[8px] font-black", liveStats.activeChange >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                                {Math.abs(liveStats.activeChange)}%
+                            </p>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
@@ -770,9 +836,18 @@ export default function DashboardPage() {
                         />
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 shadow-sm animate-in fade-in zoom-in-50 duration-500">
-                            <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
-                            <p className="text-[8px] font-black text-rose-500">4%</p>
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in-50 duration-500",
+                            liveStats.revenueChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
+                        )}>
+                            {liveStats.revenueChange >= 0 ? (
+                                <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
+                            ) : (
+                                <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
+                            )}
+                            <p className={cn("text-[8px] font-black", liveStats.revenueChange >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                                {Math.abs(liveStats.revenueChange)}%
+                            </p>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -805,7 +880,7 @@ export default function DashboardPage() {
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[8px] font-bold text-emerald-500">{t.activeLabel}</p>
+                            <p className="text-[8px] font-bold text-emerald-500">{t.activeLabel}: {liveStats.activeSubs}</p>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />

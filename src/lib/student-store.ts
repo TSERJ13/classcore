@@ -42,12 +42,27 @@ export function getStudents(): Student[] {
         }
 
         const deletedKey = getDeletedStudentsKey();
-        const deletedIds = new Set(JSON.parse(localStorage.getItem(deletedKey) || '[]'));
+        let deletedIds = new Set<string>();
+        try {
+            const rawDeleted = localStorage.getItem(deletedKey);
+            if (rawDeleted) {
+                const parsed = JSON.parse(rawDeleted);
+                if (Array.isArray(parsed)) deletedIds = new Set(parsed);
+            }
+        } catch (e) {
+            console.warn('⚠️ [StudentStore] Failed to parse deleted IDs:', e);
+        }
 
         const isMainBranch = activeBranch === 'main';
 
         if (!stored) return isMainBranch ? INITIAL_STUDENTS : [];
-        const patches = JSON.parse(stored) || {};
+        let patches: any = {};
+        try {
+            patches = JSON.parse(stored) || {};
+        } catch (e) {
+            console.error('❌ [StudentStore] Fatal: Corrupt student patches. Returning base data.', e);
+            return isMainBranch ? INITIAL_STUDENTS : [];
+        }
 
         // If saved data is an array (old version) or unexpected format, return initial
         if (Array.isArray(patches)) return isMainBranch ? INITIAL_STUDENTS : [];
@@ -206,7 +221,14 @@ export function deleteStudent(studentId: string): void {
 
     // Persist deletion for mock data
     const deletedKey = getDeletedStudentsKey();
-    const deletedIds = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+    let deletedIds = [];
+    try {
+        const raw = localStorage.getItem(deletedKey);
+        if (raw) deletedIds = JSON.parse(raw);
+        if (!Array.isArray(deletedIds)) deletedIds = [];
+    } catch (e) {
+        deletedIds = [];
+    }
     if (!deletedIds.includes(studentId)) {
         deletedIds.push(studentId);
         localStorage.setItem(deletedKey, JSON.stringify(deletedIds));

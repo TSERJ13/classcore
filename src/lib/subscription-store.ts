@@ -67,7 +67,16 @@ export function getSubscriptions(): SubMap {
         }
 
         const deletedKey = getDeletedSubsKey();
-        const deletedSubIds = new Set(JSON.parse(localStorage.getItem(deletedKey) || '[]'));
+        let deletedSubIds = new Set<string>();
+        try {
+            const rawDeleted = localStorage.getItem(deletedKey);
+            if (rawDeleted) {
+                const parsed = JSON.parse(rawDeleted);
+                if (Array.isArray(parsed)) deletedSubIds = new Set(parsed);
+            }
+        } catch (e) {
+            console.warn('⚠️ [SubscriptionStore] Failed to parse deleted IDs:', e);
+        }
 
         let data: SubMap;
         if (!saved) {

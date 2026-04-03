@@ -222,8 +222,15 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
 /** Delete a specific checkin from history and refund sessions */
 export function deleteCheckin(studentId: string, date: string, time: string): void {
     const key = dayKey(date);
-    const existing = JSON.parse(localStorage.getItem(key) ?? '[]') as CheckinRecord[];
-    const idx = existing.findIndex(r => r.studentId === studentId && r.time === time);
+    let existing: CheckinRecord[] = [];
+    try {
+        const raw = localStorage.getItem(key);
+        if (raw) existing = JSON.parse(raw);
+        if (!Array.isArray(existing)) existing = [];
+    } catch (e) {
+        return; // Corrupt data, can't delete specific record reliably
+    }
+    const idx = existing.findIndex(r => r.studentId === studentId && (r.time === time || !time));
 
     if (idx > -1) {
         // Refund session

@@ -1692,64 +1692,194 @@ export default function CalendarPage() {
     }
 
     async function exportPDF() {
-        try {
-            const { jsPDF } = await import('jspdf');
-            const { default: autoTable } = await import('jspdf-autotable');
-            
-            const orientation = view === 'day' ? 'p' : 'l';
-            const doc = new jsPDF({ orientation });
+        const printWin = window.open('', '_blank');
+        if (!printWin) return;
 
-            const studioName = settings.studioName || 'ClassCore';
-            const dateStr = view === 'day' 
-                ? formatDate(anchor, 'long')
-                : view === 'week'
-                    ? `${t.weekView}: ${formatDate(getWeekDates(anchor)[0])} - ${formatDate(getWeekDates(anchor)[6])}`
-                    : `${t.monthView}: ${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
+        const studioName = settings.studioName || 'ClassCore';
+        const dateStr = view === 'day' 
+            ? formatDate(anchor, 'long')
+            : view === 'week'
+                ? `${t.weekView}: ${formatDate(getWeekDates(anchor)[0])} - ${formatDate(getWeekDates(anchor)[6])}`
+                : `${t.monthView}: ${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
 
-            doc.setFontSize(14);
-            doc.text(`${studioName} — ${t.calendar}`, 14, 15);
-            doc.setFontSize(10);
-            doc.text(dateStr, 14, 22);
-
-            const tableHead = [[t.calDate, t.calStartTime, t.calEndTime, t.calGroup, t.calTeacher, t.calHall]];
-            const tableBody = filtered
-                .sort((a, b) => {
-                    const dateComp = a.date.localeCompare(b.date);
-                    if (dateComp !== 0) return dateComp;
-                    return a.start_time.localeCompare(b.start_time);
-                })
-                .map(ev => {
-                    const h = halls.find(h => h.id === ev.hall_id);
-                    const tc = teachers.find(t => t.id === ev.teacher_id);
-                    const grp = groups.find(g => g.id === ev.group_id);
-                    return [
-                        ev.date,
-                        ev.start_time,
-                        ev.end_time,
-                        ev.title || grp?.name || '',
-                        tc?.full_name || '',
-                        h?.name || ''
-                    ];
-                });
-
-            autoTable(doc, {
-                startY: 28,
-                head: tableHead,
-                body: tableBody,
-                theme: 'striped',
-                headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 9, fontStyle: 'bold' },
-                bodyStyles: { fontSize: 8 },
-                alternateRowStyles: { fillColor: [249, 250, 251] },
-                margin: { top: 30 },
+        const getEventsFor = (date: string, hallId?: string) => {
+            return getEvents().filter(ev => {
+                if (ev.date !== date) return false;
+                if (hallId && ev.hall_id !== hallId) return false;
+                if (filterHall !== 'all' && ev.hall_id !== filterHall) return false;
+                return true;
             });
+        };
 
-            const fileName = `calendar_${view}_${toDateStr(anchor)}.pdf`;
-            doc.save(fileName);
-        } catch (err) {
-            console.error('PDF export failed:', err);
-            alert('PDF-ის ექსპორტი ვერ მოხერხდა.');
+        let contentHtml = '';
+
+        if (view === 'day') {
+            const activeHalls = filterHall === 'all' ? halls : halls.filter(h => h.id === filterHall);
+            contentHtml = `
+                <div class="print-header">
+                    <div class="print-studio">${studioName}</div>
+                    <div class="print-title">${t.calendar} — ${t.dayView}</div>
+                    <div class="print-date">${dateStr}</div>
+                </div>
+                <table class="day-grid">
+                    <thead>
+                        <tr>
+                            <th class="time-col">${t.times || 'დრო'}</th>
+                            ${activeHalls.map(h => `<th style="border-top: 4px solid ${h.color}">${h.name}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${TIME_SLOTS.filter(s => s.endsWith(':00') || s.endsWith(':30')).map(slot => `
+                            <tr>
+                                <td class="time-cell">${slot}</td>
+                                ${activeHalls.map(h => {
+                                    const evs = getEventsFor(toDateStr(anchor), h.id).filter(e => {
+                                        const start = timeToMins(e.start_time);
+                                        const slotMins = timeToMins(slot);
+                                        return start >= slotMins && start < slotMins + 30;
+                                    });
+                                    return `<td>
+                                        ${evs.map(e => `
+                                            <div class="event-chip" style="border-left: 3px solid ${e.color || h.color}; background: ${ (e.color || h.color) + '10' }">
+                                                <div class="ev-time">${e.start_time}-${e.end_time}</div>
+                                                <div class="ev-title">${e.title}</div>
+                                                <div class="ev-teacher">${teachers.find(tc => tc.id === e.teacher_id)?.full_name || ''}</div>
+                                            </div>
+                                        `).join('')}
+                                    </td>`;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else if (view === 'week') {
+            const weekDates = getWeekDates(anchor);
+            const dayNames = [t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat, t.shortSun];
+            contentHtml = `
+                <div class="print-header">
+                    <div class="print-studio">${studioName}</div>
+                    <div class="print-title">${t.calendar} — ${t.weekView}</div>
+                    <div class="print-date">${dateStr}</div>
+                </div>
+                <table class="week-grid">
+                    <thead>
+                        <tr>
+                            <th class="time-col">${t.times || 'დრო'}</th>
+                            ${weekDates.map((d, i) => `<th>${dayNames[i]}<br/><small>${formatDate(d)}</small></th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => {
+                            const hour = START_HOUR + i;
+                            const slot = `${hour.toString().padStart(2, '0')}:00`;
+                            return `
+                                <tr>
+                                    <td class="time-cell">${slot}</td>
+                                    ${weekDates.map(d => {
+                                        const evs = getEventsFor(toDateStr(d)).filter(e => e.start_time.startsWith(hour.toString().padStart(2, '0')));
+                                        return `<td>
+                                            ${evs.map(e => `
+                                                <div class="event-chip mini" style="border-left: 2px solid ${e.color || '#6366f1'}">
+                                                    <strong>${e.title}</strong>
+                                                    <span>${e.start_time}</span>
+                                                </div>
+                                            `).join('')}
+                                        </td>`;
+                                    }).join('')}
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            const daysInMonth = getDaysInMonth(anchor.getFullYear(), anchor.getMonth());
+            const startDay = daysInMonth[0].getDay();
+            const offset = (startDay + 6) % 7;
+            const dayNames = [t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat, t.shortSun];
+
+            contentHtml = `
+                <div class="print-header">
+                    <div class="print-studio">${studioName}</div>
+                    <div class="print-title">${t.calendar} — ${t.monthView}</div>
+                    <div class="print-date">${dateStr}</div>
+                </div>
+                <div class="month-grid">
+                    ${dayNames.map(n => `<div class="month-day-head">${n}</div>`).join('')}
+                    ${Array.from({ length: offset }).map(() => `<div class="month-day empty"></div>`).join('')}
+                    ${daysInMonth.map(d => {
+                        const dateCode = toDateStr(d);
+                        const evs = getEventsFor(dateCode);
+                        return `
+                            <div class="month-day ${dateCode === toDateStr(new Date()) ? 'today' : ''}">
+                                <div class="day-num">${d.getDate()}</div>
+                                <div class="day-events">
+                                    ${evs.map(e => `<div class="ev-line" style="background: ${e.color || '#6366f1'}20; color: ${e.color || '#6366f1'}">${e.title}</div>`).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
         }
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>${studioName} Calendar Export</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+                    body { font-family: 'Inter', -apple-system, sans-serif; padding: 40px; color: #1e293b; background: #fff; margin: 0; }
+                    .print-header { margin-bottom: 30px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
+                    .print-studio { font-size: 24px; font-weight: 900; color: #4f46e5; }
+                    .print-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-top: 4px; }
+                    .print-date { font-size: 18px; font-weight: 700; color: #334155; margin-top: 10px; }
+                    
+                    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                    th, td { border: 1px solid #e2e8f0; padding: 8px; vertical-align: top; font-size: 11px; }
+                    th { background: #f8fafc; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; height: 30px; vertical-align: middle; }
+                    .time-col { width: 60px; text-align: center; }
+                    .time-cell { background: #f8fafc; font-weight: 700; color: #64748b; font-size: 10px; text-align: center; }
+                    
+                    .event-chip { padding: 4px 6px; border-radius: 6px; margin-bottom: 4px; }
+                    .event-chip.mini { padding: 2px 4px; font-size: 9px; margin-bottom: 2px; }
+                    .ev-time { font-size: 9px; font-weight: 800; opacity: 0.5; margin-bottom: 2px; }
+                    .ev-title { font-weight: 700; color: #1e293b; line-height: 1.2; }
+                    .ev-teacher { font-size: 9px; opacity: 0.6; margin-top: 2px; }
+                    
+                    .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid #e2e8f0; }
+                    .month-day-head { background: #f8fafc; padding: 10px; text-align: center; font-weight: 800; font-size: 10px; border: 0.5px solid #e2e8f0; text-transform: uppercase; }
+                    .month-day { min-height: 100px; border: 0.5px solid #e2e8f0; padding: 8px; }
+                    .month-day.empty { background: rgba(248, 250, 252, 0.3); }
+                    .month-day.today { background: rgba(79, 70, 229, 0.05); }
+                    .day-num { font-weight: 800; font-size: 14px; color: #94a3b8; margin-bottom: 6px; }
+                    .ev-line { font-size: 9px; font-weight: 700; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+                    @media print {
+                        body { padding: 20px; }
+                        @page { size: ${view === 'day' ? 'portrait' : 'landscape'}; margin: 1cm; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${contentHtml}
+                <script>
+                    window.onload = () => {
+                        window.print();
+                    };
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWin.document.write(html);
+        printWin.document.close();
     }
+
+
 
     return (
         <div className="flex flex-col gap-3 animate-fade-up h-full pb-8">

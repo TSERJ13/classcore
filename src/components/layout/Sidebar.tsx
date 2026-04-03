@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, CalendarCheck, BookOpen, Settings,
     CreditCard, Receipt, GraduationCap, BarChart2,
     CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare,
-    Building2, Plus, Check, LogOut
+    Building2, Plus, Check, LogOut, Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -36,9 +36,9 @@ const ALL_ITEMS: NavItem[] = [
     { href: '/history', labelKey: 'history', icon: Receipt },
     { href: '/analytics', labelKey: 'analytics', icon: BarChart2 },
     { href: '/sms-manager', labelKey: 'sms_manager', icon: MessageSquare },
-    { href: '/billing', labelKey: 'billing', icon: Zap as any }, // Zap is imported from lucide-react if available, else fallback
+    { href: '/billing', labelKey: 'billing', icon: Zap },
     { href: '/settings', labelKey: 'settings', icon: Settings },
-].map(item => item.labelKey === 'billing' ? { ...item, icon: CreditCard } : item); // Fallback for Zap if missing
+];
 
 // ── Studio Header Block with Hover Branch Switcher ──
 function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, profile, user, theme, setBranchModalOpen }: any) {
@@ -283,7 +283,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                         </button>
                     )}
                     <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[60px] px-4">
-                        <LanguageSwitcher compact={!exp} mode="session" />
+                        <LanguageSwitcher compact={!exp} mode="session" align="left" />
                         <div className={cn("flex-1 flex justify-center", exp ? "pl-4" : "hidden")}>
                             <button
                                 onClick={logout}
