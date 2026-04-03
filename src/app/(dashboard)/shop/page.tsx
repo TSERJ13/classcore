@@ -210,10 +210,10 @@ export default function ShopPage() {
                         setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
                         setIsAddOpen(true);
                     }}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-xl sm:rounded-[1.5rem] shadow-lg shadow-amber-500/20 transition-all touch-manipulation"
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-lg shadow-amber-500/20 transition-all touch-manipulation"
                 >
                     <div className="relative flex items-center">
-                        <ShoppingBag className="w-4 h-4" />
+                        <ShoppingBag className="w-5 h-5 sm:w-4 sm:h-4" />
                         <Plus className="absolute -top-1 -right-2.5 w-3 h-3 text-white" />
                     </div>
                     <span className="hidden sm:inline">{t.addNew}</span>

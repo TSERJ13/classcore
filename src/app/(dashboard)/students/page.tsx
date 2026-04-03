@@ -26,7 +26,7 @@ function StatusBadge({ status, t }: { status: string; t: ReturnType<typeof useT>
 }
 
 export default function StudentsPage() {
-    const { t } = useT();
+    const { t, lang } = useT();
     const { user, profile } = useUser();
     const { settings, addToTrash } = useStudio();
     const { confirm } = useConfirm();
@@ -186,10 +186,10 @@ export default function StudentsPage() {
                         </div>
 
                         {/* Add Button */}
-                        <div className="flex flex-shrink-0 items-center h-10 sm:h-12">
+                        <div className="flex flex-shrink-0 items-center h-12">
                             <button onClick={openAdd}
-                                className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all text-white text-[10px] sm:text-xs font-black tracking-widest w-10 h-10 sm:w-auto px-0 sm:px-5 rounded-2xl sm:rounded-[1.25rem] shadow-lg shadow-indigo-500/20">
-                                <UserPlus className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
+                                className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all text-white text-[10px] sm:text-xs font-black tracking-widest w-12 h-12 sm:w-auto px-0 sm:px-5 rounded-[1.25rem] shadow-lg shadow-indigo-500/20">
+                                <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden sm:inline whitespace-nowrap">{t.addStudent}</span>
                             </button>
                         </div>
@@ -337,7 +337,7 @@ export default function StudentsPage() {
                                                     {student.birth_date && (
                                                         <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
                                                             <Calendar className="w-2.5 h-2.5" />
-                                                            {student.birth_date} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)})`}
+                                                            {student.birth_date} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)} ${lang === 'ka' ? 'წლის' : 'years'})`}
                                                         </div>
                                                     )}
                                                 </div>
