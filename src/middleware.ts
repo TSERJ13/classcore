@@ -33,6 +33,15 @@ export async function middleware(request: NextRequest) {
         return response;
     }
 
+    // 3. Fast Path for Authenticated Users (Mitigate 504 Timeout)
+    const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
+    const hasSupabaseCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
+    
+    // If they have a session cookie, let them pass to the page (where full auth can be checked more stably)
+    if (hasStaffCookie || hasSupabaseCookie) {
+        return response;
+    }
+
     try {
         const supabase = createServerClient(supabaseUrl, supabaseKey, {
             cookies: {
@@ -56,7 +65,7 @@ export async function middleware(request: NextRequest) {
             },
         });
 
-        // 3. User Authentication (Heavy Operation)
+        // 4. User Authentication (Heavy Operation - Only for potential new logins or specific redirects)
         const { data: { user } } = await supabase.auth.getUser();
         
         // SYNC: Ensure cc_active_slug cookie matches user metadata to prevent flickering
@@ -73,9 +82,7 @@ export async function middleware(request: NextRequest) {
             }
         }
 
-        const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
-
-        // 4. Access Control
+        // 5. Access Control (Redirect to login ONLY if we are sure there is no user)
         if (!user && !hasStaffCookie) {
             const url = request.nextUrl.clone();
             if (pathname.startsWith('/superadmin')) {
