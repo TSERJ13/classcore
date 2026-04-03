@@ -2,11 +2,20 @@ import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-        return NextResponse.next();
+    // 1. Identify Route Type first (Zero-cost logic)
+    const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
+    const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
+    const segments = pathname.split('/').filter(Boolean);
+    const isPortal = segments.length === 2 && !publicRoutes.includes('/' + segments[0]);
+    const isPublic = isPublicStatic || isPortal;
+
+    // Redirect /sa-admin to /sa-login for user-friendliness
+    if (pathname === '/sa-admin') {
+        return NextResponse.redirect(new URL('/sa-login', request.url));
     }
 
     let response = NextResponse.next({
@@ -14,6 +23,15 @@ export async function middleware(request: NextRequest) {
             headers: request.headers,
         },
     });
+
+    // 2. Authentication Bypass for Public Routes
+    if (isPublic) {
+        return response;
+    }
+
+    if (!supabaseUrl || !supabaseKey) {
+        return response;
+    }
 
     try {
         const supabase = createServerClient(supabaseUrl, supabaseKey, {
@@ -38,6 +56,7 @@ export async function middleware(request: NextRequest) {
             },
         });
 
+        // 3. User Authentication (Heavy Operation)
         const { data: { user } } = await supabase.auth.getUser();
         
         // SYNC: Ensure cc_active_slug cookie matches user metadata to prevent flickering
@@ -46,7 +65,6 @@ export async function middleware(request: NextRequest) {
             const cookieSlug = request.cookies.get('cc_active_slug')?.value;
             
             if (cookieSlug !== metaSlug) {
-                // Set cookie on response so SSR picks it up immediately on redirect or next load
                 response.cookies.set('cc_active_slug', metaSlug, {
                     path: '/',
                     maxAge: 60 * 60 * 24 * 365,
@@ -55,24 +73,10 @@ export async function middleware(request: NextRequest) {
             }
         }
 
-        const { pathname } = request.nextUrl;
         const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
 
-        const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
-        const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
-
-        // Portal routes are like /[studio]/[studentId] - 2 segments
-        const segments = pathname.split('/').filter(Boolean);
-        const isPortal = segments.length === 2 && !publicRoutes.includes('/' + segments[0]);
-
-        const isPublic = isPublicStatic || isPortal;
-
-        // Redirect /sa-admin to /sa-login for user-friendliness
-        if (pathname === '/sa-admin') {
-            return NextResponse.redirect(new URL('/sa-login', request.url));
-        }
-
-        if (!user && !hasStaffCookie && !isPublic) {
+        // 4. Access Control
+        if (!user && !hasStaffCookie) {
             const url = request.nextUrl.clone();
             if (pathname.startsWith('/superadmin')) {
                 url.pathname = '/sa-login';
