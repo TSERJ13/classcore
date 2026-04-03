@@ -316,7 +316,10 @@ export function Header() {
         const studentName = studentObj?.full_name || `${studentObj?.first_name} ${studentObj?.last_name}` || selectedChatId;
 
         msg.metadata.slots.forEach(slot => {
-            const endHour = String(parseInt(slot.time.split(':')[0]) + 1).padStart(2, '0') + ':00';
+            if (!slot.time) return;
+            const hourPart = slot.time.split(':')[0];
+            if (!hourPart) return;
+            const endHour = String(parseInt(hourPart) + 1).padStart(2, '0') + ':00';
             const hallIdToUse = msg.metadata?.hallId || 'h1';
 
             addIndividualLesson(

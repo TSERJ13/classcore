@@ -574,7 +574,7 @@ export default function DashboardPage() {
         });
     }, [selectedDate, settings, t]);
 
-    const isDemo = (!user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name) && liveStats.totalStudents === 0;
+    const isDemo = (settings.studioSlug === 'demo.classcore.ge' || !user || (profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name)) && (liveStats.totalStudents === 0);
 
     const getLocalizedDate = (date: Date, t: any) => {
         const weekdays = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
@@ -623,7 +623,8 @@ export default function DashboardPage() {
     const isToday = selectedDate.toDateString() === new Date().toDateString();
 
     const currentClass = isToday ? (liveSchedule as { start_time: string; name: string }[]).find(s => {
-        const h = parseInt(s.start_time.split(':')[0]);
+        if (!s.start_time) return false;
+        const h = parseInt(s.start_time.split(':')[0] || '0');
         return h <= nowHour && h + 2 > nowHour;
     }) : null;
 
