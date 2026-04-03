@@ -112,7 +112,7 @@ export default function GroupsPage() {
                     return (
                         <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 sm:flex-none py-1">
                             {/* Groups Stat */}
-                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full bg-violet-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
+                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full bg-violet-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
                                 <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                     <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 text-violet-600 opacity-60" />
                                     <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none">{groups.length}</span>
@@ -120,7 +120,7 @@ export default function GroupsPage() {
                                 <span className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-muted tracking-[0.2em] uppercase opacity-40 mt-1 lg:mt-2">{t.groupsShort}</span>
                             </div>
                             {/* Students Stat */}
-                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full bg-indigo-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
+                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full bg-indigo-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
                                 <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                     <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 text-indigo-600 opacity-60" />
                                     <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none">{totalStudents}</span>
@@ -128,7 +128,7 @@ export default function GroupsPage() {
                                 <span className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-muted tracking-[0.2em] uppercase opacity-40 mt-1 lg:mt-2">{t.activeStudentsShort}</span>
                             </div>
                             {/* Fill Rate Stat */}
-                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full bg-emerald-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
+                            <div className="flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full bg-emerald-500/5 border border-border-subtle/50 min-w-fit shadow-sm">
                                 <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                     <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 text-emerald-600 opacity-60" />
                                     <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none">{avgFill}%</span>

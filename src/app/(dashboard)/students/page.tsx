@@ -168,7 +168,7 @@ export default function StudentsPage() {
                     {/* Top Section: Status & Add */}
                     <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-3 w-full">
                         {/* Row 1 on Mobile: Status Filter */}
-                        <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-10 sm:h-12 bg-surface border border-border-subtle p-1 rounded-2xl sm:rounded-[1.25rem] gap-1 shrink-0">
+                        <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle p-1 rounded-2xl sm:rounded-[1.25rem] gap-1 shrink-0">
                             {[
                                 { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
                                 { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-emerald-500', hoverColor: 'hover:text-emerald-600' },
@@ -199,7 +199,7 @@ export default function StudentsPage() {
                     <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-3 w-full">
 
                         {/* Unified Filter Dropdown */}
-                        <div className="relative flex flex-shrink-0 h-10 sm:h-12" ref={groupDropdownRef}>
+                        <div className="relative flex flex-shrink-0 h-12" ref={groupDropdownRef}>
                             <button
                                 onClick={() => setGroupDropdownOpen(v => !v)}
                                 className={cn(
@@ -282,7 +282,7 @@ export default function StudentsPage() {
                         </div>
 
                         {/* Search */}
-                        <div className="relative flex-1 group h-10 sm:h-12">
+                        <div className="relative flex-1 group h-12">
                             <Search className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
                             <input type="text" placeholder={t.search} value={search}
                                 onChange={e => setSearch(e.target.value)}
