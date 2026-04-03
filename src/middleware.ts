@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
 
     // 3. Fast Path for Authenticated Users (Mitigate 504 Timeout)
     const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
-    const hasSupabaseCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
+    const hasSupabaseCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.includes('-auth-token'));
     
     // If they have a session cookie, let them pass to the page (where full auth can be checked more stably)
     if (hasStaffCookie || hasSupabaseCookie) {
