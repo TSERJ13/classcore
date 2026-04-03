@@ -21,6 +21,7 @@ import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscrip
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
+import { Logo } from '@/components/ui/Logo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 const toDateStr = (d: Date) => d.toISOString().split('T')[0];
@@ -197,8 +198,8 @@ function actionBadge(action: string, t: any) {
 export default function DashboardPage() {
     const { t, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const { settings } = useStudio();
-    const { profile, user } = useUser();
+    const { settings, isLoaded } = useStudio();
+    const { profile, user, loading } = useUser();
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [revenueRange, setRevenueRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [liveStats, setLiveStats] = useState({
@@ -626,22 +627,29 @@ export default function DashboardPage() {
         return h <= nowHour && h + 2 > nowHour;
     }) : null;
 
-    // Billing state monitoring
-    const [billing, setBilling] = useState<any>(() => {
-        if (typeof window !== 'undefined' && settings.studioSlug) {
-            const { getBillingState } = require('@/lib/saas-billing');
-            return getBillingState(settings.studioSlug);
-        }
-        return null;
-    });
+    const [billing, setBilling] = useState<any>(null);
 
     useEffect(() => {
-        if (settings.studioSlug && !billing) {
-            const { getBillingState } = require('@/lib/saas-billing');
-            setBilling(getBillingState(settings.studioSlug));
+        if (typeof window !== 'undefined' && settings?.studioSlug) {
+            try {
+                const { getBillingState } = require('@/lib/saas-billing');
+                setBilling(getBillingState(settings.studioSlug));
+            } catch (err) {
+                console.error('Billing initialization error:', err);
+            }
         }
-    }, [settings.studioSlug, billing]);
+    }, [settings?.studioSlug]);
 
+    if (!isLoaded || (loading && !isDemo)) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 animate-pulse">
+                <Logo size={80} animated loading />
+                <div className="text-center space-y-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading Dashboard...'}</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 animate-fade-in relative">

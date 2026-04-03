@@ -48,7 +48,12 @@ export function useUser() {
             const { data: { session } } = await supabase.auth.getSession();
             const u = session?.user;
             const staffSess = getStaffSession();
-            const activeSlug = typeof window !== 'undefined' ? (localStorage.getItem('cc_active_studio_slug') || window.location.pathname.split('/')[1]) : null;
+            const activeSlugLocal = localStorage.getItem('cc_active_studio_slug');
+            const pathSegments = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : [];
+            const pathSlug = pathSegments[0];
+            const reservedWords = ['dashboard', 'superadmin', 'login', 'registration', 'sa-login', 'api', 'auth'];
+            
+            const activeSlug = activeSlugLocal || (!reservedWords.includes(pathSlug) ? pathSlug : null);
 
             // SSS (Smart Session Selection): 
             // If on a regular route and we have both a SuperAdmin Supabase session AND a Staff session, 

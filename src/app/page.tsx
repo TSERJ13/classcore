@@ -190,14 +190,23 @@ export default function LandingPage() {
         window.addEventListener("scroll", handleScroll);
         
         // Strict client-side auth detection using actual session verification to bypass cached "Dashboard" buttons
-        const checkAuth = async () => {
+        const checkAuth = () => {
             const hasLocalToken = !!localStorage.getItem('cc_auth_token');
-            if (!hasLocalToken) {
+            const hasCookieToken = document.cookie.includes('cc_auth_token');
+            
+            // Only consider logged in if we have evidence in both or a strong indicator in one
+            // This prevents "Dashboard" appearing when cookies are cleared but localStorage is stale
+            if (hasLocalToken && hasCookieToken) {
+                setIsLoggedIn(true);
+            } else if (!hasLocalToken && !hasCookieToken) {
                 setIsLoggedIn(false);
-                return;
+            } else if (hasLocalToken && !hasCookieToken) {
+                // Potential sync issue, but usually means session is valid in client but not SSR
+                // For safety on landing page, we mirror the most restrictive view
+                setIsLoggedIn(false); 
+            } else {
+                setIsLoggedIn(false);
             }
-            // Trust localStorage, but ignore stale cookies as guests often have role cookies from previous sessions
-            setIsLoggedIn(true);
         };
         checkAuth();
 
