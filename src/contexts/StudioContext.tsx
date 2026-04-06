@@ -548,15 +548,21 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                     // Hydration complete: Release the loading guard
                     setFirstSyncDone(true);
+                    setIsLoaded(true);
                 }).catch(err => {
                     console.error('📡 [StudioContext] Initial Cloud Sync Failed:', err);
                     setFirstSyncDone(true);
+                    setIsLoaded(true);
                 });
+
             });
         }, 0);
 
-        // Immediate release for UI but keep small buffer for settings apply
-        setTimeout(() => setIsLoaded(true), 0);
+        // Background release for UI but only after first sync for real studios
+        if (!defaultSlug || defaultSlug === 'demo.classcore.ge') {
+            setTimeout(() => setIsLoaded(true), 0);
+        }
+
 
         cleanupRegistry();
 
@@ -584,10 +590,15 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         if (!isLoaded || !activeSlug || activeSlug === 'demo.classcore.ge') return;
 
         const syncData = () => {
+            if (!firstSyncDone) {
+                console.log('📡 [StudioContext] Sync deferred: Initial hydration in progress');
+                return;
+            }
             if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
                 console.log('📡 [StudioContext] Sync skipped: Page is hidden');
                 return;
             }
+
             console.log('📡 [StudioContext] Auto-syncing studio data to cloud:', activeSlug);
             const allKeys = Object.keys(localStorage);
             const studioData: Record<string, any> = {};
@@ -647,7 +658,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     const lastUpdate = Math.max(lastLocal, lastLocalUpdateRef.current);
                     const timeSinceUpdate = Date.now() - lastUpdate;
                     
-                    if (timeSinceUpdate < 3000) return;
+                    if (timeSinceUpdate < 5000) return;
 
                     applyCloudState(activeSlug, cloudState);
                 });

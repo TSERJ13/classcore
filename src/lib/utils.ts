@@ -126,16 +126,26 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     let scopeId = finalSlug;
     if (typeof window !== 'undefined') {
         try {
-            const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
-            if (raw) {
-                const settings = JSON.parse(raw);
-                if (settings.orgId) scopeId = settings.orgId;
+            // Check for explicit orgId override (set during login or hydration)
+            const override = localStorage.getItem(`cc_org_id_override_${finalSlug}`);
+            if (override) {
+                scopeId = override;
+            } else {
+                const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
+                if (raw) {
+                    const settings = JSON.parse(raw);
+                    if (settings.orgId) {
+                        scopeId = settings.orgId;
+                        // Cache it for faster lookups and to bridge gaps during sync
+                        localStorage.setItem(`cc_org_id_override_${finalSlug}`, settings.orgId);
+                    }
+                }
             }
         } catch { }
     }
 
     // If branchId is explicitly provided or we should use the active one
-    const bId = branchId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_active_branch_${finalSlug}`) : 'main');
+    const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
     // Certain keys should always be studio-level (not branch-scoped)
     const sharedKeys = [STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 'cc_global_history', 'cc_global_trash'];
@@ -150,6 +160,7 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
 
     return `${base}_${scopeId}`;
 }
+
 /** 
  * Signals that a local update has occurred.
  * Used by StudioContext to skip cloud-to-local merges for a short window.

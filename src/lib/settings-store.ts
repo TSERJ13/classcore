@@ -122,16 +122,26 @@ export async function validateStaffLogin(email: string, password: string): Promi
             // Reclaim the entire registry in the background
             cloudResults.forEach(r => addToRegistry(r.slug));
 
+            // CRITICAL: Cache the orgId override immediately to ensure consistent key scoping
+            if (matchingResult.staff.org_id) {
+                localStorage.setItem(`cc_org_id_override_${matchingResult.slug}`, matchingResult.staff.org_id);
+            }
+
             // Hydrate local store with cloud data for the current matching studio
             const cloudStaff = await fetchStaffFromCloud(matchingResult.slug);
             if (cloudStaff) {
-                saveSettings({ staff: cloudStaff }, undefined, matchingResult.slug);
+                const existing = loadSettings(matchingResult.slug);
+                saveSettings({ 
+                    staff: cloudStaff, 
+                    orgId: matchingResult.staff.org_id || existing.orgId 
+                }, undefined, matchingResult.slug);
             }
             return matchingResult;
         } else {
             console.warn('❌ Staff not found in cloud registry for:', cleanEmail);
             return { error: 'მომხმარებელი ვერ მოიძებნა. თუ ახალ კომპიუტერზე ხართ, დარწმუნდით რომ ძველ კომპიუტერზე "პარამეტრებში" დაყენებული გაქვთ საკუთარი (უნიკალური) სტუდიის მისამართი (Slug).' };
         }
+
     } catch (err: any) {
         console.error('❌ Cloud Fallback Critical Error:', err);
         return { error: 'სისტემური შეცდომა სინქრონიზაციისას.' };

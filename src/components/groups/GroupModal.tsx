@@ -144,27 +144,36 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     };
 
     const save = async () => {
-        if (!form.name) return;
-        setSaving(true);
-        await new Promise(r => setTimeout(r, 400));
+        if (!form.name || saving) return;
+        try {
+            setSaving(true);
+            await new Promise(r => setTimeout(r, 400));
 
-        const groupId = form.id || `g_${Date.now()}`;
-        const scheduleDisplay = slotsToDisplay(slots, lang);
+            const groupId = form.id || `g_${Date.now()}`;
+            const scheduleDisplay = slotsToDisplay(slots, lang);
 
-        onSave({
-            ...form,
-            id: groupId,
-            schedule: scheduleDisplay,
-            schedule_slots: slots,
-        });
+            onSave({
+                ...form,
+                id: groupId,
+                schedule: scheduleDisplay,
+                schedule_slots: slots,
+            });
 
-        // Sync recurring events to calendar
-        if (slots.length > 0) {
-            syncGroupScheduleToCalendar(groupId, form.name, form.teacherId, form.hall_id, slots, form.color);
+            // Sync recurring events to calendar
+            if (slots.length > 0) {
+                try {
+                    await syncGroupScheduleToCalendar(groupId, form.name, form.teacherId, form.hall_id, slots, form.color);
+                } catch (syncErr) {
+                    console.error('⚠️ [GroupModal] Calendar sync failed, but group saved locally:', syncErr);
+                }
+            }
+
+            onClose();
+        } catch (err) {
+            console.error('❌ [GroupModal] Save failed:', err);
+        } finally {
+            setSaving(false);
         }
-
-        setSaving(false);
-        onClose();
     };
 
     const inputCls = "w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm";

@@ -25,7 +25,10 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         
         const { data: current, error: pullError } = await query.maybeSingle();
 
-        if (pullError) throw pullError;
+        if (pullError) {
+            console.error('❌ [SyncStore] Pull error:', pullError);
+            throw pullError;
+        }
 
         let finalStaff: StaffMember[] = staff;
         let finalStudioData: any = studioData;
@@ -128,10 +131,17 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         ];
 
         const nextUpdatedAt = new Date().toISOString();
-        const staffEmails = finalStaff.filter(s => s.email).map(s => s.email!.toLowerCase().trim());
+        const staffEmails = (finalStaff || [])
+            .filter(s => s && s.email)
+            .map(s => s.email!.toLowerCase().trim());
 
         // Resolve orgId: prioritize the passed argument, then the setting inside finalStudioData
         const finalOrgId = orgId || finalStudioData.orgId || finalStudioData.org_id || '';
+
+        // Optimization: If finalOrgId is found, cache it locally to ensure consistent scoping on next page load
+        if (typeof window !== 'undefined' && finalOrgId && slug) {
+            localStorage.setItem(`cc_org_id_override_${slug}`, finalOrgId);
+        }
 
         if (!current) {
             // First time: Use insert to fail on conflict, triggering retry + pull/merge
@@ -144,8 +154,10 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
                     staff_emails: staffEmails,
                     updated_at: nextUpdatedAt
                 });
+
             
             if (insertError) {
+                console.error('❌ [SyncStore] Insert error:', insertError);
                 // If it failed because it already exists (Postgres code 23505), it's fine, the retry will pull it.
                 if (insertError.code === '23505') {
                     throw new Error('Conflict: Row already exists');
@@ -172,15 +184,19 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
 
             const { error: updateError, count } = await updateQuery.eq('updated_at', current.updated_at);
 
-            if (updateError) throw updateError;
+            if (updateError) {
+                console.error('❌ [SyncStore] Update error:', updateError);
+                throw updateError;
+            }
             
             // Conflict check: If count is 0, someone else updated it. Throw to retry.
             if (count === 0) {
+                console.warn('🔄 [SyncStore] Update conflict (count 0).');
                 throw new Error('Conflict: Record updated by another client');
             }
         }
 
-        console.log('✅ Cloud Sync Consolidated Push Successful for:', slug, finalOrgId ? `(ID: ${finalOrgId})` : '');
+        console.log('✅ [SyncStore] Cloud Sync Successful for:', slug, finalOrgId ? `(ID: ${finalOrgId})` : '');
     } catch (err: any) {
         if (retryCount < 5) {
             console.warn(`🔄 Cloud Sync Conflict detected, retrying (${retryCount + 1}/5)...`, err.message);

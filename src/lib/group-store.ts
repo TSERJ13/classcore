@@ -87,12 +87,14 @@ export function getGroups(): Group[] {
 export function saveGroups(groups: Group[]): void {
     if (typeof window === 'undefined') return;
     const key = getGroupsKey();
+    console.log(`💾 [GroupStore] Saving groups to: ${key}`, { count: groups.length });
     localStorage.setItem(key, JSON.stringify(groups));
     markLocalUpdate();
     
     // Immediate Cloud Sync
     const activeSlug = localStorage.getItem('cc_active_studio_slug');
     if (activeSlug) {
+        console.log(`📡 [GroupStore] Triggering immediate cloud sync for: ${activeSlug}`);
         import('./sync-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { [key]: groups });
         });
