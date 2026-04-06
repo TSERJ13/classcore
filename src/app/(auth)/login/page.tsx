@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, ArrowRight, Loader2, Sparkles, Shield, Globe, Zap } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Shield, Globe, Zap } from 'lucide-react';
 
 import { Logo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
@@ -15,6 +15,7 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loginProgress, setLoginProgress] = useState(0);
+    const [statusText, setStatusText] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     const l = (ge: string, ru: string, en: string) => lang === 'ka' ? ge : lang === 'ru' ? ru : en;
@@ -35,17 +36,12 @@ export default function LoginPage() {
                 const { createClient } = require('@/lib/supabase/client');
                 const supabase = createClient();
                 supabase.auth.signOut().then(() => {
-                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული. გთხოვთ შეამოწმოთ მეილი.', 'Ваш аккаунт еще не активирован. Проверьте почту.', 'Account not activated. Please check your email.'));
+                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще არი გააქტიურებული.', 'Account not activated.'));
                 });
                 return;
             }
 
-            const SUPER_ADMIN_EMAILS = [
-                'adminclasscore@gmail.com',
-                'support@classcore.ge', 
-                'admin@classcore.ge',
-                'tserj13@classcore.ge'
-            ];
+            const SUPER_ADMIN_EMAILS = ['adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge', 'tserj13@classcore.ge'];
             const isSuperAdmin = user.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
             
             if (isSuperAdmin) {
@@ -56,8 +52,6 @@ export default function LoginPage() {
         }
     }, [user, loading, lang]);
 
-    const [statusText, setStatusText] = useState('');
-
     // Simulate progress while logging in
     useEffect(() => {
         let interval: any;
@@ -66,9 +60,9 @@ export default function LoginPage() {
             interval = setInterval(() => {
                 setLoginProgress(prev => {
                     if (prev >= 98) return prev;
-                    if (prev < 40) return prev + 10;
-                    if (prev < 80) return prev + 2;
-                    return prev + 0.2;
+                    if (prev < 40) return prev + 12;
+                    if (prev < 80) return prev + 3;
+                    return prev + 0.1;
                 });
             }, 300);
         } else {
@@ -88,7 +82,7 @@ export default function LoginPage() {
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
 
-        // Strict 12s Timeout for production
+        // Strict 12s Timeout for production speed
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('TIMEOUT')), 12000)
         );
@@ -112,7 +106,7 @@ export default function LoginPage() {
                     if (staffResult) {
                         if ('error' in staffResult) throw new Error(staffResult.error);
                         if ('staff' in staffResult) {
-                            setStatusText(l('მონაცემების სინქრონიზაცია...', 'Синхронизация...', 'Syncing data...'));
+                            setStatusText(l('მომზადება...', 'Подготовка...', 'Syncing...'));
                             setStaffSession(staffResult);
                             window.location.href = '/dashboard';
                             return;
@@ -123,7 +117,7 @@ export default function LoginPage() {
 
                 if (signedInUser?.user_metadata?.is_activated === false) {
                     await supabase.auth.signOut();
-                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще не активирован.', 'Account not activated.'));
+                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще არი გააქტიურებული.', 'Account not activated.'));
                     setIsSubmitting(false);
                     return;
                 }
@@ -132,27 +126,21 @@ export default function LoginPage() {
                 window.location.href = '/dashboard';
             })();
 
-            // Race the login task against the timeout
             await Promise.race([loginTask, timeoutPromise]);
             
         } catch (err: any) {
             console.error('Login error:', err);
-            let errorMessage = err.message || t.loginError;
-            
-            if (err.message === 'TIMEOUT' || err.message === 'QUERY_TIMEOUT') {
-                errorMessage = l('სტუდია ვერ მოიძებნა. თუ ახლახან გააკეთეთ Master Reset, გთხოვთ თავიდან გაიაროთ რეგისტრაცია.', 'Студия не найдена. Если вы сделали Master Reset, пройдите регистрацию заново.', 'Studio not found. If you just did a Master Reset, please Re-register.');
+            // Unified error for timeouts or missing credentials as requested
+            if (err.message === 'TIMEOUT' || err.message === 'QUERY_TIMEOUT' || err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
+                setError(l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.'));
             } else if (err.message === 'Email not confirmed') {
-                errorMessage = t.confirmEmail;
-            } else if (err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
-                errorMessage = l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.');
+                setError(t.confirmEmail);
+            } else {
+                setError(err.message || t.loginError);
             }
-
-            setError(errorMessage);
             setIsSubmitting(false);
         }
-
     };
-
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden relative">
@@ -160,76 +148,70 @@ export default function LoginPage() {
             <div className="fixed bottom-0 left-0 w-[30%] h-1/2 bg-violet-500/5 blur-[100px] -z-10" />
             
             {isSubmitting && (
-                <div className="fixed inset-0 bg-white/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center gap-12 transition-all duration-700 animate-in fade-in">
+                <div className="fixed inset-0 bg-white/98 backdrop-blur-2xl z-[9999] flex flex-col items-center justify-center gap-12 transition-all duration-700 animate-in fade-in">
+                    {/* PERCENTAGE AT TOP */}
+                    <div className="text-center">
+                        <span className="text-5xl font-black text-indigo-600/10 tracking-tighter tabular-nums animate-pulse">
+                            {Math.round(loginProgress)}%
+                        </span>
+                    </div>
+
+                    {/* LOGO IN MIDDLE */}
                     <div className="relative">
-                        <div className="absolute inset-0 bg-indigo-500/20 blur-[60px] animate-pulse rounded-full" />
+                        <div className="absolute inset-0 bg-indigo-500/20 blur-[80px] animate-pulse rounded-full" />
                         <Logo size={140} animated loading className="relative z-10" />
                     </div>
                     
+                    {/* PROGRESS BAR & STATUS AT BOTTOM */}
                     <div className="text-center space-y-6 w-full max-w-[280px]">
-                        <div className="space-y-2">
-                            <p className="font-black uppercase text-xs tracking-[0.4em] text-slate-900">
-                                {l('სტუდიის მონაცემები მალე ჩაიტვირთება', 'Данные студии скоро загрузятся', 'Studio data will be loaded soon')}
-                            </p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60 animate-pulse">
-                                {l('COSMOS OS ინიციალიზაცია...', 'Инициализация Cosmos OS...', 'Initializing Cosmos OS...')}
-                            </p>
-                        </div>
-                        
                         <div className="space-y-4">
-                            <div className="relative h-1.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                            <div className="relative h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
                                 <div 
-                                    className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-300 ease-out shadow-[0_0_15px_rgba(79,70,229,0.5)]"
+                                    className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-300 ease-out shadow-[0_0_20px_rgba(79,70,229,0.5)]"
                                     style={{ width: `${loginProgress}%` }}
                                 />
                             </div>
-                            <div className="flex flex-col items-center gap-1">
-                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] animate-pulse">
+                            <div className="flex flex-col items-center gap-2">
+                                <p className="text-[10px] font-black text-indigo-600/40 uppercase tracking-[0.4em]">
                                     {statusText}
                                 </p>
-                                <div className="flex justify-between w-full px-1">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-40">
-                                        {Math.round(loginProgress)}%
-                                    </p>
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            
             <div className="w-full max-w-[440px] flex flex-col gap-8 pt-0 pb-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <div className="flex flex-col items-center gap-6">
-                    <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={110} transparent />
-                    </Link>
-                </div>
-
-                <div className="bg-white p-8 sm:p-10 rounded-[3rem] border border-slate-100 shadow-2xl shadow-indigo-500/5 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
-                    
-                    <div className="text-center space-y-3 mb-10 relative">
-                        <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('ავტორიზაცია', 'Вход', 'Access Portal')}</h2>
-                        <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
-                            <Sparkles className="w-4 h-4 animate-pulse" />
-                            {l('სტუდიის მართვის სისტემა', 'Система управления', 'Studio Management OS')}
+                    <Logo size={64} animated={false} />
+                    <div className="text-center space-y-1.5">
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-3">
+                            ClassCore <span className="text-indigo-600">COSMOS</span>
+                        </h1>
+                        <p className="text-slate-400 font-medium text-sm tracking-wide">
+                            {l('სტუდიის მართვის სისტემა', 'Система управления студией', 'Studio Intelligence System')}
                         </p>
                     </div>
+                </div>
 
-                    {error && (
-                        <div className="mb-8 p-6 bg-red-50/50 border border-red-100 rounded-2xl text-[11px] font-black text-red-500 uppercase tracking-tighter text-center animate-shake">
-                            {error}
-                        </div>
-                    )}
-
+                <div className="bg-white rounded-[32px] p-8 sm:p-10 shadow-2xl shadow-indigo-200/20 border border-slate-50 relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-indigo-600/10 group-hover:bg-indigo-600 transition-all duration-500" />
+                    
                     <form onSubmit={handleLogin} className="space-y-6 relative">
+                        {error && (
+                            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100/50 flex flex-col gap-2 items-center text-center animate-in zoom-in-95 duration-200">
+                                <p className="text-[11px] font-black text-rose-600 leading-relaxed">
+                                    {error}
+                                </p>
+                            </div>
+                        )}
+
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest flex items-center gap-3 pl-1 opacity-90">
                                 <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
                                     <Mail className="w-3.5 h-3.5" />
                                 </div>
-                                {l('ფოსტა', 'Почта', 'Identity (Email)')}
+                                {l('იმეილი', 'Email адрес', 'Command Email')}
                             </label>
                             <input
                                 name="email"
@@ -257,7 +239,7 @@ export default function LoginPage() {
                                     name="password"
                                     type={showPassword ? "text" : "password"}
                                     required
-                                    placeholder={l('შეიყვანეთ პაროლი...', 'Введите пароль...', '••••••••')}
+                                    placeholder={l('შეიყვანეთ პაროლი...', 'Введите პაროლი...', '••••••••')}
                                     className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                 />
                                 <button
@@ -303,7 +285,6 @@ export default function LoginPage() {
                                     onClick={() => {
                                         if (confirm(lang === 'ka' ? 'დარწმუნებული ხართ? ყველა ლოკალური მონაცემი წაიშლება და საიტი განახლდება.' : 'Are you sure? All local data will be cleared and the site will reload.')) {
                                             localStorage.clear();
-                                            // Clear basic cookies
                                             document.cookie.split(";").forEach((c) => {
                                                 document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
                                             });
@@ -313,7 +294,7 @@ export default function LoginPage() {
                                     className="text-[9px] font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.2em] transition-all flex items-center gap-2"
                                 >
                                     <Zap className="w-3 h-3" />
-                                    {l('ტექნიკური გასუფთავება', 'Техническая очистка', 'Technical Reset')}
+                                    {l('ტექნიკური გასუფთავება', 'Техნიческая очистка', 'Technical Reset')}
                                 </button>
                             </div>
                         </div>
