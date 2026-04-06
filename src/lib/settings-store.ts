@@ -876,3 +876,21 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
     // Reload page to re-initialize stores
     window.location.reload();
 }
+/** 
+ * Higher-level sync wrapper that automatically includes the latest staff list.
+ * This is the preferred way to sync studio-level data (groups, students, etc.)
+ */
+export async function syncStudioDataToCloud(slug: string, data: any, orgId?: string) {
+    if (typeof window === 'undefined') return;
+    if (!slug || slug === 'demo.classcore.ge') return;
+    
+    // We already have the latest staff list in settings-store
+    const settings = loadSettings(slug);
+    
+    try {
+        const { pushStudioStateToCloud } = await import('./sync-store');
+        return pushStudioStateToCloud(slug, settings.staff, data, 0, orgId || settings.orgId);
+    } catch (err) {
+        console.error('❌ [SyncHelper] Failed to push data for:', slug, err);
+    }
+}

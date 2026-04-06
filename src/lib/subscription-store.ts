@@ -174,8 +174,8 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     
     // Immediate Cloud Sync
     const activeSlug = getActiveSlug();
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+    if (activeSlug) {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { [getSubsKey()]: data });
         });
     }

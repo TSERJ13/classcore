@@ -94,8 +94,7 @@ export function saveGroups(groups: Group[]): void {
     // Immediate Cloud Sync
     const activeSlug = localStorage.getItem('cc_active_studio_slug');
     if (activeSlug) {
-        console.log(`📡 [GroupStore] Triggering immediate cloud sync for: ${activeSlug}`);
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { [key]: groups });
         });
     }

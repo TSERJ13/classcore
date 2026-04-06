@@ -213,10 +213,11 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     
     // Immediate Cloud Sync
     if (activeSlug) {
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { [getStudentDataKey()]: patches });
         });
     }
+
 
     window.dispatchEvent(new Event('cc_student_update'));
 }
@@ -250,13 +251,14 @@ export function deleteStudent(studentId: string): void {
     if (activeSlugForSync && activeSlugForSync !== 'demo.classcore.ge') {
         const studentDataKey = getStudentDataKey();
         const deletedSubKey = getDeletedStudentsKey();
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlugForSync, { 
                 [studentDataKey]: patches,
                 [deletedSubKey]: deletedIds
             });
         });
     }
+
 
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;

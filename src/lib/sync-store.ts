@@ -298,15 +298,8 @@ export async function checkCloudConnection(slug: string): Promise<boolean> {
     }
 }
 
-export async function syncStudioDataToCloud(slug: string, data: any, orgId?: string) {
-    // Redirection to consolidated push to maintain backward compatibility safely
-    // Note: We don't have the staff list here, so we load it from local first
-    const { loadSettings } = await import('./settings-store');
-    const settings = loadSettings(slug);
-    return pushStudioStateToCloud(slug, settings.staff, data, 0, orgId || settings.orgId);
-}
-
 export async function fetchStudioDataFromCloud(slug: string): Promise<any | null> {
     const state = await pullStudioStateFromCloud(slug);
     return state?.studio_data || null;
 }
+

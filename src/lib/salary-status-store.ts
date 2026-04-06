@@ -33,8 +33,7 @@ export async function saveSalaryStatuses(statuses: TeacherSalaryStatus[]) {
 
     // Immediate Cloud Sync
     try {
-        const { getActiveSlug } = await import('./settings-store');
-        const { syncStudioDataToCloud } = await import('./sync-store');
+        const { getActiveSlug, syncStudioDataToCloud } = await import('./settings-store');
         const slug = getActiveSlug();
         if (slug && slug !== 'demo.classcore.ge') {
             await syncStudioDataToCloud(slug, { [key]: statuses });
@@ -42,6 +41,7 @@ export async function saveSalaryStatuses(statuses: TeacherSalaryStatus[]) {
     } catch (err) {
         console.error('Salary status sync error:', err);
     }
+
 }
 
 export function getStatusForTeacher(teacherId: string, month: string): SalaryStatus {

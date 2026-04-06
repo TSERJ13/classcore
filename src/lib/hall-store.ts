@@ -82,10 +82,11 @@ export function saveHalls(halls: HallData[]): void {
     // Immediate Cloud Sync
     const activeSlug = localStorage.getItem('cc_active_studio_slug');
     if (activeSlug) {
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { [key]: halls });
         });
     }
+
 
     window.dispatchEvent(new Event('cc_halls_update'));
 }
@@ -115,13 +116,14 @@ export function deleteHall(id: string): void {
     // Immediate Cloud Sync
     const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { 
                 [key]: updated,
                 [deletedKey]: deletedIds
             });
         });
     }
+
 
     window.dispatchEvent(new Event('cc_halls_update'));
 }

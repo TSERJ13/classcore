@@ -69,8 +69,7 @@ export async function savePlans(plans: Plan[]): Promise<void> {
 
     // Trigger Cloud Sync
     try {
-        const { getActiveSlug } = await import('./settings-store');
-        const { syncStudioDataToCloud } = await import('./sync-store');
+        const { getActiveSlug, syncStudioDataToCloud } = await import('./settings-store');
         const slug = getActiveSlug();
         if (slug && slug !== 'demo.classcore.ge') {
             await syncStudioDataToCloud(slug, { [key]: plans });
@@ -78,4 +77,5 @@ export async function savePlans(plans: Plan[]): Promise<void> {
     } catch (err) {
         console.error('Plan sync error:', err);
     }
+
 }

@@ -138,10 +138,11 @@ export function refundCheckin(studentId: string): void {
         // Immediate Cloud Sync
         const activeSlug = getActiveSlug();
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            import('./settings-store').then(({ syncStudioDataToCloud }) => {
                 syncStudioDataToCloud(activeSlug, { [dayKey()]: updated });
             });
         }
+
 
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
@@ -178,10 +179,11 @@ function _writeCheckin(
     // Immediate Cloud Sync
     const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { [key]: updated });
         });
     }
+
 
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
@@ -267,10 +269,11 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
         // Immediate Cloud Sync
         const activeSlug = getActiveSlug();
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            import('./settings-store').then(({ syncStudioDataToCloud }) => {
                 syncStudioDataToCloud(activeSlug, { [key]: updated });
             });
         }
+
 
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
