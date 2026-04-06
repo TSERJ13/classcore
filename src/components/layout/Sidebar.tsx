@@ -61,15 +61,16 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                 <div
                     className={cn(
                         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
-                        !settings.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
+                        !settings?.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
                     )}
-                    style={settings.logoDataUrl ? { borderColor: theme.accentHex } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}
+                    style={settings?.logoDataUrl ? { borderColor: theme.accentHex } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}
                 >
-                    {settings.logoDataUrl ? (
+                    {settings?.logoDataUrl ? (
                         <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
                     ) : (
-                        <span className="text-lg font-black" style={{ color: theme.accentHex }}>{getInitial(settings.studioName)}</span>
+                        <span className="text-lg font-black" style={{ color: theme.accentHex }}>{getInitial(settings?.studioName || '')}</span>
                     )}
+
                 </div>
 
                 <div className={cn(
@@ -78,8 +79,9 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                 )}>
                     <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-[14px] font-black text-white truncate tracking-tight leading-tight">
-                            {settings.studioName || profile?.studio_name || 'Studio'}
+                            {settings?.studioName || profile?.studio_name || 'Studio'}
                         </span>
+
                     </div>
 
                     <button
@@ -280,15 +282,16 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                                 {exp && (
                                     <span className="text-[10px] font-black uppercase tracking-widest text-white/40 truncate">
-                                        {settings.studioSlug}
+                                        {settings?.studioSlug || 'Loading...'}
                                     </span>
                                 )}
                             </div>
-                            {exp && settings.orgId && (
+                            {exp && settings?.orgId && (
                                 <div className="text-[8px] font-medium text-white/20 truncate pl-3 uppercase tracking-tighter">
                                     Org: {settings.orgId}
                                 </div>
                             )}
+
                         </div>
                     </div>
                     <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[70px] px-4 pb-2">

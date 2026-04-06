@@ -241,13 +241,14 @@ export function deleteGroup(id: string): void {
     // Immediate Cloud Sync
     const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { 
                 [key]: updated,
                 [deletedKey]: deletedIds
             });
         });
     }
+
 
     window.dispatchEvent(new Event('cc_groups_update'));
 }

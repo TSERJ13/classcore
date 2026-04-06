@@ -264,10 +264,11 @@ export function setDefaultSubscription(studentId: string, subId: string): void {
         // Immediate Cloud Sync
         const activeSlug = getActiveSlug();
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            import('./sync-store').then(({ syncStudioDataToCloud }) => {
+            import('./settings-store').then(({ syncStudioDataToCloud }) => {
                 syncStudioDataToCloud(activeSlug, { [getSubsKey()]: all });
             });
         }
+
 
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
     }
@@ -304,13 +305,14 @@ export function deleteSubscription(studentId: string, subId: string): void {
     // Immediate Cloud Sync
     const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./sync-store').then(({ syncStudioDataToCloud }) => {
+        import('./settings-store').then(({ syncStudioDataToCloud }) => {
             syncStudioDataToCloud(activeSlug, { 
                 [getSubsKey()]: data,
                 [deletedKey]: deletedIds
             });
         });
     }
+
 
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;

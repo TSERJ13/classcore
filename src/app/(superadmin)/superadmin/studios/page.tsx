@@ -259,13 +259,13 @@ export default function StudiosPage() {
             if (!isInitialSyncDone) return null;
             if (!cloud && slug !== 'demo.classcore.ge') return null;
 
-            const owner = s.owner_info || s.staff.find(m => m.role === 'owner');
+            const owner = s?.owner_info || s?.staff?.find((m: any) => m.role === 'owner');
             const ownerPhone = (owner as any)?.phone || (owner as any)?.phone_number || cloud?.ownerPhone || 'N/A';
 
             return { 
                 slug, 
-                name: s.studioName || cloud?.name || slug, 
-                logoUrl: s.logoDataUrl || cloud?.logoUrl, 
+                name: s?.studioName || cloud?.name || slug, 
+                logoUrl: s?.logoDataUrl || cloud?.logoUrl, 
                 studentCount, 
                 subsCount: groupCount, 
                 suspended: meta.suspended || false, 
@@ -277,6 +277,7 @@ export default function StudiosPage() {
                 daysOverdue: billing.daysOverdue,
                 ownerPhone,
                 ownerEmail: owner?.email || cloud?.ownerEmail || 'N/A',
+
                 ownerName: (() => {
                     if (!owner) return cloud?.ownerName || 'N/A';
                     

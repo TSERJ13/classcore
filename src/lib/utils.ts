@@ -134,7 +134,8 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
                 const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
                 if (raw) {
                     const settings = JSON.parse(raw);
-                    if (settings.orgId) {
+                    // Ensure settings is a valid object before property access
+                    if (settings && typeof settings === 'object' && settings.orgId) {
                         scopeId = settings.orgId;
                         // Cache it for faster lookups and to bridge gaps during sync
                         localStorage.setItem(`cc_org_id_override_${finalSlug}`, settings.orgId);
@@ -142,6 +143,7 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
                 }
             }
         } catch { }
+
     }
 
     // If branchId is explicitly provided or we should use the active one
