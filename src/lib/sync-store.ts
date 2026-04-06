@@ -256,32 +256,40 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
 
     try {
         const supabase = createClient();
+        // Fetch all studios for this email to give us a choice
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
-            .select('studio_slug, staff_data, updated_at')
+            .select('studio_slug, staff_data, updated_at, org_id')
             .contains('staff_emails', [cleanEmail])
-            .order('updated_at', { ascending: false })
-            .limit(10); // Most active 10 studios for this email
+            .order('updated_at', { ascending: false });
 
         if (error || !data) return [];
 
         const results: { staff: StaffMember, slug: string }[] = [];
         
         data.forEach(row => {
-            const staff = (row.staff_data as StaffMember[]).find(s =>
+            const staffMatch = (row.staff_data as StaffMember[]).find(s =>
                 s.email?.toLowerCase().trim() === cleanEmail
             );
-            if (staff) {
-                // If org_id is available in the staff record or at the row level, we could use it, 
-                // but let's just use the entry as is.
+            if (staffMatch) {
+                // Ensure org_id from row is attached if missing from staff object
+                const staff = { ...staffMatch, org_id: row.org_id || staffMatch.org_id };
                 results.push({ staff, slug: row.studio_slug });
             }
         });
 
-        return results;
+        // Smart Sort: Prefer slugs that look like "real" production slugs (non-demo)
+        return results.sort((a, b) => {
+            const aIsDemo = a.slug.includes('demo');
+            const bIsDemo = b.slug.includes('demo');
+            if (aIsDemo && !bIsDemo) return 1;
+            if (!aIsDemo && bIsDemo) return -1;
+            return 0; // Keep the 'updated_at' order from DB as secondary
+        });
     } catch (err) {
         return [];
     }
+
 
 }
 

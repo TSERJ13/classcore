@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, ArrowRight, Loader2, Sparkles, Shield, Globe } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Sparkles, Shield, Globe, Zap } from 'lucide-react';
+
 import { Logo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -225,6 +226,26 @@ export default function LoginPage() {
                                     {l('რეგისტრაცია', 'Регистрация', 'Activate Signal')}
                                 </Link>
                             </p>
+
+                            <div className="pt-4 flex justify-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (confirm(lang === 'ka' ? 'დარწმუნებული ხართ? ყველა ლოკალური მონაცემი წაიშლება და საიტი განახლდება.' : 'Are you sure? All local data will be cleared and the site will reload.')) {
+                                            localStorage.clear();
+                                            // Clear basic cookies
+                                            document.cookie.split(";").forEach((c) => {
+                                                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                                            });
+                                            window.location.reload();
+                                        }
+                                    }}
+                                    className="text-[9px] font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.2em] transition-all flex items-center gap-2"
+                                >
+                                    <Zap className="w-3 h-3" />
+                                    {l('ტექნიკური გასუფთავება', 'Техническая очистка', 'Technical Reset')}
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
