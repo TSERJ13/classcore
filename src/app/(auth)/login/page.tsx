@@ -144,7 +144,7 @@ export default function LoginPage() {
             } else if (err.message === 'Email not confirmed') {
                 errorMessage = t.confirmEmail;
             } else if (err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
-                errorMessage = l('ანგარიში ან სტუდია ვერ მოიძებნა. თუ ახალი სტდიის შექმნა გსურთ, გამოიყენეთ "რეგისტრაცია".', 'Аккаунт не найден. Используйте регистрацию.', 'Account/Studio not found. Use Registration to create a new one.');
+                errorMessage = l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.');
             }
 
             setError(errorMessage);
