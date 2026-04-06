@@ -117,37 +117,42 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 }
                 
                 if (tombstoneType && tKey) {
-                    // Merge local and cloud tombstones for maximum safety
-                    const localDeletedIds = JSON.parse(localStorage.getItem(tKey) || '[]');
-                    const cloudDeletedIds = (cloudState.studio_data[tKey] || []) as string[];
-                    const mergedDeleted = Array.from(new Set([...localDeletedIds, ...cloudDeletedIds]));
-                    const deletedSet = new Set(mergedDeleted);
+                    try {
+                        // Merge local and cloud tombstones for maximum safety
+                        const localDeletedIdsRaw = localStorage.getItem(tKey);
+                        const localDeletedIds = localDeletedIdsRaw ? JSON.parse(localDeletedIdsRaw) : [];
+                        const cloudDeletedIds = (cloudState.studio_data[tKey] || []) as string[];
+                        const mergedDeleted = Array.from(new Set([...(Array.isArray(localDeletedIds) ? localDeletedIds : []), ...cloudDeletedIds]));
+                        const deletedSet = new Set(mergedDeleted);
 
-                    // Update local tombstone if cloud has more
-                    if (mergedDeleted.length > localDeletedIds.length) {
-                        localStorage.setItem(tKey, JSON.stringify(mergedDeleted));
-                        changed = true;
-                    }
+                        // Update local tombstone if cloud has more
+                        if (mergedDeleted.length > (Array.isArray(localDeletedIds) ? localDeletedIds.length : 0)) {
+                            localStorage.setItem(tKey, JSON.stringify(mergedDeleted));
+                            changed = true;
+                        }
 
-                    if (deletedSet.size > 0) {
-                        if (key.includes('cc_student_data') && typeof val === 'object' && val !== null) {
-                            const filtered = { ...(val as any) };
-                            Object.keys(filtered).forEach(id => { if (deletedSet.has(id)) delete filtered[id]; });
-                            const filteredStr = JSON.stringify(filtered);
-                            if (localVal !== filteredStr) {
-                                localStorage.setItem(key, filteredStr);
-                                changed = true;
-                                return; // Skip default set for this key
-                            }
-                        } else if (Array.isArray(val)) {
-                            const filtered = val.filter((item: any) => !item?.id || !deletedSet.has(item.id));
-                            const filteredStr = JSON.stringify(filtered);
-                            if (localVal !== filteredStr) {
-                                localStorage.setItem(key, filteredStr);
-                                changed = true;
-                                return; // Skip default set for this key
+                        if (deletedSet.size > 0) {
+                            if (key.includes('cc_student_data') && typeof val === 'object' && val !== null) {
+                                const filtered = { ...(val as any) };
+                                Object.keys(filtered).forEach(id => { if (deletedSet.has(id)) delete filtered[id]; });
+                                const filteredStr = JSON.stringify(filtered);
+                                if (localVal !== filteredStr) {
+                                    localStorage.setItem(key, filteredStr);
+                                    changed = true;
+                                    return; // Skip default set for this key
+                                }
+                            } else if (Array.isArray(val)) {
+                                const filtered = val.filter((item: any) => !item?.id || !deletedSet.has(item.id));
+                                const filteredStr = JSON.stringify(filtered);
+                                if (localVal !== filteredStr) {
+                                    localStorage.setItem(key, filteredStr);
+                                    changed = true;
+                                    return; // Skip default set for this key
+                                }
                             }
                         }
+                    } catch (e) {
+                        console.error('⚠️ [applyCloudState] Tombstone error for key:', key, e);
                     }
                 }
 
@@ -500,6 +505,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
         }
 
+        // Safety Release: Ensure the UI is unlocked even if sync hangs
+        const safetyTimer = setTimeout(() => {
+            if (!hasSyncedRef.current) {
+                console.warn('📡 [StudioContext] Sync safety release triggered');
+                setIsLoaded(true);
+            }
+        }, 5000);
+
         const timer = setTimeout(() => {
             const activeSlug = local.studioSlug;
             // Immediate release for demo or empty slugs
@@ -516,6 +529,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     fetchStaffFromCloud(activeSlug),
                     fetchStudioDataFromCloud(activeSlug)
                 ]).then(([cloudStaff, cloudData]) => {
+                    hasSyncedRef.current = true;
                     // 1. Staff Sync
                     if (cloudStaff && cloudStaff.length > 0) {
                         setSettings(prev => saveSettings({ staff: cloudStaff }, prev, activeSlug));
@@ -523,27 +537,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                     // 2. Collection Sync
                     if (cloudData) {
-                        const lastLocal = parseInt(localStorage.getItem('cc_last_local_update') || '0');
-                        const timeSinceUpdate = Date.now() - lastLocal;
-                        const forceSync = localStorage.getItem('cc_force_initial_sync') === 'true';
-                        
-                        // Map of collection keys to their corresponding deletion (tombstone) keys
-                        const TOMBSTONE_MAP: Record<string, string> = {
-                            'cc_student_data': 'cc_deleted_students',
-                            'cc_groups': 'cc_deleted_groups',
-                            'cc_halls': 'cc_deleted_halls',
-                            'cc_student_subscriptions': 'cc_deleted_subscriptions'
-                        };
-
-                        // Only merge if not recently updated locally to avoid overwriting newer local state
-                        if (timeSinceUpdate > 3000 || forceSync) {
-                            if (forceSync) {
-                                console.log('🚀 [StudioContext] Force Initial Sync: Bypassing 12s lock');
-                                localStorage.removeItem('cc_force_initial_sync');
-                            }
-                            
-                            applyCloudState(activeSlug, { staff_data: cloudStaff || [], studio_data: cloudData });
-                        }
+                        applyCloudState(activeSlug, { staff_data: cloudStaff || [], studio_data: cloudData });
                     }
 
                     // Hydration complete: Release the loading guard
@@ -555,13 +549,18 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     setIsLoaded(true);
                 });
 
+            }).catch(err => {
+                console.error('📡 [StudioContext] Sync store import failed:', err);
+                setIsLoaded(true);
             });
         }, 0);
 
-        // Background release for UI but only after first sync for real studios
-        if (!defaultSlug || defaultSlug === 'demo.classcore.ge') {
-            setTimeout(() => setIsLoaded(true), 0);
-        }
+        cleanupRegistry();
+
+        return () => {
+            clearTimeout(timer);
+            clearTimeout(safetyTimer);
+        };
 
 
         cleanupRegistry();
