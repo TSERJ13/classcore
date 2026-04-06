@@ -261,7 +261,9 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
             .from(SETTINGS_TABLE)
             .select('studio_slug, staff_data, updated_at')
             .contains('staff_emails', [cleanEmail])
-            .order('updated_at', { ascending: false });
+            .order('updated_at', { ascending: false })
+            .limit(5);
+
 
 
         if (error || !data) return [];

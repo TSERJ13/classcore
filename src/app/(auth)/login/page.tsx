@@ -56,6 +56,8 @@ export default function LoginPage() {
         }
     }, [user, loading, lang]);
 
+    const [statusText, setStatusText] = useState('');
+
     // Simulate progress while logging in
     useEffect(() => {
         let interval: any;
@@ -63,31 +65,32 @@ export default function LoginPage() {
             setLoginProgress(5);
             interval = setInterval(() => {
                 setLoginProgress(prev => {
-                    if (prev >= 95) return prev;
-                    if (prev < 30) return prev + 5;
-                    if (prev < 60) return prev + 2;
-                    return prev + 0.5;
+                    if (prev >= 98) return prev;
+                    if (prev < 40) return prev + 10;
+                    if (prev < 80) return prev + 2;
+                    return prev + 0.2;
                 });
-            }, 500);
+            }, 300);
         } else {
             setLoginProgress(0);
+            setStatusText('');
         }
         return () => clearInterval(interval);
     }, [isSubmitting]);
 
     const handleLogin = async (e: React.FormEvent) => {
-
         e.preventDefault();
         setIsSubmitting(true);
         setError(null);
+        setStatusText(l('დაკავშირება...', 'Связь...', 'Connecting...'));
 
         const formData = new FormData(e.target as HTMLFormElement);
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
 
-        // Promise to handle timeout
+        // Strict 12s Timeout for production
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('TIMEOUT')), 45000)
+            setTimeout(() => reject(new Error('TIMEOUT')), 12000)
         );
 
         try {
@@ -98,15 +101,18 @@ export default function LoginPage() {
                 const { setStaffSession, validateStaffLogin } = await import('@/lib/settings-store');
                 setStaffSession(null);
 
+                setStatusText(l('ავტორიზაცია...', 'Авторизация...', 'Authenticating...'));
                 const { data: { user: signedInUser }, error: signInError } = await supabase.auth.signInWithPassword({
                     email, password,
                 });
 
                 if (signInError) {
+                    setStatusText(l('სტუდიის ძებნა...', 'Поиск студии...', 'Finding studio...'));
                     const staffResult = await validateStaffLogin(email, password);
                     if (staffResult) {
                         if ('error' in staffResult) throw new Error(staffResult.error);
                         if ('staff' in staffResult) {
+                            setStatusText(l('მონაცემების სინქრონიზაცია...', 'Синхронизация...', 'Syncing data...'));
                             setStaffSession(staffResult);
                             window.location.href = '/dashboard';
                             return;
@@ -122,6 +128,7 @@ export default function LoginPage() {
                     return;
                 }
 
+                setStatusText(l('შესვლა...', 'Вход...', 'Entering...'));
                 window.location.href = '/dashboard';
             })();
 
@@ -132,7 +139,7 @@ export default function LoginPage() {
             console.error('Login error:', err);
             let errorMessage = err.message || t.loginError;
             if (err.message === 'TIMEOUT') {
-                errorMessage = l('დაკავშირება ვერ მოხერხდა. შესაძლოა ინტერნეტის პრობლემაა, გთხოვთ სცადოთ თავიდან.', 'Превышено время ожидания. Проверьте интернет.', 'Connection timeout. Please check your internet.');
+                errorMessage = l('სერვერი ზედმეტად ნელა მუშაობს. გთხოვთ სცადოთ თავიდან ან შეამოწმოთ ინტერნეტი.', 'Таймаут сервера. Проверьте интернет.', 'Server timeout. Check your connection.');
             } else if (err.message === 'Email not confirmed') {
                 errorMessage = t.confirmEmail;
             } else if (err.message === 'Invalid login credentials') {
@@ -143,6 +150,7 @@ export default function LoginPage() {
             setIsSubmitting(false);
         }
     };
+
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden relative">
@@ -166,15 +174,28 @@ export default function LoginPage() {
                             </p>
                         </div>
                         
-                        <div className="relative h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                                className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(79,70,229,0.5)]"
-                                style={{ width: `${loginProgress}%` }}
-                            />
+                        <div className="space-y-4">
+                            <div className="relative h-1.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                                <div 
+                                    className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-300 ease-out shadow-[0_0_15px_rgba(79,70,229,0.5)]"
+                                    style={{ width: `${loginProgress}%` }}
+                                />
+                            </div>
+                            <div className="flex flex-col items-center gap-1">
+                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] animate-pulse">
+                                    {statusText}
+                                </p>
+                                <div className="flex justify-between w-full px-1">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-40">
+                                        {Math.round(loginProgress)}%
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
+
             
             <div className="w-full max-w-[440px] flex flex-col gap-8 pt-0 pb-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <div className="flex flex-col items-center gap-6">
