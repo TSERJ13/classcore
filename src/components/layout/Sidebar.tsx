@@ -278,20 +278,9 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             "p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col gap-1 transition-all",
                             !exp && "items-center px-0 bg-transparent border-0"
                         )}>
-                            <div className="flex items-center gap-2 overflow-hidden">
-                                <div className="w-1.2 h-1.2 rounded-full bg-emerald-500/50 shrink-0" />
-                                {exp && (
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 truncate">
-                                        {settings?.studioName || 'ClassCore OS'}
-                                    </span>
-                                )}
-                            </div>
+                            {/* Minimal spacer for aesthetic consistency */}
+                            <div className="h-1" />
 
-                            {exp && settings?.orgId && (
-                                <div className="text-[8px] font-medium text-white/20 truncate pl-3 uppercase tracking-tighter">
-                                    Org: {settings.orgId}
-                                </div>
-                            )}
 
                         </div>
                     </div>
