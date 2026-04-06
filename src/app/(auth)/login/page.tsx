@@ -63,6 +63,11 @@ export default function LoginPage() {
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
 
+        const safetyTimer = setTimeout(() => {
+            setIsSubmitting(false);
+            setError(l('დაკავშირება ვერ მოხერხდა, სცადეთ თავიდან', 'Ошибка соединения, попробуйте снова', 'Connection timeout, please try again'));
+        }, 15000);
+
         try {
             const { createClient } = await import('@/lib/supabase/client');
             const supabase = createClient();

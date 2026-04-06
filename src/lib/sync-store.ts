@@ -258,8 +258,10 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
         const supabase = createClient();
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
-            .select('studio_slug, staff_data, staff_emails')
-            .contains('staff_emails', [cleanEmail]);
+            .select('studio_slug, staff_data, updated_at')
+            .contains('staff_emails', [cleanEmail])
+            .order('updated_at', { ascending: false })
+            .limit(10); // Most active 10 studios for this email
 
         if (error || !data) return [];
 
@@ -270,6 +272,8 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
                 s.email?.toLowerCase().trim() === cleanEmail
             );
             if (staff) {
+                // If org_id is available in the staff record or at the row level, we could use it, 
+                // but let's just use the entry as is.
                 results.push({ staff, slug: row.studio_slug });
             }
         });
@@ -278,6 +282,7 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
     } catch (err) {
         return [];
     }
+
 }
 
 export async function checkCloudConnection(slug: string): Promise<boolean> {

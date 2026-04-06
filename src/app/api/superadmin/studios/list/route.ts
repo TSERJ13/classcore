@@ -26,7 +26,8 @@ export async function GET() {
             .from('studio_settings')
             .select('studio_slug, staff_data, updated_at')
             .order('updated_at', { ascending: false })
-            .limit(2000);
+            .limit(200);
+
 
         if (error) throw error;
 
