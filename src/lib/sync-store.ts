@@ -259,9 +259,10 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
         // Fetch all studios for this email to give us a choice
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
-            .select('studio_slug, staff_data, updated_at, org_id')
+            .select('studio_slug, staff_data, updated_at')
             .contains('staff_emails', [cleanEmail])
             .order('updated_at', { ascending: false });
+
 
         if (error || !data) return [];
 
@@ -272,10 +273,11 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
                 s.email?.toLowerCase().trim() === cleanEmail
             );
             if (staffMatch) {
-                // Ensure org_id from row is attached if missing from staff object
-                const staff = { ...staffMatch, org_id: row.org_id || staffMatch.org_id };
+                // Ensure org_id from staff object is used
+                const staff = { ...staffMatch };
                 results.push({ staff, slug: row.studio_slug });
             }
+
         });
 
         // Smart Sort: Prefer slugs that look like "real" production slugs (non-demo)
