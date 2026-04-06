@@ -64,10 +64,15 @@ export default function LoginPage() {
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
 
-        const safetyTimer = setTimeout(() => {
-            setIsSubmitting(false);
-            setError(l('დაკავშირება ვერ მოხერხდა, სცადეთ თავიდან', 'Ошибка соединения, попробуйте снова', 'Connection timeout, please try again'));
-        }, 15000);
+        const timeoutId = setTimeout(() => {
+            setError(prev => {
+                if (!prev && isSubmitting) {
+                    setIsSubmitting(false);
+                    return l('დაკავშირება ვერ მოხერხდა, სცადეთ თავიდან', 'Ошибка соединения', 'Connection failed');
+                }
+                return prev;
+            });
+        }, 60000);
 
         try {
             const { createClient } = await import('@/lib/supabase/client');
@@ -86,25 +91,31 @@ export default function LoginPage() {
                 const staffResult = await validateStaffLogin(email, password);
                 if (staffResult) {
                     if ('error' in staffResult) {
+                        clearTimeout(timeoutId);
                         throw new Error(staffResult.error);
                     } else if ('staff' in staffResult) {
+                        clearTimeout(timeoutId);
                         setStaffSession(staffResult);
                         window.location.href = '/dashboard';
                         return;
                     }
                 }
+                clearTimeout(timeoutId);
                 throw signInError;
             }
 
             if (signedInUser?.user_metadata?.is_activated === false) {
+                clearTimeout(timeoutId);
                 await supabase.auth.signOut();
                 setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული. გთხოვთ შეამოწმოთ მეილი.', 'Ваш аккаунт еще не активирован. Проверьте почту.', 'Account not activated. Please check your email.'));
                 setIsSubmitting(false);
                 return;
             }
 
+            clearTimeout(timeoutId);
             window.location.href = '/dashboard';
         } catch (err: any) {
+            clearTimeout(timeoutId);
             let errorMessage = err.message || t.loginError;
             if (err.message === 'Email not confirmed') errorMessage = t.confirmEmail;
             else if (err.message === 'Invalid login credentials') errorMessage = t.invalidCredentials;
