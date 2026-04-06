@@ -279,13 +279,14 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             !exp && "items-center px-0 bg-transparent border-0"
                         )}>
                             <div className="flex items-center gap-2 overflow-hidden">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                                <div className="w-1.2 h-1.2 rounded-full bg-emerald-500/50 shrink-0" />
                                 {exp && (
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40 truncate">
-                                        {settings?.studioSlug || 'Loading...'}
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 truncate">
+                                        {settings?.studioName || 'ClassCore OS'}
                                     </span>
                                 )}
                             </div>
+
                             {exp && settings?.orgId && (
                                 <div className="text-[8px] font-medium text-white/20 truncate pl-3 uppercase tracking-tighter">
                                     Org: {settings.orgId}
