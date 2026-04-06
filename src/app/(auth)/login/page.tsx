@@ -14,6 +14,7 @@ export default function LoginPage() {
     const { user, loading } = useUser();
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loginProgress, setLoginProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
 
     const l = (ge: string, ru: string, en: string) => lang === 'ka' ? ge : lang === 'ru' ? ru : en;
@@ -55,7 +56,27 @@ export default function LoginPage() {
         }
     }, [user, loading, lang]);
 
+    // Simulate progress while logging in
+    useEffect(() => {
+        let interval: any;
+        if (isSubmitting) {
+            setLoginProgress(5);
+            interval = setInterval(() => {
+                setLoginProgress(prev => {
+                    if (prev >= 95) return prev;
+                    if (prev < 30) return prev + 5;
+                    if (prev < 60) return prev + 2;
+                    return prev + 0.5;
+                });
+            }, 500);
+        } else {
+            setLoginProgress(0);
+        }
+        return () => clearInterval(interval);
+    }, [isSubmitting]);
+
     const handleLogin = async (e: React.FormEvent) => {
+
         e.preventDefault();
         setIsSubmitting(true);
         setError(null);
@@ -64,61 +85,59 @@ export default function LoginPage() {
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
 
-        const timeoutId = setTimeout(() => {
-            setError(prev => {
-                if (!prev && isSubmitting) {
-                    setIsSubmitting(false);
-                    return l('დაკავშირება ვერ მოხერხდა, სცადეთ თავიდან', 'Ошибка соединения', 'Connection failed');
-                }
-                return prev;
-            });
-        }, 60000);
+        // Promise to handle timeout
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('TIMEOUT')), 45000)
+        );
 
         try {
-            const { createClient } = await import('@/lib/supabase/client');
-            const supabase = createClient();
+            const loginTask = (async () => {
+                const { createClient } = await import('@/lib/supabase/client');
+                const supabase = createClient();
 
-            // Clear any existing staff session first
-            const { setStaffSession, validateStaffLogin } = await import('@/lib/settings-store');
-            setStaffSession(null);
+                const { setStaffSession, validateStaffLogin } = await import('@/lib/settings-store');
+                setStaffSession(null);
 
-            const { data: { user: signedInUser }, error: signInError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
+                const { data: { user: signedInUser }, error: signInError } = await supabase.auth.signInWithPassword({
+                    email, password,
+                });
 
-            if (signInError) {
-                const staffResult = await validateStaffLogin(email, password);
-                if (staffResult) {
-                    if ('error' in staffResult) {
-                        clearTimeout(timeoutId);
-                        throw new Error(staffResult.error);
-                    } else if ('staff' in staffResult) {
-                        clearTimeout(timeoutId);
-                        setStaffSession(staffResult);
-                        window.location.href = '/dashboard';
-                        return;
+                if (signInError) {
+                    const staffResult = await validateStaffLogin(email, password);
+                    if (staffResult) {
+                        if ('error' in staffResult) throw new Error(staffResult.error);
+                        if ('staff' in staffResult) {
+                            setStaffSession(staffResult);
+                            window.location.href = '/dashboard';
+                            return;
+                        }
                     }
+                    throw signInError;
                 }
-                clearTimeout(timeoutId);
-                throw signInError;
-            }
 
-            if (signedInUser?.user_metadata?.is_activated === false) {
-                clearTimeout(timeoutId);
-                await supabase.auth.signOut();
-                setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული. გთხოვთ შეამოწმოთ მეილი.', 'Ваш аккаунт еще не активирован. Проверьте почту.', 'Account not activated. Please check your email.'));
-                setIsSubmitting(false);
-                return;
-            }
+                if (signedInUser?.user_metadata?.is_activated === false) {
+                    await supabase.auth.signOut();
+                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще не активирован.', 'Account not activated.'));
+                    setIsSubmitting(false);
+                    return;
+                }
 
-            clearTimeout(timeoutId);
-            window.location.href = '/dashboard';
+                window.location.href = '/dashboard';
+            })();
+
+            // Race the login task against the timeout
+            await Promise.race([loginTask, timeoutPromise]);
+            
         } catch (err: any) {
-            clearTimeout(timeoutId);
+            console.error('Login error:', err);
             let errorMessage = err.message || t.loginError;
-            if (err.message === 'Email not confirmed') errorMessage = t.confirmEmail;
-            else if (err.message === 'Invalid login credentials') errorMessage = t.invalidCredentials;
+            if (err.message === 'TIMEOUT') {
+                errorMessage = l('დაკავშირება ვერ მოხერხდა. შესაძლოა ინტერნეტის პრობლემაა, გთხოვთ სცადოთ თავიდან.', 'Превышено время ожидания. Проверьте интернет.', 'Connection timeout. Please check your internet.');
+            } else if (err.message === 'Email not confirmed') {
+                errorMessage = t.confirmEmail;
+            } else if (err.message === 'Invalid login credentials') {
+                errorMessage = t.invalidCredentials;
+            }
 
             setError(errorMessage);
             setIsSubmitting(false);
@@ -131,11 +150,28 @@ export default function LoginPage() {
             <div className="fixed bottom-0 left-0 w-[30%] h-1/2 bg-violet-500/5 blur-[100px] -z-10" />
             
             {isSubmitting && (
-                <div className="fixed inset-0 bg-white/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center gap-8 transition-all duration-700 animate-in fade-in">
-                    <Logo size={120} animated loading />
-                    <div className="text-center space-y-2">
-                        <p className="font-black uppercase text-sm tracking-[0.4em] text-slate-900 animate-pulse">{l('COSMOS OS გაშვება', 'Запуск Cosmos OS', 'Launching Cosmos OS')}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-60">{l('MISSION CONTROL ინიციალიზაცია', 'Инициализация Mission Control', 'Initializing Mission Control')}</p>
+                <div className="fixed inset-0 bg-white/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center gap-12 transition-all duration-700 animate-in fade-in">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-indigo-500/20 blur-[60px] animate-pulse rounded-full" />
+                        <Logo size={140} animated loading className="relative z-10" />
+                    </div>
+                    
+                    <div className="text-center space-y-6 w-full max-w-[280px]">
+                        <div className="space-y-2">
+                            <p className="font-black uppercase text-xs tracking-[0.4em] text-slate-900">
+                                {l('სტუდიის მონაცემები მალე ჩაიტვირთება', 'Данные студии скоро загрузятся', 'Studio data will be loaded soon')}
+                            </p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60 animate-pulse">
+                                {l('COSMOS OS ინიციალიზაცია...', 'Инициализация Cosmos OS...', 'Initializing Cosmos OS...')}
+                            </p>
+                        </div>
+                        
+                        <div className="relative h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                                className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(79,70,229,0.5)]"
+                                style={{ width: `${loginProgress}%` }}
+                            />
+                        </div>
                     </div>
                 </div>
             )}
