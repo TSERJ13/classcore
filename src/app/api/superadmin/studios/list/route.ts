@@ -26,8 +26,7 @@ export async function GET() {
             .from('studio_settings')
             .select('studio_slug, staff_data, updated_at')
             .order('updated_at', { ascending: false })
-            .limit(200);
-
+            .limit(50);
 
         if (error) throw error;
 
@@ -35,6 +34,7 @@ export async function GET() {
         const studios = data.map(row => {
             const allStaff = (row.staff_data as any[]) || [];
             const ownerFromStaff = allStaff.find(s => s.role === 'owner');
+            // Extract the config BUT DO NOT RETURN IT WHOLE
             const studioConfig = allStaff.find(s => s.id === '__studio_config__')?.studio_data || {};
             const ownerFromConfig = studioConfig.owner_info || {};
 
@@ -73,6 +73,7 @@ export async function GET() {
                 hallCount
             };
         });
+
 
         return NextResponse.json({ studios });
     } catch (err: any) {

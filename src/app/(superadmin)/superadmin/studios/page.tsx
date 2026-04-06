@@ -158,6 +158,9 @@ export default function StudiosPage() {
     const [cloudStudios, setCloudStudios] = useState<any[]>([]);
 
     const syncFromCloud = async () => {
+        // Load whatever we have locally FIRST to show something to the user
+        loadData();
+        
         setIsSyncing(true);
         try {
                 const res = await fetch(`/api/superadmin/studios/list?t=${Date.now()}`, {
