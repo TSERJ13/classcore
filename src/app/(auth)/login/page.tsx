@@ -138,17 +138,19 @@ export default function LoginPage() {
         } catch (err: any) {
             console.error('Login error:', err);
             let errorMessage = err.message || t.loginError;
-            if (err.message === 'TIMEOUT') {
-                errorMessage = l('სერვერი ზედმეტად ნელა მუშაობს. გთხოვთ სცადოთ თავიდან ან შეამოწმოთ ინტერნეტი.', 'Таймаут сервера. Проверьте интернет.', 'Server timeout. Check your connection.');
+            
+            if (err.message === 'TIMEOUT' || err.message === 'QUERY_TIMEOUT') {
+                errorMessage = l('სტუდია ვერ მოიძებნა. თუ ახლახან გააკეთეთ Master Reset, გთხოვთ თავიდან გაიაროთ რეგისტრაცია.', 'Студия не найдена. Если вы сделали Master Reset, пройдите регистрацию заново.', 'Studio not found. If you just did a Master Reset, please Re-register.');
             } else if (err.message === 'Email not confirmed') {
                 errorMessage = t.confirmEmail;
-            } else if (err.message === 'Invalid login credentials') {
-                errorMessage = t.invalidCredentials;
+            } else if (err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
+                errorMessage = l('ანგარიში ან სტუდია ვერ მოიძებნა. თუ ახალი სტდიის შექმნა გსურთ, გამოიყენეთ "რეგისტრაცია".', 'Аккаунт не найден. Используйте регистрацию.', 'Account/Studio not found. Use Registration to create a new one.');
             }
 
             setError(errorMessage);
             setIsSubmitting(false);
         }
+
     };
 
 
