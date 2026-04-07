@@ -44,9 +44,20 @@ export function useUser() {
         const refreshSession = async () => {
             const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
             
-            // 1. Check Supabase (Admins)
-            const { data: { session } } = await supabase.auth.getSession();
-            const u = session?.user;
+            // 1. Authoritative Auth Check (Hits server)
+            const { data: { user: u }, error: authError } = await supabase.auth.getUser();
+            
+            if (authError || !u) {
+                // If Supabase say NO, we still check Staff Session (Virtual users)
+                const staffSess = getStaffSession();
+                if (staffSess) {
+                    // Continue to staff validation below
+                } else {
+                    setLoading(false);
+                    return;
+                }
+            }
+
             const staffSess = getStaffSession();
             
             // Determine the final user email to validate
@@ -57,9 +68,13 @@ export function useUser() {
             // If we have a session but it's not a superadmin route, verify existence in DB
             if (currentUserEmail && currentSlug && !isSuperAdminRoute) {
                 try {
-                    const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
-                    const cloudStudios = await findAllStudiosByStaffEmail(currentUserEmail.toLowerCase().trim());
-                    const stillHasAccess = cloudStudios.some(s => s.slug === currentSlug);
+                    const { verifyUserInStudio } = await import('@/lib/sync-store');
+                    
+                    // Set a strict 4s timeout for verification
+                    const verifyTask = verifyUserInStudio(currentSlug, currentUserEmail);
+                    const timeoutTask = new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 4000));
+                    
+                    const stillHasAccess = await Promise.race([verifyTask, timeoutTask]).catch(() => true); // Default to allow on timeout to prevent lock-out
 
                     if (!stillHasAccess) {
                         console.warn('🚨 [useUser] Session invalid: User no longer found in this studio. Logging out.');

@@ -36,16 +36,17 @@ export default function LoginPage() {
                 const currentSlug = user.user_metadata?.studio_slug;
                 
                 if (currentUserEmail && currentSlug) {
-                    const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
-                    const cloudStudios = await findAllStudiosByStaffEmail(currentUserEmail.toLowerCase().trim());
-                    const stillHasAccess = cloudStudios.some(s => s.slug === currentSlug);
+                    const { verifyUserInStudio } = await import('@/lib/sync-store');
+                    
+                    // Fast targeted verification
+                    const stillHasAccess = await verifyUserInStudio(currentSlug, currentUserEmail);
 
                     if (!stillHasAccess) {
-                        console.warn('🚨 [Login] Ghost user detected. Purging session...');
+                        console.warn('🚨 [Login] User not found in this studio in database. Purging session...');
                         const { createClient } = require('@/lib/supabase/client');
                         const supabase = createClient();
                         await supabase.auth.signOut();
-                        setError(l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.'));
+                        setError(l('მომხმარებელი ვერ მოიძებნა ამ სტუდიაში. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден в этой студии. Зарегистрируйтесь.', 'User not found in this studio. Please register.'));
                         return;
                     }
                 }

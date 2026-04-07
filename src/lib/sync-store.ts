@@ -134,7 +134,9 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         const staffEmails = Array.from(new Set([
             ...(finalStaff || []).map(s => s.email?.toLowerCase().trim()).filter(Boolean),
             ...(finalStaff || []).map(s => s.first_name?.toLowerCase().trim()).filter(Boolean),
-            ...(finalStaff || []).map(s => s.full_name?.toLowerCase().trim()).filter(Boolean)
+            ...(finalStaff || []).map(s => s.full_name?.toLowerCase().trim()).filter(Boolean),
+            ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean),
+            ...(finalStaff || []).map(s => s.phone_number?.replace(/[^0-9+]/g, '')).filter(Boolean)
         ] as string[]));
 
         // Resolve orgId: prioritize the passed argument, then the setting inside finalStudioData
@@ -252,9 +254,20 @@ export async function fetchStaffFromCloud(slug: string): Promise<StaffMember[] |
     return state?.staff_data || null;
 }
 
-export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff: StaffMember, slug: string }[]> {
+export async function findAllStudiosByStaffEmail(query: string): Promise<{ staff: StaffMember, slug: string }[]> {
     if (typeof window === 'undefined') return [];
-    const cleanEmail = email.trim().toLowerCase();
+    
+    // Clean up query variations
+    const cleanQuery = query.trim().toLowerCase();
+    const digitsOnly = query.replace(/[^0-9]/g, '');
+    
+    // Create a set of potential matches to check in the DB
+    const searchTerms = Array.from(new Set([
+        cleanQuery,
+        digitsOnly,
+        // If it starts with +995 or 5, try variations
+        digitsOnly.startsWith('995') ? digitsOnly.slice(3) : digitsOnly,
+    ].filter(t => t.length > 2)));
 
     const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('QUERY_TIMEOUT')), 12000)
@@ -262,15 +275,15 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
 
     try {
         const supabase = createClient();
-        console.log('📡 [SyncStore] Searching cloud for:', cleanEmail);
+        console.log('📡 [SyncStore] Searching cloud with terms:', searchTerms);
         
         const task = (async () => {
             const { data, error } = await supabase
                 .from(SETTINGS_TABLE)
                 .select('studio_slug, staff_data, updated_at')
-                .contains('staff_emails', [cleanEmail])
+                .contains('staff_emails', searchTerms) // Match ANY of the terms
                 .order('updated_at', { ascending: false })
-                .limit(5);
+                .limit(10);
 
             if (error) {
                 console.error('❌ [SyncStore] Cloud Search Error:', error);
@@ -283,39 +296,70 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
         const data = await Promise.race([task, timeoutPromise]) as any[];
         
         if (!data || data.length === 0) {
-            console.warn('⚠️ [SyncStore] Cloud Search: No studios found for:', cleanEmail);
+            console.warn('⚠️ [SyncStore] Cloud Search: No studios found for terms:', searchTerms);
             return [];
         }
 
         const results: { staff: StaffMember, slug: string }[] = [];
         
         data.forEach(row => {
-            const staffMatch = (row.staff_data as StaffMember[]).find(s =>
-                s.email?.toLowerCase().trim() === cleanEmail ||
-                s.full_name?.toLowerCase().trim() === cleanEmail ||
-                s.first_name?.toLowerCase().trim() === cleanEmail
-            );
-            if (staffMatch) {
-                // Ensure org_id from staff object is used
-                const staff = { ...staffMatch };
-                results.push({ staff, slug: row.studio_slug });
-            }
+            const staffMatch = (row.staff_data as StaffMember[]).find(s => {
+                const sEmail = s.email?.toLowerCase().trim();
+                const sFirstName = s.first_name?.toLowerCase().trim();
+                const sFullName = s.full_name?.toLowerCase().trim();
+                const sPhone = (s.phone || s.phone_number || '').replace(/[^0-9]/g, '');
 
+                return searchTerms.some(t => 
+                    t === sEmail || 
+                    t === sFirstName || 
+                    t === sFullName || 
+                    (sPhone && (sPhone === t || sPhone.endsWith(t) || t.endsWith(sPhone)))
+                );
+            });
+            
+            if (staffMatch) {
+                results.push({ staff: staffMatch, slug: row.studio_slug });
+            }
         });
 
-        // Smart Sort: Prefer slugs that look like "real" production slugs (non-demo)
         return results.sort((a, b) => {
             const aIsDemo = a.slug.includes('demo');
             const bIsDemo = b.slug.includes('demo');
             if (aIsDemo && !bIsDemo) return 1;
             if (!aIsDemo && bIsDemo) return -1;
-            return 0; // Keep the 'updated_at' order from DB as secondary
+            return 0;
         });
-    } catch (err) {
+
+    } catch (err: any) {
+        console.error('❌ [SyncStore] Cloud Search Critical Error:', err);
         return [];
     }
+}
 
+/**
+ * Fast targeted verification: Checks if a specific query (email/phone) exists in a specific studio.
+ */
+export async function verifyUserInStudio(slug: string, query: string): Promise<boolean> {
+    if (typeof window === 'undefined' || !slug || !query) return false;
+    const cleanQuery = query.trim().toLowerCase();
+    const digitsOnly = query.replace(/[^0-9]/g, '');
 
+    const terms = Array.from(new Set([cleanQuery, digitsOnly].filter(t => t.length > 2)));
+
+    try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_emails')
+            .eq('studio_slug', slug)
+            .single();
+
+        if (error || !data) return false;
+        const staffEmails = (data.staff_emails || []) as string[];
+        return terms.some(t => staffEmails.includes(t));
+    } catch {
+        return false;
+    }
 }
 
 export async function checkCloudConnection(slug: string): Promise<boolean> {
