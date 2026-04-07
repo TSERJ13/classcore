@@ -11,6 +11,7 @@ const SUPER_ADMIN_EMAILS = [
 export function useUser() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isVerified, setIsVerified] = useState<boolean | null>(null);
     const [profile, setProfile] = useState<{
         studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; phone?: string; role?: string; photo_url?: string; allowedBranchIds?: string[];
         canViewAttendance?: boolean;
@@ -78,12 +79,19 @@ export function useUser() {
 
                     if (!stillHasAccess) {
                         console.warn('🚨 [useUser] Session invalid: User no longer found in this studio. Logging out.');
+                        setIsVerified(false);
                         await logout();
                         return;
                     }
+                    setIsVerified(true);
                 } catch (err) {
                     console.error('⚠️ [useUser] Cloud validation skipped due to error:', err);
+                    setIsVerified(true); // Fallback to avoid dead-lock
                 }
+            } else if (!currentUserEmail || !currentSlug) {
+                setIsVerified(false);
+            } else {
+                setIsVerified(true);
             }
 
             const activeSlugLocal = localStorage.getItem('cc_active_studio_slug');
@@ -248,5 +256,5 @@ export function useUser() {
         window.location.href = '/login';
     };
 
-    return { user, profile, loading, logout };
+    return { user, profile, loading, isVerified, logout };
 }
