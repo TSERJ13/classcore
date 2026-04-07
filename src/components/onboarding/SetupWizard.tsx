@@ -220,16 +220,16 @@ export function SetupWizard() {
                         <div className="space-y-5">
                             <div className="space-y-2">
                                 <span className={labelCls}>{t.hallName}</span>
-                                <input value={hallData.name} onChange={e => setHallData(prev => ({ ...prev, name: e.target.value }))} placeholder={l('მთავარი დარბაზი', 'Главный зал', 'Main Studio')} className={inputCls} />
+                                <input value={hallData.name} onChange={e => setHallData(prev => ({ ...prev, name: e.target.value }))} placeholder={l('დასახელება...', 'Название...', 'Name...')} className={inputCls} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <span className={labelCls}>{t.capacity}</span>
-                                    <input type="number" value={hallData.capacity} onChange={e => setHallData(prev => ({ ...prev, capacity: e.target.value }))} placeholder="20" className={inputCls} />
+                                    <input type="number" value={hallData.capacity} onChange={e => setHallData(prev => ({ ...prev, capacity: e.target.value }))} placeholder="0" className={inputCls} />
                                 </div>
                                 <div className="space-y-2">
                                     <span className={labelCls}>M²</span>
-                                    <input type="number" value={hallData.sq_meters} onChange={e => setHallData(prev => ({ ...prev, sq_meters: e.target.value }))} placeholder="100" className={inputCls} />
+                                    <input type="number" value={hallData.sq_meters} onChange={e => setHallData(prev => ({ ...prev, sq_meters: e.target.value }))} placeholder="0" className={inputCls} />
                                 </div>
                             </div>
                         </div>
@@ -256,16 +256,16 @@ export function SetupWizard() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <span className={labelCls}>{t.firstName}</span>
-                                    <input value={teacherData.firstName} onChange={e => setTeacherData(prev => ({ ...prev, firstName: e.target.value }))} placeholder={l('სახელი', 'Имя', 'First Name')} className={inputCls} />
+                                    <input value={teacherData.firstName} onChange={e => setTeacherData(prev => ({ ...prev, firstName: e.target.value }))} placeholder={l('სახელი...', 'Имя...', 'First Name...')} className={inputCls} />
                                 </div>
                                 <div className="space-y-2">
                                     <span className={labelCls}>{t.lastName}</span>
-                                    <input value={teacherData.lastName} onChange={e => setTeacherData(prev => ({ ...prev, lastName: e.target.value }))} placeholder={l('გვარი', 'Фамилия', 'Last Name')} className={inputCls} />
+                                    <input value={teacherData.lastName} onChange={e => setTeacherData(prev => ({ ...prev, lastName: e.target.value }))} placeholder={l('გვარი...', 'Фамилия...', 'Last Name...')} className={inputCls} />
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <span className={labelCls}>{l('ტელეფონი', 'Телефон', 'Phone')}</span>
-                                <input value={teacherData.phone} onChange={e => setTeacherData(prev => ({ ...prev, phone: e.target.value }))} placeholder="577 XX XX XX" className={inputCls} />
+                                <input value={teacherData.phone} onChange={e => setTeacherData(prev => ({ ...prev, phone: e.target.value }))} placeholder="5XX XX XX XX" className={inputCls} />
                             </div>
                         </div>
                         <div className="space-y-4 pt-4">

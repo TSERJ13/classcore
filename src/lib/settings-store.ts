@@ -379,7 +379,7 @@ export function generateCabinetCode(slug: string): string {
 export const DEFAULT_SETTINGS: StudioSettings = {
     orgId: '',
     studioName: '',
-    studioSlug: 'demo.classcore.ge',
+    studioSlug: '',
     isWizardCompleted: false,
     logoDataUrl: null,
     currency: 'GEL',

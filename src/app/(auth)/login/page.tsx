@@ -60,7 +60,7 @@ export default function LoginPage() {
         const password = formData.get('password') as string;
 
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('TIMEOUT')), 12000)
+            setTimeout(() => reject(new Error('TIMEOUT')), 20000)
         );
 
         try {
@@ -92,7 +92,7 @@ export default function LoginPage() {
                         }
                     }
                     if (signInError) throw signInError;
-                    throw new Error('მომხმარებელი ვერ მოიძებნა');
+                    throw new Error('USER_NOT_FOUND');
                 }
 
                 if (signedInUser?.user_metadata?.is_activated === false) {
@@ -115,7 +115,11 @@ export default function LoginPage() {
             
         } catch (err: any) {
             console.error('Login error:', err);
-            if (err.message === 'TIMEOUT' || err.message === 'QUERY_TIMEOUT' || err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
+            const isTimeout = err.message === 'TIMEOUT' || err.message === 'QUERY_TIMEOUT';
+
+            if (isTimeout) {
+                setError(l('კავშირის დრო ამოიწურა. გთხოვთ შეამოწმოთ ინტერნეტი და სცადოთ თავიდან.', 'Время ожидания истекло. Проверьте интернет и попробуйте снова.', 'Connection timeout. Please check your internet and retry.'));
+            } else if (err.message === 'USER_NOT_FOUND' || err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
                 setError(l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.'));
             } else if (err.message === 'Email not confirmed') {
                 setError(t.confirmEmail);

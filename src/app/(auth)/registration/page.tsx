@@ -98,6 +98,18 @@ export default function RegistrationPage() {
 
             if (authError) throw authError;
 
+            // PRE-EMPTIVE CLEANUP: Clear all demo/legacy keys before the user logs in
+            if (typeof window !== 'undefined') {
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('cc_') && 
+                        !key.includes('lang') && 
+                        !key.includes('auth') && 
+                        !key.includes('active_studio_slug')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+            }
+
             setRegData({ email });
             setStep('success');
         } catch (err: any) {

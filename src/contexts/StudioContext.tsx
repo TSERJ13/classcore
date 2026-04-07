@@ -767,9 +767,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                             'cc_checkins', 'cc_shop_sales', 'cc_notifications', 
                             'cc_calendar_events', 'cc_student_data', 'cc_student_subscriptions',
                             'cc_groups', 'cc_halls', 'cc_attendance_data', 'cc_subscription_plans',
-                            'cc_shop_products', 'cc_teachers', 'cc_sales', 'cc_uid_registry'
+                            'cc_shop_products', 'cc_teachers', 'cc_sales', 'cc_uid_registry',
+                            'cc_expense_data', 'cc_style_settings', 'cc_salary_status', 'cc_audit_logs',
+                            'cc_bonus_rules', 'cc_recurring_billing', 'cc_sms_logs'
                         ];
                         if (dataPrefixes.some(p => k.includes(p))) {
+                            console.log(`🧼 [StudioContext] Purging key: ${k}`);
                             localStorage.removeItem(k);
                         }
                     }

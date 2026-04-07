@@ -257,7 +257,7 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
     const cleanEmail = email.trim().toLowerCase();
 
     const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('QUERY_TIMEOUT')), 5000)
+        setTimeout(() => reject(new Error('QUERY_TIMEOUT')), 12000)
     );
 
     try {
@@ -272,14 +272,20 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
                 .order('updated_at', { ascending: false })
                 .limit(5);
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ [SyncStore] Cloud Search Error:', error);
+                throw error;
+            }
             return data || [];
         })();
 
-        // Race the search task against the 5s timeout
+        // Race the search task against the 12s timeout
         const data = await Promise.race([task, timeoutPromise]) as any[];
         
-        if (!data || data.length === 0) return [];
+        if (!data || data.length === 0) {
+            console.warn('⚠️ [SyncStore] Cloud Search: No studios found for:', cleanEmail);
+            return [];
+        }
 
         const results: { staff: StaffMember, slug: string }[] = [];
         
