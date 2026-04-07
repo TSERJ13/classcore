@@ -139,6 +139,7 @@ export async function validateStaffLogin(email: string, password: string): Promi
                 }, undefined, matchingResult.slug);
             }
             return matchingResult;
+        } else {
             console.warn('❌ Staff not found in cloud registry for:', cleanEmail);
             return { error: 'მომხმარებელი ამ მონაცემებით ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია' };
         }
