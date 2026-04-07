@@ -273,17 +273,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             <ChevronRight className={cn('w-3.5 h-3.5 transition-transform duration-300', exp && 'rotate-180')} />
                         </button>
                     )}
-                    <div className="px-4 mb-4">
-                        <div className={cn(
-                            "p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col gap-1 transition-all",
-                            !exp && "items-center px-0 bg-transparent border-0"
-                        )}>
-                            {/* Minimal spacer for aesthetic consistency */}
-                            <div className="h-1" />
 
-
-                        </div>
-                    </div>
                     <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[70px] px-4 pb-2">
                         <LanguageSwitcher compact={!exp} mode="session" align="left" />
 

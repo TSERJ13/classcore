@@ -75,7 +75,7 @@ export function useUser() {
                     const verifyTask = verifyUserInStudio(currentSlug, currentUserEmail);
                     const timeoutTask = new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 4000));
                     
-                    const stillHasAccess = await Promise.race([verifyTask, timeoutTask]).catch(() => true); // Default to allow on timeout to prevent lock-out
+                    const stillHasAccess = await Promise.race([verifyTask, timeoutTask]).catch(() => false); // Strict: deny on timeout/error
 
                     if (!stillHasAccess) {
                         console.warn('🚨 [useUser] Session invalid: User no longer found in this studio. Logging out.');
@@ -85,12 +85,14 @@ export function useUser() {
                     }
                     setIsVerified(true);
                 } catch (err) {
-                    console.error('⚠️ [useUser] Cloud validation skipped due to error:', err);
-                    setIsVerified(true); // Fallback to avoid dead-lock
+                    console.error('⚠️ [useUser] Cloud validation failed:', err);
+                    setIsVerified(false); // Strict: block on error
+                    await logout();
                 }
             } else if (!currentUserEmail || !currentSlug) {
                 setIsVerified(false);
             } else {
+                // For superadmins or login pages, we allow
                 setIsVerified(true);
             }
 
