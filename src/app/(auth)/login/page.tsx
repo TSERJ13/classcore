@@ -30,23 +30,44 @@ export default function LoginPage() {
         }
 
         if (user && !loading) {
-            if (user.user_metadata?.is_activated === false) {
-                const { createClient } = require('@/lib/supabase/client');
-                const supabase = createClient();
-                supabase.auth.signOut().then(() => {
-                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще არი გააქტიურებული.', 'Account not activated.'));
-                });
-                return;
-            }
+            // VERIFY SESSION (Ghost Login Protection)
+            (async () => {
+                const currentUserEmail = user.email;
+                const currentSlug = user.user_metadata?.studio_slug;
+                
+                if (currentUserEmail && currentSlug) {
+                    const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
+                    const cloudStudios = await findAllStudiosByStaffEmail(currentUserEmail.toLowerCase().trim());
+                    const stillHasAccess = cloudStudios.some(s => s.slug === currentSlug);
 
-            const SUPER_ADMIN_EMAILS = ['adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge', 'tserj13@classcore.ge'];
-            const isSuperAdmin = user.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
-            
-            if (isSuperAdmin) {
-                window.location.href = '/superadmin';
-            } else {
-                window.location.href = '/dashboard';
-            }
+                    if (!stillHasAccess) {
+                        console.warn('🚨 [Login] Ghost user detected. Purging session...');
+                        const { createClient } = require('@/lib/supabase/client');
+                        const supabase = createClient();
+                        await supabase.auth.signOut();
+                        setError(l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.'));
+                        return;
+                    }
+                }
+
+                if (user.user_metadata?.is_activated === false) {
+                    const { createClient } = require('@/lib/supabase/client');
+                    const supabase = createClient();
+                    supabase.auth.signOut().then(() => {
+                        setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще არი გააქტიურებული.', 'Account not activated.'));
+                    });
+                    return;
+                }
+
+                const SUPER_ADMIN_EMAILS = ['adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge', 'tserj13@classcore.ge'];
+                const isSuperAdmin = user.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
+                
+                if (isSuperAdmin) {
+                    window.location.href = '/superadmin';
+                } else {
+                    window.location.href = '/dashboard';
+                }
+            })();
         }
     }, [user, loading, lang]);
 

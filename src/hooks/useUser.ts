@@ -48,6 +48,29 @@ export function useUser() {
             const { data: { session } } = await supabase.auth.getSession();
             const u = session?.user;
             const staffSess = getStaffSession();
+            
+            // Determine the final user email to validate
+            const currentUserEmail = u?.email || staffSess?.staff?.email;
+            const currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug;
+
+            // MANDATORY CLOUD VALIDATION (Ghost Login Protection)
+            // If we have a session but it's not a superadmin route, verify existence in DB
+            if (currentUserEmail && currentSlug && !isSuperAdminRoute) {
+                try {
+                    const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
+                    const cloudStudios = await findAllStudiosByStaffEmail(currentUserEmail.toLowerCase().trim());
+                    const stillHasAccess = cloudStudios.some(s => s.slug === currentSlug);
+
+                    if (!stillHasAccess) {
+                        console.warn('🚨 [useUser] Session invalid: User no longer found in this studio. Logging out.');
+                        await logout();
+                        return;
+                    }
+                } catch (err) {
+                    console.error('⚠️ [useUser] Cloud validation skipped due to error:', err);
+                }
+            }
+
             const activeSlugLocal = localStorage.getItem('cc_active_studio_slug');
             const pathSegments = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : [];
             const pathSlug = pathSegments[0];
