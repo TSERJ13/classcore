@@ -64,10 +64,12 @@ export function useUser() {
             // Determine the final user email to validate
             const currentUserEmail = u?.email || staffSess?.staff?.email;
             const currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug;
+            const isOwner = u?.user_metadata?.role === 'owner';
 
             // MANDATORY CLOUD VALIDATION (Ghost Login Protection)
             // If we have a session but it's not a superadmin route, verify existence in DB
-            if (currentUserEmail && currentSlug && !isSuperAdminRoute) {
+            // EXCEPTION: Owners are allowed via Supabase Auth directly (Prevents new studio deadlocks)
+            if (currentUserEmail && currentSlug && !isSuperAdminRoute && !isOwner) {
                 try {
                     const { verifyUserInStudio } = await import('@/lib/sync-store');
                     
@@ -92,7 +94,7 @@ export function useUser() {
             } else if (!currentUserEmail || !currentSlug) {
                 setIsVerified(false);
             } else {
-                // For superadmins or login pages, we allow
+                // For superadmins, owners, or login pages, we allow
                 setIsVerified(true);
             }
 
