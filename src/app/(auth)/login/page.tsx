@@ -46,7 +46,7 @@ export default function LoginPage() {
                         const { createClient } = require('@/lib/supabase/client');
                         const supabase = createClient();
                         await supabase.auth.signOut();
-                        setError(l('მომხმარებელი ვერ მოიძებნა ამ სტუდიაში. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден в этой студии. Зарегистрируйтесь.', 'User not found in this studio. Please register.'));
+                        setError(l('მომხმარებელი ამ მონაცემებით ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია', 'Пользователь с этими данными не найден. Пожалуйста, зарегистрируйтесь.', 'User with these credentials not found. Please register.'));
                         return;
                     }
                 }
