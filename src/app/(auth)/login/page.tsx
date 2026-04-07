@@ -34,8 +34,9 @@ export default function LoginPage() {
             (async () => {
                 const currentUserEmail = user.email;
                 const currentSlug = user.user_metadata?.studio_slug;
+                const isOwner = user.user_metadata?.role === 'owner';
                 
-                if (currentUserEmail && currentSlug) {
+                if (currentUserEmail && currentSlug && !isOwner) {
                     const { verifyUserInStudio } = await import('@/lib/sync-store');
                     
                     // Fast targeted verification
