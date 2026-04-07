@@ -7,6 +7,7 @@ import { type StudioSettings, type ThemeKey, type BgKey, type Branch, type Staff
 import { useUser } from '@/hooks/useUser';
 import { recordAuditAction } from '@/lib/audit-store';
 import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
+import { Logo } from '@/components/ui/Logo';
 
 const SETTINGS_TABLE = 'studio_settings';
 
@@ -63,7 +64,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
         return 'main';
     });
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [isLoaded, setIsLoaded] = useState(true);
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [pushCounter, setPushCounter] = useState(0);
     const triggerPush = useCallback(() => setPushCounter(prev => prev + 1), []);
@@ -509,16 +510,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         const safetyTimer = setTimeout(() => {
             if (!hasSyncedRef.current) {
                 console.warn('📡 [StudioContext] Sync safety release triggered');
-                setIsLoaded(true);
             }
-        }, 5000);
+        }, 8000);
 
         const timer = setTimeout(() => {
             const activeSlug = local.studioSlug;
             // Immediate release for demo or empty slugs
             if (!activeSlug || activeSlug === 'demo.classcore.ge') {
                 setFirstSyncDone(true);
-                setIsLoaded(true);
                 return;
             }
 
@@ -542,16 +541,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                     // Hydration complete: Release the loading guard
                     setFirstSyncDone(true);
-                    setIsLoaded(true);
                 }).catch(err => {
                     console.error('📡 [StudioContext] Initial Cloud Sync Failed:', err);
                     setFirstSyncDone(true);
-                    setIsLoaded(true);
                 });
 
             }).catch(err => {
                 console.error('📡 [StudioContext] Sync store import failed:', err);
-                setIsLoaded(true);
             });
         }, 0);
 

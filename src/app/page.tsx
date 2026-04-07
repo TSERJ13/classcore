@@ -269,7 +269,7 @@ export default function LandingPage() {
                                 href={isLoggedIn ? "/dashboard" : "/registration"} 
                                 className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-indigo-600 text-white rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
                             >
-                                {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Беსплатноე დემო', 'Start for Free')} <ArrowRight className="w-5 h-5" />
+                                {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Начать бесплатно', 'Start for Free')} <ArrowRight className="w-5 h-5" />
                             </Link>
                         </div>
 
@@ -376,7 +376,7 @@ export default function LandingPage() {
                                 </div>
                                 <div className="flex items-center gap-5">
                                     <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-600"><Phone className="w-6 h-6" /></div>
-                                    <div className="text-sm font-bold">+995 555 123 456</div>
+                                    <div className="text-sm font-bold">+995 555 13 00 13</div>
                                 </div>
                             </div>
                         </div>

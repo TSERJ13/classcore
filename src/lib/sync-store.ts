@@ -131,9 +131,11 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         ];
 
         const nextUpdatedAt = new Date().toISOString();
-        const staffEmails = (finalStaff || [])
-            .filter(s => s && s.email)
-            .map(s => s.email!.toLowerCase().trim());
+        const staffEmails = Array.from(new Set([
+            ...(finalStaff || []).map(s => s.email?.toLowerCase().trim()).filter(Boolean),
+            ...(finalStaff || []).map(s => s.first_name?.toLowerCase().trim()).filter(Boolean),
+            ...(finalStaff || []).map(s => s.full_name?.toLowerCase().trim()).filter(Boolean)
+        ] as string[]));
 
         // Resolve orgId: prioritize the passed argument, then the setting inside finalStudioData
         const finalOrgId = orgId || finalStudioData.orgId || finalStudioData.org_id || '';
@@ -283,7 +285,9 @@ export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff
         
         data.forEach(row => {
             const staffMatch = (row.staff_data as StaffMember[]).find(s =>
-                s.email?.toLowerCase().trim() === cleanEmail
+                s.email?.toLowerCase().trim() === cleanEmail ||
+                s.full_name?.toLowerCase().trim() === cleanEmail ||
+                s.first_name?.toLowerCase().trim() === cleanEmail
             );
             if (staffMatch) {
                 // Ensure org_id from staff object is used

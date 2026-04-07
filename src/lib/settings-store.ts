@@ -74,7 +74,9 @@ export async function validateStaffLogin(email: string, password: string): Promi
     const cleanEmail = email.trim().toLowerCase();
     const tryLogin = (settings: StudioSettings, slug: string) => {
         const staff = settings.staff?.find(s =>
-            s.email?.toLowerCase().trim() === cleanEmail &&
+            (s.email?.toLowerCase().trim() === cleanEmail || 
+             s.full_name?.toLowerCase().trim() === cleanEmail || 
+             s.first_name?.toLowerCase().trim() === cleanEmail) &&
             s.password === password
         );
         return staff ? { staff, slug } : null;
@@ -139,7 +141,7 @@ export async function validateStaffLogin(email: string, password: string): Promi
             return matchingResult;
         } else {
             console.warn('❌ Staff not found in cloud registry for:', cleanEmail);
-            return { error: 'მომხმარებელი ვერ მოიძებნა. თუ ახალ კომპიუტერზე ხართ, დარწმუნდით რომ ძველ კომპიუტერზე "პარამეტრებში" დაყენებული გაქვთ საკუთარი (უნიკალური) სტუდიის მისამართი (Slug).' };
+            return { error: 'სტუდია ვერ მოიძებნა. თუ ახლახან გააკეთეთ Master Reset, გთხოვთ თავიდან გაიაროთ რეგისტრაცია.' };
         }
 
     } catch (err: any) {

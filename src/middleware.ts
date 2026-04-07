@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     // 1. Identify Route Type first (Zero-cost logic)
-    const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/terms-and-conditions', '/auth/confirm'];
+    const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/privacy', '/terms', '/terms-and-conditions', '/auth/confirm'];
     const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
     const segments = pathname.split('/').filter(Boolean);
     const isPortal = segments.length === 2 && !publicRoutes.includes('/' + segments[0]);

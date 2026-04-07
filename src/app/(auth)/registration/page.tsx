@@ -129,7 +129,7 @@ export default function RegistrationPage() {
                                 <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('რეგისტრაცია', 'Регистрация', 'Fast Registration')}</h2>
                                 <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
                                     <Sparkles className="w-4 h-4 animate-pulse" />
-                                    {l('დაიწყეთ სტუდია 60 წამში', 'Запустите студию за 60 сек', 'Launch your studio in 60s')}
+                                    {l('დაიწყე სტუდიის მართვა 60 წამში', 'Запустите студию за 60 сек', 'Launch your studio in 60s')}
                                 </p>
                             </div>
 
