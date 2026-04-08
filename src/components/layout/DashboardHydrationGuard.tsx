@@ -15,6 +15,13 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
         setMounted(true);
     }, []);
 
+    useEffect(() => {
+        if (mounted && !authLoading && isVerified === false) {
+            console.log('🚪 [DashboardHydrationGuard] Session invalid or missing. Redirecting to login.');
+            router.push('/login');
+        }
+    }, [mounted, authLoading, isVerified, router]);
+
     const handleLogout = () => {
         localStorage.removeItem('cc_sa_impersonate');
         document.cookie = "cc_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";

@@ -20,13 +20,17 @@ export async function GET() {
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
+        if (supabaseServiceKey === process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            console.warn('⚠️ [SuperAdmin API] Using ANON_KEY instead of SERVICE_ROLE_KEY. Data may be restricted by RLS.');
+        }
+
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         const { data, error } = await supabase
             .from('studio_settings')
             .select('studio_slug, staff_data, updated_at')
             .order('updated_at', { ascending: false })
-            .limit(50);
+            .limit(500);
 
         if (error) throw error;
 

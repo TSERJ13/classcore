@@ -753,7 +753,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         // If we have a profile with a real slug/name, and we are currently on demo
         if (isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
             console.log('📡 [StudioContext] Auto-syncing real studio from profile:', profile.studio_slug);
-            
             // ONE-TIME PURGE logic: protects against mock data contamination
             // BUT: if we just registered, the wizard already set this to 'true' to PROTECT our new data.
             const hasCleansed = localStorage.getItem(`cc_cleansed_${profile.studio_slug}`);

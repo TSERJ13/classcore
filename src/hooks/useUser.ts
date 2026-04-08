@@ -54,6 +54,8 @@ export function useUser() {
                 if (staffSess) {
                     // Continue to staff validation below
                 } else {
+                    console.log('👤 [useUser] No session found (Supabase or Staff)');
+                    setIsVerified(false);
                     setLoading(false);
                     return;
                 }

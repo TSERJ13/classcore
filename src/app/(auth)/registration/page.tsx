@@ -74,6 +74,7 @@ export default function RegistrationPage() {
             const supabase = createClient();
             const fullPhone = dialCode + phone.replace(/\s/g, '');
             const studioSlug = compactSlugify(studioName);
+            console.log('📝 [Registration] Generated slug:', studioSlug, 'for studio:', studioName);
 
             if (!studioSlug) {
                 throw new Error(l('გთხოვთ შეიყვანოთ ვალიდური სტუდიის სახელი', 'Пожалуйста, введите корректное название студии', 'Please enter a valid studio name'));
