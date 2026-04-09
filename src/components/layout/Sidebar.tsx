@@ -200,7 +200,7 @@ function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any)
                             href={href}
                             onClick={close}
                             className={cn(
-                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-10 w-full pl-5 gap-3.5',
+                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-9 w-full pl-4.5 gap-3',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -235,7 +235,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             suppressHydrationWarning
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-visible transition-[width] duration-300 ease-in-out',
-                exp ? (isMobile ? 'w-[240px]' : 'w-64') : 'w-[76px]'
+                exp ? (isMobile ? 'w-[200px]' : 'w-[240px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -332,7 +332,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-64' : 'w-[76px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[240px]' : 'w-[72px]')}>
                 <SidebarContent
                     exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
@@ -343,7 +343,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
             <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
 
-            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[240px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[200px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
                 <SidebarContent
                     exp={true} isMobile={true} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}

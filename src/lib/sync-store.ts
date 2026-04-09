@@ -385,3 +385,78 @@ export async function fetchStudioDataFromCloud(slug: string): Promise<any | null
     return state?.studio_data || null;
 }
 
+/**
+ * PURGE UTILITY: Wipes all operational data (students, groups, subs, etc.) 
+ * while keeping the "framework" (name, logo, theme, branches, staff).
+ */
+export async function masterStudioPurge(slug: string): Promise<void> {
+    if (typeof window === 'undefined') return;
+    if (!slug || slug === 'demo.classcore.ge') return;
+
+    try {
+        const supabase = createClient();
+        const { data: current, error: pullError } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_data, studio_slug')
+            .eq('studio_slug', slug)
+            .maybeSingle();
+
+        if (pullError || !current) throw new Error('Studio not found');
+
+        const allStaff = (current.staff_data as any[]) || [];
+        const configEntry = allStaff.find(s => s.id === '__studio_config__');
+        if (!configEntry) return;
+
+        const studioData = configEntry.studio_data || {};
+        const cleanedData: any = {};
+
+        // Essential framework keys to PRESERVE
+        const FRAMEWORK_KEYS = [
+            'studioName', 'logoDataUrl', 'themeKey', 'currency', 
+            'branches', 'notifications', 'sms_templates', 'orgId', 'org_id'
+        ];
+
+        for (const key in studioData) {
+            if (FRAMEWORK_KEYS.includes(key)) {
+                cleanedData[key] = studioData[key];
+            }
+        }
+
+        // Construct cleaned staff array
+        const nextStaff = [
+            ...allStaff.filter(s => s.id !== '__studio_config__'),
+            { id: '__studio_config__', studio_data: cleanedData }
+        ];
+
+        // Direct database update to bypass local-to-cloud merge logic
+        const { error: pushError } = await supabase
+            .from(SETTINGS_TABLE)
+            .update({
+                staff_data: nextStaff,
+                updated_at: new Date().toISOString()
+            })
+            .eq('studio_slug', slug);
+
+        if (pushError) throw pushError;
+
+        // ─── Local Storage Cleanup ───
+        // We also clear local browser data to ensure the UI updates immediately for the person performing the purge
+        Object.keys(localStorage).forEach(key => {
+            if (
+                key.startsWith(`chat_${slug}_`) || 
+                key.startsWith(`group_chat_${slug}_`) || 
+                key.startsWith(`cc_notifications_${slug}`) ||
+                key === `cc_notifications_history`
+            ) {
+                localStorage.removeItem(key);
+            }
+        });
+
+        console.log(`✅ [SyncStore] Purge complete for ${slug}`);
+    } catch (err) {
+        console.error('❌ [SyncStore] Purge error:', err);
+        throw err;
+    }
+}
+
+

@@ -4,7 +4,6 @@ import { syncStaffToCloud, fetchStaffFromCloud } from './sync-store';
 
 import { 
     type ThemeKey, 
-    type BgKey, 
     type StaffRole as UserRole, 
     type StaffPermissions, 
     type TrashItem, 
@@ -14,7 +13,7 @@ import {
     type StudioSettings 
 } from '@/types';
 
-export type { ThemeKey, BgKey, UserRole, StaffPermissions, TrashItem, SubscriptionLog, StaffMember, Branch, StudioSettings };
+export type { ThemeKey, UserRole, StaffPermissions, TrashItem, SubscriptionLog, StaffMember, Branch, StudioSettings };
 
 export const THEMES: Record<ThemeKey, { label: string; accent: string; accentHex: string; bg: string; text: string; border: string; from: string; to: string }> = {
     indigo: { label: 'Indigo', accent: '239 84% 67%', accentHex: '#6366f1', bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30', from: 'from-indigo-500', to: 'to-violet-600' },
@@ -26,16 +25,6 @@ export const THEMES: Record<ThemeKey, { label: string; accent: string; accentHex
     fuchsia: { label: 'Fuchsia', accent: '292 91% 63%', accentHex: '#e879f9', bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-400', border: 'border-fuchsia-500/30', from: 'from-fuchsia-500', to: 'to-purple-600' },
 };
 
-export type BgTheme = { label: string; base: string; surface: string; card: string; preview: string };
-export const BG_THEMES: Record<BgKey, BgTheme> = {
-    charcoal: { label: 'Charcoal', base: '#0e0e12', surface: '#111116', card: '#161620', preview: 'bg-[#0e0e12]' },
-    midnight: { label: 'Midnight', base: '#080c14', surface: '#0d1424', card: '#121c30', preview: 'bg-[#080c14]' },
-    abyss: { label: 'Abyss', base: '#050508', surface: '#0a0a0f', card: '#0f0f16', preview: 'bg-[#050508]' },
-    forest: { label: 'Forest', base: '#071310', surface: '#0c1c18', card: '#112420', preview: 'bg-[#071310]' },
-    white: { label: 'White', base: '#ffffff', surface: '#f8f9fa', card: '#ffffff', preview: 'bg-[#ffffff]' },
-    ivory: { label: 'Ivory', base: '#fefcf8', surface: '#faf8f3', card: '#ffffff', preview: 'bg-[#fefcf8]' },
-    cocoa: { label: 'Cocoa', base: '#faf5ed', surface: '#f3ede4', card: '#ffffff', preview: 'bg-[#faf5ed]' },
-};
 
 /** Get the currently active studio slug for the dashboard */
 export function getActiveSlug(): string {
@@ -387,7 +376,6 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     timezone: 'Asia/Tbilisi',
     googleCalendarEnabled: false,
     themeKey: 'indigo',
-    bgKey: 'white',
     accentColor: '239 84% 67%',
     notifications: {
         newStudent: true,
@@ -674,41 +662,6 @@ export function applyTheme(themeKey: ThemeKey) {
     if (typeof document !== 'undefined') {
         document.documentElement.style.setProperty('--accent', theme.accent);
         document.documentElement.style.setProperty('--accent-hex', theme.accentHex);
-    }
-}
-
-/** Apply background CSS variables to :root */
-export function applyBg(bgKey: BgKey) {
-    const bg = BG_THEMES[bgKey];
-    if (typeof document !== 'undefined') {
-        // Set CSS variables
-        document.documentElement.style.setProperty('--bg-base', bg.base);
-        document.documentElement.style.setProperty('--bg-surface', bg.surface);
-        document.documentElement.style.setProperty('--bg-card', bg.card);
-
-        // Apply to body directly
-        document.body.style.background = bg.base;
-        document.body.style.transition = 'background-color 0.3s ease';
-
-        // Apply to html element as well
-        document.documentElement.style.background = bg.base;
-
-        // For light themes, adjust text colors
-        const isLight = ['white', 'ivory', 'cocoa'].includes(bgKey);
-        if (isLight) {
-            document.documentElement.classList.add('light-theme');
-            document.documentElement.style.setProperty('--text-primary', '#111827');
-            document.documentElement.style.setProperty('--text-muted', '#6b7280');
-            document.documentElement.style.setProperty('--border-subtle', 'rgba(0,0,0,0.06)');
-        } else {
-            document.documentElement.classList.remove('light-theme');
-            document.documentElement.style.setProperty('--text-primary', '#ffffff');
-            document.documentElement.style.setProperty('--text-muted', 'rgba(255,255,255,0.6)');
-            document.documentElement.style.setProperty('--border-subtle', 'rgba(255,255,255,0.1)');
-        }
-
-        // Force reflow to ensure styles are applied
-        void document.body.offsetHeight;
     }
 }
 

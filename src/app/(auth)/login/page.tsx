@@ -128,6 +128,14 @@ export default function LoginPage() {
                 const SUPER_ADMIN_EMAILS = ['adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge', 'tserj13@classcore.ge'];
                 const isSuperAdmin = email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
 
+                // SECURITY: Enforce email activation
+                if (signedInUser && !signedInUser.email_confirmed_at && !isSuperAdmin) {
+                    await supabase.auth.signOut();
+                    setError(l('გთხოვთ დაადასტუროთ თქვენი ელ-ფოსტა ავტორიზაციამდე.', 'Пожалуйста, подтвердите ваш email перед входом.', 'Please confirm your email before logging in.'));
+                    setIsSubmitting(false);
+                    return;
+                }
+
                 setIsSuccess(true);
                 setTimeout(() => {
                     window.location.href = isSuperAdmin ? '/superadmin' : '/dashboard';

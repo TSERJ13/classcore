@@ -12,7 +12,7 @@ import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { THEMES, BG_THEMES, type ThemeKey, type BgKey, ensureUniqueName, ensureUniqueSlug, convertFinancialData, removeFromRegistry, cleanupRegistry, migrateSlugData, addToRegistry, setActiveSlug } from '@/lib/settings-store';
+import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, convertFinancialData, removeFromRegistry, cleanupRegistry, migrateSlugData, addToRegistry, setActiveSlug } from '@/lib/settings-store';
 import { cn, getInitials, compactSlugify, formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -85,7 +85,7 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 export default function SettingsPage() {
     const { t, lang, setLang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const { settings, isLoaded, setTheme, setBg, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo } = useStudio();
+    const { settings, isLoaded, setTheme, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
     const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin';
@@ -95,8 +95,6 @@ export default function SettingsPage() {
     const [nameVal, setNameVal] = useState(settings.studioName);
     const [slugVal, setSlugVal] = useState(settings.studioSlug);
     const [copiedRegLink, setCopiedRegLink] = useState(false);
-    const [cloudSynced, setCloudSynced] = useState<boolean | null>(null);
-    const [isSyncing, setIsSyncing] = useState(false);
     const [branchModalOpen, setBranchModalOpen] = useState(false);
     const [newBranchName, setNewBranchName] = useState('');
     const [newBranchAddress, setNewBranchAddress] = useState('');
@@ -152,31 +150,7 @@ export default function SettingsPage() {
         }
     }, [settings.studioName, settings.studioSlug]);
 
-    useEffect(() => {
-        if (settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge') {
-            checkCloudConnection(settings.studioSlug).then(setCloudSynced);
-        }
-    }, [settings.studioSlug]);
 
-    const forceSync = async () => {
-        if (!settings.studioSlug || settings.studioSlug === 'demo.classcore.ge') return;
-        setIsSyncing(true);
-        try {
-            await syncStaffToCloud(settings.studioSlug, settings.staff || []);
-            const ok = await checkCloudConnection(settings.studioSlug);
-            setCloudSynced(ok);
-            if (ok) {
-                addNotification({
-                    title: t.cloudSyncLabel,
-                    message: t.syncSuccess,
-                    type: 'success',
-                    time: String(Date.now())
-                });
-            }
-        } finally {
-            setIsSyncing(false);
-        }
-    };
 
     // Password Modal States
     const [showPwdModal, setShowPwdModal] = useState(false);
@@ -368,7 +342,7 @@ export default function SettingsPage() {
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-10">
             {isAdmin && (
                 <>
-                    <Section title={t.studioSettings} icon={Building2} defaultOpen={false}>
+                    <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
                         {/* Logo */}
                         <Row label={t.logoLabel} sub={t.logoDesc}>
                             <div className="flex items-center gap-3">
@@ -466,28 +440,6 @@ export default function SettingsPage() {
                             </div>
                         </Row>
 
-                        {settings.studioSlug !== 'demo.classcore.ge' && (
-                            <Row label={t.cloudSyncLabel} sub={t.cloudSyncDesc}>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border-subtle rounded-xl">
-                                        <div className={cn("w-2 h-2 rounded-full", cloudSynced === true ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : cloudSynced === false ? "bg-red-500" : "bg-amber-500 animate-pulse")} />
-                                        <span className="text-[10px] font-black tracking-widest text-muted">
-                                            {cloudSynced === true ? t.registeredFound :
-                                                cloudSynced === false ? t.notFoundCloud :
-                                                    t.checkingStatus}
-                                        </span>
-                                    </div>
-                                    <button
-                                        onClick={forceSync}
-                                        disabled={isSyncing}
-                                        className="w-10 h-10 flex items-center justify-center bg-surface border border-border-subtle hover:text-indigo-500 rounded-xl transition-all disabled:opacity-50"
-                                        title={t.forceSyncAction}
-                                    >
-                                        <RefreshCcw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                    </button>
-                                </div>
-                            </Row>
-                        )}
                         <Row label={t.registrationLink} sub={t.registrationLinkDesc}>
                             <div className="flex items-center gap-2">
                                 <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[140px] transition-colors">
@@ -606,46 +558,7 @@ export default function SettingsPage() {
                 </>
             )}
 
-            {/* Aesthetics */}
-            <Section title={t.colorThemes} icon={Palette}>
-                <div className="px-6 py-6">
-                    <p className="text-xs text-muted mb-4">{t.colorThemesDesc}</p>
-                    <div className="grid grid-cols-7 gap-2">
-                        {(Object.entries(THEMES) as [ThemeKey, typeof THEMES[ThemeKey]][]).map(([key, th]) => {
-                            const isActive = settings.themeKey === key;
-                            return (
-                                <button key={key} onClick={() => setTheme(key)} className="flex flex-col items-center gap-2 group">
-                                    <div className={cn('w-10 h-10 rounded-full transition-all duration-200 shadow-lg flex items-center justify-center', `bg-gradient-to-br ${th.from} ${th.to}`, isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105')}>
-                                        {isActive && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
-                                    </div>
-                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary font-bold' : 'text-muted')}>{th.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            </Section>
-
-            <Section title={t.bgColor} icon={Palette}>
-                <div className="px-6 py-6">
-                    <p className="text-xs text-muted mb-4">{t.bgColorDesc}</p>
-                    <div className="grid grid-cols-7 gap-2">
-                        {(Object.entries(BG_THEMES) as [BgKey, typeof BG_THEMES[BgKey]][]).map(([key, bg]) => {
-                            const isActive = settings.bgKey === key;
-                            return (
-                                <button key={key} onClick={() => setBg(key)} className="flex flex-col items-center gap-2 group">
-                                    <div className={cn('w-10 h-10 rounded-full border-2 transition-all duration-200 shadow-lg flex items-center justify-center', isActive ? 'ring-2 ring-white/60 ring-offset-2 ring-offset-[#111116] scale-110 border-white/30' : 'border-white/[0.12] opacity-70 hover:opacity-100 hover:scale-105')} style={{ background: bg.base }}>
-                                        {isActive && <Check className="w-4 h-4 text-white/80" strokeWidth={3} />}
-                                    </div>
-                                    <span className={cn('text-[10px] font-medium', isActive ? 'text-primary font-bold' : 'text-muted')}>{bg.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            </Section>
-
-            {/* ─── Security ─── */}
+            {/* Security */}
             <Section title={t.settingsSecurity} icon={Shield}>
                 {isAdmin && (
                     <Row label={t.twoFactorAuth} sub={t.twoFactorDesc}>
@@ -657,25 +570,6 @@ export default function SettingsPage() {
                 </Row>
             </Section>
 
-            {/* ─── Support Footer ─── */}
-            <Section title={t.helpSupport} icon={MessageCircle}>
-                <div className="p-5">
-                    <button
-                        onClick={() => window.dispatchEvent(new Event('toggle-support'))}
-                        className="w-full flex flex-col sm:flex-row items-center gap-4 p-6 bg-surface/30 border border-border-subtle rounded-2xl hover:bg-surface/50 transition-all text-left group"
-                    >
-                        <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-500/10 flex items-center justify-center text-indigo-500 flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <MessageCircle className="w-8 h-8" />
-                        </div>
-                        <div className="flex-1 text-center sm:text-left">
-                            <h4 className="text-base font-black text-primary">{t.needHelp}</h4>
-                            <p className="text-xs font-bold text-muted mt-1 leading-relaxed opacity-60">
-                                {t.supportDesc}
-                            </p>
-                        </div>
-                    </button>
-                </div>
-            </Section>
 
             {/* Account (Merged) Section at the Bottom */}
             {isOwner && (

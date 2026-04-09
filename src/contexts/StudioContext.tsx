@@ -1,9 +1,9 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { loadSettings, saveSettings, getStaffSession, patchNotifications, patchSecurity, applyTheme, applyBg, cleanupRegistry, DEFAULT_SETTINGS } from '@/lib/settings-store';
+import { loadSettings, saveSettings, getStaffSession, patchNotifications, patchSecurity, applyTheme, cleanupRegistry, DEFAULT_SETTINGS } from '@/lib/settings-store';
 import { getScopedKey, STORAGE_KEY, ACTIVE_SLUG_KEY } from '@/lib/utils';
-import { type StudioSettings, type ThemeKey, type BgKey, type Branch, type StaffMember, type TrashItem, type SubscriptionLog } from '@/types';
+import { type StudioSettings, type ThemeKey, type Branch, type StaffMember, type TrashItem, type SubscriptionLog } from '@/types';
 import { useUser } from '@/hooks/useUser';
 import { recordAuditAction } from '@/lib/audit-store';
 import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
@@ -16,7 +16,6 @@ interface StudioContextValue {
     activeBranchId: string;
     isLoaded: boolean;
     setTheme: (k: ThemeKey) => void;
-    setBg: (k: BgKey) => void;
     setStudioName: (n: string) => void;
     setStudioSlug: (s: string) => void;
     setLogo: (dataUrl: string | null) => void;
@@ -79,6 +78,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any }) => {
         if (!cloudState) return false;
         let changed = false;
+        let staffChanged = false;
 
         const TOMBSTONE_MAP: Record<string, string> = {
             'cc_student_data': 'cc_deleted_students',
@@ -96,6 +96,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             localStorage.setItem(key, JSON.stringify(nextSettings));
             setSettings(nextSettings);
             changed = true;
+            staffChanged = true;
         }
 
         // 2. Sync Studio Data WITH Tombstone Enforcement
@@ -169,10 +170,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             console.log('📡 [StudioContext] UI update triggered from cloud pulse for:', activeSlug);
             const next = loadSettings(activeSlug);
             setSettings(next);
+            
             // Notify all system components to refresh consistently
-            window.dispatchEvent(new Event('cc_staff_update'));
+            // Notify all system components to refresh consistently
             window.dispatchEvent(new Event('cc_active_branch_change'));
-            window.dispatchEvent(new Event('cc_teacher_update'));
             window.dispatchEvent(new Event('cc_settings_update'));
             window.dispatchEvent(new Event('cc_student_update'));
             window.dispatchEvent(new Event('cc_groups_update'));
@@ -212,12 +213,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         document.cookie = `cc_theme=${k}; path=/; max-age=31536000; SameSite=Lax`;
     }, []);
 
-    const setBg = useCallback((k: BgKey) => {
-        setSettings(saveSettings({ bgKey: k }));
-        applyBg(k);
-        // Sync to cookie for SSR
-        document.cookie = `cc_bg=${k}; path=/; max-age=31536000; SameSite=Lax`;
-    }, []);
 
     const setLogo = useCallback((dataUrl: string | null) => {
         markLocalUpdate();
@@ -582,145 +577,16 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         
         const activeOrgId = session?.staff?.org_id || profile?.org_id || settings.orgId || (typeof window !== 'undefined' ? (localStorage.getItem('cc_sa_impersonate') === activeSlug ? localStorage.getItem('cc_sa_impersonate_org_id') : undefined) : undefined) || undefined;
 
-        if (!isLoaded || !activeSlug || activeSlug === 'demo.classcore.ge') return;
+        // Background synchronization is disabled by user request
+        return;
 
-        const syncData = () => {
-            if (!firstSyncDone) {
-                console.log('📡 [StudioContext] Sync deferred: Initial hydration in progress');
-                return;
-            }
-            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-                console.log('📡 [StudioContext] Sync skipped: Page is hidden');
-                return;
-            }
-
-            console.log('📡 [StudioContext] Auto-syncing studio data to cloud:', activeSlug);
-            const allKeys = Object.keys(localStorage);
-            const studioData: Record<string, any> = {};
-            // MUST explicitly include deleted registries in the sync scope
-            const prefixes = [
-                'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
-                'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
-                'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications',
-                'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_deleted_groups', 'cc_deleted_halls',
-                'cc_hall_rental', 'cc_uid_registry', 'cc_attendance_archive', 'cc_expenses',
-                'cc_audit_logs', 'cc_salary_status', 'cc_trash_bin',
-                'cc_sa_meta', 'cc_saas_billing', 'cc_saas_payments',
-                'cc_shop_products', 'cc_notifications_history'
-            ];
-
-            const adminRoles = ['admin', 'owner', 'manager'];
-            const userRole = profile?.role || 'teacher';
-            const isAuthorizedToSyncSettings = adminRoles.includes(userRole);
-
-            allKeys.forEach(k => {
-                const isPrefixMatched = prefixes.some(p => k.startsWith(p));
-                const isScopedToStudio = k.includes(`_${activeSlug}`) || (activeOrgId && k.includes(`_${activeOrgId}`));
-
-                if (isPrefixMatched && isScopedToStudio) {
-                    try {
-                        // SECURITY: Only authorized roles can sync 'cc_studio_settings'
-                        if (k.startsWith('cc_studio_settings') && !isAuthorizedToSyncSettings) {
-                            return;
-                        }
-                        studioData[k] = JSON.parse(localStorage.getItem(k) || 'null');
-                    } catch { }
-                }
-            });
-
-            import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
-                // SECURITY: consolidated push handles role-based setting sync internally in sync-store
-                pushStudioStateToCloud(activeSlug, settings.staff, studioData, 0, activeOrgId).then(() => {
-                    // Update ref to prevent self-sync from Realtime trigger
-                    lastPushedTimestampRef.current = new Date().toISOString();
-                });
-            });
-        };
-
-        const timer = setTimeout(syncData, 2000); // Debounce sync slower (2s) to batch updates
-
-        // 2. Setup periodic cloud pull (Slow fallback for inactive tabs/sync gaps)
-        const pullInterval = setInterval(() => {
-            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-                return; // Suppress polling for background/inactive tabs
-            }
-            import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
-                pullStudioStateFromCloud(activeSlug, activeOrgId).then(cloudState => {
-                    if (!cloudState) return;
-
-                    // RACE CONDITION GUARD: Don't overwrite if local changes just happened
-                    const lastLocal = parseInt(localStorage.getItem('cc_last_local_update') || '0');
-                    const lastUpdate = Math.max(lastLocal, lastLocalUpdateRef.current);
-                    const timeSinceUpdate = Date.now() - lastUpdate;
-                    
-                    if (timeSinceUpdate < 5000) return;
-
-                    applyCloudState(activeSlug, cloudState);
-                });
-            });
-        }, 60000); // Reduce background pulse to 60s (Realtime handles instant sync)
-
-        // 3. Setup Supabase Realtime subscription for "Instant" updates between devices
-        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            import('@/lib/supabase/client').then(({ createClient }) => {
-                const supabase = createClient();
-                const channel = supabase.channel(`studio_sync_${activeSlug}`)
-                    .on('postgres_changes', {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: SETTINGS_TABLE,
-                        filter: `studio_slug=eq.${activeSlug}`
-                    }, (payload) => {
-                        // FEEDBACK LOOP GUARD: Skip if this update was triggered by OUR OWN recent push
-                        if (payload.new.updatedAt && lastPushedTimestampRef.current) {
-                            const cloudTime = new Date(payload.new.updatedAt).getTime();
-                            const ourTime = new Date(lastPushedTimestampRef.current).getTime();
-                            // If cloud timestamp is within 1s of our push, skip redundant pull
-                            if (Math.abs(cloudTime - ourTime) < 1500) {
-                                console.log('📡 [StudioContext] Realtime Update Skipped: Self-push detected');
-                                return;
-                            }
-                        }
-                        console.log('📡 [StudioContext] Realtime Update Detected:', payload.new.updatedAt);
-                        // Trigger immediate pull instead of waiting for interval
-                        window.dispatchEvent(new Event('cc_cloud_pulse_request'));
-                    })
-                    .subscribe();
-
-                return () => {
-                    supabase.removeChannel(channel);
-                };
-            });
-        }
-
-        return () => {
-            clearTimeout(timer);
-            clearInterval(pullInterval);
-        };
+        return;
     }, [isLoaded, settings, profile?.role, getStaffSession()?.slug, pushCounter]);
 
     // Handle manual cloud pulse requests (from Realtime)
     useEffect(() => {
-        const handlePulse = () => {
-            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-                return; // Don't pull in hidden tabs even on realtime triggers
-            }
-            console.log('📡 [StudioContext] Forcing immediate cloud pull due to Realtime trigger');
-            const session = getStaffSession();
-            const activeSlug = session?.slug || settings.studioSlug;
-            const activeOrgId = session?.staff?.org_id || profile?.org_id || settings.orgId;
-
-            if (!activeSlug || activeSlug === 'demo.classcore.ge') return;
-
-            import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
-                pullStudioStateFromCloud(activeSlug, activeOrgId).then(cloudState => {
-                    if (!cloudState) return;
-                    applyCloudState(activeSlug, cloudState);
-                });
-            });
-        };
-        window.addEventListener('cc_cloud_pulse_request', handlePulse);
-        return () => window.removeEventListener('cc_cloud_pulse_request', handlePulse);
+        // Pulse listener disabled by user request
+        return;
     }, [settings.studioSlug, settings.orgId, profile?.org_id, isLoaded]);
 
     // Auto-mark local update when store events fire
@@ -818,7 +684,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     // Apply theme on mount + whenever theme/bg changes
     useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);
-    useEffect(() => { applyBg(settings.bgKey); }, [settings.bgKey]);
 
     return (
         <StudioContext.Provider value={{
@@ -826,7 +691,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             activeBranchId,
             isLoaded,
             setTheme,
-            setBg,
             setStudioName,
             setStudioSlug,
             setLogo,

@@ -603,8 +603,19 @@ export default function DashboardPage() {
 
                 const prefLang = student.preferred_language || 'ka';
                 const templates = (settings?.sms_templates || {}) as any;
+                const isOutOfVisits = latestExpired.sessions_total && latestExpired.sessions_total > 0 && (latestExpired.sessions_total - (latestExpired.sessions_used || 0)) <= 0;
+
                 let tpl = prefLang === 'ka' ? 'თქვენი აბონემენტი ამოიწურა.' : prefLang === 'ru' ? 'Ваш абонемент истек.' : 'Your subscription has expired.';
-                if (templates[prefLang]?.expiration_day_0) {
+                
+                if (isOutOfVisits) {
+                    if (templates[prefLang]?.visitations_out) {
+                        tpl = templates[prefLang].visitations_out;
+                    } else if (templates.ka?.visitations_out) {
+                        tpl = templates.ka.visitations_out;
+                    } else if (templates[prefLang]?.expiration_day_0) {
+                        tpl = templates[prefLang].expiration_day_0;
+                    }
+                } else if (templates[prefLang]?.expiration_day_0) {
                     tpl = templates[prefLang].expiration_day_0;
                 } else if (templates.ka?.expiration_day_0) {
                     tpl = templates.ka.expiration_day_0;
@@ -742,14 +753,6 @@ export default function DashboardPage() {
                             <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
                                 {t.welcomeBack} {profile?.first_name || ''} 
                             </h1>
-                            <div className={cn(
-                                "px-1.5 py-0.5 rounded-md text-[8px] sm:text-[10px] font-black tracking-wider border shadow-sm",
-                                (profile?.role || 'admin') === 'owner' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
-                                    (profile?.role || 'admin') === 'manager' ? "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" :
-                                        "bg-zinc-500/10 text-zinc-500 border-zinc-500/20"
-                            )}>
-                                {(profile?.role || 'Staff').toUpperCase()}
-                            </div>
                             <span className="text-xl sm:text-2xl">👋</span>
                         </div>
                         {billing && (

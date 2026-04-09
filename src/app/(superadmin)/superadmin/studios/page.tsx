@@ -7,7 +7,8 @@ import { logAction } from '@/lib/analytics';
 import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrateSlugData, clearAllStudioData, removeFromRegistry, type ResetCategories } from '@/lib/settings-store';
 import { getScopedKey, cn, compactSlugify } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import { pushStudioStateToCloud } from '@/lib/sync-store';
+import { pushStudioStateToCloud, masterStudioPurge } from '@/lib/sync-store';
+
 
 interface StudioRecord {
     slug: string; name: string; logoUrl: string | null;
@@ -69,6 +70,24 @@ const PLAN_LABELS: Record<string, string> = {
     custom: 'ინდივიდუალური'
 };
 const PLAN_OPTIONS = ['trial', 'pro', 'custom'] as const;
+
+// Helper to push meta updates directly to cloud to ensure Superadmin actions are reflected everywhere
+async function pushMetaToCloud(slug: string, patch: object) {
+    try {
+        const existing = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}');
+        const next = { ...existing, ...patch };
+        localStorage.setItem(`cc_sa_meta_${slug}`, JSON.stringify(next));
+        
+        // Find orgId to ensure scoped update
+        const settings = loadSettings(slug);
+        const studioData: Record<string, any> = {};
+        studioData[`cc_sa_meta_${slug}`] = next;
+        
+        await pushStudioStateToCloud(slug, settings.staff || [], studioData, 0, settings.orgId);
+    } catch (e) {
+        console.error('❌ pushMetaToCloud failed:', e);
+    }
+}
 
 export default function StudiosPage() {
     const router = useRouter();
@@ -234,67 +253,39 @@ export default function StudiosPage() {
     const loadData = () => { 
         const registry = getStudioRegistry();
         const loaded: StudioRecord[] = registry.map(slug => {
+            const cloud = cloudStudios.find(c => c.slug === slug);
             const s = loadSettings(slug);
             const meta = (() => { try { return JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); } catch { return {}; } })();
             const billing = getBillingState(slug);
             
-            let studentCount = 0;
-            try { 
-                const key = getScopedKey('cc_student_data', slug);
-                const raw = localStorage.getItem(key);
-                if (raw) studentCount = Object.keys(JSON.parse(raw)).length; 
-            } catch { }
+            // PRIORITY: Trust Cloud for Superadmin view
+            const studentCount = (cloud?.studentCount !== undefined) ? cloud.studentCount : 0;
+            const subsCount = (cloud?.groupCount !== undefined) ? cloud.groupCount : 0;
 
-            // Find matching cloud data for owner info if local is missing
-            const cloud = cloudStudios.find(c => c.slug === slug);
-            
-            // USE CLOUD COUNTS if local is 0 (prevents false zeros in Superadmin list)
-            if (studentCount === 0 && cloud?.studentCount > 0) {
-                studentCount = cloud.studentCount;
-            }
-            let groupCount = 0;
-            if (cloud?.groupCount > 0) {
-                groupCount = cloud.groupCount;
-            }
-
-            // STRICT FILTER FOR SUPERADMIN: Hide "Local Only" ghosts unless it's the demo.
-            // also hide everything until the first sync is DONE to prevent flicker.
             if (!isInitialSyncDone) return null;
             if (!cloud && slug !== 'demo.classcore.ge') return null;
 
-            const owner = s?.owner_info || s?.staff?.find((m: any) => m.role === 'owner');
-            const ownerPhone = (owner as any)?.phone || (owner as any)?.phone_number || cloud?.ownerPhone || 'N/A';
+            const ownerEmail = cloud?.ownerEmail || s?.owner_info?.email || s?.staff?.find((m: any) => m.role === 'owner')?.email || 'N/A';
+            const ownerPhone = cloud?.ownerPhone || s?.owner_info?.phone || s?.staff?.find((m: any) => m.role === 'owner')?.phone || 'N/A';
+            const ownerName = cloud?.ownerName || (s?.owner_info?.first_name ? `${s.owner_info.first_name} ${s.owner_info.last_name}` : s?.staff?.find((m: any) => m.role === 'owner')?.full_name) || 'N/A';
 
             return { 
                 slug, 
-                name: s?.studioName || cloud?.name || slug, 
-                logoUrl: s?.logoDataUrl || cloud?.logoUrl, 
+                name: cloud?.name || s?.studioName || slug, 
+                logoUrl: cloud?.logoUrl || s?.logoDataUrl, 
                 studentCount, 
-                subsCount: groupCount, 
-                suspended: meta.suspended || false, 
+                subsCount, 
+                suspended: cloud?.suspended || meta.suspended || false, 
                 isDeleted: meta.deleted || false, 
-                notes: meta.notes || '', 
-                plan: meta.plan || 'trial',
-                nextDue: billing.nextDueDate, 
-                status: billing.status, 
-                daysOverdue: billing.daysOverdue,
+                notes: meta.notes || cloud?.notes || '', 
+                plan: (cloud?.plan || meta.plan || 'trial') as any,
+                nextDue: cloud?.nextDueDate || billing.nextDueDate, 
+                status: cloud?.status || billing.status, 
+                daysOverdue: cloud?.daysOverdue || billing.daysOverdue,
                 ownerPhone,
-                ownerEmail: owner?.email || cloud?.ownerEmail || 'N/A',
-
-                ownerName: (() => {
-                    if (!owner) return cloud?.ownerName || 'N/A';
-                    
-                    const o = owner as any;
-                    // Priority 1: Direct first/last name
-                    if (o.first_name || o.firstName) {
-                        const f = o.first_name || o.firstName || '';
-                        const l = o.last_name || o.lastName || '';
-                        return `${f} ${l}`.trim();
-                    }
-                    // Priority 2: full_name or fullName
-                    return o.full_name || o.fullName || cloud?.ownerName || 'N/A';
-                })(),
-                isLocalOnly: !cloud // Set flag if not found in cloudStudios list
+                ownerEmail,
+                ownerName,
+                isLocalOnly: !cloud
             };
         }).filter(Boolean) as StudioRecord[];
         setStudios(loaded);
@@ -398,13 +389,13 @@ export default function StudiosPage() {
         }
     };
 
-    const setPlan = (slug: string, plan: string) => {
-        const currentMeta = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}');
-        const oldPlan = currentMeta.plan || 'trial';
+    const setPlan = async (slug: string, plan: string) => {
+        const studio = studios.find(s => s.slug === slug);
+        if (!studio) return;
+        const oldPlan = studio.plan;
         
-        saveMeta(slug, { plan });
         setStudios(prev => prev.map(s => s.slug === slug ? { ...s, plan: plan as StudioRecord['plan'] } : s));
-        syncStudio(slug);
+        await pushMetaToCloud(slug, { plan });
         setOpenMenu(null);
 
         // If switching FROM trial TO a paid plan, also trigger a manual activation/payment record
@@ -579,6 +570,29 @@ export default function StudiosPage() {
             message: lang === 'ka' ? 'სტუდია აღდგენილია!' : 'Studio restored successfully!' 
         });
     };
+
+    const handleDeepPurge = (slug: string) => {
+        setModal({
+            type: 'confirm',
+            title: l('ღრმა გასუფთავება (Clean Slate)', 'Глубокая очистка (Clean Slate)', 'Deep Purge (Clean Slate)'),
+            message: l(
+                `ყურადღება! სტუდიისთვის "${slug}" წაიშლება ყველა მოსწავლე, ჯგუფი, აბონემენტი და მაღაზიის მონაცემები. შენარჩუნდება მხოლოდ სტუდიის პარამეტრები და პერსონალი. ეს ქმედება შეუქცევადია!`,
+                `Внимание! Для студии "${slug}" будут удалены все ученики, группы, абонементы и данные магазина. Сохранятся только настройки студии и персонал. Это действие необратимо!`,
+                `Warning! For studio "${slug}", all students, groups, subscriptions, and shop data will be deleted. Only studio settings and staff will be kept. This action is irreversible!`
+            ),
+            onConfirm: async () => {
+                setModal(m => ({ ...m, loading: true }));
+                try {
+                    await masterStudioPurge(slug);
+                    setModal({ type: 'alert', title: lang === 'ka' ? 'წარმატება' : 'Success', message: lang === 'ka' ? 'მონაცემები საფუძვლიანად გასუფთავდა!' : 'Data deeply purged!' });
+                    loadData();
+                } catch (err: any) {
+                    setModal({ type: 'alert', title: 'Error', message: err.message });
+                }
+            }
+        });
+    };
+
 
     const purgeStudio = (slug: string) => {
         setModal({
@@ -1070,14 +1084,22 @@ export default function StudiosPage() {
                                                         <Settings className="w-4 h-4" />
                                                     </button>
                                                     <button 
-                                                        onClick={() => moveToTrash(studio.slug)}
+                                                        onClick={() => handleDeepPurge(studio.slug)}
                                                         className="p-2 text-zinc-300 hover:text-rose-500 transition-colors"
+                                                        title={lang === 'ka' ? 'ღრმა გასუფთავება' : 'Deep Purge'}
+                                                    >
+                                                        <Eraser className="w-4 h-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => moveToTrash(studio.slug)}
+                                                        className="p-2 text-zinc-300 hover:text-rose-400 transition-colors"
                                                         title={lang === 'ka' ? 'სანაგვეში გადატანა' : 'Move to Trash'}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </>
                                             ) : (
+
                                                 <div className="flex items-center gap-1">
                                                     <button 
                                                         onClick={() => restoreFromTrash(studio.slug)}

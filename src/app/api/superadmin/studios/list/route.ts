@@ -53,13 +53,20 @@ export async function GET() {
             let groupCount = 0;
             let hallCount = 0;
 
+            const targetSlug = row.studio_slug;
+            const studentKey = `cc_student_data_${targetSlug}`.toLowerCase();
+            const groupKey = `cc_groups_${targetSlug}`.toLowerCase();
+            const hallKey = `cc_halls_${targetSlug}`.toLowerCase();
+
             Object.entries(studioConfig || {}).forEach(([key, value]) => {
                 const lowerKey = key.toLowerCase();
-                if (lowerKey.includes('cc_student_data')) {
+                
+                // Only count if the key exactly matches the scoped key for this studio
+                if (lowerKey === studentKey) {
                     studentCount += Object.keys(value as any || {}).length;
-                } else if (lowerKey.includes('cc_groups')) {
+                } else if (lowerKey === groupKey) {
                     groupCount += (value as any[] || []).length;
-                } else if (lowerKey.includes('cc_halls')) {
+                } else if (lowerKey === hallKey) {
                     hallCount += (value as any[] || []).length;
                 }
             });
@@ -74,9 +81,12 @@ export async function GET() {
                 logoUrl: studioConfig.logoDataUrl || null,
                 studentCount,
                 groupCount,
-                hallCount
+                hallCount,
+                plan: studioConfig.plan || 'trial',
+                suspended: studioConfig.suspended === true
             };
         });
+
 
 
         return NextResponse.json({ studios });

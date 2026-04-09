@@ -7,7 +7,7 @@ import {
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { THEMES, BG_THEMES, type ThemeKey, type BgKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
+import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { getPlans, savePlans, type Plan } from '@/lib/plan-store';

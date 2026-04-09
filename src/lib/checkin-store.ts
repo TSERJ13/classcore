@@ -205,6 +205,33 @@ function _writeCheckin(
 
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
 
+    // SMS Notification when visits run out
+    if (next === 0 && activeSlug && activeSlug !== 'demo.classcore.ge') {
+        const settings = loadSettings(activeSlug);
+        if (settings.sms_enabled !== false) { // Ensure SMS feature is not explicitly disabled
+            import('./student-store').then(({ getStudents }) => {
+                const student = getStudents().find(s => s.id === studentId);
+                const phone = student?.phone;
+                if (phone) {
+                    const lang = settings.primary_lang || settings.language || 'ka';
+                    const text = (settings.sms_templates as any)?.[lang]?.low_visits || (lang === 'ka' ? `გამარჯობა ${studentName}, თქვენ დაგიმთავრდათ ვიზიტები სტუდიაში: ${settings.studioName}. გთხოვთ განაახლოთ აბონემენტი.` : `Hello ${studentName}, you have run out of visits at ${settings.studioName}. Please renew your subscription.`);
+                    
+                    fetch('/api/sms/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: phone,
+                            text,
+                            studentName
+                        })
+                    }).then(res => res.json()).then(data => {
+                        console.log('📬 [Checkin] SMS Status:', data);
+                    }).catch(err => console.error('📬 [Checkin] SMS Failed:', err));
+                }
+            });
+        }
+    }
+
     return { success: true, alreadyCheckedIn: false, sessionsRemaining: next, record };
 }
 export function getStudentCheckins(studentId: string): CheckinRecord[] {

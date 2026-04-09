@@ -72,6 +72,18 @@ export default function SystemPage() {
 
     const tools = [
         { id: 'export', label: lang === 'ka' ? 'მონაცემების ექსპორტი' : 'Export All Data', desc: lang === 'ka' ? 'ClassCore-ის სრული მონაცემების გადმოწერა JSON ფორმატში' : 'Download full ClassCore localStorage backup as JSON', icon: Download, color: 'text-indigo-400', bg: 'bg-indigo-500/10 border-indigo-500/20', dangerous: false, action: exportAllData },
+        { id: 'global_wipe', label: lang === 'ka' ? 'ბაზის სრული წაშლა' : 'Global Database Wipe', desc: lang === 'ka' ? 'ყველა სტუდიის და ექაუნთის წაშლა ღრუბლიდან (საშინელი ქმედება!)' : 'CRITICAL: Delete ALL studios and auth accounts from the cloud!', icon: Database, color: 'text-rose-600', bg: 'bg-rose-500/10 border-rose-500/20', dangerous: true, action: async () => {
+            try {
+                const res = await fetch('/api/superadmin/global-purge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slugs: getStudioRegistry() })
+                });
+                const data = await res.json();
+                if (res.ok) alert(`Purged ${data.deleted} studios.`);
+                else throw new Error(data.error);
+            } catch (err: any) { alert('Error: ' + err.message); }
+        }},
         { id: 'cleanup_chat_30', label: lang === 'ka' ? 'ჩატების გასუფთავება > 30 დღე' : 'Clear Chats > 30 Days', desc: lang === 'ka' ? 'ბოლო 30 დღის განმავლობაში უმოქმედო ჩატების ავტომატური წაშლა' : 'Automatically delete all chat threads with no activity in the last 30 days', icon: Trash2, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', dangerous: true, action: () => clearOldChats(30) },
         { id: 'clear_sa_meta', label: lang === 'ka' ? 'SA მეტამონაცემების გასუფთავება' : 'Clear SA Metadata', desc: lang === 'ka' ? 'სუპერადმინის ჩანაწერების, გეგმების და სტატუსების განულება' : 'Reset all superadmin notes, plan overrides, and suspension states', icon: RefreshCw, color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20', dangerous: true, action: () => { for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i); if (key?.startsWith('cc_sa_meta_')) localStorage.removeItem(key); } } },
         { id: 'clear_shop', label: lang === 'ka' ? 'მაღაზიის გაყიდვების წაშლა' : 'Clear All Shop Sales', desc: lang === 'ka' ? 'ყველა სტუდიის მაღაზიის გაყიდვების ისტორიის წაშლა' : 'Delete all recorded shop sales across all studios', icon: Trash2, color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/20', dangerous: true, action: () => { for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i); if (key?.startsWith('cc_shop_sales')) localStorage.removeItem(key); } } },

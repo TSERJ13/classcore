@@ -29,26 +29,8 @@ import type { Student, CalendarEvent, Teacher, Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
-type ActiveTab = 'info' | 'schedule' | 'chat' | 'shop';
+type ActiveTab = 'info' | 'schedule' | 'shop';
 
-interface ChatMessage {
-    id: string;
-    text: string;
-    sender: 'student' | 'manager';
-    read?: boolean;
-    timestamp: string;
-    metadata?: {
-        type: 'lesson_request' | 'lesson_proposal' | 'lesson_confirmed';
-        status?: 'pending' | 'proposed' | 'confirmed' | 'cancelled';
-        slots: Array<{ date: string, time: string }>;
-        teacherId?: string;
-        style?: string;
-        studentId?: string;
-        studentName?: string;
-        hallId?: string;
-        hallName?: string;
-    };
-}
 
 export default function StudentPortalPage() {
     const { studio, studentId } = useParams() as { studio: string, studentId: string };
@@ -86,12 +68,7 @@ export default function StudentPortalPage() {
     }, [studio]);
 
     const [activeTab, setActiveTab] = useState<ActiveTab>('info');
-    const [privateMessages, setPrivateMessages] = useState<ChatMessage[]>([]);
-    const [groupMessages, setGroupMessages] = useState<Record<string, ChatMessage[]>>({});
-    const [chatTab, setChatTab] = useState<'private' | 'groups'>('private');
-    const [selectedGroupChatId, setSelectedGroupChatId] = useState<string | null>(null);
     const [scheduleSubTab, setScheduleSubTab] = useState<'mine' | 'all'>('mine');
-    const [chatInput, setChatInput] = useState('');
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>('');
     const [selectedStyle, setSelectedStyle] = useState<string>('');
     const [selectedHallId, setSelectedHallId] = useState<string>('');
@@ -105,7 +82,6 @@ export default function StudentPortalPage() {
     const [authState, setAuthState] = useState<'welcome' | 'phone' | 'authenticated'>('welcome');
     const [phoneInput, setPhoneInput] = useState('');
     const [authError, setAuthError] = useState('');
-    const [unreadCount, setUnreadCount] = useState(0);
 
     // Load Chats & Sync
     useEffect(() => {
@@ -232,149 +208,12 @@ export default function StudentPortalPage() {
         } catch { /* ignore */ }
     }, [studio]);
 
-    const syncChatWithCloud = async (currentMessages: ChatMessage[]) => {
-        if (!studio || !studentId) return;
-        try {
-            const res = await fetch('/api/public/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    studio,
-                    studentId,
-                    messages: currentMessages
-                })
-            });
-            if (res.status === 409) {
-                // Conflict: Pull latest and merge
-                const syncRes = await fetch(`/api/public/chat?studio=${studio}&studentId=${studentId}`);
-                const { messages: cloudMsgs } = await syncRes.json();
-                if (cloudMsgs) {
-                    // Merge logic: prefer newer messages or unique IDs
-                    const merged = [...currentMessages];
-                    (cloudMsgs as ChatMessage[]).forEach(cm => {
-                        if (!merged.find(m => m.id === cm.id)) {
-                            merged.push(cm);
-                        }
-                    });
-                    merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-                    setPrivateMessages(merged);
-                    localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(merged));
-                }
-            }
-        } catch (err) {
-            console.error('Chat sync push failed:', err);
-        }
-    };
-
-    const handleSendMessage = () => {
-        if (!chatInput.trim()) return;
-        const msg: ChatMessage = {
-            id: Date.now().toString(),
-            text: chatInput,
-            sender: 'student',
-            read: false,
-            timestamp: new Date().toISOString()
-        };
-
-        if (chatTab === 'private') {
-            const updated = [...privateMessages, msg];
-            setPrivateMessages(updated);
-            localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(updated));
-            syncChatWithCloud(updated);
-        } else if (selectedGroupChatId) {
-            const current = groupMessages[selectedGroupChatId] || [];
-            const updated = [...current, { ...msg, senderName: studentData?.full_name || 'Student' }];
-            setGroupMessages(prev => ({ ...prev, [selectedGroupChatId]: updated }));
-            localStorage.setItem(`group_chat_${studio}_${selectedGroupChatId}`, JSON.stringify(updated));
-            // Group chat sync can be added here if needed
-        }
-        setChatInput('');
-    };
 
     const handleProductInterest = (product: Product) => {
-        const text = `🛍️ ${t.buyProductInterest}:\n${product.name}\n${t.price}: ${formatCurrency(product.price, settings.currency || 'GEL')}`;
-        const msg: ChatMessage = {
-            id: Date.now().toString(),
-            text,
-            sender: 'student',
-            read: false,
-            timestamp: new Date().toISOString()
-        };
-        const updated = [...privateMessages, msg];
-        setPrivateMessages(updated);
-        localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(updated));
-        syncChatWithCloud(updated);
-        // Switch to chat tab and private subtab
-        setActiveTab('chat');
-        setChatTab('private');
+        // Since chat is removed, we just alert or show contact info
+        alert(`${t.buyProductInterest}: ${product.name}.`);
     };
 
-    // Unified Storage Sync & Cloud Polling
-    useEffect(() => {
-        if (!studentId || !studio) return;
-
-        const refreshChats = () => {
-            // Private
-            const savedPriv = localStorage.getItem(`chat_${studio}_${studentId}`);
-            if (savedPriv) setPrivateMessages(JSON.parse(savedPriv));
-
-            // Groups
-            if (studentData?.enrolled_group_ids) {
-                const groupsMap: Record<string, ChatMessage[]> = {};
-                studentData.enrolled_group_ids
-                    .filter(gid => getGroupById(gid))
-                    .forEach(gid => {
-                        const savedGrp = localStorage.getItem(`group_chat_${studio}_${gid}`);
-                        if (savedGrp) groupsMap[gid] = JSON.parse(savedGrp);
-                    });
-                setGroupMessages(groupsMap);
-            }
-        };
-
-        refreshChats();
-
-        // Background Cloud Polling for Manager Replies
-        const pollChat = async () => {
-            try {
-                const res = await fetch(`/api/public/chat?studio=${studio}&studentId=${studentId}`);
-                if (res.ok) {
-                    const { messages: cloudMsgs } = await res.json();
-                    if (cloudMsgs && Array.isArray(cloudMsgs)) {
-                        const localPriv = JSON.parse(localStorage.getItem(`chat_${studio}_${studentId}`) || '[]');
-                        // Check if we have new messages from cloud
-                        if (cloudMsgs.length > localPriv.length) {
-                            setPrivateMessages(cloudMsgs);
-                            localStorage.setItem(`chat_${studio}_${studentId}`, JSON.stringify(cloudMsgs));
-                        }
-                    }
-                }
-            } catch (err) { /* ignore */ }
-        };
-
-        const interval = setInterval(pollChat, 7000); // Poll every 7 seconds
-
-        window.dispatchEvent(new Event('cc_attendance_update'));
-
-        const handleStorage = (e: StorageEvent) => {
-            if (e.key?.includes(studio)) refreshChats();
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener('storage', handleStorage);
-        };
-    }, [studentId, studio, studentData?.enrolled_group_ids]);
-
-    useEffect(() => {
-        let total = 0;
-        // Private
-        total += privateMessages.filter(m => m.sender === 'manager' && !m.read).length;
-        // Groups
-        Object.values(groupMessages).forEach(msgs => {
-            total += msgs.filter(m => m.sender === 'manager' && !m.read).length;
-        });
-        setUnreadCount(total);
-    }, [privateMessages, groupMessages]);
 
 
 
@@ -580,7 +419,7 @@ export default function StudentPortalPage() {
             : (studentData.first_name?.[0] || '') + (studentData.last_name?.[0] || '');
 
         return (
-            <div className="min-h-screen bg-card animate-fade-up max-w-lg mx-auto pb-24 md:pb-10 pt-6 px-4 relative">
+            <div className="min-h-screen bg-card animate-fade-up max-w-lg mx-auto pb-24 md:pb-10 pt-6 px-4 relative overflow-x-hidden">
                 <div className="absolute top-4 right-4 z-50">
                     <LanguageSwitcher variant="landing" align="right" hideLabel={true} />
                 </div>
@@ -642,19 +481,6 @@ export default function StudentPortalPage() {
                         <ShoppingBag className="w-4 h-4" />
                         <span className="text-[9px] font-black tracking-wider">{t.shop}</span>
                     </button>
-                    <button
-                        onClick={() => setActiveTab('chat')}
-                        className={cn(
-                            "flex flex-col items-center gap-1 py-2 rounded-xl transition-all relative",
-                            activeTab === 'chat' ? "bg-white text-indigo-500 shadow-md border border-indigo-500/10" : "text-muted hover:text-primary"
-                        )}
-                    >
-                        <MessageSquare className="w-4 h-4" />
-                        {unreadCount > 0 && (
-                            <span className="absolute top-1.5 right-3 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                        )}
-                        <span className="text-[9px] font-black tracking-wider">{t.chat}</span>
-                    </button>
                 </div>
 
                 {/* Tab Content */}
@@ -662,7 +488,7 @@ export default function StudentPortalPage() {
                     {activeTab === 'info' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                             {/* Profile Card */}
-                            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-8 shadow-xl shadow-indigo-500/5 relative overflow-hidden group">
+                            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-5 sm:p-8 shadow-xl shadow-indigo-500/5 relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl -mr-20 -mt-20 group-hover:bg-indigo-500/10 transition-all duration-700" />
                                 <div className="flex items-center gap-5 relative z-10">
                                     <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-indigo-500 to-indigo-700 p-0.5 shadow-xl shadow-indigo-500/20">
@@ -675,16 +501,12 @@ export default function StudentPortalPage() {
                                         </div>
                                     </div>
                                     <div className="text-left flex-1 min-w-0">
-                                        <h1 className="text-2xl font-black text-primary tracking-tight mb-1 truncate">{studentData.full_name || `${studentData.first_name} ${studentData.last_name}`}</h1>
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-[10px] font-black text-indigo-600 tracking-widest">{sub?.status === 'active' ? t.active : t.inactive || 'InActive'}</p>
-                                                <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
-                                                <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {studentId}</p>
-                                            </div>
-
-                                            {/* Header Balance & History */}
-                                            <div className="flex items-center gap-2 bg-emerald-500/5 px-2.5 py-1.5 rounded-xl border border-emerald-500/10">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1">
+                                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight truncate">
+                                                {studentData.full_name || `${studentData.first_name} ${studentData.last_name}`}
+                                            </h1>
+                                            {/* Header Balance & History - Improved Mobile Layout */}
+                                            <div className="flex items-center gap-2 bg-emerald-500/5 px-2.5 py-1.5 rounded-xl border border-emerald-500/10 w-fit">
                                                 <span className="text-[11px] font-black text-emerald-600 tabular-nums">
                                                     {formatCurrency(studentData.balance || 0, settings.currency)}
                                                 </span>
@@ -695,6 +517,11 @@ export default function StudentPortalPage() {
                                                     <Clock className="w-3.5 h-3.5" />
                                                 </Link>
                                             </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <p className="text-[10px] font-black text-indigo-600 tracking-widest uppercase">{sub?.status === 'active' ? t.active : t.inactive || 'InActive'}</p>
+                                            <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
+                                            <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {studentId}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -715,7 +542,7 @@ export default function StudentPortalPage() {
                             {/* Subscription & Progress Bar */}
                             {sub && (
                                 <div className={cn(
-                                    "bg-card border rounded-[2.5rem] p-8 space-y-6 shadow-xl shadow-black/5",
+                                    "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5",
                                     isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle"
                                 )}>
                                     <div className="flex items-center justify-between">
@@ -775,7 +602,7 @@ export default function StudentPortalPage() {
                             <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-xl shadow-black/5 transition-all duration-500">
                                 <button
                                     onClick={() => setIsQrExpanded(!isQrExpanded)}
-                                    className="w-full p-8 flex items-center justify-between hover:bg-surface/50 transition-colors"
+                                    className="w-full p-6 sm:p-8 flex items-center justify-between hover:bg-surface/50 transition-colors"
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-all", isQrExpanded ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20")}>
@@ -1166,183 +993,6 @@ export default function StudentPortalPage() {
                         </div>
                     )}
 
-                    {activeTab === 'chat' && (
-                        <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-4">
-                            {/* Chat Tabs */}
-                            <div className="grid grid-cols-2 gap-2 bg-surface/50 p-1 rounded-2xl border border-border-subtle">
-                                <button
-                                    onClick={() => setChatTab('private')}
-                                    className={cn(
-                                        "py-2 rounded-xl text-[10px] font-black tracking-widest transition-all",
-                                        chatTab === 'private' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
-                                    )}
-                                >
-                                    {t.administration}
-                                </button>
-                                <button
-                                    onClick={() => setChatTab('groups')}
-                                    className={cn(
-                                        "py-2 rounded-xl text-[10px] font-black tracking-widest transition-all",
-                                        chatTab === 'groups' ? "bg-white text-indigo-500 shadow-sm" : "text-muted hover:text-primary"
-                                    )}
-                                >
-                                    {t.groups}
-                                </button>
-                            </div>
-
-                            {chatTab === 'groups' && !selectedGroupChatId ? (
-                                <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 space-y-3">
-                                    <h4 className="text-xs font-black text-primary tracking-widest opacity-50 px-2">{t.yourGroups}</h4>
-                                    {studentData.enrolled_group_ids?.length ? (
-                                        <div className="space-y-2">
-                                            {(studentData.enrolled_group_ids || [])
-                                                .filter(gid => getGroupById(gid))
-                                                .sort((a, b) => {
-                                                    const msgsA = groupMessages[a] || [];
-                                                    const msgsB = groupMessages[b] || [];
-                                                    const timeA = msgsA.length > 0 ? new Date(msgsA[msgsA.length - 1].timestamp).getTime() : 0;
-                                                    const timeB = msgsB.length > 0 ? new Date(msgsB[msgsB.length - 1].timestamp).getTime() : 0;
-                                                    return timeB - timeA;
-                                                })
-                                                .map(gid => {
-                                                    const unreadInGrp = (groupMessages[gid] || []).filter(m => m.sender === 'manager' && !m.read).length;
-                                                    return (
-                                                        <button
-                                                            key={gid}
-                                                            onClick={() => setSelectedGroupChatId(gid)}
-                                                            className="w-full flex items-center justify-between p-4 bg-surface/50 hover:bg-surface border border-border-subtle rounded-2xl transition-all group/btn"
-                                                        >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 relative">
-                                                                    <MessageSquare className="w-4 h-4" />
-                                                                    {unreadInGrp > 0 && (
-                                                                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
-                                                                    )}
-                                                                </div>
-                                                                <span className="text-sm font-bold text-primary">{getGroupById(gid)?.name || gid}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                {unreadInGrp > 0 && <span className="px-1.5 py-0.5 bg-red-500 text-[8px] font-black text-white rounded-full">+{unreadInGrp}</span>}
-                                                                <ChevronRight className="w-4 h-4 text-muted opacity-40 group-hover/btn:translate-x-1 transition-transform" />
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-[10px] font-bold text-muted text-center py-8">{t.noGroupsFound}</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="bg-card border border-border-subtle rounded-[2.5rem] h-[550px] flex flex-col shadow-xl shadow-black/5 overflow-hidden">
-                                    {/* Chat Header if Group */}
-                                    {chatTab === 'groups' && (
-                                        <div className="px-5 py-4 border-b border-border-subtle flex items-center gap-3 bg-surface/30">
-                                            <button onClick={() => setSelectedGroupChatId(null)} className="p-1 hover:text-indigo-500 transition-colors">
-                                                <ArrowRight className="w-4 h-4 rotate-180" />
-                                            </button>
-                                            <span className="text-xs font-black text-primary tracking-widest">{getGroupById(selectedGroupChatId!)?.name || selectedGroupChatId}</span>
-                                        </div>
-                                    )}
-
-                                    {/* Chat messages */}
-                                    <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-none">
-                                        {((chatTab === 'private' ? privateMessages : groupMessages[selectedGroupChatId!]) || []).length === 0 ? (
-                                            <div className="h-full flex flex-col items-center justify-center text-center px-4 space-y-4">
-                                                <div className="w-16 h-16 bg-surface border border-border-subtle rounded-3xl flex items-center justify-center text-indigo-500 shadow-inner">
-                                                    <MessageSquare className="w-8 h-8 opacity-40" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-black text-primary tracking-tight">
-                                                        {chatTab === 'private' ? t.privateChat : t.groupChat}
-                                                    </h4>
-                                                    <p className="text-[10px] font-medium text-muted mt-1 leading-relaxed">
-                                                        {t.chatWelcome}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            ((chatTab === 'private' ? privateMessages : groupMessages[selectedGroupChatId!]) || []).map(m => (
-                                                <div key={m.id} className={cn("flex w-full gap-2 items-end", m.sender === 'student' ? "justify-end" : "justify-start")}>
-                                                    {m.sender === 'manager' && (
-                                                        <div className="w-8 h-8 rounded-full flex-shrink-0 bg-surface border border-border-subtle overflow-hidden flex items-center justify-center text-primary shadow-sm">
-                                                            {settings.logoDataUrl ? (
-                                                                <img src={settings.logoDataUrl} alt="Studio" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <span className="text-[10px] font-black">{settings.studioName?.[0] || 'S'}</span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    <div className={cn("flex flex-col", m.sender === 'student' ? "items-end" : "items-start", "max-w-[75%]")}>
-                                                        <div className={cn(
-                                                            "p-4 rounded-3xl text-sm font-medium shadow-sm transition-all animate-in fade-in slide-in-from-bottom-2 duration-300",
-                                                            m.sender === 'student' ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none",
-                                                            m.metadata?.type === 'lesson_request' ? "bg-amber-50 border-amber-200 text-amber-900" : ""
-                                                        )}>
-                                                            {chatTab === 'groups' && m.sender === 'manager' && (
-                                                                <p className="text-[9px] font-black tracking-widest mb-1 opacity-50">{t.administration}</p>
-                                                            )}
-                                                            {m.metadata?.type === 'lesson_request' ? (
-                                                                <div className="space-y-2">
-                                                                    <div className="font-bold border-b border-black/10 pb-2 mb-2 flex flex-col gap-1">
-                                                                        <span className="text-xs">{t.bookingRequest}</span>
-                                                                        <span className="text-[10px] font-mono opacity-80">
-                                                                            {m.metadata.slots.map(s => `${s.date.slice(5)} ${s.time}`).join(', ')}
-                                                                        </span>
-                                                                    </div>
-                                                                    <p className="opacity-90">{m.text}</p>
-                                                                    {m.metadata.status === 'confirmed' && (
-                                                                        <div className="mt-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-700 rounded-lg text-[10px] font-black tracking-widest text-center flex items-center justify-center gap-1.5 border border-emerald-500/30">
-                                                                            <CheckCircle className="w-3.5 h-3.5" />
-                                                                            {t.confirmed}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                m.text
-                                                            )}
-                                                        </div>
-                                                        <span className="text-[9px] font-black text-muted opacity-50 mt-1.5 px-2">
-                                                            {m.timestamp.includes('T') ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : m.timestamp}
-                                                        </span>
-                                                    </div>
-                                                    {m.sender === 'student' && (
-                                                        <div className="w-8 h-8 rounded-full flex-shrink-0 bg-indigo-100 border border-indigo-200 overflow-hidden flex items-center justify-center text-indigo-600 shadow-sm">
-                                                            {studentData?.photo_url ? (
-                                                                <img src={studentData.photo_url} alt="Profile" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <span className="text-[10px] font-black">{studentData?.full_name?.[0] || studentData?.first_name?.[0] || 'S'}</span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-
-                                    {/* Chat input */}
-                                    <div className="p-4 border-t border-border-subtle/50 bg-surface/30">
-                                        <div className="relative group">
-                                            <input
-                                                type="text"
-                                                value={chatInput}
-                                                onChange={e => setChatInput(e.target.value)}
-                                                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                                                placeholder={t.messagePlaceholder}
-                                                className="w-full bg-card border border-border-subtle rounded-2xl pl-5 pr-14 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all"
-                                            />
-                                            <button
-                                                onClick={handleSendMessage}
-                                                className="absolute right-2 top-2 w-10 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-lg shadow-indigo-600/20"
-                                            >
-                                                <Send className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Shop Tab */}
                     {activeTab === 'shop' && (

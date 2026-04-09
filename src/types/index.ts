@@ -3,7 +3,6 @@
 export type OrgType = 'dance' | 'sports' | 'yoga' | 'fitness';
 
 export type ThemeKey = 'indigo' | 'violet' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'fuchsia';
-export type BgKey = 'charcoal' | 'midnight' | 'abyss' | 'forest' | 'white' | 'ivory' | 'cocoa';
 
 export type StaffRole = 'owner' | 'manager' | 'teacher';
 
@@ -106,7 +105,6 @@ export interface StudioSettings {
     timezone: string;
     googleCalendarEnabled: boolean;
     themeKey: ThemeKey;
-    bgKey: BgKey;
     accentColor: string;          // CSS HSL value
     notifications: {
         newStudent: boolean;
@@ -133,6 +131,7 @@ export interface StudioSettings {
     sms_templates: {
         ka: {
             expiration_day_0: string;
+            low_visits: string;
             birthday: string;
             new_year: string;
             easter: string;
@@ -141,6 +140,7 @@ export interface StudioSettings {
         };
         ru: {
             expiration_day_0: string;
+            low_visits: string;
             birthday: string;
             new_year: string;
             easter: string;
@@ -149,6 +149,7 @@ export interface StudioSettings {
         };
         en: {
             expiration_day_0: string;
+            low_visits: string;
             birthday: string;
             new_year: string;
             easter: string;
@@ -156,6 +157,8 @@ export interface StudioSettings {
             sept_1: string;
         };
     };
+    sms_enabled: boolean;
+    primary_lang?: 'ka' | 'ru' | 'en';
     owner_info: {
         first_name: string;
         last_name: string;
