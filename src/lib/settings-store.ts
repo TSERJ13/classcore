@@ -489,6 +489,11 @@ export function loadSettings(slug?: string): StudioSettings {
 export function saveSettings(s: Partial<StudioSettings>, current?: StudioSettings, slug?: string): StudioSettings {
     const base = current || loadSettings(slug);
     const next = { ...base, ...s };
+    
+    // Safety: Auto-generate slug if missing but name exists
+    if (!next.studioSlug && next.studioName && next.studioName.toLowerCase() !== 'studio') {
+        next.studioSlug = compactSlugify(next.studioName);
+    }
     if (typeof window !== 'undefined') {
         try {
             const finalSlug = slug || next.studioSlug || getActiveSlug();

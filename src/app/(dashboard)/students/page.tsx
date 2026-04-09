@@ -161,7 +161,7 @@ export default function StudentsPage() {
 
     return (
         <>
-            <div className="space-y-8 animate-fade-up max-w-5xl mx-auto pb-10 px-4 md:px-0">
+            <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10 px-4 md:px-0">
                 {/* Header / Actions - Responsive Layout */}
                 <div className="flex flex-col gap-3 w-full">
 

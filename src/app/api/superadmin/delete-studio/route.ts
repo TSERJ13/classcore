@@ -75,6 +75,9 @@ export async function POST(req: Request) {
             .delete({ count: 'exact' })
             .eq('studio_slug', targetSlug);
 
+        // Update diagnostic with actual deletion count
+        diag.settingsPurgeCount = count || 0;
+
         // If no records were found/deleted, we still consider it a success state (it's gone now)
         if (diag.settingsPurgeCount === 0) {
             return NextResponse.json({ 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
-    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages
+    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2
 } from 'lucide-react';
 import { checkCloudConnection, syncStaffToCloud } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
@@ -145,10 +145,18 @@ export default function SettingsPage() {
         if (settings.studioName && !nameVal) {
             setNameVal(settings.studioName);
         }
-        if (settings.studioSlug && !slugVal) {
+        
+        // Auto-fill slug if empty
+        if (!slugVal && !settings.studioSlug) {
+            if (nameVal && nameVal.toLowerCase() !== 'studio') {
+                setSlugVal(compactSlugify(nameVal));
+            } else if (settings.studioName && settings.studioName.toLowerCase() !== 'studio') {
+                setSlugVal(compactSlugify(settings.studioName));
+            }
+        } else if (settings.studioSlug && !slugVal) {
             setSlugVal(settings.studioSlug);
         }
-    }, [settings.studioName, settings.studioSlug]);
+    }, [settings.studioName, settings.studioSlug, nameVal]);
 
 
 
@@ -404,15 +412,23 @@ export default function SettingsPage() {
                                             value={slugVal}
                                             onChange={e => setSlugVal(compactSlugify(e.target.value))}
                                             onKeyDown={e => e.key === 'Enter' && saveSlug()}
+                                            placeholder="studio-slug"
                                             readOnly={profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge'}
                                             className={cn(
                                                 "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors",
                                                 (profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
                                             )}
                                         />
-                                        {(profile?.role === 'superadmin' || settings.studioSlug === 'demo.classcore.ge') && (
+                                        {(profile?.role === 'superadmin' || settings.studioSlug === 'demo.classcore.ge' || !settings.studioSlug) && (
                                             <div className="flex items-center gap-2">
-                                                {profile?.role === 'superadmin' && (
+                                                <button
+                                                    onClick={() => setSlugVal(compactSlugify(nameVal || settings.studioName))}
+                                                    className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl bg-surface text-muted hover:text-indigo-500 border border-border-subtle transition-all"
+                                                    title={l('სახელიდან გენერირება', 'Сгенерировать из названия', 'Generate from name')}
+                                                >
+                                                    <RefreshCcw className="w-3.5 h-3.5" />
+                                                </button>
+                                                {profile?.role === 'superadmin' && settings.studioSlug && (
                                                     <button
                                                         onClick={handleReclaimSlug}
                                                         className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
@@ -440,15 +456,24 @@ export default function SettingsPage() {
                             </div>
                         </Row>
 
-                        <Row label={t.registrationLink} sub={t.registrationLinkDesc}>
+                        <Row label={t.registrationLink} sub={l('სტუდენტების რეგისტრაციის ლინკი (ავტომატური დამატება)', 'Ссылка для регистрации студентов (авто-добавление)', 'Student registration link (automatic addition)')}>
                             <div className="flex items-center gap-2">
-                                <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[140px] transition-colors">
-                                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                                    <span className="truncate">/{settings.studioSlug}/registration</span>
-                                </a>
-                                <button onClick={copyRegLink} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
-                                    {copiedRegLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                                </button>
+                                {slugVal ? (
+                                    <>
+                                        <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[200px] transition-colors">
+                                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                            <span className="truncate">/{slugVal}/registration</span>
+                                        </a>
+                                        <button onClick={copyRegLink} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
+                                            {copiedRegLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100 italic text-[10px] text-amber-600 font-bold uppercase tracking-widest">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        {l('მიუთითეთ მისამართი აქტივაციისთვის', 'Укажите адрес для активации', 'Set slug to activate link')}
+                                    </div>
+                                )}
                             </div>
                         </Row>
                     </Section>
@@ -1286,6 +1311,81 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Maintenance Zone */}
+            {isOwner && (
+                <Section title={l('მოვლა და გასუფთავება', 'Обслуживание и Очистка', 'Maintenance & Cleanup')} icon={RefreshCcw}>
+                    <div className="p-6 space-y-6 bg-rose-500/[0.02]">
+                        <div className="flex flex-col gap-2 bg-rose-500/5 p-4 rounded-2xl border border-rose-500/10">
+                            <div className="flex items-center gap-2 text-rose-500">
+                                <AlertTriangle className="w-4 h-4" />
+                                <h3 className="text-xs font-black tracking-widest">{l('საშიში ზონა', 'Опасная зона', 'Danger Zone')}</h3>
+                            </div>
+                            <p className="text-[10px] font-bold text-muted/60 leading-relaxed">
+                                {l('მონაცემების გასუფთავება შეუქცევადი პროცესია. დარწმუნდით რომ გაქვთ სარეზერვო ასლი.', 'Очистка данных — необратимый процесс. Убедитесь, что у вас есть резервная копия.', 'Data clearing is irreversible. Ensure you have a backup.')}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {[
+                                { id: 'students', label: t.students, icon: User },
+                                { id: 'groups', label: t.groups, icon: Building2 },
+                                { id: 'calendar', label: t.calendar, icon: CalendarDays },
+                                { id: 'shop', label: t.hallRental, icon: ShoppingBag },
+                                { id: 'analytics', label: t.analytics, icon: BarChart2 }
+                            ].map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={async () => {
+                                        const ok = await confirm({
+                                            title: l('მონაცემების გასუფთავება', 'Очистка данных', 'Clear Data'),
+                                            message: l(`ნამდვილად გსურთ "${cat.label}" მონაცემების სრული წაშლა?`, `Вы уверены, что хотите полностью удалить данные "${cat.label}"?`, `Are you sure you want to permanently delete all data for "${cat.label}"?`),
+                                            danger: true
+                                        });
+                                        if (ok) {
+                                            const { resetStudioData } = await import('@/lib/settings-store');
+                                            resetStudioData(settings.studioSlug, { [cat.id]: true });
+                                            addNotification(l('მონაცემები გასუფთავდა', 'Данные очищены', 'Data cleared'), 'success');
+                                            window.location.reload();
+                                        }
+                                    }}
+                                    className="flex items-center justify-between p-4 rounded-2xl border border-border-subtle bg-surface hover:bg-rose-500/5 hover:border-rose-500/20 transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-muted/5 flex items-center justify-center text-muted group-hover:text-rose-500 group-hover:bg-rose-500/10 transition-all">
+                                            <cat.icon className="w-5 h-5" />
+                                        </div>
+                                        <span className="text-xs font-bold text-primary">{cat.label}</span>
+                                    </div>
+                                    <span className="text-[9px] font-black tracking-widest text-muted opacity-40 group-hover:opacity-100 group-hover:text-rose-500 transition-all">{l('გასუფთავება', 'Очистить', 'RESET')}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="pt-4 border-t border-border-subtle/20">
+                            <button
+                                onClick={async () => {
+                                    const ok = await confirm({
+                                        title: l('სტუდიის სრული გასუფთავება', 'Полная очистка студии', 'Full Studio Reset'),
+                                        message: l('ეს გაასუფთავებს აბსოლუტურად ყველა მონაცემს მოსწავლეების, ჯგუფების და ფინანსების ჩათვლით. შენარჩუნდება მხოლოდ სტუდიის სახელი და პერსონალი.', 'Это очистит абсолютно все данные, включая учеников, группы и финансы. Сохранятся только название студии и персонал.', 'This will clear absolutely all data including students, groups, and finances. Only studio name and staff will be kept.'),
+                                        danger: true
+                                    });
+                                    if (ok) {
+                                        const { resetStudioData } = await import('@/lib/settings-store');
+                                        resetStudioData(settings.studioSlug);
+                                        addNotification(l('სტუდია სრულად გასუფთავდა', 'Студия полностью очищена', 'Studio fully reset'), 'success');
+                                        window.location.reload();
+                                    }
+                                }}
+                                className="w-full py-4 rounded-2xl bg-rose-500 text-white text-xs font-black tracking-[0.2em] shadow-lg shadow-rose-500/20 hover:bg-rose-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                {l('სრული გასუფთავება', 'Полный сброс', 'FULL MASTER RESET')}
+                            </button>
+                        </div>
+                    </div>
+                </Section>
             )}
         </div>
     );

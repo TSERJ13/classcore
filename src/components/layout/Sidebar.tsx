@@ -23,21 +23,21 @@ type NavItem = {
     icon: LucideIcon;
 };
 
-const ALL_ITEMS: NavItem[] = [
-    { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-    { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck },
-    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard },
-    { href: '/students', labelKey: 'students', icon: Users },
-    { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
-    { href: '/groups', labelKey: 'groups', icon: BookOpen },
-    { href: '/teachers', labelKey: 'teachers', icon: GraduationCap },
-    { href: '/halls', labelKey: 'halls', icon: DoorOpen },
-    { href: '/shop', labelKey: 'shop', icon: ShoppingBag },
-    { href: '/history', labelKey: 'history', icon: Receipt },
-    { href: '/analytics', labelKey: 'analytics', icon: BarChart2 },
-    { href: '/sms-manager', labelKey: 'sms_manager', icon: MessageSquare },
-    { href: '/billing', labelKey: 'billing', icon: Zap },
-    { href: '/settings', labelKey: 'settings', icon: Settings },
+const ALL_ITEMS: (NavItem & { color: string })[] = [
+    { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, color: 'text-emerald-500' },
+    { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck, color: 'text-blue-500' },
+    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard, color: 'text-indigo-500' },
+    { href: '/students', labelKey: 'students', icon: Users, color: 'text-sky-500' },
+    { href: '/calendar', labelKey: 'calendar', icon: CalendarDays, color: 'text-violet-500' },
+    { href: '/groups', labelKey: 'groups', icon: BookOpen, color: 'text-purple-500' },
+    { href: '/teachers', labelKey: 'teachers', icon: GraduationCap, color: 'text-amber-500' },
+    { href: '/halls', labelKey: 'halls', icon: DoorOpen, color: 'text-rose-500' },
+    { href: '/shop', labelKey: 'shop', icon: ShoppingBag, color: 'text-pink-500' },
+    { href: '/history', labelKey: 'history', icon: Receipt, color: 'text-zinc-400' },
+    { href: '/analytics', labelKey: 'analytics', icon: BarChart2, color: 'text-orange-500' },
+    { href: '/sms-manager', labelKey: 'sms_manager', icon: MessageSquare, color: 'text-cyan-500' },
+    { href: '/billing', labelKey: 'billing', icon: Zap, color: 'text-yellow-500' },
+    { href: '/settings', labelKey: 'settings', icon: Settings, color: 'text-slate-400' },
 ];
 
 // ── Studio Header Block with Hover Branch Switcher ──
@@ -95,7 +95,7 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                         )}
                     >
                         <Building2 className={cn("w-3 h-3 transition-colors", isHovered ? "text-indigo-400" : "text-white/40")} />
-                        <span className={cn("text-[9px] font-black tracking-widest truncate max-w-[100px]", isHovered ? "text-indigo-400" : "text-white/60")}>
+                        <span className={cn("text-[10px] font-black tracking-tight truncate max-w-[100px]", isHovered ? "text-indigo-400" : "text-white/60")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
                         <ChevronRight className={cn("w-2.5 h-2.5 text-white/20 transition-all", isHovered && "rotate-90 text-indigo-400")} />
@@ -200,18 +200,22 @@ function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any)
                             href={href}
                             onClick={close}
                             className={cn(
-                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-9 w-full pl-4.5 gap-3',
+                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-10 w-full pl-4 gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
                             {!exp && active && (
-                                <span className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full', theme.text.replace('text-', 'bg-'))} />
+                                <span className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]', theme.text.replace('text-', 'bg-'))} />
                             )}
-                            <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                                <Icon className={cn('w-[19px] h-[19px] transition-transform duration-200', active ? 'scale-110' : 'group-hover/link:scale-110')} strokeWidth={active ? 2.5 : 2} />
+                            <div className={cn(
+                                "flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-300",
+                                !active && "group-hover/link:bg-white/5",
+                                active && "bg-white/10"
+                            )}>
+                                <Icon className={cn('w-[21px] h-[21px] transition-all duration-200', active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className="truncate text-[13px] font-semibold transition-all duration-300 opacity-100 max-w-[160px]">
+                                <span className="truncate text-[14.5px] font-black transition-all duration-300 opacity-100 max-w-[160px] tracking-tight">
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -274,21 +278,34 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                         </button>
                     )}
 
-                    <div className="border-t border-[var(--sidebar-border)] bg-white/[0.02] flex items-center h-[70px] px-4 pb-2">
-                        <LanguageSwitcher compact={!exp} mode="session" align="left" />
-
-                        <div className={cn("flex-1 flex justify-center", exp ? "pl-4" : "hidden")}>
-                                <button
-                                    onClick={logout}
-                                    className={cn(
-                                        "w-[34px] h-[34px] flex items-center justify-center rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 shrink-0",
-                                        "bg-[var(--sidebar-hover)] border border-[var(--sidebar-border)] shadow-sm"
-                                    )}
-                                    title={l('გასვლა', 'Выйти', 'Logout')}
-                                >
-                                    <LogOut className="w-4 h-4" strokeWidth={2.5} />
-                                </button>
-                        </div>
+                    <div className={cn(
+                        "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
+                        exp ? "p-4 space-y-3" : "py-4 flex flex-col items-center gap-4"
+                    )}>
+                        <LanguageSwitcher 
+                            compact={!exp} 
+                            mode="session" 
+                            align="left" 
+                            className={cn(exp && "w-full bg-white/5 border-white/10 hover:bg-white/10")} 
+                        />
+                        
+                        <button
+                            onClick={logout}
+                            className={cn(
+                                "flex items-center gap-3 transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
+                                exp 
+                                    ? "w-full px-4 h-11 bg-white/5 border border-white/10 rounded-xl" 
+                                    : "w-10 h-10 justify-center rounded-xl bg-white/5 border border-white/10 shadow-sm"
+                            )}
+                            title={l('გასვლა', 'Выйти', 'Logout')}
+                        >
+                            <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", exp ? "w-4 h-4" : "w-4 h-4")} strokeWidth={2.5} />
+                            {exp && (
+                                <span className="text-[11px] font-black tracking-[0.15em] uppercase truncate">
+                                    {l('გასვლა', 'Выйти', 'Logout')}
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </>
             )}

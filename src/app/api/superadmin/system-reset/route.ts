@@ -10,13 +10,18 @@ export async function POST(req: Request) {
         }
 
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!supabaseUrl || !supabaseServiceKey) {
-            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+            return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for system reset.' }, { status: 500 });
         }
-
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        });
 
         // 1. Delete all studios 
         const { error: deleteError } = await supabase

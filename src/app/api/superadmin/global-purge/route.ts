@@ -7,12 +7,12 @@ export async function POST(request: Request) {
     try {
         const { pattern, slugs: targetSlugs, secret } = await request.json();
 
-        // Security check: Only allow if service role key is present and a pattern/slugs are provided
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        // Security check: Strictly require the service role key for global purge
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
         if (!serviceKey || !supabaseUrl) {
-            return NextResponse.json({ error: 'Missing environment variables' }, { status: 500 });
+            return NextResponse.json({ error: 'Missing or invalid environment variables for administrative actions' }, { status: 500 });
         }
 
         if ((!pattern || pattern.length < 5) && (!targetSlugs || !Array.isArray(targetSlugs))) {
