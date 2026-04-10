@@ -249,6 +249,10 @@ export function deleteGroup(id: string): void {
         });
     }
 
+    // CLEANUP CALENDAR: Remove all recurring events for this group
+    import('./event-store').then(mod => {
+        mod.deleteGroupEvents(id);
+    });
 
     window.dispatchEvent(new Event('cc_groups_update'));
 }

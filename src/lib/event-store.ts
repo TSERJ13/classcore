@@ -18,7 +18,7 @@ const TODAY = new Date();
 function makeEvent(id: string, title: string, type: EventType, hallId: string, teacherId: string, dayOffset: number, start: string, end: string, recurring: 'none' | 'weekly' = 'none', groupId?: string): CalendarEvent {
     const d = new Date(TODAY);
     d.setDate(TODAY.getDate() + dayOffset);
-    return { id, org_id: getActiveSlug() || 'demo', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, reminder_30m: false, created_at: '' };
+    return { id, org_id: getActiveSlug() || '', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, reminder_30m: false, created_at: '' };
 }
 
 const SEED_WEEK: CalendarEvent[] = [];
@@ -204,7 +204,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
     return updated;
 }
 
-export function addIndividualLesson(studentId: string, title: string, teacherId: string, date: string, start: string, end: string, hallId = 'h1', orgId = 'demo'): CalendarEvent {
+export function addIndividualLesson(studentId: string, title: string, teacherId: string, date: string, start: string, end: string, hallId = 'h1', orgId = ''): CalendarEvent {
     const events = getEvents();
     const newEvent: CalendarEvent = {
         id: `ind_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,

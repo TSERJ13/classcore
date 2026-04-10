@@ -402,6 +402,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     sms_templates: {
         ka: {
             expiration_day_0: 'გამარჯობა {name}, გენატრებათ ვარჯიში? თქვენი აბონემენტი ({plan}) იწურება დღეს. გთხოვთ განაახლოთ.',
+            low_visits: 'გამარჯობა {name}, თქვენ დაგიმთავრდათ ვიზიტები სტუდიაში: {studio}. გთხოვთ განაახლოთ აბონემენტი.',
             birthday: 'გამარჯობა {name}, გილოცავთ დაბადების დღეს! საუკეთესო სურვილებით, {studio}.',
             new_year: 'გილოცავთ ახალ წელს! გისურვებთ წარმატებულ და ბედნიერ წელს {studio}-სთან ერთად.',
             easter: 'გილოცავთ აღდგომის ბრწყინვალე დღესასწაულს! საუკეთესო სურვილებით, {studio}.',
@@ -410,6 +411,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
         },
         ru: {
             expiration_day_0: 'Здравствуйте {name}, соскучились по тренировкам? Ваш абонемент ({plan}) истекает сегодня. Пожалуйста, обновите его.',
+            low_visits: 'Здравствуйте {name}, у вас закончились визиты в студии: {studio}. Пожалуйста, обновите абонемент.',
             birthday: 'Здравствуйте {name}, с днем рождения! С наилучшими пожеланиями, {studio}.',
             new_year: 'С Новым Годом! Желаем успешного и счастливого года вместе с {studio}.',
             easter: 'Поздравляем со светлым праздником Пасхи! С наилучшими пожеланиями, {studio}.',
@@ -418,6 +420,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
         },
         en: {
             expiration_day_0: 'Hello {name}, miss training? Your plan ({plan}) expires today. Please renew it.',
+            low_visits: 'Hello {name}, you have run out of visits at {studio}. Please renew your subscription.',
             birthday: 'Happy Birthday {name}! Best wishes, {studio}.',
             new_year: 'Happy New Year! Wishing you a successful and happy year with {studio}.',
             easter: 'Happy Easter! Best wishes from {studio}.',
@@ -436,6 +439,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     },
     customRoles: ['manager', 'teacher', 'receptionist', 'accountant'],
     activeBranchId: 'main',
+    sms_enabled: true,
+    primary_lang: 'ka',
     staff: [],
 };
 
@@ -767,13 +772,13 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
 
     const prefixMap: Record<string, string[]> = {
         plans: ['cc_subscription_plans'],
-        students: ['cc_student_data', 'cc_student_subscriptions', 'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_student_plans', 'cc_student_groups'],
-        groups: ['cc_groups', 'cc_group_data', 'cc_attendance'],
+        students: ['cc_student_data', 'cc_student_subscriptions', 'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_student_plans', 'cc_student_groups', 'cc_student_balance', 'cc_bonus_points'],
+        groups: ['cc_groups', 'cc_group_data', 'cc_attendance', 'cc_attendance_archive', 'cc_checkins_', 'cc_attendance_data'],
         calendar: ['cc_calendar_events', 'cc_events'],
         halls: ['cc_halls', 'cc_hall_rental', 'cc_hall_rentals', 'cc_halls_data'],
-        teachers: ['cc_teachers', 'cc_staff'],
-        shop: ['cc_shop_sales', 'cc_shop_products', 'cc_shop_inventory', 'cc_inventory', 'cc_sales', 'cc_shop_categories'],
-        analytics: ['cc_expenses', 'cc_audit_logs', 'cc_salary_status', 'cc_salary_payouts', 'cc_attendance_archive', 'cc_uid_registry', 'cc_trash_bin', 'cc_attendance_data', 'cc_checkins', 'cc_salary_history', 'cc_salary_config'],
+        teachers: ['cc_teachers', 'cc_staff', 'cc_salary_config', 'cc_salary_history', 'cc_salary_status', 'cc_salary_payouts'],
+        shop: ['cc_shop_sales', 'cc_shop_products', 'cc_shop_inventory', 'cc_inventory', 'cc_sales', 'cc_shop_categories', 'cc_product_categories'],
+        analytics: ['cc_expenses', 'cc_audit_logs', 'cc_uid_registry', 'cc_trash_bin', 'cc_attendance_data', 'cc_checkins_'],
         notifications: ['cc_notifications']
     };
 
@@ -791,6 +796,13 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
         // Check each enabled category
         Object.entries(cats).forEach(([cat, enabled]) => {
             if (enabled && prefixMap[cat]?.some(p => k.startsWith(p))) {
+                // Wildcard cleanup for date-based keys (like cc_checkins_YYYY-MM-DD)
+                if (k.startsWith('cc_checkins_')) {
+                    localStorage.removeItem(k);
+                    count++;
+                    return;
+                }
+
                 // To suppress mock data, we set to empty instead of removing
                 // ONLY specific structured records are Maps ({}), everything else is an Array ([])
                 const mapPrefixes = ['cc_student_data', 'cc_student_subscriptions', 'cc_attendance_archive', 'cc_uid_registry'];
@@ -806,32 +818,17 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
     const updates: Partial<StudioSettings> = {};
     
     if (cats.teachers) {
-        updates.staff = [];
+        updates.staff = (settings.staff || []).map(s => s.role === 'owner' ? s : null).filter(Boolean) as StaffMember[];
     }
     if (cats.analytics) {
         (updates as any).trash = [];
-        (updates as any).subscriptionLogs = [];
     }
 
     if (Object.keys(updates).length > 0) {
         saveSettings(updates, settings, slug);
     }
 
-    // CRITICAL: Seed deleted registries with mock IDs if cleared to ensure they stay hidden
-    if (cats.students) {
-        const mockSubs = ['sub1', 'sub2', 'sub3', 'sub4'];
-        const mockStudents = ['S-2051', 'S-2052', 'S-2053', 'S-2054'];
-        localStorage.setItem(getScopedKey('cc_deleted_subscriptions', slug), JSON.stringify(mockSubs));
-        localStorage.setItem(getScopedKey('cc_deleted_students', slug), JSON.stringify(mockStudents));
-    }
-    if (cats.calendar) {
-        localStorage.setItem(getScopedKey('cc_deleted_events', slug), JSON.stringify(['cls1', 'e1']));
-    }
-    if (cats.halls) {
-         localStorage.setItem(getScopedKey('cc_deleted_halls', slug), JSON.stringify(['h1']));
-    }
-
-    console.log(`🧹 [SettingsStore] Selective Reset: Removed ${count} keys for studio ${slug}. Options:`, cats);
+    console.log(`🧹 [SettingsStore] Selective Reset complete for studio ${slug}. Options:`, cats);
 
     // Reload page to re-initialize stores
     window.location.reload();

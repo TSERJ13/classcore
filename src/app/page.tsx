@@ -214,7 +214,7 @@ export default function LandingPage() {
     }, []);
 
     const galleryHighlights = useMemo(() => [
-        { title: l('მოსწავლის პორტალი', 'Портал ученика', 'Student Portal'), desc: l('გიორგი და ნინო აკონტროლებენ თავიანთ განრიგს და დასწრებას.', 'Георгий и Нино контролируют свое расписание и посещаемость.', 'Giorgi and Nino monitor their schedule and attendance.'), img: '/gallery/client_portal.png' },
+        { title: l('მოსწავლის პორტალი', 'Портал ученика', 'Student Portal'), desc: l('მოსწავლეები აკონტროლებენ თავიანთ განრიგს და დასწრებას.', 'Ученики контролируют свое расписание и посещаемость.', 'Students monitor their schedule and attendance.'), img: '/gallery/client_portal.png' },
         { title: l('სმს სერვისი', 'СМС-сервис', 'SMS Service'), desc: l('ავტომატური შეტყობინებები მოსწავლეებისთვის და მშობლებისთვის.', 'Автоматические уведомления для учеников и родителей.', 'Auto-notifications for students and parents.'), img: '/gallery/sms_service.png' },
         { title: l('ანალიტიკა', 'Аналитика', 'Analytics'), desc: l('სტუდიის შემოსავლების და ზრდის სრული კონტროლი.', 'Полный контроль доходов и роста студии.', 'Full control over studio revenue and growth.'), img: '/gallery/analytics.png' },
         { title: l('ხელფასების გამოთვლა', 'Расчет зарплат', 'Salary Calculation'), desc: l('მასწავლებლების ანაზღაურების ავტომატური დარიცხვა.', 'Автоматический расчет вознаграждения преподавателей.', 'Automated teacher payroll calculation.'), img: '/gallery/salary.png' },

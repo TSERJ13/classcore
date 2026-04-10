@@ -457,22 +457,36 @@ export default function DashboardPage() {
 
             // Load live schedule for selected date
             const dateStr = getLocalISODate(selectedDate);
-            const events = mod.getEventsByDate(dateStr);
-            const allStudents = getStudents();
-            const scheduleWithDetails = events.map(ev => {
-                const classStudents = allStudents.filter(s => {
-                    const sClasses = (s as any).classes || s.enrolled_group_ids || [];
-                    return Array.isArray(sClasses) && sClasses.includes(ev.id);
+            const evByDate = mod.getEventsByDate(dateStr);
+            
+            // STRICT FILTER: Only show events if they are individual OR belong to an existing group
+            import('@/lib/group-store').then(groupMod => {
+                const existingGroups = groupMod.getGroups();
+                const validGroupIds = new Set(existingGroups.map(g => g.id));
+                
+                const events = evByDate.filter(ev => {
+                    if (ev.type === 'group_class' && ev.group_id) {
+                        return validGroupIds.has(ev.group_id);
+                    }
+                    return true;
                 });
-                const count = classStudents.length;
 
-                return {
-                    ...ev,
-                    teacherName: getTeacherName(ev.teacher_id),
-                    studentCount: count
-                };
+                const allStudents = getStudents();
+                const scheduleWithDetails = events.map(ev => {
+                    const classStudents = allStudents.filter(s => {
+                        const sClasses = (s as any).classes || s.enrolled_group_ids || [];
+                        return Array.isArray(sClasses) && sClasses.includes(ev.id);
+                    });
+                    const count = classStudents.length;
+
+                    return {
+                        ...ev,
+                        teacherName: getTeacherName(ev.teacher_id),
+                        studentCount: count
+                    };
+                });
+                setLiveSchedule(scheduleWithDetails);
             });
-            setLiveSchedule(scheduleWithDetails);
         });
 
         // Birthday Check (Only run on real today)
@@ -641,7 +655,8 @@ export default function DashboardPage() {
         });
     }, [selectedDate, settings, t]);
 
-    const isDemo = (settings.studioSlug === 'demo.classcore.ge' || !user || (profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name)) && (liveStats.totalStudents === 0);
+    // No longer using isDemo hardcoded overrides
+    const isDemo = false;
 
     const getLocalizedDate = (date: Date, t: any) => {
         const weekdays = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
@@ -673,10 +688,10 @@ export default function DashboardPage() {
     const dateStr = getLocalizedDate(selectedDate, t);
 
     const stats = [
-        { label: t.totalStudents, value: isDemo ? '142' : String(liveStats.totalStudents), change: isDemo ? '+8' : (liveStats.activeChange >= 0 ? `+${liveStats.activeChange}%` : `${liveStats.activeChange}%`), sub: null, icon: Users, color: 'indigo' },
-        { label: t.activeSubscriptions, value: isDemo ? String(liveStats.activeSubs || 118) : String(liveStats.activeSubs), change: isDemo ? `+${liveStats.newThisMonth}` : (liveStats.newThisMonth >= 0 ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth)), sub: null, icon: CreditCard, color: 'emerald' },
-        { label: t.todayRevenue, value: isDemo ? formatCurrency(850, settings.currency) : formatCurrency(liveStats.todayRevenue, settings.currency), change: isDemo ? '+12%' : (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
-        { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: isDemo ? formatCurrency(14200, settings.currency) : formatCurrency(liveStats.monthlyRevenue, settings.currency), change: isDemo ? '+18%' : (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
+        { label: t.totalStudents, value: String(liveStats.totalStudents), change: (liveStats.activeChange >= 0 ? `+${liveStats.activeChange}%` : `${liveStats.activeChange}%`), sub: null, icon: Users, color: 'indigo' },
+        { label: t.activeSubscriptions, value: String(liveStats.activeSubs), change: (liveStats.newThisMonth >= 0 ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth)), sub: null, icon: CreditCard, color: 'emerald' },
+        { label: t.todayRevenue, value: formatCurrency(liveStats.todayRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
+        { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: formatCurrency(liveStats.monthlyRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
     ];
 
     const colorMap: Record<string, { bg: string; text: string; border: string; glow: string }> = {
@@ -1150,18 +1165,18 @@ export default function DashboardPage() {
                         <p className="text-sm font-semibold text-primary">{t.todayAttendance}</p>
                         <p className="text-[11px] text-muted mt-0.5">
                             {t.ofStudents
-                                .replace('{count}', isDemo ? '34' : String(liveStats.attendance))
-                                .replace('{total}', isDemo ? '41' : String(liveStats.activeStudents || liveStats.totalStudents))
+                                .replace('{count}', String(liveStats.attendance))
+                                .replace('{total}', String(liveStats.activeStudents || liveStats.totalStudents))
                             }
                         </p>
                     </div>
                     <span className="text-2xl font-black text-primary">
-                        {isDemo ? '83%' : ((liveStats.activeStudents || liveStats.totalStudents) > 0 ? Math.round((liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents)) * 100) + '%' : '0%')}
+                        {((liveStats.activeStudents || liveStats.totalStudents) > 0 ? Math.round((liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents)) * 100) + '%' : '0%')}
                     </span>
                 </div>
                 <div className="w-full bg-surface rounded-full h-3 overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full relative overflow-hidden transition-all duration-1000"
-                        style={{ width: isDemo ? '83%' : ((liveStats.activeStudents || liveStats.totalStudents) > 0 ? (liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents) * 100) + '%' : '0%') }}>
+                        style={{ width: ((liveStats.activeStudents || liveStats.totalStudents) > 0 ? (liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents) * 100) + '%' : '0%') }}>
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
                     </div>
                 </div>
@@ -1169,26 +1184,26 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                            <span className="text-[10px] font-bold text-primary">{t.present}: <span className="text-indigo-400">{isDemo ? '34' : liveStats.attendance}</span></span>
+                            <span className="text-[10px] font-bold text-primary">{t.present}: <span className="text-indigo-400">{liveStats.attendance}</span></span>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-surface-hover border border-border-subtle" />
-                            <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{isDemo ? '7' : Math.max(0, liveStats.activeStudents - liveStats.attendance)}</span></span>
+                            <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{Math.max(0, liveStats.activeStudents - liveStats.attendance)}</span></span>
                         </div>
                     </div>
                     <div className="text-[10px] font-bold text-muted tracking-tight">
-                        {t.activeSubscriptions}: {isDemo ? '41' : liveStats.activeStudents}
+                        {t.activeSubscriptions}: {liveStats.activeStudents}
                     </div>
                 </div>
                 {/* Subscription breakdown */}
                 <div className="mt-3 pt-3 border-t border-border-subtle/50 flex items-center gap-6">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] font-bold text-muted">{t.activeSubscriptions}: <span className="text-emerald-500">{isDemo ? '41' : liveStats.activeSubs}</span></span>
+                        <span className="text-[10px] font-bold text-muted">{t.activeSubscriptions}: <span className="text-emerald-500">{liveStats.activeSubs}</span></span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-rose-400/60" />
-                        <span className="text-[10px] font-bold text-muted">{t.inactive || 'Inactive'}: <span className="text-rose-400/80">{isDemo ? '12' : Math.max(0, liveStats.totalStudents - liveStats.activeSubs)}</span></span>
+                        <span className="text-[10px] font-bold text-muted">{t.inactive || 'Inactive'}: <span className="text-rose-400/80">{Math.max(0, liveStats.totalStudents - liveStats.activeSubs)}</span></span>
                     </div>
                 </div>
             </div>
