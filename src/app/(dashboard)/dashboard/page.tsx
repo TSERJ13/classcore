@@ -7,7 +7,7 @@ import { getSubscription, getSubscriptions } from '@/lib/subscription-store';
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -166,9 +166,9 @@ function MiniCalendar({ t, selectedDate, rangeStart, rangeEnd, onSelect, onRange
                             )}>
                                 {d}
                             </span>
-                            {hasEvent && !isToday && (
+                            {hasEvent && (
                                 <span className={cn("absolute bottom-1 w-1 h-1 rounded-full",
-                                    (isSelected || isStart || isEnd) ? "bg-indigo-400" : "bg-indigo-400/70"
+                                    (isSelected || isStart || isEnd || isToday) ? "bg-indigo-400" : "bg-indigo-400/70"
                                 )} />
                             )}
                         </button>
@@ -689,7 +689,7 @@ export default function DashboardPage() {
     const nowHour = new Date().getHours();
     const isToday = selectedDate.toDateString() === new Date().toDateString();
 
-    const currentClass = isToday ? (liveSchedule as { start_time: string; name: string }[]).find(s => {
+    const currentClass = isToday ? (liveSchedule as { start_time: string; title: string }[]).find(s => {
         if (!s.start_time) return false;
         const h = parseInt(s.start_time.split(':')[0] || '0');
         return h <= nowHour && h + 2 > nowHour;
@@ -698,14 +698,21 @@ export default function DashboardPage() {
     const [billing, setBilling] = useState<any>(null);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && settings?.studioSlug) {
-            try {
-                const { getBillingState } = require('@/lib/saas-billing');
-                setBilling(getBillingState(settings.studioSlug));
-            } catch (err) {
-                console.error('Billing initialization error:', err);
+        const refreshBilling = () => {
+            if (typeof window !== 'undefined' && settings?.studioSlug) {
+                try {
+                    const { getBillingState } = require('@/lib/saas-billing');
+                    setBilling(getBillingState(settings.studioSlug));
+                } catch (err) { }
             }
-        }
+        };
+        refreshBilling();
+        window.addEventListener('cc_sa_meta_update', refreshBilling);
+        window.addEventListener('cc_subscription_update', refreshBilling);
+        return () => {
+            window.removeEventListener('cc_sa_meta_update', refreshBilling);
+            window.removeEventListener('cc_subscription_update', refreshBilling);
+        };
     }, [settings?.studioSlug]);
 
     if (!isLoaded || (loading && !isDemo)) {
@@ -722,6 +729,44 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6 animate-fade-in relative">
 
+
+            {/* Account Locked / Suspended Overlay */}
+            {billing?.manualBlock && (
+                <div className="fixed inset-0 z-[9999] backdrop-blur-xl bg-slate-900/60 flex items-center justify-center p-4 animate-in fade-in duration-500">
+                    <div className="w-full max-w-[500px] bg-white rounded-[3rem] p-8 sm:p-12 text-center shadow-2xl border border-slate-100 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
+                        
+                        <div className="relative space-y-8">
+                            <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto text-rose-500 shadow-inner">
+                                <ShieldAlert className="w-10 h-10 animate-bounce" />
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight uppercase leading-none">
+                                    {l('ანგარიში შეზღუდულია', 'Аккаунт ограничен', 'Account Restricted')}
+                                </h1>
+                                <p className="text-sm font-bold text-slate-500 leading-relaxed px-4">
+                                    {l('ანგარიში არ არის აქტიური, გთხოვთ გადაიხადოთ სააბონენტო გადასახადი მომსახურების გასაგრძელებლად.', 'Аккаунт не активен, пожалуйста, оплатите подписку для продолжения работы.', 'Account is not active, please pay the subscription fee to continue using the service.')}
+                                </p>
+                            </div>
+
+                            <div className="pt-4 flex flex-col gap-3">
+                                <Link href="/billing" className="h-14 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 shadow-xl shadow-indigo-500/20 active:scale-95 transition-all hover:bg-indigo-700">
+                                    <CreditCard className="w-4 h-4" />
+                                    {t.billing || 'Billing'}
+                                </Link>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="h-12 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
+                                >
+                                    <RefreshCcw className="w-3.5 h-3.5" />
+                                    {t.refreshPage || 'Refresh'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Billing Expiration Notification */}
             {billing?.plan === 'trial' && billing?.status === 'trial' && (billing?.daysLeftInTrial ?? 0) <= 3 && (
@@ -758,12 +803,12 @@ export default function DashboardPage() {
                         {billing && (
                             <span className={cn(
                                 "px-2.5 py-0.5 rounded-lg text-white text-[9px] sm:text-[11px] font-black tracking-tighter shadow-lg shrink-0",
-                                billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
-                                    billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
-                                        billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
-                                            "bg-emerald-500 shadow-emerald-500/20"
+                                (billing?.plan === 'pro' || billing?.plan === 'enterprise') ? "bg-emerald-500 shadow-emerald-500/20" :
+                                billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
+                                billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
+                                "bg-amber-500 shadow-amber-500/20"
                             )}>
-                                {String(billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')).toUpperCase()}
+                                {String(billing?.plan === 'pro' || billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'TRIAL')).toUpperCase()}
                             </span>
                         )}
                     </div>
@@ -775,7 +820,7 @@ export default function DashboardPage() {
                     {currentClass && (
                         <div className="hidden lg:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            <span className="text-xs font-medium text-emerald-400">{currentClass.name}</span>
+                            <span className="text-xs font-medium text-emerald-400">{currentClass.title}</span>
                         </div>
                     )}
                 </div>

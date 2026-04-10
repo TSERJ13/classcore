@@ -56,7 +56,11 @@ function loadStudio(slug: string): StudioRecord {
 }
 
 function saveMeta(slug: string, patch: object) {
-    try { const existing = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); localStorage.setItem(`cc_sa_meta_${slug}`, JSON.stringify({ ...existing, ...patch })); } catch { }
+    try { 
+        const existing = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); 
+        localStorage.setItem(`cc_sa_meta_${slug}`, JSON.stringify({ ...existing, ...patch }));
+        window.dispatchEvent(new Event('cc_sa_meta_update'));
+    } catch { }
 }
 
 const PLAN_COLORS: Record<string, string> = { 

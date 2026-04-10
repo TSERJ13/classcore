@@ -29,7 +29,7 @@ export function getBillingState(slug: string): BillingState {
         const metaRaw = localStorage.getItem(metaKey);
         const meta = metaRaw ? JSON.parse(metaRaw) : {};
         const plan = meta.plan || data.plan || 'trial';
-        const manualBlock = meta.manualBlock === true;
+        const manualBlock = meta.manualBlock === true || meta.suspended === true;
 
         const trialStart = data.trialStartDate ? new Date(data.trialStartDate) : new Date();
         if (!data.trialStartDate) {

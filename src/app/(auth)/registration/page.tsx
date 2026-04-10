@@ -91,9 +91,10 @@ export default function RegistrationPage() {
                         studio_slug: studioSlug,
                         phone: fullPhone,
                         primary_lang: lang,
-                        role: 'owner'
+                        role: 'owner',
+                        is_activated: false
                     },
-                    emailRedirectTo: `${window.location.origin}/login`
+                    emailRedirectTo: `${window.location.origin}/login?status=verification_sent`
                 }
             });
 
@@ -210,23 +211,25 @@ export default function RegistrationPage() {
                                                 </div>
                                                 {l('ტელეფონი', 'Телефон', 'Comm Link (Phone)')}
                                             </label>
-                                            <div className="flex gap-3">
-                                                <div className="relative shrink-0">
+                                            <div className="flex gap-2 min-w-0">
+                                                <div className="relative shrink-0 w-[70px]">
                                                     <select 
                                                         value={dialCode} onChange={e => setDialCode(e.target.value)}
-                                                        className="appearance-none h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 pr-10 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none shadow-xs"
+                                                        className="appearance-none w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-0 text-center text-lg focus:ring-0 focus:border-indigo-500/30 transition-all outline-none shadow-xs cursor-pointer"
                                                     >
                                                         {COUNTRIES.map(c => (
-                                                            <option key={c.code} value={c.dial}>{c.flag} {c.dial}</option>
+                                                            <option key={c.code} value={c.dial} className="text-sm">{c.flag}</option>
                                                         ))}
                                                     </select>
-                                                    <Globe className="w-3 h-3 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300" />
+                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
+                                                        <Globe className="w-2.5 h-2.5" />
+                                                    </div>
                                                 </div>
                                                 <input 
                                                     value={phone} onChange={e => setPhone(e.target.value)}
                                                     required 
                                                     type="tel"
-                                                    className="flex-1 h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                    className="flex-1 min-w-0 h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                                     placeholder="555..."
                                                 />
                                             </div>
