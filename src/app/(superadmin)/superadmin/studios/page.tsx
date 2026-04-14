@@ -202,26 +202,25 @@ export default function StudiosPage() {
 
     const syncFromCloud = async () => {
         setIsSyncing(true);
-        const nextList = await syncGlobalAdminRegistry();
+        const data = await syncGlobalAdminRegistry();
+        if (data && Array.isArray(data)) {
+            setCloudStudios(data);
+        }
         setIsInitialSyncDone(true);
-        loadData();
         setIsSyncing(false);
     };
 
     const loadData = () => { 
-        const registry = getStudioRegistry();
-        const loaded: StudioRecord[] = registry.map(slug => {
-            const cloud = cloudStudios.find(c => c.slug === slug);
+        if (!isInitialSyncDone || !cloudStudios) return;
+        
+        const loaded: StudioRecord[] = cloudStudios.map(cloud => {
+            const slug = cloud.slug;
             const s = loadSettings(slug);
             const meta = (() => { try { return JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); } catch { return {}; } })();
             const billing = getBillingState(slug);
             
-            // PRIORITY: Trust Cloud for Superadmin view
             const studentCount = (cloud?.studentCount !== undefined) ? cloud.studentCount : 0;
             const subsCount = (cloud?.groupCount !== undefined) ? cloud.groupCount : 0;
-
-            if (!isInitialSyncDone) return null;
-            if (!cloud && slug !== 'demo.classcore.ge') return null;
 
             const ownerEmail = cloud?.ownerEmail || s?.owner_info?.email || s?.staff?.find((m: any) => m.role === 'owner')?.email || 'N/A';
             const ownerPhone = cloud?.ownerPhone || s?.owner_info?.phone || s?.staff?.find((m: any) => m.role === 'owner')?.phone || 'N/A';
@@ -243,10 +242,16 @@ export default function StudiosPage() {
                 ownerPhone,
                 ownerEmail,
                 ownerName,
-                isLocalOnly: !cloud
+                isLocalOnly: false
             };
-        }).filter(Boolean) as StudioRecord[];
-        setStudios(loaded);
+        });
+
+        // Add demo if it exists in local but not cloud
+        if (getStudioRegistry().includes('demo.classcore.ge') && !cloudStudios.find(c => c.slug === 'demo.classcore.ge')) {
+            loaded.unshift(loadStudio('demo.classcore.ge'));
+        }
+
+        setStudios(loaded.filter(Boolean) as StudioRecord[]);
     };
 
     useEffect(() => { 
