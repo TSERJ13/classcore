@@ -100,12 +100,13 @@ export default function RegistrationPage() {
 
             if (authError) throw authError;
 
-            // PRE-EMPTIVE CLEANUP: Clear all demo/legacy keys before the user logs in
+            // SCORCHED EARTH CLEANUP: Wiping all local data to ensure a clean slate for the new studio
             if (typeof window !== 'undefined') {
                 Object.keys(localStorage).forEach(key => {
+                    // We remove everything that could contain data (students, calendar, checkins etc.)
+                    // but keep the language preference and the active slug we just worked with.
                     if (key.startsWith('cc_') && 
                         !key.includes('lang') && 
-                        !key.includes('auth') && 
                         !key.includes('active_studio_slug')) {
                         localStorage.removeItem(key);
                     }

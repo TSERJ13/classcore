@@ -40,15 +40,15 @@ export async function POST(request: Request) {
                     <div class="logo">
                         <img src="https://classcore.ge/logo.svg" alt="ClassCore">
                     </div>
-                    <h1>გამარჯობა, ${firstName}!</h1>
-                    <p>მადლობა ClassCore-ით დაინტერესებისთვის. თქვენი სტუდია წარმატებით შეიქმნა. ანგარიშის გასააქტიურებლად და მუშაობის დასაწყებად, გთხოვთ დააჭიროთ ქვემოთ მოცემულ ღილაკს.</p>
+                    <h1>მოგესალმებით ClassCore-ზე!</h1>
+                    <p>თქვენი ანგარიშის გასააქტიურებლად, გთხოვთ გამოიყენოთ ქვემოთ მოცემული აქტივაციის ღილაკი.</p>
                     <div class="button-container">
-                        <a href="${activationLink}" class="button">ექაუნთის აქტივაცია</a>
+                        <a href="${activationLink}" class="button">ACTIVATION</a>
                     </div>
                     <p>თუ ღილაკი არ მუშაობს, დააკოპირეთ ეს ბმული ბრაუზერში:</p>
                     <p style="font-size: 11px; word-break: break-all; opacity: 0.7;">${activationLink}</p>
                     <div class="footer">
-                        &copy; ${new Date().getFullYear()} ClassCore. ყველა უფლება დაცულია.
+                        &copy; ${new Date().getFullYear()} ClassCore.ge. ყველა უფლება დაცულია.
                     </div>
                 </div>
             </body>
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         await sendEmail(smtpConfig, {
             from: `"ClassCore" <${smtpConfig.auth.user}>`,
             to: email,
-            subject: 'ClassCore - ანგარიშის აქტივაცია',
+            subject: 'ClassCore - აქტივაცია',
             text: `გამარჯობა! თქვენი აქტივაციის ბმული: ${activationLink}`,
             html
         });

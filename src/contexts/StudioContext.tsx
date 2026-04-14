@@ -7,9 +7,7 @@ import { type StudioSettings, type ThemeKey, type Branch, type StaffMember, type
 import { useUser } from '@/hooks/useUser';
 import { recordAuditAction } from '@/lib/audit-store';
 import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
-import { Logo } from '@/components/ui/Logo';
-
-const SETTINGS_TABLE = 'studio_settings';
+import { createClient } from '@/lib/supabase/client';
 
 interface StudioContextValue {
     settings: StudioSettings;
@@ -63,22 +61,19 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
         return 'main';
     });
-    const [isLoaded, setIsLoaded] = useState(true);
+    const [isLoaded, setIsLoaded] = useState(false); // Default to false until first sync/hydration
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [pushCounter, setPushCounter] = useState(0);
     const triggerPush = useCallback(() => setPushCounter(prev => prev + 1), []);
     const hasSyncedRef = useRef(false);
     const lastLocalUpdateRef = useRef<number>(0);
-    const lastPushedTimestampRef = useRef<string | null>(null);
 
     /**
      * Consolidates cloud state application logic with strict tombstone enforcement.
-     * Ensures that pulled data is filtered against local + cloud deletion lists.
      */
     const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any }) => {
         if (!cloudState) return false;
         let changed = false;
-        let staffChanged = false;
 
         const TOMBSTONE_MAP: Record<string, string> = {
             'cc_student_data': 'cc_deleted_students',
@@ -96,7 +91,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             localStorage.setItem(key, JSON.stringify(nextSettings));
             setSettings(nextSettings);
             changed = true;
-            staffChanged = true;
         }
 
         // 2. Sync Studio Data WITH Tombstone Enforcement
@@ -105,7 +99,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 const localVal = localStorage.getItem(key);
                 const cloudValStr = JSON.stringify(val);
                 
-                // Identify if this is a collection key that needs filtering
                 let tombstoneType: string | undefined;
                 let tKey: string | undefined;
 
@@ -120,14 +113,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 
                 if (tombstoneType && tKey) {
                     try {
-                        // Merge local and cloud tombstones for maximum safety
                         const localDeletedIdsRaw = localStorage.getItem(tKey);
                         const localDeletedIds = localDeletedIdsRaw ? JSON.parse(localDeletedIdsRaw) : [];
                         const cloudDeletedIds = (cloudState.studio_data[tKey] || []) as string[];
                         const mergedDeleted = Array.from(new Set([...(Array.isArray(localDeletedIds) ? localDeletedIds : []), ...cloudDeletedIds]));
                         const deletedSet = new Set(mergedDeleted);
 
-                        // Update local tombstone if cloud has more
                         if (mergedDeleted.length > (Array.isArray(localDeletedIds) ? localDeletedIds.length : 0)) {
                             localStorage.setItem(tKey, JSON.stringify(mergedDeleted));
                             changed = true;
@@ -141,7 +132,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                                 if (localVal !== filteredStr) {
                                     localStorage.setItem(key, filteredStr);
                                     changed = true;
-                                    return; // Skip default set for this key
+                                    return;
                                 }
                             } else if (Array.isArray(val)) {
                                 const filtered = val.filter((item: any) => !item?.id || !deletedSet.has(item.id));
@@ -149,7 +140,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                                 if (localVal !== filteredStr) {
                                     localStorage.setItem(key, filteredStr);
                                     changed = true;
-                                    return; // Skip default set for this key
+                                    return;
                                 }
                             }
                         }
@@ -158,7 +149,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     }
                 }
 
-                // Default sync for non-collection keys or if no filtering was needed
                 if (localVal !== cloudValStr) {
                     localStorage.setItem(key, cloudValStr);
                     changed = true;
@@ -171,16 +161,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             const next = loadSettings(activeSlug);
             setSettings(next);
             
-            // Notify all system components to refresh consistently
-            // Notify all system components to refresh consistently
-            window.dispatchEvent(new Event('cc_active_branch_change'));
-            window.dispatchEvent(new Event('cc_settings_update'));
-            window.dispatchEvent(new Event('cc_student_update'));
-            window.dispatchEvent(new Event('cc_groups_update'));
-            window.dispatchEvent(new Event('cc_halls_update'));
-            window.dispatchEvent(new Event('cc_subscription_update'));
-            window.dispatchEvent(new Event('cc_calendar_events_update'));
-            window.dispatchEvent(new Event('cc_checkins_update'));
+            const events = [
+                'cc_active_branch_change', 'cc_settings_update', 'cc_student_update', 
+                'cc_groups_update', 'cc_halls_update', 'cc_subscription_update', 
+                'cc_calendar_events_update', 'cc_checkins_update'
+            ];
+            events.forEach(e => window.dispatchEvent(new Event(e)));
         }
 
         return changed;
@@ -196,23 +182,19 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     const setStudioName = useCallback((n: string) => {
         setSettings(prev => saveSettings({ studioName: n }, prev, prev.studioSlug));
-        // Sync to cookie for SSR
         document.cookie = `cc_studio_name=${encodeURIComponent(n)}; path=/; max-age=31536000; SameSite=Lax`;
     }, []);
 
     const setStudioSlug = useCallback((s: string) => {
         setSettings(prev => saveSettings({ studioSlug: s }, prev, s));
-        // Sync to cookie for SSR consistency
         document.cookie = `cc_active_slug=${s}; path=/; max-age=31536000; SameSite=Lax`;
     }, []);
 
     const setTheme = useCallback((k: ThemeKey) => {
         setSettings(saveSettings({ themeKey: k }));
         applyTheme(k);
-        // Sync to cookie for SSR
         document.cookie = `cc_theme=${k}; path=/; max-age=31536000; SameSite=Lax`;
     }, []);
-
 
     const setLogo = useCallback((dataUrl: string | null) => {
         markLocalUpdate();
@@ -352,10 +334,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 created_at: new Date().toISOString()
             };
             const nextStaff = [...(prev.staff || []), newMember];
-            
-            // Cross-sync: Ensure groups assigned to this teacher know about them
             syncTeacherGroups(newMember.id, `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name, newMember.assigned_group_ids || []);
-            
             return saveSettings({ staff: nextStaff }, prev, prev.studioSlug);
         });
     }, [markLocalUpdate, syncTeacherGroups]);
@@ -365,10 +344,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         setSettings(prev => {
             const member = (prev.staff || []).find(s => s.id === id);
             if (member) {
-                // recordToGlobalTrash is renamed moveToTrash from lib
                 recordToGlobalTrash('teacher' as any, member, activeBranchId);
-                
-                // Cross-sync: Remove teacher from all their groups
                 syncTeacherGroups(id, '', []);
             }
             const staff = (prev.staff || []).filter(s => s.id !== id);
@@ -382,7 +358,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             const staff = (prev.staff || []).map(s => {
                 if (s.id === id) {
                     const next = { ...s, ...patch };
-                    // Cross-sync: If assignment or name changed, update groups
                     if (patch.assigned_group_ids || patch.first_name || patch.last_name || patch.full_name) {
                         syncTeacherGroups(id, `${next.first_name || ''} ${next.last_name || ''}`.trim() || next.full_name, next.assigned_group_ids || []);
                     }
@@ -401,11 +376,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 deletedAt: new Date().toISOString(),
                 deletedBy: user?.email || 'System'
             };
-            const trash = [newItem, ...(prev.trash || [])].slice(0, 100); // Keep last 100
-
-            // Log to global trash store for cross-branch retention/oversight
+            const trash = [newItem, ...(prev.trash || [])].slice(0, 100);
             recordToGlobalTrash(item.type as any, item.data, activeBranchId);
-
             return saveSettings({ trash }, prev, prev.studioSlug);
         });
     }, [user?.email, activeBranchId]);
@@ -414,10 +386,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         setSettings(prev => {
             const item = (prev.trash || []).find(t => t.id === id);
             if (!item) return prev;
-
             const trash = (prev.trash || []).filter(t => t.id !== id);
 
-            // Restore logic
             if (item.type === 'staff') {
                 markLocalUpdate();
                 const staff = [...(prev.staff || []), item.data];
@@ -426,26 +396,16 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 return saveSettings({ trash, staff }, prev, prev.studioSlug);
             }
 
-            if (item.type === 'student') {
+            if (item.type === 'student' || item.type === 'subscription') {
                 if (typeof window !== 'undefined') {
-                    const key = getScopedKey('cc_deleted_students', prev.studioSlug);
+                    const prefix = item.type === 'student' ? 'cc_deleted_students' : 'cc_deleted_subscriptions';
+                    const key = getScopedKey(prefix, prev.studioSlug);
                     const deletedIds = JSON.parse(localStorage.getItem(key) || '[]');
                     const nextIds = deletedIds.filter((d: string) => d !== (item.data.id || item.id));
                     localStorage.setItem(key, JSON.stringify(nextIds));
-                    window.dispatchEvent(new Event('cc_student_update'));
+                    window.dispatchEvent(new Event(item.type === 'student' ? 'cc_student_update' : 'cc_subscription_update'));
                 }
             }
-
-            if (item.type === 'subscription') {
-                if (typeof window !== 'undefined') {
-                    const key = getScopedKey('cc_deleted_subscriptions', prev.studioSlug);
-                    const deletedIds = JSON.parse(localStorage.getItem(key) || '[]');
-                    const nextIds = deletedIds.filter((d: string) => d !== (item.data.id || item.id));
-                    localStorage.setItem(key, JSON.stringify(nextIds));
-                    window.dispatchEvent(new Event('cc_subscription_update'));
-                }
-            }
-
             return saveSettings({ trash }, prev, prev.studioSlug);
         });
     }, [syncTeacherGroups, markLocalUpdate]);
@@ -467,8 +427,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 date: new Date().toISOString()
             };
             const subscriptionLogs = [newLog, ...(prev.subscriptionLogs || [])].slice(0, 500);
-
-            // Record in global history
             recordAuditAction({
                 action: 'subscription_issued',
                 details: `Plan: ${log.planName}${log.groupName ? ` (Group: ${log.groupName})` : ''}`,
@@ -479,40 +437,38 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 branchName: (log.branchName || prev.branches.find(b => b.id === (log.branchId || activeBranchId))?.name || 'Main') as string,
                 performedBy: log.issuedByName || 'Admin'
             });
-
             return saveSettings({ subscriptionLogs }, prev, prev.studioSlug);
         });
     }, [activeBranchId]);
-
 
     const setCustomRoles = useCallback((roles: string[]) => {
         setSettings(prev => saveSettings({ customRoles: roles }, prev, prev.studioSlug));
     }, []);
 
+    // Initial Hydration & Cloud Pull
     useEffect(() => {
-        // Hydrate from localStorage after mount
         const local = loadSettings(defaultSlug || undefined);
         setSettings(local);
 
-        // Load active branch from separate key
         if (typeof window !== 'undefined' && local.studioSlug) {
             const savedBranch = localStorage.getItem(`cc_active_branch_${local.studioSlug}`);
             if (savedBranch) setActiveBranchIdState(savedBranch);
             else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
         }
 
-        // Safety Release: Ensure the UI is unlocked even if sync hangs
         const safetyTimer = setTimeout(() => {
             if (!hasSyncedRef.current) {
                 console.warn('📡 [StudioContext] Sync safety release triggered');
+                setFirstSyncDone(true);
+                setIsLoaded(true);
             }
         }, 8000);
 
         const timer = setTimeout(() => {
             const activeSlug = local.studioSlug;
-            // Immediate release for demo or empty slugs
             if (!activeSlug || activeSlug === 'demo.classcore.ge') {
                 setFirstSyncDone(true);
+                setIsLoaded(true);
                 return;
             }
 
@@ -524,75 +480,85 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     fetchStudioDataFromCloud(activeSlug)
                 ]).then(([cloudStaff, cloudData]) => {
                     hasSyncedRef.current = true;
-                    // 1. Staff Sync
+                    
                     if (cloudStaff && cloudStaff.length > 0) {
                         setSettings(prev => saveSettings({ staff: cloudStaff }, prev, activeSlug));
                     }
 
-                    // 2. Collection Sync
                     if (cloudData) {
                         applyCloudState(activeSlug, { staff_data: cloudStaff || [], studio_data: cloudData });
                     }
 
-                    // Hydration complete: Release the loading guard
                     setFirstSyncDone(true);
+                    setIsLoaded(true);
                 }).catch(err => {
                     console.error('📡 [StudioContext] Initial Cloud Sync Failed:', err);
                     setFirstSyncDone(true);
+                    setIsLoaded(true);
                 });
-
-            }).catch(err => {
-                console.error('📡 [StudioContext] Sync store import failed:', err);
+            }).catch(() => {
+                setIsLoaded(true);
             });
-        }, 0);
+        }, 50);
 
         cleanupRegistry();
-
         return () => {
             clearTimeout(timer);
             clearTimeout(safetyTimer);
         };
+    }, [defaultSlug]);
 
+    // Automatic Cloud Sync
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge') return;
 
-        cleanupRegistry();
+            const studioData: Record<string, any> = {};
+            const keys = Object.keys(localStorage);
+            keys.forEach(k => {
+                if (k.includes(`_${settings.studioSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`))) {
+                    try {
+                        const val = localStorage.getItem(k);
+                        if (val) studioData[k] = JSON.parse(val);
+                    } catch {}
+                }
+            });
+
+            import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
+                pushStudioStateToCloud(settings.studioSlug, settings.staff, studioData, 0, settings.orgId);
+            });
+        }, 1000); // 1s debounce to feel more like a direct database connection
 
         return () => clearTimeout(timer);
-    }, []);
+    }, [isLoaded, settings, pushCounter]);
 
-
-    // Automatic Cloud Sync Effect for Studio Data
+    // Realtime Pulse updates
     useEffect(() => {
-        // Resolve target slug: prioritization: Session Slug > Local Settings Slug
-        const session = getStaffSession();
-        const sessionSlug = session?.slug;
-        const activeSlug = (sessionSlug && sessionSlug !== 'demo.classcore.ge')
-            ? sessionSlug
-            : settings.studioSlug;
-        
-        const displayStudioName = (settings.studioName && settings.studioName.toLowerCase() !== 'studio') 
-            ? settings.studioName 
-            : (profile?.studio_name && profile.studio_name.toLowerCase() !== 'studio')
-                ? profile.studio_name
-                : (typeof window !== 'undefined' ? localStorage.getItem('cc_studio_name') : null) || 'Studio';
-        
-        const activeOrgId = session?.staff?.org_id || profile?.org_id || settings.orgId || (typeof window !== 'undefined' ? (localStorage.getItem('cc_sa_impersonate') === activeSlug ? localStorage.getItem('cc_sa_impersonate_org_id') : undefined) : undefined) || undefined;
+        if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge') return;
 
-        // Background synchronization is disabled by user request
-        return;
+        const supabase = createClient();
+        const channel = supabase
+            .channel(`studio_pulse_${settings.studioSlug}`)
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'studio_settings',
+                filter: `studio_slug=eq.${settings.studioSlug}`
+            }, () => {
+                console.log('📡 [StudioContext] Realtime Update Pulse received');
+                import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
+                    pullStudioStateFromCloud(settings.studioSlug!).then(state => {
+                        if (state) applyCloudState(settings.studioSlug!, state);
+                    });
+                });
+            })
+            .subscribe();
 
-        return;
-    }, [isLoaded, settings, profile?.role, getStaffSession()?.slug, pushCounter]);
+        return () => { supabase.removeChannel(channel); };
+    }, [settings.studioSlug, isLoaded, applyCloudState]);
 
-    // Handle manual cloud pulse requests (from Realtime)
-    useEffect(() => {
-        // Pulse listener disabled by user request
-        return;
-    }, [settings.studioSlug, settings.orgId, profile?.org_id, isLoaded]);
-
-    // Auto-mark local update when store events fire
     useEffect(() => {
         const handleAutoMark = () => {
-            console.log('🔄 [StudioContext] Auto-marking local update from event');
             markLocalUpdate();
             triggerPush();
         };
@@ -608,7 +574,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         return () => events.forEach(e => window.removeEventListener(e, handleAutoMark));
     }, [markLocalUpdate, triggerPush]);
 
-    // 1. Auto-sync studio name, slug & org_id from profile once if it's currently a default/demo name
+    // Auto-sync from profile
     useEffect(() => {
         if (!isLoaded || !profile || hasSyncedRef.current) return;
 
@@ -616,35 +582,22 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         const isDefaultName = settings.studioName.toLowerCase().includes('demo') ||
             settings.studioName === 'ჩემი სტუდია' || settings.studioName === '' || settings.studioName === 'Studio';
 
-        // If we have a profile with a real slug/name, and we are currently on demo
         if (isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
-            console.log('📡 [StudioContext] Auto-syncing real studio from profile:', profile.studio_slug);
-            // ONE-TIME PURGE logic: protects against mock data contamination
-            // BUT: if we just registered, the wizard already set this to 'true' to PROTECT our new data.
             const hasCleansed = localStorage.getItem(`cc_cleansed_${profile.studio_slug}`);
             if (!hasCleansed) {
-                console.log('🧹 [StudioContext] First-time initialization: Purging stale mock keys');
                 const keys = Object.keys(localStorage);
                 keys.forEach(k => {
-                    // Only purge keys related to this studio or demo
                     if (k.includes(profile.studio_slug!) || k.includes('demo.classcore.ge')) {
                         const dataPrefixes = [
                             'cc_checkins', 'cc_shop_sales', 'cc_notifications', 
                             'cc_calendar_events', 'cc_student_data', 'cc_student_subscriptions',
                             'cc_groups', 'cc_halls', 'cc_attendance_data', 'cc_subscription_plans',
-                            'cc_shop_products', 'cc_teachers', 'cc_sales', 'cc_uid_registry',
-                            'cc_expense_data', 'cc_style_settings', 'cc_salary_status', 'cc_audit_logs',
-                            'cc_bonus_rules', 'cc_recurring_billing', 'cc_sms_logs'
+                            'cc_shop_products', 'cc_teachers', 'cc_sales'
                         ];
-                        if (dataPrefixes.some(p => k.includes(p))) {
-                            console.log(`🧼 [StudioContext] Purging key: ${k}`);
-                            localStorage.removeItem(k);
-                        }
+                        if (dataPrefixes.some(p => k.includes(p))) localStorage.removeItem(k);
                     }
                 });
                 localStorage.setItem(`cc_cleansed_${profile.studio_slug}`, 'true');
-            } else {
-                console.log('🛡️ [StudioContext] Studio already cleansed or marked as safe. Skipping purge.');
             }
 
             setStudioSlug(profile.studio_slug);
@@ -655,103 +608,55 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             return;
         }
 
-        const shouldSyncName = isDefaultName && profile.studio_name && profile.studio_name !== settings.studioName;
-        if (shouldSyncName) {
-            console.log('📡 [StudioContext] Auto-syncing studio name from profile:', profile.studio_name);
+        if (isDefaultName && profile.studio_name && profile.studio_name !== settings.studioName) {
             setStudioName(profile.studio_name || '');
         }
 
-        // Also sync owner_info if it's missing locally but exists in profile
-        const needsNameSync = profile.first_name && !settings.owner_info?.first_name;
-        const needsPhoneSync = profile.phone && !settings.owner_info?.phone;
-
-        if (needsNameSync || needsPhoneSync) {
-            console.log('📡 [StudioContext] Auto-syncing owner_info from profile metadata');
+        if (profile.first_name && !settings.owner_info?.first_name) {
             setOwnerInfo({
-                first_name: profile.first_name || settings.owner_info?.first_name || '',
-                last_name: profile.last_name || settings.owner_info?.last_name || '',
-                email: user?.email || settings.owner_info?.email || '',
-                phone: profile.phone || settings.owner_info?.phone || ''
+                first_name: profile.first_name || '',
+                last_name: profile.last_name || '',
+                email: user?.email || '',
+                phone: profile.phone || ''
             });
         }
 
-        // Also sync org_id if it's missing locally but exists in profile
         if (profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
-            console.log('📡 [StudioContext] Auto-syncing org_id from profile:', profile.org_id);
             setSettings(prev => saveSettings({ orgId: profile.org_id }, prev, prev.studioSlug));
         }
-    }, [user?.email, profile?.first_name, profile?.last_name, profile?.phone, profile?.studio_name, profile?.studio_slug, profile?.org_id, settings, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
+    }, [user?.email, profile, settings, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
 
-    // Apply theme on mount + whenever theme/bg changes
     useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);
 
     return (
         <StudioContext.Provider value={{
-            settings,
-            activeBranchId,
-            isLoaded,
-            setTheme,
-            setStudioName,
-            setStudioSlug,
-            setLogo,
-            setNotification,
-            setSecurity,
-            setLandingContent,
-            setSmsTemplates,
-            setCurrency,
-            setLanguage,
-            setTimezone,
-            setGoogleCalendar,
-            setPausePrice,
-            addBranch,
-            removeBranch,
-            updateBranch,
-            setActiveBranch,
-            addStaff,
-            removeStaff,
-            updateStaff,
-            markLocalUpdate,
-            addToTrash,
-            restoreFromTrash,
-            clearOldTrash,
-            logSubscription,
-            setCustomRoles,
-            setSettings: (s: StudioSettings) => setSettings(s),
-            setWizardCompleted,
-            setOwnerInfo,
+            settings, activeBranchId, isLoaded, setTheme, setStudioName, setStudioSlug,
+            setLogo, setNotification, setSecurity, setLandingContent, setSmsTemplates,
+            setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice,
+            addBranch, removeBranch, updateBranch, setActiveBranch, addStaff, removeStaff,
+            updateStaff, markLocalUpdate, addToTrash, restoreFromTrash, clearOldTrash,
+            logSubscription, setCustomRoles, setSettings: (s: StudioSettings) => setSettings(s),
+            setWizardCompleted, setOwnerInfo,
             claimStudio: async (newSlug: string, ownerEmail: string) => {
                 if (typeof window === 'undefined') return;
-                console.log('🚀 [StudioContext] Starting Studio Claim (Migration) for:', newSlug);
-                
                 const oldSlug = 'demo.classcore.ge';
-                const allKeys = Object.keys(localStorage);
                 const prefixes = [
                     'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
                     'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
-                    'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications',
-                    'cc_attendance_archive', 'cc_expenses', 'cc_audit_logs'
+                    'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications'
                 ];
-
-                // 1. Copy Data
                 const migratedData: Record<string, any> = {};
                 prefixes.forEach(prefix => {
-                    const oldKey = `${prefix}_${oldSlug}`;
-                    const val = localStorage.getItem(oldKey);
+                    const val = localStorage.getItem(`${prefix}_${oldSlug}`);
                     if (val) {
-                        const newKey = `${prefix}_${newSlug}`;
-                        localStorage.setItem(newKey, val);
-                        migratedData[newKey] = JSON.parse(val);
+                        localStorage.setItem(`${prefix}_${newSlug}`, val);
+                        migratedData[`${prefix}_${newSlug}`] = JSON.parse(val);
                     }
                 });
-
-                // 2. Prep New Settings
                 const newSettingsKey = `${STORAGE_KEY}_${newSlug}`;
                 const rawSettings = localStorage.getItem(newSettingsKey);
                 let newSettings = rawSettings ? JSON.parse(rawSettings) : { ...settings, studioSlug: newSlug };
-                
-                // Ensure owner is set
-                const currentStaff = newSettings.staff || [];
-                if (!currentStaff.find((s: any) => s.role === 'owner')) {
+                if (!newSettings.staff?.find((s: any) => s.role === 'owner')) {
                     const owner: StaffMember = {
                         id: Math.random().toString(36).substring(2, 9),
                         org_id: newSettings.orgId || Math.random().toString(36).substring(2, 12),
@@ -770,18 +675,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         },
                         created_at: new Date().toISOString()
                     };
-                    newSettings.staff = [owner, ...currentStaff.filter((s: any) => s.role !== 'owner')];
+                    newSettings.staff = [owner, ...(newSettings.staff || [])];
                 }
-                
                 localStorage.setItem(newSettingsKey, JSON.stringify(newSettings));
                 localStorage.setItem(ACTIVE_SLUG_KEY, newSlug);
-
-                // 3. Push to Cloud immediately
                 const { pushStudioStateToCloud } = await import('@/lib/sync-store');
                 await pushStudioStateToCloud(newSlug, newSettings.staff, migratedData, 0, newSettings.orgId);
-
-                // 4. Finalize
-                console.log('✅ [StudioContext] Migration complete. Redirecting...');
                 window.location.href = `/${newSlug}/settings`;
             }
         }}>
@@ -795,4 +694,3 @@ export function useStudio() {
     if (!ctx) throw new Error('useStudio must be used inside StudioProvider');
     return ctx;
 }
-
