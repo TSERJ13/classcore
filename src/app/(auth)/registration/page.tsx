@@ -92,7 +92,7 @@ export default function RegistrationPage() {
                         phone: fullPhone,
                         primary_lang: lang,
                         role: 'owner',
-                        is_activated: false
+                        is_activated: true
                     },
                     emailRedirectTo: `${window.location.origin}/login?status=verification_sent`
                 }
