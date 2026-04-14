@@ -48,28 +48,52 @@ export async function GET() {
                     ? `${ownerFromStaff.first_name} ${ownerFromStaff.last_name || ''}`.trim() 
                     : 'N/A';
 
-            // Extract counts for students, groups, halls
+            // Extract counts for students, groups, halls, and billing
             let studentCount = 0;
             let groupCount = 0;
             let hallCount = 0;
+            let revenue = 0;
+            let activeSubsCount = 0;
 
             const targetSlug = row.studio_slug;
             const studentKey = `cc_student_data_${targetSlug}`.toLowerCase();
             const groupKey = `cc_groups_${targetSlug}`.toLowerCase();
             const hallKey = `cc_halls_${targetSlug}`.toLowerCase();
+            const billingKey = `cc_saas_billing_${targetSlug}`.toLowerCase();
+            const subsKey = `cc_student_subscriptions_${targetSlug}`.toLowerCase();
+            const shopKey = `cc_shop_sales_${targetSlug}`.toLowerCase();
 
             Object.entries(studioConfig || {}).forEach(([key, value]) => {
                 const lowerKey = key.toLowerCase();
                 
-                // Only count if the key exactly matches the scoped key for this studio
                 if (lowerKey === studentKey) {
                     studentCount += Object.keys(value as any || {}).length;
                 } else if (lowerKey === groupKey) {
                     groupCount += (value as any[] || []).length;
                 } else if (lowerKey === hallKey) {
                     hallCount += (value as any[] || []).length;
+                } else if (lowerKey === subsKey) {
+                    // Calculate revenue from active subscriptions
+                    Object.values(value as any || {}).forEach((subs: any) => {
+                        if (Array.isArray(subs)) {
+                            subs.forEach(s => {
+                                if (s.status === 'active') {
+                                    activeSubsCount++;
+                                    revenue += Number(s.amount_paid || 0);
+                                }
+                            });
+                        }
+                    });
+                } else if (lowerKey === shopKey) {
+                    // Add shop sales
+                    if (Array.isArray(value)) {
+                        value.forEach(v => revenue += Number(v.total_amount || 0));
+                    }
                 }
             });
+
+            // Extract billing status
+            const billingObj = (studioConfig as any)[billingKey] || {};
 
             return {
                 slug: row.studio_slug,
@@ -82,8 +106,12 @@ export async function GET() {
                 studentCount,
                 groupCount,
                 hallCount,
+                activeSubsCount,
+                revenue,
                 plan: studioConfig.plan || 'trial',
-                suspended: studioConfig.suspended === true
+                suspended: studioConfig.suspended === true,
+                billingStatus: billingObj.status || 'active',
+                daysLeft: billingObj.daysLeftInTrial ?? 30
             };
         });
 

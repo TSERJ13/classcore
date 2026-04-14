@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Users, Copy, Check, Search, MessageSquare } from 'lucide-react';
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 interface UserRecord { slug: string; studioName: string; logoUrl: string | null; language: string; supportNote: string; tier: string; studentCount: number; }
 
@@ -36,9 +37,22 @@ export default function UsersPage() {
 
     useEffect(() => { 
         setMounted(true);
-        setUsers(loadUsers()); 
-        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (storedLang) setLang(storedLang);
+        const init = async () => {
+            const data = await syncGlobalAdminRegistry();
+            const mapped: UserRecord[] = data.map((s: any) => ({
+                slug: s.slug,
+                studioName: s.name,
+                logoUrl: s.logoUrl,
+                language: s.language || 'ka',
+                supportNote: s.supportNote || '',
+                tier: s.plan || 'trial',
+                studentCount: s.studentCount || 0
+            }));
+            setUsers(mapped); 
+            const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
+            if (storedLang) setLang(storedLang);
+        };
+        init();
     }, []);
 
     const filtered = users.filter(u => u.studioName.toLowerCase().includes(search.toLowerCase()) || u.slug.toLowerCase().includes(search.toLowerCase()));

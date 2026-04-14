@@ -5,7 +5,7 @@ import { getStaffSession, setStaffSession, loadSettings } from '@/lib/settings-s
 
 const SUPER_ADMIN_EMAILS = [
     'adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge', 
-    'tserj13@classcore.ge', 'sergi.tsivtsivadze@gmail.com'
+    'sergi.tsivtsivadze@gmail.com'
 ];
 
 export function useUser() {

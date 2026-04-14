@@ -23,20 +23,24 @@ export async function POST(req: Request) {
             }
         });
 
-        // 1. Delete all studios 
+        const adminEmail = 'adminclasscore@gmail.com'; 
+        const adminSlug = 'superadmin';
+
+        // 1. Delete all studios except the Admin HQ
         const { error: deleteError } = await supabase
             .from('studio_settings')
             .delete()
-            .neq('studio_slug', '___dummy_slug_to_delete_all___');
+            .neq('studio_slug', adminSlug);
 
         if (deleteError) throw deleteError;
 
-        // 2. ORPHANED USER PURGE: Delete all users from Supabase Auth except the Admin
-        const adminEmail = 'adminclasscore@gmail.com'; // Preserve the master admin
+        // 2. ORPHANED USER PURGE: Delete all users except the Admin
         const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
         
         if (!listError && usersData.users) {
-            const usersToDelete = usersData.users.filter(u => u.email?.toLowerCase() !== adminEmail.toLowerCase());
+            const usersToDelete = usersData.users.filter(u => 
+                u.email?.toLowerCase() !== adminEmail.toLowerCase()
+            );
             
             // Delete users sequentially to avoid rate limits
             for (const user of usersToDelete) {

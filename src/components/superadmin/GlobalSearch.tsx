@@ -13,12 +13,26 @@ function globalSearch(query: string): SearchResult[] {
     if (!query.trim()) return [];
     const q = query.toLowerCase();
     const results: SearchResult[] = [];
-    const slugs = getStudioRegistry();
+    
+    // 1. Get True Global Studio Data from the cloud cache
+    const cloudData: any[] = (() => {
+        try { return JSON.parse(localStorage.getItem('cc_sa_studios_data') || '[]'); } catch { return []; }
+    })();
 
+    cloudData.forEach(s => {
+        if (s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q)) {
+            results.push({ type: 'studio', title: s.name, sub: `/${s.slug}`, href: `/superadmin/studios?search=${s.slug}` });
+        }
+    });
+
+    const slugs = getStudioRegistry();
     slugs.forEach(slug => {
+        // Skip studios already matched via cloud data (avoid duplicates)
+        if (cloudData.find(cs => cs.slug === slug)) return;
+        
         const s = loadSettings(slug);
         
-        // Match studio
+        // Match studio (legacy fallback)
         if (s.studioName.toLowerCase().includes(q) || slug.includes(q)) {
             results.push({ type: 'studio', title: s.studioName, sub: `/${slug}`, href: `/superadmin/studios?search=${slug}` });
         }

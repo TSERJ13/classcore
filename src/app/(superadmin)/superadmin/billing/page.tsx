@@ -1,9 +1,8 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { TrendingUp, CreditCard, Users, ShoppingBag } from 'lucide-react';
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 interface BillingRecord { slug: string; name: string; logoUrl: string | null; plan: string; studentCount: number; activeSubsCount: number; subsRevenue: number; shopRevenue: number; totalRevenue: number; currency: string; }
 
@@ -32,9 +31,25 @@ export default function BillingPage() {
     const [lang, setLang] = useState<'ka' | 'en'>('ka');
     useEffect(() => { 
         setMounted(true);
-        setRecords(loadBilling()); 
-        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (storedLang) setLang(storedLang);
+        const init = async () => {
+            const data = await syncGlobalAdminRegistry();
+            const mapped: BillingRecord[] = data.map((s: any) => ({
+                slug: s.slug,
+                name: s.name,
+                logoUrl: s.logoUrl,
+                plan: s.plan,
+                studentCount: s.studentCount,
+                activeSubsCount: s.activeSubsCount || 0,
+                subsRevenue: s.revenue || 0, // Using consolidated revenue for now
+                shopRevenue: 0, // Split reporting removed for true global simplicity
+                totalRevenue: s.revenue || 0,
+                currency: s.currency || 'GEL'
+            }));
+            setRecords(mapped); 
+            const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
+            if (storedLang) setLang(storedLang);
+        };
+        init();
     }, []);
 
     const totalStudents = records.reduce((s, r) => s + r.studentCount, 0);

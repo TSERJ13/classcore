@@ -8,6 +8,7 @@ import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrate
 import { getScopedKey, cn, compactSlugify } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { pushStudioStateToCloud, masterStudioPurge } from '@/lib/sync-store';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 
 interface StudioRecord {
@@ -21,6 +22,22 @@ interface StudioRecord {
     isLocalOnly?: boolean;
     updatedAt?: string | null;
 }
+
+interface AuditUser {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    studioName: string;
+    requestedSlug: string;
+    createdAt: string;
+    confirmedAt: string | null;
+    isConfirmed: boolean;
+    hasStudioRow: boolean;
+    isStale: boolean;
+    lastSignIn: string | null;
+}
+
 
 function loadStudio(slug: string): StudioRecord {
     const s = loadSettings(slug);
@@ -111,8 +128,11 @@ export default function StudiosPage() {
     const [profileFirstName, setProfileFirstName] = useState('');
     const [profileLastName, setProfileLastName] = useState('');
     const [profileLogo, setProfileLogo] = useState('');
-    const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
+    const [activeTab, setActiveTab] = useState<'active' | 'trash' | 'audit'>('active');
     const [isPurging, setIsPurging] = useState(false);
+    const [auditUsers, setAuditUsers] = useState<AuditUser[]>([]);
+    const [isAuditing, setIsAuditing] = useState(false);
+
 
     // Custom Modal State
     const [modal, setModal] = useState<{
@@ -181,77 +201,11 @@ export default function StudiosPage() {
     const [cloudStudios, setCloudStudios] = useState<any[]>([]);
 
     const syncFromCloud = async () => {
-        // Load whatever we have locally FIRST to show something to the user
-        loadData();
-        
         setIsSyncing(true);
-        try {
-                const res = await fetch(`/api/superadmin/studios/list?t=${Date.now()}`, {
-                    cache: 'no-store',
-                    headers: { 'Pragma': 'no-cache' }
-                });
-                const data = await res.json();
-                if (data.studios) {
-                    setCloudStudios(data.studios);
-
-                    // 0. Filter against the Blacklist (Ignore purged slugs for 10 min)
-                    const blacklistRaw = localStorage.getItem('cc_sa_purge_blacklist') || '[]';
-                    const now = Date.now();
-                    const tenMinutes = 10 * 60 * 1000;
-                    const blacklist = JSON.parse(blacklistRaw).filter((b: any) => now - b.timestamp < tenMinutes);
-                    localStorage.setItem('cc_sa_purge_blacklist', JSON.stringify(blacklist)); // Cleanup stale
-                    const blacklistedSlugs = blacklist.map((b: any) => b.slug);
-
-                    const cloudSlugs = data.studios
-                        .map((s: any) => s.slug)
-                        .filter((s: string) => !blacklistedSlugs.includes(s));
-                    
-                    const existing = getStudioRegistry();
-                
-                // 1. SMART PRUNING: Remove slugs that are not in the live cloud list
-                const prunedList = existing.filter(slug => {
-                    // Always keep the demo and our primary entry
-                    if (slug === 'demo.classcore.ge') return true;
-                    
-                    // If it's in the cloud, keep it
-                    if (cloudSlugs.includes(slug)) return true;
-                    
-                    // If it's NOT in the cloud, check the blacklist (allow 10 min window for deletion sync)
-                    if (blacklistedSlugs.includes(slug)) return false;
-
-                    // AGGRESSIVE: If it was synced once (has orgId) but is missing from live cloud list, 
-                    // it was deleted elsewhere -> Wipe it.
-                    const settings = loadSettings(slug);
-                    if (settings.orgId) return false;
-
-                    // If it's pure "Local Only" (never synced), only keep it if there's actual settings.
-                    // But for Superadmins, we should almost ALWAYS trust the cloud.
-                    return !!localStorage.getItem(`cc_studio_settings_${slug}`);
-                });
-
-                // 2. Add new slugs discovered in cloud
-                const newSlugs = cloudSlugs.filter((s: string) => !prunedList.includes(s));
-                const nextList = [...prunedList, ...newSlugs];
-                
-                // 3. FINAL PURGE: If a slug was removed during pruning, also delete its settings from localStorage
-                existing.forEach(slug => {
-                    if (!nextList.includes(slug) && slug !== 'demo.classcore.ge') {
-                        localStorage.removeItem(`cc_studio_settings_${slug}`);
-                        localStorage.removeItem(`cc_sa_meta_${slug}`);
-                    }
-                });
-
-                localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(nextList)]));
-                
-                // 4. Mark initial sync complete and refresh list
-                setIsInitialSyncDone(true);
-                loadData();
-            }
-        } catch (err) {
-            console.error('Failed to sync from cloud:', err);
-        } finally {
-            setIsSyncing(false);
-        }
+        const nextList = await syncGlobalAdminRegistry();
+        setIsInitialSyncDone(true);
+        loadData();
+        setIsSyncing(false);
     };
 
     const loadData = () => { 
@@ -786,7 +740,42 @@ export default function StudiosPage() {
         });
     };
 
+    const fetchAuditList = async () => {
+        setIsAuditing(true);
+        try {
+            const res = await fetch('/api/superadmin/audit/list');
+            const data = await res.json();
+            if (data.users) setAuditUsers(data.users);
+        } catch (err) {
+            console.error('Failed to fetch audit list:', err);
+        } finally {
+            setIsAuditing(false);
+        }
+    };
+
+    const purgeAuditUser = async (userId: string, slug?: string) => {
+        if (!confirm(lang === 'ka' ? 'ნამდვილად გსურთ ამ მომხმარებლის სამუდამოდ წაშლა ბაზიდან?' : 'Are you sure you want to PERMANENTLY delete this user?')) return;
+        
+        try {
+            const res = await fetch('/api/superadmin/audit/delete-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, slug })
+            });
+            if (res.ok) {
+                setAuditUsers(prev => prev.filter(u => u.id !== userId));
+                if (slug) removeFromRegistry(slug);
+            } else {
+                const data = await res.json();
+                alert('Error: ' + data.error);
+            }
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        }
+    };
+
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
@@ -828,41 +817,6 @@ export default function StudiosPage() {
                     >
                         <Eraser className="w-3.5 h-3.5" />
                         {lang === 'ka' ? 'ბრაუზერის ქეშის გასუფთავება' : 'Clear Browser Cache'}
-                    </button>
-
-                    <button 
-                        onClick={() => {
-                            setModal({
-                                type: 'confirm',
-                                title: lang === 'ka' ? 'ბაზის სრული გასუფთავება' : 'FORCE CLOUD PURGE',
-                                message: lang === 'ka' 
-                                    ? 'ყურადღება: ეს წაშლის აბსოლუტურად ყველა სტუდიას ბაზიდან! გსურთ გაგრძელება?'
-                                    : 'WARNING: This will permanently delete EVERY studio from the cloud database! Proceed?',
-                                onConfirm: async () => {
-                                    setModal(m => ({ ...m, loading: true }));
-                                    try {
-                                        const res = await fetch('/api/superadmin/system-reset', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ keepSlug: '___temp___' })
-                                        });
-                                        const data = await res.json();
-                                        if (data.success) {
-                                            setModal({ type: 'alert', title: 'Success', message: 'Cloud database has been purged.' });
-                                            handleMasterReset(); // Also clear local
-                                        } else {
-                                            setModal({ type: 'alert', title: 'Error', message: data.error || 'Reset failed' });
-                                        }
-                                    } catch (err) {
-                                        setModal({ type: 'alert', title: 'Error', message: 'Network error' });
-                                    }
-                                }
-                            });
-                        }}
-                        className="group flex items-center gap-2 px-4 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-rose-500/20 shadow-lg shadow-rose-500/5"
-                    >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        {lang === 'ka' ? 'ბაზის გასუფთავება' : 'Cloud Purge'}
                     </button>
 
                     <button 
@@ -914,6 +868,16 @@ export default function StudiosPage() {
                             {studios.filter(s => s.isDeleted).length}
                         </span>
                     )}
+                </button>
+                <button 
+                    onClick={() => { setActiveTab('audit'); fetchAuditList(); }}
+                    className={cn(
+                        "px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center gap-2",
+                        activeTab === 'audit' ? "bg-white dark:bg-zinc-800 text-indigo-600 shadow-sm border border-black/5 dark:border-border-subtle" : "text-muted hover:text-primary"
+                    )}
+                >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    {lang === 'ka' ? 'აუდიტი' : 'Audit'}
                 </button>
             </div>
 
@@ -1089,10 +1053,17 @@ export default function StudiosPage() {
                                                     </button>
                                                     <button 
                                                         onClick={() => handleDeepPurge(studio.slug)}
-                                                        className="p-2 text-zinc-300 hover:text-rose-500 transition-colors"
-                                                        title={lang === 'ka' ? 'ღრმა გასუფთავება' : 'Deep Purge'}
+                                                        className="p-2 text-zinc-300 hover:text-amber-500 transition-colors"
+                                                        title={lang === 'ka' ? 'მონაცემების გასუფთავება (Reset)' : 'Deep Purge (Reset)'}
                                                     >
                                                         <Eraser className="w-4 h-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => purgeStudio(studio.slug)}
+                                                        className="p-2 text-zinc-300 hover:text-rose-600 transition-colors"
+                                                        title={lang === 'ka' ? 'ატომური წაშლა (Auth+DB)' : 'Nuclear Purge (Auth+DB)'}
+                                                    >
+                                                        <ShieldAlert className="w-4 h-4" />
                                                     </button>
                                                     <button 
                                                         onClick={() => moveToTrash(studio.slug)}
@@ -1152,6 +1123,97 @@ export default function StudiosPage() {
                     </div>
                 )}
             </div>
+
+            {activeTab === 'audit' && (
+                <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-indigo-50/30 dark:bg-indigo-500/5 items-center">
+                        <span>{lang === 'ka' ? 'მომხმარებელი / სტუდია' : 'User / Studio'}</span>
+                        <span>{lang === 'ka' ? 'იმეილი' : 'Email'}</span>
+                        <span className="text-center">{lang === 'ka' ? 'რეგისტრაცია' : 'Registered'}</span>
+                        <span className="text-center">{lang === 'ka' ? 'დადასტურება' : 'Confirmed'}</span>
+                        <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
+                        <span className="text-right pr-2">{lang === 'ka' ? 'ქმედება' : 'Action'}</span>
+                    </div>
+                    {isAuditing ? (
+                        <div className="py-32 text-center">
+                            <RefreshCcw className="w-10 h-10 mx-auto animate-spin text-indigo-500 opacity-20 mb-4" />
+                            <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Loading global audit list...</p>
+                        </div>
+                    ) : auditUsers.length === 0 ? (
+                        <div className="py-32 text-center text-muted">
+                            <ShieldAlert className="w-16 h-16 mx-auto mb-4 opacity-10" />
+                            <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">{lang === 'ka' ? 'აუდიტის მონაცემები არ არის' : 'No audit records found'}</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-black/5 dark:divide-border-subtle/30 max-h-[600px] overflow-y-auto no-scrollbar">
+                            {auditUsers
+                                .filter(u => u.email.toLowerCase().includes(search.toLowerCase()) || u.studioName.toLowerCase().includes(search.toLowerCase()))
+                                .map((user, idx, arr) => {
+                                    const isDuplicate = arr.filter(u => u.studioName.toLowerCase() === user.studioName.toLowerCase() && u.studioName !== 'N/A').length > 1;
+                                    return (
+                                        <div key={user.id} className={cn(
+                                            "grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr_auto] gap-4 items-center px-8 py-5 hover:bg-black/[0.01] transition-colors",
+                                            isDuplicate && "bg-amber-500/[0.03]"
+                                        )}>
+                                            <div className="min-w-0">
+                                                <p className="text-[13px] font-black text-primary dark:text-white truncate flex items-center gap-2">
+                                                    {user.studioName}
+                                                    {isDuplicate && <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest">Duplicate</span>}
+                                                </p>
+                                                <p className="text-[9px] font-bold text-muted truncate opacity-60">/{user.requestedSlug}</p>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[12px] font-bold text-primary dark:text-white truncate">{user.email}</p>
+                                                <p className="text-[9px] font-black text-muted uppercase opacity-40">{user.firstName} {user.lastName}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-[10px] font-black text-primary/70 tabular-nums">{new Date(user.createdAt).toLocaleDateString()}</p>
+                                                <p className="text-[8px] font-bold text-muted uppercase opacity-50">{new Date(user.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                {user.isConfirmed ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none">Confirmed</span>
+                                                        <span className="text-[8px] text-muted opacity-40 mt-1">{user.confirmedAt ? new Date(user.confirmedAt).toLocaleDateString() : ''}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className={cn("text-[9px] font-black uppercase tracking-widest", user.isStale ? "text-rose-500 animate-pulse" : "text-amber-500")}>
+                                                        Pending {user.isStale && (lang === 'ka' ? '(ვადაგასული)' : '(Stale)')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-center">
+                                                {user.hasStudioRow ? (
+                                                    <span className="px-2 py-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg text-[8px] font-black uppercase tracking-widest">Active DB Row</span>
+                                                ) : (
+                                                    <span className="px-2 py-1 bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 rounded-lg text-[8px] font-black uppercase tracking-widest">Auth Only</span>
+                                                )}
+                                            </div>
+                                            <div className="text-right pr-2">
+                                                <button 
+                                                    onClick={() => purgeAuditUser(user.id, user.requestedSlug)}
+                                                    className="p-2.5 bg-black/5 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-600 rounded-xl transition-all active:scale-95 group/purge"
+                                                    title={lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Hard Purge'}
+                                                >
+                                                    <Trash2 className="w-4 h-4 transition-transform group-hover/purge:rotate-12" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    )}
+                    <div className="px-8 py-4 bg-indigo-500/[0.02] border-t border-black/5 dark:border-border-subtle/50 flex items-center justify-between">
+                        <p className="text-[9px] font-black text-indigo-500/50 uppercase tracking-[0.2em]">
+                           Total Registered: {auditUsers.length} • Pending: {auditUsers.filter(u => !u.isConfirmed).length}
+                        </p>
+                        <button onClick={fetchAuditList} className="flex items-center gap-2 text-[9px] font-black text-indigo-600 hover:text-indigo-500 uppercase tracking-widest">
+                            <RefreshCcw className={cn("w-3 h-3", isAuditing && "animate-spin")} />
+                            {lang === 'ka' ? 'განახლება' : 'Refresh List'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Full Control / Edit Profile Modal */}
             {editingProfile && (

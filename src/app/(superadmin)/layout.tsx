@@ -11,6 +11,7 @@ import { getUnreadSupportCount, loadSettings, getStudioRegistry } from '@/lib/se
 import { getBillingState } from '@/lib/saas-billing';
 import { useT } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
     const { user, loading, logout } = useUser();
@@ -31,7 +32,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         'adminclasscore@gmail.com',
         'support@classcore.ge', 
         'admin@classcore.ge',
-        'tserj13@classcore.ge',
         'sergi.tsivtsivadze@gmail.com'
     ];
     const isSuperAdmin = user?.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
@@ -44,6 +44,12 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         window.addEventListener('storage', updateCount);
         
         setMounted(true);
+        const init = async () => {
+            await syncGlobalAdminRegistry();
+            updateCount(); // Refresh count after sync if needed
+        };
+        init();
+
         const storedExpanded = localStorage.getItem('cc_sa_sidebar_expanded');
         if (storedExpanded !== null) setExpanded(storedExpanded === 'true');
         
@@ -403,23 +409,23 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                         </div>
                         <div className="flex-1 overflow-y-auto p-6 space-y-4">
                             {(() => {
-                                const slugs = getStudioRegistry();
+                                const cloudDataRaw = localStorage.getItem('cc_sa_studios_data') || '[]';
+                                const cloudData = JSON.parse(cloudDataRaw);
                                 const alerts: { title: string, time: string, icon: any, color: string, bg: string }[] = [];
-                                slugs.forEach(slug => {
-                                    const state = getBillingState(slug);
-                                    const name = loadSettings(slug).studioName;
-                                    if (state.status === 'overdue') {
+                                
+                                cloudData.forEach((s: any) => {
+                                    if (s.billingStatus === 'overdue' || s.suspended) {
                                         alerts.push({
-                                            title: lang === 'ka' ? `ვადაგადაცილება: ${name}` : `Overdue: ${name}`,
+                                            title: lang === 'ka' ? `ვადაგადაცილება: ${s.name}` : `Overdue: ${s.name}`,
                                             time: lang === 'ka' ? 'ყურადღება!' : 'Atention!',
                                             icon: AlertTriangle,
                                             color: 'text-rose-500',
                                             bg: 'bg-rose-500/10'
                                         });
-                                    } else if (state.status === 'active' && state.daysLeftInTrial <= 7) {
+                                    } else if (s.plan === 'trial' && s.daysLeft <= 7) {
                                         alerts.push({
-                                            title: lang === 'ka' ? `ვადა გასდის: ${name}` : `Expiring soon: ${name}`,
-                                            time: lang === 'ka' ? `${state.daysLeftInTrial} დღე დარჩა` : `${state.daysLeftInTrial}d left`,
+                                            title: lang === 'ka' ? `ვადა გასდის: ${s.name}` : `Expiring soon: ${s.name}`,
+                                            time: lang === 'ka' ? `${s.daysLeft} დღე დარჩა` : `${s.daysLeft}d left`,
                                             icon: Building2,
                                             color: 'text-amber-500',
                                             bg: 'bg-amber-500/10'
@@ -462,14 +468,19 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                         </div>
                         <div className="flex-1 p-6 flex flex-col gap-4">
                             <textarea 
+                                value={localStorage.getItem('cc_sa_system_notes') || ''}
+                                onChange={(e) => {
+                                    localStorage.setItem('cc_sa_system_notes', e.target.value);
+                                    window.dispatchEvent(new Event('storage'));
+                                }}
                                 placeholder={lang === 'ka' ? 'ჩაწერეთ შიდა სისტემური ჩანაწერი...' : "Type a internal system note..."}
                                 className="w-full h-40 bg-black/[0.03] dark:bg-surface border border-black/10 dark:border-border-subtle rounded-3xl p-5 text-sm font-bold text-primary dark:text-white outline-none focus:border-amber-500/50 shadow-inner no-scrollbar resize-none"
                             />
                             <div className="space-y-4">
                                 <p className="text-[10px] font-black text-muted uppercase tracking-widest pl-1">{lang === 'ka' ? 'ბოლო ჩანაწერები' : 'Recent Notes'}</p>
                                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-                                    <p className="text-xs font-bold text-amber-600/80 dark:text-amber-500/80 leading-relaxed italic">{lang === 'ka' ? 'გადაამოწმეთ გადახდების პროცესორი თვის ბოლოს ვადაგადაცილებული სტუდიებისთვის.' : 'Check billing processor for overdue trial studios at the end of the month.'}</p>
-                                    <p className="text-[9px] text-amber-500/40 font-black mt-2 uppercase tracking-tight">Admin • {lang === 'ka' ? '19 მარტი' : 'March 19'}</p>
+                                    <p className="text-xs font-bold text-amber-600/80 dark:text-amber-500/80 leading-relaxed italic">{lang === 'ka' ? 'დარწმუნდით რომ ყველა სტუდია ვერიფიცირებულია.' : 'Ensure all studios are verified post-sync.'}</p>
+                                    <p className="text-[9px] text-amber-500/40 font-black mt-2 uppercase tracking-tight">System • Production Only</p>
                                 </div>
                             </div>
                         </div>

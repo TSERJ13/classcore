@@ -5,6 +5,7 @@ import { Users, Search, Building2, Phone, Mail, Globe, Zap, Shield, CreditCard, 
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { getBillingState } from '@/lib/saas-billing';
 import { cn, formatCurrency } from '@/lib/utils';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 interface StudioClient {
     slug: string;
@@ -60,9 +61,27 @@ export default function GlobalClientsPage() {
 
     useEffect(() => { 
         setMounted(true);
-        setStudios(loadStudios()); 
-        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (storedLang) setLang(storedLang);
+        const init = async () => {
+            const data = await syncGlobalAdminRegistry();
+            const mapped: StudioClient[] = data.map((s: any) => ({
+                slug: s.slug,
+                name: s.name,
+                logoUrl: s.logoUrl,
+                ownerName: s.ownerName,
+                ownerPhone: s.ownerPhone,
+                ownerEmail: s.ownerEmail || 'N/A',
+                studentCount: s.studentCount,
+                billingStatus: s.billingStatus,
+                nextDue: s.nextDue || null,
+                currency: s.currency || 'GEL',
+                status: s.suspended ? 'suspended' : 'active',
+                plan: s.plan
+            }));
+            setStudios(mapped); 
+            const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
+            if (storedLang) setLang(storedLang);
+        };
+        init();
     }, []);
 
     const filtered = useMemo(() =>
@@ -98,7 +117,15 @@ export default function GlobalClientsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filtered.map((s) => (
+                {filtered.length === 0 ? (
+                    <div className="col-span-full py-32 text-center bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm animate-in fade-in duration-700">
+                        <div className="w-20 h-20 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/10 flex items-center justify-center mx-auto mb-6 text-indigo-500/20">
+                            <Globe className="w-10 h-10" />
+                        </div>
+                        <h3 className="text-sm font-black text-primary dark:text-white uppercase tracking-[0.2em] mb-2">{lang === 'ka' ? 'კლიენტები არ მოიძებნა' : 'No clients found'}</h3>
+                        <p className="text-[10px] text-muted font-black uppercase tracking-widest opacity-40">{lang === 'ka' ? 'რეესტრი ამჟამად ცარიელია' : 'The directory is currently empty'}</p>
+                    </div>
+                ) : filtered.map((s) => (
                     <div key={s.slug} className="group bg-white dark:bg-card border border-black/10 dark:border-border-subtle rounded-3xl p-6 hover:shadow-xl transition-all shadow-sm flex flex-col">
                         <div className="flex items-start justify-between mb-6">
                             <div className="flex items-center gap-4">

@@ -11,6 +11,7 @@ import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { getScopedKey } from '@/lib/utils';
 import { getBillingState, getPaymentLogs } from '@/lib/saas-billing';
 import { cn } from '@/lib/utils';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 import Link from 'next/link';
 import SupportChat from '@/components/superadmin/SupportChat';
 // Recharts is currently unavailable in the environment — using premium CSS mockup
@@ -28,8 +29,14 @@ export default function SuperAdminDashboard() {
 
     useEffect(() => {
         setMounted(true);
-        const list = getStudioRegistry();
-        setSlugs(list);
+        const init = async () => {
+            const verified = await syncGlobalAdminRegistry();
+            setSlugs(verified);
+        };
+        init();
+        
+        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
+        if (storedLang) setLang(storedLang);
     }, []);
 
     useEffect(() => {
