@@ -26,13 +26,29 @@ export async function POST(req: Request) {
         const adminEmail = 'adminclasscore@gmail.com'; 
         const adminSlug = 'superadmin';
 
-        // 1. Delete all studios except the Admin HQ
-        const { error: deleteError } = await supabase
-            .from('studio_settings')
-            .delete()
-            .neq('studio_slug', adminSlug);
+        // 1. Nuclear Purge: Delete all rows from ALL relational and setting tables except the Admin HQ
+        const tablesToClear = [
+            'studio_settings', 
+            'profiles', 
+            'organizations', 
+            'groups_classes', 
+            'subscriptions', 
+            'attendance_logs',
+            'hall_rentals'
+        ];
 
-        if (deleteError) throw deleteError;
+        console.log('☢️ [SystemReset] Commencing nuclear wipe of tables:', tablesToClear.join(', '));
+
+        for (const table of tablesToClear) {
+            const { error: deleteError } = await supabase
+                .from(table)
+                .delete()
+                .neq(table === 'studio_settings' ? 'studio_slug' : 'org_id', table === 'studio_settings' ? adminSlug : '___ADMIN_HQ_ID___');
+            
+            if (deleteError) {
+                console.warn(`⚠️ [SystemReset] Failed to clear table ${table}:`, deleteError.message);
+            }
+        }
 
         // 2. ORPHANED USER PURGE: Delete all users except the Admin
         const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();

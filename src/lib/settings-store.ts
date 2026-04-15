@@ -511,9 +511,8 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
                 setActiveSlug(next.studioSlug);
             }
             
-            // Immediate Cloud Sync for Staff/Security/Vital Settings
             if (finalSlug && finalSlug !== 'demo.classcore.ge') {
-                const isVitalUpdate = s.staff || s.security || s.branches || s.studioName;
+                const isVitalUpdate = s.staff || s.security || s.branches || s.studioName || s.logoDataUrl;
                 if (isVitalUpdate) {
                     import('./sync-store').then(({ pushStudioStateToCloud }) => {
                         // Push full state including staff and studioData

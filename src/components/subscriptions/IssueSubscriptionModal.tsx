@@ -119,11 +119,20 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         }
     }, [open, initialStudentId]);
 
-    // Reset balance usage when student changes
+    // Reset balance usage and auto-fill discount when student changes
     useEffect(() => {
         setUseBalance(false);
         setAmountPaid('');
-    }, [studentId]);
+        
+        const student = students.find(s => s.id === studentId);
+        if (student && student.discount_value && student.discount_value > 0) {
+            setDiscount(student.discount_value);
+            setDiscountType(student.discount_type || 'percent');
+        } else {
+            setDiscount('');
+            setDiscountType('percent');
+        }
+    }, [studentId, students]);
 
     const studentOptions = useMemo(() => students.map(s => ({
         value: s.id,

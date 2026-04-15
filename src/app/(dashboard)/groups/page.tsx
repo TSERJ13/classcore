@@ -46,10 +46,14 @@ export default function GroupsPage() {
             updated = groups.map(g => g.id === editing.id ? { ...g, ...data } as Group : g);
         } else {
             const newGroup: Group = {
-                id: data.id || String(Date.now()),
+                id: data.id || `g_${Date.now()}`,
                 name: data.name || '',
                 coach: data.coach || '',
                 teacherId: data.teacherId || '',
+                secondaryTeacherId: data.secondaryTeacherId || '',
+                secondaryTeacherName: data.secondaryTeacherName || '',
+                primaryTeacherPercentage: data.primaryTeacherPercentage || 0,
+                secondaryTeacherPercentage: data.secondaryTeacherPercentage || 0,
                 schedule: data.schedule || '',
                 schedule_slots: data.schedule_slots || [],
                 capacity: data.capacity || 20,
@@ -63,10 +67,10 @@ export default function GroupsPage() {
         }
 
         // Sync with StudioContext Teachers
+        const gid = editing?.id || updated[updated.length - 1].id;
+
+        // 1. Primary Teacher Sync
         if (oldTeacherId !== newTeacherId) {
-            const gid = editing?.id || updated[updated.length - 1].id;
-            
-            // 1. Remove from old teacher
             if (oldTeacherId) {
                 const oldT = settings.staff.find(s => s.id === oldTeacherId);
                 if (oldT) {
@@ -74,12 +78,31 @@ export default function GroupsPage() {
                     updateStaff(oldTeacherId, { assigned_group_ids: nextGroups });
                 }
             }
-            // 2. Add to new teacher
             if (newTeacherId) {
                 const newT = settings.staff.find(s => s.id === newTeacherId);
                 if (newT) {
                     const nextGroups = Array.from(new Set([...(newT.assigned_group_ids || []), gid]));
                     updateStaff(newTeacherId, { assigned_group_ids: nextGroups });
+                }
+            }
+        }
+
+        // 2. Secondary Teacher Sync
+        const oldSecondaryId = editing?.secondaryTeacherId;
+        const newSecondaryId = data.secondaryTeacherId;
+        if (oldSecondaryId !== newSecondaryId) {
+            if (oldSecondaryId) {
+                const oldST = settings.staff.find(s => s.id === oldSecondaryId);
+                if (oldST) {
+                    const nextGroups = (oldST.assigned_group_ids || []).filter(id => id !== gid);
+                    updateStaff(oldSecondaryId, { assigned_group_ids: nextGroups });
+                }
+            }
+            if (newSecondaryId) {
+                const newST = settings.staff.find(s => s.id === newSecondaryId);
+                if (newST) {
+                    const nextGroups = Array.from(new Set([...(newST.assigned_group_ids || []), gid]));
+                    updateStaff(newSecondaryId, { assigned_group_ids: nextGroups });
                 }
             }
         }
@@ -155,6 +178,7 @@ export default function GroupsPage() {
                 {groups.map(group => {
                     const fillPct = Math.round((group.enrolled / group.capacity) * 100);
                     const teacher = teachers.find(tc => tc.id === group.teacherId);
+                    const secondaryTeacher = group.secondaryTeacherId ? teachers.find(tc => tc.id === group.secondaryTeacherId) : null;
                     const gColor = group.color || '#6366f1';
 
                     return (
@@ -168,18 +192,35 @@ export default function GroupsPage() {
                                         <h3 className="text-[14px] sm:text-[16px] font-black text-primary leading-tight line-clamp-1 uppercase tracking-tight group-hover:text-indigo-600 transition-colors uppercase">{group.name}</h3>
                                         <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border tracking-widest shrink-0 ${typeColor[group.type] || typeColor.Dance}`}>{group.type}</span>
                                     </div>
-                                    
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 shadow-sm overflow-hidden relative">
-                                            {teacher?.photo_url ? (
-                                                <img src={teacher.photo_url} alt={teacher.full_name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <GraduationCap className="w-4 h-4 text-muted opacity-40" />
+                                                                  <div className="flex items-center gap-2">
+                                        <div className="flex -space-x-3 overflow-hidden">
+                                            <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 shadow-sm overflow-hidden relative z-10">
+                                                {teacher?.photo_url ? (
+                                                    <img src={teacher.photo_url} alt={teacher.full_name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <GraduationCap className="w-4 h-4 text-muted opacity-40" />
+                                                )}
+                                            </div>
+                                            {secondaryTeacher && (
+                                                <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 shadow-sm overflow-hidden relative group-hover:translate-x-1 transition-transform">
+                                                    {secondaryTeacher.photo_url ? (
+                                                        <img src={secondaryTeacher.photo_url} alt={secondaryTeacher.full_name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-indigo-50 flex items-center justify-center">
+                                                            <Users className="w-3 h-3 text-indigo-400 opacity-60" />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                         <div className="min-w-0">
                                             <span className="text-[10px] font-bold text-primary truncate leading-none block">
                                                 {teacher?.full_name || group.coach || t.noTeacher}
+                                                {group.secondaryTeacherId && (
+                                                    <span className="text-muted/40 font-medium ml-1">
+                                                        + {secondaryTeacher?.full_name || group.secondaryTeacherName}
+                                                    </span>
+                                                )}
                                             </span>
                                         </div>
                                     </div>
@@ -235,8 +276,18 @@ export default function GroupsPage() {
                 })}
             </div>
 
+            {groups.length === 0 && (
+                <div className="py-20 flex flex-col items-center justify-center text-muted/30">
+                    <div className="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-4">
+                        <BookOpen className="w-10 h-10 opacity-20" />
+                    </div>
+                    <p className="text-base font-bold">{t.noData}</p>
+                    <p className="text-xs font-medium mt-1">{t.tryAnotherSearch || 'დაამატეთ ახალი ჯგუფი'}</p>
+                </div>
+            )}
+
             {/* Cross-page quick nav */}
-            <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-8 shadow-sm">
+            <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-20 shadow-sm">
                 <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
                 <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     {[

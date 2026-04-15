@@ -200,7 +200,7 @@ export default function TeachersPage() {
                 </div>
 
                 {/* Cross-page quick nav */}
-                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-8 shadow-sm">
+                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-20 shadow-sm">
                     <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
                     <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         {[

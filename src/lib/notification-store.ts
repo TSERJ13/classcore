@@ -14,7 +14,8 @@ export interface Notification {
     created_at: string;
 }
 
-import { getScopedKey } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_NOTIFS_KEY = 'cc_notifications';
 const BASE_HISTORY_KEY = 'cc_notifications_history';
@@ -54,7 +55,17 @@ export function saveNotifications(notifs: Notification[]): void {
 
     localStorage.setItem(getNotifsKey(), JSON.stringify(active));
 
-    if (archived.length > 0) {
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        const studioData: any = { [getNotifsKey()]: active };
+        if (archived.length > 0) {
+            const history = getHistory();
+            const updatedHistory = [...archived, ...history];
+            localStorage.setItem(getHistoryKey(), JSON.stringify(updatedHistory));
+            studioData[getHistoryKey()] = updatedHistory;
+        }
+        pushStudioStateToCloud(activeSlug, [], studioData);
+    } else if (archived.length > 0) {
         const history = getHistory();
         const updatedHistory = [...archived, ...history];
         localStorage.setItem(getHistoryKey(), JSON.stringify(updatedHistory));
@@ -112,6 +123,16 @@ export function clearAll(): void {
     const notifs = getNotifications();
     const history = getHistory();
     const updatedHistory = [...notifs, ...history];
-    localStorage.setItem(getHistoryKey(), JSON.stringify(updatedHistory));
-    localStorage.setItem(getNotifsKey(), JSON.stringify([]));
+    const nKey = getNotifsKey();
+    const hKey = getHistoryKey();
+    localStorage.setItem(hKey, JSON.stringify(updatedHistory));
+    localStorage.setItem(nKey, JSON.stringify([]));
+
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], {
+            [nKey]: [],
+            [hKey]: updatedHistory
+        });
+    }
 }

@@ -111,6 +111,12 @@ export default function RegistrationPage() {
                         localStorage.removeItem(key);
                     }
                 });
+                
+                // CRITICAL ISOLATION FLAGS:
+                // 1. Force the next sync pulse to OVERWRITE cloud instead of MERGING (prevents orphan leaks)
+                localStorage.setItem(`cc_is_fresh_${studioSlug}`, 'true');
+                // 2. Mark onboarding as in progress to guide initial UI
+                localStorage.setItem('cc_onboarding_in_progress', 'true');
             }
 
             setRegData({ email });

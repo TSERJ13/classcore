@@ -203,6 +203,17 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             </div>
                         </div>
 
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{l('პაროლი', 'Пароль', 'Password')}</label>
+                            <div className="relative group/input">
+                                <Layout className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                <input type="password" value={form.password ?? ''} onChange={e => setF('password', e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                            </div>
+                            <p className="px-1 text-[9px] text-muted opacity-50 italic">{l('მიუთითეთ თუ გსურთ მასწავლებელს ჰქონდეს პირადი წვდომა სისტემაზე', 'Укажите, თუ хотите, чтобы у учителя был личный доступ к системе', 'Set this if you want the teacher to have personal access to the system')}</p>
+                        </div>
+
                     </section>
 
 

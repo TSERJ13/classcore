@@ -25,6 +25,10 @@ interface GroupModalProps {
         type?: string;
         difficulty?: string | null;
         hall_id?: string;
+        secondaryTeacherId?: string;
+        secondaryTeacherName?: string;
+        primaryTeacherPercentage?: number;
+        secondaryTeacherPercentage?: number;
     };
     onClose: () => void;
     onSave: (data: Partial<{
@@ -32,6 +36,8 @@ interface GroupModalProps {
         schedule: string; schedule_slots: ScheduleSlot[];
         capacity: number; type: string; difficulty: string | null; hall_id: string;
         color: string;
+        secondaryTeacherId: string; secondaryTeacherName: string;
+        primaryTeacherPercentage: number; secondaryTeacherPercentage: number;
     }>) => void;
     onDelete?: (id: string) => void;
     [key: string]: unknown;
@@ -66,6 +72,10 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
         difficulty: '' as string | null,
         hall_id: 'h1',
         color: '#6366f1',
+        secondaryTeacherId: '',
+        secondaryTeacherName: '',
+        primaryTeacherPercentage: 0,
+        secondaryTeacherPercentage: 0,
     });
 
     const [slots, setSlots] = useState<ScheduleSlot[]>([]);
@@ -101,11 +111,18 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                 difficulty: group.difficulty ?? null,
                 hall_id: group.hall_id ?? 'h1',
                 color: (group as any).color ?? '#6366f1',
+                secondaryTeacherId: group.secondaryTeacherId ?? '',
+                secondaryTeacherName: group.secondaryTeacherName ?? '',
+                primaryTeacherPercentage: group.primaryTeacherPercentage ?? 0,
+                secondaryTeacherPercentage: group.secondaryTeacherPercentage ?? 0,
             });
             setSlots(group.schedule_slots?.length ? group.schedule_slots : [{ ...DEFAULT_SLOT }]);
             setShowDelete(false);
         } else if (open) {
-            setForm({ id: '', name: '', coach: '', teacherId: '', capacity: 15, type: 'Dance', difficulty: '', hall_id: 'h1', color: '#6366f1' });
+            setForm({ 
+                id: '', name: '', coach: '', teacherId: '', capacity: 15, type: 'Dance', difficulty: '', hall_id: 'h1', color: '#6366f1',
+                secondaryTeacherId: '', secondaryTeacherName: '', primaryTeacherPercentage: 0, secondaryTeacherPercentage: 0 
+            });
             setSlots([{ ...DEFAULT_SLOT }]);
             setShowDelete(false);
         }
@@ -162,7 +179,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
             // Sync recurring events to calendar
             if (slots.length > 0) {
                 try {
-                    await syncGroupScheduleToCalendar(groupId, form.name, form.teacherId, form.hall_id, slots, form.color);
+                    await syncGroupScheduleToCalendar(groupId, form.name, form.teacherId, form.hall_id, slots, form.color, form.secondaryTeacherId);
                 } catch (syncErr) {
                     console.error('⚠️ [GroupModal] Calendar sync failed, but group saved locally:', syncErr);
                 }
@@ -222,10 +239,87 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             onChange={val => {
                                 const teacher = teachers.find(tc => tc.id === val);
                                 const name = teacher ? (teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim()) : '';
-                                setForm({ ...form, teacherId: val, coach: name });
+                                setForm({ ...form, teacherId: val, coach: name, primaryTeacherPercentage: teacher?.salary_percentage || 0 });
                             }}
                             placeholder={t.selectTeacher}
                         />
+                        {form.teacherId && (
+                            <div className="flex items-center justify-between px-1 mt-2">
+                                <span className="text-[10px] font-black text-muted/40 uppercase tracking-widest">{t.salaryPercentage || 'Share %'}</span>
+                                <div className="relative w-24">
+                                    <input 
+                                        type="number" 
+                                        value={form.primaryTeacherPercentage || ''} 
+                                        onChange={e => setForm({ ...form, primaryTeacherPercentage: parseInt(e.target.value) || 0 })}
+                                        className="w-full bg-surface/50 border border-border-subtle/50 rounded-xl px-3 py-1.5 text-xs font-black text-indigo-600 outline-none focus:border-indigo-500/40"
+                                        placeholder="0"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-600/30">%</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Secondary Teacher Toggle & Section */}
+                    <div className="space-y-3 p-4 bg-surface/50 border border-border-subtle rounded-2xl">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
+                                <Users className="w-3 h-3" /> {lang === 'ka' ? 'მეორე მასწავლებელი' : 'Secondary Teacher'}
+                            </label>
+                            {!form.secondaryTeacherId && (
+                                <button 
+                                    onClick={() => setForm({ ...form, secondaryTeacherId: 'placeholder', secondaryTeacherPercentage: 0 })}
+                                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
+                                >
+                                    <Plus className="w-3 h-3" /> {t.add || 'დამატება'}
+                                </button>
+                            )}
+                        </div>
+
+                        {form.secondaryTeacherId ? (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <SearchSelect
+                                    options={teacherOptions}
+                                    value={form.secondaryTeacherId === 'placeholder' ? '' : form.secondaryTeacherId}
+                                    onChange={val => {
+                                        const teacher = teachers.find(tc => tc.id === val);
+                                        const name = teacher ? (teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim()) : '';
+                                        setForm({ ...form, secondaryTeacherId: val, secondaryTeacherName: name, secondaryTeacherPercentage: teacher?.salary_percentage || 0 });
+                                    }}
+                                    placeholder={t.selectTeacher}
+                                />
+
+                                {form.secondaryTeacherId !== 'placeholder' && (
+                                    <div className="space-y-3 pt-2 border-t border-border-subtle/30">
+                                        <div className="flex items-center justify-between px-1">
+                                            <span className="text-[10px] font-black text-muted/40 uppercase tracking-widest">{lang === 'ka' ? 'დამხმარის წილი %' : 'Assistant Share %'}</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="relative w-24">
+                                                    <input 
+                                                        type="number" 
+                                                        value={form.secondaryTeacherPercentage || ''} 
+                                                        onChange={e => setForm({ ...form, secondaryTeacherPercentage: parseInt(e.target.value) || 0 })}
+                                                        className="w-full bg-surface/50 border border-border-subtle/50 rounded-xl px-3 py-1.5 text-xs font-black text-violet-600 outline-none focus:border-violet-500/40"
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-violet-600/30">%</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => setForm({ ...form, secondaryTeacherId: '', secondaryTeacherName: '', secondaryTeacherPercentage: 0 })}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shrink-0"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-[10px] text-muted italic opacity-40 py-2 border border-dashed border-border-subtle rounded-xl text-center">
+                                {lang === 'ka' ? 'ერთი მასწავლებელი (100%)' : 'Single Teacher (100% share)'}
+                            </p>
+                        )}
                     </div>
 
                     {/* Color selector */}

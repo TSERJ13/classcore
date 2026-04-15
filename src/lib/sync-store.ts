@@ -11,7 +11,7 @@ const SETTINGS_TABLE = 'studio_settings';
  * Consolidates all studio state into a single push with Optimistic Locking and Retry logic.
  * Ensures that concurrent updates from multiple clients do not overwrite each other.
  */
-export async function pushStudioStateToCloud(slug: string, staff: StaffMember[], studioData: any, retryCount = 0, orgId?: string): Promise<void> {
+export async function pushStudioStateToCloud(slug: string, staff: StaffMember[], studioData: any, retryCount = 0, orgId?: string, forceOverwrite = false): Promise<void> {
     if (typeof window === 'undefined') return;
     if (!slug || slug === 'demo.classcore.ge') return;
 
@@ -34,14 +34,19 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         let finalStudioData: any = studioData;
 
         // If row exists, perform a merge to avoid overwriting others' changes
-        if (current) {
+        // CRITICAL ISOLATION FIX: If forceOverwrite is true (new registration), skip merge and wipe old cloud data
+        if (current && !forceOverwrite) {
             const cloudAll = (current.staff_data as any[]) || [];
             const cloudStaff = cloudAll.filter(s => s.id !== '__studio_config__');
             const cloudConfig = cloudAll.find(s => s.id === '__studio_config__')?.studio_data || {};
 
             // 1. Staff List: Local version is the source of truth for membership (handles deletes/adds/updates)
-            // The optimistic lock (updated_at) ensures we have recently pulled the latest cloud staff if we are pushing.
-            finalStaff = staff;
+            // If the incoming 'staff' array is empty, we preserve the existing cloud staff to avoid destructive overwrites.
+            if (staff && staff.length > 0) {
+                finalStaff = staff;
+            } else {
+                finalStaff = cloudStaff;
+            }
 
             // 2. Studio Data: Deep Merge specific collections instead of overwriting whole arrays
             finalStudioData = { ...cloudConfig };
@@ -131,12 +136,30 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         ];
 
         const nextUpdatedAt = new Date().toISOString();
+        // 1.5. Aggregate teacher emails and phones to allow their logins
+        const teacherEmails: string[] = [];
+        const teacherPhones: string[] = [];
+        
+        Object.keys(finalStudioData).forEach(key => {
+            if (key.startsWith('cc_teachers')) {
+                const teachers = finalStudioData[key];
+                if (Array.isArray(teachers)) {
+                    teachers.forEach(t => {
+                        if (t.email) teacherEmails.push(t.email.toLowerCase().trim());
+                        if (t.phone) teacherPhones.push(t.phone.replace(/[^0-9+]/g, ''));
+                    });
+                }
+            }
+        });
+
         const staffEmails = Array.from(new Set([
             ...(finalStaff || []).map(s => s.email?.toLowerCase().trim()).filter(Boolean),
             ...(finalStaff || []).map(s => s.first_name?.toLowerCase().trim()).filter(Boolean),
             ...(finalStaff || []).map(s => s.full_name?.toLowerCase().trim()).filter(Boolean),
             ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean),
-            ...(finalStaff || []).map(s => s.phone_number?.replace(/[^0-9+]/g, '')).filter(Boolean)
+            ...(finalStaff || []).map(s => s.phone_number?.replace(/[^0-9+]/g, '')).filter(Boolean),
+            ...teacherEmails,
+            ...teacherPhones
         ] as string[]));
 
         // Resolve orgId: prioritize the passed argument, then the setting inside finalStudioData
@@ -207,7 +230,7 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
             // Exponential backoff with jitter
             const delay = Math.pow(2, retryCount) * 100 + Math.random() * 200;
             await new Promise(r => setTimeout(r, delay));
-            return pushStudioStateToCloud(slug, staff, studioData, retryCount + 1, orgId);
+            return pushStudioStateToCloud(slug, staff, studioData, retryCount + 1, orgId, forceOverwrite);
         }
         console.error('❌ Consolidated Sync Critical Error:', err);
     }
@@ -350,13 +373,48 @@ export async function verifyUserInStudio(slug: string, query: string): Promise<b
         const supabase = createClient();
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
-            .select('staff_emails')
+            .select('staff_emails, staff_data')
             .eq('studio_slug', slug)
             .single();
 
         if (error || !data) return false;
-        const staffEmails = (data.staff_emails || []) as string[];
-        return terms.some(t => staffEmails.includes(t));
+        
+        // 1. Raw JSON check (Definitive source for role-based logic)
+        const staffData = (data.staff_data || []) as any[];
+        
+        // 1a. Check top-level staff (owners/admins)
+        // Owners and Admins are managed via Supabase Auth and always have access if they exist in staff_data
+        const foundInStaff = staffData.some(s => {
+            if (s.id === '__studio_config__') return false;
+            const sEmail = s.email?.toLowerCase().trim();
+            const sPhone = (s.phone || s.phone_number || '').replace(/[^0-9]/g, '');
+            return terms.some(t => t === sEmail || (sPhone && (sPhone === t || sPhone.endsWith(t))));
+        });
+        if (foundInStaff) return true;
+
+        // 1b. Deep check inside teacher collections (Strict: require password for teachers)
+        // The user requested that teachers ONLY have access if they were added with a password.
+        const configItem = staffData.find(s => s.id === '__studio_config__');
+        if (configItem?.studio_data) {
+            const studioData = configItem.studio_data;
+            const foundInTeachers = Object.keys(studioData).some(key => {
+                if (!key.startsWith('cc_teachers')) return false;
+                const teachers = studioData[key];
+                if (!Array.isArray(teachers)) return false;
+                return teachers.some(t => {
+                    const tEmail = t.email?.toLowerCase().trim();
+                    const tPhone = (t.phone || '').replace(/[^0-9]/g, '');
+                    const matches = terms.some(term => term === tEmail || (tPhone && (tPhone === term || tPhone.endsWith(term))));
+                    
+                    // IMPORTANT: Only grant access if the teacher has a password set.
+                    // This fulfills the "Strict Personal Access" requirement.
+                    return matches && !!t.password;
+                });
+            });
+            if (foundInTeachers) return true;
+        }
+
+        return false;
     } catch {
         return false;
     }
@@ -416,8 +474,22 @@ export async function masterStudioPurge(slug: string): Promise<void> {
             'branches', 'notifications', 'sms_templates', 'orgId', 'org_id'
         ];
 
+        // Operational keys to DELETE (Scorched Earth)
+        const OPERATIONAL_PREFIXES = [
+            'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
+            'cc_student_subscriptions', 'cc_calendar_events', 'cc_attendance_data',
+            'cc_checkins', 'cc_shop_sales', 'cc_shop_products', 'cc_sales',
+            'cc_deleted_', 'chat_', 'group_chat_'
+        ];
+
         for (const key in studioData) {
             if (FRAMEWORK_KEYS.includes(key)) {
+                cleanedData[key] = studioData[key];
+            } else if (OPERATIONAL_PREFIXES.some(p => key.startsWith(p))) {
+                // Explicitly omit
+                continue;
+            } else {
+                // Preserve unknown keys for safety
                 cleanedData[key] = studioData[key];
             }
         }

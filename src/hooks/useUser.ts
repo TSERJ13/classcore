@@ -15,7 +15,7 @@ export function useUser() {
     const lastVerifyRef = useRef<number>(0);
     const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [profile, setProfile] = useState<{
-        studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; phone?: string; role?: string; photo_url?: string; allowedBranchIds?: string[];
+        studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; phone?: string; role?: string; photo_url?: string; is_activated?: boolean; allowedBranchIds?: string[];
         canViewAttendance?: boolean;
         canViewSubscriptions?: boolean;
         canViewStudents?: boolean;
@@ -56,9 +56,23 @@ export function useUser() {
             }
 
             const currentUserEmail = u?.email || staffSess?.staff?.email;
-            const currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug;
+            let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug;
             const isOwner = u?.user_metadata?.role === 'owner';
             const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
+
+            // 1.5. Slug Recovery for Staff (If they don't have it in their Auth Metadata)
+            if (currentUserEmail && !currentSlug && !isSuperAdminRoute) {
+                try {
+                    const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
+                    const matches = await findAllStudiosByStaffEmail(currentUserEmail);
+                    if (matches && matches.length > 0) {
+                        currentSlug = matches[0].slug;
+                        console.log(`📡 [useUser] Recovered studio slug for staff: ${currentSlug}`);
+                    }
+                } catch (err) {
+                    console.error('⚠️ [useUser] Slug recovery failed:', err);
+                }
+            }
 
             // 2. Direct Database Verification (No caching, no hacks)
             if (currentUserEmail && currentSlug && !isSuperAdminRoute && !isOwner) {
@@ -90,9 +104,10 @@ export function useUser() {
                 setProfile({
                     ...meta,
                     studio_name: meta.studio_name,
-                    studio_slug: meta.studio_slug,
+                    studio_slug: currentSlug, // Use the (possibly recovered) slug
                     role: meta.role || 'admin',
                     photo_url: meta.photo_url || meta.avatar_url,
+                    is_activated: meta.is_activated !== false, // Default to true if not explicitly false
                 });
             } else if (staffSess) {
                 const { staff, slug } = staffSess;
@@ -102,6 +117,8 @@ export function useUser() {
                 setProfile({
                     ...latestStaff,
                     studio_name: settings.studioName,
+                    studio_slug: slug,
+                    is_activated: true, // Manual staff session is intrinsically activated
                 });
             }
 

@@ -3,7 +3,8 @@
  * Manages custom studio categories (dance styles, sports types, etc.)
  */
 
-import { getScopedKey } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_STYLE_STORAGE_KEY = 'cc_custom_styles';
 function getStyleKey() { return getScopedKey(BASE_STYLE_STORAGE_KEY); }
@@ -30,7 +31,15 @@ export function getCustomStyles(): string[] {
 
 export function saveCustomStyles(styles: string[]): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getStyleKey(), JSON.stringify(styles));
+    const key = getStyleKey();
+    localStorage.setItem(key, JSON.stringify(styles));
+    markLocalUpdate();
+
+    // Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: styles });
+    }
 }
 
 export function addCustomStyle(style: string): void {

@@ -525,7 +525,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             });
 
             import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
-                pushStudioStateToCloud(settings.studioSlug, settings.staff, studioData, 0, settings.orgId);
+                const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
+                pushStudioStateToCloud(settings.studioSlug, settings.staff, studioData, 0, settings.orgId, isFresh).then(() => {
+                    if (isFresh) localStorage.removeItem(`cc_is_fresh_${settings.studioSlug}`);
+                });
             });
         }, 1000); // 1s debounce to feel more like a direct database connection
 
@@ -574,9 +577,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         return () => events.forEach(e => window.removeEventListener(e, handleAutoMark));
     }, [markLocalUpdate, triggerPush]);
 
-    // Auto-sync from profile
+    // Auto-sync from profile and First-Time Sync Protection
     useEffect(() => {
-        if (!isLoaded || !profile || hasSyncedRef.current) return;
+        if (!isLoaded || !profile) return;
+        
+        // Check if this is a brand new session/registration that needs cloud protection
+        const isNewReg = localStorage.getItem('cc_onboarding_in_progress') === 'true' || 
+                         localStorage.getItem(`cc_is_fresh_${profile.studio_slug}`) === 'true';
 
         const isDefaultSlug = settings.studioSlug === 'demo.classcore.ge';
         const isDefaultName = settings.studioName.toLowerCase().includes('demo') ||
@@ -604,7 +611,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             if (profile.studio_name && (isDefaultName || !settings.studioName)) {
                 setStudioName(profile.studio_name);
             }
-            hasSyncedRef.current = true;
+            
+            // Mark as fresh to trigger a force-overwrite on the next sync pulse
+            localStorage.setItem(`cc_is_fresh_${profile.studio_slug}`, 'true');
+            cleanupRegistry(); // Wipe all local data to be safe
             return;
         }
 
@@ -612,13 +622,17 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             setStudioName(profile.studio_name || '');
         }
 
-        if (profile.first_name && !settings.owner_info?.first_name) {
-            setOwnerInfo({
-                first_name: profile.first_name || '',
-                last_name: profile.last_name || '',
-                email: user?.email || '',
-                phone: profile.phone || ''
-            });
+        if (profile.first_name || profile.phone) {
+            const hasMissingMetadata = !settings.owner_info?.first_name || !settings.owner_info?.phone;
+            if (hasMissingMetadata) {
+                console.log('📡 [StudioContext] Syncing missing owner metadata from profile');
+                setOwnerInfo({
+                    first_name: profile.first_name || settings.owner_info?.first_name || '',
+                    last_name: profile.last_name || settings.owner_info?.last_name || '',
+                    email: user?.email || profile.email || settings.owner_info?.email || '',
+                    phone: profile.phone || settings.owner_info?.phone || ''
+                });
+            }
         }
 
         if (profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {

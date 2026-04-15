@@ -1,5 +1,6 @@
 import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate } from './utils';
 import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-store';
+import { pushStudioStateToCloud } from './sync-store';
 import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
 import { recordAuditAction } from './audit-store';
 
@@ -212,10 +213,8 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     markLocalUpdate();
     
     // Immediate Cloud Sync
-    if (activeSlug) {
-        import('./settings-store').then(({ syncStudioDataToCloud }) => {
-            syncStudioDataToCloud(activeSlug, { [getStudentDataKey()]: patches });
-        });
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [getStudentDataKey()]: patches });
     }
 
 
@@ -249,13 +248,9 @@ export function deleteStudent(studentId: string): void {
     // Immediate Cloud Sync
     const activeSlugForSync = (typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null) || 'demo.classcore.ge';
     if (activeSlugForSync && activeSlugForSync !== 'demo.classcore.ge') {
-        const studentDataKey = getStudentDataKey();
-        const deletedSubKey = getDeletedStudentsKey();
-        import('./settings-store').then(({ syncStudioDataToCloud }) => {
-            syncStudioDataToCloud(activeSlugForSync, { 
-                [studentDataKey]: patches,
-                [deletedSubKey]: deletedIds
-            });
+        pushStudioStateToCloud(activeSlugForSync, [], { 
+            [getStudentDataKey()]: patches,
+            [getDeletedStudentsKey()]: deletedIds
         });
     }
 
@@ -326,7 +321,14 @@ export function registerUid(uid: string, studentId: string, studentName: string)
     }
 
     registry[norm] = { studentId, studentName };
-    localStorage.setItem(getUidRegistryKey(), JSON.stringify(registry));
+    const key = getUidRegistryKey();
+    localStorage.setItem(key, JSON.stringify(registry));
+
+    // Sync
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: registry });
+    }
 }
 
 /** Remove UID registration for a student (called on student delete or UID clear) */
@@ -337,7 +339,14 @@ export function unregisterStudentUid(studentId: string): void {
             delete registry[key];
         }
     }
-    localStorage.setItem(getUidRegistryKey(), JSON.stringify(registry));
+    const key = getUidRegistryKey();
+    localStorage.setItem(key, JSON.stringify(registry));
+
+    // Sync
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: registry });
+    }
 }
 
 /** Look up a student by UID (returns null if not found) */

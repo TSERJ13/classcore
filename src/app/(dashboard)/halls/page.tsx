@@ -166,8 +166,18 @@ export default function HallsPage() {
                     ))}
                 </div>
 
+                {halls.length === 0 && (
+                    <div className="py-20 flex flex-col items-center justify-center text-muted/30">
+                        <div className="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-4">
+                            <DoorOpen className="w-10 h-10 opacity-20" />
+                        </div>
+                        <p className="text-base font-bold">{t.noData}</p>
+                        <p className="text-xs font-medium mt-1">{t.tryAnotherSearch || 'დაამატეთ ახალი დარბაზი'}</p>
+                    </div>
+                )}
+
                 {/* Cross-page quick nav */}
-                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-8 shadow-sm">
+                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-20 shadow-sm">
                     <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
                     <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         {[

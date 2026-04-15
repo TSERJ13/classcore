@@ -1,4 +1,5 @@
 import { incrementSessionsUsed, getSubscription, refundSessionsUsed } from './subscription-store';
+import { pushStudioStateToCloud } from './sync-store';
 import { getScopedKey, markLocalUpdate } from './utils';
 import { getStaffSession, getActiveSlug, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
@@ -135,12 +136,10 @@ export function refundCheckin(studentId: string): void {
         localStorage.setItem(dayKey(), JSON.stringify(updated));
         markLocalUpdate();
 
-        // Immediate Cloud Sync
+        // Standardized Cloud Sync
         const activeSlug = getActiveSlug();
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            import('./settings-store').then(({ syncStudioDataToCloud }) => {
-                syncStudioDataToCloud(activeSlug, { [dayKey()]: updated });
-            });
+            pushStudioStateToCloud(activeSlug, [], { [dayKey()]: updated });
         }
 
 
@@ -175,13 +174,11 @@ function _writeCheckin(
     const updated = [...existing, record];
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
-
-    // Immediate Cloud Sync
+    
+    // Standardized Cloud Sync
     const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./settings-store').then(({ syncStudioDataToCloud }) => {
-            syncStudioDataToCloud(activeSlug, { [key]: updated });
-        });
+        pushStudioStateToCloud(activeSlug, [], { [key]: updated });
     }
 
 
@@ -293,12 +290,10 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
         }
         markLocalUpdate();
 
-        // Immediate Cloud Sync
+        // Standardized Cloud Sync
         const activeSlug = getActiveSlug();
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            import('./settings-store').then(({ syncStudioDataToCloud }) => {
-                syncStudioDataToCloud(activeSlug, { [key]: updated });
-            });
+            pushStudioStateToCloud(activeSlug, [], { [key]: updated });
         }
 
 

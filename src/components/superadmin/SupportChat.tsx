@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { 
-    MessageSquare, Smartphone, Building2, Clock, Search, Send, 
+    MessageSquare, Smartphone, Building2, Search, Send, 
     AlertCircle, CheckCircle2, Paperclip, X, FileText, Image as ImageIcon, 
     Download
 } from 'lucide-react';
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { getSaasReminderSms, getBillingState } from '@/lib/saas-billing';
 import { cn } from '@/lib/utils';
+import { useT } from '@/contexts/LanguageContext';
 
 export interface ChatAttachment {
     name: string;
@@ -60,6 +61,7 @@ function loadChats(): ChatEntry[] {
 }
 
 export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashboard' | 'monitor' }) {
+    const { t, lang } = useT();
     const [mounted, setMounted] = useState(false);
     const [chats, setChats] = useState<ChatEntry[]>([]);
     const [openChat, setOpenChat] = useState<ChatEntry | null>(null);
@@ -84,7 +86,6 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
             name: loadSettings(slug).studioName
         })));
         
-        // Update open chat messages if it exists
         if (openChat) {
             const updated = loaded.find(c => c.studioSlug === openChat.studioSlug && c.studentId === openChat.studentId);
             if (updated) setOpenChat(updated);
@@ -94,8 +95,9 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
     useEffect(() => {
         setMounted(true);
         refresh();
+
         window.addEventListener('storage', refresh);
-        const timer = setInterval(refresh, 5000); // Check for new chats every 5s
+        const timer = setInterval(refresh, 5000);
         return () => {
             clearInterval(timer);
             window.removeEventListener('storage', refresh);
@@ -145,7 +147,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
         if (!file) return;
 
         if (file.size > 2 * 1024 * 1024) {
-            alert('ფაილი მეტისმეტად დიდია (მაქს. 2MB)');
+            alert(t.sa_chat_fileTooLarge);
             return;
         }
 
@@ -167,7 +169,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
 
         if (isSmsMode) {
             if (!studioInfo?.ownerPhone) {
-                alert('სტუდიის ტელეფონის ნომერი ვერ მოიძებნა');
+                alert(t.sa_chat_phoneNotFound);
                 return;
             }
             setSmsStatus('sending');
@@ -177,18 +179,17 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                 body: JSON.stringify({ 
                     to: studioInfo.ownerPhone.replace(/\s/g, ''), 
                     text: replyInput,
-                    studentName: 'სტუდიის მფლობელი'
+                    studentName: t.sa_chat_owner
                 })
             }).then(res => {
                 if (res.ok) {
                     setSmsStatus('success');
                     setTimeout(() => setSmsStatus('idle'), 3000);
-                    // Also log to chat that SMS was sent
                     const smsLog: ChatMessage = {
                         id: Date.now().toString(),
-                        text: `[SMS გაიგზავნა]: ${replyInput}`,
+                        text: `[SMS ${t.sa_chat_smsLogSent}]: ${replyInput}`,
                         sender: 'student',
-                        senderName: 'სისტემა (SMS)',
+                        senderName: t.sa_chat_systemSmsLabel,
                         timestamp: new Date().toISOString()
                     };
                     const key = entry.studentId === 'classcore_support' 
@@ -211,7 +212,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
             id: Date.now().toString(),
             text: replyInput,
             sender: 'student',
-            senderName: 'ClassCore მხარდაჭერა',
+            senderName: t.sa_chat_supportName,
             read: false,
             timestamp: new Date().toISOString(),
             attachment: attachment || undefined
@@ -230,7 +231,6 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
         refresh();
     };
 
-    // Get current studio info for the info panel
     if (!mounted) return null;
 
     const studioInfo = openChat ? (() => {
@@ -254,15 +254,14 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
         <div className={cn("flex flex-col h-full bg-white dark:bg-zinc-900 border-none lg:rounded-3xl overflow-hidden transition-all duration-500", 
             layout === 'dashboard' ? 'h-full' : 'h-full md:h-[800px]')}>
             
-            {/* Header Component */}
             <div className="p-4 md:p-6 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 flex-shrink-0">
                         <MessageSquare className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className="text-sm md:text-base font-black text-primary tracking-tight leading-none uppercase">მხარდაჭერის ცენტრი</h2>
-                        <p className="hidden md:block text-[10px] text-muted font-bold uppercase tracking-widest mt-1 opacity-40">სტუდიებთან კომუნიკაცია</p>
+                        <h2 className="text-sm md:text-base font-black text-primary dark:text-white tracking-tight leading-none uppercase">{t.sa_chat_title}</h2>
+                        <p className="hidden md:block text-[10px] text-muted font-bold uppercase tracking-widest mt-1 opacity-40">{t.sa_chat_desc}</p>
                     </div>
                 </div>
                 
@@ -273,50 +272,21 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                             type="text"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
-                            placeholder="ძიება..."
+                            placeholder={t.sa_chat_searchPlaceholder}
                             className={cn("w-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-xl pl-9 pr-4 py-2 text-[11px] text-primary dark:text-white placeholder:text-muted/40 focus:border-indigo-500/50 outline-none transition-all",
                                 !searchQuery && "md:opacity-100 opacity-0 focus:opacity-100")}
                         />
-                        {searchQuery && (
-                            <div className="absolute top-full right-0 w-64 mt-2 bg-white dark:bg-[#0c0c14] border border-black/5 dark:border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden divide-y divide-black/5 dark:divide-white/5">
-                                {allStudios.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5).map(s => (
-                                    <button key={s.slug} 
-                                        onClick={() => {
-                                            setSearchQuery('');
-                                            const existing = chats.find(c => c.studioSlug === s.slug && c.studentId === 'classcore_support');
-                                            if (existing) {
-                                                setOpenChat(existing);
-                                            } else {
-                                                const newChat: ChatEntry = { studioSlug: s.slug, studioName: s.name, studentId: 'classcore_support', messages: [] };
-                                                setOpenChat(newChat);
-                                            }
-                                            setShowMobileChat(true);
-                                        }}
-                                        className="w-full p-4 text-left hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
-                                    >
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 flex-shrink-0">
-                                            <Building2 className="w-4 h-4 text-indigo-400" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-bold text-primary truncate">{s.name}</p>
-                                            <p className="text-[10px] text-muted opacity-40 truncate">{s.slug}</p>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Chat List */}
                 <div className={cn("flex flex-col bg-black/[0.01] dark:bg-white/[0.01] divide-y divide-black/5 dark:divide-white/5 overflow-y-auto no-scrollbar transition-all duration-300",
                     showMobileChat ? "hidden md:flex md:w-80 border-r border-black/5 dark:border-white/5" : "flex-1 md:w-80 md:flex-none md:border-r border-black/5 dark:border-white/5")}>
                     {chats.length === 0 ? (
                         <div className="p-20 text-center opacity-20">
                             <MessageSquare className="w-10 h-10 mx-auto mb-2 text-muted" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">ჩატები არ არის</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest">{t.sa_chat_noChats}</p>
                         </div>
                     ) : chats.map((chat, i) => {
                         const last = chat.messages[chat.messages.length - 1];
@@ -336,7 +306,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                     <p className="text-xs font-black text-primary group-hover:text-indigo-400 transition-colors truncate">{chat.studioName}</p>
                                 </div>
                                 <div className="flex justify-between items-end pl-5">
-                                    <p className="text-[10px] text-muted font-bold truncate pr-4 opacity-40">{last?.text || (last?.attachment ? 'დანართი' : 'შეტყობინება არ არის')}</p>
+                                    <p className="text-[10px] text-muted font-bold truncate pr-4 opacity-40">{last?.text || (last?.attachment ? t.sa_chat_attachment : t.sa_chat_noMessages)}</p>
                                     <p className="text-[9px] text-muted opacity-20 font-black shrink-0">{last?.timestamp ? new Date(last.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                                 </div>
                             </button>
@@ -344,7 +314,6 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                     })}
                 </div>
 
-                {/* Chat Window */}
                 <div className={cn("flex-1 flex flex-col bg-white dark:bg-white/[0.01] relative transition-all duration-300 backdrop-blur-md",
                     !showMobileChat ? "hidden md:flex" : "flex")}>
                     {!openChat ? (
@@ -352,12 +321,11 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                             <div className="w-20 h-20 rounded-[2.5rem] bg-black/5 dark:bg-white/5 flex items-center justify-center mb-6 border border-black/5 dark:border-white/10 shadow-sm">
                                 <MessageSquare className="w-8 h-8 text-muted" />
                             </div>
-                            <h3 className="text-sm font-black text-primary uppercase tracking-[0.2em] mb-2">აირჩიეთ სტუდია</h3>
-                            <p className="text-xs font-bold text-muted max-w-[200px]">აირჩიეთ ჩატი სიიდან ან გამოიყენეთ ძებნა კომუნიკაციის დასაწყებად.</p>
+                            <h3 className="text-sm font-black text-primary dark:text-white uppercase tracking-[0.2em] mb-2">{t.sa_chat_selectStudio}</h3>
+                            <p className="text-xs font-bold text-muted max-w-[200px]">{t.sa_chat_selectStudioDesc}</p>
                         </div>
                     ) : (
                         <>
-                            {/* Chat Window Header */}
                             <div className="px-4 md:px-6 py-4 bg-black/[0.02] dark:bg-white/[0.02] border-b border-black/5 dark:border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <button onClick={() => setShowMobileChat(false)} className="md:hidden p-2 bg-black/5 dark:bg-white/5 rounded-xl text-muted">
@@ -365,7 +333,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                     </button>
                                     <div className="min-w-0">
                                         <h3 className="text-xs font-black text-primary truncate">{openChat?.studioName}</h3>
-                                        <p className="text-[9px] text-muted font-bold uppercase tracking-wider truncate opacity-40">{openChat?.studentId === 'classcore_support' ? 'ოფიციალური მხარდაჭერა' : openChat?.studentId}</p>
+                                        <p className="text-[9px] text-muted font-bold uppercase tracking-wider truncate opacity-40">{openChat?.studentId === 'classcore_support' ? t.sa_chat_officialSupport : openChat?.studentId}</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
@@ -374,7 +342,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                         className={cn("hidden lg:flex px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all items-center gap-2 border shadow-sm",
                                             showInfo ? "bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/20" : "bg-black/5 dark:bg-white/5 text-muted border-black/5 dark:border-white/10")}
                                     >
-                                        ინფო
+                                        {t.sa_chat_info}
                                     </button>
                                     <button 
                                         onClick={() => {
@@ -385,16 +353,15 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                         className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase transition-all flex items-center gap-2 border border-amber-500/20"
                                     >
                                         <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                                        <span className="hidden xs:inline">შეხსენება</span>
+                                        <span className="hidden xs:inline">{t.sa_chat_reminder}</span>
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Messages Container */}
                             <div ref={scrollRef} className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto no-scrollbar">
                                 {openChat.messages.length === 0 && (
                                     <div className="text-center py-10 opacity-10">
-                                        <p className="text-[10px] font-black uppercase tracking-widest italic">საუბრის დასაწყისი</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest italic">{t.sa_chat_convoStart}</p>
                                     </div>
                                 )}
                                 {openChat.messages.map((msg, i) => {
@@ -415,7 +382,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                                             <img src={msg.attachment.data} alt={msg.attachment.name} className="max-w-full rounded-xl max-h-60 object-cover" />
                                                             <a href={msg.attachment.data} download={msg.attachment.name} 
                                                                className="absolute inset-0 bg-black/60 opacity-0 group-hover/attach:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white font-black text-[10px] uppercase">
-                                                                <Download className="w-4 h-4" /> ჩამოტვირთვა
+                                                                <Download className="w-4 h-4" /> {t.download}
                                                             </a>
                                                         </div>
                                                     ) : (
@@ -436,7 +403,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                             )}
                                             <div className="flex items-center gap-2 px-1">
                                                 <span className="text-[9px] text-muted opacity-40 font-black uppercase tracking-tight">
-                                                    {isSupport ? 'სუპერ ადმინი' : 'სტუდიის ადმინი'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {isSupport ? t.sa_chat_supportLabel : t.sa_chat_adminLabel} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                                 {isSupport && msg.read && <CheckCircle2 className="w-2.5 h-2.5 text-indigo-500 opacity-60" />}
                                             </div>
@@ -445,7 +412,6 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                 })}
                             </div>
 
-                            {/* Input Area */}
                             <div className="p-4 border-t border-black/5 dark:border-white/10 bg-black/[0.01] dark:bg-black/40 backdrop-blur-xl">
                                 {attachment && (
                                     <div className="mb-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-3 flex items-center justify-between ring-1 ring-indigo-500/10">
@@ -455,7 +421,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                             </div>
                                             <div className="min-w-0 pr-4">
                                                 <p className="text-[11px] font-black text-primary dark:text-white truncate">{attachment.name}</p>
-                                                <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase">მზადაა გასაგზავნად</p>
+                                                <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase">{t.sa_chat_readyToSend}</p>
                                             </div>
                                         </div>
                                         <button onClick={() => setAttachment(null)} className="p-2 hover:bg-red-500/10 hover:text-red-500 text-muted transition-all rounded-xl flex-shrink-0">
@@ -478,7 +444,7 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                             value={replyInput}
                                             onChange={e => setReplyInput(e.target.value)}
                                             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendReply(openChat!); } }}
-                                            placeholder="ჩაწერეთ პასუხი..."
+                                            placeholder={t.sa_chat_typeReply}
                                             rows={1}
                                             className="w-full bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-5 py-3.5 text-[13px] md:text-xs text-primary dark:text-white placeholder:text-muted/40 outline-none focus:border-indigo-500/50 transition-all resize-none shadow-sm min-h-[48px] max-h-32 pt-3.5"
                                         />
@@ -486,22 +452,20 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                     
                                     <div className="flex items-center gap-2">
                                         <button 
-                                            onClick={() => { setIsSmsMode(false); setTimeout(() => handleSendReply(openChat!), 0); }}
+                                            onClick={() => handleSendReply(openChat!)}
                                             disabled={(!replyInput.trim() && !attachment) || smsStatus === 'sending'}
-                                            title="Send as Chat"
                                             className={cn("p-4 md:p-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95",
                                                 ((!replyInput.trim() && !attachment) || smsStatus === 'sending') && "opacity-50 grayscale cursor-not-allowed")}
                                         >
-                                            <Send className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                                            <Send className="w-5 h-5" />
                                         </button>
                                         <button 
-                                            onClick={() => { setIsSmsMode(true); setTimeout(() => handleSendReply(openChat!), 0); }}
+                                            onClick={() => { setIsSmsMode(true); setTimeout(() => handleSendReply(openChat!), 0); setIsSmsMode(false); }}
                                             disabled={!replyInput.trim() || smsStatus === 'sending'}
-                                            title="Send as SMS"
                                             className={cn("p-4 md:p-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl transition-all shadow-xl shadow-amber-500/20 active:scale-95",
                                                 (!replyInput.trim() || smsStatus === 'sending') && "opacity-50 grayscale cursor-not-allowed")}
                                         >
-                                            <Smartphone className="w-5 h-5 transition-transform group-hover:scale-110" />
+                                            <Smartphone className="w-5 h-5" />
                                         </button>
                                     </div>
                                 </div>
@@ -510,50 +474,44 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                     )}
                 </div>
 
-                {/* Studio Info Sidebar */}
                 {openChat && showInfo && studioInfo && (
                     <div className="hidden lg:flex w-72 border-l border-black/5 dark:border-white/10 bg-black/[0.01] dark:bg-white/[0.01] flex flex-col animate-in slide-in-from-right duration-300">
                         <div className="p-6 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02]">
-                            <h4 className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 opacity-40">სტუდიის პროფილი</h4>
+                            <h4 className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 opacity-40">{t.sa_chat_studioProfile}</h4>
                             <div className="space-y-4">
                                 <div>
-                                    <p className="text-[9px] text-muted font-bold uppercase mb-1 opacity-40">მფლობელი</p>
-                                    <p className="text-sm font-black text-primary">{studioInfo?.ownerName}</p>
-                                    <p className="text-[10px] text-muted font-black group flex items-center gap-1.5 mt-0.5 opacity-60">
+                                    <p className="text-[9px] text-muted font-bold uppercase mb-1 opacity-40">{t.sa_chat_owner}</p>
+                                    <p className="text-sm font-black text-primary dark:text-white">{studioInfo?.ownerName}</p>
+                                    <p className="text-[10px] text-muted font-black flex items-center gap-1.5 mt-0.5 opacity-60">
                                         <Smartphone className="w-3 h-3 text-indigo-500" /> {studioInfo?.ownerPhone}
                                     </p>
-                                    {studioInfo?.ownerEmail !== 'N/A' && (
-                                        <p className="text-[10px] text-muted font-black group flex items-center gap-1.5 mt-0.5 opacity-60">
-                                            <span className="w-3 h-3 text-indigo-500 flex items-center justify-center text-[8px] font-bold">@</span> {studioInfo?.ownerEmail}
-                                        </p>
-                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center shadow-sm">
-                                        <p className="text-[8px] text-muted font-black uppercase mb-1 opacity-40">ბალანსი</p>
+                                        <p className="text-[8px] text-muted font-black uppercase mb-1 opacity-40">{t.sa_chat_balance}</p>
                                         <p className="text-xs font-black text-emerald-400 tabular-nums">{Math.round(studioInfo?.balance || 0)} ₾</p>
                                     </div>
                                     <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center shadow-sm">
-                                        <p className="text-[8px] text-muted font-black uppercase mb-1 opacity-40">სტუდენტები</p>
-                                        <p className="text-xs font-black text-primary tabular-nums">{studioInfo?.students}</p>
+                                        <p className="text-[8px] text-muted font-black uppercase mb-1 opacity-40">{t.sa_chat_students}</p>
+                                        <p className="text-xs font-black text-primary dark:text-white tabular-nums">{studioInfo?.students}</p>
                                     </div>
                                 </div>
-                                <div className="bg-indigo-500/10 dark:bg-indigo-500/5 border border-indigo-500/20 dark:border-indigo-500/10 p-4 rounded-2xl relative overflow-hidden group">
+                                <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-2xl relative overflow-hidden">
                                     <div className="absolute top-0 right-0 p-2 opacity-10"><Building2 className="w-8 h-8" /></div>
-                                    <p className="text-[8px] text-indigo-600 dark:text-indigo-500 font-black uppercase mb-1">ტარიფი</p>
-                                    <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">{studioInfo?.plan}</p>
+                                    <p className="text-[8px] text-indigo-600 dark:text-indigo-500 font-black uppercase mb-1">{t.sa_chat_plan}</p>
+                                    <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">{studioInfo?.plan === 'trial' ? t.sa_chat_trial : studioInfo?.plan.toUpperCase()}</p>
                                 </div>
                             </div>
                         </div>
                         <div className="flex-1 p-6 space-y-4 overflow-y-auto no-scrollbar">
-                            <h4 className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 opacity-40">სწრაფი ქმედებები</h4>
+                            <h4 className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 opacity-40">{t.sa_chat_quickActions}</h4>
                             <div className="space-y-3">
                                 <button 
-                                    onClick={() => setReplyInput(`გამარჯობა ${studioInfo?.ownerName?.split(' ')[0] || ''}, `)}
-                                    className="w-full p-4 bg-white/5 hover:bg-white/10 text-xs font-black text-primary rounded-2xl text-left transition-all flex items-center gap-3 border border-white/10 group shadow-sm"
+                                    onClick={() => setReplyInput(`${t.sa_chat_greeting} ${studioInfo?.ownerName?.split(' ')[0] || ''}, `)}
+                                    className="w-full p-4 bg-white/5 hover:bg-white/10 text-xs font-black text-primary dark:text-white rounded-2xl text-left transition-all flex items-center gap-3 border border-white/10 group shadow-sm"
                                 >
-                                    <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-muted group-hover:bg-indigo-500/10 group-hover:text-indigo-400 transition-colors shadow-inner"><Send className="w-3.5 h-3.5" /></div>
-                                    მისალმება
+                                    <Send className="w-3.5 h-3.5 text-muted group-hover:text-indigo-400 transition-colors" />
+                                    {t.sa_chat_greeting}
                                 </button>
                                 
                                 <div className="pt-2">
@@ -561,43 +519,25 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
                                         disabled={smsStatus === 'sending'}
                                         onClick={() => {
                                             if (!openChat || !studioInfo) return;
-                                            setSmsStatus('sending');
-                                            fetch('/api/sms/send', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ 
-                                                    to: studioInfo.ownerPhone.replace(/\s/g, ''), 
-                                                    text: replyInput || 'გამარჯობა ClassCore Admin-ისგან',
-                                                    studentName: 'Studio Owner'
-                                                })
-                                            }).then(res => {
-                                                if (res.ok) {
-                                                    setSmsStatus('success');
-                                                    setTimeout(() => setSmsStatus('idle'), 3000);
-                                                } else {
-                                                    setSmsStatus('error');
-                                                    setTimeout(() => setSmsStatus('idle'), 3000);
-                                                }
-                                            });
+                                            setIsSmsMode(true);
+                                            handleSendReply(openChat);
+                                            setIsSmsMode(false);
                                         }}
                                         className={cn("w-full p-4 text-xs font-black rounded-2xl text-left transition-all flex items-center gap-3 border shadow-sm",
-                                            smsStatus === 'idle' ? "bg-white/5 hover:bg-white/10 text-primary border-white/10 group" :
+                                            smsStatus === 'idle' ? "bg-white/5 hover:bg-white/10 text-primary border-white/10" :
                                             smsStatus === 'sending' ? "bg-white/10 text-muted border-white/20 cursor-wait" :
                                             smsStatus === 'success' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
                                             "bg-red-500/10 text-red-500 border-red-500/20"
                                         )}
                                     >
-                                        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors shadow-inner",
-                                            smsStatus === 'idle' ? "bg-indigo-500/10 text-indigo-400" : "bg-transparent")}>
-                                            <Smartphone className="w-3.5 h-3.5" />
-                                        </div>
-                                        <span className="dark:text-white">
-                                            {smsStatus === 'idle' ? 'SMS-ის გაგზავნა' :
-                                             smsStatus === 'sending' ? 'იგზავნება...' :
-                                             smsStatus === 'success' ? 'გაიგზავნა!' : 'შეცდომა'}
+                                        <Smartphone className="w-3.5 h-3.5" />
+                                        <span>
+                                            {smsStatus === 'idle' ? t.sa_chat_sendSms :
+                                             smsStatus === 'sending' ? t.sa_chat_sending :
+                                             smsStatus === 'success' ? t.sa_chat_sent : t.sa_chat_error}
                                         </span>
                                     </button>
-                                    <p className="text-[9px] text-muted mt-2 px-1 font-bold italic opacity-20">* SMS-ის ღირებულება ჩამოიჭრება ბალანსიდან.</p>
+                                    <p className="text-[9px] text-muted mt-2 px-1 font-bold italic opacity-20">* {t.sa_chat_smsCostNote}</p>
                                 </div>
                             </div>
                         </div>

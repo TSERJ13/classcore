@@ -14,6 +14,10 @@ export interface Group {
     name: string;
     coach: string;
     teacherId: string;
+    secondaryTeacherId?: string; // Optional second teacher
+    secondaryTeacherName?: string; // Optional assistant coach name
+    primaryTeacherPercentage?: number; // Override teacher global % for this group
+    secondaryTeacherPercentage?: number; // Specific % for secondary teacher
     schedule: string; // human-readable display string (auto-generated)
     schedule_slots?: ScheduleSlot[]; // structured schedule data
     capacity: number;
@@ -26,6 +30,7 @@ export interface Group {
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_GROUPS_KEY = 'cc_groups';
 const BASE_DELETED_GROUPS_KEY = 'cc_deleted_groups';
@@ -93,10 +98,8 @@ export function saveGroups(groups: Group[]): void {
     
     // Immediate Cloud Sync
     const activeSlug = localStorage.getItem('cc_active_studio_slug');
-    if (activeSlug) {
-        import('./settings-store').then(({ syncStudioDataToCloud }) => {
-            syncStudioDataToCloud(activeSlug, { [key]: groups });
-        });
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: groups });
     }
 
     window.dispatchEvent(new Event('cc_groups_update'));
@@ -196,17 +199,36 @@ export function updateTeacherGroups(teacherId: string, coachName: string, assign
     
     const updated = groups.map(g => {
         const shouldBeAssigned = assignedGroupIds.includes(g.id);
-        const isCurrentlyAssigned = g.teacherId === teacherId;
-        const nameChanged = g.coach !== coachName;
+        const isCurrentlyPrimary = g.teacherId === teacherId;
+        const isCurrentlySecondary = g.secondaryTeacherId === teacherId;
+        const nameChangedPrimary = isCurrentlyPrimary && g.coach !== coachName;
+        const nameChangedSecondary = isCurrentlySecondary && g.secondaryTeacherName !== coachName;
 
         if (shouldBeAssigned) {
-            if (!isCurrentlyAssigned || nameChanged) {
+            // If it should be assigned but isn't assigned as primary or secondary, add as primary if empty
+            if (!isCurrentlyPrimary && !isCurrentlySecondary) {
                 changed = true;
-                return { ...g, teacherId, coach: coachName };
+                if (!g.teacherId) return { ...g, teacherId, coach: coachName };
+                if (!g.secondaryTeacherId) return { ...g, secondaryTeacherId: teacherId, secondaryTeacherName: coachName };
             }
-        } else if (isCurrentlyAssigned) {
-            changed = true;
-            return { ...g, teacherId: '', coach: '' };
+            if (nameChangedPrimary || nameChangedSecondary) {
+                changed = true;
+                return { 
+                    ...g, 
+                    coach: isCurrentlyPrimary ? coachName : g.coach,
+                    secondaryTeacherName: isCurrentlySecondary ? coachName : g.secondaryTeacherName
+                };
+            }
+        } else {
+            // If it shouldn't be assigned but is, remove it
+            if (isCurrentlyPrimary) {
+                changed = true;
+                return { ...g, teacherId: '', coach: '' };
+            }
+            if (isCurrentlySecondary) {
+                changed = true;
+                return { ...g, secondaryTeacherId: '', secondaryTeacherName: '' };
+            }
         }
         return g;
     });
@@ -241,11 +263,9 @@ export function deleteGroup(id: string): void {
     // Immediate Cloud Sync
     const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./settings-store').then(({ syncStudioDataToCloud }) => {
-            syncStudioDataToCloud(activeSlug, { 
-                [key]: updated,
-                [deletedKey]: deletedIds
-            });
+        pushStudioStateToCloud(activeSlug, [], { 
+            [key]: updated,
+            [deletedKey]: deletedIds
         });
     }
 

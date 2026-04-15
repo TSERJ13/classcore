@@ -2,7 +2,8 @@
  * salary-status-store.ts
  * Persists payment status (paid/pending) for teacher salaries per month.
  */
-import { getScopedKey, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 export type SalaryStatus = 'paid' | 'pending';
 
@@ -29,19 +30,13 @@ export async function saveSalaryStatuses(statuses: TeacherSalaryStatus[]) {
     localStorage.setItem(key, JSON.stringify(statuses));
     markLocalUpdate();
     
-    window.dispatchEvent(new CustomEvent('cc_salary_update'));
-
-    // Immediate Cloud Sync
-    try {
-        const { getActiveSlug, syncStudioDataToCloud } = await import('./settings-store');
-        const slug = getActiveSlug();
-        if (slug && slug !== 'demo.classcore.ge') {
-            await syncStudioDataToCloud(slug, { [key]: statuses });
-        }
-    } catch (err) {
-        console.error('Salary status sync error:', err);
+    // Standardized Cloud Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: statuses });
     }
-
+    
+    window.dispatchEvent(new CustomEvent('cc_salary_update'));
 }
 
 export function getStatusForTeacher(teacherId: string, month: string): SalaryStatus {

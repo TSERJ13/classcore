@@ -2,7 +2,8 @@
  * bonus-store.ts
  * Stores monthly bonuses for teachers.
  */
-import { getScopedKey } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 export interface MonthlyBonus {
     id: string;
@@ -24,7 +25,15 @@ export function getMonthlyBonuses(): MonthlyBonus[] {
 
 export function saveMonthlyBonuses(bonuses: MonthlyBonus[]) {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getBonusesKey(), JSON.stringify(bonuses));
+    const key = getBonusesKey();
+    localStorage.setItem(key, JSON.stringify(bonuses));
+    markLocalUpdate();
+
+    // Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: bonuses });
+    }
 }
 
 export function setTeacherBonus(teacherId: string, month: string, amount: number) {

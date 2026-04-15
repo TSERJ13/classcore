@@ -337,7 +337,7 @@ export default function StudentsPage() {
                                                     {student.birth_date && (
                                                         <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
                                                             <Calendar className="w-2.5 h-2.5" />
-                                                            {student.birth_date} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)} ${lang === 'ka' ? 'წლის' : 'years'})`}
+                                                            {student.birth_date} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)} ${t.years})`}
                                                         </div>
                                                     )}
                                                 </div>

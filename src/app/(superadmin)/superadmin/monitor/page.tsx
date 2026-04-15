@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useT } from '@/contexts/LanguageContext';
 import { MessageSquare, Smartphone, Clock } from 'lucide-react';
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ function loadSmsLogs(): SmsEntry[] {
 }
 
 export default function MonitorPage() {
+    const { t } = useT();
     const [mounted, setMounted] = useState(false);
     const [tab, setTab] = useState<MonitorTab>('chats');
     const [smsLogs, setSmsLogs] = useState<SmsEntry[]>([]);
@@ -53,8 +55,8 @@ export default function MonitorPage() {
         <div className="space-y-6 animate-fade-up pb-20">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-black text-primary dark:text-white tracking-tight uppercase">სისტემის მონიტორინგი</h1>
-                    <p className="text-[10px] text-muted mt-2 font-black uppercase tracking-widest leading-none opacity-40">კომუნიკაციებისა და SMS შეტყობინებების კონტროლი</p>
+                    <h1 className="text-2xl font-black text-primary dark:text-white tracking-tight uppercase">{t.sa_monitor_title}</h1>
+                    <p className="text-[10px] text-muted mt-2 font-black uppercase tracking-widest leading-none opacity-40">{t.sa_monitor_desc}</p>
                 </div>
 
                 <div className="flex gap-2 p-1.5 bg-white/95 border border-black/10 dark:border-border-subtle rounded-2xl shadow-sm">
@@ -64,7 +66,7 @@ export default function MonitorPage() {
                             tab === 'chats' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-muted hover:text-primary dark:hover:text-white')}
                     >
                         <MessageSquare className="w-4 h-4" />
-                        შიდა ჩატი
+                        {t.sa_monitor_chatsTab}
                     </button>
                     <button 
                         onClick={() => setTab('sms')}
@@ -72,7 +74,7 @@ export default function MonitorPage() {
                             tab === 'sms' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-muted hover:text-primary dark:hover:text-white')}
                     >
                         <Smartphone className="w-4 h-4" />
-                        SMS ლოგი
+                        {t.sa_monitor_smsTab}
                     </button>
                 </div>
             </div>
@@ -89,12 +91,12 @@ export default function MonitorPage() {
                                 <Smartphone className="w-6 h-6" />
                             </div>
                             <div>
-                                <h2 className="text-base font-black text-primary dark:text-white uppercase tracking-tight">SMS შეტყობინებების ლოგი</h2>
-                                <p className="text-[9px] text-muted font-black uppercase tracking-widest mt-1 opacity-40">სტუდიების მიერ გაგზავნილი შეტყობინებები</p>
+                                <h2 className="text-base font-black text-primary dark:text-white uppercase tracking-tight">{t.sa_monitor_smsLogTitle}</h2>
+                                <p className="text-[9px] text-muted font-black uppercase tracking-widest mt-1 opacity-40">{t.sa_monitor_smsLogDesc}</p>
                             </div>
                         </div>
                         <span className="text-[10px] font-black text-primary dark:text-white bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle px-4 py-1.5 rounded-xl uppercase tracking-widest shadow-sm">
-                            ჯამი: {smsLogs.length}
+                            {t.sa_monitor_total}: {smsLogs.length}
                         </span>
                     </div>
 
@@ -102,7 +104,7 @@ export default function MonitorPage() {
                         {smsLogs.length === 0 ? (
                             <div className="py-28 text-center bg-white/95 dark:bg-card">
                                 <Smartphone className="w-16 h-16 mx-auto mb-6 text-muted opacity-10" />
-                                <p className="text-sm font-black text-muted uppercase tracking-[0.2em] opacity-30">ლოგები ვერ მოიძებნა</p>
+                                <p className="text-sm font-black text-muted uppercase tracking-[0.2em] opacity-30">{t.sa_monitor_noLogs}</p>
                             </div>
                         ) : (
                             smsLogs.map((log, i) => (

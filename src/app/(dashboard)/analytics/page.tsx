@@ -617,32 +617,81 @@ export default function AnalyticsPage() {
 
             // Salaries
             const calculatedSalaries = teachers.map(t => {
-                const teacherGroups = (t.assigned_group_ids && t.assigned_group_ids.length > 0) ? t.assigned_group_ids : events.filter(ev => ev.teacher_id === t.id).map(ev => ev.id);
+                // Find all groups where this teacher is either primary or secondary
+                const teacherGroups = groups.filter(g => g.teacherId === t.id || g.secondaryTeacherId === t.id).map(g => g.id);
+                
+                // Get all subscriptions linked to these groups
                 const subsForTeacher = filteredSubs.filter(sub => {
                     const plan = plans.find(p => p.name === sub.plan);
                     const groupId = (sub as any).group_id || (plan && plan.group_id);
                     return groupId && teacherGroups.includes(groupId);
                 });
-                const teacherSubRevenue = subsForTeacher.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+
+                // Calculate revenue with split awareness
+                const teacherSubRevenue = subsForTeacher.reduce((sum, sub) => {
+                    const plan = plans.find(p => p.name === sub.plan);
+                    const groupId = (sub as any).group_id || (plan && plan.group_id);
+                    const amount = (sub.amount_paid || planPrices[sub.plan] || 0);
+                    
+                    const group = groups.find(g => g.id === groupId);
+                    if (group) {
+                        // Apply specific percentage from group or fallback to global
+                        if (group.secondaryTeacherId === t.id) {
+                            const perc = group.secondaryTeacherPercentage ?? t.salary_percentage ?? 0;
+                            return sum + (amount * perc / 100);
+                        } else if (group.teacherId === t.id) {
+                            const perc = group.primaryTeacherPercentage ?? t.salary_percentage ?? 50;
+                            return sum + (amount * perc / 100);
+                        }
+                    }
+                    return sum + amount;
+                }, 0);
+
                 const bonus = getTeacherBonusForMonth(t.id, monthStr);
                 let total = bonus;
                 const activeTypes: string[] = [];
                 const rateParts: string[] = [];
 
-                if (t.salary_percentage) { total += (teacherSubRevenue * t.salary_percentage) / 100; activeTypes.push('Percentage'); rateParts.push(`${t.salary_percentage}%`); }
-                if (t.rate_per_month) { total += t.rate_per_month; activeTypes.push('Monthly'); rateParts.push(formatCurrency(t.rate_per_month, settings.currency)); }
+                if (t.salary_percentage) { 
+                    total += (teacherSubRevenue * t.salary_percentage) / 100; 
+                    activeTypes.push('Percentage'); 
+                    rateParts.push(`${t.salary_percentage}%`); 
+                }
+                if (t.rate_per_month) { 
+                    total += t.rate_per_month; 
+                    activeTypes.push('Monthly'); 
+                    rateParts.push(formatCurrency(t.rate_per_month, settings.currency)); 
+                }
                 if (t.rate_per_hour) {
-                    const teacherEvents = events.filter(e => e.teacher_id === t.id && e.date.startsWith(monthStr));
+                    const teacherEvents = events.filter(e => (e.teacher_id === t.id || (e as any).secondary_teacher_id === t.id) && e.date.startsWith(monthStr));
                     const totalMinutes = teacherEvents.reduce((acc, ev) => {
                         const [h1, m1] = ev.start_time.split(':').map(Number);
                         const [h2, m2] = ev.end_time.split(':').map(Number);
-                        return acc + ((h2 * 60 + m2) - (h1 * 60 + m1));
+                        let mins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                        
+                        // Handle hourly split if it's a dual session
+                        const group = groups.find(g => g.id === (ev as any).group_id);
+                        if (group && group.secondaryTeacherId) {
+                            if (group.secondaryTeacherId === t.id) {
+                                const perc = group.secondaryTeacherPercentage ?? t.salary_percentage ?? 0;
+                                mins *= perc / 100;
+                            } else if (group.teacherId === t.id) {
+                                const perc = group.primaryTeacherPercentage ?? t.salary_percentage ?? 50;
+                                mins *= perc / 100;
+                            }
+                        }
+                        return acc + mins;
                     }, 0);
                     total += ((totalMinutes / 60) * t.rate_per_hour);
                     activeTypes.push('Hourly');
                     rateParts.push(`${formatCurrency(t.rate_per_hour, settings.currency)}/hr`);
                 }
-                if (activeTypes.length === 0) { const defPerc = t.salary_percentage || 50; total += (teacherSubRevenue * defPerc) / 100; activeTypes.push('Percentage'); rateParts.push(`${defPerc}%`); }
+                if (activeTypes.length === 0) { 
+                    const defPerc = t.salary_percentage || 50; 
+                    total += (teacherSubRevenue * defPerc) / 100; 
+                    activeTypes.push('Percentage'); 
+                    rateParts.push(`${defPerc}%`); 
+                }
                 return { id: t.id, teacher: `${t.first_name || ''} ${t.last_name || t.full_name || ''}`, fullObject: t, type: activeTypes.length > 1 ? 'Combined' : activeTypes[0], rate: rateParts.join(' + '), bonus, total, status: 'pending' };
             });
 

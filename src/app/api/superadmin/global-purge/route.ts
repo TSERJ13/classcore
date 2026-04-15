@@ -64,18 +64,35 @@ export async function POST(request: Request) {
             } catch (e) { authResults.failed++; }
         }
 
-        // 3. Delete from studio_settings
-        const { count, error: deleteError } = await supabase
-            .from('studio_settings')
-            .delete()
-            .in('studio_slug', slugs);
+        // 3. NUCLEAR TABLE PURGE: Clean all relational and setting tables for these slugs/orgs
+        const tablesToClear = [
+            'studio_settings', 
+            'profiles', 
+            'organizations', 
+            'groups_classes', 
+            'subscriptions', 
+            'attendance_logs',
+            'hall_rentals'
+        ];
 
-        if (deleteError) throw deleteError;
+        console.log(`☢️ [GlobalPurge] Commencing multi-table wipe for ${slugs.length} slugs...`);
+
+        for (const table of tablesToClear) {
+            const isSettings = table === 'studio_settings';
+            const { error: tableError } = await supabase
+                .from(table)
+                .delete()
+                .in(isSettings ? 'studio_slug' : 'org_id', isSettings ? slugs : uniqueOrgIds);
+            
+            if (tableError) {
+                console.warn(`⚠️ [GlobalPurge] Failed to clear table ${table}:`, tableError.message);
+            }
+        }
 
         return NextResponse.json({ 
             message: 'Purge complete', 
             found: slugs.length,
-            deleted: count || slugs.length,
+            deleted: slugs.length,
             auth_users_deleted: authResults.success,
             auth_errors: authResults.failed,
             slugs: slugs.slice(0, 10) 

@@ -30,6 +30,7 @@ type SubMap = Record<string, SubscriptionInfo[]>;
 import { getStaffSession, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';
 const BASE_DELETED_SUBS_KEY = 'cc_deleted_subscriptions';
@@ -174,10 +175,8 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     
     // Immediate Cloud Sync
     const activeSlug = getActiveSlug();
-    if (activeSlug) {
-        import('./settings-store').then(({ syncStudioDataToCloud }) => {
-            syncStudioDataToCloud(activeSlug, { [getSubsKey()]: data });
-        });
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [getSubsKey()]: data });
     }
 
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
@@ -264,9 +263,7 @@ export function setDefaultSubscription(studentId: string, subId: string): void {
         // Immediate Cloud Sync
         const activeSlug = getActiveSlug();
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            import('./settings-store').then(({ syncStudioDataToCloud }) => {
-                syncStudioDataToCloud(activeSlug, { [getSubsKey()]: all });
-            });
+            pushStudioStateToCloud(activeSlug, [], { [getSubsKey()]: all });
         }
 
 
@@ -305,11 +302,9 @@ export function deleteSubscription(studentId: string, subId: string): void {
     // Immediate Cloud Sync
     const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        import('./settings-store').then(({ syncStudioDataToCloud }) => {
-            syncStudioDataToCloud(activeSlug, { 
-                [getSubsKey()]: data,
-                [deletedKey]: deletedIds
-            });
+        pushStudioStateToCloud(activeSlug, [], { 
+            [getSubsKey()]: data,
+            [getDeletedSubsKey()]: deletedIds
         });
     }
 

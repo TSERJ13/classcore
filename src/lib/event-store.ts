@@ -3,6 +3,7 @@
  * Persists calendar events to localStorage.
  */
 import type { CalendarEvent, EventType } from '@/types';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_EVENTS_KEY = 'cc_calendar_events';
 function getEventsKey() { return getScopedKey(BASE_EVENTS_KEY); }
@@ -96,6 +97,11 @@ export function saveEvents(events: CalendarEvent[]) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getEventsKey(), JSON.stringify(events));
     markLocalUpdate();
+    
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [getEventsKey()]: events });
+    }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_calendar_events_update'));
 }
 
@@ -158,7 +164,7 @@ export function deleteGroupEvents(groupId: string) {
 }
 
 /** Upsert recurring weekly events for a group based on schedule slots */
-export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string, teacherId: string, hallId: string, slots: { dayOfWeek: number; startTime: string; endTime: string }[], color?: string) {
+export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string, teacherId: string, hallId: string, slots: { dayOfWeek: number; startTime: string; endTime: string }[], color?: string, secondaryTeacherId?: string) {
     // Remove old recurring events for this group
     const cleaned = getEvents().filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));
 
@@ -188,6 +194,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
             type: 'group_class' as const,
             hall_id: hallId || 'h1',
             teacher_id: teacherId || '',
+            secondary_teacher_id: secondaryTeacherId || '',
             group_id: groupId,
             date: dateStr,
             start_time: slot.startTime,

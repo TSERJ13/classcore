@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useT } from '@/contexts/LanguageContext';
 import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw, ShieldAlert, RotateCcw, Eraser } from 'lucide-react';
 import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms, extendSubscriptionByDays } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
@@ -85,10 +86,10 @@ const PLAN_COLORS: Record<string, string> = {
     pro: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 border-indigo-600', 
     custom: 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 border-amber-500' 
 };
-const PLAN_LABELS: Record<string, string> = {
-    trial: 'საცდელი (Trial)',
-    pro: 'პრო (Pro)',
-    custom: 'ინდივიდუალური'
+const PLAN_LABELS_KEYS: Record<string, string> = {
+    trial: 'sa_studios_planTrial',
+    pro: 'sa_studios_planPro',
+    custom: 'sa_studios_planCustom'
 };
 const PLAN_OPTIONS = ['trial', 'pro', 'custom'] as const;
 
@@ -112,9 +113,8 @@ async function pushMetaToCloud(slug: string, patch: object) {
 
 export default function StudiosPage() {
     const router = useRouter();
+    const { lang, t } = useT();
     const [mounted, setMounted] = useState(false);
-    const [lang, setLang] = useState<'ka' | 'en' | 'ru'>('ka');
-    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [studios, setStudios] = useState<StudioRecord[]>([]);
     const [search, setSearch] = useState('');
     const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -147,12 +147,8 @@ export default function StudiosPage() {
     const handlePurgeTestData = () => {
         setModal({
             type: 'confirm',
-            title: l('ტესტ-მონაცემების გასუფთავება', 'Очистка тестовых данных', 'Purge Test Data'),
-            message: l(
-                'ნამდვილად გსურთ ყველა "load-test-*" სტუდიის წაშლა ბაზიდან? ეს ქმედება შეუქცევადია!',
-                'Вы уверены, что хотите удалить все студии "load-test-*" из базы? Это действие необратимо!',
-                'Are you sure you want to delete all "load-test-*" studios from the database? This action is irreversible!'
-            ),
+            title: t.sa_studios_purgeTestBtn,
+            message: t.sa_studios_purgeTestConfirm,
             onConfirm: async () => {
                 setIsPurging(true);
                 try {
@@ -168,13 +164,13 @@ export default function StudiosPage() {
                         const nextList = list.filter(s => !s.startsWith('load-test-'));
                         localStorage.setItem('cc_studios_list', JSON.stringify(nextList));
                         
-                        setModal({ type: 'alert', title: 'Success', message: `Purged ${data.deleted} test studios.` });
+                        setModal({ type: 'alert', title: t.sa_studios_successTitle, message: t.sa_studios_purgedMsg.replace('{0}', data.deleted.toString()) });
                         loadData();
                     } else {
                         throw new Error(data.error);
                     }
                 } catch (err: any) {
-                    setModal({ type: 'alert', title: 'Error', message: err.message });
+                    setModal({ type: 'alert', title: t.sa_studios_errorTitle, message: err.message });
                 } finally {
                     setIsPurging(false);
                 }
@@ -246,7 +242,8 @@ export default function StudiosPage() {
             };
         });
 
-        // Add demo if it exists in local but not cloud
+        // 🚨 STRICT CLOUD TRUTH: We ignore local storage orphans. 
+        // Only the Demo studio is allowed to be local-only.
         if (getStudioRegistry().includes('demo.classcore.ge') && !cloudStudios.find(c => c.slug === 'demo.classcore.ge')) {
             loaded.unshift(loadStudio('demo.classcore.ge'));
         }
@@ -307,8 +304,6 @@ export default function StudiosPage() {
             }
         };
         init();
-        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (storedLang) setLang(storedLang);
     }, []);
 
     useEffect(() => {
@@ -365,12 +360,8 @@ export default function StudiosPage() {
         if (oldPlan === 'trial' && plan !== 'trial') {
             setModal({
                 type: 'confirm',
-                title: l('გეგმის შეცვლა', 'Смена тарифного плана', 'Change Plan'),
-                message: l(
-                    `სტუდია "${slug}" გადადის ფასიან გეგმაზე (${plan.toUpperCase()}). გსურთ საწყისი გადახდის დაფიქსირება და მომსახურების გააქტიურება?`,
-                    `Студия "${slug}" переходит на платный тариф (${plan.toUpperCase()}). Хотите зафиксировать первоначальный платеж и активировать подписку?`,
-                    `Studio "${slug}" is being moved from Trial to ${plan.toUpperCase()}. Record an initial payment and activate subscription?`
-                ),
+                title: t.sa_studios_colPlan,
+                message: `${t.sa_studios_colStudio} "${slug}" -> ${plan.toUpperCase()}. ${t.sa_studios_successTitle}?`,
                 onConfirm: () => {
                     recordPayment(slug, 'cash', 49, 1);
                     syncStudio(slug);
@@ -414,12 +405,8 @@ export default function StudiosPage() {
     const manualActivate = (slug: string) => {
         setModal({
             type: 'confirm',
-            title: l('მექანიკური გააქტიურება', 'Ручная активация', 'Manual Activation'),
-            message: l(
-                `ნამდვილად გსურთ 49₾ გადახდის დაფიქსირება სტუდიისთვის "${slug}" და ვადის 30 დღით გაგრძელება?`,
-                `Вы уверены, что хотите зафиксировать платеж 49₾ для студии "${slug}" и продлить срок на 30 дней?`,
-                `Manually record a 49 GEL payment for "${slug}" and extend subscription by 30 days?`
-            ),
+            title: t.sa_studios_colActions,
+            message: `${t.sa_studios_colStudio} "${slug}" -> 49 GEL?`,
             onConfirm: () => {
                 recordPayment(slug, 'cash', 49, 1);
                 syncStudio(slug);
@@ -433,8 +420,8 @@ export default function StudiosPage() {
         if (studio.ownerPhone === 'N/A') {
             setModal({
                 type: 'alert',
-                title: lang === 'ka' ? 'შეცდომა' : 'Error',
-                message: lang === 'ka' ? 'მფლობელის ნომერი არ არის მითითებული.' : 'No owner phone number found.'
+                title: t.sa_studios_errorTitle,
+                message: t.sa_studios_ownerPhoneLabel + ' N/A'
             });
             return;
         }
@@ -442,7 +429,7 @@ export default function StudiosPage() {
         const text = getSaasReminderSms('ka', 0);
         setModal({
             type: 'sms',
-            title: lang === 'ka' ? 'სმს შეხსენება' : 'SMS Reminder',
+            title: t.sa_studios_smsTitle,
             message: studio.ownerPhone,
             inputVal: text,
             onConfirm: async (composedText) => {
@@ -454,12 +441,12 @@ export default function StudiosPage() {
                         body: JSON.stringify({ to: studio.ownerPhone.replace(/\s/g, ''), text: composedText, studentName: 'Admin' })
                     });
                     if (res.ok) {
-                        setModal({ type: 'alert', title: lang === 'ka' ? 'წარმატება' : 'Success', message: lang === 'ka' ? 'შეხსენება გაიგზავნა!' : 'Reminder sent!' });
+                        setModal({ type: 'alert', title: t.sa_studios_successTitle, message: t.sa_studios_found });
                     } else {
-                        setModal({ type: 'alert', title: lang === 'ka' ? 'შეცდომა' : 'Error', message: lang === 'ka' ? 'SMS-ის გაგზავნა ვერ მოხერხდა.' : 'Failed to send SMS.' });
+                        setModal({ type: 'alert', title: t.sa_studios_errorTitle, message: t.sa_studios_smsFailed });
                     }
                 } catch {
-                    setModal({ type: 'alert', title: lang === 'ka' ? 'შეცდომა' : 'Error', message: lang === 'ka' ? 'ქსელური შეცდომა.' : 'Network error.' });
+                    setModal({ type: 'alert', title: t.sa_studios_errorTitle, message: t.sa_studios_networkError });
                 }
             }
         });
@@ -477,9 +464,7 @@ export default function StudiosPage() {
     };
 
     const handleMasterReset = () => {
-        const confirmMsg = lang === 'ka' 
-            ? '⚠️ გსურთ ყველა ადგილობრივი მონაცემის გასუფთავება? ეს წაშლის თქვენს ლოკალურ ისტორიას ამ კომპიუტერზე.'
-            : '⚠️ Are you sure you want to clear ALL local data? This will wipe your local history on this machine.';
+        const confirmMsg = t.sa_purgeWarning;
         
         if (confirm(confirmMsg)) {
             Object.keys(localStorage).forEach(key => {
@@ -496,14 +481,12 @@ export default function StudiosPage() {
         const { slug, categories } = resetModal;
         setModal({
             type: 'confirm',
-            title: lang === 'ka' ? 'მონაცემების გასუფთავება' : 'Data Reset',
-            message: lang === 'ka' 
-                ? `ნამდვილად გსურთ არჩეული კატეგორიების გასუფთავება სტუდიისთვის "${slug}"?`
-                : `Are you sure you want to clear the selected categories for studio "${slug}"?`,
+            title: t.sa_studios_reset,
+            message: `${t.sa_studios_reset} "${slug}"?`,
             onConfirm: () => {
                 resetStudioData(slug, categories);
                 setResetModal(prev => ({ ...prev, open: false }));
-                setModal({ type: 'alert', title: lang === 'ka' ? 'წარმატება' : 'Success', message: lang === 'ka' ? 'მონაცემები გასუფთავდა!' : 'Data cleared successfully!' });
+                setModal({ type: 'alert', title: t.sa_studios_successTitle, message: t.sa_studios_successTitle });
                 loadData();
             }
         });
@@ -512,10 +495,8 @@ export default function StudiosPage() {
     const moveToTrash = (slug: string) => {
         setModal({
             type: 'confirm',
-            title: lang === 'ka' ? 'სტუდიის სანაგვეში გადატანა' : 'Move to Trash',
-            message: lang === 'ka'
-                ? `ნამდვილად გსურთ სტუდიის "${slug}" სანაგვეში გადატანა? მისი აღდგენა მოგვიანებით შესაძლებელი იქნება.`
-                : `Are you sure you want to move the studio "${slug}" to the trash? You can restore it later.`,
+            title: t.sa_studios_tabTrash,
+            message: `${t.sa_studios_tabTrash} "${slug}"?`,
             onConfirm: () => {
                 saveMeta(slug, { deleted: true });
                 loadData();
@@ -529,28 +510,24 @@ export default function StudiosPage() {
         loadData();
         setModal({ 
             type: 'alert', 
-            title: lang === 'ka' ? 'აღდგენილია' : 'Restored', 
-            message: lang === 'ka' ? 'სტუდია აღდგენილია!' : 'Studio restored successfully!' 
+            title: t.sa_studios_restore, 
+            message: t.sa_studios_successTitle 
         });
     };
 
     const handleDeepPurge = (slug: string) => {
         setModal({
             type: 'confirm',
-            title: l('ღრმა გასუფთავება (Clean Slate)', 'Глубокая очистка (Clean Slate)', 'Deep Purge (Clean Slate)'),
-            message: l(
-                `ყურადღება! სტუდიისთვის "${slug}" წაიშლება ყველა მოსწავლე, ჯგუფი, აბონემენტი და მაღაზიის მონაცემები. შენარჩუნდება მხოლოდ სტუდიის პარამეტრები და პერსონალი. ეს ქმედება შეუქცევადია!`,
-                `Внимание! Для студии "${slug}" будут удалены все ученики, группы, абонементы и данные магазина. Сохранятся только настройки студии и персонал. Это действие необратимо!`,
-                `Warning! For studio "${slug}", all students, groups, subscriptions, and shop data will be deleted. Only studio settings and staff will be kept. This action is irreversible!`
-            ),
+            title: t.sa_studios_reset,
+            message: `${t.sa_studios_reset} "${slug}"?`,
             onConfirm: async () => {
                 setModal(m => ({ ...m, loading: true }));
                 try {
                     await masterStudioPurge(slug);
-                    setModal({ type: 'alert', title: lang === 'ka' ? 'წარმატება' : 'Success', message: lang === 'ka' ? 'მონაცემები საფუძვლიანად გასუფთავდა!' : 'Data deeply purged!' });
+                    setModal({ type: 'alert', title: t.sa_studios_successTitle, message: t.sa_studios_successTitle });
                     loadData();
                 } catch (err: any) {
-                    setModal({ type: 'alert', title: 'Error', message: err.message });
+                    setModal({ type: 'alert', title: t.sa_studios_errorTitle, message: err.message });
                 }
             }
         });
@@ -560,10 +537,8 @@ export default function StudiosPage() {
     const purgeStudio = (slug: string) => {
         setModal({
             type: 'confirm',
-            title: lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Permanent Delete',
-            message: lang === 'ka'
-                ? `ყურადღება! სტუდია "${slug}" წაიშლება სამუდამოდ ბაზიდან. ეს ქმედება შეუქცევადია!`
-                : `Warning! The studio "${slug}" will be permanently deleted from the database. This action cannot be undone!`,
+            title: t.sa_studios_purgeForever,
+            message: `${t.sa_studios_purgeForever} "${slug}"?`,
             onConfirm: async () => {
                 setModal(m => ({ ...m, loading: true }));
                 
@@ -599,19 +574,15 @@ export default function StudiosPage() {
                     
                     setModal({ 
                         type: 'alert', 
-                        title: lang === 'ka' ? 'წარმატება' : 'Success', 
-                        message: lang === 'ka' 
-                            ? 'სტუდია და მისი მფლობელის ექაუნთი წაიშალა!' 
-                            : 'Studio and associated owner account deleted successfully!' 
+                        title: t.sa_studios_successTitle, 
+                        message: t.sa_studios_successTitle 
                     });
                 } catch (err: any) {
                     console.error('❌ Failed to delete studio:', err);
                     setModal({ 
                         type: 'alert', 
-                        title: lang === 'ka' ? 'შეცდომა' : 'Error', 
-                        message: lang === 'ka' 
-                            ? `წაშლა ვერ მოხერხდა: ${err.message}` 
-                            : `Deletion failed: ${err.message}` 
+                        title: t.sa_studios_errorTitle, 
+                        message: err.message
                     });
                 }
             }
@@ -646,7 +617,7 @@ export default function StudiosPage() {
                 
             } catch (err: any) {
                 console.error('❌ Slug update failed:', err);
-                alert(lang === 'ka' ? `სლაგის განახლება ვერ მოხერხდა: ${err.message}` : `Failed to update slug: ${err.message}`);
+                alert(err.message);
                 setModal(m => ({ ...m, loading: false }));
                 return;
             }
@@ -699,10 +670,8 @@ export default function StudiosPage() {
         
         setModal({
             type: 'confirm',
-            title: lang === 'ka' ? 'სანაგვის დაცლა' : 'Empty Trash',
-            message: lang === 'ka' 
-                ? `ნამდვილად გსურთ ყველა (${trashed.length}) წაშლილი სტუდიის სამუდამოდ წაშლა? ეს ქმედება საბოლოოა.`
-                : `Are you sure you want to permanently delete all (${trashed.length}) trashed studios? This action is final.`,
+            title: t.sa_studios_emptyTrash,
+            message: `${t.sa_studios_emptyTrash} (${trashed.length})?`,
             onConfirm: async () => {
                 setModal(m => ({ ...m, loading: true }));
                 try {
@@ -728,17 +697,15 @@ export default function StudiosPage() {
                     await syncFromCloud();
                     setModal({ 
                         type: 'alert', 
-                        title: lang === 'ka' ? 'წარმატება' : 'Success', 
-                        message: lang === 'ka' 
-                            ? 'სანაგვე გასუფთავდა და ყველა ასოცირებული ექაუნთი წაიშალა!' 
-                            : 'Trash emptied and all associated owner accounts deleted!' 
+                        title: t.sa_studios_successTitle, 
+                        message: t.sa_studios_successTitle 
                     });
                 } catch (err: any) {
                     console.error('❌ Failed to empty trash:', err);
                     setModal({ 
                         type: 'alert', 
-                        title: lang === 'ka' ? 'შეცდომა' : 'Error', 
-                        message: lang === 'ka' ? `სანაგვის დაცლა ვერ მოხერხდა: ${err.message}` : `Failed to empty trash: ${err.message}` 
+                        title: t.sa_studios_errorTitle, 
+                        message: err.message 
                     });
                 }
             }
@@ -759,7 +726,7 @@ export default function StudiosPage() {
     };
 
     const purgeAuditUser = async (userId: string, slug?: string) => {
-        if (!confirm(lang === 'ka' ? 'ნამდვილად გსურთ ამ მომხმარებლის სამუდამოდ წაშლა ბაზიდან?' : 'Are you sure you want to PERMANENTLY delete this user?')) return;
+        if (!confirm(t.sa_purgeWarning)) return;
         
         try {
             const res = await fetch('/api/superadmin/audit/delete-user', {
@@ -772,10 +739,10 @@ export default function StudiosPage() {
                 if (slug) removeFromRegistry(slug);
             } else {
                 const data = await res.json();
-                alert('Error: ' + data.error);
+                alert(`${t.sa_studios_errorTitle}: ${data.error}`);
             }
         } catch (err: any) {
-            alert('Error: ' + err.message);
+            alert(`${t.sa_studios_errorTitle}: ${err.message}`);
         }
     };
 
@@ -797,12 +764,10 @@ export default function StudiosPage() {
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                     <h1 className="text-2xl font-black text-primary tracking-tight">
-                        {activeTab === 'active' 
-                            ? (lang === 'ka' ? 'აქტიური სტუდიები' : 'Active Studios')
-                            : (lang === 'ka' ? 'სანაგვე (Recycle Bin)' : 'Recycle Bin')}
+                        {activeTab === 'active' ? t.sa_studios_title : t.sa_studios_recycleBin}
                     </h1>
                     <p className="text-sm text-muted mt-1">
-                        {filtered.length} {lang === 'ka' ? 'სტუდია მოიძებნა' : 'studios found'}
+                        {filtered.length} {t.sa_studios_found}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -812,7 +777,7 @@ export default function StudiosPage() {
                             className="group flex items-center gap-2 px-4 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-rose-500/20 shadow-lg shadow-rose-500/5"
                         >
                             <Trash2 className="w-3.5 h-3.5" />
-                            {lang === 'ka' ? 'სანაგვის დაცლა' : 'Empty Trash'}
+                            {t.sa_studios_emptyTrash}
                         </button>
                     )}
 
@@ -821,7 +786,7 @@ export default function StudiosPage() {
                         className="group flex items-center gap-2 px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-amber-500/20 shadow-lg shadow-amber-500/5"
                     >
                         <Eraser className="w-3.5 h-3.5" />
-                        {lang === 'ka' ? 'ბრაუზერის ქეშის გასუფთავება' : 'Clear Browser Cache'}
+                        {t.sa_studios_clearCache}
                     </button>
 
                     <button 
@@ -833,7 +798,7 @@ export default function StudiosPage() {
                         )}
                     >
                         <RefreshCcw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
-                        {isSyncing ? (lang === 'ka' ? 'სინქრონიზაცია...' : 'Syncing...') : (lang === 'ka' ? 'ქლაუდ სინქრონიზაცია' : 'Cloud Sync')}
+                        {isSyncing ? t.sa_studios_syncing : t.sa_studios_cloudSync}
                     </button>
 
                     <div className="relative">
@@ -841,7 +806,7 @@ export default function StudiosPage() {
                         <input 
                             value={search} 
                             onChange={e => setSearch(e.target.value)} 
-                            placeholder={lang === 'ka' ? 'ძიება...' : 'Search studios...'} 
+                            placeholder={t.sa_studios_searchPlaceholder} 
                             className="bg-black/5 border border-black/5 dark:border-border-subtle rounded-2xl pl-10 pr-4 py-3 text-sm text-primary dark:text-white placeholder:text-muted outline-none focus:border-indigo-500/50 w-72 shadow-sm transition-all" 
                         />
                     </div>
@@ -857,7 +822,7 @@ export default function StudiosPage() {
                         activeTab === 'active' ? "bg-white dark:bg-zinc-800 text-indigo-500 shadow-sm border border-black/5 dark:border-border-subtle" : "text-muted hover:text-primary"
                     )}
                 >
-                    {lang === 'ka' ? 'აქტიური' : 'Active'}
+                    {t.sa_studios_tabActive}
                 </button>
                 <button 
                     onClick={() => setActiveTab('trash')}
@@ -867,7 +832,7 @@ export default function StudiosPage() {
                     )}
                 >
                     <Trash2 className="w-3 h-3" />
-                    {lang === 'ka' ? 'სანაგვე' : 'Trash'}
+                    {t.sa_studios_tabTrash}
                     {studios.filter(s => s.isDeleted).length > 0 && (
                         <span className="ml-1 px-1.5 py-0.5 rounded-md bg-rose-500 text-white text-[8px] leading-none">
                             {studios.filter(s => s.isDeleted).length}
@@ -882,29 +847,27 @@ export default function StudiosPage() {
                     )}
                 >
                     <ShieldAlert className="w-3.5 h-3.5" />
-                    {lang === 'ka' ? 'აუდიტი' : 'Audit'}
+                    {t.sa_studios_tabAudit}
                 </button>
             </div>
 
             <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-x-auto no-scrollbar">
                 <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center min-w-[1000px]">
-                    <span>{lang === 'ka' ? 'სტუდია' : 'Studio'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'მოსწ.' : 'Stud.'}</span>
-                    <span className="text-left px-2">{lang === 'ka' ? 'მფლობელი' : 'Owner'}</span>
-                    <span className="text-left px-2">{lang === 'ka' ? 'საკონტაქტო' : 'Contact'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'გეგმა' : 'Plan'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'ბალანსი' : 'Bal.'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'ვადა' : 'Add'}</span>
-                    <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
-                    <span className="text-right">{lang === 'ka' ? 'მართვა' : 'Actions'}</span>
+                    <span>{t.sa_studios_colStudio}</span>
+                    <span className="text-center">{t.sa_studios_colStud}</span>
+                    <span className="text-left px-2">{t.sa_studios_colOwner}</span>
+                    <span className="text-left px-2">{t.sa_studios_colContact}</span>
+                    <span className="text-center">{t.sa_studios_colPlan}</span>
+                    <span className="text-center">{t.sa_studios_colBal}</span>
+                    <span className="text-center">{t.sa_studios_colAdd}</span>
+                    <span className="text-center">{t.sa_studios_colStatus}</span>
+                    <span className="text-right">{t.sa_studios_colActions}</span>
                 </div>
                 {filtered.length === 0 ? (
                     <div className="py-24 text-center text-muted">
                         <Building2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
                         <p className="text-sm font-black uppercase tracking-[0.2em]">
-                            {activeTab === 'active' 
-                                ? (lang === 'ka' ? 'სტუდიები არ მოიძებნა' : 'No studios found')
-                                : (lang === 'ka' ? 'სანაგვე ცარიელია' : 'Recycle bin is empty')}
+                            {activeTab === 'active' ? t.sa_studios_noStudiosFound : t.sa_studios_trashEmpty}
                         </p>
                     </div>
                 ) : (
@@ -930,7 +893,7 @@ export default function StudiosPage() {
                                                     <p className="text-[10px] text-muted font-mono uppercase tracking-tighter opacity-60">/{studio.slug}</p>
                                                     {studio.isLocalOnly && (
                                                         <span className="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest">
-                                                            Local Only
+                                                            {t.sa_studios_localOnly}
                                                         </span>
                                                     )}
                                                 </div>
@@ -939,7 +902,7 @@ export default function StudiosPage() {
                                         
                                         <div className="text-center">
                                             <span className="text-base font-black text-primary dark:text-white tabular-nums">{studio.studentCount}</span>
-                                            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">{lang === 'ka' ? 'მოსწავლე' : 'stud.'}</p>
+                                            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">{t.sa_studios_studentCountLabel}</p>
                                         </div>
 
                                         <div className="px-2 min-w-0">
@@ -957,7 +920,7 @@ export default function StudiosPage() {
 
                                         <div className="relative text-center">
                                             <button onClick={() => setOpenMenu(openMenu === studio.slug + '_plan' ? null : studio.slug + '_plan')} className={cn('px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 mx-auto border transition-all hover:scale-105 active:scale-95', PLAN_COLORS[studio.plan], openMenu === studio.slug + '_plan' ? 'border-indigo-500 shadow-lg shadow-indigo-500/20' : 'border-black/5')}>
-                                                {PLAN_LABELS[studio.plan]}<ChevronDown className="w-2.5 h-2.5 opacity-50" />
+                                                {(t as any)[PLAN_LABELS_KEYS[studio.plan]]}<ChevronDown className="w-2.5 h-2.5 opacity-50" />
                                             </button>
                                             {openMenu === studio.slug + '_plan' && (
                                                 <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-black/10 dark:border-border-subtle rounded-2xl overflow-hidden shadow-2xl min-w-[150px] animate-in slide-in-from-top-2 duration-200">
@@ -966,7 +929,7 @@ export default function StudiosPage() {
                                                             'w-full px-4 py-2.5 text-left text-[9px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-zinc-500/10 transition-colors border-l-2', 
                                                             studio.plan === p ? 'text-indigo-500 border-indigo-500 bg-indigo-500/5' : 'text-muted border-transparent'
                                                         )}>
-                                                            {PLAN_LABELS[p]}
+                                                            {(t as any)[PLAN_LABELS_KEYS[p]]}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -979,7 +942,7 @@ export default function StudiosPage() {
                                                     const currentBal = Math.round(getBillingState(studio.slug).accountBalance || 0);
                                                     setModal({
                                                         type: 'input',
-                                                        title: lang === 'ka' ? 'ბალანსი' : 'Balance',
+                                                        title: t.sa_studios_colBal,
                                                         message: 'GEL',
                                                         inputVal: String(currentBal),
                                                         onConfirm: (val) => {
@@ -1005,8 +968,8 @@ export default function StudiosPage() {
                                                 onClick={() => {
                                                     setModal({
                                                         type: 'input',
-                                                        title: lang === 'ka' ? 'ვადის გაგრძელება' : 'Extend Validity',
-                                                        message: lang === 'ka' ? `რამდენი დღით გსურთ ვადის გაგრძელება?` : `How many days to add?`,
+                                                        title: t.sa_studios_colAdd,
+                                                        message: t.sa_studios_colAdd,
                                                         inputVal: '30',
                                                         onConfirm: (val) => {
                                                             const days = Number(val);
@@ -1020,7 +983,7 @@ export default function StudiosPage() {
                                                 }}
                                                 className="px-2.5 py-1 bg-black/5 dark:bg-zinc-500/5 border border-black/5 dark:border-border-subtle/50 rounded-lg hover:border-indigo-500/30 transition-all font-black text-[9px] uppercase tracking-widest text-muted"
                                             >
-                                                + {lang === 'ka' ? 'დღე' : 'Days'}
+                                                + {t.day}
                                             </button>
                                         </div>
 
@@ -1033,10 +996,10 @@ export default function StudiosPage() {
                                         <div className="flex items-center justify-end gap-1.5 pr-4">
                                             {activeTab === 'active' ? (
                                                 <>
-                                                    <button onClick={() => sendReminder(studio)} className="p-2 text-zinc-400 hover:text-amber-500 transition-colors" title={lang === 'ka' ? 'შეხსენება' : 'Reminder'}>
+                                                    <button onClick={() => sendReminder(studio)} className="p-2 text-zinc-400 hover:text-amber-500 transition-colors" title={t.sa_studios_smsTitle}>
                                                         <Smartphone className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => impersonate(studio.slug)} className="p-2 text-zinc-400 hover:text-emerald-500 transition-colors" title={lang === 'ka' ? 'შესვლა' : 'Impersonate'}>
+                                                    <button onClick={() => impersonate(studio.slug)} className="p-2 text-zinc-400 hover:text-emerald-500 transition-colors" title={t.sa_studios_impersonate}>
                                                         <LogIn className="w-4 h-4" />
                                                     </button>
                                                     <button 
@@ -1052,28 +1015,28 @@ export default function StudiosPage() {
                                                             setProfileLogo(s.logoDataUrl || studio.logoUrl || '');
                                                         }} 
                                                         className="p-2 text-zinc-400 hover:text-indigo-500 transition-colors"
-                                                        title={lang === 'ka' ? 'მართვა' : 'Control'}
+                                                        title={t.sa_studios_control}
                                                     >
                                                         <Settings className="w-4 h-4" />
                                                     </button>
                                                     <button 
                                                         onClick={() => handleDeepPurge(studio.slug)}
                                                         className="p-2 text-zinc-300 hover:text-amber-500 transition-colors"
-                                                        title={lang === 'ka' ? 'მონაცემების გასუფთავება (Reset)' : 'Deep Purge (Reset)'}
+                                                        title={t.sa_studios_reset}
                                                     >
                                                         <Eraser className="w-4 h-4" />
                                                     </button>
                                                     <button 
                                                         onClick={() => purgeStudio(studio.slug)}
                                                         className="p-2 text-zinc-300 hover:text-rose-600 transition-colors"
-                                                        title={lang === 'ka' ? 'ატომური წაშლა (Auth+DB)' : 'Nuclear Purge (Auth+DB)'}
+                                                        title={t.sa_studios_nuclear}
                                                     >
                                                         <ShieldAlert className="w-4 h-4" />
                                                     </button>
                                                     <button 
                                                         onClick={() => moveToTrash(studio.slug)}
                                                         className="p-2 text-zinc-300 hover:text-rose-400 transition-colors"
-                                                        title={lang === 'ka' ? 'სანაგვეში გადატანა' : 'Move to Trash'}
+                                                        title={t.sa_studios_tabTrash}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
@@ -1084,14 +1047,14 @@ export default function StudiosPage() {
                                                     <button 
                                                         onClick={() => restoreFromTrash(studio.slug)}
                                                         className="p-2 text-zinc-300 hover:text-emerald-500 transition-colors"
-                                                        title={lang === 'ka' ? 'აღდგენა' : 'Restore'}
+                                                        title={t.sa_studios_restore}
                                                     >
                                                         <RotateCcw className="w-4 h-4" />
                                                     </button>
                                                     <button 
                                                         onClick={() => purgeStudio(studio.slug)}
                                                         className="p-2 text-zinc-300 hover:text-rose-600 transition-colors"
-                                                        title={lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Purge Forever'}
+                                                        title={t.sa_studios_purgeForever}
                                                     >
                                                         <ShieldAlert className="w-4 h-4" />
                                                     </button>
@@ -1105,9 +1068,9 @@ export default function StudiosPage() {
                                             <div className="flex-1">
                                                 {editingNote === studio.slug ? (
                                                     <div className="flex gap-2 items-center">
-                                                        <input autoFocus value={noteVal} onChange={e => setNoteVal(e.target.value)} placeholder="შიდა ჩანაწერი / შენიშვნა..." className="flex-1 bg-surface border border-border-subtle rounded-2xl px-5 py-3 text-xs text-primary placeholder:text-muted outline-none focus:border-indigo-500/50 shadow-inner" />
-                                                        <button onClick={() => saveNote(studio.slug)} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20">{lang === 'ka' ? 'შენახვა' : 'Save'}</button>
-                                                        <button onClick={() => setEditingNote(null)} className="px-6 py-3 bg-surface hover:bg-muted/10 text-muted text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-border-subtle">{lang === 'ka' ? 'გაუქმება' : 'Cancel'}</button>
+                                                        <input autoFocus value={noteVal} onChange={e => setNoteVal(e.target.value)} placeholder={t.sa_studios_editNoteDesc} className="flex-1 bg-surface border border-border-subtle rounded-2xl px-5 py-3 text-xs text-primary placeholder:text-muted outline-none focus:border-indigo-500/50 shadow-inner" />
+                                                        <button onClick={() => saveNote(studio.slug)} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20">{t.sa_studios_save}</button>
+                                                        <button onClick={() => setEditingNote(null)} className="px-6 py-3 bg-surface hover:bg-muted/10 text-muted text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-border-subtle">{t.sa_studios_cancel}</button>
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center gap-3 group/note cursor-pointer" onClick={() => { setEditingNote(studio.slug); setNoteVal(studio.notes); }}>
@@ -1132,12 +1095,12 @@ export default function StudiosPage() {
             {activeTab === 'audit' && (
                 <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-indigo-50/30 dark:bg-indigo-500/5 items-center">
-                        <span>{lang === 'ka' ? 'მომხმარებელი / სტუდია' : 'User / Studio'}</span>
-                        <span>{lang === 'ka' ? 'იმეილი' : 'Email'}</span>
-                        <span className="text-center">{lang === 'ka' ? 'რეგისტრაცია' : 'Registered'}</span>
-                        <span className="text-center">{lang === 'ka' ? 'დადასტურება' : 'Confirmed'}</span>
-                        <span className="text-center">{lang === 'ka' ? 'სტატუსი' : 'Status'}</span>
-                        <span className="text-right pr-2">{lang === 'ka' ? 'ქმედება' : 'Action'}</span>
+                        <span>{t.sa_studios_auditUserCol}</span>
+                        <span>{t.sa_studios_auditEmailCol}</span>
+                        <span className="text-center">{t.sa_studios_auditRegCol}</span>
+                        <span className="text-center">{t.sa_studios_auditConfCol}</span>
+                        <span className="text-center">{t.sa_studios_auditStatusCol}</span>
+                        <span className="text-right pr-2">{t.sa_studios_auditActionCol}</span>
                     </div>
                     {isAuditing ? (
                         <div className="py-32 text-center">
@@ -1183,7 +1146,7 @@ export default function StudiosPage() {
                                                     </div>
                                                 ) : (
                                                     <span className={cn("text-[9px] font-black uppercase tracking-widest", user.isStale ? "text-rose-500 animate-pulse" : "text-amber-500")}>
-                                                        Pending {user.isStale && (lang === 'ka' ? '(ვადაგასული)' : '(Stale)')}
+                                                        Pending {(user as any).isStale && '(Stale)'}
                                                     </span>
                                                 )}
                                             </div>
@@ -1198,7 +1161,7 @@ export default function StudiosPage() {
                                                 <button 
                                                     onClick={() => purgeAuditUser(user.id, user.requestedSlug)}
                                                     className="p-2.5 bg-black/5 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-600 rounded-xl transition-all active:scale-95 group/purge"
-                                                    title={lang === 'ka' ? 'სამუდამოდ წაშლა' : 'Hard Purge'}
+                                                    title={t.sa_studios_purgeForever}
                                                 >
                                                     <Trash2 className="w-4 h-4 transition-transform group-hover/purge:rotate-12" />
                                                 </button>
@@ -1209,12 +1172,10 @@ export default function StudiosPage() {
                         </div>
                     )}
                     <div className="px-8 py-4 bg-indigo-500/[0.02] border-t border-black/5 dark:border-border-subtle/50 flex items-center justify-between">
-                        <p className="text-[9px] font-black text-indigo-500/50 uppercase tracking-[0.2em]">
-                           Total Registered: {auditUsers.length} • Pending: {auditUsers.filter(u => !u.isConfirmed).length}
-                        </p>
+                            {t.sa_studios_auditTotal}: {auditUsers.length} • {t.sa_studios_auditPending}: {auditUsers.filter(u => !u.isConfirmed).length}
                         <button onClick={fetchAuditList} className="flex items-center gap-2 text-[9px] font-black text-indigo-600 hover:text-indigo-500 uppercase tracking-widest">
                             <RefreshCcw className={cn("w-3 h-3", isAuditing && "animate-spin")} />
-                            {lang === 'ka' ? 'განახლება' : 'Refresh List'}
+                            {t.sa_studios_refreshList}
                         </button>
                     </div>
                 </div>
@@ -1227,7 +1188,7 @@ export default function StudiosPage() {
                     <div className="relative bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] w-full max-w-lg p-10 animate-in zoom-in-95 duration-200 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
                         <div className="flex items-center justify-between mb-8">
                              <div>
-                                <h3 className="text-2xl font-black text-primary tracking-tight">{lang === 'ka' ? 'სტუდიის მართვა' : 'Studio Management'}</h3>
+                                <h3 className="text-2xl font-black text-primary tracking-tight">{t.sa_studios_mgmtTitle}</h3>
                                 <p className="text-[10px] text-muted font-black uppercase tracking-widest mt-1">Full Control Panel</p>
                              </div>
                              <button onClick={() => setEditingProfile(null)} className="p-3 bg-zinc-500/10 hover:bg-zinc-500/20 text-muted rounded-2xl transition-all"><X className="w-5 h-5" /></button>
@@ -1244,15 +1205,15 @@ export default function StudiosPage() {
                                     </label>
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-1">{lang === 'ka' ? 'ლოგო' : 'Studio Logo'}</p>
-                                    <p className="text-xs text-muted/60 leading-tight mb-3">{lang === 'ka' ? 'ატვირთეთ ახალი ლოგო ან შეცვალეთ არსებული. რეკომენდებულია კვადრატული ფორმა.' : 'Upload a new logo or replace the existing one. Square format recommended.'}</p>
-                                    <button onClick={() => setProfileLogo('')} className="text-[10px] font-black text-rose-500 hover:text-rose-400 uppercase tracking-widest">{lang === 'ka' ? 'ლოგოს წაშლა' : 'Remove Logo'}</button>
+                                    <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-1">{t.sa_studios_logoLabel}</p>
+                                    <p className="text-xs text-muted/60 leading-tight mb-3">{t.sa_studios_logoDesc}</p>
+                                    <button onClick={() => setProfileLogo('')} className="text-[10px] font-black text-rose-500 hover:text-rose-400 uppercase tracking-widest">{t.sa_studios_removeLogo}</button>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'სტუდიის დასახელება' : 'Studio Name'}</label>
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_nameLabel}</label>
                                     <input 
                                         value={profileName} 
                                         onChange={e => {
@@ -1267,7 +1228,7 @@ export default function StudiosPage() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'ბმული / Slug' : 'Studio Slug'}</label>
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_slugLabel}</label>
                                     <input 
                                         value={profileSlug} 
                                         onChange={e => {
@@ -1281,22 +1242,22 @@ export default function StudiosPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'მფლობელის სახელი' : 'Owner First Name'}</label>
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerFirstName}</label>
                                     <input value={profileFirstName} onChange={e => setProfileFirstName(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'მფლობელის გვარი' : 'Owner Last Name'}</label>
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerLastName}</label>
                                     <input value={profileLastName} onChange={e => setProfileLastName(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'მფლობელის მეილი' : 'Owner Email'}</label>
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerEmailLabel}</label>
                                     <input value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{lang === 'ka' ? 'მფლობელის ნომერი' : 'Owner Phone'}</label>
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerPhoneLabel}</label>
                                     <input value={profilePhone} onChange={e => setProfilePhone(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
                                 </div>
                             </div>
@@ -1305,9 +1266,7 @@ export default function StudiosPage() {
                             <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl">
                                 <p className="text-[10px] text-rose-600 dark:text-rose-500/70 font-bold leading-relaxed flex gap-2">
                                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                                    {lang === 'ka' 
-                                        ? 'Slug-ის შეცვლა გამოიწვევს ყველა ადგილობრივი მონაცემის მიგრაციას და შეიძლება დაარღვიოს არსებული ლინკები!' 
-                                        : 'Changing the slug will migrate all local storage data and break existing admin links!'}
+                                    {t.sa_studios_slugWarning}
                                 </p>
                             </div>
 
@@ -1320,14 +1279,14 @@ export default function StudiosPage() {
                                     className="w-full py-4 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-2"
                                 >
                                     <RefreshCcw className="w-4 h-4" />
-                                    {lang === 'ka' ? 'სისტემური რესეტი (მონაცემების გასუფთავება)' : 'System Reset (Clear All Data)'}
+                                    {t.sa_studios_systemReset}
                                 </button>
                             </div>
                         </div>
 
                         <div className="flex gap-4 mt-10">
-                            <button onClick={() => setEditingProfile(null)} className="flex-1 py-4 bg-surface hover:bg-zinc-500/10 text-muted text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all border border-border-subtle">{lang === 'ka' ? 'გაუქმება' : 'Cancel'}</button>
-                            <button onClick={saveProfile} className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-indigo-600/30">{lang === 'ka' ? 'შენახვა' : 'Save Changes'}</button>
+                            <button onClick={() => setEditingProfile(null)} className="flex-1 py-4 bg-surface hover:bg-zinc-500/10 text-muted text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all border border-border-subtle">{t.sa_studios_cancel}</button>
+                            <button onClick={saveProfile} className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-indigo-600/30">{t.sa_studios_saveChanges}</button>
                         </div>
                     </div>
                 </div>
@@ -1382,7 +1341,7 @@ export default function StudiosPage() {
                             ) : (
                                 <>
                                     <button disabled={modal.loading} onClick={() => setModal({ type: null, title: '', message: '' })} className="flex-1 py-4 bg-zinc-500/10 hover:bg-zinc-500/20 text-muted text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all">
-                                        {lang === 'ka' ? 'გაუქმება' : 'Cancel'}
+                                        {t.sa_studios_cancel}
                                     </button>
                                     <button 
                                         disabled={modal.loading}
@@ -1393,7 +1352,7 @@ export default function StudiosPage() {
                                             modal.loading && "opacity-50 cursor-wait"
                                         )}
                                     >
-                                        {modal.loading ? '...' : (lang === 'ka' ? 'დადასტურება' : 'Confirm')}
+                                        {modal.loading ? '...' : t.sa_studios_confirmTitle}
                                     </button>
                                 </>
                             )}
@@ -1411,10 +1370,10 @@ export default function StudiosPage() {
                             <RefreshCcw className="w-8 h-8" />
                         </div>
                         <h3 className="text-xl font-black text-primary mb-2 tracking-tight uppercase tracking-widest text-center">
-                            {lang === 'ka' ? 'მონაცემების გასუფთავება' : 'Data Reset'}
+                            {t.sa_studios_reset}
                         </h3>
                         <p className="text-xs text-muted font-bold text-center mb-8">
-                            {lang === 'ka' ? 'აირჩიეთ კატეგორიები, რომელთა გასუფთავებაც გსურთ:' : 'Select categories you want to clear:'}
+                            {t.sa_studios_logoDesc}
                         </p>
 
                         <div className="space-y-3 mb-8">
@@ -1433,15 +1392,15 @@ export default function StudiosPage() {
                                     )}
                                 >
                                     <span>
-                                        {cat === 'students' ? (lang === 'ka' ? 'მოსწავლეები' : 'Students') :
-                                         cat === 'groups' ? (lang === 'ka' ? 'ჯგუფები' : 'Groups') :
-                                         cat === 'halls' ? (lang === 'ka' ? 'დარბაზები' : 'Halls') :
-                                         cat === 'plans' ? (lang === 'ka' ? 'ტარიფები' : 'Plans') :
-                                         cat === 'teachers' ? (lang === 'ka' ? 'მასწავლებლები' : 'Teachers') :
-                                         cat === 'shop' ? (lang === 'ka' ? 'მარაგი / მაღაზია' : 'Shop / Inventory') :
-                                         cat === 'analytics' ? (lang === 'ka' ? 'ხარჯები / ანალიტიკა' : 'Analytics / Expenses') :
-                                         cat === 'calendar' ? (lang === 'ka' ? 'განრიგი' : 'Calendar Events') :
-                                         (lang === 'ka' ? 'შეტყობინებები' : 'Notifications')}
+                                        {cat === 'students' ? t.students :
+                                         cat === 'groups' ? t.groups :
+                                         cat === 'halls' ? t.halls :
+                                         cat === 'plans' ? t.navSectionBilling :
+                                         cat === 'teachers' ? t.teachers :
+                                         cat === 'shop' ? t.navSectionShop :
+                                         cat === 'analytics' ? t.navSectionAnalytics :
+                                         cat === 'calendar' ? t.navSectionSchedule :
+                                         t.navSectionNotifications}
                                     </span>
                                     <div className={cn(
                                         "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all",
@@ -1455,13 +1414,13 @@ export default function StudiosPage() {
 
                         <div className="flex gap-4">
                             <button onClick={() => setResetModal(prev => ({ ...prev, open: false }))} className="flex-1 py-4 bg-zinc-500/10 hover:bg-zinc-500/20 text-muted text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all">
-                                {lang === 'ka' ? 'გაუქმება' : 'Cancel'}
+                                {t.sa_studios_cancel}
                             </button>
                             <button 
                                 onClick={confirmReset}
                                 className="flex-1 py-4 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-rose-600/30"
                             >
-                                {lang === 'ka' ? 'გასუფთავება' : 'Clear Data'}
+                                {t.sa_studios_reset}
                             </button>
                         </div>
                     </div>

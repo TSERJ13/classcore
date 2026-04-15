@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useT } from '@/contexts/LanguageContext';
 import {
     BarChart3,
     TrendingUp,
@@ -15,17 +16,14 @@ import { getActionLogs, type ActionLog } from '@/lib/analytics';
 import { formatCurrency } from '@/lib/utils';
 
 export default function InsightsPage() {
+    const { t } = useT();
     const [mounted, setMounted] = useState(false);
     const [logs, setLogs] = useState<ActionLog[]>([]);
     const [filter, setFilter] = useState<string>('all');
-    const [lang, setLang] = useState<'ka' | 'en'>('ka');
 
     useEffect(() => {
         setMounted(true);
         setLogs(getActionLogs().reverse());
-
-        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (storedLang) setLang(storedLang);
 
         const handleUpdate = () => {
             setLogs(getActionLogs().reverse());
@@ -49,8 +47,8 @@ export default function InsightsPage() {
         <div className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-20">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-primary tracking-tight">{lang === 'ka' ? 'მომხმარებელთა ანალიტიკა' : 'User Insights'}</h1>
-                    <p className="text-muted text-sm font-medium opacity-60">{lang === 'ka' ? 'მომხმარებლის ქცევის პატერნების და ბილინგის ეფექტურობის კონტროლი' : 'Track behavior patterns and billing performance'}</p>
+                    <h1 className="text-3xl font-black text-primary dark:text-white tracking-tight">{t.sa_insights_title}</h1>
+                    <p className="text-muted text-sm font-medium opacity-60">{t.sa_insights_desc}</p>
                 </div>
 
                 <div className="flex items-center gap-2 bg-muted/10 p-1 rounded-2xl border border-border-subtle shadow-inner">
@@ -61,10 +59,10 @@ export default function InsightsPage() {
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-muted/10'
                                 }`}
                         >
-                            {f === 'all' ? (lang === 'ka' ? 'ყველა' : 'all') :
-                                f === 'plan_click' ? (lang === 'ka' ? 'გეგმის არჩევა' : 'plan click') :
-                                    f === 'promo_code_attempt' ? (lang === 'ka' ? 'პრომო კოდი' : 'promo') :
-                                        (lang === 'ka' ? 'ვიზიტი' : 'visit')}
+                            {f === 'all' ? t.sa_insights_filterAll :
+                                f === 'plan_click' ? t.sa_insights_filterPlans :
+                                    f === 'promo_code_attempt' ? t.sa_insights_filterPromos :
+                                        t.sa_insights_filterPortal}
                         </button>
                     ))}
                 </div>
@@ -77,7 +75,7 @@ export default function InsightsPage() {
                         <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
                             <TrendingUp className="w-5 h-5" />
                         </div>
-                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{lang === 'ka' ? 'ჯამური მოვლენები' : 'Total Events'}</span>
+                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{t.sa_insights_totalEvents}</span>
                     </div>
                     <p className="text-3xl font-black text-[#1e293b] dark:text-white">{stats.totalActions}</p>
                 </div>
@@ -86,7 +84,7 @@ export default function InsightsPage() {
                         <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
                             <MousePointer2 className="w-5 h-5" />
                         </div>
-                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{lang === 'ka' ? 'გეგმის კლიკები' : 'Plan Clicks'}</span>
+                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{t.sa_insights_planClicks}</span>
                     </div>
                     <p className="text-3xl font-black text-[#1e293b] dark:text-white">{stats.planClicks}</p>
                 </div>
@@ -95,7 +93,7 @@ export default function InsightsPage() {
                         <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
                             <Ticket className="w-5 h-5" />
                         </div>
-                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{lang === 'ka' ? 'პრომო წარმატება' : 'Promo Success'}</span>
+                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{t.sa_insights_promoSuccess}</span>
                     </div>
                     <p className="text-3xl font-black text-[#1e293b] dark:text-white">{stats.promoUses}</p>
                 </div>
@@ -104,7 +102,7 @@ export default function InsightsPage() {
                         <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-600">
                             <Users className="w-5 h-5" />
                         </div>
-                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{lang === 'ka' ? 'პორტალის ვიზიტები' : 'Portal Visits'}</span>
+                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">{t.sa_insights_portalVisits}</span>
                     </div>
                     <p className="text-3xl font-black text-[#1e293b] dark:text-white">{stats.portalVisits}</p>
                 </div>
@@ -115,7 +113,7 @@ export default function InsightsPage() {
                 <div className="px-8 py-6 border-b border-black/5 dark:border-border-subtle bg-black/[0.02] dark:bg-muted/5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         < BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        <h2 className="text-lg font-black text-primary dark:text-white tracking-tight">{lang === 'ka' ? 'ბოლო აქტივობა' : 'Recent Activity'}</h2>
+                        <h2 className="text-lg font-black text-primary dark:text-white tracking-tight">{t.sa_insights_recentActivity}</h2>
                     </div>
                 </div>
 
@@ -160,7 +158,7 @@ export default function InsightsPage() {
                             {filteredLogs.length === 0 && (
                                 <tr>
                                     <td colSpan={4} className="px-8 py-12 text-center text-muted text-sm font-medium italic opacity-40">
-                                        No activity recorded yet
+                                        {t.sa_insights_noActivity}
                                     </td>
                                 </tr>
                             )}

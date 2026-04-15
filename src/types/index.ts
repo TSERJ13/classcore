@@ -201,6 +201,7 @@ export interface CalendarEvent {
     type: EventType;
     hall_id?: string;
     teacher_id?: string;
+    secondary_teacher_id?: string;
     group_id?: string;
     student_id?: string;  // for individual
     date: string;         // YYYY-MM-DD
@@ -271,6 +272,9 @@ export interface Student {
     // branch
     branch_id?: string;
     gender?: 'male' | 'female';
+    contact_person?: 'self' | 'parent';
+    discount_type?: 'fixed' | 'percent';
+    discount_value?: number;
     created_at: string;
 }
 
@@ -376,6 +380,7 @@ export interface Teacher {
     rate_per_hour?: number;       // GEL per hour (for individual lessons)
     rate_per_month?: number;      // GEL flat (for groups)
     salary_percentage?: number;   // percentage share of revenue
+    password?: string;            // For personal access
     assigned_group_ids: string[]; // group IDs
     working_schedule?: any[];     // availability slots [{dayOfWeek, startTime, endTime}]
     assigned_individual: boolean; // takes individual sessions?
