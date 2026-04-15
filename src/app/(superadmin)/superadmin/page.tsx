@@ -188,6 +188,7 @@ export default function SuperAdminDashboard() {
                             trend="+12%"
                             color="indigo"
                             lang={lang}
+                            t={t}
                         />
                         <StatCard
                             title={t.students}
@@ -196,6 +197,7 @@ export default function SuperAdminDashboard() {
                             trend="+5.4%"
                             color="emerald"
                             lang={lang}
+                            t={t}
                         />
                         <StatCard
                             title={t.sa_revenueMRR}
@@ -204,6 +206,7 @@ export default function SuperAdminDashboard() {
                             trend="+8.2%"
                             color="amber"
                             lang={lang}
+                            t={t}
                         />
                         <StatCard
                             title={t.sa_smsSentMTD}
@@ -212,6 +215,7 @@ export default function SuperAdminDashboard() {
                             trend="+22%"
                             color="blue"
                             lang={lang}
+                            t={t}
                         />
                     </div>
 
@@ -361,7 +365,7 @@ export default function SuperAdminDashboard() {
     );
 }
 
-function StatCard({ title, value, icon: Icon, trend, color, lang }: any) {
+function StatCard({ title, value, icon: Icon, trend, color, lang, t }: any) {
     const colors: any = {
         indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/10',
         emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/10',
