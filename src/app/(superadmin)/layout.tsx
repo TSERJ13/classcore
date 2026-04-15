@@ -405,13 +405,19 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                         <div className="flex-1 overflow-y-auto p-6 space-y-4">
                             {(() => {
                                 const cloudDataRaw = localStorage.getItem('cc_sa_studios_data') || '[]';
-                                const cloudData = JSON.parse(cloudDataRaw);
+                                let cloudData: any[] = [];
+                                try {
+                                    const parsed = JSON.parse(cloudDataRaw);
+                                    cloudData = Array.isArray(parsed) ? parsed : [];
+                                } catch { cloudData = []; }
+
                                 const alerts: { title: string, time: string, icon: any, color: string, bg: string }[] = [];
                                 
                                 cloudData.forEach((s: any) => {
+                                    if (!s) return;
                                     if (s.billingStatus === 'overdue' || s.suspended) {
                                         alerts.push({
-                                            title: `${t.sa_overdue}: ${s.name}`,
+                                            title: `${t.sa_overdue}: ${s.name || 'Unknown'}`,
                                             time: t.sa_attention,
                                             icon: AlertTriangle,
                                             color: 'text-rose-500',
@@ -419,7 +425,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                                         });
                                     } else if (s.plan === 'trial' && s.daysLeft <= 7) {
                                         alerts.push({
-                                            title: `${t.sa_expiringSoon}: ${s.name}`,
+                                            title: `${t.sa_expiringSoon}: ${s.name || 'Unknown'}`,
                                             time: `${s.daysLeft} ${t.sa_daysLeft}`,
                                             icon: Building2,
                                             color: 'text-amber-500',

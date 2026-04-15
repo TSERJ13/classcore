@@ -62,13 +62,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <body className="min-h-screen bg-base antialiased font-sans">
                 <CacheBuster />
                 <LanguageProvider defaultLang={activeLang}>
-                    <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
-                        <ConfirmProvider>
-                            <GlobalErrorBoundary>
-                                {children}
-                            </GlobalErrorBoundary>
-                        </ConfirmProvider>
-                    </StudioProvider>
+                    <ConfirmProvider>
+                        <GlobalErrorBoundary>
+                            {children}
+                        </GlobalErrorBoundary>
+                    </ConfirmProvider>
                 </LanguageProvider>
             </body>
         </html>

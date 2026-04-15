@@ -8,9 +8,9 @@ export async function syncGlobalAdminRegistry() {
         });
         const data = await res.json();
         
-        if (data.studios) {
+        if (data && data.studios && Array.isArray(data.studios)) {
             const studios: any[] = data.studios;
-            const cloudSlugs: string[] = studios.map(s => s.slug);
+            const cloudSlugs: string[] = studios.map(s => s.slug).filter(Boolean);
             const localRegistry = getStudioRegistry();
             
             // For Admins, we ONLY keep what is in the cloud + demo

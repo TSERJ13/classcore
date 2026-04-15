@@ -31,38 +31,46 @@ function globalSearch(query: string, lang: 'ka' | 'en' | 'ru'): SearchResult[] {
         // Skip studios already matched via cloud data (avoid duplicates)
         if (cloudData.find(cs => cs.slug === slug)) return;
         
-        const s = loadSettings(slug);
-        
-        // Match studio (legacy fallback)
-        if (s.studioName.toLowerCase().includes(q) || slug.includes(q)) {
-            results.push({ type: 'studio', title: s.studioName, sub: `/${slug}`, href: `/superadmin/studios?search=${slug}` });
+        try {
+            const s = loadSettings(slug);
+            
+            // Match studio (legacy fallback)
+            if ((s?.studioName || '').toLowerCase().includes(q) || slug.includes(q)) {
+                results.push({ type: 'studio', title: s?.studioName || slug, sub: `/${slug}`, href: `/superadmin/studios?search=${slug}` });
+            }
+            
+            // Match students
+            try {
+                const raw = localStorage.getItem(`cc_student_data_${slug}`) || localStorage.getItem('cc_student_data');
+                if (raw) {
+                    const students = JSON.parse(raw);
+                    if (students && typeof students === 'object') {
+                        Object.entries(students).forEach(([, st]: [any, any]) => {
+                            if (st && ((st.name || '').toLowerCase().includes(q) || (st.phone || '').includes(q) || (st.email || '').toLowerCase().includes(q))) {
+                                results.push({ type: 'client', title: st.name || '—', sub: `${st.phone || ''} • ${s?.studioName || slug}`, href: `/superadmin/clients?search=${st.name}` });
+                            }
+                        });
+                    }
+                }
+            } catch { }
+            
+            // Match payments
+            try {
+                const raw = localStorage.getItem(`cc_saas_payments_${slug}`);
+                if (raw) {
+                    const payments = JSON.parse(raw);
+                    if (Array.isArray(payments)) {
+                        payments.forEach(p => {
+                            if (p && ((p.method?.toLowerCase() || '').includes(q) || (p.date || '').includes(q))) {
+                                results.push({ type: 'payment', title: `${p.amount}₾ — ${p.method}`, sub: `${s?.studioName || slug} • ${new Date(p.date).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US')}`, href: '/superadmin/billing' });
+                            }
+                        });
+                    }
+                }
+            } catch { }
+        } catch (err) {
+            console.error('[GlobalSearch] Error processing slug:', slug, err);
         }
-        
-        // Match students
-        try {
-            const raw = localStorage.getItem(`cc_student_data_${slug}`) || localStorage.getItem('cc_student_data');
-            if (raw) {
-                const students = JSON.parse(raw) as Record<string, { name?: string; phone?: string; email?: string }>;
-                Object.entries(students).forEach(([, st]) => {
-                    if ((st.name || '').toLowerCase().includes(q) || (st.phone || '').includes(q) || (st.email || '').toLowerCase().includes(q)) {
-                        results.push({ type: 'client', title: st.name || '—', sub: `${st.phone || ''} • ${s.studioName}`, href: `/superadmin/clients?search=${st.name}` });
-                    }
-                });
-            }
-        } catch { }
-        
-        // Match payments
-        try {
-            const raw = localStorage.getItem(`cc_saas_payments_${slug}`);
-            if (raw) {
-                const payments = JSON.parse(raw) as Array<{ date: string; method: string; amount: number }>;
-                payments.forEach(p => {
-                    if (p.method.toLowerCase().includes(q) || p.date.includes(q)) {
-                        results.push({ type: 'payment', title: `${p.amount}₾ — ${p.method}`, sub: `${s.studioName} • ${new Date(p.date).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US')}`, href: '/superadmin/billing' });
-                    }
-                });
-            }
-        } catch { }
     });
 
     return results.slice(0, 20);

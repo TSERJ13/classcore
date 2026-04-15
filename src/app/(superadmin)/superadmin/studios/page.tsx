@@ -42,24 +42,40 @@ interface AuditUser {
 
 function loadStudio(slug: string): StudioRecord {
     const s = loadSettings(slug);
-    const meta = (() => { try { return JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); } catch { return {}; } })();
+    const meta = (() => { 
+        try { 
+            const raw = localStorage.getItem(`cc_sa_meta_${slug}`);
+            return raw ? JSON.parse(raw) : {}; 
+        } catch { return {}; } 
+    })();
     const billing = getBillingState(slug);
     
     let studentCount = 0;
     try { 
         const key = getScopedKey('cc_student_data', slug);
         const raw = localStorage.getItem(key);
-        if (raw) studentCount = Object.keys(JSON.parse(raw)).length; 
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') studentCount = Object.keys(parsed).length;
+        }
     } catch { }
 
     let subsCount = 0;
     try { 
         const key = getScopedKey('cc_student_subscriptions', slug);
         const raw = localStorage.getItem(key);
-        if (raw) Object.values(JSON.parse(raw)).forEach((subs: unknown) => { if (Array.isArray(subs)) subsCount += subs.filter((s: { status?: string }) => s.status === 'active').length; }); 
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                Object.values(parsed).forEach((subs: any) => { 
+                    if (Array.isArray(subs)) subsCount += subs.filter((s: any) => s && s.status === 'active').length; 
+                });
+            }
+        }
     } catch { }
     
-    const owner = s.staff.find(m => m.role === 'owner');
+    const staffList = Array.isArray(s?.staff) ? s.staff : [];
+    const owner = staffList.find((m: any) => m && m.role === 'owner');
     
     return { 
         slug, name: s.studioName, logoUrl: s.logoDataUrl, studentCount, subsCount, 
@@ -207,20 +223,37 @@ export default function StudiosPage() {
     };
 
     const loadData = () => { 
-        if (!isInitialSyncDone || !cloudStudios) return;
+        if (!isInitialSyncDone || !Array.isArray(cloudStudios)) return;
         
         const loaded: StudioRecord[] = cloudStudios.map(cloud => {
+            if (!cloud || !cloud.slug) return null;
             const slug = cloud.slug;
             const s = loadSettings(slug);
-            const meta = (() => { try { return JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); } catch { return {}; } })();
+            const meta = (() => { 
+                try { 
+                    const raw = localStorage.getItem(`cc_sa_meta_${slug}`);
+                    return raw ? JSON.parse(raw) : {}; 
+                } catch { return {}; } 
+            })();
             const billing = getBillingState(slug);
             
             const studentCount = (cloud?.studentCount !== undefined) ? cloud.studentCount : 0;
             const subsCount = (cloud?.groupCount !== undefined) ? cloud.groupCount : 0;
 
-            const ownerEmail = cloud?.ownerEmail || s?.owner_info?.email || s?.staff?.find((m: any) => m.role === 'owner')?.email || 'N/A';
-            const ownerPhone = cloud?.ownerPhone || s?.owner_info?.phone || s?.staff?.find((m: any) => m.role === 'owner')?.phone || 'N/A';
-            const ownerName = cloud?.ownerName || (s?.owner_info?.first_name ? `${s.owner_info.first_name} ${s.owner_info.last_name}` : s?.staff?.find((m: any) => m.role === 'owner')?.full_name) || 'N/A';
+            const staffList = Array.isArray(s?.staff) ? s.staff : [];
+            const owner = staffList.find((m: any) => m && m.role === 'owner');
+
+            const ownerEmail = cloud?.ownerEmail || s?.owner_info?.email || owner?.email || 'N/A';
+            const ownerPhone = cloud?.ownerPhone || s?.owner_info?.phone || owner?.phone || 'N/A';
+            
+            let ownerName = cloud?.ownerName || 'N/A';
+            if (ownerName === 'N/A') {
+                if (s?.owner_info?.first_name) {
+                    ownerName = `${s.owner_info.first_name} ${s.owner_info.last_name || ''}`.trim();
+                } else if (owner?.full_name) {
+                    ownerName = owner.full_name;
+                }
+            }
 
             return { 
                 slug, 
@@ -240,7 +273,7 @@ export default function StudiosPage() {
                 ownerName,
                 isLocalOnly: false
             };
-        });
+        }).filter(Boolean) as StudioRecord[];
 
         // 🚨 STRICT CLOUD TRUTH: We ignore local storage orphans. 
         // Only the Demo studio is allowed to be local-only.

@@ -183,7 +183,9 @@ export function getStudioRegistry(): string[] {
     if (typeof window === 'undefined') return [];
     try {
         const raw = localStorage.getItem(REGISTRY_KEY);
-        return raw ? JSON.parse(raw) : [];
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
     } catch { return []; }
 }
 
@@ -208,6 +210,8 @@ export function removeFromRegistry(slug: string) {
 export function cleanupRegistry() {
     if (typeof window === 'undefined') return;
     const list = getStudioRegistry();
+    if (!Array.isArray(list)) return;
+    
     const next = list.filter(slug => {
         if (slug === DEFAULT_SETTINGS.studioSlug) return true;
         const key = getScopedKey(STORAGE_KEY, slug);
@@ -458,7 +462,9 @@ export function loadSettings(slug?: string): StudioSettings {
         }
 
         const parsed = JSON.parse(raw);
-        if (!parsed) return { ...DEFAULT_SETTINGS, cabinetCode: generateCabinetCode(finalSlug) };
+        if (!parsed || typeof parsed !== 'object') {
+             return { ...DEFAULT_SETTINGS, cabinetCode: generateCabinetCode(finalSlug) };
+        }
 
         let cabinetCode = parsed.cabinetCode;
         if (!cabinetCode) {
@@ -681,6 +687,8 @@ export function applyTheme(themeKey: ThemeKey) {
 export function getUnreadSupportCount(): number {
     if (typeof window === 'undefined') return 0;
     const slugs = getStudioRegistry();
+    if (!Array.isArray(slugs)) return 0;
+    
     let total = 0;
     slugs.forEach(slug => {
         try {
@@ -689,7 +697,7 @@ export function getUnreadSupportCount(): number {
             if (raw) {
                 const msgs = JSON.parse(raw);
                 if (Array.isArray(msgs)) {
-                    const unread = msgs.filter((m: any) => m.read === false && m.sender !== 'student');
+                    const unread = msgs.filter((m: any) => m && m.read === false && m.sender !== 'student');
                     total += unread.length;
                 }
             }

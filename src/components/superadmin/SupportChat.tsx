@@ -38,25 +38,45 @@ interface ChatEntry {
 function loadChats(): ChatEntry[] {
     const slugs = getStudioRegistry();
     const all: ChatEntry[] = [];
+    
     slugs.forEach(slug => {
-        const s = loadSettings(slug);
         try {
+            const s = loadSettings(slug);
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key?.startsWith(`chat_${slug}_`) || key === `chat_${slug}_classcore_support`) {
-                    const msgs = JSON.parse(localStorage.getItem(key) || '[]');
-                    if (msgs.length > 0) {
-                        const studentId = key.replace(`chat_${slug}_`, '');
-                        all.push({ studioSlug: slug, studioName: s.studioName, studentId, messages: msgs });
+                    const raw = localStorage.getItem(key);
+                    if (!raw) continue;
+                    
+                    try {
+                        const msgs = JSON.parse(raw);
+                        if (Array.isArray(msgs) && msgs.length > 0) {
+                            const studentId = key.replace(`chat_${slug}_`, '');
+                            all.push({ 
+                                studioSlug: slug, 
+                                studioName: s?.studioName || slug, 
+                                studentId, 
+                                messages: msgs 
+                            });
+                        }
+                    } catch (parseErr) {
+                        console.warn(`[SupportChat] Corrupt chat data at ${key}:`, parseErr);
                     }
                 }
             }
-        } catch { }
+        } catch (slugErr) {
+            console.warn(`[SupportChat] Failed to load chats for slug ${slug}:`, slugErr);
+        }
     });
+
     return all.sort((a, b) => {
-        const aLast = a.messages[a.messages.length - 1]?.timestamp || '';
-        const bLast = b.messages[b.messages.length - 1]?.timestamp || '';
-        return bLast.localeCompare(aLast);
+        try {
+            const aLast = a.messages[a.messages.length - 1]?.timestamp || '';
+            const bLast = b.messages[b.messages.length - 1]?.timestamp || '';
+            return bLast.localeCompare(aLast);
+        } catch {
+            return 0;
+        }
     });
 }
 
@@ -234,20 +254,44 @@ export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashbo
     if (!mounted) return null;
 
     const studioInfo = openChat ? (() => {
-        const s = loadSettings(openChat.studioSlug);
-        const owner = s.staff.find(m => m.role === 'owner') || s.staff[0];
-        const state = getBillingState(openChat.studioSlug);
-        let studentCount = 0;
-        try { studentCount = Object.keys(JSON.parse(localStorage.getItem(`cc_student_data_${openChat.studioSlug}`) || '{}')).length; } catch {}
-        
-        return {
-            ownerName: owner?.full_name || 'N/A',
-            ownerPhone: owner?.phone || 'N/A',
-            ownerEmail: owner?.email || 'N/A',
-            balance: state.accountBalance || 0,
-            plan: s.studioSlug === 'demo.classcore.ge' ? 'trial' : (JSON.parse(localStorage.getItem(`cc_sa_meta_${openChat.studioSlug}`) || '{}').plan || 'trial'),
-            students: studentCount
-        };
+        try {
+            const s = loadSettings(openChat.studioSlug);
+            const staff = Array.isArray(s?.staff) ? s.staff : [];
+            const owner = staff.find(m => m.role === 'owner') || staff[0];
+            const state = getBillingState(openChat.studioSlug);
+            let studentCount = 0;
+            try { 
+                const rawData = localStorage.getItem(`cc_student_data_${openChat.studioSlug}`);
+                if (rawData) {
+                    const parsed = JSON.parse(rawData);
+                    if (parsed && typeof parsed === 'object') {
+                        studentCount = Object.keys(parsed).length;
+                    }
+                }
+            } catch {}
+            
+            let plan = 'trial';
+            try {
+                const metaRaw = localStorage.getItem(`cc_sa_meta_${openChat.studioSlug}`);
+                if (metaRaw) {
+                    const meta = JSON.parse(metaRaw);
+                    plan = meta?.plan || 'trial';
+                }
+            } catch {}
+            if (openChat.studioSlug === 'demo.classcore.ge') plan = 'trial';
+
+            return {
+                ownerName: owner?.full_name || 'N/A',
+                ownerPhone: owner?.phone || 'N/A',
+                ownerEmail: owner?.email || 'N/A',
+                balance: state?.accountBalance || 0,
+                plan,
+                students: studentCount
+            };
+        } catch (err) {
+            console.error('[SupportChat] Failed to generate studioInfo:', err);
+            return { ownerName: 'Error', ownerPhone: 'N/A', ownerEmail: 'N/A', balance: 0, plan: 'unknown', students: 0 };
+        }
     })() : null;
 
     return (

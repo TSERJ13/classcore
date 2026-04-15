@@ -466,7 +466,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         const timer = setTimeout(() => {
             const activeSlug = local.studioSlug;
-            if (!activeSlug || activeSlug === 'demo.classcore.ge') {
+            if (!activeSlug || activeSlug === 'demo.classcore.ge' || activeSlug === 'superadmin') {
+                console.log('📡 [StudioContext] Skipping cloud pull for:', activeSlug);
                 setFirstSyncDone(true);
                 setIsLoaded(true);
                 return;
@@ -511,7 +512,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     // Automatic Cloud Sync
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge') return;
+            if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
 
             const studioData: Record<string, any> = {};
             const keys = Object.keys(localStorage);
@@ -537,7 +538,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     // Realtime Pulse updates
     useEffect(() => {
-        if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge') return;
+        if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
 
         const supabase = createClient();
         const channel = supabase

@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     // 1. Identify Route Type first (Zero-cost logic)
-    const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/privacy', '/terms', '/terms-and-conditions', '/auth/confirm'];
+    const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/privacy', '/terms', '/terms-and-conditions', '/auth/confirm', '/manifest.webmanifest', '/favicon.ico'];
     const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
     const segments = pathname.split('/').filter(Boolean);
     const isPortal = segments.length === 2 && !publicRoutes.includes('/' + segments[0]);
@@ -101,6 +101,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
     ],
 };

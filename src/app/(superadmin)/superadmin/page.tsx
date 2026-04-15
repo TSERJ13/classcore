@@ -49,71 +49,89 @@ export default function SuperAdminDashboard() {
     useEffect(() => {
         if (loading) return;
 
-        let students = 0;
-        let activeSubs = 0;
-        let totalRev = 0;
-        let mrr = 0;
-        let totalSms = 0;
+        try {
+            slugs.forEach((slug: string) => {
+                // Students
+                try {
+                    const studentDataKey = getScopedKey('cc_student_data', slug);
+                    const studentData = localStorage.getItem(studentDataKey);
+                    if (studentData) {
+                        const parsed = JSON.parse(studentData);
+                        if (parsed && typeof parsed === 'object') {
+                            students += Object.keys(parsed).length;
+                        }
+                    }
+                } catch {}
 
-        const allPayments: any[] = [];
-        const monthTotals: Record<string, number> = {};
-        const now = new Date();
+                // Billing & MRR
+                try {
+                    const billing = getBillingState(slug);
+                    if (billing.status === 'active' || billing.status === 'overdue') {
+                        activeSubs++;
+                        mrr += 49;
+                    }
+                } catch {}
 
-        slugs.forEach((slug: string) => {
-            // Students
-            try {
-                const studentDataKey = getScopedKey('cc_student_data', slug);
-                const studentData = localStorage.getItem(studentDataKey);
-                if (studentData) students += Object.keys(JSON.parse(studentData)).length;
-            } catch {}
-
-            // Billing & MRR
-            const billing = getBillingState(slug);
-            if (billing.status === 'active' || billing.status === 'overdue') {
-                activeSubs++;
-                mrr += 49;
-            }
-
-            // Payments & History
-            const payments = getPaymentLogs(slug);
-            payments.forEach((p: any) => {
-                totalRev += p.amount;
-                const d = new Date(p.date);
-                const monthKey = d.toLocaleString('default', { month: 'short' });
-                monthTotals[monthKey] = (monthTotals[monthKey] || 0) + p.amount;
-                allPayments.push({ ...p, studioSlug: slug });
+                // Payments & History
+                try {
+                    const payments = getPaymentLogs(slug);
+                    if (Array.isArray(payments)) {
+                        payments.forEach((p: any) => {
+                            if (p && typeof p.amount === 'number') {
+                                totalRev += p.amount;
+                                const d = new Date(p.date);
+                                if (!isNaN(d.getTime())) {
+                                    const monthKey = d.toLocaleString('default', { month: 'short' });
+                                    monthTotals[monthKey] = (monthTotals[monthKey] || 0) + p.amount;
+                                    allPayments.push({ ...p, studioSlug: slug });
+                                }
+                            }
+                        });
+                    }
+                } catch {}
             });
-        });
 
-        // Prepare revenue timeline (last 6 months)
-        const months = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date();
-            d.setMonth(now.getMonth() - i);
-            const m = d.toLocaleString('default', { month: 'short' });
-            months.push({ name: m, rev: monthTotals[m] || 0 });
+            // Prepare revenue timeline (last 6 months)
+            const months = [];
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date();
+                d.setMonth(now.getMonth() - i);
+                const m = d.toLocaleString('default', { month: 'short' });
+                months.push({ name: m, rev: monthTotals[m] || 0 });
+            }
+            setRevenueTimeline(months);
+
+            // Recent Events (Last 4 payments/registrations)
+            const events = allPayments.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4).map(p => {
+                try {
+                    const studio = loadSettings(p.studioSlug);
+                    return {
+                        studio: studio?.studioName || p.studioSlug || 'Unknown',
+                        action: t.sa_manualPayment,
+                        time: `${Math.floor((now.getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60))}${t.sa_hoursAgo}`
+                    };
+                } catch {
+                    return { studio: 'Unknown', action: t.sa_manualPayment, time: 'recently' };
+                }
+            });
+
+            if (events.length === 0) {
+                events.push({ studio: t.navSectionSystem, action: t.sa_noRecords, time: t.now });
+            }
+            setRecentEvents(events);
+
+            setStats({
+                totalStudios: slugs.filter(s => s !== 'demo.classcore.ge').length,
+                totalStudents: students,
+                activeSubs,
+                totalRevenue: totalRev,
+                totalSms: students * 8, // Estimated
+                mrr
+            });
+        } catch (err) {
+            console.error('Critical crash during dashboard aggregation:', err);
+            // We don't throw, just log and keep previous/empty state to prevent GlobalErrorBoundary
         }
-        setRevenueTimeline(months);
-
-        // Recent Events (Last 4 payments/registrations)
-        const events = allPayments.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4).map(p => ({
-            studio: loadSettings(p.studioSlug).studioName,
-            action: t.sa_manualPayment,
-            time: `${Math.floor((now.getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60))}${t.sa_hoursAgo}`
-        }));
-        if (events.length === 0) {
-            events.push({ studio: t.navSectionSystem, action: t.sa_noRecords, time: t.now });
-        }
-        setRecentEvents(events);
-
-        setStats({
-            totalStudios: slugs.filter(s => s !== 'demo.classcore.ge').length,
-            totalStudents: students,
-            activeSubs,
-            totalRevenue: totalRev,
-            totalSms: students * 8, // Estimated
-            mrr
-        });
     }, [slugs, lang, loading]);
 
     const handleGlobalPurge = async () => {
