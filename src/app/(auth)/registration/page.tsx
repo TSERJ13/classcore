@@ -119,6 +119,22 @@ export default function RegistrationPage() {
                 localStorage.setItem('cc_onboarding_in_progress', 'true');
             }
 
+            // 3. Trigger Branded Welcome/Activation Email via our SMTP
+            try {
+                await fetch('/api/auth/send-activation-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        firstName,
+                        activationLink: `${window.location.origin}/login?status=activated`
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to send branded welcome email:', e);
+                // We don't throw here as the user is already signed up in Supabase
+            }
+
             setRegData({ email });
             setStep('success');
         } catch (err: any) {
