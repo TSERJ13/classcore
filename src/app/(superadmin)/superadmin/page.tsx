@@ -49,46 +49,29 @@ export default function SuperAdminDashboard() {
     useEffect(() => {
         if (loading) return;
 
-        try {
-            slugs.forEach((slug: string) => {
-                // Students
-                try {
-                    const studentDataKey = getScopedKey('cc_student_data', slug);
-                    const studentData = localStorage.getItem(studentDataKey);
-                    if (studentData) {
-                        const parsed = JSON.parse(studentData);
-                        if (parsed && typeof parsed === 'object') {
-                            students += Object.keys(parsed).length;
-                        }
-                    }
-                } catch {}
+            // DATABASE-FIRST AGGREGATION
+            let totalStudentsCount = 0;
+            let totalRevenueSum = 0;
+            let activeSubscriptions = 0;
+            let calculatedMrr = 0;
+            const monthTotals: Record<string, number> = {};
+            const allPayments: any[] = [];
+            const now = new Date();
 
-                // Billing & MRR
-                try {
-                    const billing = getBillingState(slug);
-                    if (billing.status === 'active' || billing.status === 'overdue') {
-                        activeSubs++;
-                        mrr += 49;
-                    }
-                } catch {}
+            verified.forEach((s: any) => {
+                if (s.slug === 'demo.classcore.ge') return;
+                
+                totalStudentsCount += (s.studentCount || 0);
+                totalRevenueSum += (s.revenue || 0);
+                activeSubscriptions += (s.activeSubsCount || 0);
+                calculatedMrr += (s.activeSubsCount * 49); // Base MRR
 
-                // Payments & History
-                try {
-                    const payments = getPaymentLogs(slug);
-                    if (Array.isArray(payments)) {
-                        payments.forEach((p: any) => {
-                            if (p && typeof p.amount === 'number') {
-                                totalRev += p.amount;
-                                const d = new Date(p.date);
-                                if (!isNaN(d.getTime())) {
-                                    const monthKey = d.toLocaleString('default', { month: 'short' });
-                                    monthTotals[monthKey] = (monthTotals[monthKey] || 0) + p.amount;
-                                    allPayments.push({ ...p, studioSlug: slug });
-                                }
-                            }
-                        });
-                    }
-                } catch {}
+                // Revenue Timeline (last 6 months - we use the updatedAt relative path as a mock since we don't have historical day logs in this API yet)
+                const d = new Date(s.updatedAt);
+                if (!isNaN(d.getTime())) {
+                    const monthKey = d.toLocaleString('default', { month: 'short' });
+                    monthTotals[monthKey] = (monthTotals[monthKey] || 0) + (s.revenue || 0);
+                }
             });
 
             // Prepare revenue timeline (last 6 months)
@@ -101,19 +84,16 @@ export default function SuperAdminDashboard() {
             }
             setRevenueTimeline(months);
 
-            // Recent Events (Last 4 payments/registrations)
-            const events = allPayments.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4).map(p => {
-                try {
-                    const studio = loadSettings(p.studioSlug);
-                    return {
-                        studio: studio?.studioName || p.studioSlug || 'Unknown',
-                        action: t.sa_manualPayment,
-                        time: `${Math.floor((now.getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60))}${t.sa_hoursAgo}`
-                    };
-                } catch {
-                    return { studio: 'Unknown', action: t.sa_manualPayment, time: 'recently' };
-                }
-            });
+            // Recent events - we get these from the already fetched cloud data (which includes owner and updated info)
+            const events = verified
+                .filter((s: any) => s.slug !== 'demo.classcore.ge')
+                .sort((a: any, b: any) => b.updatedAt.localeCompare(a.updatedAt))
+                .slice(0, 4)
+                .map((s: any) => ({
+                    studio: s.name || s.slug,
+                    action: t.sa_activity_update,
+                    time: `${Math.max(1, Math.floor((now.getTime() - new Date(s.updatedAt).getTime()) / (1000 * 60 * 60)))}${t.sa_hoursAgo}`
+                }));
 
             if (events.length === 0) {
                 events.push({ studio: t.navSectionSystem, action: t.sa_noRecords, time: t.now });
@@ -121,12 +101,12 @@ export default function SuperAdminDashboard() {
             setRecentEvents(events);
 
             setStats({
-                totalStudios: slugs.filter(s => s !== 'demo.classcore.ge').length,
-                totalStudents: students,
-                activeSubs,
-                totalRevenue: totalRev,
-                totalSms: students * 8, // Estimated
-                mrr
+                totalStudios: verified.filter((s: any) => s.slug !== 'demo.classcore.ge').length,
+                totalStudents: totalStudentsCount,
+                activeSubs: activeSubscriptions,
+                totalRevenue: totalRevenueSum,
+                totalSms: totalStudentsCount * 8, // Estimated
+                mrr: calculatedMrr
             });
         } catch (err) {
             console.error('Critical crash during dashboard aggregation:', err);
