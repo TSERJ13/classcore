@@ -13,9 +13,8 @@ export async function syncGlobalAdminRegistry() {
             const cloudSlugs: string[] = studios.map(s => s.slug).filter(Boolean);
             const localRegistry = getStudioRegistry();
             
-            // For Admins, we ONLY keep what is in the cloud + demo
-            const nextList = cloudSlugs.filter(s => s !== 'demo.classcore.ge');
-            if (localRegistry.includes('demo.classcore.ge')) nextList.unshift('demo.classcore.ge');
+            // 🚨 STRICT CLOUD TRUTH: We ONLY keep what is verified in the cloud.
+            const nextList = [...new Set(cloudSlugs)];
             
             // 🚨 HARD WIPE: Clean up orphans and ghosts
             const listToClean = localRegistry.filter(slug => !nextList.includes(slug) && slug !== 'demo.classcore.ge');
