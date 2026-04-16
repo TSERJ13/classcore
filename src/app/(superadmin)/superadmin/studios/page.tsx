@@ -276,10 +276,7 @@ export default function StudiosPage() {
         }).filter(Boolean) as StudioRecord[];
 
         // 🚨 STRICT CLOUD TRUTH: We ignore local storage orphans. 
-        // Only the Demo studio is allowed to be local-only.
-        if (getStudioRegistry().includes('demo.classcore.ge') && !cloudStudios.find(c => c.slug === 'demo.classcore.ge')) {
-            loaded.unshift(loadStudio('demo.classcore.ge'));
-        }
+        // Only cloud-verified studios are displayed.
 
         setStudios(loaded.filter(Boolean) as StudioRecord[]);
     };
