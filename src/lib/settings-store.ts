@@ -768,7 +768,7 @@ export type ResetCategories = {
  * SELECTIVE RESET: Clears all student, group, sales, and calendar data 
  * but PRESERVES studio identity (name, logo, slug, branches).
  */
-export function resetStudioData(slug: string, options?: ResetCategories) {
+export async function resetStudioData(slug: string, options?: ResetCategories) {
     if (typeof window === 'undefined') return;
 
     // Default to everything if no options provided
@@ -776,6 +776,20 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
         plans: true, students: true, groups: true, calendar: true, halls: true,
         teachers: true, shop: true, analytics: true, notifications: true
     };
+
+    // 1. CLEAR CLOUD FIRST (Nuclear Strike)
+    try {
+        const { masterStudioPurge } = await import('./sync-store');
+        // If it's a full reset, we use the nuclear masterStudioPurge
+        if (!options || Object.values(options).every(v => v === true)) {
+            await masterStudioPurge(slug);
+        } else {
+            // TODO: Implement selective cloud purge if needed
+            // For now, even a selective reset should probably trigger a sync pulse
+        }
+    } catch (err) {
+        console.error('❌ [SettingsStore] Cloud reset failed:', err);
+    }
 
     const prefixMap: Record<string, string[]> = {
         plans: ['cc_subscription_plans'],

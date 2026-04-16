@@ -516,8 +516,8 @@ export default function StudiosPage() {
             type: 'confirm',
             title: t.sa_studios_reset,
             message: `${t.sa_studios_reset} "${slug}"?`,
-            onConfirm: () => {
-                resetStudioData(slug, categories);
+            onConfirm: async () => {
+                await resetStudioData(slug, categories);
                 setResetModal(prev => ({ ...prev, open: false }));
                 setModal({ type: 'alert', title: t.sa_studios_successTitle, message: t.sa_studios_successTitle });
                 loadData();

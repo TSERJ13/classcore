@@ -1345,7 +1345,7 @@ export default function SettingsPage() {
                                         });
                                         if (ok) {
                                             const { resetStudioData } = await import('@/lib/settings-store');
-                                            resetStudioData(settings.studioSlug, { [cat.id]: true });
+                                            await resetStudioData(settings.studioSlug, { [cat.id]: true });
                                             addNotification(l('მონაცემები გასუფთავდა', 'Данные очищены', 'Data cleared'), 'success');
                                             window.location.reload();
                                         }
@@ -1373,7 +1373,7 @@ export default function SettingsPage() {
                                     });
                                     if (ok) {
                                         const { resetStudioData } = await import('@/lib/settings-store');
-                                        resetStudioData(settings.studioSlug);
+                                        await resetStudioData(settings.studioSlug);
                                         addNotification(l('სტუდია სრულად გასუფთავდა', 'Студия полностью очищена', 'Studio fully reset'), 'success');
                                         window.location.reload();
                                     }
