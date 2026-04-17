@@ -513,9 +513,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             ];
 
             keys.forEach(k => {
-                // MATCHING LOGIC: We sync keys that:
-                // 1. Match a known syncable prefix
-                // 2. AND belong to either this studio slug or this org ID
                 const isSyncablePrefix = SYNC_PREFIXES.some(p => k.startsWith(p));
                 const belongsToStudio = k.includes(`_${settings.studioSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`));
                 
@@ -531,11 +528,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
             import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
                 const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
-                pushStudioStateToCloud(settings.studioSlug, settings.staff, studioData, 0, settings.orgId, isFresh).then(() => {
+                // Use FRESH settings from loadSettings if available to avoid React state lag
+                const freshSettings = loadSettings(settings.studioSlug!);
+                
+                pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, settings.orgId, isFresh).then(() => {
                     if (isFresh) localStorage.removeItem(`cc_is_fresh_${settings.studioSlug}`);
                 });
             });
-        }, 1200); // 1.2s debounce to allow local operations to settle
+        }, 1500); // Increased to 1.5s to ensure local multi-key writes (like group + schedule) are finished
 
         return () => clearTimeout(timer);
     }, [isLoaded, firstSyncDone, settings, pushCounter]);
@@ -567,6 +567,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     useEffect(() => {
         const handleAutoMark = () => {
+            // CRITICAL: Refresh the local React state from localStorage immediately
+            // so that the SyncPulse effect uses the LATEST values in its next run.
+            if (settings.studioSlug) {
+                console.log('🔄 [StudioContext] Refreshing state for current studio:', settings.studioSlug);
+                const fresh = loadSettings(settings.studioSlug);
+                setSettings(fresh);
+            }
+            
             markLocalUpdate();
             triggerPush();
         };
@@ -575,12 +583,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             'cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
             'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
             'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
-            'cc_salary_update'
+            'cc_salary_update', 'cc_active_branch_change'
         ];
 
         events.forEach(e => window.addEventListener(e, handleAutoMark));
         return () => events.forEach(e => window.removeEventListener(e, handleAutoMark));
-    }, [markLocalUpdate, triggerPush]);
+    }, [markLocalUpdate, triggerPush, settings.studioSlug]);
 
     // Auto-sync from profile and First-Time Sync Protection
     useEffect(() => {

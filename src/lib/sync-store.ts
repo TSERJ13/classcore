@@ -126,17 +126,19 @@ export async function pushStudioStateToCloud(slug: string, staff: StaffMember[],
         // If row exists, perform a symmetric merge to avoid overwriting others' changes
         if (current && !forceOverwrite) {
             const cloudAll = (current.staff_data as any[]) || [];
-            const cloudStaff = cloudAll.filter(s => s.id !== '__studio_config__');
+            const cloudStaff = (cloudAll.filter(s => s.id !== '__studio_config__') || []) as StaffMember[];
             const cloudConfig = cloudAll.find(s => s.id === '__studio_config__')?.studio_data || {};
 
-            // 1. Staff List Convergence
-            if (staff && staff.length > 0) {
-                finalStaff = staff;
-            } else {
-                finalStaff = cloudStaff;
-            }
+            // 1. Staff List Convergence (Symmetric Merge by ID)
+            const staffMap: Record<string, StaffMember> = {};
+            // Start with cloud version
+            cloudStaff.forEach(s => { if (s.id) staffMap[s.id] = s; });
+            // Merge local version on top (local edits/new additions win for their IDs)
+            (staff || []).forEach(s => { if (s.id) staffMap[s.id] = { ...(staffMap[s.id] || {}), ...s }; });
+            
+            finalStaff = Object.values(staffMap);
 
-            // 2. Studio Data Convergence (Using Symmetric Merge)
+            // 2. Studio Data Convergence (Using Symmetric Merge Utility)
             finalStudioData = mergeStudioData(cloudConfig, studioData);
         }
 
