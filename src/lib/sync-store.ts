@@ -141,6 +141,21 @@ export async function pushStudioStateToCloud(
             finalStudioData = mergeStudioData(cloudNormalized, incomingNormalized);
         }
 
+        // 3. CLOUD SCRUBBING: Permanently remove any legacy suffixed keys from the cloud JSON
+        // to prevent them from resurrecting on devices with missing OrgIds.
+        const cleanedStudioData: Record<string, any> = {};
+        Object.keys(finalStudioData).forEach(k => {
+            // If the key is clean (doesn't contain a suffix), preserve it.
+            // (Normalization was done above, so we only want clean keys here)
+            // We also filter out any key that might have slipped through with a suffix.
+            if (!k.includes(`_${slug}`) && (!current?.org_id || !k.includes(`_${current.org_id}`))) {
+                cleanedStudioData[k] = finalStudioData[k];
+            }
+        });
+        
+        // Ensure even the cleanedStudioData is truly clean of artifacts
+        const finalCleaned = cleanedStudioData;
+
         const nextUpdatedAt = new Date().toISOString();
         const staffEmails = Array.from(new Set([
             ...(finalStaff || []).map(s => s.email?.toLowerCase().trim()).filter(Boolean),
@@ -151,7 +166,7 @@ export async function pushStudioStateToCloud(
             studio_slug: slug,
             org_id: orgId || current?.org_id || '',
             staff_data: finalStaff,
-            studio_data: finalStudioData, 
+            studio_data: finalCleaned, 
             staff_emails: staffEmails,
             updated_at: nextUpdatedAt
         };
@@ -179,7 +194,7 @@ export async function pushStudioStateToCloud(
     }
 }
 
-export async function pullStudioStateFromCloud(slug: string, targetScopeId: string): Promise<{ staff_data: StaffMember[], studio_data: any } | null> {
+export async function pullStudioStateFromCloud(slug: string, targetScopeId: string): Promise<{ staff_data: StaffMember[], studio_data: any, org_id?: string } | null> {
     if (typeof window === 'undefined') return null;
     if (!slug || slug === 'demo.classcore.ge') return null;
 
@@ -187,7 +202,7 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId: stri
         const supabase = createClient();
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
-            .select('staff_data, studio_data, updated_at')
+            .select('staff_data, studio_data, updated_at, org_id')
             .eq('studio_slug', slug)
             .maybeSingle();
 
@@ -198,7 +213,8 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId: stri
 
         return {
             staff_data: (data.staff_data || []) as StaffMember[],
-            studio_data: scopedData
+            studio_data: scopedData,
+            org_id: data.org_id
         };
     } catch {
         return null;

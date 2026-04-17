@@ -125,7 +125,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                     if (syncChanged) {
                         import('@/lib/utils').then(({ consolidateStudioKeys }) => {
-                            consolidateStudioKeys(activeSlug, settings.orgId);
+                            // Ensure we always consolidate against the CURRENT authoritative ID
+                            const authoritativeId = cloudState.org_id || settings.orgId;
+                            consolidateStudioKeys(activeSlug, authoritativeId);
                             performUniversalIntegrityCheck(activeSlug);
                             console.log('📡 [StudioContext] UI update triggered from atomic convergence');
                             ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 'cc_student_update', 'cc_teacher_update']
@@ -479,12 +481,18 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     hasSyncedRef.current = true;
                     
                     if (cloudStaff && cloudStaff.length > 0) {
-                        setSettings(prev => saveSettings({ staff: cloudStaff }, prev, activeSlug));
+                        const nextSettings: Partial<StudioSettings> = { staff: cloudStaff };
+                        if (cloudState?.org_id && cloudState.org_id !== settings.orgId) {
+                            nextSettings.orgId = cloudState.org_id;
+                        }
+                        setSettings(prev => saveSettings(nextSettings, prev, activeSlug));
                     }
 
                     if (cloudState) {
                         import('@/lib/utils').then(({ consolidateStudioKeys }) => {
-                            consolidateStudioKeys(activeSlug, settings.orgId);
+                            // Use the cloud's org_id as the absolute Truth for consolidation
+                            const authoritativeId = cloudState.org_id || settings.orgId;
+                            consolidateStudioKeys(activeSlug, authoritativeId);
                             applyCloudState(activeSlug, cloudState);
                         });
                     }
