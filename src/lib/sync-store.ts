@@ -16,14 +16,14 @@ const SETTINGS_TABLE = 'studio_settings';
  * Combines two studio_data objects into a single converged state.
  * Rule 1: ID-based matching for arrays.
  * Rule 2: Absolute Tombstone Priority (If ID is in cc_deleted_*, it is PURGED).
+ * AGNOSTIC: This function expects NORMALIZED keys (no suffixes).
  */
 export function mergeStudioData(existing: any, incoming: any): any {
     const finalData = { 
         ...(existing || {}),
-        ...(incoming || {}) // Start with a shallow merge of all keys
+        ...(incoming || {}) 
     };
 
-    // 1. Gather ALL tombstones from BOTH sides (UNION)
     const allTombstones: Record<string, Set<string>> = {};
     const allKeys = new Set([...Object.keys(existing || {}), ...Object.keys(incoming || {})]);
     
@@ -32,46 +32,36 @@ export function mergeStudioData(existing: any, incoming: any): any {
             const idsCloud = Array.isArray(existing?.[k]) ? existing[k] : [];
             const idsLocal = Array.isArray(incoming?.[k]) ? incoming[k] : [];
             allTombstones[k] = new Set([...idsCloud, ...idsLocal]);
-            // Persist the unioned tombstone back to the final data so it propagates
             finalData[k] = Array.from(allTombstones[k]);
         }
     });
 
-    // 2. Converge Collections and Enforce Deletions
     const keys = Object.keys(finalData);
     keys.forEach(key => {
         if (key.startsWith('cc_deleted_')) return;
 
-        // Resolve Tombstone Key: cc_abc -> cc_deleted_abc (plus legacy overrides)
         let tKey = `cc_deleted_${key.replace(/^cc_/, '').replace(/_data$/, '')}`;
-        if (key.startsWith('cc_student_data')) tKey = `cc_deleted_students${key.replace('cc_student_data', '')}`;
-        if (key.startsWith('cc_groups')) tKey = `cc_deleted_groups${key.replace('cc_groups', '')}`;
-        if (key.startsWith('cc_halls')) tKey = `cc_deleted_halls${key.replace('cc_halls', '')}`;
-        if (key.startsWith('cc_checkins')) tKey = `cc_deleted_checkins${key.replace('cc_checkins', '')}`;
-        if (key.startsWith('cc_student_subscriptions')) tKey = `cc_deleted_subscriptions${key.replace('cc_student_subscriptions', '')}`;
+        if (key.startsWith('cc_student_data')) tKey = `cc_deleted_students`;
+        if (key.startsWith('cc_groups')) tKey = `cc_deleted_groups`;
+        if (key.startsWith('cc_halls')) tKey = `cc_deleted_halls`;
+        if (key.startsWith('cc_checkins')) tKey = `cc_deleted_checkins`;
+        if (key.startsWith('cc_student_subscriptions')) tKey = `cc_deleted_subscriptions`;
 
         const deletedIds = allTombstones[tKey] || new Set();
         const local = incoming[key];
         const cloud = existing[key];
 
         if (Array.isArray(local) || Array.isArray(cloud)) {
-            const localArr = Array.isArray(local) ? local : [];
-            const cloudArr = Array.isArray(cloud) ? cloud : [];
-            
-            // ID-based merge: Cloud wins on conflicts, but Local additions are preserved
             const map = new Map<string, any>();
-            [...localArr, ...cloudArr].forEach(item => {
+            [...(Array.isArray(local) ? local : []), ...(Array.isArray(cloud) ? cloud : [])].forEach(item => {
                 if (item && item.id) {
-                    // Skip if deleted
                     if (deletedIds.has(item.id)) return;
                     map.set(item.id, { ...(map.get(item.id) || {}), ...item });
                 }
             });
             finalData[key] = Array.from(map.values());
         } else if (typeof local === 'object' && local !== null) {
-            // Record merge (e.g. settings)
             const map = { ...(cloud || {}), ...(local || {}) };
-            // Filter based on tombstones if keys are IDs
             Object.keys(map).forEach(id => {
                 if (deletedIds.has(id)) delete map[id];
             });
@@ -80,6 +70,27 @@ export function mergeStudioData(existing: any, incoming: any): any {
     });
 
     return finalData;
+}
+
+/** HELPER: Strips studio-specific suffixes (_slug or _uuid) for cloud storage */
+function normalizeData(data: Record<string, any>, slug: string, orgId?: string): Record<string, any> {
+    const clean: Record<string, any> = {};
+    Object.keys(data).forEach(k => {
+        let cleanKey = k;
+        if (slug) cleanKey = cleanKey.replace(`_${slug}`, '');
+        if (orgId) cleanKey = cleanKey.replace(`_${orgId}`, '');
+        clean[cleanKey] = data[k];
+    });
+    return clean;
+}
+
+/** HELPER: Re-applies studio-specific suffixes for local storage */
+function denormalizeData(data: Record<string, any>, targetScopeId: string): Record<string, any> {
+    const scoped: Record<string, any> = {};
+    Object.keys(data).forEach(k => {
+        scoped[`${k}_${targetScopeId}`] = data[k];
+    });
+    return scoped;
 }
 
 function mergeStaff(existing: StaffMember[], incoming: StaffMember[]): StaffMember[] {
@@ -93,9 +104,8 @@ function mergeStaff(existing: StaffMember[], incoming: StaffMember[]): StaffMemb
 }
 
 /**
- * Atomic Cloud Push:
- * Updates staff_data, studio_data, and staff_emails in a single operation.
- * Blocks "Resurrection" by ensuring local state is merged with cloud truth before pushing.
+ * SCOPE-AGNOSTIC PUSH:
+ * Normalizes all keys before pushing to ensure PC and Phone talk to the same silos.
  */
 export async function pushStudioStateToCloud(
     slug: string, 
@@ -110,8 +120,6 @@ export async function pushStudioStateToCloud(
 
     try {
         const supabase = createClient();
-        
-        // 1. Fetch Authoritative Cloud State
         const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
             .select('staff_data, studio_data, updated_at, org_id')
@@ -120,13 +128,17 @@ export async function pushStudioStateToCloud(
 
         if (fetchError) throw fetchError;
 
-        // 2. Converge Local State with Cloud Truth
+        // 1. Normalize local data (Strip suffixes)
+        const incomingNormalized = normalizeData(studioData, slug, orgId || current?.org_id);
+        const cloudNormalized = current?.studio_data || {};
+
+        // 2. Converge
         let finalStaff = staff;
-        let finalStudioData = studioData || {};
+        let finalStudioData = incomingNormalized;
         
         if (current && !forceOverwrite) {
             finalStaff = mergeStaff(current.staff_data || [], staff);
-            finalStudioData = mergeStudioData(current.studio_data || {}, studioData);
+            finalStudioData = mergeStudioData(cloudNormalized, incomingNormalized);
         }
 
         const nextUpdatedAt = new Date().toISOString();
@@ -135,22 +147,18 @@ export async function pushStudioStateToCloud(
             ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
         ]));
 
-        const finalOrgId = orgId || current?.org_id || '';
-
-        // 3. Construct Payload
         const payload: any = {
             studio_slug: slug,
-            org_id: finalOrgId,
+            org_id: orgId || current?.org_id || '',
             staff_data: finalStaff,
             studio_data: finalStudioData, 
             staff_emails: staffEmails,
             updated_at: nextUpdatedAt
         };
 
-        // 4. Atomic Write (Optimistic Locking)
         if (!current) {
             const { error: insertError } = await supabase.from(SETTINGS_TABLE).insert(payload);
-            if (insertError && insertError.code === '23505') throw new Error('Conflict: Row already exists');
+            if (insertError && insertError.code === '23505') throw new Error('Conflict');
             if (insertError) throw insertError;
         } else {
             const { error: updateError, count } = await supabase
@@ -160,21 +168,18 @@ export async function pushStudioStateToCloud(
                 .eq('updated_at', current.updated_at);
 
             if (updateError) throw updateError;
-            if (count === 0) throw new Error('Conflict: Record updated by another client');
+            if (count === 0) throw new Error('Conflict');
         }
-
-        console.log('✅ [SyncStore] Nuclear Cloud Sync Successful:', slug);
+        console.log('✅ [SyncStore] Scope-Agnostic Cloud Sync Successful');
     } catch (err: any) {
         if (retryCount < 5) {
-            const delay = Math.pow(2, retryCount) * 100 + Math.random() * 200;
-            await new Promise(r => setTimeout(r, delay));
+            await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 100 + Math.random() * 200));
             return pushStudioStateToCloud(slug, staff, studioData, retryCount + 1, orgId, forceOverwrite);
         }
-        console.error('❌ [SyncStore] Critical Sync Failure:', err);
     }
 }
 
-export async function pullStudioStateFromCloud(slug: string): Promise<{ staff_data: StaffMember[], studio_data: any } | null> {
+export async function pullStudioStateFromCloud(slug: string, targetScopeId: string): Promise<{ staff_data: StaffMember[], studio_data: any } | null> {
     if (typeof window === 'undefined') return null;
     if (!slug || slug === 'demo.classcore.ge') return null;
 
@@ -188,9 +193,12 @@ export async function pullStudioStateFromCloud(slug: string): Promise<{ staff_da
 
         if (error || !data) return null;
 
+        // Denormalize cloud data using the device's specific scope ID (Slug or OrgId)
+        const scopedData = denormalizeData(data.studio_data || {}, targetScopeId);
+
         return {
             staff_data: (data.staff_data || []) as StaffMember[],
-            studio_data: data.studio_data || {}
+            studio_data: scopedData
         };
     } catch {
         return null;

@@ -91,16 +91,18 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }
         }
 
-        // 2. Single-Pass Studio Data Convergence
+        // 2. Converge Operational Data
         if (cloudState.studio_data) {
             import('@/lib/sync-store').then(({ mergeStudioData }) => {
-                const cloudStudioData = cloudState.studio_data;
+                const cloudStudioData = cloudState.studio_data; // Pre-scoped by the pull engine
                 const localStudioData: Record<string, any> = {};
                 
-                // Gather local state for all syncable prefixes
                 import('@/lib/utils').then(({ SYNC_COLLECTIONS }) => {
+                    // Gather only local data matching this studio's scope
                     Object.keys(localStorage).forEach(k => {
-                        if (SYNC_COLLECTIONS.some(p => k.startsWith(p)) && k.includes(`_${activeSlug}`)) {
+                        const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
+                        const belongsToStudio = k.includes(`_${activeSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`));
+                        if (isSyncablePrefix && belongsToStudio) {
                             try {
                                 const val = localStorage.getItem(k);
                                 if (val) localStudioData[k] = JSON.parse(val);
@@ -108,7 +110,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         }
                     });
 
-                    // ATOMIC MERGE
                     const converged = mergeStudioData(cloudStudioData, localStudioData);
                     let syncChanged = false;
 
@@ -124,12 +125,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                     if (syncChanged) {
                         performUniversalIntegrityCheck(activeSlug);
-                        window.dispatchEvent(new Event('cc_attendance_update'));
-                        window.dispatchEvent(new Event('cc_groups_update'));
-                        window.dispatchEvent(new Event('cc_calendar_events_update'));
-                        window.dispatchEvent(new Event('cc_student_update'));
-                        window.dispatchEvent(new Event('cc_teacher_update'));
                         console.log('📡 [StudioContext] UI update triggered from atomic convergence');
+                        ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 'cc_student_update', 'cc_teacher_update']
+                            .forEach(e => window.dispatchEvent(new Event(e)));
                     }
                 });
             });
@@ -469,19 +467,20 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
             console.log('📡 [StudioContext] Mounting & Pulling latest state for:', activeSlug);
             
-            import('@/lib/sync-store').then(({ fetchStaffFromCloud, fetchStudioDataFromCloud }) => {
+            import('@/lib/sync-store').then(({ fetchStaffFromCloud, pullStudioStateFromCloud }) => {
+                const targetScopeId = settings.orgId || activeSlug;
                 Promise.all([
                     fetchStaffFromCloud(activeSlug),
-                    fetchStudioDataFromCloud(activeSlug)
-                ]).then(([cloudStaff, cloudData]) => {
+                    pullStudioStateFromCloud(activeSlug, targetScopeId)
+                ]).then(([cloudStaff, cloudState]) => {
                     hasSyncedRef.current = true;
                     
                     if (cloudStaff && cloudStaff.length > 0) {
                         setSettings(prev => saveSettings({ staff: cloudStaff }, prev, activeSlug));
                     }
 
-                    if (cloudData) {
-                        applyCloudState(activeSlug, { staff_data: cloudStaff || [], studio_data: cloudData });
+                    if (cloudState) {
+                        applyCloudState(activeSlug, cloudState);
                     }
 
                     setFirstSyncDone(true);
@@ -558,7 +557,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }, () => {
                 console.log('📡 [StudioContext] Realtime Update Pulse received');
                 import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
-                    pullStudioStateFromCloud(settings.studioSlug!).then(state => {
+                    const targetScopeId = settings.orgId || settings.studioSlug!;
+                    pullStudioStateFromCloud(settings.studioSlug!, targetScopeId).then(state => {
                         if (state) applyCloudState(settings.studioSlug!, state);
                     });
                 });
