@@ -13,254 +13,180 @@ const SETTINGS_TABLE = 'studio_settings';
  */
 /**
  * SYMMETRIC MERGE UTILITY:
- * Combines two studio_data objects (usually Cloud and Local) into a single converged state.
- * Uses ID-based matching for arrays and Key-based matching for records.
- * Strictly enforces Tombstones (deletion lists) during the process.
+ * Combines two studio_data objects into a single converged state.
+ * Rule 1: ID-based matching for arrays.
+ * Rule 2: Absolute Tombstone Priority (If ID is in cc_deleted_*, it is PURGED).
  */
 export function mergeStudioData(existing: any, incoming: any): any {
-    const finalData = { ...(existing || {}) };
+    const finalData = { 
+        ...(existing || {}),
+        ...(incoming || {}) // Start with a shallow merge of all keys
+    };
 
-    // Dynamic Tombstone Resolution:
-    // Any key cc_abc has a potential tombstone cc_deleted_abc.
-    // We scan both sides to gather all active tombstones.
-    const allTombstoneKeys = new Set<string>();
-    const scanKeys = Object.keys(existing || {}).concat(Object.keys(incoming || {}));
+    // 1. Gather ALL tombstones from BOTH sides
+    const allTombstones: Record<string, Set<string>> = {};
+    const keys = Object.keys(finalData);
     
-    scanKeys.forEach(k => {
-        if (k.startsWith('cc_deleted_')) allTombstoneKeys.add(k);
+    keys.forEach(k => {
+        if (k.startsWith('cc_deleted_')) {
+            const ids = Array.isArray(finalData[k]) ? finalData[k] : [];
+            allTombstones[k] = new Set(ids);
+        }
     });
 
-    // Pre-calculate merged tombstones for all found keys
-    const mergedTombstones: Record<string, string[]> = {};
-    allTombstoneKeys.forEach(tKey => {
-        const local = (incoming[tKey] || []) as string[];
-        const cloud = (existing[tKey] || []) as string[];
-        mergedTombstones[tKey] = Array.from(new Set([...(Array.isArray(local) ? local : []), ...(Array.isArray(cloud) ? cloud : [])]));
-        finalData[tKey] = mergedTombstones[tKey];
-    });
+    // 2. Converge Collections and Enforce Deletions
+    keys.forEach(key => {
+        if (key.startsWith('cc_deleted_')) return;
 
-    for (const key in incoming) {
-        const itemIncoming = incoming[key];
-        const itemExisting = existing[key];
-
-        // Skip if this key is ALREADY a tombstone
-        if (key.startsWith('cc_deleted_')) continue;
-
-        // Convention: cc_abc -> cc_deleted_abc
-        // Special case: cc_student_data -> cc_deleted_students (legacy compatibility)
+        // Resolve Tombstone Key: cc_abc -> cc_deleted_abc (plus legacy overrides)
         let tKey = `cc_deleted_${key.replace(/^cc_/, '').replace(/_data$/, '')}`;
         if (key.startsWith('cc_student_data')) tKey = `cc_deleted_students${key.replace('cc_student_data', '')}`;
         if (key.startsWith('cc_groups')) tKey = `cc_deleted_groups${key.replace('cc_groups', '')}`;
         if (key.startsWith('cc_halls')) tKey = `cc_deleted_halls${key.replace('cc_halls', '')}`;
         if (key.startsWith('cc_checkins')) tKey = `cc_deleted_checkins${key.replace('cc_checkins', '')}`;
         if (key.startsWith('cc_student_subscriptions')) tKey = `cc_deleted_subscriptions${key.replace('cc_student_subscriptions', '')}`;
-        
-        const deletedIds = new Set(mergedTombstones[tKey] || []);
 
-        if (typeof itemIncoming === 'object' && itemIncoming !== null && !Array.isArray(itemIncoming)) {
-            // Record-based merge (e.g. students: Record<string, Student>)
-            const merged = { ...((itemExisting || {}) as Record<string, any>), ...itemIncoming };
+        const deletedIds = allTombstones[tKey] || new Set();
+        const local = incoming[key];
+        const cloud = existing[key];
+
+        if (Array.isArray(local) || Array.isArray(cloud)) {
+            const localArr = Array.isArray(local) ? local : [];
+            const cloudArr = Array.isArray(cloud) ? cloud : [];
             
-            // Strictly enforce tombstones: Remove any ID present in the deletion registry
-            Object.keys(merged).forEach(id => {
-                if (deletedIds.has(id)) delete merged[id];
-            });
-            
-            finalData[key] = merged;
-        } else if (Array.isArray(itemIncoming)) {
-            // Array-based deep merge for collections (groups, halls, etc.)
-            const merged = Array.isArray(itemExisting) ? [...itemExisting] : [];
-            itemIncoming.forEach((newItem: any) => {
-                if (newItem && newItem.id) {
-                    const idx = merged.findIndex((oldItem: any) => oldItem.id === newItem.id);
-                    if (idx !== -1) {
-                        merged[idx] = { ...merged[idx], ...newItem };
-                    } else {
-                        merged.push(newItem);
-                    }
+            // ID-based merge: Cloud wins on conflicts, but Local additions are preserved
+            const map = new Map<string, any>();
+            [...localArr, ...cloudArr].forEach(item => {
+                if (item && item.id) {
+                    // Skip if deleted
+                    if (deletedIds.has(item.id)) return;
+                    map.set(item.id, { ...(map.get(item.id) || {}), ...item });
                 }
             });
-            
-            // Strictly enforce tombstones: Filter out items in deletion registry
-            finalData[key] = merged.filter((item: any) => !item?.id || !deletedIds.has(item.id));
-        } else {
-            // Fallback: Overwrite for primitives
-            finalData[key] = itemIncoming;
+            finalData[key] = Array.from(map.values());
+        } else if (typeof local === 'object' && local !== null) {
+            // Record merge (e.g. settings)
+            const map = { ...(cloud || {}), ...(local || {}) };
+            // Filter based on tombstones if keys are IDs
+            Object.keys(map).forEach(id => {
+                if (deletedIds.has(id)) delete map[id];
+            });
+            finalData[key] = map;
         }
-    }
+    });
 
     return finalData;
 }
 
-export async function pushStudioStateToCloud(slug: string, staff: StaffMember[], studioData: any, retryCount = 0, orgId?: string, forceOverwrite = false): Promise<void> {
+function mergeStaff(existing: StaffMember[], incoming: StaffMember[]): StaffMember[] {
+    const map = new Map<string, StaffMember>();
+    [...existing, ...incoming].forEach(s => {
+        if (s && s.id) {
+            map.set(s.id, { ...(map.get(s.id) || {}), ...s } as StaffMember);
+        }
+    });
+    return Array.from(map.values());
+}
+
+/**
+ * Atomic Cloud Push:
+ * Updates staff_data, studio_data, and staff_emails in a single operation.
+ * Blocks "Resurrection" by ensuring local state is merged with cloud truth before pushing.
+ */
+export async function pushStudioStateToCloud(
+    slug: string, 
+    staff: StaffMember[], 
+    studioData: any, 
+    retryCount = 0,
+    orgId?: string,
+    forceOverwrite = false
+) {
     if (typeof window === 'undefined') return;
     if (!slug || slug === 'demo.classcore.ge') return;
 
     try {
         const supabase = createClient();
-
-        // 1. Pull latest cloud state to merge (Optimistic Locking approach)
-        let query = supabase.from(SETTINGS_TABLE).select('staff_data, updated_at, studio_slug');
-        query = query.eq('studio_slug', slug);
         
-        const { data: current, error: pullError } = await query.maybeSingle();
+        // 1. Fetch Authoritative Cloud State
+        const { data: current, error: fetchError } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_data, studio_data, updated_at, org_id')
+            .eq('studio_slug', slug)
+            .maybeSingle();
 
-        if (pullError) {
-            console.error('❌ [SyncStore] Pull error:', pullError);
-            throw pullError;
-        }
+        if (fetchError) throw fetchError;
 
-        let finalStaff: StaffMember[] = staff;
-        let finalStudioData: any = studioData;
-
-        // If row exists, perform a symmetric merge to avoid overwriting others' changes
+        // 2. Converge Local State with Cloud Truth
+        let finalStaff = staff;
+        let finalStudioData = studioData || {};
+        
         if (current && !forceOverwrite) {
-            const cloudAll = (current.staff_data as any[]) || [];
-            const cloudStaff = (cloudAll.filter(s => s.id !== '__studio_config__') || []) as StaffMember[];
-            const cloudConfig = cloudAll.find(s => s.id === '__studio_config__')?.studio_data || {};
-
-            // 1. Staff List Convergence (Symmetric Merge by ID)
-            const staffMap: Record<string, StaffMember> = {};
-            // Start with cloud version
-            cloudStaff.forEach(s => { if (s.id) staffMap[s.id] = s; });
-            // Merge local version on top (local edits/new additions win for their IDs)
-            (staff || []).forEach(s => { if (s.id) staffMap[s.id] = { ...(staffMap[s.id] || {}), ...s }; });
-            
-            finalStaff = Object.values(staffMap);
-
-            // 2. Studio Data Convergence (Using Symmetric Merge Utility)
-            finalStudioData = mergeStudioData(cloudConfig, studioData);
+            finalStaff = mergeStaff(current.staff_data || [], staff);
+            finalStudioData = mergeStudioData(current.studio_data || {}, studioData);
         }
-
-        const consolidatedStaff = [
-            ...finalStaff.filter(s => s.id !== '__studio_config__'),
-            { id: '__studio_config__', studio_data: finalStudioData } as any
-        ];
 
         const nextUpdatedAt = new Date().toISOString();
-        // 1.5. Aggregate teacher emails and phones to allow their logins
-        const teacherEmails: string[] = [];
-        const teacherPhones: string[] = [];
-        
-        Object.keys(finalStudioData).forEach(key => {
-            if (key.startsWith('cc_teachers')) {
-                const teachers = finalStudioData[key];
-                if (Array.isArray(teachers)) {
-                    teachers.forEach(t => {
-                        if (t.email) teacherEmails.push(t.email.toLowerCase().trim());
-                        if (t.phone) teacherPhones.push(t.phone.replace(/[^0-9+]/g, ''));
-                    });
-                }
-            }
-        });
-
         const staffEmails = Array.from(new Set([
             ...(finalStaff || []).map(s => s.email?.toLowerCase().trim()).filter(Boolean),
-            ...(finalStaff || []).map(s => s.first_name?.toLowerCase().trim()).filter(Boolean),
-            ...(finalStaff || []).map(s => s.full_name?.toLowerCase().trim()).filter(Boolean),
-            ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean),
-            ...(finalStaff || []).map(s => s.phone_number?.replace(/[^0-9+]/g, '')).filter(Boolean),
-            ...teacherEmails,
-            ...teacherPhones
-        ] as string[]));
+            ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
+        ]));
 
-        // Resolve orgId: prioritize the passed argument, then the setting inside finalStudioData
-        const finalOrgId = orgId || finalStudioData.orgId || finalStudioData.org_id || '';
+        const finalOrgId = orgId || current?.org_id || '';
 
-        // Optimization: If finalOrgId is found, cache it locally to ensure consistent scoping on next page load
-        if (typeof window !== 'undefined' && finalOrgId && slug) {
-            localStorage.setItem(`cc_org_id_override_${slug}`, finalOrgId);
-        }
+        // 3. Construct Payload
+        const payload: any = {
+            studio_slug: slug,
+            org_id: finalOrgId,
+            staff_data: finalStaff,
+            studio_data: finalStudioData, 
+            staff_emails: staffEmails,
+            updated_at: nextUpdatedAt
+        };
 
+        // 4. Atomic Write (Optimistic Locking)
         if (!current) {
-            // First time: Use insert to fail on conflict, triggering retry + pull/merge
-            const { error: insertError } = await supabase
-                .from(SETTINGS_TABLE)
-                .insert({
-                    studio_slug: slug,
-                    org_id: finalOrgId, // PERSIST ORG_ID EXPLICITLY
-                    staff_data: consolidatedStaff,
-                    staff_emails: staffEmails,
-                    updated_at: nextUpdatedAt
-                });
-
-            
-            if (insertError) {
-                console.error('❌ [SyncStore] Insert error:', insertError);
-                // If it failed because it already exists (Postgres code 23505), it's fine, the retry will pull it.
-                if (insertError.code === '23505') {
-                    throw new Error('Conflict: Row already exists');
-                }
-                throw insertError;
-            }
+            const { error: insertError } = await supabase.from(SETTINGS_TABLE).insert(payload);
+            if (insertError && insertError.code === '23505') throw new Error('Conflict: Row already exists');
+            if (insertError) throw insertError;
         } else {
-            // Optimistic Update: Only update if updated_at matches what we just pulled
-            const updatePayload: any = {
-                staff_data: consolidatedStaff,
-                staff_emails: staffEmails,
-                updated_at: nextUpdatedAt,
-                studio_slug: slug, // Keep slug in sync if it changed
-            };
+            const { error: updateError, count } = await supabase
+                .from(SETTINGS_TABLE)
+                .update(payload, { count: 'exact' })
+                .eq('studio_slug', slug)
+                .eq('updated_at', current.updated_at);
 
-            // Only update org_id if it's currently missing or we have a more authoritative one
-            if (finalOrgId) {
-                updatePayload.org_id = finalOrgId;
-            }
-
-            let updateQuery = supabase.from(SETTINGS_TABLE).update(updatePayload, { count: 'exact' });
-
-            updateQuery = updateQuery.eq('studio_slug', current.studio_slug);
-
-            const { error: updateError, count } = await updateQuery.eq('updated_at', current.updated_at);
-
-            if (updateError) {
-                console.error('❌ [SyncStore] Update error:', updateError);
-                throw updateError;
-            }
-            
-            // Conflict check: If count is 0, someone else updated it. Throw to retry.
-            if (count === 0) {
-                console.warn('🔄 [SyncStore] Update conflict (count 0).');
-                throw new Error('Conflict: Record updated by another client');
-            }
+            if (updateError) throw updateError;
+            if (count === 0) throw new Error('Conflict: Record updated by another client');
         }
 
-        console.log('✅ [SyncStore] Cloud Sync Successful for:', slug, finalOrgId ? `(ID: ${finalOrgId})` : '');
+        console.log('✅ [SyncStore] Nuclear Cloud Sync Successful:', slug);
     } catch (err: any) {
         if (retryCount < 5) {
-            console.warn(`🔄 Cloud Sync Conflict detected, retrying (${retryCount + 1}/5)...`, err.message);
-            // Exponential backoff with jitter
             const delay = Math.pow(2, retryCount) * 100 + Math.random() * 200;
             await new Promise(r => setTimeout(r, delay));
             return pushStudioStateToCloud(slug, staff, studioData, retryCount + 1, orgId, forceOverwrite);
         }
-        console.error('❌ Consolidated Sync Critical Error:', err);
+        console.error('❌ [SyncStore] Critical Sync Failure:', err);
     }
 }
 
-/** 
- * Fetches the entire studio row from Supabase.
- */
-export async function pullStudioStateFromCloud(slug: string, orgId?: string): Promise<{ staff_data: StaffMember[], studio_data: any } | null> {
+export async function pullStudioStateFromCloud(slug: string): Promise<{ staff_data: StaffMember[], studio_data: any } | null> {
     if (typeof window === 'undefined') return null;
     if (!slug || slug === 'demo.classcore.ge') return null;
 
     try {
         const supabase = createClient();
-        let query = supabase.from(SETTINGS_TABLE).select('staff_data, updated_at');
-        query = query.eq('studio_slug', slug);
-
-        const { data, error } = await query.maybeSingle();
+        const { data, error } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_data, studio_data, updated_at')
+            .eq('studio_slug', slug)
+            .maybeSingle();
 
         if (error || !data) return null;
 
-        const allData = data.staff_data as any[];
-        const configEntry = allData.find(item => item.id === '__studio_config__');
-        const realStaff = allData.filter(item => item.id !== '__studio_config__');
-
         return {
-            staff_data: realStaff as StaffMember[],
-            studio_data: configEntry?.studio_data || {}
+            staff_data: (data.staff_data || []) as StaffMember[],
+            studio_data: data.studio_data || {}
         };
     } catch {
         return null;
