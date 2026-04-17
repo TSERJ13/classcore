@@ -132,9 +132,81 @@ export function getActiveSlug(): string | null {
 }
 
 /** 
- * Centralized key generator for all studio-scoped data.
- * Supports legacy slug-based and new orgId-based scoping.
+ * NUCLEAR CONSOLIDATOR:
+ * Merges different scoped silos (Slug vs UUID) into a single authoritative silo locally.
+ * This prevents stale legacy data from 'poisoning' the sync payload during the pulse.
  */
+export function consolidateStudioKeys(slug: string, activeOrgId?: string) {
+    if (typeof window === 'undefined' || !slug) return;
+    
+    console.log('🛡️ [Unification] Starting LocalStorage Consolidation for:', slug);
+    const keys = Object.keys(localStorage);
+    const authoritativeScopeId = activeOrgId || slug;
+    
+    // 1. Identify all syncable keys belonging to this studio
+    const studioKeys: Record<string, string[]> = {}; // Map base prefix to all found variants
+    
+    keys.forEach(k => {
+        const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
+        const belongsToStudio = k.includes(`_${slug}`) || (activeOrgId && k.includes(`_${activeOrgId}`));
+        
+        if (isSyncablePrefix && belongsToStudio) {
+            const basePrefix = SYNC_COLLECTIONS.find(p => k.startsWith(p))!;
+            if (!studioKeys[basePrefix]) studioKeys[basePrefix] = [];
+            studioKeys[basePrefix].push(k);
+        }
+    });
+
+    // 2. Merge and Purge
+    Object.keys(studioKeys).forEach(base => {
+        const variants = studioKeys[base];
+        const targetKey = `${base}_${authoritativeScopeId}`;
+        
+        if (variants.length <= 1 && variants[0] === targetKey) return;
+
+        console.log(`🛡️ [Unification] Consolidating variants for ${base}:`, variants);
+        
+        let mergedData: any = null;
+        
+        // Merge strategy: Start with the most recent or most detailed (simplistic here: just accumulate)
+        variants.forEach(v => {
+            try {
+                const val = localStorage.getItem(v);
+                if (!val) return;
+                const parsed = JSON.parse(val);
+                
+                if (!mergedData) {
+                    mergedData = parsed;
+                } else {
+                    // Primitive merge (arrays = union, objects = shallow merge)
+                    if (Array.isArray(mergedData) && Array.isArray(parsed)) {
+                        const map = new Map<string, any>();
+                        [...mergedData, ...parsed].forEach(item => { if (item.id) map.set(item.id, { ...(map.get(item.id) || {}), ...item }); });
+                        mergedData = Array.from(map.values());
+                    } else if (typeof mergedData === 'object' && typeof parsed === 'object') {
+                        mergedData = { ...mergedData, ...parsed };
+                    }
+                }
+            } catch (e) {
+                console.error(`🛡️ [Unification] Failed to merge variant ${v}:`, e);
+            }
+        });
+
+        if (mergedData) {
+            // Write to authoritative key
+            localStorage.setItem(targetKey, JSON.stringify(mergedData));
+            
+            // DELETE all other variants to prevent ghost restoration
+            variants.forEach(v => {
+                if (v !== targetKey) {
+                    console.log(`🛡️ [Unification] Purging legacy silo: ${v}`);
+                    localStorage.removeItem(v);
+                }
+            });
+        }
+    });
+}
+
 export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;

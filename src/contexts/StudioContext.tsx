@@ -124,10 +124,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     });
 
                     if (syncChanged) {
-                        performUniversalIntegrityCheck(activeSlug);
-                        console.log('📡 [StudioContext] UI update triggered from atomic convergence');
-                        ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 'cc_student_update', 'cc_teacher_update']
-                            .forEach(e => window.dispatchEvent(new Event(e)));
+                        import('@/lib/utils').then(({ consolidateStudioKeys }) => {
+                            consolidateStudioKeys(activeSlug, settings.orgId);
+                            performUniversalIntegrityCheck(activeSlug);
+                            console.log('📡 [StudioContext] UI update triggered from atomic convergence');
+                            ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 'cc_student_update', 'cc_teacher_update']
+                                .forEach(e => window.dispatchEvent(new Event(e)));
+                        });
                     }
                 });
             });
@@ -480,7 +483,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     }
 
                     if (cloudState) {
-                        applyCloudState(activeSlug, cloudState);
+                        import('@/lib/utils').then(({ consolidateStudioKeys }) => {
+                            consolidateStudioKeys(activeSlug, settings.orgId);
+                            applyCloudState(activeSlug, cloudState);
+                        });
                     }
 
                     setFirstSyncDone(true);
@@ -513,11 +519,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 const studioData: Record<string, any> = {};
                 const keys = Object.keys(localStorage);
                 
+                const authoritativeScopeId = settings.orgId || settings.studioSlug!;
                 keys.forEach(k => {
                     const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-                    const belongsToStudio = k.includes(`_${settings.studioSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`));
+                    // STRICT SCOPING: Only pick up keys belonging to the CURRENT authoritative silo
+                    const belongsToActiveSilo = k.endsWith(`_${authoritativeScopeId}`);
                     
-                    if (isSyncablePrefix && belongsToStudio) {
+                    if (isSyncablePrefix && belongsToActiveSilo) {
                         try {
                             const val = localStorage.getItem(k);
                             if (val) studioData[k] = JSON.parse(val);
