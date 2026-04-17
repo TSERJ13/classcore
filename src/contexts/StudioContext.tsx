@@ -93,65 +93,48 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             changed = true;
         }
 
-        // 2. Sync Studio Data WITH Tombstone Enforcement
+        // 2. Sync Studio Data WITH Symmetric Merge & Tombstone Enforcement
         if (cloudState.studio_data) {
-            Object.entries(cloudState.studio_data).forEach(([key, val]) => {
-                const localVal = localStorage.getItem(key);
-                const cloudValStr = JSON.stringify(val);
+            import('@/lib/sync-store').then(({ mergeStudioData }) => {
+                const studioData = cloudState.studio_data;
+                const cloudKeys = Object.keys(studioData);
                 
-                let tombstoneType: string | undefined;
-                let tKey: string | undefined;
-
-                for (const [prefix, tPrefix] of Object.entries(TOMBSTONE_MAP)) {
-                    if (key.startsWith(prefix)) {
-                        const suffix = key.replace(prefix, '');
-                        tombstoneType = tPrefix;
-                        tKey = tPrefix + suffix;
-                        break;
+                cloudKeys.forEach(key => {
+                    const cloudVal = studioData[key];
+                    const localValRaw = localStorage.getItem(key);
+                    const localVal = localValRaw ? JSON.parse(localValRaw) : null;
+                    
+                    // SYMMETRIC MERGE: Instead of overwriting, we merge the cloud item into the local item
+                    // This protects local "dirty" changes that haven't been pushed yet.
+                    let converged: any;
+                    
+                    if (!localVal) {
+                        converged = cloudVal;
+                    } else {
+                        // Merge logic wrapped in a mini-proxy to fit mergeStudioData expected input
+                        // We treat the single key as if it were the whole studio_data for the merge utility
+                        const mergedBag = mergeStudioData({ [key]: localVal }, { [key]: cloudVal });
+                        converged = mergedBag[key];
                     }
-                }
-                
-                if (tombstoneType && tKey) {
-                    try {
-                        const localDeletedIdsRaw = localStorage.getItem(tKey);
-                        const localDeletedIds = localDeletedIdsRaw ? JSON.parse(localDeletedIdsRaw) : [];
-                        const cloudDeletedIds = (cloudState.studio_data[tKey] || []) as string[];
-                        const mergedDeleted = Array.from(new Set([...(Array.isArray(localDeletedIds) ? localDeletedIds : []), ...cloudDeletedIds]));
-                        const deletedSet = new Set(mergedDeleted);
 
-                        if (mergedDeleted.length > (Array.isArray(localDeletedIds) ? localDeletedIds.length : 0)) {
-                            localStorage.setItem(tKey, JSON.stringify(mergedDeleted));
-                            changed = true;
-                        }
-
-                        if (deletedSet.size > 0) {
-                            if (key.includes('cc_student_data') && typeof val === 'object' && val !== null) {
-                                const filtered = { ...(val as any) };
-                                Object.keys(filtered).forEach(id => { if (deletedSet.has(id)) delete filtered[id]; });
-                                const filteredStr = JSON.stringify(filtered);
-                                if (localVal !== filteredStr) {
-                                    localStorage.setItem(key, filteredStr);
-                                    changed = true;
-                                    return;
-                                }
-                            } else if (Array.isArray(val)) {
-                                const filtered = val.filter((item: any) => !item?.id || !deletedSet.has(item.id));
-                                const filteredStr = JSON.stringify(filtered);
-                                if (localVal !== filteredStr) {
-                                    localStorage.setItem(key, filteredStr);
-                                    changed = true;
-                                    return;
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.error('⚠️ [applyCloudState] Tombstone error for key:', key, e);
+                    const convergedStr = JSON.stringify(converged);
+                    if (localValRaw !== convergedStr) {
+                        localStorage.setItem(key, convergedStr);
+                        changed = true;
                     }
-                }
+                });
 
-                if (localVal !== cloudValStr) {
-                    localStorage.setItem(key, cloudValStr);
-                    changed = true;
+                if (changed) {
+                    console.log('📡 [StudioContext] UI update triggered from symmetric cloud merge for:', activeSlug);
+                    const next = loadSettings(activeSlug);
+                    setSettings(next);
+                    
+                    const events = [
+                        'cc_active_branch_change', 'cc_settings_update', 'cc_student_update', 
+                        'cc_groups_update', 'cc_halls_update', 'cc_subscription_update', 
+                        'cc_calendar_events_update', 'cc_checkins_update'
+                    ];
+                    events.forEach(e => window.dispatchEvent(new Event(e)));
                 }
             });
         }
@@ -658,6 +641,31 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
 
         if (profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
+            // 🚨 STORAGE ISOLATION GUARD
+            // If we detect a mismatch between the logged-in profile and the current local settings,
+            // we must ensure that no local data "bleeds" into the new account.
+            console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing storage isolation.');
+            
+            const currentSlug = profile.studio_slug;
+            const currentOrgId = profile.org_id;
+
+            // Purge any keys that belong to OTHER studios from active memory
+            const keys = Object.keys(localStorage);
+            keys.forEach(k => {
+                if (k.startsWith('cc_') && !k.includes(`_${currentSlug}`) && !k.includes(`_${currentOrgId}`)) {
+                    // This key belongs to a different studio session. 
+                    // To prevent cross-account pollution, we clear it if it's an operational collection.
+                    const collections = [
+                        'cc_student_data', 'cc_groups', 'cc_halls', 'cc_checkins', 
+                        'cc_attendance_archive', 'cc_student_subscriptions'
+                    ];
+                    if (collections.some(c => k.startsWith(c))) {
+                        console.log('🧹 [Isolation] Purging orphaned key from different session:', k);
+                        localStorage.removeItem(k);
+                    }
+                }
+            });
+
             setSettings(prev => saveSettings({ orgId: profile.org_id }, prev, prev.studioSlug));
         }
     }, [user?.email, profile, settings, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
