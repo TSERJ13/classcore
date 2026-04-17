@@ -128,7 +128,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                             // Ensure we always consolidate against the CURRENT authoritative ID
                             const authoritativeId = cloudState.org_id || settings.orgId;
                             consolidateStudioKeys(activeSlug, authoritativeId);
-                            performUniversalIntegrityCheck(activeSlug);
+                            performUniversalIntegrityCheck(activeSlug, authoritativeId);
                             console.log('📡 [StudioContext] UI update triggered from atomic convergence');
                             ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 'cc_student_update', 'cc_teacher_update']
                                 .forEach(e => window.dispatchEvent(new Event(e)));
@@ -779,14 +779,16 @@ export function useStudio() {
  * Automatically purges orphans and "ghost" records across all collections
  * when our sync engine detects deletions (via tombstones).
  */
-function performUniversalIntegrityCheck(slug: string) {
+function performUniversalIntegrityCheck(slug: string, scopeId?: string) {
     if (typeof window === 'undefined' || !slug) return;
     
-    console.log('🛡️ [IntegrityCheck] Running global self-healing sweep...');
+    // Choose the authoritative scope ID (UUID or Slug)
+    const activeScopeId = scopeId || slug;
+    console.log(`🛡️ [IntegrityCheck] Running global self-healing sweep [Scope: ${activeScopeId}]...`);
 
     // 1. Gather Deletion Tombstones
     const getTombstone = (base: string) => {
-        const raw = localStorage.getItem(`${base}_${slug}`);
+        const raw = localStorage.getItem(`${base}_${activeScopeId}`);
         try { return new Set(raw ? JSON.parse(raw) : []); } catch { return new Set(); }
     };
 
@@ -796,7 +798,7 @@ function performUniversalIntegrityCheck(slug: string) {
     if (deletedGroups.size === 0 && deletedStudents.size === 0) return;
 
     // 2. Scan & Purge: Calendar Events
-    const eventsKey = `cc_calendar_events_${slug}`;
+    const eventsKey = `cc_calendar_events_${activeScopeId}`;
     const rawEvents = localStorage.getItem(eventsKey);
     if (rawEvents) {
         try {
@@ -807,7 +809,7 @@ function performUniversalIntegrityCheck(slug: string) {
                     (!e.student_id || !deletedStudents.has(e.student_id))
                 );
                 if (healthy.length < events.length) {
-                    console.log(`🧹 [IntegrityCheck] Purged ${events.length - healthy.length} orphaned events`);
+                    console.log(`🧹 [IntegrityCheck] Purged ${events.length - healthy.length} orphaned events from Calendar`);
                     localStorage.setItem(eventsKey, JSON.stringify(healthy));
                 }
             }
@@ -815,54 +817,81 @@ function performUniversalIntegrityCheck(slug: string) {
     }
 
     // 3. Scan & Purge: Attendance Archive
-    const archiveKey = `cc_attendance_archive_${slug}`;
+    const archiveKey = `cc_attendance_archive_${activeScopeId}`;
     const rawArchive = localStorage.getItem(archiveKey);
     if (rawArchive) {
         try {
             const archive = JSON.parse(rawArchive);
             let archiveChanged = false;
-            
-            // Format: { "2024-04-15": { "event_id": { "student_id": "present" } } }
             Object.keys(archive).forEach(date => {
+                if (!archive[date]) return;
                 Object.keys(archive[date]).forEach(eventId => {
-                    // Check if eventId belongs to a deleted group (Events IDs usually start with grp_[groupId])
                     const isGroupEvent = eventId.startsWith('grp_');
                     const groupId = isGroupEvent ? eventId.split('_')[1] : null;
-                    
                     if (groupId && deletedGroups.has(groupId)) {
                         delete archive[date][eventId];
                         archiveChanged = true;
                     } else {
-                        // Also filter internal student records
                         const studentRecords = archive[date][eventId] || {};
-                        let recordPurged = false;
                         Object.keys(studentRecords).forEach(studentId => {
                             if (deletedStudents.has(studentId)) {
                                 delete archive[date][eventId][studentId];
                                 archiveChanged = true;
-                                recordPurged = true;
                             }
                         });
-
-                        // If class is empty after purging students, purge class
                         if (Object.keys(archive[date][eventId] || {}).length === 0) {
                             delete archive[date][eventId];
                             archiveChanged = true;
                         }
                     }
                 });
-                
-                // If day is empty, purge it
                 if (Object.keys(archive[date] || {}).length === 0) {
                     delete archive[date];
                     archiveChanged = true;
                 }
             });
-
             if (archiveChanged) {
-                console.log('🧹 [IntegrityCheck] Purged orphaned records from Attendance Archive');
+                console.log(`🧹 [IntegrityCheck] Cleaned Attendance Archive`);
                 localStorage.setItem(archiveKey, JSON.stringify(archive));
             }
         } catch {}
     }
+
+    // 4. Scan & Purge: Active Attendance, Checkins & Subscriptions
+    const operationalKeys = [
+        `cc_attendance_data_${activeScopeId}`,
+        `cc_checkins_data_${activeScopeId}`,
+        `cc_student_subscriptions_${activeScopeId}`
+    ];
+
+    operationalKeys.forEach(key => {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        try {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data)) {
+                const healthy = data.filter((item: any) => 
+                    (!item.id || !deletedStudents.has(item.id)) &&
+                    (!item.studentId || !deletedStudents.has(item.studentId)) &&
+                    (!item.groupId || !deletedGroups.has(item.groupId))
+                );
+                if (healthy.length < data.length) {
+                    console.log(`🧹 [IntegrityCheck] Purged ${data.length - healthy.length} ghosts from ${key}`);
+                    localStorage.setItem(key, JSON.stringify(healthy));
+                }
+            } else if (typeof data === 'object' && data !== null) {
+                let changed = false;
+                Object.keys(data).forEach(id => {
+                    if (deletedStudents.has(id) || deletedGroups.has(id)) {
+                        delete data[id];
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    console.log(`🧹 [IntegrityCheck] Cleaned object-based collection: ${key}`);
+                    localStorage.setItem(key, JSON.stringify(data));
+                }
+            }
+        } catch {}
+    });
 }
