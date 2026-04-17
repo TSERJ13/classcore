@@ -101,7 +101,7 @@ function ExpenseModal({ open, onClose, selectedMonth, branchId, t, l, settings }
     const total = Object.values(expenses).reduce((a, b) => (a || 0) + (b || 0), 0);
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 animate-in fade-in duration-300">
             <div className="bg-card border border-border-subtle w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-500">
                 <div className="px-8 py-6 border-b border-border-subtle flex items-center justify-between bg-surface/30">
                     <div className="flex items-center gap-3">
@@ -304,7 +304,7 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
 
     return (
         <>
-            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-50 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto bg-card border border-border-subtle rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
                     {/* Header */}
@@ -410,16 +410,20 @@ export default function AnalyticsPage() {
     const handleExport = () => {
         // Collect Analytics Data
         const analyticsRows = [
-            ['Section', 'Metric', 'Value'],
-            ['Overview', t.averageDaily, formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)],
-            ['Overview', t.thisMonthAve, formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)],
-            ['Gauges', t.attendanceRate, `${Math.round(currentMonthStats?.attendanceRate || 0)}%`],
-            ['Gauges', t.yearlyRevenue || 'Yearly', formatCurrency(extraStats.yearlyRevenue || 0, settings.currency)],
-            ['Demographics', t.totalStudents || 'Total Students', stats[1]?.value || 0],
-            ['Demographics', t.activeSubscriptions, extraStats.activeSubs],
-            ['', '', ''], // Spacer
-            ['Teacher Salaries', '', ''],
-            ['Teacher', 'Type', 'Rate', 'Bonus', 'Total', 'Status']
+            ['STUDIOFLOW BUSINESS REPORT'],
+            [`Studio: ${settings.studioName || 'ClassCore Studio'}`],
+            [`Month: ${selectedMonth}`],
+            [''],
+            ['SECTION', 'METRIC', 'VALUE'],
+            ['Overview', 'Daily Average Revenue', formatCurrency(currentMonthStats?.totalRevenue / 30 || 0, settings.currency)],
+            ['Overview', 'Total Monthly Revenue', formatCurrency(currentMonthStats?.totalRevenue || 0, settings.currency)],
+            ['Gauges', 'Average Attendance Rate', `${Math.round(currentMonthStats?.attendanceRate || 0)}%`],
+            ['Gauges', 'Projected Yearly Revenue', formatCurrency(extraStats.yearlyRevenue || 0, settings.currency)],
+            ['Demographics', 'Total Registered Students', stats[1]?.value || 0],
+            ['Demographics', 'Total Active Subscriptions', extraStats.activeSubs],
+            [''],
+            ['TEACHER SALARY BREAKDOWN'],
+            ['TEACHER', 'TYPE', 'RATE', 'BONUS', 'TOTAL', 'STATUS']
         ];
 
         // Collect Salary Data
@@ -433,7 +437,7 @@ export default function AnalyticsPage() {
         ]);
 
         const allRows = [...analyticsRows, ...salaryRows];
-        const csvContent = allRows.map(row => row.join(',')).join('\n');
+        const csvContent = allRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
         
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -446,6 +450,91 @@ export default function AnalyticsPage() {
         URL.revokeObjectURL(url);
     };
 
+    const handleDownloadTeacherPDF = (teacherData: any) => {
+        const salaryWin = window.open('', '_blank');
+        if (!salaryWin) return;
+
+        const getLocalizedType = (type: string) => {
+            if (type === 'Monthly') return t.monthly;
+            if (type === 'Hourly') return t.hourly;
+            if (type === 'Percentage') return t.percentageShort || 'Share';
+            if (type === 'Combined') return l('კომბინირებული', 'Комбинир.', 'Combined');
+            return type;
+        };
+        
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>${t.salaryCalculation || 'Salary Statement'} - ${teacherData.teacher}</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+                    body { font-family: 'Inter', -apple-system, sans-serif; padding: 60px; color: #1e293b; max-width: 800px; margin: 0 auto; background: #fff; line-height: 1.5; }
+                    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 40px; }
+                    .studio-info { text-align: left; }
+                    .studio-name { font-size: 28px; font-weight: 900; color: #4f46e5; letter-spacing: -0.025em; }
+                    .studio-tag { color: #94a3b8; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.1em; }
+                    .receipt-info { text-align: right; }
+                    .receipt-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #4f46e5; letter-spacing: 0.1em; margin-bottom: 4px; }
+                    .receipt-date { font-size: 18px; font-weight: 700; color: #334155; }
+                    
+                    .content { background: #f8fafc; border-radius: 24px; padding: 32px; border: 1px solid #f1f5f9; }
+                    .row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #e2e8f0; }
+                    .row:last-of-type { border-bottom: none; }
+                    .label { color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+                    .value { color: #1e293b; font-weight: 700; font-size: 15px; }
+                    
+                    .total-box { margin-top: 40px; text-align: right; padding: 24px; border-radius: 20px; background: #4f46e5; color: #fff; }
+                    .total-label { font-weight: 900; font-size: 14px; text-transform: uppercase; margin-right: 20px; opacity: 0.8; }
+                    .total-value { font-size: 36px; font-weight: 900; }
+                    
+                    .footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center; }
+                    .footer-text { color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="studio-info">
+                        <div class="studio-name">${settings.studioName || 'ClassCore Studio'}</div>
+                        <div class="studio-tag">${l('პროფესიონალური სტუდიის მართვა', 'Проф. управление студией', 'Professional Management')}</div>
+                    </div>
+                    <div class="receipt-info">
+                        <div class="receipt-title">${t.salaryCalculation || 'Salary Statement'}</div>
+                        <div class="receipt-date">${selectedMonth}</div>
+                    </div>
+                </div>
+                
+                <div class="content">
+                    <div class="row"><span class="label">${t.teacherName || 'Teacher'}</span> <span class="value">${teacherData.teacher}</span></div>
+                    <div class="row"><span class="label">${t.typeLabel || 'Type'}</span> <span class="value">${getLocalizedType(teacherData.type)}</span></div>
+                    <div class="row"><span class="label">${t.volumeTable || 'Volume'}</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
+                    <div class="row"><span class="label">${t.bonusTable || 'Bonus'}</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
+                </div>
+
+                <div class="total-box">
+                    <span class="total-label">${t.totalAmount || 'Total'}</span>
+                    <span class="total-value">${formatCurrency(teacherData.total, settings.currency)}</span>
+                </div>
+
+                <div class="footer">
+                    <div class="footer-text">© ${new Date().getFullYear()} ${settings.studioName || 'ClassCore'}. ${l('გენერირებულია ClassCore-ს მიერ', 'Сгенерировано ClassCore', 'Generated by ClassCore')}.</div>
+                </div>
+                
+                <script>
+                    window.onload = () => {
+                        window.print();
+                    };
+                </script>
+            </body>
+            </html>
+        `;
+        
+        salaryWin.document.write(html);
+        salaryWin.document.close();
+    };
+
+
     useEffect(() => {
         const refreshAnalytics = (monthStr: string) => {
             const students = getStudents();
@@ -457,11 +546,13 @@ export default function AnalyticsPage() {
             const plans = getPlans();
             const groups = getGroups();
 
+            const prefix = getScopedKey('cc_checkins_');
+
             // Plan prices map
             const planPrices: Record<string, number> = {};
             plans.forEach(p => { planPrices[p.name] = p.price; });
 
-            // Active subscriptions count (as denominator for attendance)
+            // Active subscriptions count
             const activeSubStudentIds = new Set(
                 allSubs.filter(sub => sub.status === 'active').map(sub => sub.student_id)
             );
@@ -474,7 +565,10 @@ export default function AnalyticsPage() {
             const totalRevenue = filteredSales.reduce((sum, s) => sum + (s.price * s.quantity), 0) +
                 filteredSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
 
-            // Attendance Rate based on active subscriber count
+            const subRevenue = filteredSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+            const prodRevenue = filteredSales.reduce((sum, s) => sum + s.price * s.quantity, 0);
+
+            // Attendance Rate
             let totalCheckins = 0;
             let daysWithCheckins = 0;
             const daysInMonth = new Date(parseInt(monthStr.split('-')[0]), parseInt(monthStr.split('-')[1]), 0).getDate();
@@ -491,295 +585,243 @@ export default function AnalyticsPage() {
                 } catch (e) { }
             }
             const avgDailyCheckins = daysWithCheckins > 0 ? totalCheckins / daysWithCheckins : 0;
-            const denominator = activeSubCount > 0 ? activeSubCount : students.length;
+            const denominator = activeSubCount > 0 ? activeSubCount : (students.length > 0 ? students.length : 1);
             const attendanceRate = denominator > 0 ? (avgDailyCheckins / denominator) * 100 : 0;
 
+            // Chart Data
             const daysData: any[] = [];
+            const daysAttData: any[] = [];
             for (let d = 1; d <= daysInMonth; d += 5) {
-                const dStr = `${monthStr}-${String(d).padStart(2, '0')}`;
                 const rangeEnd = Math.min(d + 4, daysInMonth);
-
-                // Aggregate sales and subs for the 5-day range
                 let rangeValue = 0;
+                let rangeCheckins = 0;
+                let checkinDays = 0;
+
                 for (let day = d; day <= rangeEnd; day++) {
                     const currentDayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
                     rangeValue += filteredSales.filter(s => s.date === currentDayStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
                     rangeValue += filteredSubs.filter(s => s.purchased_at === currentDayStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                    
+                    try { 
+                        const dayCheckins = JSON.parse(localStorage.getItem(getScopedKey(`cc_checkins_${currentDayStr}`)) || '[]').length;
+                        if (dayCheckins > 0) {
+                            rangeCheckins += dayCheckins;
+                            checkinDays++;
+                        }
+                    } catch (e) {}
                 }
-
                 daysData.push({ label: String(d).padStart(2, '0'), value: rangeValue });
-            }
-
-            // Attendance Chart - every 5 days
-            const daysAttData: any[] = [];
-            for (let d = 1; d <= daysInMonth; d += 5) {
-                const dStr = `${monthStr}-${String(d).padStart(2, '0')}`;
-                const key = getScopedKey(`cc_checkins_${dStr}`);
-                let dailyCheckins = 0;
-                try { dailyCheckins = JSON.parse(localStorage.getItem(key) || '[]').length; } catch (e) { }
-                const rate = denominator > 0 ? (dailyCheckins / denominator) * 100 : 0;
-                daysAttData.push({ label: String(d).padStart(2, '0'), value: rate, isPercent: true });
+                const avgRangeCheckins = checkinDays > 0 ? rangeCheckins / checkinDays : 0;
+                daysAttData.push({ label: String(d).padStart(2, '0'), value: denominator > 0 ? (avgRangeCheckins / denominator) * 100 : 0, isPercent: true });
             }
 
             // Salaries
             const calculatedSalaries = teachers.map(t => {
-                const teacherGroups = (t.assigned_group_ids && t.assigned_group_ids.length > 0)
-                    ? t.assigned_group_ids
-                    : events.filter(ev => ev.teacher_id === t.id).map(ev => ev.id);
+                // Find all groups where this teacher is either primary or secondary
+                const teacherGroups = groups.filter(g => g.teacherId === t.id || g.secondaryTeacherId === t.id).map(g => g.id);
                 
+                // Get all subscriptions linked to these groups
                 const subsForTeacher = filteredSubs.filter(sub => {
                     const plan = plans.find(p => p.name === sub.plan);
                     const groupId = (sub as any).group_id || (plan && plan.group_id);
                     return groupId && teacherGroups.includes(groupId);
                 });
 
-                const subRevenue = subsForTeacher.reduce((sum, sub) => {
-                    return sum + (sub.amount_paid || planPrices[sub.plan] || 0);
+                // Calculate revenue with split awareness
+                const teacherSubRevenue = subsForTeacher.reduce((sum, sub) => {
+                    const plan = plans.find(p => p.name === sub.plan);
+                    const groupId = (sub as any).group_id || (plan && plan.group_id);
+                    const amount = (sub.amount_paid || planPrices[sub.plan] || 0);
+                    
+                    const group = groups.find(g => g.id === groupId);
+                    if (group) {
+                        // Apply specific percentage from group or fallback to global
+                        if (group.secondaryTeacherId === t.id) {
+                            const perc = group.secondaryTeacherPercentage ?? t.salary_percentage ?? 0;
+                            return sum + (amount * perc / 100);
+                        } else if (group.teacherId === t.id) {
+                            const perc = group.primaryTeacherPercentage ?? t.salary_percentage ?? 50;
+                            return sum + (amount * perc / 100);
+                        }
+                    }
+                    return sum + amount;
                 }, 0);
 
                 const bonus = getTeacherBonusForMonth(t.id, monthStr);
-                
-                // Additive Calculation
                 let total = bonus;
                 const activeTypes: string[] = [];
                 const rateParts: string[] = [];
 
-                // 1. Percentage component
-                if (t.salary_percentage) {
-                    total += (subRevenue * t.salary_percentage) / 100;
-                    activeTypes.push('Percentage');
-                    rateParts.push(`${t.salary_percentage}%`);
+                if (t.salary_percentage) { 
+                    total += (teacherSubRevenue * t.salary_percentage) / 100; 
+                    activeTypes.push('Percentage'); 
+                    rateParts.push(`${t.salary_percentage}%`); 
                 }
-
-                // 2. Monthly component
-                if (t.rate_per_month) {
-                    total += t.rate_per_month;
-                    activeTypes.push('Monthly');
-                    rateParts.push(formatCurrency(t.rate_per_month, settings.currency));
+                if (t.rate_per_month) { 
+                    total += t.rate_per_month; 
+                    activeTypes.push('Monthly'); 
+                    rateParts.push(formatCurrency(t.rate_per_month, settings.currency)); 
                 }
-
-                // 3. Hourly component
                 if (t.rate_per_hour) {
-                    const teacherEvents = events.filter(e => e.teacher_id === t.id && e.date.startsWith(monthStr));
+                    const teacherEvents = events.filter(e => (e.teacher_id === t.id || (e as any).secondary_teacher_id === t.id) && e.date.startsWith(monthStr));
                     const totalMinutes = teacherEvents.reduce((acc, ev) => {
                         const [h1, m1] = ev.start_time.split(':').map(Number);
                         const [h2, m2] = ev.end_time.split(':').map(Number);
-                        return acc + ((h2 * 60 + m2) - (h1 * 60 + m1));
+                        let mins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                        
+                        // Handle hourly split if it's a dual session
+                        const group = groups.find(g => g.id === (ev as any).group_id);
+                        if (group && group.secondaryTeacherId) {
+                            if (group.secondaryTeacherId === t.id) {
+                                const perc = group.secondaryTeacherPercentage ?? t.salary_percentage ?? 0;
+                                mins *= perc / 100;
+                            } else if (group.teacherId === t.id) {
+                                const perc = group.primaryTeacherPercentage ?? t.salary_percentage ?? 50;
+                                mins *= perc / 100;
+                            }
+                        }
+                        return acc + mins;
                     }, 0);
-                    const hours = totalMinutes / 60;
-                    total += (hours * t.rate_per_hour);
+                    total += ((totalMinutes / 60) * t.rate_per_hour);
                     activeTypes.push('Hourly');
                     rateParts.push(`${formatCurrency(t.rate_per_hour, settings.currency)}/hr`);
                 }
-
-                // Default if nothing set
-                if (activeTypes.length === 0) {
-                    const defPerc = t.salary_percentage || 50;
-                    total += (subRevenue * defPerc) / 100;
-                    activeTypes.push('Percentage');
-                    rateParts.push(`${defPerc}%`);
+                if (activeTypes.length === 0) { 
+                    const defPerc = t.salary_percentage || 50; 
+                    total += (teacherSubRevenue * defPerc) / 100; 
+                    activeTypes.push('Percentage'); 
+                    rateParts.push(`${defPerc}%`); 
                 }
-
-                return {
-                    id: t.id,
-                    teacher: `${t.first_name || ''} ${t.last_name || t.full_name || ''}`,
-                    fullObject: t,
-                    type: activeTypes.length > 1 ? 'Combined' : activeTypes[0],
-                    rate: rateParts.join(' + '),
-                    bonus: bonus,
-                    total: total,
-                    status: 'pending'
-                };
+                return { id: t.id, teacher: `${t.first_name || ''} ${t.last_name || t.full_name || ''}`, fullObject: t, type: activeTypes.length > 1 ? 'Combined' : activeTypes[0], rate: rateParts.join(' + '), bonus, total, status: 'pending' };
             });
 
             const totalSalaryAmount = calculatedSalaries.reduce((sum, s) => sum + s.total, 0);
 
             // Top Groups
             const groupStats = groups.map(g => {
+                const groupStudents = students.filter(s => s.status === 'active' && s.enrolled_group_ids?.includes(g.id));
+                const groupStudentsCount = groupStudents.length;
                 const groupSubs = filteredSubs.filter(sub => {
                     const plan = plans.find(p => p.name === sub.plan);
                     const isLinked = (sub as any).group_id === g.id || (plan && plan.group_id === g.id);
                     if (isLinked) return true;
-                    // Fallback: check if the student is enrolled in this group
-                    const student = students.find(s => s.id === sub.student_id);
-                    return student?.enrolled_group_ids?.includes(g.id);
+                    return groupStudents.find(s => s.id === sub.student_id);
                 });
-                const revenue = groupSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
-                return { name: g.name, students: g.enrolled || 0, revenue: revenue, growth: '+0%' };
-            })
-                .filter(g => g.students > 0 || g.revenue > 0)
-                .sort((a, b) => b.students - a.students || b.revenue - a.revenue)
-                .slice(0, 5);
+                return { name: g.name, students: groupStudentsCount, revenue: groupSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0), growth: '+0%' };
+            }).filter(g => g.students > 0 || g.revenue > 0).sort((a: any, b: any) => b.students - a.students).slice(0, 5);
 
-            // If no group data, show all events with 0 as fallback
-            const finalGroups = groupStats.length > 0 ? groupStats : events.slice(0, 5).map(ev => ({
-                name: ev.title, students: 0, revenue: 0, growth: '+0%'
-            }));
+            const finalGroups = groupStats.length > 0 ? groupStats : events.slice(0, 5).map(ev => ({ name: ev.title, students: 0, revenue: 0, growth: '+0%' }));
 
-            // Fiscal Year start: Sept 1st
-            const fiscalYearYear = parseInt(monthStr.split('-')[0]);
-            const fiscalYearStart = new Date(fiscalYearYear, 8, 1);
-            if (new Date(monthStr + '-01') < fiscalYearStart) fiscalYearStart.setFullYear(fiscalYearStart.getFullYear() - 1);
-            const fiscalYearStr = fiscalYearStart.toISOString().split('T')[0];
-            const yearSalesRevenue = sales.filter(s => s.date >= fiscalYearStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
-            const yearSubRevenue = allSubs.filter(sub => sub.purchased_at >= fiscalYearStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
-
-            // 3 month boundaries from selected month
+            // Comparison Metrics
             const selectedMonthDate = new Date(monthStr + '-01');
-            const endOfMonthDate = new Date(parseInt(monthStr.split('-')[0]), parseInt(monthStr.split('-')[1]), 0);
-            const endMonthStr = endOfMonthDate.toISOString().split('T')[0];
-            const threeMonthsAgo = new Date(selectedMonthDate);
-            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-            const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
-            const newStudents3m = students.filter(s => (s as any).created_at && (s as any).created_at >= threeMonthsAgoStr && (s as any).created_at <= endMonthStr).length;
-            const leftStudents3m = students.filter(s => s.status === 'inactive' && (s as any).updated_at && (s as any).updated_at >= threeMonthsAgoStr && (s as any).updated_at <= endMonthStr).length;
-
-            // Manual Expenses for this month
-            const manualExpenses = getExpenses(monthStr, settings.activeBranchId || 'default');
-            const manualExpensesTotal = Object.values(manualExpenses).reduce((a, b) => (a || 0) + (b || 0), 0);
-            const totalExpenses = totalSalaryAmount + manualExpensesTotal;
-            const netProfit = totalRevenue - totalExpenses;
-
-            // Deep Financial Metrics
-            const subRevenue = filteredSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
-            const prodRevenue = filteredSales.reduce((sum, s) => sum + s.price * s.quantity, 0);
-            const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
-            const arpu = activeSubCount > 0 ? totalRevenue / activeSubCount : (students.length > 0 ? totalRevenue / students.length : 0);
-
-            // --- Creative AI Logic ---
-            
-            // 1. Churn Risk Analysis
-            const churnRiskStudents = students.filter(s => s.status === 'active').map(s => {
-                const checkins = getStudentCheckins(s.id);
-                if (checkins.length === 0) return { id: s.id, name: s.full_name || `${s.first_name} ${s.last_name}`, risk: 'high', reason: l('ჩეკინი არ დაფიქსირებულა', 'Нет посещений', 'No check-ins') };
-                
-                const lastCheckin = new Date(checkins[0].date);
-                const daysSinceLast = Math.floor((new Date().getTime() - lastCheckin.getTime()) / (1000 * 3600 * 24));
-                
-                let risk: 'low' | 'medium' | 'high' | 'lost' = 'low';
-                let reason = '';
-                if (daysSinceLast >= 60) {
-                    risk = 'lost';
-                    reason = l('დაკარგული კლიენტი (60+ დღე)', 'Потерянный клиент (60+ дней)', 'Lost client (60+ days)');
-                } else if (daysSinceLast > 14) {
-                    risk = 'high';
-                    reason = l('არ გამოჩენილა 2 კვირაზე მეტია', 'Не был более 2 недель', 'Absent for 2+ weeks');
-                } else if (daysSinceLast > 7) {
-                    risk = 'medium';
-                    reason = l('არ გამოჩენილა 1 კვირაა', 'Не был 1 неделю', 'Absent for 1 week');
-                }
-                
-                return { id: s.id, name: s.full_name || `${s.first_name} ${s.last_name}`, risk, reason, daysSinceLast };
-            }).filter(s => s.risk !== 'low').sort((a, b) => (b.daysSinceLast || 0) - (a.daysSinceLast || 0)).slice(0, 5);
-
-            // 2. Occupancy Analysis
-            const occupancyStats = groups.map(g => ({
-                name: g.name,
-                rate: g.capacity > 0 ? Math.round((g.enrolled / g.capacity) * 100) : 0,
-                enrolled: g.enrolled,
-                capacity: g.capacity
-            })).sort((a,b) => b.rate - a.rate);
-
-            // 3. Peak Hours (Current Month)
-            const hourCounts: Record<string, number> = {};
-            const prefix = getScopedKey('cc_checkins_');
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith(prefix) && key.includes(monthStr)) {
-                   const dayCheckins = JSON.parse(localStorage.getItem(key) || '[]');
-                   dayCheckins.forEach((c: any) => {
-                       const hour = c.time?.split(':')[0] || '00';
-                       hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-                   });
-                }
-            });
-            const peakHours = Object.entries(hourCounts)
-                .map(([hour, count]) => ({ hour: `${hour}:00`, count }))
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 3);
-
-            // 4. AI Live Highlights & Trends
-            const today = getLocalISODate();
-            const newStudentsToday = students.filter(s => (s as any).created_at === today).length;
-            const revenueToday = filteredSales.filter(s => s.date === today).reduce((sum, s) => sum + s.price * s.quantity, 0) +
-                                filteredSubs.filter(sub => sub.purchased_at === today).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
-            
-            // Financial Comparison Logic
             const lastMonthDate = new Date(selectedMonthDate); lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
             const lastMonthStr = lastMonthDate.toISOString().substring(0, 7);
             const lastYearDate = new Date(selectedMonthDate); lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
             const lastYearStr = lastYearDate.toISOString().substring(0, 7);
 
             const getMonthRevenue = (m: string) => {
-                const subRev = allSubs.filter(sub => sub.purchased_at.startsWith(m)).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
-                const prodRev = sales.filter(s => s.date.startsWith(m)).reduce((sum, s) => sum + s.price * s.quantity, 0);
-                return subRev + prodRev;
+                const sRev = allSubs.filter(sub => sub.purchased_at?.startsWith(m)).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                const pRev = sales.filter(s => s.date?.startsWith(m)).reduce((sum, s) => sum + s.price * s.quantity, 0);
+                return sRev + pRev;
+            };
+
+            const getMonthAttendance = (m: string) => {
+                let checkins = 0; let checkinDays = 0;
+                for (let d = 1; d <= 31; d++) {
+                    const dStr = `${m}-${String(d).padStart(2, '0')}`;
+                    try { 
+                        const dayRecs = JSON.parse(localStorage.getItem(getScopedKey(`cc_checkins_${dStr}`)) || '[]');
+                        if (dayRecs.length > 0) { checkins += dayRecs.length; checkinDays++; }
+                    } catch (e) {}
+                }
+                const avg = checkinDays > 0 ? checkins / checkinDays : 0;
+                return denominator > 0 ? (avg / denominator) * 100 : 0;
             };
 
             const prevMonthRevenue = getMonthRevenue(lastMonthStr);
             const prevYearRevenue = getMonthRevenue(lastYearStr);
-            
-            // Weekly Trend (Last 7 days vs previous 7 days)
-            const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            const fourteenDaysAgo = new Date(); fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-            const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
-            const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().split('T')[0];
-            
-            const thisWeekRevenue = allSubs.filter(s => s.purchased_at >= sevenDaysAgoStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0) +
-                                  sales.filter(s => s.date >= sevenDaysAgoStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
-            const lastWeekRevenue = allSubs.filter(s => s.purchased_at >= fourteenDaysAgoStr && s.purchased_at < sevenDaysAgoStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0) +
-                                  sales.filter(s => s.date >= fourteenDaysAgoStr && s.date < sevenDaysAgoStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
-            const weeklyGrowthPercent = lastWeekRevenue > 0 ? Math.round(((thisWeekRevenue / lastWeekRevenue) - 1) * 100) : 0;
+            const prevMonthAttendance = getMonthAttendance(lastMonthStr);
+            const prevMonthExpensesRaw = getExpenses(lastMonthStr, settings.activeBranchId || 'default');
+            const prevMonthExpenses = Object.values(prevMonthExpensesRaw).reduce((a, b) => (a || 0) + (b || 0), 0);
 
-            // 5. AI Smart Suggestions (YouTube Studio Style)
-            const suggestions: string[] = [];
-            
-            if (newStudentsToday > 0) {
-                suggestions.push(l(`გილოცავ! დღეს ${newStudentsToday} ახალი სტუდენტი დაგემატა! 🚀`, `Поздравляем! Сегодня добавилось ${newStudentsToday} новых студентов! 🚀`, `Congrats! ${newStudentsToday} new students joined today! 🚀`));
-            }
-            if (revenueToday > 0) {
-                suggestions.push(l(`დღევანდელი შემოსავალი: ${formatCurrency(revenueToday, settings.currency)}! შესანიშნავი შედეგია! 💰`, `Доход за сегодня: ${formatCurrency(revenueToday, settings.currency)}! Отличный результат! 💰`, `Today's revenue: ${formatCurrency(revenueToday, settings.currency)}! Great result! 💰`));
-            }
-            if (weeklyGrowthPercent > 5) {
-                suggestions.push(l(`ამ კვირაში შემოსავალი ${weeklyGrowthPercent}%-ით გაიზარდა წინა კვირასთან შედარებით! 📈`, `На этой неделе доход вырос на ${weeklyGrowthPercent}% по сравнению с прошлой! 📈`, `Revenue increased by ${weeklyGrowthPercent}% this week compared to last! 📈`));
-            }
-            
-            if (occupancyStats.filter(g => g.rate > 90).length > 0) {
-                const fullGroups = occupancyStats.filter(g => g.rate > 90).map(g => g.name).join(', ');
-                suggestions.push(l(`ყურადღება! ჯგუფები ${fullGroups} თითქმის სავსეა. 🈵`, `Внимание! Группы ${fullGroups} почти заполнены. 🈵`, `Heads up! Groups ${fullGroups} are almost full. 🈵`));
-            }
+            const revenueTrend = prevMonthRevenue > 0 ? `${Math.round(((totalRevenue / prevMonthRevenue) - 1) * 100)}%` : '+100%';
+            const attendanceTrend = prevMonthAttendance > 0 ? `${Math.round(((attendanceRate / prevMonthAttendance) - 1) * 100)}%` : '+0%';
 
-            if (suggestions.length === 0) {
-                if (churnRiskStudents.length > 0) {
-                    suggestions.push(l(`${churnRiskStudents.length} სტუდენტია სტუდიის დატოვების რისკის ქვეშ. სცადეთ მათთან დაკავშირება.`, `${churnRiskStudents.length} студентов под риском ухода. Свяжитесь с ними.`, `${churnRiskStudents.length} students are at risk of leaving. Reach out to them.`));
-                } else {
-                    suggestions.push(l('სტუდია სტაბილურად მუშაობს. ფოკუსირდით მარკეტინგზე.', 'Студия работает стабильно. Фокус на маркетинг.', 'Studio is stable. Focus on marketing.'));
+            const manualExpenses = getExpenses(monthStr, settings.activeBranchId || 'default');
+            const manualExpensesTotal = Object.values(manualExpenses).reduce((a, b) => (a || 0) + (b || 0), 0);
+            const totalExpenses = totalSalaryAmount + manualExpensesTotal;
+            const netProfit = totalRevenue - totalExpenses;
+            const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+            const arpu = activeSubCount > 0 ? totalRevenue / activeSubCount : (students.length > 0 ? totalRevenue / students.length : 0);
+
+            // Peak Hours
+            const hourCounts: Record<string, number> = {};
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith(prefix) && key.includes(monthStr)) {
+                   try { JSON.parse(localStorage.getItem(key) || '[]').forEach((c: any) => {
+                       const hour = c.time?.split(':')[0] || '00';
+                       hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+                   }); } catch(e) {}
                 }
-            }
+            });
+            const peakHours = Object.entries(hourCounts).map(([hour, count]) => ({ hour: `${hour}:00`, count })).sort((a,b) => b.count - a.count).slice(0, 3);
+
+            // Churn Risk - Subscription Based (requested by user)
+            const churnRiskStudents = students.filter(s => {
+                const studentSubs = Object.values(allSubsMap[s.id] || []);
+                const active = studentSubs.find(sub => sub.status === 'active');
+                if (active) return false; // If they have an active sub, they aren't at risk based on sub status
+                
+                const expired = studentSubs.filter(sub => sub.status === 'expired').sort((a: any, b: any) => b.expires_at.localeCompare(a.expires_at))[0];
+                if (!expired) return false; // Never had a sub or info missing
+
+                const daysSinceExpiry = Math.floor((new Date().getTime() - new Date(expired.expires_at).getTime()) / (1000 * 3600 * 24));
+                return daysSinceExpiry > 7; // Only consider if expired more than a week ago
+            }).map(s => {
+                const studentSubs = Object.values(allSubsMap[s.id] || []);
+                const expired = studentSubs.filter(sub => sub.status === 'expired').sort((a: any, b: any) => b.expires_at.localeCompare(a.expires_at))[0] as any;
+                const daysSinceExpiry = Math.floor((new Date().getTime() - new Date(expired.expires_at).getTime()) / (1000 * 3600 * 24));
+                
+                let risk: 'medium' | 'high' | 'lost' = 'medium';
+                if (daysSinceExpiry > 30) risk = 'lost';
+                else if (daysSinceExpiry > 14) risk = 'high';
+                
+                return {
+                    id: s.id,
+                    name: s.full_name || `${s.first_name} ${s.last_name}`,
+                    risk,
+                    reason: l(`ვადა გაუვიდა ${daysSinceExpiry} დღის წინ`, `Срок истёк ${daysSinceExpiry} дн. назад`, `Expired ${daysSinceExpiry} days ago`),
+                    daysSinceLast: daysSinceExpiry
+                };
+            }).sort((a, b) => b.daysSinceLast - a.daysSinceLast).slice(0, 5);
+
+            const occupancyStats = groups.map(g => ({ name: g.name, rate: g.capacity > 0 ? Math.round((g.enrolled / g.capacity) * 100) : 0, enrolled: g.enrolled, capacity: g.capacity })).sort((a,b) => b.rate - a.rate);
+
+            // Suggestions
+            const todayStr = getLocalISODate();
+            const newStudentsToday = students.filter(s => (s as any).created_at === todayStr).length;
+            const revenueToday = filteredSales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) +
+                                filteredSubs.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+
+            const suggestions: string[] = [];
+            if (newStudentsToday > 0) suggestions.push(l(`გილოცავ! დღეს ${newStudentsToday} ახალი სტუდენტი დაგემატა! 🚀`, `Поздравляем! Сегодня добавилось ${newStudentsToday} новых студентов! 🚀`, `Congrats! ${newStudentsToday} new students joined today! 🚀`));
+            if (revenueToday > 0) suggestions.push(l(`დღევანდელი შემოსავალი: ${formatCurrency(revenueToday, settings.currency)}! შესანიშნავი შედეგია! 💰`, `Доход за сегодня: ${formatCurrency(revenueToday, settings.currency)}! Отличный результат! 💰`, `Today's revenue: ${formatCurrency(revenueToday, settings.currency)}! Great result! 💰`));
+            const rDiff = totalRevenue - prevMonthRevenue;
+            if (rDiff > 0) suggestions.push(l(`ამ თვეში შემოსავალი ${formatCurrency(rDiff, settings.currency)}-ით მეტია წინა თვესთან შედარებით! 📈`, `В этом месяце доход на ${formatCurrency(rDiff, settings.currency)} больше, чем в прошлом! 📈`, `Revenue is ${formatCurrency(rDiff, settings.currency)} higher than last month! 📈`));
+            else if (rDiff < 0) suggestions.push(l(`შემოსავალი ${formatCurrency(Math.abs(rDiff), settings.currency)}-ით ჩამორჩება წინა თვის მაჩვენებელს. 📉`, `Доход на ${formatCurrency(Math.abs(rDiff), settings.currency)} ниже, чем в прошлом месяце. 📉`, `Revenue is ${formatCurrency(Math.abs(rDiff), settings.currency)} lower than last month. 📉`));
 
             const totalGrossRevenue = subRevenue + prodRevenue;
 
             setExtraStats({
                 inactiveSubs: students.length - activeSubCount,
-                newStudents3m,
-                leftStudents3m,
-                yearlyRevenue: yearSalesRevenue + yearSubRevenue,
+                newStudents3m: students.filter(s => (s as any).created_at && (s as any).created_at >= lastMonthStr).length,
+                leftStudents3m: students.filter(s => s.status === 'inactive' && (s as any).updated_at >= lastMonthStr).length,
+                yearlyRevenue: totalRevenue * 12,
                 activeSubs: activeSubCount,
-                totalExpenses,
-                netProfit,
-                manualExpenses,
-                manualExpensesTotal,
-                totalStudents: students.length,
-                subRevenue,
-                prodRevenue,
-                profitMargin,
-                arpu,
-                churnRiskStudents,
-                occupancyStats,
-                peakHours,
-                suggestions,
-                totalGrossRevenue,
-                prevMonthRevenue,
-                prevYearRevenue,
+                totalExpenses, netProfit, manualExpenses, manualExpensesTotal,
+                totalStudents: students.length, subRevenue, prodRevenue, profitMargin, arpu,
+                churnRiskStudents, occupancyStats, peakHours, suggestions,
+                totalGrossRevenue, prevMonthRevenue, prevYearRevenue,
                 lateRenewals: students.filter(s => {
                     const studentSubs = Object.values(allSubsMap[s.id] || []);
                     const active = studentSubs.find(sub => sub.status === 'active');
@@ -788,7 +830,7 @@ export default function AnalyticsPage() {
                 }).map(s => ({
                     id: s.id,
                     name: `${s.first_name || ''} ${s.last_name || s.full_name || ''}`,
-                    lastExpiry: (Object.values(allSubsMap[s.id] || []).filter(sub => sub.status === 'expired').sort((a, b) => b.expires_at.localeCompare(a.expires_at))[0] as any)?.expires_at
+                    lastExpiry: (Object.values(allSubsMap[s.id] || []).filter(sub => (sub as any).status === 'expired').sort((a: any, b: any) => b.expires_at.localeCompare(a.expires_at))[0] as any)?.expires_at
                 })),
                 topPayers: students.map(s => {
                     const studentUnits = Object.values(allSubsMap[s.id] || []);
@@ -803,12 +845,16 @@ export default function AnalyticsPage() {
                 })
             });
 
+            const expensesDiff = totalExpenses - prevMonthExpenses;
+            const profitDiff = netProfit - (prevMonthRevenue - prevMonthExpenses);
+
             return {
-                totalRevenue, attendanceRate, totalSalaryAmount, totalExpenses, netProfit, manualExpenses, daysData, daysAttData, calculatedSalaries, overview: [
-                    { label: 'totalRevenue', value: formatCurrency(totalRevenue, settings.currency), change: '+0%', trend: 'up', icon: CreditCard, color: 'indigo' },
-                    { label: 'totalExpenses', value: formatCurrency(totalExpenses, settings.currency), change: '0', trend: 'down', icon: Receipt, color: 'rose' },
-                    { label: 'netProfit', value: formatCurrency(netProfit, settings.currency), change: '0%', trend: 'up', icon: TrendingUp, color: 'emerald' },
-                    { label: 'attendanceRate', value: `${Math.round(attendanceRate)}%`, change: '0%', trend: 'up', icon: CalendarCheck, color: 'violet' },
+                totalRevenue, attendanceRate, totalSalaryAmount, totalExpenses, netProfit, manualExpenses, daysData, daysAttData, calculatedSalaries,
+                overview: [
+                    { label: `${t.revenue}: ${formatCurrency(totalRevenue, settings.currency)}`, value: formatCurrency(totalRevenue, settings.currency), change: revenueTrend, trend: totalRevenue >= prevMonthRevenue ? 'up' : 'down', icon: CreditCard, color: 'indigo' },
+                    { label: `${t.totalExpenses}: ${formatCurrency(totalExpenses, settings.currency)}`, value: formatCurrency(totalExpenses, settings.currency), change: formatCurrency(Math.abs(expensesDiff), settings.currency), trend: expensesDiff <= 0 ? 'up' : 'down', icon: Receipt, color: 'rose' },
+                    { label: `${t.netProfit}: ${formatCurrency(netProfit, settings.currency)}`, value: formatCurrency(netProfit, settings.currency), change: formatCurrency(Math.abs(profitDiff), settings.currency), trend: profitDiff >= 0 ? 'up' : 'down', icon: TrendingUp, color: 'emerald' },
+                    { label: `${t.attendanceRate}: ${Math.round(attendanceRate)}%`, value: `${Math.round(attendanceRate)}%`, change: attendanceTrend, trend: attendanceRate >= prevMonthAttendance ? 'up' : 'down', icon: CalendarCheck, color: 'violet' },
                 ], finalGroups
             };
         };
@@ -865,47 +911,49 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
                     <MonthNavigator
                         selectedMonth={selectedMonth}
                         onSelect={setSelectedMonth}
                         t={t}
-                        className="flex-1 sm:flex-none"
+                        className="flex-1 sm:flex-none min-w-[140px] sm:min-w-[160px]"
                     />
-                    <button onClick={() => setShowExpenseModal(true)}
-                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-indigo-50/50 text-indigo-600 border border-indigo-200/50 hover:bg-indigo-100 transition-all shadow-sm shrink-0 active:scale-95"
-                        title={t.manageExpenses}>
-                        <Receipt className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => handleExport()}
-                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-black border border-border-subtle hover:bg-surface transition-all shadow-sm shrink-0 active:scale-95"
-                        title={l('ჩამოტვირთვა', 'Скачать', 'Download')}>
-                        <Download className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+                        <button onClick={() => setShowExpenseModal(true)}
+                            className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-2xl bg-indigo-50/50 text-indigo-600 border border-indigo-200/50 hover:bg-indigo-100 transition-all shadow-sm shrink-0 active:scale-95"
+                            title={t.manageExpenses}>
+                            <Receipt className="w-5 h-5 sm:w-5 sm:h-5" />
+                        </button>
+                        <button onClick={() => handleExport()}
+                            className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-2xl bg-white text-black border border-border-subtle hover:bg-surface transition-all shadow-sm shrink-0 active:scale-95"
+                            title={l('ჩამოტვირთვა', 'Скачать', 'Download')}>
+                            <Download className="w-5 h-5 sm:w-5 sm:h-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div className="space-y-6 px-4 sm:px-0">
             {/* 1. AI Studio Assistant - Premium Dynamic Hero */}
-            <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 rounded-[2.5rem] p-6 md:p-8 relative overflow-hidden group shadow-2xl shadow-indigo-600/30 mb-8 transition-all duration-500 hover:scale-[1.01]">
+            <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 rounded-3xl sm:rounded-[2.5rem] p-5 sm:p-6 md:p-8 relative overflow-hidden group shadow-2xl shadow-indigo-600/30 mb-6 sm:mb-8 transition-all duration-500 hover:scale-[1.01] w-full">
                 {/* Decorative Elements */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 animate-pulse" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
                 
-                <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        <div className="relative">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner group-hover:rotate-6 transition-transform">
-                                <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-pulse" />
+                <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-4 sm:gap-6 lg:gap-8">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 text-center sm:text-left">
+                        <div className="relative shrink-0">
+                            <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner group-hover:rotate-6 transition-transform">
+                                <Sparkles className="w-5 h-5 sm:w-8 sm:h-8 text-white animate-pulse" />
                             </div>
                             <div className="absolute -top-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 bg-emerald-400 rounded-full border-2 border-indigo-600 animate-ping" />
                         </div>
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2">
+                        <div className="space-y-0.5 sm:space-y-1">
+                            <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-2">
                                 <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 text-[8px] sm:text-[10px] font-black uppercase tracking-widest border border-emerald-400/30">
                                     {l('ლაივ რეჟიმი', 'Live Режим', 'Live Mode')}
                                 </span>
-                                <h2 className="text-base sm:text-xl font-black text-white tracking-tight uppercase">AI Assistant</h2>
+                                <h2 className="text-[15px] sm:text-xl font-black text-white tracking-tight uppercase">AI Assistant</h2>
                             </div>
                             <p className="text-indigo-100/60 text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em]">{l('სტუდიის ინტელექტი', 'Интеллект студии', 'Studio Intelligence')}</p>
                         </div>
@@ -984,21 +1032,33 @@ export default function AnalyticsPage() {
                             </div>
                         </div>
                         <div className="mt-auto pt-4 flex flex-col items-start gap-1 w-full max-w-[140px] border-t border-border-subtle/30 cursor-default">
-                            <div className="flex items-center gap-2 group transition-opacity">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.totalSalaries}</p>
+                            <div className="flex items-center justify-between w-full group transition-opacity">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                    <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.totalSalaries}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-rose-500">{formatCurrency(currentMonthStats?.totalSalaryAmount || 0, settings.currency).split('.')[0]}</span>
                             </div>
-                            <div className="flex items-center gap-2 group transition-opacity">
-                                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
-                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.rent}</p>
+                            <div className="flex items-center justify-between w-full group transition-opacity">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                                    <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.rent}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-orange-400">{formatCurrency(extraStats.manualExpenses?.rent || 0, settings.currency).split('.')[0]}</span>
                             </div>
-                            <div className="flex items-center gap-2 group transition-opacity">
-                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
-                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{l('კომუნალურები', 'Коммунальные', 'Utilities')}</p>
+                            <div className="flex items-center justify-between w-full group transition-opacity">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
+                                    <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{l('კომუნალურები', 'Коммунальные', 'Utilities')}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-yellow-500">{formatCurrency((extraStats.manualExpenses?.electricity || 0) + (extraStats.manualExpenses?.gas || 0) + (extraStats.manualExpenses?.water || 0), settings.currency).split('.')[0]}</span>
                             </div>
-                            <div className="flex items-center gap-2 group transition-opacity">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
-                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.otherExpenses}</p>
+                            <div className="flex items-center justify-between w-full group transition-opacity">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                                    <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.otherExpenses}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-slate-500">{formatCurrency((extraStats.manualExpenses?.cleaner || 0) + (extraStats.manualExpenses?.accountant || 0) + (extraStats.manualExpenses?.manager || 0) + (extraStats.manualExpenses?.other || 0), settings.currency).split('.')[0]}</span>
                             </div>
                         </div>
                     </div>
@@ -1028,17 +1088,26 @@ export default function AnalyticsPage() {
                             </div>
                         </div>
                         <div className="mt-auto pt-4 flex flex-col items-start gap-1 w-full max-w-[140px] border-t border-border-subtle/30 cursor-default">
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                                <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.oldLabel}</p>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                    <p className="text-[8px] font-black text-primary opacity-60 uppercase tracking-tight">{t.oldLabel}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-indigo-500">{Math.max(0, extraStats.totalStudents - extraStats.newStudents3m)}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-tight">{t.new}</p>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                    <p className="text-[8px] font-black text-emerald-500 uppercase tracking-tight">{t.new}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-emerald-500">{extraStats.newStudents3m}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                                <p className="text-[8px] font-black text-red-500 uppercase tracking-tight">{t.leftLabel}</p>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                    <p className="text-[8px] font-black text-red-500 uppercase tracking-tight">{t.leftLabel}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-red-500">{extraStats.leftStudents3m}</span>
                             </div>
                         </div>
                     </div>
@@ -1067,13 +1136,19 @@ export default function AnalyticsPage() {
                             </div>
                         </div>
                         <div className="mt-auto pt-4 flex flex-col items-start gap-1 w-full max-w-[140px] border-t border-border-subtle/30 cursor-default">
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-tight">{t.active}</p>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                    <p className="text-[8px] font-black text-emerald-500 uppercase tracking-tight">{t.active}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-emerald-500">{extraStats.activeSubs}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
-                                <p className="text-[8px] font-black text-primary opacity-20 uppercase tracking-tight">{t.inactive}</p>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
+                                    <p className="text-[8px] font-black text-primary opacity-20 uppercase tracking-tight">{t.inactive}</p>
+                                </div>
+                                <span className="text-[8px] font-black text-primary opacity-20">{extraStats.inactiveSubs}</span>
                             </div>
                         </div>
                     </div>
@@ -1183,9 +1258,12 @@ export default function AnalyticsPage() {
                                         </div>
                                         <div className="hidden lg:block space-y-1">
                                             <p className="text-[9px] font-black text-muted uppercase tracking-widest opacity-60">{l('შენარჩუნება', 'Удержание', 'Retention')}</p>
-                                            <p className="text-2xl font-black text-indigo-600 tabular-nums tracking-tighter">
-                                                {extraStats.totalStudents > 0 ? Math.round((extraStats.activeSubs / extraStats.totalStudents) * 100) : 0}%
-                                            </p>
+                                            <div className="flex items-baseline gap-2">
+                                                <p className="text-2xl font-black text-indigo-600 tabular-nums tracking-tighter">
+                                                    {extraStats.totalStudents > 0 ? Math.round((extraStats.activeSubs / extraStats.totalStudents) * 100) : 0}%
+                                                </p>
+                                                <span className="text-[10px] font-black text-indigo-600/40">({extraStats.activeSubs || 0} {l('სტუდ.', 'студ.', 'stud.')})</span>
+                                            </div>
                                             <p className="text-[8px] text-muted font-bold opacity-40 uppercase mt-1">Loyalty Score</p>
                                         </div>
                                     </div>
@@ -1261,9 +1339,9 @@ export default function AnalyticsPage() {
                                             <p className="text-[9px] font-black text-muted uppercase tracking-widest mb-1">{l('საშ. ჩეკი (ARPU)', 'Ср. чек (ARPU)', 'Avg Ticket (ARPU)')}</p>
                                             <p className="text-sm font-black text-primary">{formatCurrency(extraStats.arpu || 0, settings.currency)}</p>
                                         </div>
-                                        <div className="p-4 bg-white/40 rounded-2xl border border-emerald-500/5">
-                                            <p className="text-[9px] font-black text-muted uppercase tracking-widest mb-1">{l('წლიური პროგნოზი', 'Годовой прогноз', 'Annual Forecast')}</p>
-                                            <p className="text-sm font-black text-emerald-700">{formatCurrency(Math.round(extraStats.yearlyRevenue || 0), settings.currency)}</p>
+                                        <div className="p-4 bg-white/40 rounded-2xl border border-rose-500/5">
+                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">{l('პასიური (გასაახლებელი)', 'Не продлили', 'Late Renewals')}</p>
+                                            <p className="text-sm font-black text-rose-600">{(extraStats.lateRenewals || []).length} {l('სტუდ.', 'студ.', 'stud.')}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1424,10 +1502,10 @@ export default function AnalyticsPage() {
                                     )}
                                     <td className="px-8 py-5 text-right">
                                         <div className="flex items-center justify-end gap-3">
-                                            <button onClick={() => setEditingTeacher(item.fullObject)} className="p-2 rounded-lg hover:bg-violet-500/10 hover:text-violet-600 transition-colors opacity-0 group-hover:opacity-100">
+                                            <button onClick={() => setEditingTeacher(item.fullObject)} className="p-2 rounded-lg bg-surface hover:bg-violet-500/10 text-muted hover:text-violet-600 transition-colors opacity-100 shadow-sm" title={t.edit || 'Edit'}>
                                                 <Edit2 className="w-3.5 h-3.5" />
                                             </button>
-                                            <button onClick={() => handleExport()} className="p-2 rounded-lg hover:bg-indigo-500/10 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100">
+                                            <button onClick={() => handleDownloadTeacherPDF(item)} className="p-2 rounded-lg bg-surface hover:bg-indigo-500/10 text-muted hover:text-indigo-600 transition-colors opacity-100 shadow-sm" title={l('PDF გადმოწერა', 'Скачать PDF', 'Download PDF')}>
                                                 <Download className="w-3.5 h-3.5" />
                                             </button>
                                             {getStatusForTeacher(item.id, selectedMonth) === 'pending' ? (
@@ -1481,9 +1559,12 @@ export default function AnalyticsPage() {
                                          item.type === 'Combined' ? l('კომბინირებული', 'Комбинир.', 'Combined') : item.type}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <button onClick={() => setEditingTeacher(item.fullObject)} className="p-1.5 rounded-lg bg-violet-500/5 text-violet-600">
-                                        <Edit2 className="w-3 h-3" />
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <button onClick={() => handleDownloadTeacherPDF(item)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-500 shadow-sm hover:bg-indigo-100 transition-colors">
+                                        <Download className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => setEditingTeacher(item.fullObject)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 border border-violet-100 text-violet-500 shadow-sm hover:bg-violet-100 transition-colors">
+                                        <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                     {getStatusForTeacher(item.id, selectedMonth) === 'pending' ? (
                                         <button 
@@ -1653,30 +1734,30 @@ export default function AnalyticsPage() {
             </div>
 
             {/* AI Insights Footer */}
-            <div className="bg-indigo-600 rounded-[2rem] p-6 sm:p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 sm:gap-8 md:gap-10 shadow-2xl shadow-indigo-600/40 relative overflow-hidden">
+            <div className="bg-indigo-600 rounded-3xl sm:rounded-[2rem] p-5 sm:p-6 md:p-10 flex flex-col md:flex-row items-center gap-4 sm:gap-6 md:gap-10 shadow-2xl shadow-indigo-600/40 relative overflow-hidden w-full">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
 
-                <div className="flex-1 text-center md:text-left space-y-2 relative z-10">
-                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">{t.aiInsightTitle || l('AI ანალიტიკა', 'AI Аналитика', 'AI Analytics')}</h3>
-                    <div className="space-y-1.5">
-                        <p className="text-indigo-100 text-xs sm:text-sm md:text-base font-medium opacity-90 max-w-md">
+                <div className="flex-1 text-center md:text-left space-y-2 relative z-10 w-full">
+                    <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">{t.aiInsightTitle || l('AI ანალიტიკა', 'AI Аналитика', 'AI Analytics')}</h3>
+                    <div className="space-y-1.5 flex flex-col items-center md:items-start">
+                        <p className="text-indigo-100 text-[11px] sm:text-sm md:text-base font-medium opacity-90 max-w-md">
                             {prevMonthStats && currentMonthStats ? (
                                 currentMonthStats.totalRevenue > prevMonthStats.totalRevenue
                                     ? t.aiRevenueUp.replace('{percent}', Math.round((currentMonthStats.totalRevenue / (prevMonthStats.totalRevenue || 1) - 1) * 100).toString())
                                     : t.aiRevenueStable
                             ) : t.aiInsightDesc}
                         </p>
-                        <p className="text-indigo-200/60 text-xs font-bold tracking-widest flex items-center gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                        <p className="text-indigo-200/60 text-[9px] sm:text-xs font-bold tracking-widest flex items-center gap-1 sm:gap-2">
+                            <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                             {t.aiAnalysisReady}
                         </p>
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-3 relative z-10">
+                <div className="flex flex-col gap-3 relative z-10 w-full md:w-auto shrink-0 mt-2 md:mt-0">
                     <button onClick={() => setShowInsightsModal(true)}
-                        className="px-10 py-5 bg-white text-indigo-600 text-sm font-black rounded-3xl transition-all shadow-2xl shadow-black/10 hover:shadow-black/20 hover:scale-105 active:scale-95 whitespace-nowrap tracking-widest">
+                        className="w-full md:w-auto px-6 py-4 sm:px-10 sm:py-5 bg-white text-indigo-600 text-xs sm:text-sm font-black rounded-xl sm:rounded-3xl transition-all shadow-xl hover:shadow-black/20 hover:scale-105 active:scale-95 whitespace-nowrap tracking-widest text-center">
                         {t.aiInsightDetails}
                     </button>
                 </div>

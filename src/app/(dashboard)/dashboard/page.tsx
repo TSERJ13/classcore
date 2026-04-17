@@ -7,7 +7,7 @@ import { getSubscription, getSubscriptions } from '@/lib/subscription-store';
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -20,6 +20,7 @@ import { StudentModal } from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
+import { Logo } from '@/components/ui/Logo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 const toDateStr = (d: Date) => d.toISOString().split('T')[0];
@@ -165,9 +166,9 @@ function MiniCalendar({ t, selectedDate, rangeStart, rangeEnd, onSelect, onRange
                             )}>
                                 {d}
                             </span>
-                            {hasEvent && !isToday && (
+                            {hasEvent && (
                                 <span className={cn("absolute bottom-1 w-1 h-1 rounded-full",
-                                    (isSelected || isStart || isEnd) ? "bg-indigo-400" : "bg-indigo-400/70"
+                                    (isSelected || isStart || isEnd || isToday) ? "bg-indigo-400" : "bg-indigo-400/70"
                                 )} />
                             )}
                         </button>
@@ -196,8 +197,8 @@ function actionBadge(action: string, t: any) {
 export default function DashboardPage() {
     const { t, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const { settings } = useStudio();
-    const { profile, user } = useUser();
+    const { settings, isLoaded } = useStudio();
+    const { profile, user, loading } = useUser();
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [revenueRange, setRevenueRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [liveStats, setLiveStats] = useState({
@@ -214,7 +215,9 @@ export default function DashboardPage() {
         expiringSoon: 0,
         inactiveSubs: 0,
         newStudents3m: 0,
-        leftStudents3m: 0
+        leftStudents3m: 0,
+        revenueChange: 0,
+        activeChange: 0
     });
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
@@ -260,8 +263,8 @@ export default function DashboardPage() {
             });
             const studentsWithActiveSub = activeSubStudentIds.size;
 
-            // Attendance Count: Only count check-ins from students who HAVE an active sub
-            const checkins = getTodayCheckins().filter(c => activeSubStudentIds.has(c.studentId));
+            // Attendance Count: Count all check-ins for the day
+            const checkins = getTodayCheckins();
             const attendance = checkins.length;
 
             const todayStr = getLocalISODate(new Date());
@@ -297,26 +300,63 @@ export default function DashboardPage() {
                 sub.expires_at <= sevenDaysFromNowStr
             ).length;
 
-            // Attendance Rate based on active subscriber count (monthly average)
+            // ─── MoM Growth Calculations ───
+            const lastMonthDate = new Date();
+            lastMonthDate.setMonth(now.getMonth() - 1);
+            const lastMonthStr = lastMonthDate.toISOString().split('-').slice(0, 2).join('-');
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(now.getDate() - 30);
+            const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+            // 1. Revenue Comparison
+            const lastMonthSalesRevenue = sales.filter(s => s.date?.startsWith(lastMonthStr)).reduce((sum, s) => sum + s.price * s.quantity, 0);
+            const lastMonthSubRevenue = allSubsList.filter(sub => sub.purchased_at?.startsWith(lastMonthStr)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
+            const lastMonthRevenue = lastMonthSalesRevenue + lastMonthSubRevenue;
+            const currentMonthRevenue = monthSalesRevenue + monthSubRevenue;
+            let revenueChange = 0;
+            if (lastMonthRevenue > 0) {
+                revenueChange = Math.round(((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100);
+            } else if (currentMonthRevenue > 0) {
+                revenueChange = 100;
+            }
+
+            // 2. Active Student Comparison (approximate active vs 30 days ago)
+            const activeThirtyDaysAgo = studentsList.filter(s => {
+                const subs = (allSubsList as any[]).filter(sub => sub.student_id === s.id);
+                return subs.some(sub => sub.purchased_at <= thirtyDaysAgoStr && sub.expires_at >= thirtyDaysAgoStr);
+            }).length;
+            let activeChange = 0;
+            if (activeThirtyDaysAgo > 0) {
+                activeChange = Math.round(((studentsWithActiveSub - activeThirtyDaysAgo) / activeThirtyDaysAgo) * 100);
+            } else if (studentsWithActiveSub > 0) {
+                activeChange = 100;
+            }
+
+            // Attendance Rate based on total students if no active subs (monthly average)
             let totalCheckinsMonth = 0;
             let daysWithCheckinsMonth = 0;
             const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
             for (let d = 1; d <= daysInMonth; d++) {
-                const dDate = new Date(now.getFullYear(), now.getMonth(), d);
-                const dStr = dDate.toISOString().split('T')[0];
-                const key = getScopedKey(`cc_checkins_${dStr}`);
                 try {
-                    const recs = JSON.parse(localStorage.getItem(key) || '[]');
-                    if (recs.length > 0) {
-                        totalCheckinsMonth += recs.length;
-                        daysWithCheckinsMonth++;
+                    const dDate = new Date(now.getFullYear(), now.getMonth(), d);
+                    const dStr = dDate.toISOString().split('T')[0];
+                    const key = getScopedKey(`cc_checkins_${dStr}`);
+                    const rawRecords = localStorage.getItem(key);
+                    if (rawRecords) {
+                        const recs = JSON.parse(rawRecords);
+                        if (Array.isArray(recs) && recs.length > 0) {
+                            totalCheckinsMonth += recs.length;
+                            daysWithCheckinsMonth++;
+                        }
                     }
-                } catch (e) { }
+                } catch (e) {
+                    console.warn(`⚠️ [Dashboard] Failed to process check-ins for day ${d}:`, e);
+                }
             }
             const avgDailyCheckins = daysWithCheckinsMonth > 0 ? totalCheckinsMonth / daysWithCheckinsMonth : 0;
-            const denominator = activeCount > 0 ? activeCount : students;
-            const attendanceRateMonth = denominator > 0 ? Math.round((avgDailyCheckins / denominator) * 100) : 0;
+            const denominator = activeCount > 0 ? activeCount : (students > 0 ? students : 1);
+            const attendanceRateMonth = Math.min(100, Math.round((avgDailyCheckins / denominator) * 100));
 
             setLiveStats({
                 totalStudents: students,
@@ -332,7 +372,9 @@ export default function DashboardPage() {
                 monthlyRevenue: monthSalesRevenue + monthSubRevenue,
                 todayRevenue: todaySalesRevenue + todaySubRevenue,
                 totalDebt,
-                expiringSoon
+                expiringSoon,
+                revenueChange,
+                activeChange
             });
         };
 
@@ -364,13 +406,21 @@ export default function DashboardPage() {
         checkins.forEach((c: CheckinRecord) => {
             if (!activeIds.has(c.studentId)) return;
             const name = c.studentName || t.studentLabelGeneric;
+            let timestamp = 0;
+            try {
+                if (c.date && c.time) {
+                    const dt = new Date(`${c.date.trim()}T${c.time.trim()}`);
+                    if (!isNaN(dt.getTime())) timestamp = dt.getTime();
+                }
+            } catch (e) { }
+
             activityList.push({
                 name: name,
                 action: 'check-in',
                 group: t.groupSession,
                 time: c.time,
-                timestamp: new Date(`${c.date}T${c.time}`).getTime(),
-                avatar: name.split(' ').map((n: string) => n[0]).join(''),
+                timestamp,
+                avatar: name.split(' ').map((n: string) => n ? n[0] : '').join('').toUpperCase(),
                 color: 'from-indigo-500 to-blue-600'
             });
         });
@@ -379,12 +429,20 @@ export default function DashboardPage() {
             if (s.studentId && !activeIds.has(s.studentId)) return;
             const name = s.studentName || t.clientLabelGeneric;
             const initials = name.trim().split(' ').map((n: string) => n[0] || '').join('').toUpperCase();
+            let timestamp = 0;
+            try {
+                if (s.date && s.time) {
+                    const dt = new Date(`${s.date.trim()}T${s.time.trim()}`);
+                    if (!isNaN(dt.getTime())) timestamp = dt.getTime();
+                }
+            } catch (e) { }
+
             activityList.push({
                 name: name,
                 action: 'sale',
                 group: s.productName || t.saleActivity,
                 time: s.time || '',
-                timestamp: s.date && s.time ? new Date(`${s.date}T${s.time}`).getTime() : 0,
+                timestamp,
                 avatar: initials || 'K',
                 color: 'from-violet-500 to-fuchsia-600'
             });
@@ -399,22 +457,36 @@ export default function DashboardPage() {
 
             // Load live schedule for selected date
             const dateStr = getLocalISODate(selectedDate);
-            const events = mod.getEventsByDate(dateStr);
-            const allStudents = getStudents();
-            const scheduleWithDetails = events.map(ev => {
-                const classStudents = allStudents.filter(s => {
-                    const sClasses = (s as any).classes || s.enrolled_group_ids || [];
-                    return Array.isArray(sClasses) && sClasses.includes(ev.id);
+            const evByDate = mod.getEventsByDate(dateStr);
+            
+            // STRICT FILTER: Only show events if they are individual OR belong to an existing group
+            import('@/lib/group-store').then(groupMod => {
+                const existingGroups = groupMod.getGroups();
+                const validGroupIds = new Set(existingGroups.map(g => g.id));
+                
+                const events = evByDate.filter(ev => {
+                    if (ev.type === 'group_class' && ev.group_id) {
+                        return validGroupIds.has(ev.group_id);
+                    }
+                    return true;
                 });
-                const count = classStudents.length;
 
-                return {
-                    ...ev,
-                    teacherName: getTeacherName(ev.teacher_id),
-                    studentCount: count
-                };
+                const allStudents = getStudents();
+                const scheduleWithDetails = events.map(ev => {
+                    const classStudents = allStudents.filter(s => {
+                        const sClasses = (s as any).classes || s.enrolled_group_ids || [];
+                        return Array.isArray(sClasses) && sClasses.includes(ev.id);
+                    });
+                    const count = classStudents.length;
+
+                    return {
+                        ...ev,
+                        teacherName: getTeacherName(ev.teacher_id),
+                        studentCount: count
+                    };
+                });
+                setLiveSchedule(scheduleWithDetails);
             });
-            setLiveSchedule(scheduleWithDetails);
         });
 
         // Birthday Check (Only run on real today)
@@ -545,8 +617,19 @@ export default function DashboardPage() {
 
                 const prefLang = student.preferred_language || 'ka';
                 const templates = (settings?.sms_templates || {}) as any;
+                const isOutOfVisits = latestExpired.sessions_total && latestExpired.sessions_total > 0 && (latestExpired.sessions_total - (latestExpired.sessions_used || 0)) <= 0;
+
                 let tpl = prefLang === 'ka' ? 'თქვენი აბონემენტი ამოიწურა.' : prefLang === 'ru' ? 'Ваш абонемент истек.' : 'Your subscription has expired.';
-                if (templates[prefLang]?.expiration_day_0) {
+                
+                if (isOutOfVisits) {
+                    if (templates[prefLang]?.visitations_out) {
+                        tpl = templates[prefLang].visitations_out;
+                    } else if (templates.ka?.visitations_out) {
+                        tpl = templates.ka.visitations_out;
+                    } else if (templates[prefLang]?.expiration_day_0) {
+                        tpl = templates[prefLang].expiration_day_0;
+                    }
+                } else if (templates[prefLang]?.expiration_day_0) {
                     tpl = templates[prefLang].expiration_day_0;
                 } else if (templates.ka?.expiration_day_0) {
                     tpl = templates.ka.expiration_day_0;
@@ -572,7 +655,8 @@ export default function DashboardPage() {
         });
     }, [selectedDate, settings, t]);
 
-    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+    // No longer using isDemo hardcoded overrides
+    const isDemo = false;
 
     const getLocalizedDate = (date: Date, t: any) => {
         const weekdays = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
@@ -604,10 +688,10 @@ export default function DashboardPage() {
     const dateStr = getLocalizedDate(selectedDate, t);
 
     const stats = [
-        { label: t.totalStudents, value: isDemo ? '142' : String(liveStats.totalStudents), change: isDemo ? '+8' : '0', sub: null, icon: Users, color: 'indigo' },
-        { label: t.activeSubscriptions, value: isDemo ? String(liveStats.activeSubs || 118) : String(liveStats.activeSubs), change: isDemo ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth), sub: null, icon: CreditCard, color: 'emerald' },
-        { label: t.todayRevenue, value: isDemo ? formatCurrency(850, settings.currency) : formatCurrency(liveStats.todayRevenue, settings.currency), change: isDemo ? '+12%' : '0%', sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
-        { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: isDemo ? formatCurrency(14200, settings.currency) : formatCurrency(liveStats.monthlyRevenue, settings.currency), change: isDemo ? '+18%' : '0%', sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
+        { label: t.totalStudents, value: String(liveStats.totalStudents), change: (liveStats.activeChange >= 0 ? `+${liveStats.activeChange}%` : `${liveStats.activeChange}%`), sub: null, icon: Users, color: 'indigo' },
+        { label: t.activeSubscriptions, value: String(liveStats.activeSubs), change: (liveStats.newThisMonth >= 0 ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth)), sub: null, icon: CreditCard, color: 'emerald' },
+        { label: t.todayRevenue, value: formatCurrency(liveStats.todayRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
+        { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: formatCurrency(liveStats.monthlyRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
     ];
 
     const colorMap: Record<string, { bg: string; text: string; border: string; glow: string }> = {
@@ -620,31 +704,84 @@ export default function DashboardPage() {
     const nowHour = new Date().getHours();
     const isToday = selectedDate.toDateString() === new Date().toDateString();
 
-    const currentClass = isToday ? (liveSchedule as { start_time: string; name: string }[]).find(s => {
-        const h = parseInt(s.start_time.split(':')[0]);
+    const currentClass = isToday ? (liveSchedule as { start_time: string; title: string }[]).find(s => {
+        if (!s.start_time) return false;
+        const h = parseInt(s.start_time.split(':')[0] || '0');
         return h <= nowHour && h + 2 > nowHour;
     }) : null;
 
-    // Billing state monitoring
-    const [billing, setBilling] = useState<any>(() => {
-        if (typeof window !== 'undefined' && settings.studioSlug) {
-            const { getBillingState } = require('@/lib/saas-billing');
-            return getBillingState(settings.studioSlug);
-        }
-        return null;
-    });
+    const [billing, setBilling] = useState<any>(null);
 
     useEffect(() => {
-        if (settings.studioSlug && !billing) {
-            const { getBillingState } = require('@/lib/saas-billing');
-            setBilling(getBillingState(settings.studioSlug));
-        }
-    }, [settings.studioSlug, billing]);
+        const refreshBilling = () => {
+            if (typeof window !== 'undefined' && settings?.studioSlug) {
+                try {
+                    const { getBillingState } = require('@/lib/saas-billing');
+                    setBilling(getBillingState(settings.studioSlug));
+                } catch (err) { }
+            }
+        };
+        refreshBilling();
+        window.addEventListener('cc_sa_meta_update', refreshBilling);
+        window.addEventListener('cc_subscription_update', refreshBilling);
+        return () => {
+            window.removeEventListener('cc_sa_meta_update', refreshBilling);
+            window.removeEventListener('cc_subscription_update', refreshBilling);
+        };
+    }, [settings?.studioSlug]);
 
+    if (!isLoaded || (loading && !isDemo)) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 animate-pulse">
+                <Logo size={80} animated loading />
+                <div className="text-center space-y-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading Dashboard...'}</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in relative">
 
+
+            {/* Account Locked / Suspended Overlay */}
+            {billing?.manualBlock && (
+                <div className="fixed inset-0 z-[9999] backdrop-blur-xl bg-slate-900/60 flex items-center justify-center p-4 animate-in fade-in duration-500">
+                    <div className="w-full max-w-[500px] bg-white rounded-[3rem] p-8 sm:p-12 text-center shadow-2xl border border-slate-100 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
+                        
+                        <div className="relative space-y-8">
+                            <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto text-rose-500 shadow-inner">
+                                <ShieldAlert className="w-10 h-10 animate-bounce" />
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight uppercase leading-none">
+                                    {l('ანგარიში შეზღუდულია', 'Аккаунт ограничен', 'Account Restricted')}
+                                </h1>
+                                <p className="text-sm font-bold text-slate-500 leading-relaxed px-4">
+                                    {l('ანგარიში არ არის აქტიური, გთხოვთ გადაიხადოთ სააბონენტო გადასახადი მომსახურების გასაგრძელებლად.', 'Аккаунт не активен, пожалуйста, оплатите подписку для продолжения работы.', 'Account is not active, please pay the subscription fee to continue using the service.')}
+                                </p>
+                            </div>
+
+                            <div className="pt-4 flex flex-col gap-3">
+                                <Link href="/billing" className="h-14 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 shadow-xl shadow-indigo-500/20 active:scale-95 transition-all hover:bg-indigo-700">
+                                    <CreditCard className="w-4 h-4" />
+                                    {t.billing || 'Billing'}
+                                </Link>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="h-12 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
+                                >
+                                    <RefreshCcw className="w-3.5 h-3.5" />
+                                    {t.refreshPage || 'Refresh'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Billing Expiration Notification */}
             {billing?.plan === 'trial' && billing?.status === 'trial' && (billing?.daysLeftInTrial ?? 0) <= 3 && (
@@ -671,31 +808,22 @@ export default function DashboardPage() {
             {/* ─── Top bar ─── */}
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
-                            {t.welcomeBack} {profile?.first_name || ''} 👋
-                        </h1>
-                        {(isDemo || profile?.role === 'owner') && (
-                            <button
-                                onClick={async () => {
-                                    const { clearAllStudioData } = await import('@/lib/settings-store');
-                                    clearAllStudioData(settings.studioSlug);
-                                }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-xl text-[10px] font-black tracking-widest transition-all"
-                            >
-                                <RefreshCcw className="w-3 h-3" />
-                                {l('სისტემის გასუფთავება (Reset)', 'Сброс системы', 'System Reset')}
-                            </button>
-                        )}
+                    <div className="flex items-center flex-wrap gap-2.5 sm:gap-4">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
+                                {t.welcomeBack} {profile?.first_name || ''} 
+                            </h1>
+                            <span className="text-xl sm:text-2xl">👋</span>
+                        </div>
                         {billing && (
                             <span className={cn(
-                                "px-2 py-0.5 rounded-lg text-white text-[10px] font-black tracking-tighter shadow-lg",
-                                billing?.plan === 'trial' ? "bg-amber-500 shadow-amber-500/20" :
+                                "px-2.5 py-0.5 rounded-lg text-white text-[9px] sm:text-[11px] font-black tracking-tighter shadow-lg shrink-0",
+                                (billing?.plan === 'pro' || billing?.plan === 'enterprise') ? "bg-emerald-500 shadow-emerald-500/20" :
                                 billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
                                 billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
-                                "bg-emerald-500 shadow-emerald-500/20"
+                                "bg-amber-500 shadow-amber-500/20"
                             )}>
-                                {billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'PRO')}
+                                {String(billing?.plan === 'pro' || billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'TRIAL')).toUpperCase()}
                             </span>
                         )}
                     </div>
@@ -707,16 +835,16 @@ export default function DashboardPage() {
                     {currentClass && (
                         <div className="hidden lg:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            <span className="text-xs font-medium text-emerald-400">{currentClass.name}</span>
+                            <span className="text-xs font-medium text-emerald-400">{currentClass.title}</span>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* ─── Statistics ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch overflow-x-auto pb-2 scrollbar-none no-scrollbar">
                 {/* 1. Student Dynamics (Active vs New/Churn) */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px] min-w-[160px] flex-shrink-0 lg:flex-shrink">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
                         <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.studentDynamicsMonth}</p>
                     </div>
@@ -738,17 +866,22 @@ export default function DashboardPage() {
                         />
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2">
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in-50 duration-500",
+                            liveStats.activeChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
+                        )}>
+                            {liveStats.activeChange >= 0 ? (
+                                <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
+                            ) : (
+                                <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
+                            )}
+                            <p className={cn("text-[8px] font-black", liveStats.activeChange >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                                {Math.abs(liveStats.activeChange)}%
+                            </p>
+                        </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                             <p className="text-[8px] font-bold text-primary opacity-60">{t.activeLabel}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[8px] font-bold text-emerald-500">+{liveStats.newThisMonth}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                            <p className="text-[8px] font-bold text-red-500">-{liveStats.churnThisMonth}</p>
                         </div>
                     </div>
                 </div>
@@ -775,13 +908,22 @@ export default function DashboardPage() {
                         />
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in-50 duration-500",
+                            liveStats.revenueChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
+                        )}>
+                            {liveStats.revenueChange >= 0 ? (
+                                <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
+                            ) : (
+                                <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
+                            )}
+                            <p className={cn("text-[8px] font-black", liveStats.revenueChange >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                                {Math.abs(liveStats.revenueChange)}%
+                            </p>
+                        </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             <p className="text-[8px] font-bold text-emerald-500">{t.income}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                            <p className="text-[8px] font-bold text-red-500">{t.debtLabel}</p>
                         </div>
                     </div>
                 </div>
@@ -810,7 +952,7 @@ export default function DashboardPage() {
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[8px] font-bold text-emerald-500">{t.activeLabel}</p>
+                            <p className="text-[8px] font-bold text-emerald-500">{t.activeLabel}: {liveStats.activeSubs}</p>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
@@ -960,12 +1102,6 @@ export default function DashboardPage() {
                                         <div className={`w-1 h-8 rounded-full flex-shrink-0`} style={{ backgroundColor: cls.color || '#6366f1' }} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-primary/75'}`}>{cls.title || t.unnamed}</p>
-                                            <p className="text-[11px] text-muted truncate">{(cls as any).teacherName || getTeacherName((cls as any).teacher_id) || t.teacherRole || 'მასწავლებელი'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                                            <span className={`text-xs font-bold ${isCurrent ? 'text-emerald-400' : 'text-primary/40'}`}>{(cls as any).studentCount || 0}</span>
-                                            <Users className="w-3 h-3 text-muted" />
-                                            {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                                         </div>
                                     </div>
                                 );
@@ -1029,18 +1165,18 @@ export default function DashboardPage() {
                         <p className="text-sm font-semibold text-primary">{t.todayAttendance}</p>
                         <p className="text-[11px] text-muted mt-0.5">
                             {t.ofStudents
-                                .replace('{count}', isDemo ? '34' : String(liveStats.attendance))
-                                .replace('{total}', isDemo ? '41' : String(liveStats.activeStudents))
+                                .replace('{count}', String(liveStats.attendance))
+                                .replace('{total}', String(liveStats.activeStudents || liveStats.totalStudents))
                             }
                         </p>
                     </div>
                     <span className="text-2xl font-black text-primary">
-                        {isDemo ? '83%' : (liveStats.activeStudents > 0 ? Math.round((liveStats.attendance / liveStats.activeStudents) * 100) + '%' : '0%')}
+                        {((liveStats.activeStudents || liveStats.totalStudents) > 0 ? Math.round((liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents)) * 100) + '%' : '0%')}
                     </span>
                 </div>
                 <div className="w-full bg-surface rounded-full h-3 overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full relative overflow-hidden transition-all duration-1000"
-                        style={{ width: isDemo ? '83%' : (liveStats.activeStudents > 0 ? (liveStats.attendance / liveStats.activeStudents * 100) + '%' : '0%') }}>
+                        style={{ width: ((liveStats.activeStudents || liveStats.totalStudents) > 0 ? (liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents) * 100) + '%' : '0%') }}>
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
                     </div>
                 </div>
@@ -1048,26 +1184,26 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                            <span className="text-[10px] font-bold text-primary">{t.present}: <span className="text-indigo-400">{isDemo ? '34' : liveStats.attendance}</span></span>
+                            <span className="text-[10px] font-bold text-primary">{t.present}: <span className="text-indigo-400">{liveStats.attendance}</span></span>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-surface-hover border border-border-subtle" />
-                            <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{isDemo ? '7' : Math.max(0, liveStats.activeStudents - liveStats.attendance)}</span></span>
+                            <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{Math.max(0, liveStats.activeStudents - liveStats.attendance)}</span></span>
                         </div>
                     </div>
                     <div className="text-[10px] font-bold text-muted tracking-tight">
-                        {t.activeSubscriptions}: {isDemo ? '41' : liveStats.activeStudents}
+                        {t.activeSubscriptions}: {liveStats.activeStudents}
                     </div>
                 </div>
                 {/* Subscription breakdown */}
                 <div className="mt-3 pt-3 border-t border-border-subtle/50 flex items-center gap-6">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] font-bold text-muted">{t.activeSubscriptions}: <span className="text-emerald-500">{isDemo ? '41' : liveStats.activeSubs}</span></span>
+                        <span className="text-[10px] font-bold text-muted">{t.activeSubscriptions}: <span className="text-emerald-500">{liveStats.activeSubs}</span></span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-rose-400/60" />
-                        <span className="text-[10px] font-bold text-muted">{t.inactive || 'Inactive'}: <span className="text-rose-400/80">{isDemo ? '12' : Math.max(0, liveStats.totalStudents - liveStats.activeSubs)}</span></span>
+                        <span className="text-[10px] font-bold text-muted">{t.inactive || 'Inactive'}: <span className="text-rose-400/80">{Math.max(0, liveStats.totalStudents - liveStats.activeSubs)}</span></span>
                     </div>
                 </div>
             </div>
@@ -1107,19 +1243,19 @@ export default function DashboardPage() {
 
             {/* Trial Banner at bottom */}
             {billing?.status === 'trial' && (
-                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl p-4 sm:p-6 text-white shadow-xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
-                    <div className="flex items-center gap-4 text-center sm:text-left">
-                        <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
-                            <Zap className="w-6 h-6 text-white" />
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 text-white shadow-2xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4 sm:gap-6 mt-6 sm:mt-12 mb-32 sm:mb-8 relative z-10 border border-white/10 w-full">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left">
+                        <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-inner">
+                            <Zap className="w-5 h-5 sm:w-7 sm:h-7 text-white animate-pulse" />
                         </div>
-                        <div>
-                            <h2 className="text-lg font-black tracking-tight">{t.trialActive}</h2>
-                            <p className="text-sm font-medium text-white/80">
+                        <div className="space-y-0.5 sm:space-y-1">
+                            <h2 className="text-[15px] sm:text-xl md:text-2xl font-black tracking-tight">{t.trialActive}</h2>
+                            <p className="text-[11px] sm:text-xs md:text-sm font-bold text-white/90">
                                 {t.trialEndingDesc.replace('{days}', billing.daysLeftInTrial.toString())}
                             </p>
                         </div>
                     </div>
-                    <Link href="/billing" className="w-full sm:w-auto px-6 py-3 bg-white text-indigo-600 rounded-xl font-black text-sm hover:scale-105 active:scale-95 transition-all shadow-lg text-center">
+                    <Link href="/billing" className="w-full sm:w-auto px-5 py-3.5 sm:px-8 sm:py-4 bg-white text-indigo-600 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:bg-opacity-90 active:scale-95 transition-all shadow-xl text-center flex-shrink-0">
                         {t.buyPlan || 'Buy Package'}
                     </Link>
                 </div>

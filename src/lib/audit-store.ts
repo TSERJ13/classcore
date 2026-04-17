@@ -3,6 +3,7 @@
  * Centrally tracks important actions (payments, subscriptions) studio-wide.
  */
 import { getScopedKey, getActiveSlug } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 export interface AuditEntry {
     id: string;
@@ -44,6 +45,11 @@ export function recordAuditAction(entry: Omit<AuditEntry, 'id' | 'timestamp'>) {
         // Keep last 1000 entries for performance
         const updated = [newEntry, ...history].slice(0, 1000);
         localStorage.setItem(getScopedKey(HISTORY_KEY), JSON.stringify(updated));
+        
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            pushStudioStateToCloud(activeSlug, [], { [getScopedKey(HISTORY_KEY)]: updated });
+        }
         window.dispatchEvent(new Event('cc_history_update'));
     } catch (e) {
         console.error('Audit failed:', e);

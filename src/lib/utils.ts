@@ -1,6 +1,19 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+export function calculateAge(birthDate: string): number | null {
+    if (!birthDate) return null;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    if (isNaN(birth.getTime())) return null;
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+}
+
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
@@ -80,7 +93,7 @@ export function compactSlugify(text: string): string {
         .split('')
         .map(char => geoToLat[char] || char)
         .join('')
-        .replace(/[^a-z0-9]/g, '');     // Remove EVERYTHING except a-z and 0-9
+        .replace(/[^a-z0-9]/g, '');     // STRICT: Remove EVERYTHING except a-z and 0-9 (No dashes, no spaces)
 }
 
 export function getLocalISODate(d?: Date): string {
@@ -94,6 +107,24 @@ export const STORAGE_KEY = 'cc_studio_settings';
 export const ACTIVE_SLUG_KEY = 'cc_active_studio_slug';
 export const REGISTRY_KEY = 'cc_studios_list';
 
+// --- UNIVERSAL SYNC REGISTRY ---
+// All operational data collections (current and future) follow this registry.
+export const SYNC_COLLECTIONS = [
+    'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
+    'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
+    'cc_subscription_plans', 'cc_student_subscriptions', 'cc_shop_products', 
+    'cc_shop_sales', 'cc_audit_log', 'cc_security_log', 'cc_salary_update',
+    'cc_notifications', 'cc_calendar_events', 'cc_global_history', 
+    'cc_global_trash', 'cc_studio_settings', 'cc_deleted_'
+];
+
+// Keys that belong to the browser session, NOT a specific studio
+export const PROTECTED_GLOBAL_KEYS = [
+    STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 
+    'cc_last_version', 'cc_onboarding_in_progress', 'cc_staff_session',
+    'cc_staff_auth'
+];
+
 /** Helper to get active studio slug from URL or localStorage */
 export function getActiveSlug(): string | null {
     if (typeof window === 'undefined') return null;
@@ -101,9 +132,81 @@ export function getActiveSlug(): string | null {
 }
 
 /** 
- * Centralized key generator for all studio-scoped data.
- * Supports legacy slug-based and new orgId-based scoping.
+ * NUCLEAR CONSOLIDATOR:
+ * Merges different scoped silos (Slug vs UUID) into a single authoritative silo locally.
+ * This prevents stale legacy data from 'poisoning' the sync payload during the pulse.
  */
+export function consolidateStudioKeys(slug: string, activeOrgId?: string) {
+    if (typeof window === 'undefined' || !slug) return;
+    
+    console.log('🛡️ [Unification] Starting LocalStorage Consolidation for:', slug);
+    const keys = Object.keys(localStorage);
+    const authoritativeScopeId = activeOrgId || slug;
+    
+    // 1. Identify all syncable keys belonging to this studio
+    const studioKeys: Record<string, string[]> = {}; // Map base prefix to all found variants
+    
+    keys.forEach(k => {
+        const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
+        const belongsToStudio = k.includes(`_${slug}`) || (activeOrgId && k.includes(`_${activeOrgId}`));
+        
+        if (isSyncablePrefix && belongsToStudio) {
+            const basePrefix = SYNC_COLLECTIONS.find(p => k.startsWith(p))!;
+            if (!studioKeys[basePrefix]) studioKeys[basePrefix] = [];
+            studioKeys[basePrefix].push(k);
+        }
+    });
+
+    // 2. Merge and Purge
+    Object.keys(studioKeys).forEach(base => {
+        const variants = studioKeys[base];
+        const targetKey = `${base}_${authoritativeScopeId}`;
+        
+        if (variants.length <= 1 && variants[0] === targetKey) return;
+
+        console.log(`🛡️ [Unification] Consolidating variants for ${base}:`, variants);
+        
+        let mergedData: any = null;
+        
+        // Merge strategy: Start with the most recent or most detailed (simplistic here: just accumulate)
+        variants.forEach(v => {
+            try {
+                const val = localStorage.getItem(v);
+                if (!val) return;
+                const parsed = JSON.parse(val);
+                
+                if (!mergedData) {
+                    mergedData = parsed;
+                } else {
+                    // Primitive merge (arrays = union, objects = shallow merge)
+                    if (Array.isArray(mergedData) && Array.isArray(parsed)) {
+                        const map = new Map<string, any>();
+                        [...mergedData, ...parsed].forEach(item => { if (item.id) map.set(item.id, { ...(map.get(item.id) || {}), ...item }); });
+                        mergedData = Array.from(map.values());
+                    } else if (typeof mergedData === 'object' && typeof parsed === 'object') {
+                        mergedData = { ...mergedData, ...parsed };
+                    }
+                }
+            } catch (e) {
+                console.error(`🛡️ [Unification] Failed to merge variant ${v}:`, e);
+            }
+        });
+
+        if (mergedData) {
+            // Write to authoritative key
+            localStorage.setItem(targetKey, JSON.stringify(mergedData));
+            
+            // DELETE all other variants to prevent ghost restoration
+            variants.forEach(v => {
+                if (v !== targetKey) {
+                    console.log(`🛡️ [Unification] Purging legacy silo: ${v}`);
+                    localStorage.removeItem(v);
+                }
+            });
+        }
+    });
+}
+
 export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;
@@ -113,21 +216,31 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     let scopeId = finalSlug;
     if (typeof window !== 'undefined') {
         try {
-            const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
-            if (raw) {
-                const settings = JSON.parse(raw);
-                if (settings.orgId) scopeId = settings.orgId;
+            // Check for explicit orgId override (set during login or hydration)
+            const override = localStorage.getItem(`cc_org_id_override_${finalSlug}`);
+            if (override) {
+                scopeId = override;
+            } else {
+                const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
+                if (raw) {
+                    const settings = JSON.parse(raw);
+                    // Ensure settings is a valid object before property access
+                    if (settings && typeof settings === 'object' && settings.orgId) {
+                        scopeId = settings.orgId;
+                        // Cache it for faster lookups and to bridge gaps during sync
+                        localStorage.setItem(`cc_org_id_override_${finalSlug}`, settings.orgId);
+                    }
+                }
             }
         } catch { }
+
     }
 
     // If branchId is explicitly provided or we should use the active one
-    const bId = branchId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_active_branch_${finalSlug}`) : 'main');
+    const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
-    // Certain keys should always be studio-level (not branch-scoped)
-    const sharedKeys = [STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 'cc_global_history', 'cc_global_trash'];
-    if (sharedKeys.includes(base)) {
-        return `${base}_${finalSlug}`; // Settings itself and registration list must stay slug-based for discovery
+    if (PROTECTED_GLOBAL_KEYS.includes(base) || SYNC_COLLECTIONS.includes(base) || base.startsWith('cc_deleted_')) {
+        return `${base}_${finalSlug}`; // Settings and core collections must stay slug-based for reliable sync discovery
     }
 
     // ALWAYS scope by branch ID if available, including 'main'
@@ -137,6 +250,7 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
 
     return `${base}_${scopeId}`;
 }
+
 /** 
  * Signals that a local update has occurred.
  * Used by StudioContext to skip cloud-to-local merges for a short window.

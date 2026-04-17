@@ -3,6 +3,7 @@
  * Persists calendar events to localStorage.
  */
 import type { CalendarEvent, EventType } from '@/types';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_EVENTS_KEY = 'cc_calendar_events';
 function getEventsKey() { return getScopedKey(BASE_EVENTS_KEY); }
@@ -18,7 +19,7 @@ const TODAY = new Date();
 function makeEvent(id: string, title: string, type: EventType, hallId: string, teacherId: string, dayOffset: number, start: string, end: string, recurring: 'none' | 'weekly' = 'none', groupId?: string): CalendarEvent {
     const d = new Date(TODAY);
     d.setDate(TODAY.getDate() + dayOffset);
-    return { id, org_id: getActiveSlug() || 'demo', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, reminder_30m: false, created_at: '' };
+    return { id, org_id: getActiveSlug() || '', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, reminder_30m: false, created_at: '' };
 }
 
 const SEED_WEEK: CalendarEvent[] = [];
@@ -44,8 +45,13 @@ export function getEvents(): CalendarEvent[] {
         }
 
         if (!saved) return isMainBranch ? SEED_WEEK : [];
-
-        let events = JSON.parse(saved) || [];
+        let events = [];
+        try {
+            events = JSON.parse(saved) || [];
+        } catch (e) {
+            console.error('❌ [EventStore] Corrupt events data:', e);
+            return isMainBranch ? SEED_WEEK : [];
+        }
         if (!Array.isArray(events)) events = [];
 
         // Migration: Map old 'eX' IDs to new 'clsX' IDs if they still exist in localStorage
@@ -73,13 +79,22 @@ export function getEvents(): CalendarEvent[] {
             saveEvents(events);
         }
 
-        // Safety filter: remove events with missing/malformed start_time or end_time
-        // These can cause the calendar renderer to crash with NaN positions
-        const validEvents = events.filter((e: CalendarEvent) =>
-            e && e.id && e.date &&
-            typeof e.start_time === 'string' && e.start_time.includes(':') &&
-            typeof e.end_time === 'string' && e.end_time.includes(':')
-        );
+        // 4. AUTO-PURGE ORPHANS: 
+        // If an event belongs to a group that is in the deletion tombstone, purge it now.
+        const deletedGroupsKey = `cc_deleted_groups_${activeSlug}`;
+        const rawDeleted = localStorage.getItem(deletedGroupsKey);
+        const deletedGroupIds = rawDeleted ? JSON.parse(rawDeleted) : [];
+        const deletedSet = new Set(Array.isArray(deletedGroupIds) ? deletedGroupIds : []);
+
+        if (deletedSet.size > 0) {
+            const initialCount = validEvents.length;
+            const healthyEvents = validEvents.filter(e => !e.group_id || !deletedSet.has(e.group_id));
+            if (healthyEvents.length < initialCount) {
+                console.log(`🧹 [EventStore] Auto-purged ${initialCount - healthyEvents.length} orphaned events from deleted groups`);
+                saveEvents(healthyEvents);
+                return healthyEvents;
+            }
+        }
 
         return validEvents;
     } catch {
@@ -91,6 +106,11 @@ export function saveEvents(events: CalendarEvent[]) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getEventsKey(), JSON.stringify(events));
     markLocalUpdate();
+    
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [getEventsKey()]: events });
+    }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_calendar_events_update'));
 }
 
@@ -153,7 +173,7 @@ export function deleteGroupEvents(groupId: string) {
 }
 
 /** Upsert recurring weekly events for a group based on schedule slots */
-export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string, teacherId: string, hallId: string, slots: { dayOfWeek: number; startTime: string; endTime: string }[], color?: string) {
+export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string, teacherId: string, hallId: string, slots: { dayOfWeek: number; startTime: string; endTime: string }[], color?: string, secondaryTeacherId?: string) {
     // Remove old recurring events for this group
     const cleaned = getEvents().filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));
 
@@ -183,6 +203,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
             type: 'group_class' as const,
             hall_id: hallId || 'h1',
             teacher_id: teacherId || '',
+            secondary_teacher_id: secondaryTeacherId || '',
             group_id: groupId,
             date: dateStr,
             start_time: slot.startTime,
@@ -199,7 +220,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
     return updated;
 }
 
-export function addIndividualLesson(studentId: string, title: string, teacherId: string, date: string, start: string, end: string, hallId = 'h1', orgId = 'demo'): CalendarEvent {
+export function addIndividualLesson(studentId: string, title: string, teacherId: string, date: string, start: string, end: string, hallId = 'h1', orgId = ''): CalendarEvent {
     const events = getEvents();
     const newEvent: CalendarEvent = {
         id: `ind_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,

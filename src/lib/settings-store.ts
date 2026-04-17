@@ -4,7 +4,6 @@ import { syncStaffToCloud, fetchStaffFromCloud } from './sync-store';
 
 import { 
     type ThemeKey, 
-    type BgKey, 
     type StaffRole as UserRole, 
     type StaffPermissions, 
     type TrashItem, 
@@ -14,7 +13,7 @@ import {
     type StudioSettings 
 } from '@/types';
 
-export type { ThemeKey, BgKey, UserRole, StaffPermissions, TrashItem, SubscriptionLog, StaffMember, Branch, StudioSettings };
+export type { ThemeKey, UserRole, StaffPermissions, TrashItem, SubscriptionLog, StaffMember, Branch, StudioSettings };
 
 export const THEMES: Record<ThemeKey, { label: string; accent: string; accentHex: string; bg: string; text: string; border: string; from: string; to: string }> = {
     indigo: { label: 'Indigo', accent: '239 84% 67%', accentHex: '#6366f1', bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30', from: 'from-indigo-500', to: 'to-violet-600' },
@@ -26,16 +25,6 @@ export const THEMES: Record<ThemeKey, { label: string; accent: string; accentHex
     fuchsia: { label: 'Fuchsia', accent: '292 91% 63%', accentHex: '#e879f9', bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-400', border: 'border-fuchsia-500/30', from: 'from-fuchsia-500', to: 'to-purple-600' },
 };
 
-export type BgTheme = { label: string; base: string; surface: string; card: string; preview: string };
-export const BG_THEMES: Record<BgKey, BgTheme> = {
-    charcoal: { label: 'Charcoal', base: '#0e0e12', surface: '#111116', card: '#161620', preview: 'bg-[#0e0e12]' },
-    midnight: { label: 'Midnight', base: '#080c14', surface: '#0d1424', card: '#121c30', preview: 'bg-[#080c14]' },
-    abyss: { label: 'Abyss', base: '#050508', surface: '#0a0a0f', card: '#0f0f16', preview: 'bg-[#050508]' },
-    forest: { label: 'Forest', base: '#071310', surface: '#0c1c18', card: '#112420', preview: 'bg-[#071310]' },
-    white: { label: 'White', base: '#ffffff', surface: '#f8f9fa', card: '#ffffff', preview: 'bg-[#ffffff]' },
-    ivory: { label: 'Ivory', base: '#fefcf8', surface: '#faf8f3', card: '#ffffff', preview: 'bg-[#fefcf8]' },
-    cocoa: { label: 'Cocoa', base: '#faf5ed', surface: '#f3ede4', card: '#ffffff', preview: 'bg-[#faf5ed]' },
-};
 
 /** Get the currently active studio slug for the dashboard */
 export function getActiveSlug(): string {
@@ -74,7 +63,9 @@ export async function validateStaffLogin(email: string, password: string): Promi
     const cleanEmail = email.trim().toLowerCase();
     const tryLogin = (settings: StudioSettings, slug: string) => {
         const staff = settings.staff?.find(s =>
-            s.email?.toLowerCase().trim() === cleanEmail &&
+            (s.email?.toLowerCase().trim() === cleanEmail || 
+             s.full_name?.toLowerCase().trim() === cleanEmail || 
+             s.first_name?.toLowerCase().trim() === cleanEmail) &&
             s.password === password
         );
         return staff ? { staff, slug } : null;
@@ -122,16 +113,26 @@ export async function validateStaffLogin(email: string, password: string): Promi
             // Reclaim the entire registry in the background
             cloudResults.forEach(r => addToRegistry(r.slug));
 
+            // CRITICAL: Cache the orgId override immediately to ensure consistent key scoping
+            if (matchingResult.staff.org_id) {
+                localStorage.setItem(`cc_org_id_override_${matchingResult.slug}`, matchingResult.staff.org_id);
+            }
+
             // Hydrate local store with cloud data for the current matching studio
             const cloudStaff = await fetchStaffFromCloud(matchingResult.slug);
             if (cloudStaff) {
-                saveSettings({ staff: cloudStaff }, undefined, matchingResult.slug);
+                const existing = loadSettings(matchingResult.slug);
+                saveSettings({ 
+                    staff: cloudStaff, 
+                    orgId: matchingResult.staff.org_id || existing.orgId 
+                }, undefined, matchingResult.slug);
             }
             return matchingResult;
         } else {
             console.warn('❌ Staff not found in cloud registry for:', cleanEmail);
-            return { error: 'მომხმარებელი ვერ მოიძებნა. თუ ახალ კომპიუტერზე ხართ, დარწმუნდით რომ ძველ კომპიუტერზე "პარამეტრებში" დაყენებული გაქვთ საკუთარი (უნიკალური) სტუდიის მისამართი (Slug).' };
+            return { error: 'მომხმარებელი ამ მონაცემებით ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია' };
         }
+
     } catch (err: any) {
         console.error('❌ Cloud Fallback Critical Error:', err);
         return { error: 'სისტემური შეცდომა სინქრონიზაციისას.' };
@@ -182,7 +183,9 @@ export function getStudioRegistry(): string[] {
     if (typeof window === 'undefined') return [];
     try {
         const raw = localStorage.getItem(REGISTRY_KEY);
-        return raw ? JSON.parse(raw) : [];
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
     } catch { return []; }
 }
 
@@ -207,6 +210,8 @@ export function removeFromRegistry(slug: string) {
 export function cleanupRegistry() {
     if (typeof window === 'undefined') return;
     const list = getStudioRegistry();
+    if (!Array.isArray(list)) return;
+    
     const next = list.filter(slug => {
         if (slug === DEFAULT_SETTINGS.studioSlug) return true;
         const key = getScopedKey(STORAGE_KEY, slug);
@@ -297,6 +302,58 @@ export function ensureUniqueSlug(name: string, currentSlug?: string): string {
     return uniqueSlug;
 }
 
+/**
+ * Migrates ALL studio-scoped data from oldSlug to newSlug in localStorage.
+ * This is CRITICAL to prevent data loss when changing studio slugs.
+ */
+export function migrateSlugData(oldSlug: string, newSlug: string) {
+    if (typeof window === 'undefined' || !oldSlug || !newSlug || oldSlug === newSlug) return;
+
+    console.log(`🚀 [SettingsStore] Migrating data: ${oldSlug} -> ${newSlug}`);
+
+    const keys = Object.keys(localStorage);
+    const affectedKeys: string[] = [];
+
+    // 1. Re-map the settings and all scoped data keys
+    keys.forEach(k => {
+        // Match various patterns: _slug, :slug, etc.
+        const matches = k.endsWith(`_${oldSlug}`) || k.includes(`_${oldSlug}_`) || k.includes(`:${oldSlug}`);
+        
+        if (matches) {
+            const newVal = localStorage.getItem(k);
+            if (newVal) {
+                // Use a safe replace to switch the slug while preserving surrounding delimiters
+                const newKey = k.replace(oldSlug, newSlug);
+                localStorage.setItem(newKey, newVal);
+                localStorage.removeItem(k);
+                affectedKeys.push(`${k} -> ${newKey}`);
+            }
+        }
+    });
+
+    // 2. Update the Registry
+    const list = getStudioRegistry();
+    const nextList = list.map(s => s === oldSlug ? newSlug : s);
+    localStorage.setItem(REGISTRY_KEY, JSON.stringify([...new Set(nextList)]));
+
+    // 3. Update the Staff Session if active
+    const session = getStaffSessionRaw();
+    if (session && session.slug === oldSlug) {
+        localStorage.setItem('cc_staff_session', JSON.stringify({ ...session, slug: newSlug }));
+    }
+
+    // 4. Update the Active Slug
+    const active = localStorage.getItem(ACTIVE_SLUG_KEY);
+    if (active === oldSlug) {
+        localStorage.setItem(ACTIVE_SLUG_KEY, newSlug);
+    }
+
+    console.log(`✅ [SettingsStore] Migration complete. Moved ${affectedKeys.length} keys.`);
+    
+    // Broadcast for UI sync
+    window.dispatchEvent(new Event('cc_settings_update'));
+}
+
 /** Generates a deterministic 6-digit numeric Cabinet Code from a studio's slug */
 export function generateCabinetCode(slug: string): string {
     let hash = 0;
@@ -315,14 +372,14 @@ export function generateCabinetCode(slug: string): string {
 export const DEFAULT_SETTINGS: StudioSettings = {
     orgId: '',
     studioName: '',
-    studioSlug: 'demo.classcore.ge',
+    studioSlug: '',
+    isWizardCompleted: false,
     logoDataUrl: null,
     currency: 'GEL',
     language: 'ka',
     timezone: 'Asia/Tbilisi',
     googleCalendarEnabled: false,
     themeKey: 'indigo',
-    bgKey: 'white',
     accentColor: '239 84% 67%',
     notifications: {
         newStudent: true,
@@ -349,6 +406,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     sms_templates: {
         ka: {
             expiration_day_0: 'გამარჯობა {name}, გენატრებათ ვარჯიში? თქვენი აბონემენტი ({plan}) იწურება დღეს. გთხოვთ განაახლოთ.',
+            low_visits: 'გამარჯობა {name}, თქვენ დაგიმთავრდათ ვიზიტები სტუდიაში: {studio}. გთხოვთ განაახლოთ აბონემენტი.',
             birthday: 'გამარჯობა {name}, გილოცავთ დაბადების დღეს! საუკეთესო სურვილებით, {studio}.',
             new_year: 'გილოცავთ ახალ წელს! გისურვებთ წარმატებულ და ბედნიერ წელს {studio}-სთან ერთად.',
             easter: 'გილოცავთ აღდგომის ბრწყინვალე დღესასწაულს! საუკეთესო სურვილებით, {studio}.',
@@ -357,6 +415,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
         },
         ru: {
             expiration_day_0: 'Здравствуйте {name}, соскучились по тренировкам? Ваш абонемент ({plan}) истекает сегодня. Пожалуйста, обновите его.',
+            low_visits: 'Здравствуйте {name}, у вас закончились визиты в студии: {studio}. Пожалуйста, обновите абонемент.',
             birthday: 'Здравствуйте {name}, с днем рождения! С наилучшими пожеланиями, {studio}.',
             new_year: 'С Новым Годом! Желаем успешного и счастливого года вместе с {studio}.',
             easter: 'Поздравляем со светлым праздником Пасхи! С наилучшими пожеланиями, {studio}.',
@@ -365,6 +424,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
         },
         en: {
             expiration_day_0: 'Hello {name}, miss training? Your plan ({plan}) expires today. Please renew it.',
+            low_visits: 'Hello {name}, you have run out of visits at {studio}. Please renew your subscription.',
             birthday: 'Happy Birthday {name}! Best wishes, {studio}.',
             new_year: 'Happy New Year! Wishing you a successful and happy year with {studio}.',
             easter: 'Happy Easter! Best wishes from {studio}.',
@@ -375,8 +435,16 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     branches: [
         { id: 'main', name: 'მთავარი ფილიალი', is_active: true }
     ],
+    owner_info: {
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: ''
+    },
     customRoles: ['manager', 'teacher', 'receptionist', 'accountant'],
     activeBranchId: 'main',
+    sms_enabled: true,
+    primary_lang: 'ka',
     staff: [],
 };
 
@@ -394,7 +462,9 @@ export function loadSettings(slug?: string): StudioSettings {
         }
 
         const parsed = JSON.parse(raw);
-        if (!parsed) return { ...DEFAULT_SETTINGS, cabinetCode: generateCabinetCode(finalSlug) };
+        if (!parsed || typeof parsed !== 'object') {
+             return { ...DEFAULT_SETTINGS, cabinetCode: generateCabinetCode(finalSlug) };
+        }
 
         let cabinetCode = parsed.cabinetCode;
         if (!cabinetCode) {
@@ -408,6 +478,8 @@ export function loadSettings(slug?: string): StudioSettings {
             notifications: { ...DEFAULT_SETTINGS.notifications, ...(parsed.notifications || {}) },
             security: { ...DEFAULT_SETTINGS.security, ...(parsed.security || {}) },
             landingContent: { ...DEFAULT_SETTINGS.landingContent, ...(parsed.landingContent || {}) },
+            owner_info: { ...DEFAULT_SETTINGS.owner_info, ...(parsed.owner_info || {}) },
+            isWizardCompleted: !!parsed.isWizardCompleted,
             sms_templates: {
                 ka: { ...DEFAULT_SETTINGS.sms_templates.ka, ...(parsed.sms_templates?.ka || {}) },
                 ru: { ...DEFAULT_SETTINGS.sms_templates.ru, ...(parsed.sms_templates?.ru || {}) },
@@ -428,6 +500,11 @@ export function loadSettings(slug?: string): StudioSettings {
 export function saveSettings(s: Partial<StudioSettings>, current?: StudioSettings, slug?: string): StudioSettings {
     const base = current || loadSettings(slug);
     const next = { ...base, ...s };
+    
+    // Safety: Auto-generate slug if missing but name exists
+    if (!next.studioSlug && next.studioName && next.studioName.toLowerCase() !== 'studio') {
+        next.studioSlug = compactSlugify(next.studioName);
+    }
     if (typeof window !== 'undefined') {
         try {
             const finalSlug = slug || next.studioSlug || getActiveSlug();
@@ -439,6 +516,25 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
             if (next.studioSlug) {
                 setActiveSlug(next.studioSlug);
             }
+            
+            if (finalSlug && finalSlug !== 'demo.classcore.ge') {
+                const isVitalUpdate = s.staff || s.security || s.branches || s.studioName || s.logoDataUrl;
+                if (isVitalUpdate) {
+                    import('./sync-store').then(({ pushStudioStateToCloud }) => {
+                        // Push full state including staff and studioData
+                        const allKeys = Object.keys(localStorage);
+                        const studioData: Record<string, any> = {};
+                        // Simple scan for scoped keys to include in this instant push
+                        allKeys.forEach(k => {
+                            if (k.includes(`_${finalSlug}`) || (next.orgId && k.includes(`_${next.orgId}`))) {
+                                try { studioData[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch {}
+                            }
+                        });
+                        pushStudioStateToCloud(finalSlug, next.staff, studioData, 0, next.orgId);
+                    });
+                }
+            }
+
             if (next.studioName) {
                 setCookie('cc_studio_name', encodeURIComponent(next.studioName), 365);
             }
@@ -584,41 +680,6 @@ export function applyTheme(themeKey: ThemeKey) {
     }
 }
 
-/** Apply background CSS variables to :root */
-export function applyBg(bgKey: BgKey) {
-    const bg = BG_THEMES[bgKey];
-    if (typeof document !== 'undefined') {
-        // Set CSS variables
-        document.documentElement.style.setProperty('--bg-base', bg.base);
-        document.documentElement.style.setProperty('--bg-surface', bg.surface);
-        document.documentElement.style.setProperty('--bg-card', bg.card);
-
-        // Apply to body directly
-        document.body.style.background = bg.base;
-        document.body.style.transition = 'background-color 0.3s ease';
-
-        // Apply to html element as well
-        document.documentElement.style.background = bg.base;
-
-        // For light themes, adjust text colors
-        const isLight = ['white', 'ivory', 'cocoa'].includes(bgKey);
-        if (isLight) {
-            document.documentElement.classList.add('light-theme');
-            document.documentElement.style.setProperty('--text-primary', '#111827');
-            document.documentElement.style.setProperty('--text-muted', '#6b7280');
-            document.documentElement.style.setProperty('--border-subtle', 'rgba(0,0,0,0.06)');
-        } else {
-            document.documentElement.classList.remove('light-theme');
-            document.documentElement.style.setProperty('--text-primary', '#ffffff');
-            document.documentElement.style.setProperty('--text-muted', 'rgba(255,255,255,0.6)');
-            document.documentElement.style.setProperty('--border-subtle', 'rgba(255,255,255,0.1)');
-        }
-
-        // Force reflow to ensure styles are applied
-        void document.body.offsetHeight;
-    }
-}
-
 /** 
  * Gets the total count of unread support messages across all studios.
  * Support message is unread if its 'read' property is false AND sender is NOT 'student' (support).
@@ -626,6 +687,8 @@ export function applyBg(bgKey: BgKey) {
 export function getUnreadSupportCount(): number {
     if (typeof window === 'undefined') return 0;
     const slugs = getStudioRegistry();
+    if (!Array.isArray(slugs)) return 0;
+    
     let total = 0;
     slugs.forEach(slug => {
         try {
@@ -634,7 +697,7 @@ export function getUnreadSupportCount(): number {
             if (raw) {
                 const msgs = JSON.parse(raw);
                 if (Array.isArray(msgs)) {
-                    const unread = msgs.filter((m: any) => m.read === false && m.sender !== 'student');
+                    const unread = msgs.filter((m: any) => m && m.read === false && m.sender !== 'student');
                     total += unread.length;
                 }
             }
@@ -649,29 +712,38 @@ export function getUnreadSupportCount(): number {
 export function clearAllStudioData(slug: string) {
     if (typeof window === 'undefined') return;
     
+    // 1. Get OrgId if possible for deeper cleanup
+    const settings = loadSettings(slug);
+    const orgId = settings.orgId;
+
+    // 2. Also clear meta and billing data
+    localStorage.removeItem(`cc_sa_meta_${slug}`);
+    localStorage.removeItem(`cc_sa_meta_billing_${slug}`); // Ensure billing meta is also gone
+    
     const keys = Object.keys(localStorage);
     let count = 0;
     
     keys.forEach(k => {
-        // Match keys like cc_student_data_slug, cc_checkins_slug_2023-01-01, etc.
-        // Also cleanup EVERYTHING for the demo slug if we are currently logged into one
+        // Scoped keys: cc_student_data_slug, cc_checkins_slug_2023-01-01, cc:slug:data
+        // OR OrgId scoped: cc_student_data_UUID
         const isTargetSlug = k.includes(`_${slug}`) || k.includes(`${slug}_`) || k.includes(`:${slug}`);
-        const isDemoSlug = k.includes('demo.classcore.ge');
+        const isOrgScoped = orgId && (k.includes(`_${orgId}`) || k.includes(`${orgId}_`) || k.includes(`:${orgId}`));
+        const isDemoSlug = k.includes('demo.classcore.ge') && slug === 'demo.classcore.ge';
         
-        if (isTargetSlug || isDemoSlug) {
+        if (isTargetSlug || isOrgScoped || isDemoSlug) {
             localStorage.removeItem(k);
             count++;
         }
     });
 
-    console.log(`🧹 [SettingsStore] Master Clear: Removed ${count} keys for studio ${slug}`);
+    console.log(`🧹 [SettingsStore] Master Clear: Removed ${count} keys for studio ${slug} (OrgID: ${orgId})`);
+
+    // 3. Force remove from registry
+    removeFromRegistry(slug);
     
-    // Also clear ANY keys related to active slugs/branches to force clean discovery
+    // 4. Also clear ANY keys related to active slugs/branches to force clean discovery
     localStorage.removeItem(ACTIVE_SLUG_KEY);
     localStorage.removeItem(`cc_active_branch_${slug}`);
-    
-    // Also remove registry entry to force a clean reload from cloud or defaults
-    removeFromRegistry(slug);
     
     // Reload if current slug matches to refresh state
     const currentSlug = localStorage.getItem('cc_active_studio_slug');
@@ -696,7 +768,7 @@ export type ResetCategories = {
  * SELECTIVE RESET: Clears all student, group, sales, and calendar data 
  * but PRESERVES studio identity (name, logo, slug, branches).
  */
-export function resetStudioData(slug: string, options?: ResetCategories) {
+export async function resetStudioData(slug: string, options?: ResetCategories) {
     if (typeof window === 'undefined') return;
 
     // Default to everything if no options provided
@@ -705,15 +777,29 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
         teachers: true, shop: true, analytics: true, notifications: true
     };
 
+    // 1. CLEAR CLOUD FIRST (Nuclear Strike)
+    try {
+        const { masterStudioPurge } = await import('./sync-store');
+        // If it's a full reset, we use the nuclear masterStudioPurge
+        if (!options || Object.values(options).every(v => v === true)) {
+            await masterStudioPurge(slug);
+        } else {
+            // TODO: Implement selective cloud purge if needed
+            // For now, even a selective reset should probably trigger a sync pulse
+        }
+    } catch (err) {
+        console.error('❌ [SettingsStore] Cloud reset failed:', err);
+    }
+
     const prefixMap: Record<string, string[]> = {
         plans: ['cc_subscription_plans'],
-        students: ['cc_student_data', 'cc_student_subscriptions', 'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_student_plans', 'cc_student_groups'],
-        groups: ['cc_groups', 'cc_group_data', 'cc_attendance'],
+        students: ['cc_student_data', 'cc_student_subscriptions', 'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_student_plans', 'cc_student_groups', 'cc_student_balance', 'cc_bonus_points'],
+        groups: ['cc_groups', 'cc_group_data', 'cc_attendance', 'cc_attendance_archive', 'cc_checkins_', 'cc_attendance_data'],
         calendar: ['cc_calendar_events', 'cc_events'],
         halls: ['cc_halls', 'cc_hall_rental', 'cc_hall_rentals', 'cc_halls_data'],
-        teachers: ['cc_teachers', 'cc_staff'],
-        shop: ['cc_shop_sales', 'cc_shop_products', 'cc_shop_inventory', 'cc_inventory', 'cc_sales', 'cc_shop_categories'],
-        analytics: ['cc_expenses', 'cc_audit_logs', 'cc_salary_status', 'cc_salary_payouts', 'cc_attendance_archive', 'cc_uid_registry', 'cc_trash_bin', 'cc_attendance_data', 'cc_checkins', 'cc_salary_history', 'cc_salary_config'],
+        teachers: ['cc_teachers', 'cc_staff', 'cc_salary_config', 'cc_salary_history', 'cc_salary_status', 'cc_salary_payouts'],
+        shop: ['cc_shop_sales', 'cc_shop_products', 'cc_shop_inventory', 'cc_inventory', 'cc_sales', 'cc_shop_categories', 'cc_product_categories'],
+        analytics: ['cc_expenses', 'cc_audit_logs', 'cc_uid_registry', 'cc_trash_bin', 'cc_attendance_data', 'cc_checkins_'],
         notifications: ['cc_notifications']
     };
 
@@ -731,6 +817,13 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
         // Check each enabled category
         Object.entries(cats).forEach(([cat, enabled]) => {
             if (enabled && prefixMap[cat]?.some(p => k.startsWith(p))) {
+                // Wildcard cleanup for date-based keys (like cc_checkins_YYYY-MM-DD)
+                if (k.startsWith('cc_checkins_')) {
+                    localStorage.removeItem(k);
+                    count++;
+                    return;
+                }
+
                 // To suppress mock data, we set to empty instead of removing
                 // ONLY specific structured records are Maps ({}), everything else is an Array ([])
                 const mapPrefixes = ['cc_student_data', 'cc_student_subscriptions', 'cc_attendance_archive', 'cc_uid_registry'];
@@ -746,33 +839,36 @@ export function resetStudioData(slug: string, options?: ResetCategories) {
     const updates: Partial<StudioSettings> = {};
     
     if (cats.teachers) {
-        updates.staff = [];
+        updates.staff = (settings.staff || []).map(s => s.role === 'owner' ? s : null).filter(Boolean) as StaffMember[];
     }
     if (cats.analytics) {
         (updates as any).trash = [];
-        (updates as any).subscriptionLogs = [];
     }
 
     if (Object.keys(updates).length > 0) {
         saveSettings(updates, settings, slug);
     }
 
-    // CRITICAL: Seed deleted registries with mock IDs if cleared to ensure they stay hidden
-    if (cats.students) {
-        const mockSubs = ['sub1', 'sub2', 'sub3', 'sub4'];
-        const mockStudents = ['S-2051', 'S-2052', 'S-2053', 'S-2054'];
-        localStorage.setItem(getScopedKey('cc_deleted_subscriptions', slug), JSON.stringify(mockSubs));
-        localStorage.setItem(getScopedKey('cc_deleted_students', slug), JSON.stringify(mockStudents));
-    }
-    if (cats.calendar) {
-        localStorage.setItem(getScopedKey('cc_deleted_events', slug), JSON.stringify(['cls1', 'e1']));
-    }
-    if (cats.halls) {
-         localStorage.setItem(getScopedKey('cc_deleted_halls', slug), JSON.stringify(['h1']));
-    }
-
-    console.log(`🧹 [SettingsStore] Selective Reset: Removed ${count} keys for studio ${slug}. Options:`, cats);
+    console.log(`🧹 [SettingsStore] Selective Reset complete for studio ${slug}. Options:`, cats);
 
     // Reload page to re-initialize stores
     window.location.reload();
+}
+/** 
+ * Higher-level sync wrapper that automatically includes the latest staff list.
+ * This is the preferred way to sync studio-level data (groups, students, etc.)
+ */
+export async function syncStudioDataToCloud(slug: string, data: any, orgId?: string) {
+    if (typeof window === 'undefined') return;
+    if (!slug || slug === 'demo.classcore.ge') return;
+    
+    // We already have the latest staff list in settings-store
+    const settings = loadSettings(slug);
+    
+    try {
+        const { pushStudioStateToCloud } = await import('./sync-store');
+        return pushStudioStateToCloud(slug, settings.staff, data, 0, orgId || settings.orgId);
+    } catch (err) {
+        console.error('❌ [SyncHelper] Failed to push data for:', slug, err);
+    }
 }

@@ -1,393 +1,434 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, User, ArrowRight, ShieldCheck, Sparkles, Building2, UserSquare2, Users2, UserPlus2, CheckCircle2, ChevronRight } from 'lucide-react';
-import { useT } from '@/contexts/LanguageContext';
-import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
+import { 
+    Sparkles, 
+    Mail, 
+    Lock, 
+    User, 
+    Building2, 
+    ArrowRight, 
+    ChevronRight,
+    Shield,
+    Globe,
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    AlertCircle,
+    Phone
+} from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { Logo } from "@/components/ui/Logo";
+import { cn, compactSlugify } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
-type Step = 'account' | 'halls' | 'teachers' | 'groups' | 'students' | 'success';
+const COUNTRIES = [
+    { code: 'GE', dial: '+995', flag: '🇬🇪' },
+    { code: 'RU', dial: '+7', flag: '🇷🇺' },
+    { code: 'US', dial: '+1', flag: '🇺🇸' },
+];
 
-export default function RegisterPage() {
-    const { t, lang } = useT();
-    const [step, setStep] = useState<Step>('account');
+export default function RegistrationPage() {
+    const { l, lang } = useLanguage();
+    const router = useRouter();
+    const [step, setStep] = useState<'initial' | 'success'>('initial');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
-    // Registration Info
-    const [regData, setRegData] = useState({
-        email: '', password: '', firstName: '', lastName: '', 
-        studioName: '', studioSlug: '', phone: '', orgId: ''
-    });
+    const [showPassword, setShowPassword] = useState(false);
+    const [agreed, setAgreed] = useState(false);
 
-    const l = (ge: string, ru: string, en: string) =>
-        lang === 'ka' ? ge : lang === 'ru' ? ru : en;
+    // Form State
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [studioName, setStudioName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [dialCode, setDialCode] = useState('+995');
+    const [regData, setRegData] = useState<any>(null);
+
+    useEffect(() => {
+        sessionStorage.removeItem('cc_lang_session');
+    }, []);
+
+    const getPasswordStrength = () => {
+        if (!password) return 0;
+        let strength = 0;
+        if (password.length >= 6) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        return strength;
+    };
 
     const handleInitialRegister = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!agreed) return;
+        
         setLoading(true);
         setError(null);
 
-        const formData = new FormData(e.target as HTMLFormElement);
-        const email = formData.get('email') as string;
-        const password = formData.get('password') as string;
-        const firstName = formData.get('firstName') as string;
-        const lastName = formData.get('lastName') as string;
-        const studioName = formData.get('studioName') as string;
-        const phone = formData.get('phone') as string;
-
         try {
-            const { createClient } = await import('@/lib/supabase/client');
             const supabase = createClient();
+            const fullPhone = dialCode + phone.replace(/\s/g, '');
+            const studioSlug = compactSlugify(studioName);
+            console.log('📝 [Registration] Generated slug:', studioSlug, 'for studio:', studioName);
 
-            const studioSlug = studioName.toLowerCase()
-                .replace(/[^a-z0-9]/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '');
-
-            const orgId = crypto.randomUUID();
-
-            const { data, error: signUpError } = await supabase.auth.signUp({
+            if (!studioSlug) {
+                throw new Error(l('გთხოვთ შეიყვანოთ ვალიდური სტუდიის სახელი', 'Пожалуйста, введите корректное название студии', 'Please enter a valid studio name'));
+            }
+            
+            const { error: authError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/auth/confirm`,
                     data: {
-                        role: 'owner',
                         first_name: firstName,
                         last_name: lastName,
-                        full_name: `${firstName} ${lastName}`.trim(),
-                        phone: phone,
-                        phone_number: phone,
                         studio_name: studioName,
-                        org_id: orgId,
-                        studio_slug: studioSlug
-                    }
+                        studio_slug: studioSlug,
+                        phone: fullPhone,
+                        primary_lang: lang,
+                        role: 'owner',
+                        is_activated: true
+                    },
+                    emailRedirectTo: `${window.location.origin}/login?status=verification_sent`
                 }
             });
 
-            if (signUpError) throw signUpError;
+            if (authError) throw authError;
 
-            const userData = {
-                email, password, firstName, lastName, 
-                studioName, studioSlug, phone, orgId,
-                userId: data.user?.id
-            };
-            setRegData(userData as any);
-
-            // Initialize Basic Settings
+            // SCORCHED EARTH CLEANUP: Wiping all local data to ensure a clean slate for the new studio
             if (typeof window !== 'undefined') {
-                localStorage.setItem('cc_active_studio_slug', studioSlug);
-                localStorage.setItem('cc_studio_name', studioName);
-                document.cookie = `cc_active_slug=${studioSlug}; path=/; max-age=31536000; SameSite=Lax`;
-                document.cookie = `cc_studio_name=${encodeURIComponent(studioName)}; path=/; max-age=31536000; SameSite=Lax`;
-
-                const key = `cc_studio_settings_${studioSlug}`;
-                const basicSettings = {
-                    studioName,
-                    studioSlug,
-                    language: 'ka',
-                    currency: 'GEL',
-                    branches: [{ id: 'main', name: 'მთავარი ფილიალი', is_active: true }],
-                    staff: [{
-                        id: data.user?.id || Math.random().toString(36).substring(2, 9),
-                        org_id: orgId,
-                        first_name: firstName,
-                        last_name: lastName,
-                        full_name: `${firstName} ${lastName}`.trim(),
-                        phone: phone,
-                        email: email,
-                        role: 'owner',
-                        status: 'active',
-                        permissions: { 
-                            canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
-                            canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
-                            canViewTeachers: true, canViewHalls: true, canViewShop: true,
-                            canViewAnalytics: true, canViewSMS: true, canAddStudents: true,
-                            canDeleteRecords: true, manageBilling: true, viewFinancials: true,
-                            manageInventory: true
-                        },
-                        created_at: new Date().toISOString()
-                    }]
-                };
-                localStorage.setItem(key, JSON.stringify(basicSettings));
+                Object.keys(localStorage).forEach(key => {
+                    // We remove everything that could contain data (students, calendar, checkins etc.)
+                    // but keep the language preference and the active slug we just worked with.
+                    if (key.startsWith('cc_') && 
+                        !key.includes('lang') && 
+                        !key.includes('active_studio_slug')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                
+                // CRITICAL ISOLATION FLAGS:
+                // 1. Force the next sync pulse to OVERWRITE cloud instead of MERGING (prevents orphan leaks)
+                localStorage.setItem(`cc_is_fresh_${studioSlug}`, 'true');
+                // 2. Mark onboarding as in progress to guide initial UI
+                localStorage.setItem('cc_onboarding_in_progress', 'true');
             }
 
-            setStep('halls');
-            setLoading(false);
+            // 3. Trigger Branded Welcome/Activation Email via our SMTP
+            try {
+                await fetch('/api/auth/send-activation-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        firstName,
+                        activationLink: `${window.location.origin}/login?status=activated`
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to send branded welcome email:', e);
+                // We don't throw here as the user is already signed up in Supabase
+            }
+
+            setRegData({ email });
+            setStep('success');
         } catch (err: any) {
-            setError(err.message || t.registerError);
+            console.error('Registration error:', err);
+            setError(err.message || 'Registration failed');
+        } finally {
             setLoading(false);
         }
-    };
-
-    const saveStepData = async (type: string, data: any) => {
-        if (typeof window === 'undefined') return;
-        const slug = regData.studioSlug;
-        const key = `cc_${type}_${slug}`;
-        let existing = [];
-        try {
-            const raw = localStorage.getItem(key);
-            existing = raw ? JSON.parse(raw) : [];
-        } catch {}
-        
-        // Handle Map-based stores (like student_data)
-        if (type === 'student_data') {
-            const studentMap = existing || {};
-            const id = `S-${Math.floor(1000 + Math.random() * 9000)}`;
-            localStorage.setItem(key, JSON.stringify({ ...studentMap, [id]: data }));
-            return;
-        }
-
-        localStorage.setItem(key, JSON.stringify([...existing, data]));
-    };
-
-    const renderStepHeader = () => {
-        const steps = [
-            { id: 'account', icon: User, label: t.createAccount },
-            { id: 'halls', icon: Building2, label: l('დარბაზი', 'Зал', 'Hall') },
-            { id: 'teachers', icon: UserSquare2, label: l('მასწავლებელი', 'Учитель', 'Teacher') },
-            { id: 'groups', icon: Users2, label: l('ჯგუფი', 'Группа', 'Group') },
-            { id: 'students', icon: UserPlus2, label: l('მოსწავლე', 'Ученик', 'Student') }
-        ];
-
-        return (
-            <div className="flex items-center justify-between w-full max-w-sm mx-auto mb-8">
-                {steps.map((s, i) => {
-                    const isActive = step === s.id;
-                    const isCompleted = ['halls', 'teachers', 'groups', 'students', 'success'].includes(step) && steps.findIndex(x => x.id === step) > i;
-                    return (
-                        <div key={s.id} className="flex items-center">
-                            <div className={cn(
-                                "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
-                                isActive ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 scale-110" : 
-                                isCompleted ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-400"
-                            )}>
-                                {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <s.icon className="w-4 h-4" />}
-                            </div>
-                            {i < steps.length - 1 && (
-                                <div className={cn("w-4 h-px mx-1", isCompleted ? "bg-emerald-500" : "bg-slate-100")} />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        );
     };
 
     return (
-        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-[50%] h-full bg-indigo-50/50 blur-[120px] -z-10" />
-            <div className="absolute bottom-0 right-0 w-[30%] h-1/2 bg-violet-50/50 blur-[100px] -z-10" />
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden relative animate-fade-up">
+            <div className="fixed top-0 right-0 w-[50%] h-full bg-indigo-500/5 blur-[120px] -z-10" />
+            <div className="fixed bottom-0 left-0 w-[30%] h-1/2 bg-violet-500/5 blur-[100px] -z-10" />
 
-            <div className="w-full max-w-[480px] space-y-8 animate-fade-up">
-                <div className="flex flex-col items-center text-center space-y-4">
-                    <Link href="/" className="group flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-600/30 logo-animate-hover logo-large overflow-hidden">
-                            <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
-                        </div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">ClassCore</h1>
+            <div className="w-full max-w-4xl relative z-10 flex flex-col gap-8 pt-0 pb-8 duration-700">
+                <div className="flex flex-col items-center gap-6">
+                    <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
+                        <Logo size={110} transparent />
                     </Link>
                 </div>
 
-                {step !== 'success' && renderStepHeader()}
-
-                <div className="bg-white/50 backdrop-blur-xl border border-slate-100 p-8 sm:p-10 rounded-[2.5rem] shadow-2xl shadow-indigo-500/5">
-                    {step === 'account' && (
-                        <form onSubmit={handleInitialRegister} className="space-y-5">
-                            <div className="space-y-1 text-center mb-6">
-                                <h2 className="text-xl font-black text-slate-800">{t.createStudio}</h2>
-                                <p className="text-sm text-slate-500 font-medium">{t.startTrial}</p>
+                <div className="bg-white p-8 sm:p-10 rounded-[3rem] border border-slate-100 shadow-2xl shadow-indigo-500/5 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
+                    
+                    {step === 'initial' && (
+                        <div className="space-y-8">
+                            <div className="text-center space-y-3 mb-10 relative">
+                                <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('რეგისტრაცია', 'Регистрация', 'Fast Registration')}</h2>
+                                <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
+                                    <Sparkles className="w-4 h-4 animate-pulse" />
+                                    {l('დაიწყე სტუდიის მართვა 60 წამში', 'Запустите студию за 60 сек', 'Launch your studio in 60s')}
+                                </p>
                             </div>
-                            {error && <div className="p-4 bg-red-50/50 border border-red-100 rounded-2xl text-[11px] font-bold text-red-500 italic text-center animate-fade-up">{error}</div>}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.firstName}</label>
-                                    <div className="relative group">
-                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                                        <input name="firstName" required placeholder="Nino" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
+
+                            {error && (
+                                <div className="max-w-2xl mx-auto bg-red-50 border border-red-100/50 p-5 rounded-2xl flex items-start gap-4 mb-8">
+                                    <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                                    <p className="text-[11px] text-red-600 font-bold leading-tight uppercase">{error}</p>
+                                </div>
+                            )}
+
+                            <form onSubmit={handleInitialRegister} className="space-y-6 relative">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                                    {/* Left Column: Identity & Contact */}
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                                    <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                                        <User className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    {l('სახელი', 'Имя', 'First Name')}
+                                                </label>
+                                                <input 
+                                                    value={firstName} onChange={e => setFirstName(e.target.value)}
+                                                    required 
+                                                    className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs" 
+                                                    placeholder={l('სახელი...', 'Имя...', 'Jane')}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                                    <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                                        <User className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    {l('გვარი', 'Фамилия', 'Last Name')}
+                                                </label>
+                                                <input 
+                                                    value={lastName} onChange={e => setLastName(e.target.value)}
+                                                    required 
+                                                    className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                    placeholder={l('გვარი...', 'Фамилия...', 'Doe')}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                                <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                                    <Building2 className="w-3.5 h-3.5" />
+                                                </div>
+                                                {l('სტუდიის სახელი', 'Название студии', 'Studio Identity')}
+                                            </label>
+                                            <input 
+                                                value={studioName} onChange={e => setStudioName(e.target.value)}
+                                                required 
+                                                className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                placeholder={l('სტუდიის სახელი...', 'Название студии...', 'Cosmos Dance Studio')}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                                <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                                    <Phone className="w-3.5 h-3.5" />
+                                                </div>
+                                                {l('ტელეფონი', 'Телефон', 'Comm Link (Phone)')}
+                                            </label>
+                                            <div className="flex gap-2 min-w-0">
+                                                <div className="relative shrink-0 w-[70px]">
+                                                    <select 
+                                                        value={dialCode} onChange={e => setDialCode(e.target.value)}
+                                                        className="appearance-none w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-0 text-center text-lg focus:ring-0 focus:border-indigo-500/30 transition-all outline-none shadow-xs cursor-pointer"
+                                                    >
+                                                        {COUNTRIES.map(c => (
+                                                            <option key={c.code} value={c.dial} className="text-sm">{c.flag}</option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
+                                                        <Globe className="w-2.5 h-2.5" />
+                                                    </div>
+                                                </div>
+                                                <input 
+                                                    value={phone} onChange={e => setPhone(e.target.value)}
+                                                    required 
+                                                    type="tel"
+                                                    className="flex-1 min-w-0 h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-4 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                    placeholder="555..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column: Security & Auth */}
+                                    <div className="space-y-6">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                                <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                                    <Mail className="w-3.5 h-3.5" />
+                                                </div>
+                                                {l('ფოსტა', 'Почта', 'Identity (Email)')}
+                                            </label>
+                                            <input 
+                                                value={email} onChange={e => setEmail(e.target.value)}
+                                                required 
+                                                type="email"
+                                                className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                placeholder={l('იმეილი...', 'Почта...', 'jane@cosmos.space')}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                                <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                                    <Lock className="w-3.5 h-3.5" />
+                                                </div>
+                                                {l('პაროლი', 'Пароль', 'Security Key')}
+                                            </label>
+                                            <div className="relative group">
+                                                <input 
+                                                    value={password} onChange={e => setPassword(e.target.value)}
+                                                    required 
+                                                    type={showPassword ? "text" : "password"}
+                                                    className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
+                                                    placeholder="••••••••"
+                                                />
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
+                                                >
+                                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                            
+                                            {/* Password Strength Indicator */}
+                                            {password && (
+                                                <div className="px-1 pt-1.5 space-y-2">
+                                                    <div className="flex gap-1.5 h-1">
+                                                        {[1, 2, 3].map((s) => (
+                                                            <div key={s} className={cn(
+                                                                "flex-1 rounded-full transition-all duration-500",
+                                                                getPasswordStrength() >= s 
+                                                                    ? s === 1 ? "bg-red-400" : s === 2 ? "bg-amber-400" : "bg-emerald-400"
+                                                                    : "bg-slate-100"
+                                                            )} />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest ml-1 flex items-center gap-3 opacity-90">
+                                                <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                                                    <Globe className="w-3.5 h-3.5" />
+                                                </div>
+                                                {l('პლატფორმის ენა', 'Язык платформы', 'System Language')}
+                                            </label>
+                                            <LanguageSwitcher 
+                                                variant="landing" 
+                                                mode="persistent" 
+                                                align="left"
+                                                className="w-full h-11 bg-slate-50/50 border-slate-100 rounded-2xl px-5 flex items-center justify-between shadow-xs hover:border-indigo-100 transition-all"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.lastName}</label>
-                                    <input name="lastName" required placeholder="Beridze" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.studioName}</label>
-                                <div className="relative group">
-                                    <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                                    <input name="studioName" required placeholder="e.g. My Dance Academy" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.phoneLabel || 'ტელეფონი'}</label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold group-focus-within:text-indigo-600 transition-colors">+995</div>
-                                    <input name="phone" required type="tel" placeholder="5xx xx xx xx" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-16 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.email}</label>
-                                <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                                    <input name="email" type="email" required placeholder="contact@studio.ge" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1">{t.password}</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                                    <input name="password" type="password" required placeholder="••••••••" className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-900 outline-none transition-all" />
-                                </div>
-                            </div>
-                            <button type="submit" disabled={loading} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-50">
-                                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>{t.createAccount} <ArrowRight className="w-5 h-5" /></>}
-                            </button>
-                        </form>
-                    )}
 
-                    {step === 'halls' && (
-                        <div className="space-y-6 animate-fade-up">
-                            <div className="text-center space-y-2">
-                                <h3 className="text-xl font-black text-slate-800">{l('დაამატეთ დარბაზი', 'Добавьте зал', 'Add a Hall')}</h3>
-                                <p className="text-sm text-slate-500 font-medium">{l('მიუთითეთ დარბაზის სახელი და ტევადობა', 'Укажите название зала и вместимость', 'Enter hall name and capacity')}</p>
-                            </div>
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const f = new FormData(e.target as HTMLFormElement);
-                                saveStepData('halls', { id: crypto.randomUUID(), name: f.get('name'), capacity: f.get('capacity'), is_active: true });
-                                setStep('teachers');
-                            }} className="space-y-4">
-                                <input name="name" required placeholder={l('დარბაზის სახელი (მაგ. დიდი დარბაზი)', 'Название зала', 'Hall Name')} className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 rounded-2xl px-5 py-4 text-sm font-bold outline-none shadow-sm" />
-                                <input name="capacity" type="number" placeholder={l('ტევადობა (მაგ. 20)', 'Вместимость', 'Capacity')} className="w-full bg-white border border-slate-100 focus:border-indigo-500/50 rounded-2xl px-5 py-4 text-sm font-bold outline-none shadow-sm" />
-                                <div className="flex flex-col gap-3 pt-4">
-                                    <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-2 shadow-xl hover:bg-indigo-700 transition-all">
-                                        {l('შემდეგი', 'Далее', 'Next')} <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                    <button type="button" onClick={() => setStep('teachers')} className="w-full py-4 text-slate-400 font-black text-[10px] tracking-widest hover:text-slate-600 transition-colors uppercase">
-                                        {l('გამოტოვება', 'Пропустить', 'Skip Step')}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
+                                {/* Dynamic Footer - Centered Actions */}
+                                <div className="flex flex-col items-center space-y-6 pt-4 border-t border-slate-50 mt-6">
+                                    <div className="w-full max-w-sm">
+                                        <label className="flex items-center justify-center gap-4 cursor-pointer group">
+                                            <div className="relative">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={agreed} onChange={e => setAgreed(e.target.checked)}
+                                                    className="sr-only" 
+                                                />
+                                                <div className={cn(
+                                                    "w-6 h-6 rounded-xl border-2 transition-all duration-300 flex items-center justify-center",
+                                                    agreed ? "bg-indigo-600 border-indigo-600 shadow-xl shadow-indigo-500/30" : "border-slate-200 bg-slate-50/50 group-hover:border-slate-300"
+                                                )}>
+                                                    {agreed && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] font-bold text-slate-500 leading-tight">
+                                                {l('ვეთანხმები', 'Я согласен с', 'I agree to')} <span className="text-indigo-600 hover:text-indigo-700 underline decoration-indigo-200 underline-offset-4">{l('წესებსა და კონფიდენციალობას', 'правилами', 'Privacy & Terms')}</span>
+                                            </p>
+                                        </label>
+                                    </div>
 
-                    {step === 'teachers' && (
-                        <div className="space-y-6 animate-fade-up">
-                            <div className="text-center space-y-2">
-                                <h3 className="text-xl font-black text-slate-800">{l('დაამატეთ მასწავლებელი', 'Добавьте учителя', 'Add a Teacher')}</h3>
-                                <p className="text-sm text-slate-500 font-medium">{l('პირველი ინსტრუქტორი თქვენი სტუდიისთვის', 'Первый инструктор вашей студии', 'The first instructor for your studio')}</p>
-                            </div>
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const f = new FormData(e.target as HTMLFormElement);
-                                saveStepData('teachers', { id: crypto.randomUUID(), first_name: f.get('f'), last_name: f.get('l'), phone: f.get('p'), specialty: [f.get('s')], role: 'teacher', status: 'active' });
-                                setStep('groups');
-                            }} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <input name="f" required placeholder={l('სახელი', 'Имя', 'First Name')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                    <input name="l" required placeholder={l('გვარი', 'Фамилия', 'Last Name')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                </div>
-                                <input name="p" placeholder={l('ტელეფონი', 'Телефон', 'Phone')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                <input name="s" placeholder={l('სპეციალობა (მაგ. ჰიპ-ჰოპი)', 'Специальность', 'Specialty')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                <div className="flex flex-col gap-3 pt-4">
-                                    <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-2 shadow-xl">
-                                        {l('შემდეგი', 'Далее', 'Next')} <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                    <button type="button" onClick={() => setStep('groups')} className="w-full py-4 text-slate-400 font-black text-[10px] tracking-widest uppercase">
-                                        {l('გამოტოვება', 'Пропустить', 'Skip Step')}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    {step === 'groups' && (
-                        <div className="space-y-6 animate-fade-up">
-                            <div className="text-center space-y-2">
-                                <h3 className="text-xl font-black text-slate-800">{l('შექმენით ჯგუფი', 'Создайте группу', 'Create a Group')}</h3>
-                                <p className="text-sm text-slate-500 font-medium">{l('პირველი საცეკვაო ან სპორტული ჯგუფი', 'Первая танцевальная группа', 'Your first group or class')}</p>
-                            </div>
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const f = new FormData(e.target as HTMLFormElement);
-                                saveStepData('groups', { id: crypto.randomUUID(), name: f.get('name'), schedule: f.get('schedule'), studio_slug: regData.studioSlug });
-                                setStep('students');
-                            }} className="space-y-4">
-                                <input name="name" required placeholder={l('ჯგუფის სახელი', 'Название группы', 'Group Name')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                <input name="schedule" placeholder={l('განრიგი (მაგ. ორშ-ოთხ-პარ 18:00)', 'Расписание', 'Schedule')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                <div className="flex flex-col gap-3 pt-4">
-                                    <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-2 shadow-xl">
-                                        {l('შემდეგი', 'Далее', 'Next')} <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                    <button type="button" onClick={() => setStep('students')} className="w-full py-4 text-slate-400 font-black text-[10px] tracking-widest uppercase">
-                                        {l('გამოტოვება', 'Пропустить', 'Skip Step')}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    {step === 'students' && (
-                        <div className="space-y-6 animate-fade-up">
-                            <div className="text-center space-y-2">
-                                <h3 className="text-xl font-black text-slate-800">{l('დაამატეთ მოსწავლე', 'Добавьте ученика', 'Add a Student')}</h3>
-                                <p className="text-sm text-slate-500 font-medium">{l('თქვენი პირველი მოსწავლის რეგისტრაცია', 'Регистрация первого ученика', 'Register your first student')}</p>
-                            </div>
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const f = new FormData(e.target as HTMLFormElement);
-                                saveStepData('student_data', { first_name: f.get('f'), last_name: f.get('l'), phone: f.get('p'), status: 'active', registered_at: new Date().toISOString() });
-                                setStep('success');
-                            }} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <input name="f" required placeholder={l('სახელი', 'Имя', 'First Name')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                    <input name="l" required placeholder={l('გვარი', 'Фамилия', 'Last Name')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                </div>
-                                <input name="p" placeholder={l('ტელეფონი', 'Телефон', 'Phone')} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
-                                <div className="flex flex-col gap-3 pt-4">
-                                    <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-sm tracking-widest flex items-center justify-center gap-2 shadow-xl">
-                                        {l('დარულება', 'Завершить', 'Finish')} <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                    <button type="button" onClick={() => setStep('success')} className="w-full py-4 text-slate-400 font-black text-[10px] tracking-widest uppercase">
-                                        {l('გამოტოვება', 'Пропустить', 'Skip Step')}
-                                    </button>
+                                    <div className="w-full max-w-sm space-y-6">
+                                        <button 
+                                            type="submit" 
+                                            disabled={loading || getPasswordStrength() < 2 || !agreed}
+                                            className={cn(
+                                                "w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-sm transition-all duration-300 flex items-center justify-center gap-4 relative overflow-hidden group",
+                                                loading || getPasswordStrength() < 2 || !agreed 
+                                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                                                    : "bg-slate-900 text-white shadow-2xl shadow-indigo-500/20 active:scale-[0.98] hover:bg-slate-800"
+                                            )}
+                                        >
+                                            {loading ? l('გთხოვთ მოიცადოთ...', 'Загрузка...', 'Connecting...') : (
+                                                <>
+                                                    {l('რეგისტრაცია', 'Реეგისტრაცია', 'Activate Account')}
+                                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                                                </>
+                                            )}
+                                        </button>
+                                        
+                                        <p className="text-center text-sm font-black text-slate-400 tracking-tight">
+                                            {l('უკვე გაქვთ ანგარიში?', 'Уже есть аккаунт?', 'Already a Cosmos pilot?')} <Link href="/login" className="text-indigo-600 hover:text-indigo-700 font-black decoration-indigo-200 hover:underline underline-offset-4">{l('შესვლა', 'Войти', 'Login')}</Link>
+                                        </p>
+                                    </div>
                                 </div>
                             </form>
                         </div>
                     )}
 
                     {step === 'success' && (
-                        <div className="text-center space-y-6 py-4 animate-fade-up">
-                            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                        <div className="text-center py-10 animate-fade-up">
+                            <div className="flex flex-col items-center gap-8 mb-12">
+                                <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
+                                    <Logo size={110} transparent />
+                                </Link>
                             </div>
-                            <div className="space-y-2">
-                                <h3 className="text-xl font-black text-slate-900">{l('რეგისტრაცია დასრულებულია!', 'Регистрация завершена!', 'Registration Complete!')}</h3>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed px-4">
-                                    {l('თქვენი სტუდია წარმატებით შეიქმნა. ახლა შეგიძლიათ განაგრძოთ მუშაობა დეშბორდიდან.', 'Ваша студия создана. Теперь вы можете продолжить работу.', 'Your studio is ready. You can now proceed to the dashboard.')}
-                                </p>
+                            
+                            <div className="space-y-6">
+                                <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('წარმატება!', 'Успех!', 'Welcome!')}</h2>
+                                <div className="space-y-3 py-4">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{l('ანგარიში შეიქმნა', 'Аккаунт создан', 'Mission Control Ready')}</p>
+                                    <p className="text-base font-black text-indigo-600 bg-indigo-50/50 py-3 inline-block px-8 rounded-full border border-indigo-100/50 shadow-sm">
+                                        {regData?.email}
+                                    </p>
+                                </div>
+                                <div className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100/50 space-y-4 shadow-sm">
+                                    <div className="flex items-center justify-center gap-3 text-indigo-500">
+                                        <Sparkles className="w-6 h-6" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">{l('შეამოწმეთ ფოსტა', 'Проверьте почту', 'Verification Required')}</p>
+                                    </div>
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+                                        {l('გთხოვთ დაადასტუროთ თქვენი ელ-ფოსტა სისტემაში შესვლამდე', 'Пожалуйста, подтвердите вашу почту перед входом', 'A portal link has been sent to your primary frequency. Confirm to activate.')}
+                                    </p>
+                                </div>
+                                
+                                <Link href="/login" className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.3em] text-sm shadow-xl shadow-slate-900/10 active:scale-[0.98] transition-all flex items-center justify-center gap-3 mt-8 hover:bg-slate-800">
+                                    {l('შესვლა', 'Войти', 'Ignition (Login)')}
+                                    <ChevronRight className="w-5 h-5" />
+                                </Link>
                             </div>
-                            <button
-                                onClick={() => window.location.href = '/dashboard'}
-                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-sm tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
-                            >
-                                {l('დეშბორდზე გადასვლა', 'В панель управления', 'Go to Dashboard')}
-                            </button>
                         </div>
                     )}
-
-                    <div className="mt-8 pt-8 border-t border-slate-100">
-                        <div className="flex items-center justify-center gap-2 text-[10px] font-black text-emerald-600 tracking-widest">
-                            <ShieldCheck className="w-4 h-4" /> {t.secureAccount}
-                        </div>
-                    </div>
                 </div>
-
-                <p className="text-center text-sm font-semibold text-slate-500 pb-10">
-                    {t.haveAccount} <Link href="/login" className="text-indigo-600 font-black hover:underline underline-offset-4 decoration-2">{t.login}</Link>
-                </p>
+                
+                <div className="text-center space-y-4 opacity-40 pt-10">
+                    <div className="flex items-center justify-center gap-4">
+                        <Shield className="w-4 h-4 text-slate-400" />
+                        <span className="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
+                        <Globe className="w-4 h-4 text-slate-400" />
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 tracking-[0.5em] uppercase leading-none">ClassCore COSMOS OS</p>
+                </div>
             </div>
         </div>
     );

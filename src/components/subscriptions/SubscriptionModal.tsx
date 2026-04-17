@@ -8,6 +8,7 @@ import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { type SubscriptionInfo, pauseActiveSubscription } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 import { cn } from '@/lib/utils';
 
 interface SubscriptionModalProps {
@@ -41,7 +42,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
 
     return (
         <>
-            <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-[100] bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[101] flex flex-col bg-card border-border-subtle shadow-2xl overflow-hidden transition-all duration-300",
                 centered
@@ -141,32 +142,26 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Purchased At */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.purchaseDate}</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/30" />
-                                <input
-                                    type="date"
-                                    value={form.purchased_at}
-                                    onChange={(e) => setForm({ ...form, purchased_at: e.target.value })}
-                                    className="w-full bg-surface border border-border-subtle rounded-2xl pl-11 pr-4 py-3 text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
-                                />
-                            </div>
+                            <DatePickerGrid 
+                                value={form.purchased_at} 
+                                onChange={(v) => setForm({ ...form, purchased_at: v })}
+                                minYear={new Date().getFullYear() - 5}
+                                maxYear={new Date().getFullYear() + 10}
+                            />
                         </div>
                         {/* Expires At */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.expiryDate}</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/30" />
-                                <input
-                                    type="date"
-                                    value={form.expires_at}
-                                    onChange={(e) => setForm({ ...form, expires_at: e.target.value })}
-                                    className="w-full bg-surface border border-border-subtle rounded-2xl pl-11 pr-4 py-3 text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
-                                />
-                            </div>
+                            <DatePickerGrid 
+                                value={form.expires_at} 
+                                onChange={(v) => setForm({ ...form, expires_at: v })}
+                                minYear={new Date().getFullYear() - 5}
+                                maxYear={new Date().getFullYear() + 10}
+                            />
                         </div>
                     </div>
 

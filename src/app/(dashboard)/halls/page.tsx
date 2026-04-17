@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
 import { getHalls, saveHalls } from '@/lib/hall-store';
+import { getGroups } from '@/lib/group-store';
+import { useMemo } from 'react';
 
-const HALL_WEEK_EVENTS: Record<string, number> = { h1: 12, h2: 8, h3: 4, h4: 0 };
 
 export default function HallsPage() {
     const { t } = useT();
@@ -45,8 +46,20 @@ export default function HallsPage() {
         saveHalls(updated as any);
     }
 
+    const groups = getGroups();
+    const hallStats = useMemo(() => {
+        const stats: Record<string, number> = {};
+        groups.forEach(g => {
+            if (g.hall_id && g.schedule) {
+                const slots = Array.isArray(g.schedule) ? g.schedule.length : 0;
+                stats[g.hall_id] = (stats[g.hall_id] || 0) + slots;
+            }
+        });
+        return stats;
+    }, [groups]);
+
     const totalCapacity = halls.filter(h => h.is_active).reduce((s, h) => s + (h.capacity ?? 0), 0);
-    const totalWeekEvents = Object.values(HALL_WEEK_EVENTS).reduce((a, b) => a + b, 0);
+    const totalWeekEvents = Object.values(hallStats).reduce((a, b) => a + b, 0);
 
     return (
         <>
@@ -58,23 +71,37 @@ export default function HallsPage() {
                     {[
                         { label: t.halls, value: halls.length, icon: DoorOpen, colorCls: 'text-violet-600', bgCls: 'bg-violet-500/5' },
                         { label: t.capacity, value: totalCapacity, icon: Users, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
-                        { label: t.lessonsPerWeek, value: totalWeekEvents, icon: Calendar, colorCls: 'text-emerald-600', bgCls: 'bg-emerald-500/5' },
+                        { 
+                            label: t.lessonsPerWeek, 
+                            mobileLabel: 'კვირაში',
+                            value: totalWeekEvents, 
+                            icon: Calendar, 
+                            colorCls: 'text-emerald-600', 
+                            bgCls: 'bg-emerald-500/5' 
+                        },
                     ].map(s => (
-                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
+                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
                             <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                 <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
                                 <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums">{s.value}</span>
                             </div>
-                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase">{s.label}</p>
+                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase">
+                                {(s as any).mobileLabel ? (
+                                    <>
+                                        <span className="hidden sm:inline">{s.label}</span>
+                                        <span className="sm:hidden">{(s as any).mobileLabel}</span>
+                                    </>
+                                ) : s.label}
+                            </p>
                         </div>
                     ))}
                 </div>
 
                 {/* Add Hall Action */}
                 <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-xl sm:rounded-[1.5rem] shadow-lg shadow-violet-600/20 transition-all touch-manipulation">
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-5 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-lg shadow-violet-600/20 transition-all touch-manipulation">
                     <div className="relative flex items-center">
-                        <DoorOpen className="w-4 h-4" />
+                        <DoorOpen className="w-5 h-5 sm:w-4 sm:h-4" />
                         <Plus className="absolute -top-1 -right-2.5 w-3 h-3 text-white" />
                     </div>
                     <span className="hidden sm:inline">{t.addHall}</span>
@@ -119,19 +146,19 @@ export default function HallsPage() {
 
                             {/* Detailed Stats */}
                             <div className="grid grid-cols-2 gap-3 py-3 sm:py-4 border-y border-border-subtle/50">
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
+                                <div className="flex flex-col gap-1 text-center">
+                                    <div className="flex items-center justify-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
+                                        <Layout className="w-3 h-3" />
+                                        {t.sqMetersShort || 'SQ.M'}
+                                    </div>
+                                    <p className="text-sm sm:text-base font-black text-primary">{hall.sq_meters || '—'}</p>
+                                </div>
+                                <div className="flex flex-col gap-1 text-center">
+                                    <div className="flex items-center justify-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
                                         <Users className="w-3 h-3" />
                                         {t.spotsShort}
                                     </div>
                                     <p className="text-sm sm:text-base font-black text-primary">{hall.capacity || '—'}</p>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2 text-muted/40 font-black tracking-widest text-[8px] uppercase">
-                                        <Calendar className="w-3 h-3" />
-                                        {t.lessonsPerWeek}
-                                    </div>
-                                    <p className="text-sm sm:text-base font-black text-primary">{HALL_WEEK_EVENTS[hall.id] ?? 0}</p>
                                 </div>
                             </div>
 
@@ -139,8 +166,18 @@ export default function HallsPage() {
                     ))}
                 </div>
 
+                {halls.length === 0 && (
+                    <div className="py-20 flex flex-col items-center justify-center text-muted/30">
+                        <div className="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-4">
+                            <DoorOpen className="w-10 h-10 opacity-20" />
+                        </div>
+                        <p className="text-base font-bold">{t.noData}</p>
+                        <p className="text-xs font-medium mt-1">{t.tryAnotherSearch || 'დაამატეთ ახალი დარბაზი'}</p>
+                    </div>
+                )}
+
                 {/* Cross-page quick nav */}
-                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-8 shadow-sm">
+                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-20 shadow-sm">
                     <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
                     <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         {[

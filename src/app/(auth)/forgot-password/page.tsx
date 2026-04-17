@@ -3,19 +3,29 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Zap, Mail, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Logo } from '@/components/ui/Logo';
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
     const [sent, setSent] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            const { createClient } = await import('@/lib/supabase/client');
+            const supabase = createClient();
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
             setSent(true);
-        }, 1200);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -28,9 +38,7 @@ export default function ForgotPasswordPage() {
                 {/* Logo */}
                 <div className="flex flex-col items-center text-center space-y-4">
                     <Link href="/" className="group flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-600/30 group-hover:scale-110 transition-transform">
-                            <Zap className="w-7 h-7 text-white" strokeWidth={2.5} />
-                        </div>
+                        <Logo size={80} transparent />
                     </Link>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">პაროლის აღდგენა</h1>
                     <p className="text-slate-500 font-medium px-6">გაგვიზიარეთ თქვენი ელ.ფოსტა და გამოგიგზავნით ინსტრუქციას</p>

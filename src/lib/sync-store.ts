@@ -11,126 +11,216 @@ const SETTINGS_TABLE = 'studio_settings';
  * Consolidates all studio state into a single push with Optimistic Locking and Retry logic.
  * Ensures that concurrent updates from multiple clients do not overwrite each other.
  */
-export async function pushStudioStateToCloud(slug: string, staff: StaffMember[], studioData: any, retryCount = 0, orgId?: string): Promise<void> {
+/**
+ * SYMMETRIC MERGE UTILITY:
+ * Combines two studio_data objects into a single converged state.
+ * Rule 1: ID-based matching for arrays.
+ * Rule 2: Absolute Tombstone Priority (If ID is in cc_deleted_*, it is PURGED).
+ * AGNOSTIC: This function expects NORMALIZED keys (no suffixes).
+ */
+export function mergeStudioData(existing: any, incoming: any): any {
+    const finalData = { 
+        ...(existing || {}),
+        ...(incoming || {}) 
+    };
+
+    const allTombstones: Record<string, Set<string>> = {};
+    const allKeys = new Set([...Object.keys(existing || {}), ...Object.keys(incoming || {})]);
+    
+    allKeys.forEach(k => {
+        if (k.startsWith('cc_deleted_')) {
+            const idsCloud = Array.isArray(existing?.[k]) ? existing[k] : [];
+            const idsLocal = Array.isArray(incoming?.[k]) ? incoming[k] : [];
+            allTombstones[k] = new Set([...idsCloud, ...idsLocal]);
+            finalData[k] = Array.from(allTombstones[k]);
+        }
+    });
+
+    const keys = Object.keys(finalData);
+    keys.forEach(key => {
+        if (key.startsWith('cc_deleted_')) return;
+
+        let tKey = `cc_deleted_${key.replace(/^cc_/, '').replace(/_data$/, '')}`;
+        if (key.startsWith('cc_student_data')) tKey = `cc_deleted_students`;
+        if (key.startsWith('cc_groups')) tKey = `cc_deleted_groups`;
+        if (key.startsWith('cc_halls')) tKey = `cc_deleted_halls`;
+        if (key.startsWith('cc_checkins')) tKey = `cc_deleted_checkins`;
+        if (key.startsWith('cc_student_subscriptions')) tKey = `cc_deleted_subscriptions`;
+
+        const deletedIds = allTombstones[tKey] || new Set();
+        const local = incoming[key];
+        const cloud = existing[key];
+
+        if (Array.isArray(local) || Array.isArray(cloud)) {
+            const map = new Map<string, any>();
+            [...(Array.isArray(local) ? local : []), ...(Array.isArray(cloud) ? cloud : [])].forEach(item => {
+                if (item && item.id) {
+                    if (deletedIds.has(item.id)) return;
+                    map.set(item.id, { ...(map.get(item.id) || {}), ...item });
+                }
+            });
+            finalData[key] = Array.from(map.values());
+        } else if (typeof local === 'object' && local !== null) {
+            const map = { ...(cloud || {}), ...(local || {}) };
+            Object.keys(map).forEach(id => {
+                if (deletedIds.has(id)) delete map[id];
+            });
+            finalData[key] = map;
+        }
+    });
+
+    return finalData;
+}
+
+/** HELPER: Strips studio-specific suffixes (_slug or _uuid) for cloud storage */
+function normalizeData(data: Record<string, any>, slug: string, orgId?: string): Record<string, any> {
+    const clean: Record<string, any> = {};
+    Object.keys(data).forEach(k => {
+        let cleanKey = k;
+        if (slug) cleanKey = cleanKey.replace(`_${slug}`, '');
+        if (orgId) cleanKey = cleanKey.replace(`_${orgId}`, '');
+        clean[cleanKey] = data[k];
+    });
+    return clean;
+}
+
+/** HELPER: Re-applies studio-specific suffixes for local storage */
+function denormalizeData(data: Record<string, any>, targetScopeId: string): Record<string, any> {
+    const scoped: Record<string, any> = {};
+    Object.keys(data).forEach(k => {
+        scoped[`${k}_${targetScopeId}`] = data[k];
+    });
+    return scoped;
+}
+
+function mergeStaff(existing: StaffMember[], incoming: StaffMember[]): StaffMember[] {
+    const map = new Map<string, StaffMember>();
+    [...existing, ...incoming].forEach(s => {
+        if (s && s.id) {
+            map.set(s.id, { ...(map.get(s.id) || {}), ...s } as StaffMember);
+        }
+    });
+    return Array.from(map.values());
+}
+
+/**
+ * SCOPE-AGNOSTIC PUSH:
+ * Normalizes all keys before pushing to ensure PC and Phone talk to the same silos.
+ */
+export async function pushStudioStateToCloud(
+    slug: string, 
+    staff: StaffMember[], 
+    studioData: any, 
+    retryCount = 0,
+    orgId?: string,
+    forceOverwrite = false
+) {
     if (typeof window === 'undefined') return;
     if (!slug || slug === 'demo.classcore.ge') return;
 
     try {
         const supabase = createClient();
+        const { data: current, error: fetchError } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_data, studio_data, updated_at, org_id')
+            .eq('studio_slug', slug)
+            .maybeSingle();
 
-        // 1. Pull latest cloud state to merge (Optimistic Locking approach)
-        // Prefer orgId for lookup if available, fallback to slug
-        let query = supabase.from(SETTINGS_TABLE).select('staff_data, updated_at, studio_slug');
-        query = query.eq('studio_slug', slug);
+        if (fetchError) throw fetchError;
+
+        // 1. Normalize local data (Strip suffixes)
+        const incomingNormalized = normalizeData(studioData, slug, orgId || current?.org_id);
+        // CRITICAL: Normalize the EXISTING cloud state too before merging.
+        // This prevents old suffixed keys from "re-merging" into the clean keys.
+        const cloudNormalized = normalizeData(current?.studio_data || {}, slug, current?.org_id);
+
+        // 2. Converge
+        let finalStaff = staff;
+        let finalStudioData = incomingNormalized;
         
-        const { data: current, error: pullError } = await query.maybeSingle();
-
-        if (pullError) throw pullError;
-
-        let finalStaff: StaffMember[] = staff;
-        let finalStudioData: any = studioData;
-
-        // If row exists, perform a merge to avoid overwriting others' changes
-        if (current) {
-            const cloudAll = (current.staff_data as any[]) || [];
-            const cloudStaff = cloudAll.filter(s => s.id !== '__studio_config__');
-            const cloudConfig = cloudAll.find(s => s.id === '__studio_config__')?.studio_data || {};
-
-            // 1. Staff List: Local version is the source of truth for membership (handles deletes/adds/updates)
-            // The optimistic lock (updated_at) ensures we have recently pulled the latest cloud staff if we are pushing.
-            finalStaff = staff;
-
-            // 2. Studio Data: Overwrite specific keys provided by local client
-            // This ensures deletions within collections (groups, halls, etc) are correctly persisted.
-            finalStudioData = { ...cloudConfig };
-            for (const key in studioData) {
-                finalStudioData[key] = studioData[key];
-            }
+        if (current && !forceOverwrite) {
+            finalStaff = mergeStaff(current.staff_data || [], staff);
+            finalStudioData = mergeStudioData(cloudNormalized, incomingNormalized);
         }
 
-        const consolidatedStaff = [
-            ...finalStaff.filter(s => s.id !== '__studio_config__'),
-            { id: '__studio_config__', studio_data: finalStudioData } as any
-        ];
+        // 3. CLOUD SCRUBBING: Permanently remove any legacy suffixed keys from the cloud JSON
+        // to prevent them from resurrecting on devices with missing OrgIds.
+        const cleanedStudioData: Record<string, any> = {};
+        Object.keys(finalStudioData).forEach(k => {
+            // SCORCHED EARTH: If the key contains a suffix of THIS studio, discard it.
+            // We only keep the CLEAN, normalized keys (e.g. 'cc_groups').
+            const hasSlugSuffix = slug && k.includes(`_${slug}`);
+            const hasIdSuffix = current?.org_id && k.includes(`_${current.org_id}`);
+            
+            if (!hasSlugSuffix && !hasIdSuffix) {
+                cleanedStudioData[k] = finalStudioData[k];
+            } else {
+                console.warn(`🧹 [SyncStore] Scrubbed legacy cloud artifact: ${k}`);
+            }
+        });
+        
+        // Ensure even the cleanedStudioData is truly clean of artifacts
+        const finalCleaned = cleanedStudioData;
 
         const nextUpdatedAt = new Date().toISOString();
-        const staffEmails = finalStaff.filter(s => s.email).map(s => s.email!.toLowerCase().trim());
+        const staffEmails = Array.from(new Set([
+            ...(finalStaff || []).map(s => s.email?.toLowerCase().trim()).filter(Boolean),
+            ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
+        ]));
+
+        const payload: any = {
+            studio_slug: slug,
+            org_id: orgId || current?.org_id || '',
+            staff_data: finalStaff,
+            studio_data: finalCleaned, 
+            staff_emails: staffEmails,
+            updated_at: nextUpdatedAt
+        };
 
         if (!current) {
-            // First time: Use insert to fail on conflict, triggering retry + pull/merge
-            const { error: insertError } = await supabase
-                .from(SETTINGS_TABLE)
-                .insert({
-                    studio_slug: slug,
-                    staff_data: consolidatedStaff,
-                    staff_emails: staffEmails,
-                    updated_at: nextUpdatedAt
-                });
-            
-            if (insertError) {
-                // If it failed because it already exists (Postgres code 23505), it's fine, the retry will pull it.
-                if (insertError.code === '23505') {
-                    throw new Error('Conflict: Row already exists');
-                }
-                throw insertError;
-            }
+            const { error: insertError } = await supabase.from(SETTINGS_TABLE).insert(payload);
+            if (insertError && insertError.code === '23505') throw new Error('Conflict');
+            if (insertError) throw insertError;
         } else {
-            // Optimistic Update: Only update if updated_at matches what we just pulled
-            let updateQuery = supabase.from(SETTINGS_TABLE).update({
-                staff_data: consolidatedStaff,
-                staff_emails: staffEmails,
-                updated_at: nextUpdatedAt,
-                studio_slug: slug, // Keep slug in sync if it changed
-            }, { count: 'exact' });
-
-            updateQuery = updateQuery.eq('studio_slug', current.studio_slug);
-
-            const { error: updateError, count } = await updateQuery.eq('updated_at', current.updated_at);
+            const { error: updateError, count } = await supabase
+                .from(SETTINGS_TABLE)
+                .update(payload, { count: 'exact' })
+                .eq('studio_slug', slug)
+                .eq('updated_at', current.updated_at);
 
             if (updateError) throw updateError;
-            
-            // Conflict check: If count is 0, someone else updated it. Throw to retry.
-            if (count === 0) {
-                throw new Error('Conflict: Record updated by another client');
-            }
+            if (count === 0) throw new Error('Conflict');
         }
-
-        console.log('✅ Cloud Sync Consolidated Push Successful for:', slug, orgId ? `(ID: ${orgId})` : '');
+        console.log('✅ [SyncStore] Scope-Agnostic Cloud Sync Successful');
     } catch (err: any) {
         if (retryCount < 5) {
-            console.warn(`🔄 Cloud Sync Conflict detected, retrying (${retryCount + 1}/5)...`, err.message);
-            // Exponential backoff with jitter
-            const delay = Math.pow(2, retryCount) * 100 + Math.random() * 200;
-            await new Promise(r => setTimeout(r, delay));
-            return pushStudioStateToCloud(slug, staff, studioData, retryCount + 1, orgId);
+            await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 100 + Math.random() * 200));
+            return pushStudioStateToCloud(slug, staff, studioData, retryCount + 1, orgId, forceOverwrite);
         }
-        console.error('❌ Consolidated Sync Critical Error:', err);
     }
 }
 
-/** 
- * Fetches the entire studio row from Supabase.
- */
-export async function pullStudioStateFromCloud(slug: string, orgId?: string): Promise<{ staff_data: StaffMember[], studio_data: any } | null> {
+export async function pullStudioStateFromCloud(slug: string, targetScopeId: string): Promise<{ staff_data: StaffMember[], studio_data: any, org_id?: string } | null> {
     if (typeof window === 'undefined') return null;
     if (!slug || slug === 'demo.classcore.ge') return null;
 
     try {
         const supabase = createClient();
-        let query = supabase.from(SETTINGS_TABLE).select('staff_data, updated_at');
-        query = query.eq('studio_slug', slug);
-
-        const { data, error } = await query.maybeSingle();
+        const { data, error } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_data, studio_data, updated_at, org_id')
+            .eq('studio_slug', slug)
+            .maybeSingle();
 
         if (error || !data) return null;
 
-        const allData = data.staff_data as any[];
-        const configEntry = allData.find(item => item.id === '__studio_config__');
-        const realStaff = allData.filter(item => item.id !== '__studio_config__');
+        // Denormalize cloud data using the device's specific scope ID (Slug or OrgId)
+        const scopedData = denormalizeData(data.studio_data || {}, targetScopeId);
 
         return {
-            staff_data: realStaff as StaffMember[],
-            studio_data: configEntry?.studio_data || {}
+            staff_data: (data.staff_data || []) as StaffMember[],
+            studio_data: scopedData,
+            org_id: data.org_id
         };
     } catch {
         return null;
@@ -149,33 +239,146 @@ export async function fetchStaffFromCloud(slug: string): Promise<StaffMember[] |
     return state?.staff_data || null;
 }
 
-export async function findAllStudiosByStaffEmail(email: string): Promise<{ staff: StaffMember, slug: string }[]> {
+export async function findAllStudiosByStaffEmail(query: string): Promise<{ staff: StaffMember, slug: string }[]> {
     if (typeof window === 'undefined') return [];
-    const cleanEmail = email.trim().toLowerCase();
+    
+    // Clean up query variations
+    const cleanQuery = query.trim().toLowerCase();
+    const digitsOnly = query.replace(/[^0-9]/g, '');
+    
+    // Create a set of potential matches to check in the DB
+    const searchTerms = Array.from(new Set([
+        cleanQuery,
+        digitsOnly,
+        // If it starts with +995 or 5, try variations
+        digitsOnly.startsWith('995') ? digitsOnly.slice(3) : digitsOnly,
+    ].filter(t => t.length > 2)));
+
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('QUERY_TIMEOUT')), 12000)
+    );
+
+    try {
+        const supabase = createClient();
+        console.log('📡 [SyncStore] Searching cloud with terms:', searchTerms);
+        
+        const task = (async () => {
+            const { data, error } = await supabase
+                .from(SETTINGS_TABLE)
+                .select('studio_slug, staff_data, updated_at')
+                .contains('staff_emails', searchTerms) // Match ANY of the terms
+                .order('updated_at', { ascending: false })
+                .limit(10);
+
+            if (error) {
+                console.error('❌ [SyncStore] Cloud Search Error:', error);
+                throw error;
+            }
+            return data || [];
+        })();
+
+        // Race the search task against the 12s timeout
+        const data = await Promise.race([task, timeoutPromise]) as any[];
+        
+        if (!data || data.length === 0) {
+            console.warn('⚠️ [SyncStore] Cloud Search: No studios found for terms:', searchTerms);
+            return [];
+        }
+
+        const results: { staff: StaffMember, slug: string }[] = [];
+        
+        data.forEach(row => {
+            const staffMatch = (row.staff_data as StaffMember[]).find(s => {
+                const sEmail = s.email?.toLowerCase().trim();
+                const sFirstName = s.first_name?.toLowerCase().trim();
+                const sFullName = s.full_name?.toLowerCase().trim();
+                const sPhone = (s.phone || s.phone_number || '').replace(/[^0-9]/g, '');
+
+                return searchTerms.some(t => 
+                    t === sEmail || 
+                    t === sFirstName || 
+                    t === sFullName || 
+                    (sPhone && (sPhone === t || sPhone.endsWith(t) || t.endsWith(sPhone)))
+                );
+            });
+            
+            if (staffMatch) {
+                results.push({ staff: staffMatch, slug: row.studio_slug });
+            }
+        });
+
+        return results.sort((a, b) => {
+            const aIsDemo = a.slug.includes('demo');
+            const bIsDemo = b.slug.includes('demo');
+            if (aIsDemo && !bIsDemo) return 1;
+            if (!aIsDemo && bIsDemo) return -1;
+            return 0;
+        });
+
+    } catch (err: any) {
+        console.error('❌ [SyncStore] Cloud Search Critical Error:', err);
+        return [];
+    }
+}
+
+/**
+ * Fast targeted verification: Checks if a specific query (email/phone) exists in a specific studio.
+ */
+export async function verifyUserInStudio(slug: string, query: string): Promise<boolean> {
+    if (typeof window === 'undefined' || !slug || !query) return false;
+    const cleanQuery = query.trim().toLowerCase();
+    const digitsOnly = query.replace(/[^0-9]/g, '');
+
+    const terms = Array.from(new Set([cleanQuery, digitsOnly].filter(t => t.length > 2)));
 
     try {
         const supabase = createClient();
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
-            .select('studio_slug, staff_data, staff_emails')
-            .contains('staff_emails', [cleanEmail]);
+            .select('staff_emails, staff_data')
+            .eq('studio_slug', slug)
+            .single();
 
-        if (error || !data) return [];
-
-        const results: { staff: StaffMember, slug: string }[] = [];
+        if (error || !data) return false;
         
-        data.forEach(row => {
-            const staff = (row.staff_data as StaffMember[]).find(s =>
-                s.email?.toLowerCase().trim() === cleanEmail
-            );
-            if (staff) {
-                results.push({ staff, slug: row.studio_slug });
-            }
+        // 1. Raw JSON check (Definitive source for role-based logic)
+        const staffData = (data.staff_data || []) as any[];
+        
+        // 1a. Check top-level staff (owners/admins)
+        // Owners and Admins are managed via Supabase Auth and always have access if they exist in staff_data
+        const foundInStaff = staffData.some(s => {
+            if (s.id === '__studio_config__') return false;
+            const sEmail = s.email?.toLowerCase().trim();
+            const sPhone = (s.phone || s.phone_number || '').replace(/[^0-9]/g, '');
+            return terms.some(t => t === sEmail || (sPhone && (sPhone === t || sPhone.endsWith(t))));
         });
+        if (foundInStaff) return true;
 
-        return results;
-    } catch (err) {
-        return [];
+        // 1b. Deep check inside teacher collections (Strict: require password for teachers)
+        // The user requested that teachers ONLY have access if they were added with a password.
+        const configItem = staffData.find(s => s.id === '__studio_config__');
+        if (configItem?.studio_data) {
+            const studioData = configItem.studio_data;
+            const foundInTeachers = Object.keys(studioData).some(key => {
+                if (!key.startsWith('cc_teachers')) return false;
+                const teachers = studioData[key];
+                if (!Array.isArray(teachers)) return false;
+                return teachers.some(t => {
+                    const tEmail = t.email?.toLowerCase().trim();
+                    const tPhone = (t.phone || '').replace(/[^0-9]/g, '');
+                    const matches = terms.some(term => term === tEmail || (tPhone && (tPhone === term || tPhone.endsWith(term))));
+                    
+                    // IMPORTANT: Only grant access if the teacher has a password set.
+                    // This fulfills the "Strict Personal Access" requirement.
+                    return matches && !!t.password;
+                });
+            });
+            if (foundInTeachers) return true;
+        }
+
+        return false;
+    } catch {
+        return false;
     }
 }
 
@@ -197,15 +400,93 @@ export async function checkCloudConnection(slug: string): Promise<boolean> {
     }
 }
 
-export async function syncStudioDataToCloud(slug: string, data: any, orgId?: string) {
-    // Redirection to consolidated push to maintain backward compatibility safely
-    // Note: We don't have the staff list here, so we load it from local first
-    const { loadSettings } = await import('./settings-store');
-    const settings = loadSettings(slug);
-    return pushStudioStateToCloud(slug, settings.staff, data, 0, orgId || settings.orgId);
-}
-
 export async function fetchStudioDataFromCloud(slug: string): Promise<any | null> {
     const state = await pullStudioStateFromCloud(slug);
     return state?.studio_data || null;
 }
+
+/**
+ * PURGE UTILITY: Wipes all operational data (students, groups, subs, etc.) 
+ * while keeping the "framework" (name, logo, theme, branches, staff).
+ */
+export async function masterStudioPurge(slug: string): Promise<void> {
+    if (typeof window === 'undefined') return;
+    if (!slug || slug === 'demo.classcore.ge') return;
+
+    try {
+        const supabase = createClient();
+        const { data: current, error: pullError } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_data, studio_slug')
+            .eq('studio_slug', slug)
+            .maybeSingle();
+
+        if (pullError || !current) throw new Error('Studio not found');
+
+        const allStaff = (current.staff_data as any[]) || [];
+        const configEntry = allStaff.find(s => s.id === '__studio_config__');
+        if (!configEntry) return;
+
+        // 1. Scrub actual studio_data JSON
+        const dbStudioData = current.studio_data || {};
+        const cleanedStudioData: any = {};
+        
+        // Essential framework keys to PRESERVE
+        const FRAMEWORK_KEYS = [
+            'studioName', 'logoDataUrl', 'themeKey', 'currency', 
+            'branches', 'notifications', 'sms_templates', 'orgId', 'org_id'
+        ];
+
+        Object.keys(dbStudioData).forEach(k => {
+            if (FRAMEWORK_KEYS.includes(k)) {
+                cleanedStudioData[k] = dbStudioData[k];
+            }
+        });
+
+        // 2. Scrub Staff Data (Destroy Shadows)
+        const nextStaff = allStaff.map(s => {
+            // If it's the config placeholder, clean its internal studio_data too
+            if (s.id === '__studio_config__') {
+                return { id: '__studio_config__', studio_data: cleanedStudioData };
+            }
+            // Keep actual staff members (roles/names) but we could also clear their personal data if needed.
+            // For now, preservation of staff is intentional framework support.
+            return s;
+        });
+
+        const nextUpdatedAt = new Date().toISOString();
+        
+        // 3. NUCLEAR UPDATE: Wipe studio_data AND staff_data AND emails registry
+        const { error: pushError } = await supabase
+            .from(SETTINGS_TABLE)
+            .update({
+                studio_data: cleanedStudioData,
+                staff_data: nextStaff,
+                staff_emails: [], // Nuclear: Force cold lookup for next sync
+                updated_at: nextUpdatedAt
+            })
+            .eq('studio_slug', slug);
+
+        if (pushError) throw pushError;
+
+        // ─── Local Storage Cleanup ───
+        // We also clear local browser data to ensure the UI updates immediately for the person performing the purge
+        Object.keys(localStorage).forEach(key => {
+            if (
+                key.startsWith(`chat_${slug}_`) || 
+                key.startsWith(`group_chat_${slug}_`) || 
+                key.startsWith(`cc_notifications_${slug}`) ||
+                key === `cc_notifications_history`
+            ) {
+                localStorage.removeItem(key);
+            }
+        });
+
+        console.log(`✅ [SyncStore] Purge complete for ${slug}`);
+    } catch (err) {
+        console.error('❌ [SyncStore] Purge error:', err);
+        throw err;
+    }
+}
+
+

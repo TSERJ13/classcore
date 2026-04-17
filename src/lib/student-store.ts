@@ -1,5 +1,6 @@
 import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate } from './utils';
 import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-store';
+import { pushStudioStateToCloud } from './sync-store';
 import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
 import { recordAuditAction } from './audit-store';
 
@@ -42,12 +43,27 @@ export function getStudents(): Student[] {
         }
 
         const deletedKey = getDeletedStudentsKey();
-        const deletedIds = new Set(JSON.parse(localStorage.getItem(deletedKey) || '[]'));
+        let deletedIds = new Set<string>();
+        try {
+            const rawDeleted = localStorage.getItem(deletedKey);
+            if (rawDeleted) {
+                const parsed = JSON.parse(rawDeleted);
+                if (Array.isArray(parsed)) deletedIds = new Set(parsed);
+            }
+        } catch (e) {
+            console.warn('⚠️ [StudentStore] Failed to parse deleted IDs:', e);
+        }
 
         const isMainBranch = activeBranch === 'main';
 
         if (!stored) return isMainBranch ? INITIAL_STUDENTS : [];
-        const patches = JSON.parse(stored) || {};
+        let patches: any = {};
+        try {
+            patches = JSON.parse(stored) || {};
+        } catch (e) {
+            console.error('❌ [StudentStore] Fatal: Corrupt student patches. Returning base data.', e);
+            return isMainBranch ? INITIAL_STUDENTS : [];
+        }
 
         // If saved data is an array (old version) or unexpected format, return initial
         if (Array.isArray(patches)) return isMainBranch ? INITIAL_STUDENTS : [];
@@ -195,6 +211,13 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
 
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
     markLocalUpdate();
+    
+    // Immediate Cloud Sync
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [getStudentDataKey()]: patches });
+    }
+
+
     window.dispatchEvent(new Event('cc_student_update'));
 }
 
@@ -206,7 +229,14 @@ export function deleteStudent(studentId: string): void {
 
     // Persist deletion for mock data
     const deletedKey = getDeletedStudentsKey();
-    const deletedIds = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+    let deletedIds = [];
+    try {
+        const raw = localStorage.getItem(deletedKey);
+        if (raw) deletedIds = JSON.parse(raw);
+        if (!Array.isArray(deletedIds)) deletedIds = [];
+    } catch (e) {
+        deletedIds = [];
+    }
     if (!deletedIds.includes(studentId)) {
         deletedIds.push(studentId);
         localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
@@ -215,9 +245,19 @@ export function deleteStudent(studentId: string): void {
     // also clear UID
     unregisterStudentUid(studentId);
 
+    // Immediate Cloud Sync
+    const activeSlugForSync = (typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null) || 'demo.classcore.ge';
+    if (activeSlugForSync && activeSlugForSync !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlugForSync, [], { 
+            [getStudentDataKey()]: patches,
+            [getDeletedStudentsKey()]: deletedIds
+        });
+    }
+
+
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
-        const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
+    const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
     if (slug && studentId) {
         const settings = loadSettings(slug);
         const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
@@ -281,7 +321,14 @@ export function registerUid(uid: string, studentId: string, studentName: string)
     }
 
     registry[norm] = { studentId, studentName };
-    localStorage.setItem(getUidRegistryKey(), JSON.stringify(registry));
+    const key = getUidRegistryKey();
+    localStorage.setItem(key, JSON.stringify(registry));
+
+    // Sync
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: registry });
+    }
 }
 
 /** Remove UID registration for a student (called on student delete or UID clear) */
@@ -292,7 +339,14 @@ export function unregisterStudentUid(studentId: string): void {
             delete registry[key];
         }
     }
-    localStorage.setItem(getUidRegistryKey(), JSON.stringify(registry));
+    const key = getUidRegistryKey();
+    localStorage.setItem(key, JSON.stringify(registry));
+
+    // Sync
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: registry });
+    }
 }
 
 /** Look up a student by UID (returns null if not found) */

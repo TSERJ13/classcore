@@ -20,6 +20,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import { getGroups, addSlotToGroup, removeSlotFromGroup, createGroup, saveGroups, type Group } from '@/lib/group-store';
 import { saveSubscription } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 
 /* ─── Constants ──────────────────────────────────────────────── */
 const PALETTES = [
@@ -191,7 +192,7 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
     const oldDayOfWeek = new Date(ev.date + 'T00:00:00').getDay();
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onCancel}>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/20" />
             <div className="relative z-10 w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
@@ -358,6 +359,26 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
     const [selectedColor, setSelectedColor] = useState<string>(ev.color || color);
 
+    const { lang } = useT();
+    const timeOptions = generateTimeOptions(15);
+    const dayOptions = generateDayOptions();
+    const monthOptions = generateMonthOptions(lang);
+    const yearOptions = generateYearOptions(new Date().getFullYear() - 1, new Date().getFullYear() + 2);
+
+    const [dateParts, setDateParts] = useState({ day: '', month: '', year: '' });
+    useEffect(() => {
+        if (form.date) {
+            const [y, m, d] = form.date.split('-');
+            setDateParts({ year: y || '', month: m || '', day: d || '' });
+        }
+    }, [form.date]);
+
+    const updateDateFromParts = (parts: { day: string, month: string, year: string }) => {
+        if (parts.day && parts.month && parts.year) {
+            setF('date', `${parts.year}-${parts.month}-${parts.day}`);
+        }
+    };
+
     const group = groups.find(g => g.id === ev.group_id);
 
     // Auto-update color if group changes in edit mode
@@ -412,7 +433,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
     if (mode === 'edit') {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+                <div className="fixed inset-0 bg-black/20" />
                 <div className="relative z-10 w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
                         <h2 className="text-sm font-bold text-primary">{t.calEventEdit}</h2>
@@ -486,21 +507,61 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         </div>
 
                         {form.recurring !== 'weekly' && (
-                            <div className="grid grid-cols-3 gap-2">
-                                <div>
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
                                     <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calDate}</label>
-                                    <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <SearchSelect 
+                                            options={dayOptions}
+                                            value={dateParts.day}
+                                            onChange={val => {
+                                                const p = { ...dateParts, day: val };
+                                                setDateParts(p);
+                                                updateDateFromParts(p);
+                                            }}
+                                            placeholder="დღე"
+                                        />
+                                        <SearchSelect 
+                                            options={monthOptions}
+                                            value={dateParts.month}
+                                            onChange={val => {
+                                                const p = { ...dateParts, month: val };
+                                                setDateParts(p);
+                                                updateDateFromParts(p);
+                                            }}
+                                            placeholder="თვე"
+                                        />
+                                        <SearchSelect 
+                                            options={yearOptions}
+                                            value={dateParts.year}
+                                            onChange={val => {
+                                                const p = { ...dateParts, year: val };
+                                                setDateParts(p);
+                                                updateDateFromParts(p);
+                                            }}
+                                            placeholder="წელი"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
-                                    <input type="time" value={form.start_time} onChange={e => setF('start_time', e.target.value)}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
-                                    <input type="time" value={form.end_time} onChange={e => setF('end_time', e.target.value)}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={form.start_time}
+                                            onChange={val => setF('start_time', val)}
+                                            placeholder="09:00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={form.end_time}
+                                            onChange={val => setF('end_time', val)}
+                                            placeholder="10:30"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -543,10 +604,18 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                             <div key={d} className="flex items-center gap-3 bg-card p-2 rounded-xl border border-border-subtle/30">
                                                 <span className="text-[10px] font-bold text-primary w-20">{dayFullNames[d]}</span>
                                                 <div className="flex-1 flex gap-2">
-                                                    <input type="time" value={recurringDays[d].start} onChange={e => setDayTime(d, 'start', e.target.value)}
-                                                        className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
-                                                    <input type="time" value={recurringDays[d].end} onChange={e => setDayTime(d, 'end', e.target.value)}
-                                                        className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
+                                                    <SearchSelect 
+                                                        options={timeOptions}
+                                                        value={recurringDays[d].start}
+                                                        onChange={val => setDayTime(d, 'start', val)}
+                                                        className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                    />
+                                                    <SearchSelect 
+                                                        options={timeOptions}
+                                                        value={recurringDays[d].end}
+                                                        onChange={val => setDayTime(d, 'end', val)}
+                                                        className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                    />
                                                 </div>
                                             </div>
                                         );
@@ -594,7 +663,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
         const isGroupEvent = !!ev.group_id;
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+                <div className="fixed inset-0 bg-black/20" />
                 <div className="relative z-10 w-full max-w-xs bg-card border border-border-subtle rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
@@ -645,7 +714,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
     // View mode
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/20" />
             <div className="relative z-10 w-full max-w-xs bg-card border border-border-subtle rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
                 {/* Title + close */}
                 <div className="flex items-start gap-3">
@@ -776,6 +845,26 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
         });
     }
 
+    const { lang } = useT();
+    const timeOptions = generateTimeOptions(15);
+    const dayOptions = generateDayOptions();
+    const monthOptions = generateMonthOptions(lang);
+    const yearOptions = generateYearOptions(new Date().getFullYear() - 1, new Date().getFullYear() + 2);
+
+    const [dateParts, setDateParts] = useState({ day: '', month: '', year: '' });
+    useEffect(() => {
+        if (form.date) {
+            const [y, m, d] = form.date.split('-');
+            setDateParts({ year: y || '', month: m || '', day: d || '' });
+        }
+    }, [form.date]);
+
+    const updateDateFromParts = (parts: { day: string, month: string, year: string }) => {
+        if (parts.day && parts.month && parts.year) {
+            setF('date', `${parts.year}-${parts.month}-${parts.day}`);
+        }
+    };
+
     const [selectedColor, setSelectedColor] = useState<string>('#6366f1'); // Default color
 
     // Auto-select group color if group selected
@@ -863,7 +952,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
 
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 animate-in fade-in slide-in-from-bottom-4 duration-300" onClick={onClose}>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-black/20" />
             <div className="relative z-10 w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
                     <h2 className="text-sm font-bold text-primary">{t.calEventNew}</h2>
@@ -965,21 +1054,61 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     </div>
 
                     {form.recurring !== 'weekly' && (
-                        <div className="grid grid-cols-3 gap-2">
-                            <div>
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
                                 <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calDate}</label>
-                                <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
+                                <div className="grid grid-cols-3 gap-2">
+                                    <SearchSelect 
+                                        options={dayOptions}
+                                        value={dateParts.day}
+                                        onChange={val => {
+                                            const p = { ...dateParts, day: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        placeholder="დღე"
+                                    />
+                                    <SearchSelect 
+                                        options={monthOptions}
+                                        value={dateParts.month}
+                                        onChange={val => {
+                                            const p = { ...dateParts, month: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        placeholder="თვე"
+                                    />
+                                    <SearchSelect 
+                                        options={yearOptions}
+                                        value={dateParts.year}
+                                        onChange={val => {
+                                            const p = { ...dateParts, year: val };
+                                            setDateParts(p);
+                                            updateDateFromParts(p);
+                                        }}
+                                        placeholder="წელი"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
-                                <input type="time" value={form.start_time} onChange={e => setF('start_time', e.target.value)}
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
-                                <input type="time" value={form.end_time} onChange={e => setF('end_time', e.target.value)}
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-2 py-2.5 text-xs text-primary outline-none transition-all" />
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calStartTime}</label>
+                                    <SearchSelect 
+                                        options={timeOptions}
+                                        value={form.start_time}
+                                        onChange={val => setF('start_time', val)}
+                                        placeholder="09:00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEndTime}</label>
+                                    <SearchSelect 
+                                        options={timeOptions}
+                                        value={form.end_time}
+                                        onChange={val => setF('end_time', val)}
+                                        placeholder="10:30"
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1022,10 +1151,18 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                         <div key={d} className="flex items-center gap-3 bg-card/50 p-2 rounded-xl border border-border-subtle/30">
                                             <span className="text-[10px] font-bold text-primary w-16">{dayNames[d]}</span>
                                             <div className="flex-1 flex gap-2">
-                                                <input type="time" value={recurringDays[d].start} onChange={e => setDayTime(d, 'start', e.target.value)}
-                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
-                                                <input type="time" value={recurringDays[d].end} onChange={e => setDayTime(d, 'end', e.target.value)}
-                                                    className="w-full bg-surface border border-border-subtle rounded-lg px-2 py-1 text-[10px] text-primary outline-none" />
+                                                <SearchSelect 
+                                                    options={timeOptions}
+                                                    value={recurringDays[d].start}
+                                                    onChange={val => setDayTime(d, 'start', val)}
+                                                    className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                />
+                                                <SearchSelect 
+                                                    options={timeOptions}
+                                                    value={recurringDays[d].end}
+                                                    onChange={val => setDayTime(d, 'end', val)}
+                                                    className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px]"
+                                                />
                                             </div>
                                         </div>
                                     );
@@ -1555,64 +1692,194 @@ export default function CalendarPage() {
     }
 
     async function exportPDF() {
-        try {
-            const { jsPDF } = await import('jspdf');
-            const { default: autoTable } = await import('jspdf-autotable');
-            
-            const orientation = view === 'day' ? 'p' : 'l';
-            const doc = new jsPDF({ orientation });
+        const printWin = window.open('', '_blank');
+        if (!printWin) return;
 
-            const studioName = settings.studioName || 'ClassCore';
-            const dateStr = view === 'day' 
-                ? formatDate(anchor, 'long')
-                : view === 'week'
-                    ? `${t.weekView}: ${formatDate(getWeekDates(anchor)[0])} - ${formatDate(getWeekDates(anchor)[6])}`
-                    : `${t.monthView}: ${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
+        const studioName = settings.studioName || 'ClassCore';
+        const dateStr = view === 'day' 
+            ? formatDate(anchor, 'long')
+            : view === 'week'
+                ? `${t.weekView}: ${formatDate(getWeekDates(anchor)[0])} - ${formatDate(getWeekDates(anchor)[6])}`
+                : `${t.monthView}: ${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
 
-            doc.setFontSize(14);
-            doc.text(`${studioName} — ${t.calendar}`, 14, 15);
-            doc.setFontSize(10);
-            doc.text(dateStr, 14, 22);
-
-            const tableHead = [[t.calDate, t.calStartTime, t.calEndTime, t.calGroup, t.calTeacher, t.calHall]];
-            const tableBody = filtered
-                .sort((a, b) => {
-                    const dateComp = a.date.localeCompare(b.date);
-                    if (dateComp !== 0) return dateComp;
-                    return a.start_time.localeCompare(b.start_time);
-                })
-                .map(ev => {
-                    const h = halls.find(h => h.id === ev.hall_id);
-                    const tc = teachers.find(t => t.id === ev.teacher_id);
-                    const grp = groups.find(g => g.id === ev.group_id);
-                    return [
-                        ev.date,
-                        ev.start_time,
-                        ev.end_time,
-                        ev.title || grp?.name || '',
-                        tc?.full_name || '',
-                        h?.name || ''
-                    ];
-                });
-
-            autoTable(doc, {
-                startY: 28,
-                head: tableHead,
-                body: tableBody,
-                theme: 'striped',
-                headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 9, fontStyle: 'bold' },
-                bodyStyles: { fontSize: 8 },
-                alternateRowStyles: { fillColor: [249, 250, 251] },
-                margin: { top: 30 },
+        const getEventsFor = (date: string, hallId?: string) => {
+            return getEvents().filter(ev => {
+                if (ev.date !== date) return false;
+                if (hallId && ev.hall_id !== hallId) return false;
+                if (filterHall !== 'all' && ev.hall_id !== filterHall) return false;
+                return true;
             });
+        };
 
-            const fileName = `calendar_${view}_${toDateStr(anchor)}.pdf`;
-            doc.save(fileName);
-        } catch (err) {
-            console.error('PDF export failed:', err);
-            alert('PDF-ის ექსპორტი ვერ მოხერხდა.');
+        let contentHtml = '';
+
+        if (view === 'day') {
+            const activeHalls = filterHall === 'all' ? halls : halls.filter(h => h.id === filterHall);
+            contentHtml = `
+                <div class="print-header">
+                    <div class="print-studio">${studioName}</div>
+                    <div class="print-title">${t.calendar} — ${t.dayView}</div>
+                    <div class="print-date">${dateStr}</div>
+                </div>
+                <table class="day-grid">
+                    <thead>
+                        <tr>
+                            <th class="time-col">${t.times || 'დრო'}</th>
+                            ${activeHalls.map(h => `<th style="border-top: 4px solid ${h.color}">${h.name}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${TIME_SLOTS.filter(s => s.endsWith(':00') || s.endsWith(':30')).map(slot => `
+                            <tr>
+                                <td class="time-cell">${slot}</td>
+                                ${activeHalls.map(h => {
+                                    const evs = getEventsFor(toDateStr(anchor), h.id).filter(e => {
+                                        const start = timeToMins(e.start_time);
+                                        const slotMins = timeToMins(slot);
+                                        return start >= slotMins && start < slotMins + 30;
+                                    });
+                                    return `<td>
+                                        ${evs.map(e => `
+                                            <div class="event-chip" style="border-left: 3px solid ${e.color || h.color}; background: ${ (e.color || h.color) + '10' }">
+                                                <div class="ev-time">${e.start_time}-${e.end_time}</div>
+                                                <div class="ev-title">${e.title}</div>
+                                                <div class="ev-teacher">${teachers.find(tc => tc.id === e.teacher_id)?.full_name || ''}</div>
+                                            </div>
+                                        `).join('')}
+                                    </td>`;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else if (view === 'week') {
+            const weekDates = getWeekDates(anchor);
+            const dayNames = [t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat, t.shortSun];
+            contentHtml = `
+                <div class="print-header">
+                    <div class="print-studio">${studioName}</div>
+                    <div class="print-title">${t.calendar} — ${t.weekView}</div>
+                    <div class="print-date">${dateStr}</div>
+                </div>
+                <table class="week-grid">
+                    <thead>
+                        <tr>
+                            <th class="time-col">${t.times || 'დრო'}</th>
+                            ${weekDates.map((d, i) => `<th>${dayNames[i]}<br/><small>${formatDate(d)}</small></th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => {
+                            const hour = START_HOUR + i;
+                            const slot = `${hour.toString().padStart(2, '0')}:00`;
+                            return `
+                                <tr>
+                                    <td class="time-cell">${slot}</td>
+                                    ${weekDates.map(d => {
+                                        const evs = getEventsFor(toDateStr(d)).filter(e => e.start_time.startsWith(hour.toString().padStart(2, '0')));
+                                        return `<td>
+                                            ${evs.map(e => `
+                                                <div class="event-chip mini" style="border-left: 2px solid ${e.color || '#6366f1'}">
+                                                    <strong>${e.title}</strong>
+                                                    <span>${e.start_time}</span>
+                                                </div>
+                                            `).join('')}
+                                        </td>`;
+                                    }).join('')}
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            const daysInMonth = getDaysInMonth(anchor.getFullYear(), anchor.getMonth());
+            const startDay = daysInMonth[0].getDay();
+            const offset = (startDay + 6) % 7;
+            const dayNames = [t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat, t.shortSun];
+
+            contentHtml = `
+                <div class="print-header">
+                    <div class="print-studio">${studioName}</div>
+                    <div class="print-title">${t.calendar} — ${t.monthView}</div>
+                    <div class="print-date">${dateStr}</div>
+                </div>
+                <div class="month-grid">
+                    ${dayNames.map(n => `<div class="month-day-head">${n}</div>`).join('')}
+                    ${Array.from({ length: offset }).map(() => `<div class="month-day empty"></div>`).join('')}
+                    ${daysInMonth.map(d => {
+                        const dateCode = toDateStr(d);
+                        const evs = getEventsFor(dateCode);
+                        return `
+                            <div class="month-day ${dateCode === toDateStr(new Date()) ? 'today' : ''}">
+                                <div class="day-num">${d.getDate()}</div>
+                                <div class="day-events">
+                                    ${evs.map(e => `<div class="ev-line" style="background: ${e.color || '#6366f1'}20; color: ${e.color || '#6366f1'}">${e.title}</div>`).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
         }
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>${studioName} Calendar Export</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+                    body { font-family: 'Inter', -apple-system, sans-serif; padding: 40px; color: #1e293b; background: #fff; margin: 0; }
+                    .print-header { margin-bottom: 30px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
+                    .print-studio { font-size: 24px; font-weight: 900; color: #4f46e5; }
+                    .print-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-top: 4px; }
+                    .print-date { font-size: 18px; font-weight: 700; color: #334155; margin-top: 10px; }
+                    
+                    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                    th, td { border: 1px solid #e2e8f0; padding: 8px; vertical-align: top; font-size: 11px; }
+                    th { background: #f8fafc; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; height: 30px; vertical-align: middle; }
+                    .time-col { width: 60px; text-align: center; }
+                    .time-cell { background: #f8fafc; font-weight: 700; color: #64748b; font-size: 10px; text-align: center; }
+                    
+                    .event-chip { padding: 4px 6px; border-radius: 6px; margin-bottom: 4px; }
+                    .event-chip.mini { padding: 2px 4px; font-size: 9px; margin-bottom: 2px; }
+                    .ev-time { font-size: 9px; font-weight: 800; opacity: 0.5; margin-bottom: 2px; }
+                    .ev-title { font-weight: 700; color: #1e293b; line-height: 1.2; }
+                    .ev-teacher { font-size: 9px; opacity: 0.6; margin-top: 2px; }
+                    
+                    .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid #e2e8f0; }
+                    .month-day-head { background: #f8fafc; padding: 10px; text-align: center; font-weight: 800; font-size: 10px; border: 0.5px solid #e2e8f0; text-transform: uppercase; }
+                    .month-day { min-height: 100px; border: 0.5px solid #e2e8f0; padding: 8px; }
+                    .month-day.empty { background: rgba(248, 250, 252, 0.3); }
+                    .month-day.today { background: rgba(79, 70, 229, 0.05); }
+                    .day-num { font-weight: 800; font-size: 14px; color: #94a3b8; margin-bottom: 6px; }
+                    .ev-line { font-size: 9px; font-weight: 700; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+                    @media print {
+                        body { padding: 20px; }
+                        @page { size: ${view === 'day' ? 'portrait' : 'landscape'}; margin: 1cm; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${contentHtml}
+                <script>
+                    window.onload = () => {
+                        window.print();
+                    };
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWin.document.write(html);
+        printWin.document.close();
     }
+
+
 
     return (
         <div className="flex flex-col gap-3 animate-fade-up h-full pb-8">

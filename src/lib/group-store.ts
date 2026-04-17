@@ -14,6 +14,10 @@ export interface Group {
     name: string;
     coach: string;
     teacherId: string;
+    secondaryTeacherId?: string; // Optional second teacher
+    secondaryTeacherName?: string; // Optional assistant coach name
+    primaryTeacherPercentage?: number; // Override teacher global % for this group
+    secondaryTeacherPercentage?: number; // Specific % for secondary teacher
     schedule: string; // human-readable display string (auto-generated)
     schedule_slots?: ScheduleSlot[]; // structured schedule data
     capacity: number;
@@ -22,12 +26,16 @@ export interface Group {
     difficulty: string | null;
     hall_id?: string; // linked hall
     color?: string;
+    org_id?: string;
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_GROUPS_KEY = 'cc_groups';
+const BASE_DELETED_GROUPS_KEY = 'cc_deleted_groups';
 function getGroupsKey() { return getScopedKey(BASE_GROUPS_KEY); }
+function getDeletedGroupsKey() { return getScopedKey(BASE_DELETED_GROUPS_KEY); }
 
 // Matches teacher-store assigned_group_ids (g1 to g5)
 const INITIAL_GROUPS: Group[] = [];
@@ -52,13 +60,30 @@ export function getGroups(): Group[] {
             }
         }
 
+        const deletedKey = getDeletedGroupsKey();
+        let deletedIds = new Set<string>();
+        try {
+            const rawDeleted = localStorage.getItem(deletedKey);
+            if (rawDeleted) {
+                const parsed = JSON.parse(rawDeleted);
+                if (Array.isArray(parsed)) deletedIds = new Set(parsed);
+            }
+        } catch {}
+
         if (!saved) {
             const data = isMainBranch ? INITIAL_GROUPS : [];
             if (isMainBranch) localStorage.setItem(key, JSON.stringify(data));
             return data;
         }
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : INITIAL_GROUPS;
+        let parsed = [];
+        try {
+            parsed = JSON.parse(saved);
+        } catch (e) {
+            console.error('❌ [GroupStore] Corrupt groups data:', e);
+            return isMainBranch ? INITIAL_GROUPS : [];
+        }
+        const list = Array.isArray(parsed) ? (parsed as Group[]) : INITIAL_GROUPS;
+        return list.filter(g => !deletedIds.has(g.id));
     } catch {
         return INITIAL_GROUPS;
     }
@@ -66,8 +91,17 @@ export function getGroups(): Group[] {
 
 export function saveGroups(groups: Group[]): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getGroupsKey(), JSON.stringify(groups));
+    const key = getGroupsKey();
+    console.log(`💾 [GroupStore] Saving groups to: ${key}`, { count: groups.length });
+    localStorage.setItem(key, JSON.stringify(groups));
     markLocalUpdate();
+    
+    // Immediate Cloud Sync
+    const activeSlug = localStorage.getItem('cc_active_studio_slug');
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: groups });
+    }
+
     window.dispatchEvent(new Event('cc_groups_update'));
 }
 
@@ -77,12 +111,15 @@ export function getGroupById(id: string): Group | null {
 
 export function createGroup(group: Omit<Group, 'id' | 'enrolled' | 'schedule'>): Group {
     const groups = getGroups();
+    const id = 'g' + Math.random().toString(36).substr(2, 9);
+    const slots = group.schedule_slots || [];
+    
     const newGroup: Group = {
         ...group,
-        id: 'g' + Math.random().toString(36).substr(2, 9),
+        id,
         enrolled: 0,
-        schedule: '',
-        schedule_slots: [],
+        schedule_slots: slots,
+        schedule: slotsToDisplay(slots),
     };
     groups.push(newGroup);
     saveGroups(groups);
@@ -162,17 +199,36 @@ export function updateTeacherGroups(teacherId: string, coachName: string, assign
     
     const updated = groups.map(g => {
         const shouldBeAssigned = assignedGroupIds.includes(g.id);
-        const isCurrentlyAssigned = g.teacherId === teacherId;
-        const nameChanged = g.coach !== coachName;
+        const isCurrentlyPrimary = g.teacherId === teacherId;
+        const isCurrentlySecondary = g.secondaryTeacherId === teacherId;
+        const nameChangedPrimary = isCurrentlyPrimary && g.coach !== coachName;
+        const nameChangedSecondary = isCurrentlySecondary && g.secondaryTeacherName !== coachName;
 
         if (shouldBeAssigned) {
-            if (!isCurrentlyAssigned || nameChanged) {
+            // If it should be assigned but isn't assigned as primary or secondary, add as primary if empty
+            if (!isCurrentlyPrimary && !isCurrentlySecondary) {
                 changed = true;
-                return { ...g, teacherId, coach: coachName };
+                if (!g.teacherId) return { ...g, teacherId, coach: coachName };
+                if (!g.secondaryTeacherId) return { ...g, secondaryTeacherId: teacherId, secondaryTeacherName: coachName };
             }
-        } else if (isCurrentlyAssigned) {
-            changed = true;
-            return { ...g, teacherId: '', coach: '' };
+            if (nameChangedPrimary || nameChangedSecondary) {
+                changed = true;
+                return { 
+                    ...g, 
+                    coach: isCurrentlyPrimary ? coachName : g.coach,
+                    secondaryTeacherName: isCurrentlySecondary ? coachName : g.secondaryTeacherName
+                };
+            }
+        } else {
+            // If it shouldn't be assigned but is, remove it
+            if (isCurrentlyPrimary) {
+                changed = true;
+                return { ...g, teacherId: '', coach: '' };
+            }
+            if (isCurrentlySecondary) {
+                changed = true;
+                return { ...g, secondaryTeacherId: '', secondaryTeacherName: '' };
+            }
         }
         return g;
     });
@@ -180,4 +236,43 @@ export function updateTeacherGroups(teacherId: string, coachName: string, assign
     if (changed) {
         saveGroups(updated);
     }
+}
+
+export function deleteGroup(id: string): void {
+    const groups = getGroups();
+    const updated = groups.filter(g => g.id !== id);
+    
+    // Persist deletion for mock data / tombstone
+    const deletedKey = getDeletedGroupsKey();
+    let deletedIds: string[] = [];
+    try {
+        const raw = localStorage.getItem(deletedKey);
+        if (raw) deletedIds = JSON.parse(raw);
+        if (!Array.isArray(deletedIds)) deletedIds = [];
+    } catch {}
+    
+    if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    }
+
+    const key = getGroupsKey();
+    localStorage.setItem(key, JSON.stringify(updated));
+    markLocalUpdate();
+
+    // Immediate Cloud Sync
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { 
+            [key]: updated,
+            [deletedKey]: deletedIds
+        });
+    }
+
+    // CLEANUP CALENDAR: Remove all recurring events for this group
+    import('./event-store').then(mod => {
+        mod.deleteGroupEvents(id);
+    });
+
+    window.dispatchEvent(new Event('cc_groups_update'));
 }

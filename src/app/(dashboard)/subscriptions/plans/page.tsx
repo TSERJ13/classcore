@@ -7,7 +7,7 @@ import {
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { THEMES, BG_THEMES, type ThemeKey, type BgKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
+import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { getPlans, savePlans, type Plan } from '@/lib/plan-store';
@@ -39,8 +39,8 @@ export default function PlansManagementPage() {
     useEffect(() => {
         const load = () => setPlans(getPlans());
         load();
-        window.addEventListener('cc_subscription_update', load);
-        return () => window.removeEventListener('cc_subscription_update', load);
+        window.addEventListener('cc_subscription_plans_update', load);
+        return () => window.removeEventListener('cc_subscription_plans_update', load);
     }, []);
 
     const [showForm, setShowForm] = useState(false);
@@ -188,7 +188,7 @@ export default function PlansManagementPage() {
             {/* Plan Form Modal */}
             {showForm && (
                 <>
-                    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+                    <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setShowForm(false)} />
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <div className="bg-card border border-border-subtle rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
@@ -230,18 +230,27 @@ export default function PlansManagementPage() {
                                     {form.period === 'sessions' && (
                                         <div>
                                             <label className="text-xs text-muted mb-1.5 block">{t.sessionCountLabel}</label>
-                                            <input type="number" value={form.session_count ?? ''} onChange={e => setForm(p => ({ ...p, session_count: Number(e.target.value) }))}
+                                            <input type="number" value={form.session_count || ''} onChange={e => {
+                                                const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                                setForm(p => ({ ...p, session_count: val }));
+                                            }}
                                                 className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                         </div>
                                     )}
                                     <div>
                                         <label className="text-xs text-muted mb-1.5 block">{t.validityDaysInput}</label>
-                                        <input type="number" value={form.validity_days ?? ''} onChange={e => setForm(p => ({ ...p, validity_days: Number(e.target.value) }))}
+                                        <input type="number" value={form.validity_days || ''} onChange={e => {
+                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                            setForm(p => ({ ...p, validity_days: val }));
+                                        }}
                                             className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted mb-1.5 block">{t.price} ({settings.currency})</label>
-                                        <input type="number" value={form.price || ''} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) }))}
+                                        <label className="text-xs text-muted mb-1.5 block">{t.price} ({settings.currency}) *</label>
+                                        <input type="number" value={form.price || ''} onChange={e => {
+                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                            setForm(p => ({ ...p, price: val }));
+                                        }}
                                             className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                     </div>
                                 </div>
@@ -275,9 +284,9 @@ export default function PlansManagementPage() {
                                     <input
                                         type="number"
                                         min="0"
-                                        value={settings.pausePrices?.[days] ?? 0}
+                                        value={settings.pausePrices?.[days] || ''}
                                         onChange={(e) => {
-                                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                                            const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
                                             saveSettings({ pausePrices: { ...settings.pausePrices, [days]: val } });
                                         }}
                                         className="w-full bg-card border border-border-subtle rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-colors"

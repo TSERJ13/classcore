@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     X, User, Phone, Mail, Calendar, Trash2, Camera, Zap, QrCode, RefreshCw, Download, CreditCard,
     ShoppingBag, CalendarCheck, PlusCircle, MessageCircle, ChevronRight, ChevronLeft, Wifi, Link, Wallet,
-    Check, Plus, AlertTriangle, FileText, Facebook, Instagram, Send
+    Check, Plus, AlertTriangle, FileText, Facebook, Instagram, Send, Tag
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -21,6 +21,10 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { getGroups } from '@/lib/group-store';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
+
+/* ─── Shared Components ──────────────────────────────────────── */
+
 
 /* ─── Balance Card ───────────────────────────────────────────── */
 
@@ -69,7 +73,7 @@ function BalanceCard({ student }: { student: Student }) {
                 {!isAdjusting && !isTeacher && (
                     <button
                         onClick={() => setIsAdjusting(true)}
-                        className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-[10px] font-black tracking-widest rounded-xl transition-all"
+                        className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-[9px] sm:text-[10px] font-black tracking-widest rounded-xl transition-all"
                     >
                         {t.adjust}
                     </button>
@@ -156,9 +160,10 @@ function SubscriptionCard({ student }: { student: Student }) {
                 const diffTime = expiresAt.getTime() - today.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+                const isUnlimited = sub.expires_at === '2099-12-31';
                 const isSessions = sub.type === 'sessions';
                 const sessionsLeft = isSessions ? (sub.sessions_total - (sub.sessions_used || 0)) : null;
-                const isExpiring = diffDays <= 7;
+                const isExpiring = !isUnlimited && diffDays <= 7;
                 const isLowVisits = isSessions && sessionsLeft !== null && sessionsLeft <= 2;
                 const isDefault = sub.is_default;
 
@@ -190,7 +195,7 @@ function SubscriptionCard({ student }: { student: Student }) {
                             <div className="text-right">
                                 <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.remaining}</p>
                                 <p className={cn("text-lg font-black tabular-nums", (isExpiring || isLowVisits) ? "text-amber-500" : "text-indigo-500")}>
-                                    {isSessions ? `${sessionsLeft} ${t.visits}` : `${diffDays} ${t.day}`}
+                                    {isSessions ? `${sessionsLeft} ${t.visits}` : isUnlimited ? t.unlimited : `${diffDays} ${t.day}`}
                                 </p>
                             </div>
                         </div>
@@ -282,7 +287,11 @@ export function StudentModal({
             whatsapp: '',
         },
         enrolled_group_ids: [] as string[],
-        preferred_language: 'ka' as 'ka' | 'ru' | 'en'
+        gender: undefined as 'male' | 'female' | undefined,
+        preferred_language: 'ka' as 'ka' | 'ru' | 'en',
+        discount_type: 'percent' as 'percent' | 'fixed',
+        discount_value: 0 as number | '',
+        contact_person: undefined as 'self' | 'parent' | undefined,
     });
 
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -337,7 +346,11 @@ export function StudentModal({
                         whatsapp: student.social_links?.whatsapp ?? '',
                     },
                     enrolled_group_ids: student.enrolled_group_ids ?? [],
-                    preferred_language: student.preferred_language ?? 'ka'
+                    gender: student.gender,
+                    preferred_language: student.preferred_language ?? 'ka',
+                    discount_type: student.discount_type ?? 'percent',
+                    discount_value: student.discount_value ?? 0,
+                    contact_person: student.contact_person,
                 });
                 setPhotoPreview(student.photo_url ?? '');
             } else {
@@ -347,7 +360,11 @@ export function StudentModal({
                     medical_cert_expires_at: '', photo_url: '', qr_code: newCode, nfc_uid: '', passport_url: '', passport_expires_at: '',
                     social_links: { facebook: '', instagram: '', telegram: '', whatsapp: '' },
                     enrolled_group_ids: [],
-                    preferred_language: 'ka'
+                    gender: undefined,
+                    preferred_language: 'ka',
+                    discount_type: 'percent',
+                    discount_value: 0,
+                    contact_person: undefined,
                 });
                 setPhotoPreview('');
             }
@@ -390,6 +407,18 @@ export function StudentModal({
         }
     }, [form.first_name, form.last_name, form.id]);
 
+    // Auto-set Contact Person based on Age
+    useEffect(() => {
+        if (form.birth_date) {
+            import('@/lib/utils').then(({ calculateAge }) => {
+                const age = calculateAge(form.birth_date);
+                if (age !== null) {
+                    set('contact_person', age < 18 ? 'parent' : 'self');
+                }
+            });
+        }
+    }, [form.birth_date]);
+
     function handleIdGeneration() {
         if (!form.first_name && !form.last_name) return;
         import('@/lib/student-store').then(({ generateFormattedStudentId }) => {
@@ -414,6 +443,7 @@ export function StudentModal({
             const result = ev.target?.result as string;
             setPhotoPreview(result);
             set('photo_url', result);
+            if (fileRef.current) fileRef.current.value = '';
         };
         reader.readAsDataURL(file);
     }
@@ -550,6 +580,7 @@ export function StudentModal({
         // If ID changed, we might need to handle it, but let onSave handle the bulk
         onSave({
             ...form,
+            discount_value: form.discount_value === '' ? 0 : form.discount_value,
             id: finalId,
             full_name: fullName
         });
@@ -563,12 +594,12 @@ export function StudentModal({
     const passportExpiring = form.passport_expires_at ? isExpiringSoon(form.passport_expires_at, 30) : false;
     const passportExpired = form.passport_expires_at ? new Date(form.passport_expires_at) < new Date() : false;
 
-    const inputCls = 'w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary font-medium placeholder:text-muted/30 outline-none transition-all shadow-sm';
+    const inputCls = 'w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2 text-sm text-primary font-medium placeholder:text-muted/30 outline-none transition-all shadow-sm';
 
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-50 flex flex-col bg-card border-border-subtle shadow-2xl duration-300 overflow-hidden",
                 centered
@@ -597,11 +628,11 @@ export function StudentModal({
 
                 {/* Tabs */}
                 {isEdit && (
-                    <div className="flex px-5 py-2 border-b border-border-subtle bg-surface/30 gap-2 flex-shrink-0 items-center overflow-x-auto no-scrollbar">
+                    <div className="flex px-4 py-2 border-b border-border-subtle bg-surface/30 gap-2 flex-shrink-0 items-center overflow-x-auto no-scrollbar">
                         <button
                             onClick={() => setActiveTab('info')}
                             className={cn(
-                                "h-9 px-4 flex items-center justify-center text-[10px] font-black tracking-widest transition-all rounded-xl border shrink-0",
+                                "h-8 sm:h-9 px-3 sm:px-4 flex items-center justify-center text-[9px] sm:text-[10px] font-black tracking-widest transition-all rounded-xl border shrink-0",
                                 activeTab === 'info'
                                     ? "bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20"
                                     : "bg-indigo-500/10 text-indigo-400 hover:text-indigo-300 border-indigo-500/20"
@@ -615,7 +646,7 @@ export function StudentModal({
                         <button
                             onClick={() => setIssueModalOpen(true)}
                             title={t.issueSubscription}
-                            className="w-9 h-9 flex items-center justify-center bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all rounded-xl shadow-sm active:scale-95 shrink-0"
+                            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all rounded-xl shadow-sm active:scale-95 shrink-0"
                         >
                             <PlusCircle className="w-5 h-5" strokeWidth={2.5} />
                         </button>
@@ -624,7 +655,7 @@ export function StudentModal({
                             onClick={() => setActiveTab('visits')}
                             title={t.visits}
                             className={cn(
-                                "w-9 h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
+                                "w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
                                 activeTab === 'visits'
                                     ? "bg-violet-500 text-white border-violet-500 shadow-lg shadow-violet-500/20"
                                     : "bg-violet-500/10 text-violet-400 hover:text-violet-300 border-violet-500/20"
@@ -637,7 +668,7 @@ export function StudentModal({
                             onClick={() => setActiveTab('sales')}
                             title={t.purchases}
                             className={cn(
-                                "w-9 h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
+                                "w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
                                 activeTab === 'sales'
                                     ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20"
                                     : "bg-amber-500/10 text-amber-400 hover:text-amber-300 border-amber-500/20"
@@ -701,7 +732,7 @@ export function StudentModal({
                                 </section>
                             )}
 
-                            {/* Basic info */}
+                                                        {/* Basic info */}
                             <section className="space-y-4">
                                 <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.basicInfo}</p>
                                 <div className="space-y-4">
@@ -731,30 +762,144 @@ export function StudentModal({
                                             <input value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder={t.lastNamePlaceholder} className={inputCls} />
                                         </Field>
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <Field icon={<Phone className="w-4 h-4" />} label={t.studentPhone + ' *'}>
-                                        <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="555 XX XX XX" className={inputCls} />
-                                    </Field>
-                                    <Field icon={<Mail className="w-4 h-4" />} label={t.email}>
-                                        <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@gmail.com" className={inputCls} />
-                                    </Field>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Field icon={<Calendar className="w-4 h-4" />} label={t.birthDate}>
-                                        <input type="date" value={form.birth_date} onChange={e => set('birth_date', e.target.value)} className={inputCls} />
-                                    </Field>
-                                    <Field icon={<MessageCircle className="w-4 h-4" />} label={t.preferredLanguage}>
-                                        <SearchSelect
-                                            options={[
-                                                { value: 'ka', label: t.georgian as string },
-                                                { value: 'ru', label: t.russian as string },
-                                                { value: 'en', label: t.english as string }
-                                            ]}
-                                            value={form.preferred_language || 'ka'}
-                                            onChange={val => set('preferred_language', val)}
-                                        />
-                                    </Field>
+
+                                    {/* Discount / Student Special Rate */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-60 flex items-center gap-2 px-1">
+                                                <Tag className="w-3.5 h-3.5" /> {t.studentDiscount}
+                                            </label>
+                                            <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 shadow-sm">
+                                                <input
+                                                    type="number"
+                                                    value={form.discount_value}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => set('discount_value', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                                    placeholder="0"
+                                                    className="flex-1 bg-transparent px-3 py-1.5 text-sm font-bold text-primary outline-none"
+                                                />
+                                                <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-lg p-0.5 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.preventDefault(); set('discount_type', 'percent'); }}
+                                                        className={cn(
+                                                            "px-3 py-1 text-[10px] font-black rounded-md transition-all",
+                                                            form.discount_type === 'percent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
+                                                        )}
+                                                    >
+                                                        %
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.preventDefault(); set('discount_type', 'fixed'); }}
+                                                        className={cn(
+                                                            "px-3 py-1 text-[10px] font-black rounded-md transition-all",
+                                                            form.discount_type === 'fixed' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
+                                                        )}
+                                                    >
+                                                        ₾
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-60 flex items-center gap-2 px-1">
+                                                <User className="w-3.5 h-3.5" /> {t.contactPerson}
+                                            </label>
+                                            <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 shadow-sm">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => set('contact_person', 'parent')}
+                                                    className={cn(
+                                                        "flex-1 py-2 text-[10px] font-black rounded-lg transition-all",
+                                                        form.contact_person === 'parent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted hover:bg-surface/50"
+                                                    )}
+                                                >
+                                                    {t.parent}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => set('contact_person', 'self')}
+                                                    className={cn(
+                                                        "flex-1 py-2 text-[10px] font-black rounded-lg transition-all",
+                                                        form.contact_person === 'self' ? "bg-indigo-600 text-white shadow-sm" : "text-muted hover:bg-surface/50"
+                                                    )}
+                                                >
+                                                    {t.self}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <Field icon={<User className="w-4 h-4" />} label={t.gender}>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {[
+                                                    { id: 'male', label: t.boy, color: 'text-indigo-600', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+                                                    { id: 'female', label: t.girl, color: 'text-pink-600', bg: 'bg-pink-500/10', border: 'border-pink-500/20' }
+                                                ].map((g) => {
+                                                    const isSelected = form.gender === g.id;
+                                                    return (
+                                                        <button
+                                                            key={g.id}
+                                                            type="button"
+                                                            onClick={() => set('gender', g.id as any)}
+                                                            className={cn(
+                                                                "flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all duration-300",
+                                                                isSelected ? cn(g.border, g.bg, "shadow-sm shadow-indigo-500/5") : "border-border-subtle bg-surface hover:border-indigo-500/20"
+                                                            )}
+                                                        >
+                                                            <div className={cn(
+                                                                "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
+                                                                isSelected ? g.bg : "bg-surface border border-border-subtle"
+                                                            )}>
+                                                                <User className={cn("w-3 h-3", isSelected ? g.color : "text-muted/40")} />
+                                                            </div>
+                                                            <span className={cn(
+                                                                "text-[9px] font-black uppercase tracking-widest",
+                                                                isSelected ? g.color : "text-muted"
+                                                            )}>
+                                                                {g.label}
+                                                            </span>
+                                                            {isSelected && <Check className={cn("w-3 h-3 ml-auto", g.color)} />}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </Field>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field icon={<Phone className="w-4 h-4" />} label={t.studentPhone + ' *'}>
+                                            <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="555 XX XX XX" className={inputCls} />
+                                        </Field>
+                                        <Field icon={<Mail className="w-4 h-4" />} label={t.email}>
+                                            <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@gmail.com" className={inputCls} />
+                                        </Field>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field icon={<Calendar className="w-4 h-4" />} label={t.birthDate}>
+                                            <input 
+                                                type="date"
+                                                value={form.birth_date} 
+                                                onChange={e => set('birth_date', e.target.value)} 
+                                                className={cn(inputCls, "h-[42px]")}
+                                            />
+                                        </Field>
+                                        <Field icon={<MessageCircle className="w-4 h-4" />} label={t.preferredLanguage}>
+                                            <SearchSelect
+                                                options={[
+                                                    { value: 'ka', label: t.georgian as string },
+                                                    { value: 'ru', label: t.russian as string },
+                                                    { value: 'en', label: t.english as string }
+                                                ]}
+                                                value={form.preferred_language || 'ka'}
+                                                                                                onChange={val => set('preferred_language', val)}
+                                                className="h-[42px]"
+                                            />
+                                        </Field>
+                                    </div>
                                 </div>
                             </section>
 
@@ -819,7 +964,12 @@ export function StudentModal({
                                     </button>
                                     <Field icon={<Calendar className="w-4 h-4" />} label={t.passportExpiry}>
                                         <div className="space-y-2">
-                                            <input type="date" value={form.passport_expires_at} onChange={e => set('passport_expires_at', e.target.value)} className={inputCls} />
+                                            <input 
+                                                type="date"
+                                                value={form.passport_expires_at} 
+                                                onChange={e => set('passport_expires_at', e.target.value)} 
+                                                className={inputCls}
+                                            />
                                             {passportExpired && (
                                                 <p className="text-[10px] font-black text-red-500 flex items-center gap-1.5 px-1 animate-pulse">
                                                     <AlertTriangle className="w-3 h-3" /> {t.expired}

@@ -46,10 +46,12 @@ export default function Error({
                 </Link>
             </div>
 
-            {error.digest && (
-                <p className="mt-10 text-[10px] font-mono text-slate-300 tracking-widest">
-                    Error ID: {error.digest}
-                </p>
+            {error && (
+                <div className="mt-10 p-4 bg-slate-50 border border-slate-200 rounded-xl text-left max-w-lg mx-auto">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Diagnostic Info</p>
+                    <p className="text-xs font-mono text-slate-600 break-all">{error.name}: {error.message}</p>
+                    {error.digest && <p className="mt-1 text-[10px] font-mono text-slate-300">Digest: {error.digest}</p>}
+                </div>
             )}
         </div>
     );

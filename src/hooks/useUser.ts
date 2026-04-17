@@ -1,18 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { getStaffSession, setStaffSession, loadSettings } from '@/lib/settings-store';
 
 const SUPER_ADMIN_EMAILS = [
     'adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge', 
-    'tserj13@classcore.ge', 'sergi.tsivtsivadze@gmail.com'
+    'sergi.tsivtsivadze@gmail.com'
 ];
 
 export function useUser() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isVerified, setIsVerified] = useState<boolean | null>(null);
+    const lastVerifyRef = useRef<number>(0);
+    const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [profile, setProfile] = useState<{
-        studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; phone?: string; role?: string; photo_url?: string; allowedBranchIds?: string[];
+        studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; phone?: string; role?: string; photo_url?: string; is_activated?: boolean; allowedBranchIds?: string[];
         canViewAttendance?: boolean;
         canViewSubscriptions?: boolean;
         canViewStudents?: boolean;
@@ -42,141 +45,93 @@ export function useUser() {
         const supabase = createClient();
 
         const refreshSession = async () => {
-            const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
-            
-            // 1. Check Supabase (Admins)
-            const { data: { session } } = await supabase.auth.getSession();
-            const u = session?.user;
+            // 1. Get current Auth User (Direct from Supabase)
+            const { data: { user: u }, error: authError } = await supabase.auth.getUser();
             const staffSess = getStaffSession();
-            const activeSlug = typeof window !== 'undefined' ? (localStorage.getItem('cc_active_studio_slug') || window.location.pathname.split('/')[1]) : null;
 
-            // SSS (Smart Session Selection): 
-            // If on a regular route and we have both a SuperAdmin Supabase session AND a Staff session, 
-            // we PRIORITIZE the Staff session to prevent account override.
-            const isSuperAccount = u?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === u.email?.toLowerCase());
-            
-            // CRITICAL: Even if there is no staffSess, if we are on a regular route and the Supabase user 
-            // is a SuperAdmin, we should verify if they are actually the owner of THIS specific studio.
-            // If it's a general SuperAdmin account without a matching slug, we might want to keep looking 
-            // at staffSess (which could be the valid owner identity).
-            const shouldPrioritizeStaff = !isSuperAdminRoute && (
-                (isSuperAccount && staffSess) || 
-                (isSuperAccount && activeSlug && u.user_metadata?.studio_slug !== activeSlug && staffSess)
-            );
-
-            if (u && !shouldPrioritizeStaff) {
-                // ... same profile logic ...
-                console.log('👤 [useUser] Supabase session found for:', u.email);
-                setUser(u);
-                const meta = u.user_metadata || {};
-                setProfile({
-                    studio_name: meta.studio_name,
-                    studio_slug: meta.studio_slug,
-                    org_id: meta.org_id,
-                    first_name: meta.first_name,
-                    last_name: meta.last_name,
-                    phone: meta.phone || meta.phone_number,
-                    photo_url: meta.photo_url || meta.avatar_url,
-                    role: meta.role || 'admin',
-                    allowedBranchIds: meta.allowedBranchIds || [],
-                    // ... permissions logic remains same ...
-                    canViewAttendance: meta.canViewAttendance ?? meta.can_view_attendance ?? true,
-                    canViewSubscriptions: meta.canViewSubscriptions ?? meta.can_view_subscriptions ?? true,
-                    canViewStudents: meta.canViewStudents ?? meta.can_view_students ?? true,
-                    canViewCalendar: meta.canViewCalendar ?? meta.can_view_calendar ?? true,
-                    canEditCalendar: meta.canEditCalendar ?? meta.can_edit_calendar ?? true,
-                    canViewGroups: meta.canViewGroups ?? meta.can_view_groups ?? true,
-                    canViewTeachers: meta.canViewTeachers ?? meta.can_view_teachers ?? true,
-                    canViewHalls: meta.canViewHalls ?? meta.can_view_halls ?? true,
-                    canViewShop: meta.canViewShop ?? meta.can_view_shop ?? true,
-                    canViewAnalytics: meta.canViewAnalytics ?? meta.can_view_analytics ?? true,
-                    canViewSMS: meta.canViewSMS ?? meta.can_view_sms ?? true,
-                    // snake_case
-                    can_view_attendance: meta.canViewAttendance ?? meta.can_view_attendance ?? true,
-                    can_view_subscriptions: meta.canViewSubscriptions ?? meta.can_view_subscriptions ?? true,
-                    can_view_students: meta.canViewStudents ?? meta.can_view_students ?? true,
-                    can_view_calendar: meta.canViewCalendar ?? meta.can_view_calendar ?? true,
-                    can_edit_calendar: meta.canEditCalendar ?? meta.can_edit_calendar ?? true,
-                    can_view_groups: meta.canViewGroups ?? meta.can_view_groups ?? true,
-                    can_view_teachers: meta.canViewTeachers ?? meta.can_view_teachers ?? true,
-                    can_view_halls: meta.canViewHalls ?? meta.can_view_halls ?? true,
-                    can_view_shop: meta.canViewShop ?? meta.can_view_shop ?? true,
-                    can_view_analytics: meta.canViewAnalytics ?? meta.can_view_analytics ?? true,
-                    can_view_sms: meta.canViewSMS ?? meta.can_view_sms ?? true,
-                });
+            if (authError || (!u && !staffSess)) {
+                setIsVerified(false);
                 setLoading(false);
                 return;
             }
 
-            // 2. Check Staff Session (Non-Admins)
-            if (staffSess) {
-                const { staff: sessionStaff, slug } = staffSess;
-                const settings = loadSettings(slug);
+            const currentUserEmail = u?.email || staffSess?.staff?.email;
+            let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug;
+            const isOwner = u?.user_metadata?.role === 'owner';
+            const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
 
-                // CRITICAL: Find the LATEST staff data from settings to get updated permissions/branches
-                const staff = settings.staff?.find((s: any) => s.id === sessionStaff.id) || sessionStaff;
-
-                setUser({ id: staff.id, email: staff.email } as any);
-                setProfile({
-                    studio_name: settings.studioName,
-                    first_name: staff.first_name,
-                    last_name: staff.last_name,
-                    phone: staff.phone || staff.phone_number,
-                    photo_url: staff.photo_url,
-                    role: staff.role,
-                    allowedBranchIds: staff.allowedBranchIds || [],
-                    // camelCase
-                    canViewAttendance: staff.permissions?.canViewAttendance ?? (staff as any).can_view_attendance ?? false,
-                    canViewSubscriptions: staff.permissions?.canViewSubscriptions ?? (staff as any).can_view_subscriptions ?? false,
-                    canViewStudents: staff.permissions?.canViewStudents ?? (staff as any).can_view_students ?? false,
-                    canViewCalendar: staff.permissions?.canViewCalendar ?? (staff as any).can_view_calendar ?? false,
-                    canEditCalendar: staff.permissions?.canEditCalendar ?? (staff as any).can_edit_calendar ?? false,
-                    canViewGroups: staff.permissions?.canViewGroups ?? (staff as any).can_view_groups ?? false,
-                    canViewTeachers: staff.permissions?.canViewTeachers ?? (staff as any).can_view_teachers ?? false,
-                    canViewHalls: staff.permissions?.canViewHalls ?? (staff as any).can_view_halls ?? false,
-                    canViewShop: staff.permissions?.canViewShop ?? (staff as any).can_view_shop ?? false,
-                    canViewAnalytics: staff.permissions?.canViewAnalytics ?? (staff as any).can_view_analytics ?? false,
-                    canViewSMS: staff.permissions?.canViewSMS ?? (staff as any).can_view_sms ?? false,
-                    // snake_case
-                    can_view_attendance: staff.permissions?.canViewAttendance ?? (staff as any).can_view_attendance ?? false,
-                    can_view_subscriptions: staff.permissions?.canViewSubscriptions ?? (staff as any).can_view_subscriptions ?? false,
-                    can_view_students: staff.permissions?.canViewStudents ?? (staff as any).can_view_students ?? false,
-                    can_view_calendar: staff.permissions?.canViewCalendar ?? (staff as any).can_view_calendar ?? false,
-                    can_edit_calendar: staff.permissions?.canEditCalendar ?? (staff as any).can_edit_calendar ?? false,
-                    can_view_groups: staff.permissions?.canViewGroups ?? (staff as any).can_view_groups ?? false,
-                    can_view_teachers: staff.permissions?.canViewTeachers ?? (staff as any).can_view_teachers ?? false,
-                    can_view_halls: staff.permissions?.canViewHalls ?? (staff as any).can_view_halls ?? false,
-                    can_view_shop: staff.permissions?.canViewShop ?? (staff as any).can_view_shop ?? false,
-                    can_view_analytics: staff.permissions?.canViewAnalytics ?? (staff as any).can_view_analytics ?? false,
-                    can_view_sms: staff.permissions?.canViewSMS ?? (staff as any).can_view_sms ?? false,
-                });
-            } else {
-                setUser(null);
-                setProfile(null);
+            // 1.5. Slug Recovery for Staff (If they don't have it in their Auth Metadata)
+            if (currentUserEmail && !currentSlug && !isSuperAdminRoute) {
+                try {
+                    const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
+                    const matches = await findAllStudiosByStaffEmail(currentUserEmail);
+                    if (matches && matches.length > 0) {
+                        currentSlug = matches[0].slug;
+                        console.log(`📡 [useUser] Recovered studio slug for staff: ${currentSlug}`);
+                    }
+                } catch (err) {
+                    console.error('⚠️ [useUser] Slug recovery failed:', err);
+                }
             }
+
+            // 2. Direct Database Verification (No caching, no hacks)
+            if (currentUserEmail && currentSlug && !isSuperAdminRoute && !isOwner) {
+                try {
+                    const { verifyUserInStudio } = await import('@/lib/sync-store');
+                    const hasAccess = await verifyUserInStudio(currentSlug, currentUserEmail);
+                    
+                    if (!hasAccess) {
+                        console.warn('🚨 [useUser] Access denied by database.');
+                        setIsVerified(false);
+                        await logout();
+                        return;
+                    }
+                    setIsVerified(true);
+                } catch (err) {
+                    console.error('⚠️ [useUser] DB Verification failed:', err);
+                    setIsVerified(false);
+                    return;
+                }
+            } else {
+                const emailConfirmed = !!u?.email_confirmed_at || !!staffSess;
+                setIsVerified(!!currentUserEmail && !!currentSlug && emailConfirmed);
+            }
+
+            // 3. Set Identity & Profile
+            if (u) {
+                setUser(u);
+                const meta = u.user_metadata || {};
+                setProfile({
+                    ...meta,
+                    studio_name: meta.studio_name,
+                    studio_slug: currentSlug, // Use the (possibly recovered) slug
+                    role: meta.role || 'admin',
+                    photo_url: meta.photo_url || meta.avatar_url,
+                    is_activated: meta.is_activated !== false, // Default to true if not explicitly false
+                });
+            } else if (staffSess) {
+                const { staff, slug } = staffSess;
+                const settings = loadSettings(slug);
+                const latestStaff = settings.staff?.find((s: any) => s.id === staff.id) || staff;
+                setUser({ id: latestStaff.id, email: latestStaff.email } as any);
+                setProfile({
+                    ...latestStaff,
+                    studio_name: settings.studioName,
+                    studio_slug: slug,
+                    is_activated: true, // Manual staff session is intrinsically activated
+                });
+            }
+
             setLoading(false);
         };
 
-        // Initial session fetch
         refreshSession();
 
-        // Listen for auth changes (Supabase)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
             refreshSession();
         });
 
-        // Listen for staff data updates (permissions, etc)
-        const handleRefresh = () => {
-            console.log('🔄 [useUser] Staff update event received, refreshing session...');
-            refreshSession();
-        };
-
-        window.addEventListener('cc_staff_update', handleRefresh);
-
-        return () => {
-            subscription.unsubscribe();
-            window.removeEventListener('cc_staff_update', handleRefresh);
-        };
+        return () => subscription.unsubscribe();
     }, []);
 
     // Sync profile to cookies for SSR navigation/header consistency
@@ -195,8 +150,15 @@ export function useUser() {
         const supabase = createClient();
         await supabase.auth.signOut();
         setStaffSession(null);
+        
+        // Clear all cc_ related cookies to ensure SSR components (like the landing page) stay in sync
+        document.cookie = "cc_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "cc_studio_name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "cc_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "cc_active_slug=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        
         window.location.href = '/login';
     };
 
-    return { user, profile, loading, logout };
+    return { user, profile, loading, isVerified, logout };
 }

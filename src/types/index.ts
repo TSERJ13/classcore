@@ -3,7 +3,6 @@
 export type OrgType = 'dance' | 'sports' | 'yoga' | 'fitness';
 
 export type ThemeKey = 'indigo' | 'violet' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'fuchsia';
-export type BgKey = 'charcoal' | 'midnight' | 'abyss' | 'forest' | 'white' | 'ivory' | 'cocoa';
 
 export type StaffRole = 'owner' | 'manager' | 'teacher';
 
@@ -32,6 +31,14 @@ export interface TrashItem {
     type: 'student' | 'subscription' | 'sale' | 'staff' | 'hall';
     data: any;
     branchId: string;
+    sms_templates?: Record<string, Record<string, string>>;
+    owner_info?: {
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        phone?: string;
+        client_id?: string;
+    };
     deletedAt: string;
     deletedBy: string;
 }
@@ -88,15 +95,16 @@ export interface Branch {
 
 export interface StudioSettings {
     orgId?: string;               // Persistent UUID for the studio
+    suspended?: boolean;          // Platform-level lock
     studioName: string;
     studioSlug: string;
+    isWizardCompleted?: boolean;
     logoDataUrl: string | null;   // base64 image or null
     currency: 'GEL' | 'USD' | 'EUR';
     language: 'ka' | 'ru' | 'en';
     timezone: string;
     googleCalendarEnabled: boolean;
     themeKey: ThemeKey;
-    bgKey: BgKey;
     accentColor: string;          // CSS HSL value
     notifications: {
         newStudent: boolean;
@@ -123,6 +131,7 @@ export interface StudioSettings {
     sms_templates: {
         ka: {
             expiration_day_0: string;
+            low_visits: string;
             birthday: string;
             new_year: string;
             easter: string;
@@ -131,6 +140,7 @@ export interface StudioSettings {
         };
         ru: {
             expiration_day_0: string;
+            low_visits: string;
             birthday: string;
             new_year: string;
             easter: string;
@@ -139,6 +149,7 @@ export interface StudioSettings {
         };
         en: {
             expiration_day_0: string;
+            low_visits: string;
             birthday: string;
             new_year: string;
             easter: string;
@@ -146,6 +157,15 @@ export interface StudioSettings {
             sept_1: string;
         };
     };
+    sms_enabled: boolean;
+    primary_lang?: 'ka' | 'ru' | 'en';
+    owner_info: {
+        first_name: string;
+        last_name: string;
+        email: string;
+        phone: string;
+        client_id?: string;
+    } | null;
     updatedAt?: string;
     cabinetCode?: string;
     customRoles?: string[];
@@ -163,6 +183,7 @@ export interface Hall {
     org_id: string;
     name: string;
     capacity?: number;
+    sq_meters?: number;
     color: string;        // hex or tailwind color token
     photo_url?: string;
     description?: string;
@@ -180,6 +201,7 @@ export interface CalendarEvent {
     type: EventType;
     hall_id?: string;
     teacher_id?: string;
+    secondary_teacher_id?: string;
     group_id?: string;
     student_id?: string;  // for individual
     date: string;         // YYYY-MM-DD
@@ -249,6 +271,10 @@ export interface Student {
     sms_reminders?: boolean;
     // branch
     branch_id?: string;
+    gender?: 'male' | 'female';
+    contact_person?: 'self' | 'parent';
+    discount_type?: 'fixed' | 'percent';
+    discount_value?: number;
     created_at: string;
 }
 
@@ -354,7 +380,9 @@ export interface Teacher {
     rate_per_hour?: number;       // GEL per hour (for individual lessons)
     rate_per_month?: number;      // GEL flat (for groups)
     salary_percentage?: number;   // percentage share of revenue
+    password?: string;            // For personal access
     assigned_group_ids: string[]; // group IDs
+    working_schedule?: any[];     // availability slots [{dayOfWeek, startTime, endTime}]
     assigned_individual: boolean; // takes individual sessions?
     status: TeacherStatus;
     allowedBranchIds?: string[]; // Standardized camelCase

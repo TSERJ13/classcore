@@ -1,4 +1,5 @@
 import { incrementSessionsUsed, getSubscription, refundSessionsUsed } from './subscription-store';
+import { pushStudioStateToCloud } from './sync-store';
 import { getScopedKey, markLocalUpdate } from './utils';
 import { getStaffSession, getActiveSlug, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
@@ -134,6 +135,14 @@ export function refundCheckin(studentId: string): void {
         if (idx > -1) updated.splice(idx, 1);
         localStorage.setItem(dayKey(), JSON.stringify(updated));
         markLocalUpdate();
+
+        // Standardized Cloud Sync
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            pushStudioStateToCloud(activeSlug, [], { [dayKey()]: updated });
+        }
+
+
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }
@@ -162,14 +171,22 @@ function _writeCheckin(
     };
     const existing = getTodayCheckins();
     const key = dayKey();
-    localStorage.setItem(key, JSON.stringify([...existing, record]));
+    const updated = [...existing, record];
+    localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
+    
+    // Standardized Cloud Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: updated });
+    }
+
 
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
-    const activeSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
-    if (activeSlug) {
-        const settings = loadSettings(activeSlug);
+    const currentSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
+    if (currentSlug) {
+        const settings = loadSettings(currentSlug);
         const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
 
         recordAuditAction({
@@ -184,6 +201,33 @@ function _writeCheckin(
     }
 
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
+
+    // SMS Notification when visits run out
+    if (next === 0 && activeSlug && activeSlug !== 'demo.classcore.ge') {
+        const settings = loadSettings(activeSlug);
+        if (settings.sms_enabled !== false) { // Ensure SMS feature is not explicitly disabled
+            import('./student-store').then(({ getStudents }) => {
+                const student = getStudents().find(s => s.id === studentId);
+                const phone = student?.phone;
+                if (phone) {
+                    const lang = settings.primary_lang || settings.language || 'ka';
+                    const text = (settings.sms_templates as any)?.[lang]?.low_visits || (lang === 'ka' ? `გამარჯობა ${studentName}, თქვენ დაგიმთავრდათ ვიზიტები სტუდიაში: ${settings.studioName}. გთხოვთ განაახლოთ აბონემენტი.` : `Hello ${studentName}, you have run out of visits at ${settings.studioName}. Please renew your subscription.`);
+                    
+                    fetch('/api/sms/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: phone,
+                            text,
+                            studentName
+                        })
+                    }).then(res => res.json()).then(data => {
+                        console.log('📬 [Checkin] SMS Status:', data);
+                    }).catch(err => console.error('📬 [Checkin] SMS Failed:', err));
+                }
+            });
+        }
+    }
 
     return { success: true, alreadyCheckedIn: false, sessionsRemaining: next, record };
 }
@@ -222,8 +266,15 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
 /** Delete a specific checkin from history and refund sessions */
 export function deleteCheckin(studentId: string, date: string, time: string): void {
     const key = dayKey(date);
-    const existing = JSON.parse(localStorage.getItem(key) ?? '[]') as CheckinRecord[];
-    const idx = existing.findIndex(r => r.studentId === studentId && r.time === time);
+    let existing: CheckinRecord[] = [];
+    try {
+        const raw = localStorage.getItem(key);
+        if (raw) existing = JSON.parse(raw);
+        if (!Array.isArray(existing)) existing = [];
+    } catch (e) {
+        return; // Corrupt data, can't delete specific record reliably
+    }
+    const idx = existing.findIndex(r => r.studentId === studentId && (r.time === time || !time));
 
     if (idx > -1) {
         // Refund session
@@ -238,6 +289,14 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
             localStorage.setItem(key, JSON.stringify(updated));
         }
         markLocalUpdate();
+
+        // Standardized Cloud Sync
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            pushStudioStateToCloud(activeSlug, [], { [key]: updated });
+        }
+
+
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }

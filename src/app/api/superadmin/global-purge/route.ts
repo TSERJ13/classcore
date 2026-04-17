@@ -7,12 +7,12 @@ export async function POST(request: Request) {
     try {
         const { pattern, slugs: targetSlugs, secret } = await request.json();
 
-        // Security check: Only allow if service role key is present and a pattern/slugs are provided
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        // Security check: Strictly require the service role key for global purge
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
         if (!serviceKey || !supabaseUrl) {
-            return NextResponse.json({ error: 'Missing environment variables' }, { status: 500 });
+            return NextResponse.json({ error: 'Missing or invalid environment variables for administrative actions' }, { status: 500 });
         }
 
         if ((!pattern || pattern.length < 5) && (!targetSlugs || !Array.isArray(targetSlugs))) {
@@ -28,8 +28,8 @@ export async function POST(request: Request) {
 
         console.log(`🧹 Starting global purge for ${pattern ? 'pattern: ' + pattern : targetSlugs?.length + ' specific slugs'}`);
 
-        // 1. Find all matching studios
-        let query = supabase.from('studio_settings').select('studio_slug');
+        // 1. Find all matching studios and their associated Owners (org_id)
+        let query = supabase.from('studio_settings').select('studio_slug, org_id');
         
         if (targetSlugs && Array.isArray(targetSlugs)) {
             query = query.in('studio_slug', targetSlugs);
@@ -46,21 +46,56 @@ export async function POST(request: Request) {
         }
 
         const slugs = studios.map(s => s.studio_slug);
-        console.log(`🗑️ Found ${slugs.length} studios to purge: ${slugs.join(', ')}`);
+        const orgIds = studios.map(s => s.org_id).filter(Boolean) as string[];
+        const uniqueOrgIds = [...new Set(orgIds)];
 
-        // 2. Delete from studio_settings
-        const { count, error: deleteError } = await supabase
-            .from('studio_settings')
-            .delete()
-            .in('studio_slug', slugs);
+        console.log(`🗑️ Found ${slugs.length} studios to purge (${uniqueOrgIds.length} unique owners).`);
 
-        if (deleteError) throw deleteError;
+        // 2. Auth Purge: Delete each associated user from Supabase Auth
+        const authResults = { success: 0, failed: 0 };
+        for (const uid of uniqueOrgIds) {
+            try {
+                const { error: authErr } = await supabase.auth.admin.deleteUser(uid);
+                if (!authErr) authResults.success++;
+                else {
+                    console.error(`❌ Failed to delete Auth User ${uid}:`, authErr.message);
+                    authResults.failed++;
+                }
+            } catch (e) { authResults.failed++; }
+        }
+
+        // 3. NUCLEAR TABLE PURGE: Clean all relational and setting tables for these slugs/orgs
+        const tablesToClear = [
+            'studio_settings', 
+            'profiles', 
+            'organizations', 
+            'groups_classes', 
+            'subscriptions', 
+            'attendance_logs',
+            'hall_rentals'
+        ];
+
+        console.log(`☢️ [GlobalPurge] Commencing multi-table wipe for ${slugs.length} slugs...`);
+
+        for (const table of tablesToClear) {
+            const isSettings = table === 'studio_settings';
+            const { error: tableError } = await supabase
+                .from(table)
+                .delete()
+                .in(isSettings ? 'studio_slug' : 'org_id', isSettings ? slugs : uniqueOrgIds);
+            
+            if (tableError) {
+                console.warn(`⚠️ [GlobalPurge] Failed to clear table ${table}:`, tableError.message);
+            }
+        }
 
         return NextResponse.json({ 
             message: 'Purge complete', 
             found: slugs.length,
-            deleted: count || slugs.length,
-            slugs: slugs.slice(0, 10) // Return first 10 for verification
+            deleted: slugs.length,
+            auth_users_deleted: authResults.success,
+            auth_errors: authResults.failed,
+            slugs: slugs.slice(0, 10) 
         });
 
     } catch (err: any) {

@@ -23,13 +23,16 @@ export function getBillingState(slug: string): BillingState {
     try {
         const billingKey = getScopedKey('cc_saas_billing', slug);
         const raw = localStorage.getItem(billingKey);
-        const data = raw ? JSON.parse(raw) : {};
+        let data = { plan: 'trial', trialStartDate: null, lastPaidDate: null, accountBalance: 0 };
+        try { if (raw) { const p = JSON.parse(raw); if (p && typeof p === 'object') data = { ...data, ...p }; } } catch {}
 
         const metaKey = getScopedKey('cc_sa_meta', slug);
         const metaRaw = localStorage.getItem(metaKey);
-        const meta = metaRaw ? JSON.parse(metaRaw) : {};
+        let meta = { plan: 'trial', manualBlock: false, suspended: false };
+        try { if (metaRaw) { const p = JSON.parse(metaRaw); if (p && typeof p === 'object') meta = { ...meta, ...p }; } } catch {}
+        
         const plan = meta.plan || data.plan || 'trial';
-        const manualBlock = meta.manualBlock === true;
+        const manualBlock = meta.manualBlock === true || meta.suspended === true;
 
         const trialStart = data.trialStartDate ? new Date(data.trialStartDate) : new Date();
         if (!data.trialStartDate) {
@@ -154,7 +157,10 @@ export function getPaymentLogs(slug: string): Array<{ date: string; method: Paym
     if (typeof window === 'undefined') return [];
     try { 
         const key = getScopedKey('cc_saas_payments', slug);
-        return JSON.parse(localStorage.getItem(key) || '[]'); 
+        const raw = localStorage.getItem(key);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : []; 
     } catch { return []; }
 }
 

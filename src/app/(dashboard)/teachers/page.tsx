@@ -24,7 +24,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export default function TeachersPage() {
-    const { t } = useT();
+    const { t, lang } = useT();
     const { settings, addStaff, updateStaff, removeStaff } = useStudio();
     const { user, profile } = useUser();
     
@@ -105,7 +105,7 @@ export default function TeachersPage() {
                         { label: t.indSessionsShort, value: String(individualCount), icon: User, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
                         { label: t.groupsShort, value: String(groups.length), icon: BookOpen, colorCls: 'text-emerald-600', bgCls: 'bg-emerald-500/5' },
                     ].map(s => (
-                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
+                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
                             <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                 <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
                                 <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums">{s.value}</span>
@@ -117,8 +117,8 @@ export default function TeachersPage() {
 
                 {/* Add Teacher Action */}
                 <button onClick={openAdd}
-                    className="flex items-center justify-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-xl sm:rounded-[1.5rem] shadow-lg shadow-violet-600/20 transition-all touch-manipulation shrink-0">
-                    <UserPlus className="w-4 h-4" />
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-5 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-lg shadow-violet-600/20 transition-all touch-manipulation">
+                    <UserPlus className="w-5 h-5 sm:w-4 sm:h-4" />
                     <span className="hidden sm:inline">{t.addTeacher}</span>
                 </button>
             </div>
@@ -200,7 +200,7 @@ export default function TeachersPage() {
                 </div>
 
                 {/* Cross-page quick nav */}
-                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-8 shadow-sm">
+                <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-20 shadow-sm">
                     <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
                     <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         {[

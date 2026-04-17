@@ -9,6 +9,7 @@ import { pushStudioStateToCloud } from '@/lib/sync-store';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 
 export default function StudentRegistrationPage() {
     const { studio } = useParams() as { studio: string };
@@ -253,11 +254,11 @@ export default function StudentRegistrationPage() {
                         <span className="opacity-40"><Calendar className="w-4 h-4" /></span>
                         {t.birthDate}
                     </label>
-                    <input
-                        type="date"
+                    <DatePickerGrid
                         value={form.birth_date}
-                        onChange={e => setForm(prev => ({ ...prev, birth_date: e.target.value }))}
-                        className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-3 text-sm text-primary font-medium outline-none focus:border-indigo-500/60 transition-all shadow-sm"
+                        onChange={v => setForm(prev => ({ ...prev, birth_date: v }))}
+                        minYear={new Date().getFullYear() - 80}
+                        maxYear={new Date().getFullYear()}
                     />
                 </div>
 

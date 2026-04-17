@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useT } from '@/contexts/LanguageContext';
 import { Send, Megaphone, CheckCircle, Globe, Edit3, Trash2 } from 'lucide-react';
 
 interface BroadcastMsg { title_ka: string; title_ru: string; title_en: string; body_ka: string; body_ru: string; body_en: string; }
@@ -25,23 +26,20 @@ const LANG_FLAGS: Record<LangTab, string> = { ka: '🇬🇪', ru: '🇷🇺', en
 const LANG_NAMES: Record<LangTab, string> = { ka: 'ქართული', ru: 'რუსული', en: 'ინგლისური' };
 
 export default function BroadcastPage() {
+    const { lang: saLang, t } = useT();
     const [mounted, setMounted] = useState(false);
-    const [saLang, setSaLang] = useState<'ka' | 'en'>('ka');
     const [msg, setMsg] = useState<BroadcastMsg>(EMPTY);
     const [lang, setLang] = useState<LangTab>('ka');
     const [sent, setSent] = useState(false);
     const [history, setHistory] = useState<Array<BroadcastMsg & { sentAt: string; id: string }>>([]);
 
     useEffect(() => {
-        setMounted(true);
         const h = localStorage.getItem('cc_sa_broadcast_history');
         if (h) setHistory(JSON.parse(h));
-        const sl = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (sl) setSaLang(sl);
     }, []);
 
     const deleteBroadcast = (id: string) => {
-        if (!confirm(saLang === 'ka' ? 'ნამდვილად გსურთ ამ შეტყობინების წაშლა?' : 'Are you sure you want to delete this broadcast?')) return;
+        if (!confirm(t.sa_broadcast_deleteConfirm)) return;
         const h = history.filter(item => item.id !== id);
         setHistory(h);
         localStorage.setItem('cc_sa_broadcast_history', JSON.stringify(h));
@@ -78,10 +76,10 @@ export default function BroadcastPage() {
         <div className="space-y-6 animate-fade-up max-w-3xl">
             <div>
                 <h1 className="text-3xl font-black text-primary tracking-tight">
-                    {saLang === 'ka' ? 'შეტყობინებების დაგზავნა' : 'Broadcast Messaging'}
+                    {t.sa_broadcast_title}
                 </h1>
                 <p className="text-sm text-muted mt-1 font-medium">
-                    {saLang === 'ka' ? 'სისტემური ნოტიფიკაციების გაგზავნა ყველა სტუდიის ადმინისტრატორისთვის' : 'Send system notifications to all studio admins'}
+                    {t.sa_broadcast_desc}
                 </p>
             </div>
 
@@ -92,8 +90,8 @@ export default function BroadcastPage() {
                             <Megaphone className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-primary">{saLang === 'ka' ? 'ახალი შეტყობინება' : 'New Broadcast'}</h2>
-                            <p className="text-[10px] text-muted font-black uppercase tracking-widest">{saLang === 'ka' ? 'შექმენით გლობალური განცხადება' : 'Compose Global Announcement'}</p>
+                            <h2 className="text-lg font-black text-primary">{t.sa_broadcast_newMsg}</h2>
+                            <p className="text-[10px] text-muted font-black uppercase tracking-widest">{t.sa_broadcast_composeDesc}</p>
                         </div>
                     </div>
                 </div>
@@ -110,7 +108,7 @@ export default function BroadcastPage() {
 
                 <div className="space-y-4">
                     <div className="space-y-2">
-                         <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] ml-1">{saLang === 'ka' ? 'სათაური' : 'Title'}</label>
+                         <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] ml-1">{t.sa_broadcast_inputTitle}</label>
                          <input
                             value={msg[`title_${lang}` as keyof BroadcastMsg] || ''}
                             onChange={e => set(`title_${lang}` as keyof BroadcastMsg, e.target.value)}
@@ -119,7 +117,7 @@ export default function BroadcastPage() {
                         />
                     </div>
                     <div className="space-y-2">
-                         <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] ml-1">{saLang === 'ka' ? 'ტექსტი' : 'Body'}</label>
+                         <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] ml-1">{t.sa_broadcast_inputBody}</label>
                          <textarea
                             value={msg[`body_${lang}` as keyof BroadcastMsg] || ''}
                             onChange={e => set(`body_${lang}` as keyof BroadcastMsg, e.target.value)}
@@ -133,9 +131,7 @@ export default function BroadcastPage() {
                 <div className="bg-zinc-500/5 border border-border-subtle/30 rounded-[1.5rem] p-4 flex items-start gap-4">
                     <Globe className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
                     <p className="text-[11px] text-zinc-500 font-bold leading-relaxed">
-                        {saLang === 'ka' 
-                            ? 'შეტყობინება გამოჩნდება ყველა სტუდიის ადმინისტრატორთან მათ მიერ არჩეულ ენაზე Dashboard-ის გახსნისთანავე.' 
-                            : 'Message will be shown to each studio admin in their preferred language when they next open the Dashboard.'}
+                        {t.sa_broadcast_warning}
                     </p>
                 </div>
 
@@ -143,12 +139,12 @@ export default function BroadcastPage() {
                     {sent ? (
                         <div className="flex items-center justify-center gap-3 px-6 py-4 bg-emerald-500/10 text-emerald-500 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-inner animate-in zoom-in-95">
                             <CheckCircle className="w-5 h-5" /> 
-                            {saLang === 'ka' ? 'შეტყობინება წარმატებით გაიგზავნა!' : 'Broadcast sent successfully!'}
+                            {t.sa_broadcast_success}
                         </div>
                     ) : (
                         <button onClick={send}
                             className="flex items-center gap-3 px-10 py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-indigo-600/30 active:scale-95">
-                            <Send className="w-4 h-4" /> {saLang === 'ka' ? 'გაგზავნა' : 'Send Broadcast'}
+                            <Send className="w-4 h-4" /> {t.sa_broadcast_sendBtn}
                         </button>
                     )}
                 </div>
@@ -159,7 +155,7 @@ export default function BroadcastPage() {
                 <div className="bg-white/95 dark:bg-card border border-black/10 dark:border-border-subtle rounded-[2.5rem] overflow-hidden shadow-sm">
                     <div className="px-8 py-5 border-b border-border-subtle bg-zinc-500/5">
                         <h2 className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">
-                             {saLang === 'ka' ? 'ბოლო შეტყობინებები' : 'Recent Broadcasts'}
+                             {t.sa_broadcast_history}
                         </h2>
                     </div>
                     <div className="divide-y divide-border-subtle/30">
@@ -179,8 +175,8 @@ export default function BroadcastPage() {
                                 </div>
                                 
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                                    <button onClick={() => editBroadcast(h)} className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle rounded-xl text-indigo-500 hover:bg-indigo-600 hover:text-white transition-all shadow-sm" title={saLang === 'ka' ? 'რედაქტირება' : 'Edit'}><Edit3 className="w-4 h-4" /></button>
-                                    <button onClick={() => deleteBroadcast(h.id)} className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle rounded-xl text-rose-500 hover:bg-rose-600 hover:text-white transition-all shadow-sm" title={saLang === 'ka' ? 'წაშლა' : 'Delete'}><Trash2 className="w-4 h-4" /></button>
+                                    <button onClick={() => editBroadcast(h)} className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle rounded-xl text-indigo-500 hover:bg-indigo-600 hover:text-white transition-all shadow-sm" title={t.edit}><Edit3 className="w-4 h-4" /></button>
+                                    <button onClick={() => deleteBroadcast(h.id)} className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle rounded-xl text-rose-500 hover:bg-rose-600 hover:text-white transition-all shadow-sm" title={t.delete}><Trash2 className="w-4 h-4" /></button>
                                 </div>
                                 
                                 {(msg as any).id === h.id && (

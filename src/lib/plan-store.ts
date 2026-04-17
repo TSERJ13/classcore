@@ -19,7 +19,8 @@ export interface Plan {
     is_active: boolean;
 }
 
-import { getScopedKey } from './utils';
+import { getScopedKey, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_PLANS_KEY = 'cc_subscription_plans';
 function getPlansKey() { return getScopedKey(BASE_PLANS_KEY); }
@@ -62,16 +63,14 @@ export async function savePlans(plans: Plan[]): Promise<void> {
     if (typeof window === 'undefined') return;
     const key = getPlansKey();
     localStorage.setItem(key, JSON.stringify(plans));
+    markLocalUpdate();
+    
+    // Explicit signal for UI and StudioContext
+    window.dispatchEvent(new Event('cc_subscription_plans_update'));
 
     // Trigger Cloud Sync
-    try {
-        const { getActiveSlug } = await import('./settings-store');
-        const { syncStudioDataToCloud } = await import('./sync-store');
-        const slug = getActiveSlug();
-        if (slug && slug !== 'demo.classcore.ge') {
-            await syncStudioDataToCloud(slug, { [key]: plans });
-        }
-    } catch (err) {
-        console.error('Plan sync error:', err);
+    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: plans });
     }
 }

@@ -115,7 +115,7 @@ export default function UnifiedHistoryPage() {
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-8">
                     <div className="flex items-center justify-between gap-2 w-full px-1 sm:px-0">
                         {/* Tab Navigation */}
-                        <div className="flex-1 h-10 flex gap-1 p-1 bg-card border border-border-subtle rounded-2xl overflow-hidden sm:flex-none sm:w-fit">
+                        <div className="flex-1 h-12 flex gap-1 p-1 bg-card border border-border-subtle rounded-[1.25rem] overflow-hidden sm:flex-none sm:w-fit shadow-sm">
                             <button
                                 onClick={() => setActiveTab('audit')}
                                 className={cn(
@@ -141,9 +141,9 @@ export default function UnifiedHistoryPage() {
                         {activeTab === 'audit' && (
                             <button
                                 onClick={exportToCSV}
-                                className="bg-white text-black h-10 w-10 sm:w-auto sm:px-5 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-2 hover:scale-[0.98] transition-all shadow-sm border border-border-subtle shrink-0"
+                                className="bg-white text-black h-12 w-12 sm:w-auto sm:px-5 rounded-[1.25rem] font-black text-[10px] tracking-widest flex items-center justify-center gap-2 hover:scale-[0.98] transition-all shadow-sm border border-border-subtle shrink-0"
                             >
-                                <Download className="w-3.5 h-3.5" />
+                                <Download className="w-4 h-4" />
                                 <span className="hidden sm:inline">{t.exportExcel || 'Export'}</span>
                             </button>
                         )}

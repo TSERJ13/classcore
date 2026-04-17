@@ -66,7 +66,7 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
     // deleted local helper l
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/20 animate-in fade-in duration-200">
             <div className="bg-card w-full max-w-md rounded-[2.5rem] shadow-2xl border border-border-subtle overflow-hidden animate-in zoom-in-95 duration-200">
 
                 {/* Header */}

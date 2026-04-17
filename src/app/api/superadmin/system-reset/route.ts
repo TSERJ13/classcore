@@ -10,80 +10,67 @@ export async function POST(req: Request) {
         }
 
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!supabaseUrl || !supabaseServiceKey) {
-            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+            return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for system reset.' }, { status: 500 });
+        }
+    
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        });
+
+        const adminEmail = 'adminclasscore@gmail.com'; 
+        const adminSlug = 'superadmin';
+
+        // 1. Nuclear Purge: Delete all rows from ALL relational and setting tables except the Admin HQ
+        const tablesToClear = [
+            'studio_settings', 
+            'profiles', 
+            'organizations', 
+            'groups_classes', 
+            'subscriptions', 
+            'attendance_logs',
+            'hall_rentals'
+        ];
+
+        console.log('☢️ [SystemReset] Commencing nuclear wipe of tables:', tablesToClear.join(', '));
+
+        for (const table of tablesToClear) {
+            const { error: deleteError } = await supabase
+                .from(table)
+                .delete()
+                .neq(table === 'studio_settings' ? 'studio_slug' : 'org_id', table === 'studio_settings' ? adminSlug : '___ADMIN_HQ_ID___');
+            
+            if (deleteError) {
+                console.warn(`⚠️ [SystemReset] Failed to clear table ${table}:`, deleteError.message);
+            }
         }
 
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-        // 1. Delete all studios except the one to keep
-        const { error: deleteError } = await supabase
-            .from('studio_settings')
-            .delete()
-            .neq('studio_slug', keepSlug);
-
-        if (deleteError) throw deleteError;
-
-        // 2. Reset the kept studio's data
-        // We fetch the current data first to preserve the owner
-        const { data: studio, error: fetchError } = await supabase
-            .from('studio_settings')
-            .select('*')
-            .eq('studio_slug', keepSlug)
-            .single();
-
-        if (fetchError) throw fetchError;
-
-        const staffData = (studio.staff_data as any[]) || [];
-        const owner = staffData.find(s => s.role === 'owner');
-        const studioConfig = staffData.find(s => s.id === '__studio_config__');
-
-        // Clean staff_data: Keep only owner and studio config skeleton
-        const newStaffData = [];
-        if (owner) {
-            // Ensure owner has a clean state (no enrolled groups, etc. if that's stored there)
-            newStaffData.push({
-                ...owner,
-                enrolled_group_ids: [],
-                subscription_ids: [],
-                attendance_history: []
-            });
-        }
+        // 2. ORPHANED USER PURGE: Delete all users except the Admin
+        const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
         
-        if (studioConfig) {
-            newStaffData.push({
-                ...studioConfig,
-                // Optionally reset some studio_data fields if needed
-            });
-        } else {
-            // Create default config if missing
-            newStaffData.push({
-                id: '__studio_config__',
-                studio_data: {
-                    studioName: keepSlug,
-                    studioSlug: keepSlug,
-                    currency: 'GEL',
-                    language: 'ka',
-                    branches: [{ id: 'main', name: 'Main Branch', address: '' }]
+        if (!listError && usersData.users) {
+            const usersToDelete = usersData.users.filter(u => 
+                u.email?.toLowerCase() !== adminEmail.toLowerCase()
+            );
+            
+            // Delete users sequentially to avoid rate limits
+            for (const user of usersToDelete) {
+                try {
+                    await supabase.auth.admin.deleteUser(user.id);
+                } catch (e) {
+                    console.error(`Failed to delete user ${user.id}:`, e);
                 }
-            });
+            }
         }
-
-        const { error: updateError } = await supabase
-            .from('studio_settings')
-            .update({
-                staff_data: newStaffData,
-                updated_at: new Date().toISOString()
-            })
-            .eq('studio_slug', keepSlug);
-
-        if (updateError) throw updateError;
 
         return NextResponse.json({ 
             success: true, 
-            message: `System reset complete. Preserved studio: ${keepSlug}. Removed other studios and purged data.` 
+            message: `Nuclear System Reset complete. All studios and all non-admin users have been purged from the database and Auth system.` 
         });
 
     } catch (err: any) {

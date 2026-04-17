@@ -1,99 +1,126 @@
 'use client';
 
-import { useT } from '@/contexts/LanguageContext';
-import { ChevronLeft } from 'lucide-react';
-import Link from 'next/link';
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Logo } from "@/components/ui/Logo";
+import Link from "next/link";
+import { ArrowLeft, Shield, Lock, Eye, FileText, CheckCircle2 } from "lucide-react";
 
 export default function PrivacyPage() {
-    const { lang } = useT();
+    const { l } = useLanguage();
 
-    const l = (ge: string, en: string) => lang === 'ka' ? ge : en;
+    const sections = [
+        {
+            title: l('1. ზოგადი ინფორმაცია', '1. Общая информация', '1. General Information'),
+            content: l(
+                'წინამდებარე კონფიდენციალურობის პოლიტიკა განმარტავს, თუ როგორ აგროვებს, ამუშავებს და იცავს ClassCore მომხმარებლების პერსონალურ მონაცემებს. პოლიტიკა ვრცელდება ყველა იმ პირზე, ვინც სარგებლობს ClassCore პლატფორმით, მათ შორის ორგანიზაციებზე, მშობლებსა და მოსწავლეებზე.',
+                'Настоящая политика конфиденциальности объясняет, как ClassCore собирает, обрабатывает и защищает персональные данные пользователей. Политика распространяется на всех лиц, использующих платформу ClassCore, включая организации, родителей и учеников.',
+                'This Privacy Policy explains how ClassCore collects, processes, and protects users\' personal data. The policy applies to all persons using the ClassCore platform, including organizations, parents, and students.'
+            )
+        },
+        {
+            title: l('2. პასუხისმგებელი პირები', '2. Ответственные лица', '2. Responsible Parties'),
+            content: l(
+                'ორგანიზაცია, რომელიც რეგისტრირდება ClassCore-ზე, არის პერსონალურ მონაცემთა დამუშავებაზე პასუხისმგებელი პირი (Controller). ClassCore მოქმედებს როგორც დამმუშავებელი (Processor) და უზრუნველყოფს მხოლოდ ტექნიკურ ინფრასტრუქტურას. ClassCore პასუხისმგებელია მონაცემთა ტექნიკურ უსაფრთხოებაზე.',
+                'Организация, которая регистрируется в ClassCore, является лицом, ответственным за обработку персональных данных (Контроллер). ClassCore действует как обработчик (Процессор) и предоставляет только техническую инфраструктуру. ClassCore несет ответственность за техническую безопасность данных.',
+                'The organization that registers with ClassCore is the person responsible for the processing of personal data (Controller). ClassCore acts as a processor and provides only the technical infrastructure. ClassCore is responsible for the technical security of the data.'
+            )
+        },
+        {
+            title: l('3. მონაცემთა შეგროვება', '3. Сбор данных', '3. Data Collection'),
+            content: l(
+                'ClassCore-ის გამოყენებისას შესაძლოა დამუშავდეს შემდეგი მონაცემები: ორგანიზაციის წარმომადგენლის სახელი, გვარი, ტელეფონი, ელფოსტა; მშობლისა და მოსწავლის პერსონალური ინფორმაცია, მათ შორის დაბადების თარიღი და სწავლის ისტორია.',
+                'При использовании ClassCore могут обрабатываться следующие данные: имя, фамилия, телефон, электронная почта представителя организации; персональная информация родителя и ученика, включая дату рождения и историю обучения.',
+                'When using ClassCore, the following data may be processed: first name, last name, phone, email of the organization representative; personal information of the parent and student, including date of birth and study history.'
+            )
+        },
+        {
+            title: l('4. დამუშავების მიზნები', '4. Цели обработки', '4. Purposes of Processing'),
+            content: l(
+                'პერსონალური მონაცემები მუშავდება შემდეგი მიზნებისთვის: მომსახურების ხელშეკრულების შესრულება, სწავლის პროცესის ორგანიზება, მშობელთან კომუნიკაცია, საფასურის აღრიცხვა და ფინანსური დოკუმენტაციის წარმოება.',
+                'Персональные данные обрабатываются в следующих целях: выполнение договора об оказании услуг, организация процесса обучения, общение с родителями, учет оплаты и ведение финансовой документации.',
+                'Personal data are processed for the following purposes: execution of the service contract, organization of the learning process, communication with parents, accounting of fees and production of financial documentation.'
+            )
+        },
+        {
+            title: l('5. მონაცემთა შენახვა და დაცვა', '5. Хранение и защита данных', '5. Data Retention and Protection'),
+            content: l(
+                'მონაცემები ინახება ClassCore-ის სერტიფიცირებულ სერვერებზე. მონაცემები ინახება მომსახურების ხელშეკრულების მოქმედების პერიოდში და მის შეწყვეტიდან 1 წლის განმავლობაში. ჩვენ ვიყენებთ SSL დაშიფვრას და წვდომის მკაცრ კონტროლს.',
+                'Данные хранятся на сертифицированных серверах ClassCore. Данные хранятся в течение срока действия договора на оказание услуг и в течение 1 года после его прекращения. Мы используем SSL-шифрование и строгий контроль доступа.',
+                'Data is stored on certified ClassCore servers. Data is stored during the term of the service contract and for 1 year after its termination. We use SSL encryption and strict access control.'
+            )
+        },
+        {
+            title: l('6. მომხმარებლის უფლებები', '6. Права пользователя', '6. User Rights'),
+            content: l(
+                'თქვენ გაქვთ უფლება მიიღოთ ინფორმაცია თქვენი მონაცემების შესახებ, მოითხოვოთ მათი გასწორება, განახლება ან წაშლა. ასევე შეგიძლიათ გააუქმოთ თანხმობა მონაცემთა დამუშავებაზე ნებისმიერ დროს.',
+                'Вы имеете право получать информацию о своих данных, требовать их исправления, обновления или удаления. Вы также можете отозвать свое согласие на обработку данных в любое время.',
+                'You have the right to receive information about your data, request its correction, update or deletion. You can also withdraw your consent to data processing at any time.'
+            )
+        }
+    ];
 
     return (
-        <div className="min-h-screen bg-slate-50 py-20 px-6">
-            <div className="max-w-3xl mx-auto bg-white rounded-[2.5rem] p-8 md:p-16 shadow-xl shadow-slate-200/50">
-                <Link href="/" className="inline-flex items-center gap-2 text-indigo-600 font-bold mb-8 hover:gap-3 transition-all">
-                    <ChevronLeft className="w-5 h-5" />
-                    {l('უკან დაბრუნება', 'Back to Home')}
-                </Link>
-
-                <h1 className="text-4xl font-black text-slate-900 mb-10 tracking-tight">
-                    {l('კონფიდენციალურობის პოლიტიკა', 'Privacy Policy')}
-                </h1>
-
-                <div className="space-y-8 text-slate-600 leading-relaxed font-medium">
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">1. {l('ზოგადი ინფორმაცია', 'General Information')}</h2>
-                        <p>1.1. {l('წინამდებარე კონფიდენციალურობის პოლიტიკა („პოლიტიკა“) განმარტავს, თუ როგორ აგროვებს, ამუშავებს და იცავს ClassCore მომხმარებლების პერსონალურ მონაცემებს.', 'This Privacy Policy ("Policy") explains how ClassCore collects, processes, and protects user personal data.')}</p>
-                        <p>1.2. {l('პოლიტიკა ვრცელდება ყველა იმ პირზე, ვინც სარგებლობს ClassCore პლატფორმით, მათ შორის:', 'The policy applies to all persons using the ClassCore platform, including:')}</p>
-                        <ul className="list-disc pl-6 mt-2 space-y-2">
-                            <li>{l('ორგანიზაციებზე (საგანმანათლებლო/შემოქმედებითი ცენტრები, სკოლები, სტუდიები), რომლებიც რეგისტრირდებიან პლატფორმაზე;', 'Organizations (educational/creative centers, schools, studios) registering on the platform;')}</li>
-                            <li>{l('მშობლებზე და მოსწავლეებზე, რომლებიც რეგისტრირდებიან კონკრეტულ ორგანიზაციაში.', 'Parents and students registering in a specific organization.')}</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">2. {l('ვინ არის მონაცემთა დამუშავებაზე პასუხისმგებელი პირი', 'Who is Responsible for Data Processing')}</h2>
-                        <p>2.1. {l('ორგანიზაცია, რომელიც რეგისტრირდება ClassCore-ზე და იყენებს მის სერვისებს, არის პერსონალურ მონაცემთა დამუშავებაზე პასუხისმგებელი პირი (Controller). იგი განსაზღვრავს მონაცემთა დამუშავების მიზნებსა და პირობებს.', 'The organization registering on ClassCore and using its services is the Data Controller. It defines the purposes and conditions of data processing.')}</p>
-                        <p>2.2. {l('ClassCore მოქმედებს როგორც დამმუშავებელი (Processor) და უზრუნველყოფს მხოლოდ ტექნიკურ ინფრასტრუქტურას მონაცემების შესანახად და სამართავად ორგანიზაციის დავალებით.', 'ClassCore acts as a Processor and provides only the technical infrastructure for data storage and management at the organization\'s request.')}</p>
-                        <p>2.3. {l('შესაბამისად: მშობლისა და მოსწავლის წინაშე პასუხისმგებელია უშუალოდ ორგანიზაცია; ClassCore პასუხისმგებელია მონაცემთა ტექნიკურ უსაფრთხოებაზე.', 'Accordingly: the organization is directly responsible to the parent and student; ClassCore is responsible for technical data security.')}</p>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">3. {l('რა მონაცემებს ვაგროვებთ', 'What Data We Collect')}</h2>
-                        <p>{l('ClassCore-ის გამოყენებისას შესაძლოა დამუშავდეს შემდეგი მონაცემები:', 'When using ClassCore, the following data may be processed:')}</p>
-                        <ul className="list-disc pl-6 mt-2 space-y-2">
-                            <li>{l('ორგანიზაციის წარმომადგენლის სახელი, გვარი, ტელეფონი, ელფოსტა, საიდენტიფიკაციო კოდი;', 'Representative name, surname, phone, email, ID code;')}</li>
-                            <li>{l('მშობლის სახელი, გვარი, პირადი ნომერი, ტელეფონი, ელფოსტა (არასავალდებულო), დაბადების თარიღი;', 'Parent name, surname, personal ID, phone, email (optional), birth date;')}</li>
-                            <li>{l('მოსწავლის სახელი, გვარი, დაბადების თარიღი და სწავლის შესახებ ინფორმაცია (ჯგუფი, კლასები და სხვ.).', 'Student name, surname, birth date, and study info (groups, classes, etc.).')}</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">4. {l('მონაცემთა დამუშავების მიზნები', 'Purposes of Data Processing')}</h2>
-                        <p>{l('პერსონალური მონაცემები მუშავდება შემდეგი მიზნებისთვის:', 'Personal data is processed for the following purposes:')}</p>
-                        <ul className="list-disc pl-6 mt-2 space-y-2">
-                            <li>{l('მომსახურების ხელშეკრულების შესრულება;', 'Execution of the service agreement;')}</li>
-                            <li>{l('მოსწავლის რეგისტრაცია და სწავლის პროცესის ორგანიზება;', 'Student registration and study process organization;')}</li>
-                            <li>{l('მშობელთან კომუნიკაცია და შეტყობინებების მიწოდება;', 'Communication with parents and notifications;')}</li>
-                            <li>{l('საფასურის აღრიცხვა და ფინანსური დოკუმენტაციის წარმოება;', 'Accounting and financial documentation;')}</li>
-                            <li>{l('მოქმედი კანონმდებლობით გათვალისწინებული ვალდებულებების შესრულება.', 'Compliance with legal obligations.')}</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">5. {l('მონაცემთა შენახვა', 'Data Storage')}</h2>
-                        <p>5.1. {l('მონაცემები ინახება ClassCore-ის უსაფრთხო სერვერებზე.', 'Data is stored on ClassCore\'s secure servers.')}</p>
-                        <p>5.2. {l('მონაცემები ინახება მომსახურების ხელშეკრულების მოქმედების პერიოდში და მის შეწყვეტიდან 1 წლის განმავლობაში, თუ კანონმდებლობით სხვა ვადა არ არის დადგენილი.', 'Data is stored during the service agreement and for 1 year after its termination, unless otherwise specified by law.')}</p>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">6. {l('მონაცემთა გაზიარება', 'Data Sharing')}</h2>
-                        <p>6.1. {l('მონაცემებზე წვდომა აქვს მხოლოდ შესაბამის ორგანიზაციას (controller).', 'Access to data is restricted to the respective organization (controller).')}</p>
-                        <p>6.2. {l('ClassCore არ გადასცემს მონაცემებს მესამე პირებს ორგანიზაციის დავალების გარეშე, გარდა კანონით დადგენილი შემთხვევებისა.', 'ClassCore does not transfer data to third parties without the organization\'s instruction, except as required by law.')}</p>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">7. {l('მონაცემთა სუბიექტის უფლებები', 'Rights of the Data Subject')}</h2>
-                        <ul className="list-disc pl-6 mt-2 space-y-2">
-                            <li>{l('მიიღონ ინფორმაცია, მუშავდება თუ არა მათი მონაცემები;', 'Receive info on whether their data is being processed;')}</li>
-                            <li>{l('გაეცნონ და მიიღონ მონაცემების ასლი;', 'Review and receive a copy of the data;')}</li>
-                            <li>{l('მოითხოვონ მონაცემების გასწორება, განახლება ან შევსება;', 'Request correction, update or completion;')}</li>
-                            <li>{l('მოითხოვონ მონაცემების წაშლა ან დაბლოკვა კანონით გათვალისწინებულ საფუძვლებზე.', 'Request deletion or blocking based on legal grounds.')}</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">8. {l('მონაცემთა უსაფრთხოება', 'Data Security')}</h2>
-                        <p>{l('ClassCore იყენებს დაშიფრულ კავშირს (SSL), ავტორიზაციის მკაცრ კონტროლს და მონაცემთა ბაზის სარეზერვო ასლებს მონაცემთა დასაცავად.', 'ClassCore uses SSL encryption, strict auth control, and database backups to protect data.')}</p>
-                    </section>
-
-                    <section>
-                        <h2 className="text-xl font-black text-slate-900 mb-4">9. {l('ცვლილებები პოლიტიკაში', 'Policy Changes')}</h2>
-                        <p>{l('ClassCore იტოვებს უფლებას, დროდადრო განაახლოს წინამდებარე პოლიტიკა. ცვლილებები გამოქვეყნდება პლატფორმაზე და ძალაში შევა მათი გამოქვეყნებისთანავე.', 'ClassCore reserves the right to update this policy. Changes are effective immediately upon posting.')}</p>
-                    </section>
+        <div className="min-h-screen bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+            {/* Header / Nav */}
+            <nav className="fixed top-0 inset-x-0 h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 z-50 px-6">
+                <div className="max-w-7xl mx-auto h-full flex items-center justify-between">
+                    <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                        <Logo size={40} transparent />
+                        <span className="text-xl font-black tracking-tighter">ClassCore</span>
+                    </Link>
+                    <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-600 tracking-widest hover:translate-x-[-4px] transition-transform">
+                        <ArrowLeft className="w-4 h-4" />
+                        {l('უკან', 'Назад', 'Back')}
+                    </Link>
                 </div>
-            </div>
+            </nav>
+
+            <main className="pt-32 pb-24 px-6 md:px-12 lg:px-20">
+                <div className="max-w-7xl mx-auto space-y-16">
+                    {/* Hero Section */}
+                    <div className="text-center space-y-6">
+                        <div className="w-20 h-20 bg-white rounded-[2rem] shadow-xl shadow-indigo-500/5 border border-indigo-50 flex items-center justify-center mx-auto text-indigo-600">
+                            <Shield className="w-10 h-10" />
+                        </div>
+                        <h1 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tight">
+                            {l('კონფიდენციალურობა', 'Приватность', 'Privacy Policy')}
+                        </h1>
+                        <p className="text-sm text-slate-400 font-bold uppercase tracking-[0.3em]">
+                            {l('თქვენი მონაცემები ჩვენი პრიორიტეტია', 'Ваши данные — наш приоритет', 'Your Data Is Our Priority')}
+                        </p>
+                    </div>
+
+                    {/* Content Cards */}
+                    <div className="grid gap-6">
+                        {sections.map((section, idx) => (
+                            <div key={idx} className="bg-white p-10 md:p-12 rounded-[3rem] border border-slate-100 shadow-2xl shadow-indigo-500/5 space-y-6 transition-all hover:scale-[1.01]">
+                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-4">
+                                    <span className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs shadow-sm">
+                                        <CheckCircle2 className="w-4 h-4" />
+                                    </span>
+                                    {section.title}
+                                </h3>
+                                <div className="text-slate-500 font-medium leading-relaxed text-lg">
+                                    {section.content}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Footer / Contact Info */}
+                    <div className="bg-indigo-600 rounded-[3rem] p-12 text-center space-y-6 shadow-2xl shadow-indigo-600/20">
+                        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto text-white">
+                            <Lock className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tight">
+                            {l('გაქვთ კითხვები?', 'Остались вопросы?', 'Have Questions?')}
+                        </h3>
+                        <p className="text-indigo-100 font-medium">
+                            {l('დაგვიკავშირდით: support@classcore.ge ან +995 555 13 00 13', 'Свяжитесь с нами: support@classcore.ge или +995 555 13 00 13', 'Contact us at: support@classcore.ge or +995 555 13 00 13')}
+                        </p>
+                    </div>
+                </div>
+            </main>
         </div>
     );
 }

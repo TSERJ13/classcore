@@ -183,11 +183,11 @@ export default function SubscriptionsPage() {
                         ].map(v => (
                             <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                 className={cn(
-                                    'flex-1 lg:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-0 sm:px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all truncate',
+                                    'flex-1 lg:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-0 sm:px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all',
                                     tab === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface', v.hoverColor)
                                 )}>
                                 <v.icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden sm:inline truncate">{v.label}</span>
+                                <span className="hidden sm:inline whitespace-nowrap">{v.label}</span>
                             </button>
                         ))}
                     </div>
@@ -197,12 +197,12 @@ export default function SubscriptionsPage() {
                         <button onClick={() => window.location.href = '/subscriptions/plans'}
                             className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500 text-emerald-600 font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-4 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
                             <DollarSign strokeWidth={3} className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
-                            <span className="hidden sm:inline truncate">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
+                            <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </button>
                         <button onClick={() => setIssuing(true)}
                             className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-4 rounded-[1.25rem] tracking-widest shadow-lg shadow-indigo-500/25 transition-all">
                             <FolderPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline truncate">{lang === 'ka' ? 'აბონემენტის გამოწერა' : lang === 'ru' ? 'Выдать абонемент' : 'Issue Subscription'}</span>
+                            <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'აბონემენტის გამოწერა' : lang === 'ru' ? 'Выдать абонемент' : 'Issue Subscription'}</span>
                         </button>
                     </div>
                 </div>

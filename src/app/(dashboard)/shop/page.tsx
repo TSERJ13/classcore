@@ -43,7 +43,7 @@ export default function ShopPage() {
             if (saved) {
                 setProducts(JSON.parse(saved));
             } else {
-                setProducts(isDemo ? INITIAL_PRODUCTS : [INITIAL_PRODUCTS[0]]);
+                setProducts(isDemo && INITIAL_PRODUCTS.length > 0 ? [INITIAL_PRODUCTS[0]] : []);
             }
         };
 
@@ -193,7 +193,7 @@ export default function ShopPage() {
                         { label: t.priceValue, value: formatCurrency(inventoryValue, settings.currency), icon: Tag, colorCls: 'text-emerald-600', bgCls: 'bg-emerald-500/5' },
                         { label: t.totalSales, value: formatCurrency(totalSalesValue, settings.currency), icon: TrendingUp, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
                     ].map(s => (
-                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-10 sm:h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
+                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
                             <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                 <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
                                 <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums tracking-tight">{s.value}</span>
@@ -210,10 +210,10 @@ export default function ShopPage() {
                         setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
                         setIsAddOpen(true);
                     }}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-xl sm:rounded-[1.5rem] shadow-lg shadow-amber-500/20 transition-all touch-manipulation"
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-lg shadow-amber-500/20 transition-all touch-manipulation"
                 >
                     <div className="relative flex items-center">
-                        <ShoppingBag className="w-4 h-4" />
+                        <ShoppingBag className="w-5 h-5 sm:w-4 sm:h-4" />
                         <Plus className="absolute -top-1 -right-2.5 w-3 h-3 text-white" />
                     </div>
                     <span className="hidden sm:inline">{t.addNew}</span>
@@ -223,7 +223,7 @@ export default function ShopPage() {
             {/* Modal */}
             {isAddOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
                     <div className="relative bg-card border border-border-subtle w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h2 className="text-xl font-black text-primary mb-6">{editingProduct ? t.edit : t.addNew}</h2>
                         <div className="space-y-4">
@@ -443,7 +443,7 @@ export default function ShopPage() {
             {/* Sell Modal */}
             {isSellOpen && selectedProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSellOpen(false)} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsSellOpen(false)} />
                     <div className="relative bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
@@ -509,7 +509,7 @@ export default function ShopPage() {
             {/* Edit Sale Modal */}
             {isEditSaleOpen && selectedSale && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsEditSaleOpen(false)} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsEditSaleOpen(false)} />
                     <div className="relative bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">

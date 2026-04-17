@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent, Calendar, Plus, Eye, EyeOff } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, getCurrencySymbol } from '@/lib/utils';
 import type { Teacher, TeacherStatus } from '@/types';
 import type { Translations } from '@/lib/i18n';
+import { SearchSelect } from '@/components/ui/SearchSelect';
+import { generateTimeOptions } from '@/lib/date-utils';
 
 interface Group { id: string; name: string; }
 
@@ -39,15 +41,18 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const { t } = useT();
     const { settings } = useStudio();
     const { lang } = useT();
+    const timeOptions = generateTimeOptions(15);
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [form, setForm] = useState<Partial<Teacher>>({ ...EMPTY });
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeRateType, setActiveRateType] = useState<RateType>('hourly');
-    const [showDelete, setShowDelete] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const isEdit = !!teacher;
 
     useEffect(() => {
         if (open) {
-            setForm(teacher ? { ...teacher } : { ...EMPTY, role: 'teacher' });
+            setForm(teacher ? { ...teacher } : { ...EMPTY, role: 'teacher', email: '', password: '' });
+            setShowPassword(false);
             if (teacher) {
                 if (teacher.salary_percentage) setActiveRateType('percentage');
                 else if (teacher.rate_per_month) setActiveRateType('monthly');
@@ -112,22 +117,26 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     {/* Photo Upload & Role */}
                     <div className="flex gap-4">
                         <button
-                            onClick={() => {
-                                const input = document.createElement('input');
-                                input.type = 'file';
-                                input.accept = 'image/*';
-                                input.onchange = (e: Event) => {
-                                    const file = (e.target as HTMLInputElement).files?.[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (ev) => setF('photo_url', ev.target?.result as string);
-                                        reader.readAsDataURL(file);
-                                    }
-                                };
-                                input.click();
-                            }}
+                            onClick={() => fileInputRef.current?.click()}
                             className="relative w-20 h-20 rounded-2xl bg-violet-500/5 border-2 border-dashed border-violet-500/20 hover:border-violet-500/50 flex items-center justify-center flex-shrink-0 overflow-hidden group transition-all"
                         >
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (ev) => {
+                                            setF('photo_url', ev.target?.result as string);
+                                            if (fileInputRef.current) fileInputRef.current.value = '';
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                            />
                             {form.photo_url ? (
                                 <>
                                     <img src={form.photo_url} alt="" className="w-full h-full object-cover" />
@@ -195,6 +204,28 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             </div>
                         </div>
 
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{l('პაროლი', 'Пароль', 'Password')}</label>
+                            <div className="relative group/input">
+                                <Layout className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                <input 
+                                    type={showPassword ? "text" : "password"} 
+                                    value={form.password ?? ''} 
+                                    onChange={e => setF('password', e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-12 py-3 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" 
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-surface text-muted hover:text-primary transition-all"
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40 shadow-sm" />}
+                                </button>
+                            </div>
+                            <p className="px-1 text-[9px] text-muted opacity-50 italic">{l('მიუთითეთ თუ გსურთ მასწავლებელს ჰქონდეს პირადი წვდომა სისტემაზე', 'Укажите, თუ хотите, чтобы у учителя был личный доступ к системе', 'Set this if you want the teacher to have personal access to the system')}</p>
+                        </div>
+
                     </section>
 
 
@@ -257,6 +288,91 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             </div>
                         </section>
                     </div>
+
+                    {/* Working Schedule */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
+                                <Calendar className="w-3 h-3" /> {t.workingSchedule}
+                            </p>
+                            <button 
+                                onClick={() => {
+                                    const current = form.working_schedule || [];
+                                    setF('working_schedule', [...current, { day: 1, start_time: '10:00', end_time: '18:00' }]);
+                                }}
+                                className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                            >
+                                <Plus className="w-3 h-3" /> {t.add}
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            {(form.working_schedule || []).map((sched, idx) => (
+                                <div key={idx} className="flex items-center gap-2 p-3 rounded-xl bg-surface border border-border-subtle shadow-sm animate-in slide-in-from-top-1 duration-200">
+                                    <select 
+                                        value={sched.day}
+                                        onChange={e => {
+                                            const next = [...(form.working_schedule || [])];
+                                            next[idx] = { ...next[idx], day: Number(e.target.value) };
+                                            setF('working_schedule', next);
+                                        }}
+                                        className="bg-transparent text-xs font-bold text-primary outline-none min-w-[100px]"
+                                    >
+                                        <option value={1}>{t.monday}</option>
+                                        <option value={2}>{t.tuesday}</option>
+                                        <option value={3}>{t.wednesday}</option>
+                                        <option value={4}>{t.thursday}</option>
+                                        <option value={5}>{t.friday}</option>
+                                        <option value={6}>{t.saturday}</option>
+                                        <option value={0}>{t.sunday}</option>
+                                    </select>
+                                    
+                                    <div className="flex items-center gap-1.5 flex-1 select-none">
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={sched.start_time}
+                                            onChange={val => {
+                                                const next = [...(form.working_schedule || [])];
+                                                next[idx] = { ...next[idx], start_time: val };
+                                                setF('working_schedule', next);
+                                            }}
+                                            className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px] !bg-card"
+                                            placeholder="10:00"
+                                        />
+                                        <span className="text-muted opacity-40">—</span>
+                                        <SearchSelect 
+                                            options={timeOptions}
+                                            value={sched.end_time}
+                                            onChange={val => {
+                                                const next = [...(form.working_schedule || [])];
+                                                next[idx] = { ...next[idx], end_time: val };
+                                                setF('working_schedule', next);
+                                            }}
+                                            className="!border-none [&>div]:py-1 [&>div]:px-2 [&>div]:text-[10px] [&>div]:min-h-[28px] !bg-card"
+                                            placeholder="18:00"
+                                        />
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            const next = (form.working_schedule || []).filter((_, i) => i !== idx);
+                                            setF('working_schedule', next);
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-all"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ))}
+                            
+                            {(!form.working_schedule || form.working_schedule.length === 0) && (
+                                <div className="p-4 rounded-xl border border-dashed border-border-subtle flex flex-col items-center justify-center gap-2 opacity-50">
+                                    <Calendar className="w-5 h-5 text-muted/40" />
+                                    <p className="text-[10px] font-medium text-muted">{t.availability}</p>
+                                </div>
+                            )}
+                        </div>
+                    </section>
 
                     {/* Branch Access */}
                     <section className="space-y-4">

@@ -11,13 +11,15 @@ import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { getScopedKey } from '@/lib/utils';
 import { getBillingState, getPaymentLogs } from '@/lib/saas-billing';
 import { cn } from '@/lib/utils';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 import Link from 'next/link';
 import SupportChat from '@/components/superadmin/SupportChat';
-// Recharts is currently unavailable in the environment — using premium CSS mockup
+import { useT } from '@/contexts/LanguageContext';
 
 export default function SuperAdminDashboard() {
-    const [lang, setLang] = useState<'ka' | 'en'>('ka');
+    const { lang, t } = useT();
     const [mounted, setMounted] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [slugs, setSlugs] = useState<string[]>([]);
     const [stats, setStats] = useState({
         totalStudios: 0, totalStudents: 0, activeSubs: 0,
@@ -28,83 +30,92 @@ export default function SuperAdminDashboard() {
 
     useEffect(() => {
         setMounted(true);
-        const list = getStudioRegistry();
-        setSlugs(list);
+        const init = async () => {
+            setLoading(true);
+            try {
+                // DATABASE-FIRST: Fetch truth from cloud
+                const verified = await syncGlobalAdminRegistry();
+                const cloudSlugs = Array.isArray(verified) ? verified.map((s: any) => s.slug) : [];
+                setSlugs(cloudSlugs);
+            } catch (err) {
+                console.error('Failed to sync dashboard:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        init();
     }, []);
 
     useEffect(() => {
-        let students = 0;
-        let activeSubs = 0;
-        let totalRev = 0;
-        let mrr = 0;
-        let totalSms = 0;
+        if (loading) return;
 
-        const allPayments: any[] = [];
-        const monthTotals: Record<string, number> = {};
-        const now = new Date();
+            // DATABASE-FIRST AGGREGATION
+            let totalStudentsCount = 0;
+            let totalRevenueSum = 0;
+            let activeSubscriptions = 0;
+            let calculatedMrr = 0;
+            const monthTotals: Record<string, number> = {};
+            const allPayments: any[] = [];
+            const now = new Date();
 
-        slugs.forEach((slug: string) => {
-            // Students
-            try {
-                const studentDataKey = getScopedKey('cc_student_data', slug);
-                const studentData = localStorage.getItem(studentDataKey);
-                if (studentData) students += Object.keys(JSON.parse(studentData)).length;
-            } catch {}
+            verified.forEach((s: any) => {
+                if (s.slug === 'demo.classcore.ge') return;
+                
+                totalStudentsCount += (s.studentCount || 0);
+                totalRevenueSum += (s.revenue || 0);
+                activeSubscriptions += (s.activeSubsCount || 0);
+                calculatedMrr += (s.activeSubsCount * 49); // Base MRR
 
-            // Billing & MRR
-            const billing = getBillingState(slug);
-            if (billing.status === 'active' || billing.status === 'overdue') {
-                activeSubs++;
-                mrr += 49;
-            }
-
-            // Payments & History
-            const payments = getPaymentLogs(slug);
-            payments.forEach((p: any) => {
-                totalRev += p.amount;
-                const d = new Date(p.date);
-                const monthKey = d.toLocaleString('default', { month: 'short' });
-                monthTotals[monthKey] = (monthTotals[monthKey] || 0) + p.amount;
-                allPayments.push({ ...p, studioSlug: slug });
+                // Revenue Timeline (last 6 months - we use the updatedAt relative path as a mock since we don't have historical day logs in this API yet)
+                const d = new Date(s.updatedAt);
+                if (!isNaN(d.getTime())) {
+                    const monthKey = d.toLocaleString('default', { month: 'short' });
+                    monthTotals[monthKey] = (monthTotals[monthKey] || 0) + (s.revenue || 0);
+                }
             });
-        });
 
-        // Prepare revenue timeline (last 6 months)
-        const months = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date();
-            d.setMonth(now.getMonth() - i);
-            const m = d.toLocaleString('default', { month: 'short' });
-            months.push({ name: m, rev: monthTotals[m] || 0 });
+            // Prepare revenue timeline (last 6 months)
+            const months = [];
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date();
+                d.setMonth(now.getMonth() - i);
+                const m = d.toLocaleString('default', { month: 'short' });
+                months.push({ name: m, rev: monthTotals[m] || 0 });
+            }
+            setRevenueTimeline(months);
+
+            // Recent events - we get these from the already fetched cloud data (which includes owner and updated info)
+            const events = verified
+                .filter((s: any) => s.slug !== 'demo.classcore.ge')
+                .sort((a: any, b: any) => b.updatedAt.localeCompare(a.updatedAt))
+                .slice(0, 4)
+                .map((s: any) => ({
+                    studio: s.name || s.slug,
+                    action: t.sa_activity_update,
+                    time: `${Math.max(1, Math.floor((now.getTime() - new Date(s.updatedAt).getTime()) / (1000 * 60 * 60)))}${t.sa_hoursAgo}`
+                }));
+
+            if (events.length === 0) {
+                events.push({ studio: t.navSectionSystem, action: t.sa_noRecords, time: t.now });
+            }
+            setRecentEvents(events);
+
+            setStats({
+                totalStudios: verified.filter((s: any) => s.slug !== 'demo.classcore.ge').length,
+                totalStudents: totalStudentsCount,
+                activeSubs: activeSubscriptions,
+                totalRevenue: totalRevenueSum,
+                totalSms: totalStudentsCount * 8, // Estimated
+                mrr: calculatedMrr
+            });
+        } catch (err) {
+            console.error('Critical crash during dashboard aggregation:', err);
+            // We don't throw, just log and keep previous/empty state to prevent GlobalErrorBoundary
         }
-        setRevenueTimeline(months);
-
-        // Recent Events (Last 4 payments/registrations)
-        const events = allPayments.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4).map(p => ({
-            studio: loadSettings(p.studioSlug).studioName,
-            action: lang === 'ka' ? 'მექანიკური გადახდა' : 'Manual Payment',
-            time: lang === 'ka' ? `${Math.floor((now.getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60))}სთ წინ` : `${Math.floor((now.getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60))}h ago`
-        }));
-        if (events.length === 0) {
-            events.push({ studio: lang === 'ka' ? 'სისტემა' : 'System', action: lang === 'ka' ? 'ჩანაწერები არ არის' : 'No recent records', time: lang === 'ka' ? 'ახლა' : 'Now' });
-        }
-        setRecentEvents(events);
-
-        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (storedLang) setLang(storedLang);
-
-        setStats({
-            totalStudios: slugs.length,
-            totalStudents: students,
-            activeSubs,
-            totalRevenue: totalRev,
-            totalSms: students * 8, // Estimated
-            mrr
-        });
-    }, [slugs, lang]);
+    }, [slugs, lang, loading]);
 
     const handleGlobalPurge = async () => {
-        if (!confirm(lang === 'ka' ? 'აღმოჩნდა, რომ ეს მოქმედება შეუქცევადია! ნამდვილად გსურთ ყველა სტუდიის და მონაცემის წაშლა?' : 'WARNING: This action is irreversible! Are you sure you want to delete ALL studios and data?')) return;
+        if (!confirm(t.sa_purgeWarning)) return;
         
         try {
             const res = await fetch('/api/superadmin/global-purge', {
@@ -114,7 +125,7 @@ export default function SuperAdminDashboard() {
             });
             const data = await res.json();
             if (data.success) {
-                alert(lang === 'ka' ? 'სისტემა გასუფთავდა! ყველა ლოკალური მონაცემი წაიშლება.' : 'System purged! All local data will be cleared.');
+                alert(t.sa_systemPurged);
                 localStorage.clear();
                 window.location.href = '/';
             } else {
@@ -133,195 +144,208 @@ export default function SuperAdminDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-primary tracking-tight">
-                        {lang === 'ka' ? 'სისტემის მიმოხილვა' : 'System Overview'}
+                        {t.sa_systemOverview}
                     </h1>
                     <p className="text-muted text-sm mt-1 font-medium">
-                        {lang === 'ka' ? 'რეალურ დროში ClassCore SaaS მეტრიკა და ეფექტურობა' : 'Real-time ClassCore SaaS metrics and performance'}
+                        {t.sa_metricsDesc}
                     </p>
                 </div>
             </div>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    title={lang === 'ka' ? 'აქტიური სტუდიები' : 'Active Studios'}
-                    value={stats.totalStudios}
-                    icon={Building2}
-                    trend="+12%"
-                    color="indigo"
-                    lang={lang}
-                />
-                <StatCard
-                    title={lang === 'ka' ? 'მოსწავლეები' : 'Students'}
-                    value={stats.totalStudents.toLocaleString()}
-                    icon={Users}
-                    trend="+5.4%"
-                    color="emerald"
-                    lang={lang}
-                />
-                <StatCard
-                    title={lang === 'ka' ? 'MRR შემოსავალი' : 'Monthly Revenue (MRR)'}
-                    value={`${stats.mrr}₾`}
-                    icon={CreditCard}
-                    trend="+8.2%"
-                    color="amber"
-                    lang={lang}
-                />
-                <StatCard
-                    title={lang === 'ka' ? 'გაგზავნილი სმს' : 'SMS Sent (MTD)'}
-                    value={stats.totalSms.toLocaleString()}
-                    icon={MessageSquare}
-                    trend="+22%"
-                    color="blue"
-                    lang={lang}
-                />
-            </div>
-
-            {/* Charts & Activity Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-
-                    {/* Overdue & Expiring Studios Lists */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Overdue Studios */}
-                        <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-rose-500/20 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-black/5">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-rose-500/10 rounded-2xl border border-rose-500/20">
-                                    <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-primary dark:text-white uppercase tracking-wider">{lang === 'ka' ? 'ვადაგადაცილებული გადახდები' : 'Overdue Payments'}</h3>
-                                    <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{lang === 'ka' ? 'სტუდიები, რომლებიც საჭიროებენ ყურადღებას' : 'Studios needing attention'}</p>
-                                </div>
-                            </div>
-                            <div className="space-y-3 pt-2">
-                                {slugs.filter((s: string) => getBillingState(s).status === 'overdue').length === 0 ? (
-                                    <p className="text-[10px] text-muted font-bold uppercase py-4 text-center italic">{lang === 'ka' ? 'ვადაგადაცილებული გადახდები არ არის' : 'No overdue payments'}</p>
-                                ) : (
-                                    slugs.filter((s: string) => getBillingState(s).status === 'overdue').slice(0, 3).map((slug: string) => (
-                                        <div key={slug} className="flex items-center justify-between p-3 bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5 group hover:border-rose-500/30 transition-all">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-[10px] font-black text-rose-500">{loadSettings(slug).studioName[0]}</div>
-                                                <span className="text-xs font-bold text-primary dark:text-white group-hover:text-rose-400">{loadSettings(slug).studioName}</span>
-                                            </div>
-                                            <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-rose-500" />
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Expiring Soon */}
-                        <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-amber-500/20 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-black/5">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20">
-                                    <Building2 className="w-5 h-5 text-amber-500" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-primary dark:text-white uppercase tracking-wider">{lang === 'ka' ? 'ვადაგასული / სრულდება' : 'Expiring Soon'}</h3>
-                                    <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{lang === 'ka' ? 'შენარჩუნების პრიორიტეტი' : 'Retention priority'}</p>
-                                </div>
-                            </div>
-                            <div className="space-y-3 pt-2">
-                                {slugs.filter((s: string) => {
-                                    const state = getBillingState(s);
-                                    return state.status === 'active' && state.daysLeftInTrial <= 7;
-                                }).length === 0 ? (
-                                    <p className="text-[10px] text-muted font-bold uppercase py-4 text-center italic">{lang === 'ka' ? 'ვადის გასვლის შემთხვევები არ არის' : 'No immediate expirations'}</p>
-                                ) : (
-                                    slugs.filter((s: string) => {
-                                    const state = getBillingState(s);
-                                    return state.status === 'active' && state.daysLeftInTrial <= 7;
-                                    }).slice(0, 3).map((slug: string) => (
-                                        <div key={slug} className="flex items-center justify-between p-3 bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5 group hover:border-amber-500/30 transition-all">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-[10px] font-black text-amber-500">{loadSettings(slug).studioName[0]}</div>
-                                                <span className="text-xs font-bold text-primary dark:text-white group-hover:text-amber-400">{loadSettings(slug).studioName}</span>
-                                            </div>
-                                            <span className="text-[9px] font-black text-amber-500 uppercase">{getBillingState(slug).daysLeftInTrial}{lang === 'ka' ? 'დღე' : 'd'} {lang === 'ka' ? 'დარჩა' : 'left'}</span>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
+            {loading ? (
+                <div className="py-24 flex flex-col items-center justify-center space-y-4">
+                    <div className="w-12 h-12 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{t.sa_syncingData}</p>
+                </div>
+            ) : (
+                <>
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <StatCard
+                            title={t.sa_activeStudios}
+                            value={stats.totalStudios}
+                            icon={Building2}
+                            trend="+12%"
+                            color="indigo"
+                            lang={lang}
+                            t={t}
+                        />
+                        <StatCard
+                            title={t.students}
+                            value={stats.totalStudents.toLocaleString()}
+                            icon={Users}
+                            trend="+5.4%"
+                            color="emerald"
+                            lang={lang}
+                            t={t}
+                        />
+                        <StatCard
+                            title={t.sa_revenueMRR}
+                            value={`${stats.mrr}₾`}
+                            icon={CreditCard}
+                            trend="+8.2%"
+                            color="amber"
+                            lang={lang}
+                            t={t}
+                        />
+                        <StatCard
+                            title={t.sa_smsSentMTD}
+                            value={stats.totalSms.toLocaleString()}
+                            icon={MessageSquare}
+                            trend="+22%"
+                            color="blue"
+                            lang={lang}
+                            t={t}
+                        />
                     </div>
 
-                    <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-white/5 rounded-[2.5rem] p-6 md:p-8 space-y-6 shadow-xl shadow-black/5">
-                        <div className="flex items-center justify-between font-black">
-                            <div>
-                                <h2 className="text-lg text-primary">{lang === 'ka' ? 'შემოსავლების ზრდა' : 'Revenue Growth'}</h2>
-                                <p className="text-muted text-[10px] font-bold uppercase opacity-40">{lang === 'ka' ? 'ყოველთვიური განმეორებადი შემოსავლის ტენდენციები' : 'Monthly recurring revenue trends'}</p>
-                            </div>
-                             <select className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 text-[10px] font-black text-muted rounded-lg px-3 py-1.5 outline-none uppercase tracking-widest border transition-colors hover:bg-black/10 dark:hover:bg-white/10">
-                                <option>{lang === 'ka' ? 'ბოლო 6 თვე' : 'Last 6 Months'}</option>
-                                <option>{lang === 'ka' ? 'ბოლო წელი' : 'Last Year'}</option>
-                            </select>
-                        </div>
+                    {/* Charts & Activity Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 space-y-6">
 
-                        <div className="h-[280px] w-full flex items-end justify-between px-4 pb-8 bg-black/[0.01] dark:bg-white/[0.01] rounded-3xl relative overflow-hidden group/chart border border-black/5 dark:border-white/5 shadow-inner">
-                            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/40 to-indigo-500/0 shadow-[0_0_20px_rgba(99,102,241,0.2)]" />
-                            {revenueTimeline.map((d, i) => (
-                                <div key={i} className="flex flex-col items-center gap-3 w-full group/bar">
-                                    <div
-                                        className="w-6 md:w-8 bg-gradient-to-t from-indigo-500/10 to-indigo-500 rounded-t-lg transition-all duration-700 group-hover/bar:brightness-110 shadow-sm relative"
-                                        style={{ height: `${Math.max(4, (d.rev / (Math.max(...revenueTimeline.map(x => x.rev)) || 5000)) * 180)}px` }}
-                                    >
-                                        <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/bar:opacity-100 transition-opacity rounded-t-lg" />
+                            {/* Overdue & Expiring Studios Lists */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Overdue Studios */}
+                                <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-rose-500/20 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-black/5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-3 bg-rose-500/10 rounded-2xl border border-rose-500/20">
+                                            <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-primary dark:text-white uppercase tracking-wider">{t.sa_overduePayments}</h3>
+                                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{t.sa_studiosNeedingAttention}</p>
+                                        </div>
                                     </div>
-                                    <span className="text-[10px] font-black text-muted group-hover/bar:text-primary transition-colors uppercase tracking-widest opacity-40">{d.name}</span>
+                                    <div className="space-y-3 pt-2">
+                                        {slugs.filter((s: string) => getBillingState(s).status === 'overdue').length === 0 ? (
+                                            <p className="text-[10px] text-muted font-bold uppercase py-4 text-center italic">{t.sa_noOverduePayments}</p>
+                                        ) : (
+                                            slugs.filter((s: string) => getBillingState(s).status === 'overdue').slice(0, 3).map((slug: string) => (
+                                                <div key={slug} className="flex items-center justify-between p-3 bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5 group hover:border-rose-500/30 transition-all">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-[10px] font-black text-rose-500">{loadSettings(slug).studioName[0]}</div>
+                                                        <span className="text-xs font-bold text-primary dark:text-white group-hover:text-rose-400">{loadSettings(slug).studioName}</span>
+                                                    </div>
+                                                    <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-rose-500" />
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
-                            ))}
+
+                                {/* Expiring Soon */}
+                                <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-amber-500/20 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-black/5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                                            <Building2 className="w-5 h-5 text-amber-500" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-primary dark:text-white uppercase tracking-wider">{t.sa_expiringSoonTitle}</h3>
+                                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{t.sa_retentionPriority}</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3 pt-2">
+                                        {slugs.filter((s: string) => {
+                                            const state = getBillingState(s);
+                                            return state.status === 'active' && state.daysLeftInTrial <= 7;
+                                        }).length === 0 ? (
+                                            <p className="text-[10px] text-muted font-bold uppercase py-4 text-center italic">{t.sa_noExpiringSoon}</p>
+                                        ) : (
+                                            slugs.filter((s: string) => {
+                                            const state = getBillingState(s);
+                                            return state.status === 'active' && state.daysLeftInTrial <= 7;
+                                            }).slice(0, 3).map((slug: string) => (
+                                                <div key={slug} className="flex items-center justify-between p-3 bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5 group hover:border-amber-500/30 transition-all">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-[10px] font-black text-amber-500">{loadSettings(slug).studioName[0]}</div>
+                                                        <span className="text-xs font-bold text-primary dark:text-white group-hover:text-amber-400">{loadSettings(slug).studioName}</span>
+                                                    </div>
+                                                    <span className="text-[9px] font-black text-amber-500 uppercase">{getBillingState(slug).daysLeftInTrial} {t.sa_daysLeft}</span>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-white/5 rounded-[2.5rem] p-6 md:p-8 space-y-6 shadow-xl shadow-black/5">
+                                <div className="flex items-center justify-between font-black">
+                                    <div>
+                                        <h2 className="text-lg text-primary">{t.sa_revenueGrowth}</h2>
+                                        <p className="text-muted text-[10px] font-bold uppercase opacity-40">{t.sa_mrrTrends}</p>
+                                    </div>
+                                     <select className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 text-[10px] font-black text-muted rounded-lg px-3 py-1.5 outline-none uppercase tracking-widest border transition-colors hover:bg-black/10 dark:hover:bg-white/10">
+                                        <option>{t.sa_last6Months}</option>
+                                        <option>{t.sa_lastYear}</option>
+                                    </select>
+                                </div>
+
+                                <div className="h-[280px] w-full flex items-end justify-between px-4 pb-8 bg-black/[0.01] dark:bg-white/[0.01] rounded-3xl relative overflow-hidden group/chart border border-black/5 dark:border-white/5 shadow-inner">
+                                    <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/40 to-indigo-500/0 shadow-[0_0_20px_rgba(99,102,241,0.2)]" />
+                                    {revenueTimeline.map((d, i) => (
+                                        <div key={i} className="flex flex-col items-center gap-3 w-full group/bar">
+                                            <div
+                                                className="w-6 md:w-8 bg-gradient-to-t from-indigo-500/10 to-indigo-500 rounded-t-lg transition-all duration-700 group-hover/bar:brightness-110 shadow-sm relative"
+                                                style={{ height: `${Math.max(4, (d.rev / (Math.max(...revenueTimeline.map(x => x.rev)) || 5000)) * 180)}px` }}
+                                            >
+                                                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/bar:opacity-100 transition-opacity rounded-t-lg" />
+                                            </div>
+                                            <span className="text-[10px] font-black text-muted group-hover/bar:text-primary transition-colors uppercase tracking-widest opacity-40">{d.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-white/5 rounded-[2.5rem] p-6 md:p-8 space-y-6 shadow-xl shadow-black/5">
+                            <h2 className="text-lg font-black text-primary">{t.sa_quickActions}</h2>
+                            <div className="grid grid-cols-1 gap-3">
+                                <ActionButton icon={UserPlus} label={t.sa_registerNewStudio} href="/superadmin/studios" color="emerald" />
+                                <ActionButton icon={Bell} label={t.sa_sendNotifications} href="/superadmin/broadcast" color="amber" />
+                                <button 
+                                    onClick={() => window.dispatchEvent(new CustomEvent('cc-open-search'))}
+                                    className={cn(
+                                        "flex items-center gap-4 p-4 md:p-5 bg-white/[0.02] border border-black/5 dark:border-white/5 rounded-2xl text-muted text-[10px] font-black transition-all group/btn shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:bg-indigo-500/5 hover:text-indigo-400 hover:border-indigo-500/10"
+                                    )}
+                                >
+                                    <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 group-hover/btn:border-current transition-colors shadow-inner">
+                                        <Search className="w-4 h-4 md:w-4.5 md:h-4.5" />
+                                    </div>
+                                    <span className="uppercase tracking-widest">{t.sa_universalSearch}</span>
+                                    <ChevronRight className="w-4 h-4 ml-auto opacity-20 group-hover/btn:opacity-100 group-hover/btn:translate-x-1 transition-all text-current" />
+                                </button>
+                                <ActionButton icon={ShieldCheck} label={t.permViewAnalytics} href="/superadmin/system" color="zinc" />
+                                
+                                {/* Master Purge Button */}
+                                <button 
+                                    onClick={handleGlobalPurge}
+                                    className="flex items-center gap-4 p-4 md:p-5 bg-rose-500/5 border border-rose-500/10 rounded-2xl text-rose-500 text-[10px] font-black transition-all group/purge shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white"
+                                >
+                                    <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover/purge:border-white/40 transition-colors shadow-inner">
+                                        <AlertTriangle className="w-4 h-4 md:w-4.5 md:h-4.5" />
+                                    </div>
+                                    <span className="uppercase tracking-widest">{t.sa_fullDatabasePurge}</span>
+                                    <ChevronRight className="w-4 h-4 ml-auto opacity-20 group-hover/purge:opacity-100 group-hover/purge:translate-x-1 transition-all" />
+                                </button>
+                            </div>
+
+                            <div className="pt-6 border-t border-white/5 space-y-4">
+                                <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{t.sa_recentActivity}</h3>
+                                <div className="space-y-5">
+                                    {recentEvents.map((ev, i) => (
+                                        <ActivityItem key={i} studio={ev.studio} action={ev.action} time={ev.time} />
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div className="bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/10 dark:border-white/5 rounded-[2.5rem] p-6 md:p-8 space-y-6 shadow-xl shadow-black/5">
-                    <h2 className="text-lg font-black text-primary">{lang === 'ka' ? 'სწრაფი ქმედებები' : 'Quick Actions'}</h2>
-                    <div className="grid grid-cols-1 gap-3">
-                        <ActionButton icon={UserPlus} label={lang === 'ka' ? 'ახალი სტუდია' : 'Register New Studio'} href="/superadmin/studios" color="emerald" />
-                        <ActionButton icon={Bell} label={lang === 'ka' ? 'ნოტიფიკაცია' : 'Send Notifications'} href="/superadmin/broadcast" color="amber" />
-                        <button 
-                            onClick={() => window.dispatchEvent(new CustomEvent('cc-open-search'))}
-                            className={cn(
-                                "flex items-center gap-4 p-4 md:p-5 bg-white/[0.02] border border-black/5 dark:border-white/5 rounded-2xl text-muted text-[10px] font-black transition-all group/btn shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:bg-indigo-500/5 hover:text-indigo-400 hover:border-indigo-500/10"
-                            )}
-                        >
-                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 group-hover/btn:border-current transition-colors shadow-inner">
-                                <Search className="w-4 h-4 md:w-4.5 md:h-4.5" />
-                            </div>
-                            <span className="uppercase tracking-widest">{lang === 'ka' ? 'უნივერსალური ძიება' : 'Universal Search'}</span>
-                            <ChevronRight className="w-4 h-4 ml-auto opacity-20 group-hover/btn:opacity-100 group-hover/btn:translate-x-1 transition-all text-current" />
-                        </button>
-                        <ActionButton icon={ShieldCheck} label={lang === 'ka' ? 'სისტემური აუდიტი' : 'System Audit'} href="/superadmin/system" color="zinc" />
-                        
-                        {/* Master Purge Button */}
-                        <button 
-                            onClick={handleGlobalPurge}
-                            className="flex items-center gap-4 p-4 md:p-5 bg-rose-500/5 border border-rose-500/10 rounded-2xl text-rose-500 text-[10px] font-black transition-all group/purge shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white"
-                        >
-                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover/purge:border-white/40 transition-colors shadow-inner">
-                                <AlertTriangle className="w-4 h-4 md:w-4.5 md:h-4.5" />
-                            </div>
-                            <span className="uppercase tracking-widest">{lang === 'ka' ? 'ბაზის სრული წმენდა (LIVE)' : 'Full Database Purge (GO LIVE)'}</span>
-                            <ChevronRight className="w-4 h-4 ml-auto opacity-20 group-hover/purge:opacity-100 group-hover/purge:translate-x-1 transition-all" />
-                        </button>
-                    </div>
-
-                    <div className="pt-6 border-t border-white/5 space-y-4">
-                        <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-40">{lang === 'ka' ? 'ბოლო აქტივობა' : 'Recent Activity'}</h3>
-                        <div className="space-y-5">
-                            {recentEvents.map((ev, i) => (
-                                <ActivityItem key={i} studio={ev.studio} action={ev.action} time={ev.time} />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
+                </>
+            )}
         </div>
     );
 }
 
-function StatCard({ title, value, icon: Icon, trend, color, lang }: any) {
+function StatCard({ title, value, icon: Icon, trend, color, lang, t }: any) {
     const colors: any = {
         indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/10',
         emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/10',
@@ -344,7 +368,7 @@ function StatCard({ title, value, icon: Icon, trend, color, lang }: any) {
                 <p className="text-muted text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] line-clamp-1 opacity-40">{title}</p>
                 <div className="flex items-baseline gap-1 mt-0.5 md:mt-1">
                     <p className="text-xl md:text-3xl font-black text-[#1e293b] dark:text-white tabular-nums tracking-tighter">{value}</p>
-                    {title.includes('MRR') && <span className="text-[9px] md:text-xs font-bold text-muted opacity-40">/ {lang === 'ka' ? 'თვეში' : 'mo'}</span>}
+                    {title.includes('MRR') && <span className="text-[9px] md:text-xs font-bold text-muted opacity-40">/ {t.sa_perMonth}</span>}
                 </div>
             </div>
         </div>

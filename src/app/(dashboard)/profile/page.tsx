@@ -328,23 +328,6 @@ export default function ProfilePage() {
                                     </button>
                                 </div>
 
-                                {settings.studioSlug === 'demo.classcore.ge' && (
-                                    <div className="mb-8 p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex flex-col md:flex-row items-center gap-6 animate-pulse">
-                                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
-                                            <Shield className="w-6 h-6" />
-                                        </div>
-                                        <div className="text-center md:text-left">
-                                            <p className="text-[11px] font-black text-amber-500 tracking-widest mb-1">{l('სინქრონიზაცია გამორთულია', 'Сინхронизация отключена', 'Cloud Sync Disabled')}</p>
-                                            <p className="text-xs font-bold text-primary opacity-80 leading-relaxed">
-                                                {l('თქვენ იყენებთ დემო მისამართს. სხვა ბრაუზერიდან შესასვლელად აუცილებელია "პარამეტრებში" მიუთითოთ თქვენი სტუდიის უნიკალური მისამართი (Slug).', 'Вы используете демо-адрес. Для входа из другого браузера необходимо указать уникальный адрес вашей студии (Slug) в настройках.', 'You are using a demo slug. To enable log-in from other browsers, you must set a unique studio slug in Settings.')}
-                                            </p>
-                                        </div>
-                                        <Link href="/settings" className="px-6 py-3 bg-amber-500 text-white rounded-xl font-black text-[9px] tracking-widest hover:scale-105 transition-all md:ml-auto whitespace-nowrap">
-                                            {l('გასწორება', 'Исправить', 'Fix Now')}
-                                        </Link>
-                                    </div>
-                                )}
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {(settings.staff || []).map(member => (
                                         <div key={member.id} className="bg-surface/40 border border-border-subtle p-5 rounded-[2rem] flex items-center justify-between group hover:border-indigo-500/10 transition-all">
@@ -501,7 +484,7 @@ export default function ProfilePage() {
             {/* ─── STAFF MODAL (ADD/EDIT) ─── */}
             {(isAddingStaff || !!editingStaff) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => { setIsAddingStaff(false); setEditingStaff(null); }} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => { setIsAddingStaff(false); setEditingStaff(null); }} />
                     <div className="bg-card w-full max-w-2xl rounded-[2.5rem] border border-border-subtle shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
                         <div className="p-8 border-b border-border-subtle flex items-center justify-between bg-surface/30 flex-shrink-0">
                             <div>
@@ -643,7 +626,7 @@ export default function ProfilePage() {
             {/* ─── BRANCH MODAL (ADD/EDIT) ─── */}
             {(isAddingBranch || !!editingBranch) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => { setIsAddingBranch(false); setEditingBranch(null); }} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => { setIsAddingBranch(false); setEditingBranch(null); }} />
                     <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border-subtle shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
                         <div className="p-8 border-b border-border-subtle flex items-center justify-between bg-surface/30">
                             <div>

@@ -1,22 +1,55 @@
 'use client';
-
 import { useEffect, useState } from 'react';
+import { useStudio } from '@/contexts/StudioContext';
+import { useUser } from '@/hooks/useUser';
+import { usePathname, useRouter } from 'next/navigation';
+import { ShieldAlert, Mail, Phone, LogOut } from 'lucide-react';
 
 export function DashboardHydrationGuard({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
+    const { settings } = useStudio();
+    const { loading: authLoading, isVerified } = useUser();
+    const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
-    if (!mounted) {
+    useEffect(() => {
+        if (mounted && !authLoading && isVerified === false) {
+            console.log('🚪 [DashboardHydrationGuard] Session invalid or missing. Redirecting to login.');
+            router.push('/login');
+        }
+    }, [mounted, authLoading, isVerified, router]);
+
+    // REDIRECT logic for suspended accounts: Only allow Dashboard Home
+    useEffect(() => {
+        if (mounted && settings.suspended && pathname !== '/dashboard' && pathname !== '/billing') {
+            console.log('🚫 [DashboardHydrationGuard] Account suspended. Redirecting to Dashboard Home.');
+            router.replace('/dashboard');
+        }
+    }, [mounted, settings.suspended, pathname, router]);
+
+    const handleLogout = () => {
+        localStorage.removeItem('cc_sa_impersonate');
+        document.cookie = "cc_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        window.location.href = '/';
+    };
+
+    // Block until: Hydrated AND Auth Loaded AND Session Verified
+    if (!mounted || authLoading || isVerified === null) {
         return (
             <div className="min-h-screen bg-base flex flex-col items-center justify-center p-8 space-y-4">
                 <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                <div className="h-4 w-32 bg-white/5 rounded animate-pulse" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">
+                    სესია მოწმდება...
+                </p>
             </div>
         );
     }
 
+    // Full screen block is NO LONGER used here to allow Dashboard-Only mode.
+    // The restriction is now handled via pathname redirect above.
     return <>{children}</>;
 }

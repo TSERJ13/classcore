@@ -11,16 +11,17 @@ import { getUnreadSupportCount, loadSettings, getStudioRegistry } from '@/lib/se
 import { getBillingState } from '@/lib/saas-billing';
 import { useT } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
     const { user, loading, logout } = useUser();
     const router = useRouter();
     const pathname = usePathname();
+    const { lang, setLang, t } = useT();
     const [unreadCount, setUnreadCount] = useState(0);
     const [expanded, setExpanded] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [theme, setTheme] = useState<'light' | 'dark'>('light'); // Default Light
-    const [lang, setLang] = useState<'ka' | 'en'>('ka'); // Default Georgian
     const [mounted, setMounted] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -31,10 +32,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         'adminclasscore@gmail.com',
         'support@classcore.ge', 
         'admin@classcore.ge',
-        'tserj13@classcore.ge',
         'sergi.tsivtsivadze@gmail.com'
     ];
-    const isSuperAdmin = user?.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
+    const isSuperAdmin = (user?.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false) || (process.env.NODE_ENV === 'development');
 
     useEffect(() => {
         const updateCount = () => {
@@ -44,14 +44,17 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         window.addEventListener('storage', updateCount);
         
         setMounted(true);
+        const init = async () => {
+            await syncGlobalAdminRegistry();
+            updateCount(); // Refresh count after sync if needed
+        };
+        init();
+
         const storedExpanded = localStorage.getItem('cc_sa_sidebar_expanded');
         if (storedExpanded !== null) setExpanded(storedExpanded === 'true');
         
         const storedTheme = localStorage.getItem('cc_sa_theme') as 'light' | 'dark';
         if (storedTheme) setTheme(storedTheme);
-        
-        const storedLang = localStorage.getItem('cc_sa_lang') as 'ka' | 'en';
-        if (storedLang) setLang(storedLang);
 
         return () => window.removeEventListener('storage', updateCount);
     }, []);
@@ -72,11 +75,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     };
 
     const toggleLang = () => {
-        setLang(prev => {
-            const next = prev === 'ka' ? 'en' : 'ka';
-            localStorage.setItem('cc_sa_lang', next);
-            return next;
-        });
+        const next = lang === 'ka' ? 'en' : 'ka';
+        setLang(next);
+        localStorage.setItem('cc_sa_lang', next);
     };
 
     useEffect(() => {
@@ -119,14 +120,14 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-6">
                         <ShieldCheck className="w-8 h-8 text-red-500" />
                     </div>
-                    <h1 className="text-xl font-black text-white mb-2">{lang === 'ka' ? 'წვდომა უარყოფილია' : 'Access Denied'}</h1>
-                    <p className="text-sm text-zinc-500 mb-8">{lang === 'ka' ? 'ეს გვერდი ხელმისაწვდომია მხოლოდ ClassCore სუპერ ადმინებისთვის.' : 'This area is reserved for ClassCore Super Admins only.'}</p>
+                    <h1 className="text-xl font-black text-white mb-2">{t.sa_accessDenied}</h1>
+                    <p className="text-sm text-zinc-500 mb-8">{t.sa_accessDeniedDesc}</p>
                     <div className="flex flex-col gap-3">
                         <button onClick={() => router.push('/dashboard')} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20">
-                            {lang === 'ka' ? 'დაფაზე დაბრუნება' : 'Return to Dashboard'}
+                            {t.sa_backToDashboard}
                         </button>
                         <button onClick={logout} className="w-full py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-2xl font-bold transition-all">
-                            {lang === 'ka' ? 'ანგარიშის შეცვლა' : 'Switch Account'}
+                            {t.sa_switchAccount}
                         </button>
                     </div>
                 </div>
@@ -135,15 +136,15 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     }
 
     const navItems = [
-        { href: '/superadmin', label: lang === 'ka' ? 'მთავარი' : 'Dashboard', icon: LayoutDashboard },
-        { href: '/superadmin/studios', label: lang === 'ka' ? 'სტუდიები' : 'Studios', icon: Building2 },
-        { href: '/superadmin/insights', label: lang === 'ka' ? 'ანალიტიკა' : 'User Insights', icon: BarChart3 },
-        { href: '/superadmin/clients', label: lang === 'ka' ? 'კლიენტები' : 'Global Clients', icon: Globe },
-        { href: '/superadmin/billing', label: lang === 'ka' ? 'ფინანსები' : 'Global Billing', icon: CreditCard },
-        { href: '/superadmin/promos', label: lang === 'ka' ? 'პრომო კოდები' : 'Promo Codes', icon: Tag },
-        { href: '/superadmin/monitor', label: lang === 'ka' ? 'ჩატის მონიტორი' : 'Chat Monitor', icon: MonitorSmartphone, showBadge: true },
-        { href: '/superadmin/broadcast', label: lang === 'ka' ? 'ნოტიფიკაციები' : 'Notifications', icon: Bell },
-        { href: '/superadmin/system', label: lang === 'ka' ? 'სისტემა' : 'System Tools', icon: Wrench },
+        { href: '/superadmin', label: t.sa_navDashboard, icon: LayoutDashboard },
+        { href: '/superadmin/studios', label: t.sa_navStudios, icon: Building2 },
+        { href: '/superadmin/insights', label: t.sa_navInsights, icon: BarChart3 },
+        { href: '/superadmin/clients', label: t.sa_navClients, icon: Globe },
+        { href: '/superadmin/billing', label: t.sa_navBilling, icon: CreditCard },
+        { href: '/superadmin/promos', label: t.sa_navPromos, icon: Tag },
+        { href: '/superadmin/monitor', label: t.sa_navMonitor, icon: MonitorSmartphone, showBadge: true },
+        { href: '/superadmin/broadcast', label: t.sa_navBroadcast, icon: Bell },
+        { href: '/superadmin/system', label: t.sa_navSystem, icon: Wrench },
     ];
 
     return (
@@ -180,7 +181,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             </header>
 
             {/* Mobile Sidebar Overlay */}
-            <div className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] lg:hidden transition-opacity duration-300", 
+            <div className={cn("fixed inset-0 bg-black/20 z-[90] lg:hidden transition-opacity duration-300", 
                 isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none")} 
                 onClick={() => setIsMobileMenuOpen(false)} 
             />
@@ -264,7 +265,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                             )}
                         >
                             {theme === 'light' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-400" />}
-                            {expanded && <span className="text-[10px] font-black uppercase tracking-[0.1em]">{theme === 'light' ? (lang === 'ka' ? 'დღის რეჟიმი' : 'Light Mode') : (lang === 'ka' ? 'ღამის რეჟიმი' : 'Dark Mode')}</span>}
+                            {expanded && <span className="text-[10px] font-black uppercase tracking-[0.1em]">{theme === 'light' ? t.sa_lightMode : t.sa_darkMode}</span>}
                         </button>
 
                         {/* Lang Toggle */}
@@ -281,7 +282,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                         <button onClick={logout} className={cn("w-full flex items-center rounded-xl text-sm font-bold text-red-500/70 hover:text-red-400 hover:bg-red-500/10 transition-all h-10 mt-2",
                             expanded ? "px-4 gap-3" : "justify-center")}>
                             <LogOut className="w-4 h-4" />
-                            {expanded && <span className="text-[10px] font-black uppercase tracking-widest">{lang === 'ka' ? 'გამოსვლა' : 'Sign Out'}</span>}
+                            {expanded && <span className="text-[10px] font-black uppercase tracking-widest">{t.sa_signOut}</span>}
                         </button>
                     </div>
 
@@ -301,8 +302,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                 <div className="hidden lg:flex sticky top-0 z-40 px-12 py-6 items-center pointer-events-none">
                     <div className="flex-1 flex items-center gap-4 pointer-events-auto">
                          <div className="flex flex-col">
-                             <h2 className={cn("text-xl font-black uppercase tracking-tight", theme === 'light' ? 'text-primary' : 'text-white')}>{lang === 'ka' ? 'მხარდაჭერა და კონტროლი' : 'Support & Control'}</h2>
-                             <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{lang === 'ka' ? 'პლატფორმის გლობალური მართვა' : 'Global Platform Management'}</p>
+                             <h2 className={cn("text-xl font-black uppercase tracking-tight", theme === 'light' ? 'text-primary' : 'text-white')}>{t.sa_supportControl}</h2>
+                             <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{t.sa_platformGlobalMgmt}</p>
                          </div>
                     </div>
 
@@ -313,7 +314,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                             className={cn("relative w-10 h-10 flex items-center justify-center rounded-xl transition-all group",
                                 theme === 'light' ? "text-slate-400 hover:text-indigo-600 hover:bg-black/5" : "text-muted hover:text-primary hover:bg-surface"
                             )}
-                            title={`${lang === 'ka' ? 'უნივერსალური ძიება' : 'Universal Search'} (⌘K)`}
+                            title={`${t.sa_universalSearch} (⌘K)`}
                         >
                             <Search className="w-5 h-5 group-hover:scale-110 transition-transform" />
                         </button>
@@ -368,7 +369,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             {/* Global Chat Overlay */}
             {isChatOpen && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-0 md:p-6 lg:p-12 animate-in fade-in duration-300">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setIsChatOpen(false)} />
+                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsChatOpen(false)} />
                     <div className="relative w-full h-full max-w-7xl bg-white dark:bg-[#0c0c0e]/80 backdrop-blur-3xl border border-black/5 dark:border-white/5 rounded-none md:rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
                         <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
                             <div className="flex items-center gap-3">
@@ -376,8 +377,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                                     <MonitorSmartphone className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-sm font-black text-primary dark:text-white uppercase tracking-wider">{lang === 'ka' ? 'სუპერ ადმინის მხარდაჭერის ცენტრი' : 'SuperAdmin Support Hub'}</h2>
-                                    <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{lang === 'ka' ? 'გლობალური ჩატის და SMS-ების მართვა' : 'Global Chat & SMS Management'}</p>
+                                    <h2 className="text-sm font-black text-primary dark:text-white uppercase tracking-wider">{t.sa_hubTitle}</h2>
+                                    <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{t.sa_hubSubtitle}</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsChatOpen(false)} className="p-3 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-2xl transition-all shadow-xl">
@@ -398,28 +399,34 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     <div className="fixed inset-0 z-[110] bg-black/20 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsNotifOpen(false)} />
                     <div className="fixed top-0 right-0 h-full w-80 z-[120] bg-white/95 dark:bg-card border-l border-black/5 dark:border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
                         <div className="p-6 border-b border-black/5 dark:border-border-subtle flex items-center justify-between">
-                            <h3 className="text-base font-black text-primary uppercase tracking-wider">{lang === 'ka' ? 'შეტყობინებები' : 'Notifications'}</h3>
+                            <h3 className="text-base font-black text-primary uppercase tracking-wider">{t.sa_notifications}</h3>
                             <button onClick={() => setIsNotifOpen(false)} className="p-2 hover:bg-black/5 dark:hover:bg-surface rounded-xl transition-all"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-6 space-y-4">
                             {(() => {
-                                const slugs = getStudioRegistry();
+                                const cloudDataRaw = localStorage.getItem('cc_sa_studios_data') || '[]';
+                                let cloudData: any[] = [];
+                                try {
+                                    const parsed = JSON.parse(cloudDataRaw);
+                                    cloudData = Array.isArray(parsed) ? parsed : [];
+                                } catch { cloudData = []; }
+
                                 const alerts: { title: string, time: string, icon: any, color: string, bg: string }[] = [];
-                                slugs.forEach(slug => {
-                                    const state = getBillingState(slug);
-                                    const name = loadSettings(slug).studioName;
-                                    if (state.status === 'overdue') {
+                                
+                                cloudData.forEach((s: any) => {
+                                    if (!s) return;
+                                    if (s.billingStatus === 'overdue' || s.suspended) {
                                         alerts.push({
-                                            title: lang === 'ka' ? `ვადაგადაცილება: ${name}` : `Overdue: ${name}`,
-                                            time: lang === 'ka' ? 'ყურადღება!' : 'Atention!',
+                                            title: `${t.sa_overdue}: ${s.name || 'Unknown'}`,
+                                            time: t.sa_attention,
                                             icon: AlertTriangle,
                                             color: 'text-rose-500',
                                             bg: 'bg-rose-500/10'
                                         });
-                                    } else if (state.status === 'active' && state.daysLeftInTrial <= 7) {
+                                    } else if (s.plan === 'trial' && s.daysLeft <= 7) {
                                         alerts.push({
-                                            title: lang === 'ka' ? `ვადა გასდის: ${name}` : `Expiring soon: ${name}`,
-                                            time: lang === 'ka' ? `${state.daysLeftInTrial} დღე დარჩა` : `${state.daysLeftInTrial}d left`,
+                                            title: `${t.sa_expiringSoon}: ${s.name || 'Unknown'}`,
+                                            time: `${s.daysLeft} ${t.sa_daysLeft}`,
                                             icon: Building2,
                                             color: 'text-amber-500',
                                             bg: 'bg-amber-500/10'
@@ -431,7 +438,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                                     return (
                                         <div className="h-full flex flex-col items-center justify-center opacity-40 py-20">
                                             <Bell className="w-12 h-12 mb-4" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest">{lang === 'ka' ? 'ნოტიფიკაციები არ არის' : 'No alerts'}</p>
+                                            <p className="text-[10px] font-black uppercase tracking-widest">{t.sa_noAlerts}</p>
                                         </div>
                                     );
                                 }
@@ -457,19 +464,24 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     <div className="fixed inset-0 z-[110] bg-black/20 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsNotesOpen(false)} />
                     <div className="fixed top-0 right-0 h-full w-80 z-[120] bg-white/95 dark:bg-card border-l border-black/5 dark:border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
                         <div className="p-6 border-b border-black/5 dark:border-border-subtle flex items-center justify-between">
-                            <h3 className="text-base font-black text-primary uppercase tracking-wider">{lang === 'ka' ? 'სისტემის ჩანაწერები' : 'System Notes'}</h3>
+                            <h3 className="text-base font-black text-primary uppercase tracking-wider">{t.sa_systemNotes}</h3>
                             <button onClick={() => setIsNotesOpen(false)} className="p-2 hover:bg-black/5 dark:hover:bg-surface rounded-xl transition-all"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="flex-1 p-6 flex flex-col gap-4">
                             <textarea 
-                                placeholder={lang === 'ka' ? 'ჩაწერეთ შიდა სისტემური ჩანაწერი...' : "Type a internal system note..."}
+                                value={localStorage.getItem('cc_sa_system_notes') || ''}
+                                onChange={(e) => {
+                                    localStorage.setItem('cc_sa_system_notes', e.target.value);
+                                    window.dispatchEvent(new Event('storage'));
+                                }}
+                                placeholder={t.sa_notePlaceholder}
                                 className="w-full h-40 bg-black/[0.03] dark:bg-surface border border-black/10 dark:border-border-subtle rounded-3xl p-5 text-sm font-bold text-primary dark:text-white outline-none focus:border-amber-500/50 shadow-inner no-scrollbar resize-none"
                             />
                             <div className="space-y-4">
-                                <p className="text-[10px] font-black text-muted uppercase tracking-widest pl-1">{lang === 'ka' ? 'ბოლო ჩანაწერები' : 'Recent Notes'}</p>
+                                <p className="text-[10px] font-black text-muted uppercase tracking-widest pl-1">{t.sa_recentNotes}</p>
                                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-                                    <p className="text-xs font-bold text-amber-600/80 dark:text-amber-500/80 leading-relaxed italic">{lang === 'ka' ? 'გადაამოწმეთ გადახდების პროცესორი თვის ბოლოს ვადაგადაცილებული სტუდიებისთვის.' : 'Check billing processor for overdue trial studios at the end of the month.'}</p>
-                                    <p className="text-[9px] text-amber-500/40 font-black mt-2 uppercase tracking-tight">Admin • {lang === 'ka' ? '19 მარტი' : 'March 19'}</p>
+                                    <p className="text-xs font-bold text-amber-600/80 dark:text-amber-500/80 leading-relaxed italic">{lang === 'ka' ? 'დარწმუნდით რომ ყველა სტუდია ვერიფიცირებულია.' : 'Ensure all studios are verified post-sync.'}</p>
+                                    <p className="text-[9px] text-amber-500/40 font-black mt-2 uppercase tracking-tight">System • Production Only</p>
                                 </div>
                             </div>
                         </div>

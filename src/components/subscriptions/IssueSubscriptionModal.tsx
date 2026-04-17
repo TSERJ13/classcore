@@ -11,7 +11,7 @@ import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { SearchSelect } from '@/components/ui/SearchSelect';
-
+import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 interface IssueSubscriptionModalProps {
     open: boolean;
     onClose: () => void;
@@ -119,11 +119,20 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         }
     }, [open, initialStudentId]);
 
-    // Reset balance usage when student changes
+    // Reset balance usage and auto-fill discount when student changes
     useEffect(() => {
         setUseBalance(false);
         setAmountPaid('');
-    }, [studentId]);
+        
+        const student = students.find(s => s.id === studentId);
+        if (student && student.discount_value && student.discount_value > 0) {
+            setDiscount(student.discount_value);
+            setDiscountType(student.discount_type || 'percent');
+        } else {
+            setDiscount('');
+            setDiscountType('percent');
+        }
+    }, [studentId, students]);
 
     const studentOptions = useMemo(() => students.map(s => ({
         value: s.id,
@@ -272,7 +281,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     return (
         <>
-            <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-[100] bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[101] flex flex-col bg-card border-border-subtle shadow-2xl overflow-hidden transition-all duration-300",
                 centered
@@ -437,22 +446,30 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         <input
                                             type="number"
                                             value={price}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => setPrice(parseInt(e.target.value) || '')}
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
                                         />
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between px-1 h-5">
-                                            <label className="text-[9px] font-black text-muted tracking-widest flex items-center gap-1">
-                                                <Percent className="w-3 h-3" /> {t.discount}
-                                            </label>
-                                            <div className="flex bg-border-subtle/50 rounded-lg p-0.5 relative">
-                                                {/* Animated slider background approach or just clean segments */}
+                                    <div className="space-y-1.5 min-w-0">
+                                        <label className="text-[9px] font-black text-muted tracking-widest px-1 flex items-center gap-1">
+                                            <Percent className="w-3 h-3" /> {t.discount}
+                                        </label>
+                                        <div className="flex bg-surface border border-border-subtle rounded-lg p-1 gap-1">
+                                            <input
+                                                type="number"
+                                                value={discount || ''}
+                                                onFocus={(e) => e.target.select()}
+                                                onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
+                                                placeholder="0"
+                                                className="flex-1 bg-transparent px-2 py-1 text-xs font-bold text-emerald-500 outline-none"
+                                            />
+                                            <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-md p-0.5 shrink-0">
                                                 <button
                                                     onClick={() => setDiscountType('percent')}
                                                     className={cn(
-                                                        "px-2 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
-                                                        discountType === 'percent' ? "bg-white text-indigo-600 shadow-sm" : "text-muted/60 hover:text-muted"
+                                                        "px-2 py-0.5 text-[10px] font-black rounded-sm transition-all",
+                                                        discountType === 'percent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
                                                     )}
                                                 >
                                                     %
@@ -460,21 +477,14 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                 <button
                                                     onClick={() => setDiscountType('fixed')}
                                                     className={cn(
-                                                        "px-2 py-0.5 text-[10px] font-black rounded-md transition-all z-10",
-                                                        discountType === 'fixed' ? "bg-white text-indigo-600 shadow-sm" : "text-muted/60 hover:text-muted"
+                                                        "px-2 py-0.5 text-[10px] font-black rounded-sm transition-all",
+                                                        discountType === 'fixed' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
                                                     )}
                                                 >
                                                     {settings.currency === 'GEL' ? '₾' : settings.currency === 'USD' ? '$' : '€'}
                                                 </button>
                                             </div>
                                         </div>
-                                        <input
-                                            type="number"
-                                            value={discount}
-                                            onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
-                                            placeholder="0"
-                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-emerald-500 outline-none focus:border-emerald-500/40 transition-all"
-                                        />
                                     </div>
                                 </div>
 
@@ -524,6 +534,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <input
                                         type="number"
                                         value={amountPaid}
+                                        onFocus={(e) => e.target.select()}
                                         onChange={(e) => setAmountPaid(parseFloat(e.target.value) || '')}
                                         placeholder={remaining.toFixed(2)}
                                         className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
@@ -556,27 +567,26 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             </div>
 
                             {/* Validity Period */}
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                 <label className="text-[9px] font-black text-muted tracking-widest px-1 border-b border-border-subtle pb-1.5 block">{t.periodDuration}</label>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex-1 relative">
-                                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" />
-                                        <input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="w-full bg-surface border border-border-subtle rounded-lg pl-8 pr-2 py-2 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle">
+                                        <label className="text-[9px] font-bold text-muted flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5 text-indigo-500"/> საწყისი თარიღი</label>
+                                        <DatePickerGrid 
+                                            value={startDate} 
+                                            onChange={(v) => setStartDate(v)} 
+                                            minYear={new Date().getFullYear() - 1}
+                                            maxYear={new Date().getFullYear() + 5}
                                         />
                                     </div>
-                                    <ArrowRight className="w-3.5 h-3.5 text-muted/40 flex-shrink-0" />
-                                    <div className="flex-1 relative">
-                                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" />
-                                        <input
-                                            type="date"
-                                            value={endDate}
+                                    <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle relative">
+                                        <label className="text-[9px] font-bold text-muted flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5 text-indigo-500"/> დასრულების თარიღი</label>
+                                        <DatePickerGrid 
+                                            value={endDate} 
+                                            onChange={(v) => setEndDate(v)}
                                             disabled={neverExpires}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            className="w-full bg-surface border border-border-subtle rounded-lg pl-8 pr-2 py-2 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
+                                            minYear={new Date().getFullYear() - 1}
+                                            maxYear={new Date().getFullYear() + 10}
                                         />
                                     </div>
                                 </div>
@@ -594,6 +604,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             type="number"
                                             value={days}
                                             disabled={neverExpires}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => setDays(parseInt(e.target.value) || '')}
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
                                         />
@@ -611,6 +622,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             type="number"
                                             value={sessions}
                                             disabled={unlimited}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => setSessions(parseInt(e.target.value) || '')}
                                             className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
                                         />

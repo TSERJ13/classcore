@@ -1,4 +1,5 @@
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { pushStudioStateToCloud } from './sync-store';
 
 export interface MonthlyExpenses {
     rent: number;
@@ -39,6 +40,13 @@ export function saveExpenses(month: string, branchId: string, expenses: MonthlyE
     const key = `cc_expenses_${branchId}_${month}`;
     localStorage.setItem(key, JSON.stringify(expenses));
     markLocalUpdate();
+
+    // Sync
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        pushStudioStateToCloud(activeSlug, [], { [key]: expenses });
+    }
+
     // Trigger update
     window.dispatchEvent(new CustomEvent('cc_expenses_update'));
 }

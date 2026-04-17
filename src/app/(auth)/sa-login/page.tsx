@@ -11,7 +11,6 @@ const SUPER_ADMIN_EMAILS = [
     'adminclasscore@gmail.com',
     'support@classcore.ge', 
     'admin@classcore.ge',
-    'tserj13@classcore.ge',
     'sergi.tsivtsivadze@gmail.com'
 ];
 
@@ -52,10 +51,8 @@ export default function SALoginPage() {
         let email = (formData.get('email') as string).trim().toLowerCase();
         const password = formData.get('password') as string;
 
-        // Alias for the main admin account
-        if (email === 'tserj13') {
-            email = 'adminclasscore@gmail.com';
-        } else if (!email.includes('@')) {
+        // Domain auto-completion for official emails
+        if (email === 'admin' || email === 'support') {
             email = email + '@classcore.ge';
         }
 

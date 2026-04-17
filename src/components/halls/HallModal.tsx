@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, DoorOpen, Users, Palette, Check, Trash2, AlertTriangle, Camera } from 'lucide-react';
+import { X, DoorOpen, Users, Palette, Check, Trash2, AlertTriangle, Camera, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -19,7 +19,7 @@ interface HallModalProps {
 
 const EMPTY: Partial<Hall> = {
     name: '', capacity: undefined, color: '#6366f1', description: '', is_active: true,
-    photo_url: '',
+    photo_url: '', sq_meters: undefined,
 };
 
 export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalProps) {
@@ -46,7 +46,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
                 <div className="w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden">
                     {/* Header */}
@@ -108,22 +108,34 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-xs text-muted mb-1.5 flex items-center gap-1.5 block font-medium"><Users className="w-3 h-3" /> {t.capacity}</label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4">
+                                    <Users className="w-3 h-3" /> {t.capacity}
+                                </label>
                                 <input type="number" min="1" value={form.capacity ?? ''}
                                     onChange={e => setF('capacity', e.target.value ? Number(e.target.value) : undefined)}
                                     placeholder="30"
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
-                            <div>
-                                <label className="text-xs text-muted mb-1.5 block font-medium">{t.hallStatus}</label>
-                                <button onClick={() => setF('is_active', !form.is_active)}
-                                    className={cn('w-full py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all',
-                                        form.is_active ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600' : 'bg-surface border-border-subtle text-muted opacity-60')}>
-                                    {form.is_active ? `✓ ${t.activeStatus}` : `✕ ${t.closedStatus}`}
-                                </button>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4">
+                                    <Layout className="w-3 h-3" /> {t.sqMeters || 'Sq. Meters'}
+                                </label>
+                                <input type="number" min="1" value={form.sq_meters ?? ''}
+                                    onChange={e => setF('sq_meters', e.target.value ? Number(e.target.value) : undefined)}
+                                    placeholder="150"
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-muted mb-1.5 block font-medium">{t.hallStatus}</label>
+                            <button onClick={() => setF('is_active', !form.is_active)}
+                                className={cn('w-full py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all',
+                                    form.is_active ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600' : 'bg-surface border-border-subtle text-muted opacity-60')}>
+                                {form.is_active ? `✓ ${t.activeStatus}` : `✕ ${t.closedStatus}`}
+                            </button>
                         </div>
 
                         <div>
