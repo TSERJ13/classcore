@@ -72,82 +72,71 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
      * Consolidates cloud state application logic with strict tombstone enforcement.
      */
     const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any }) => {
-        if (!cloudState) return false;
+        if (!cloudState || !activeSlug) return false;
         let changed = false;
 
-        const TOMBSTONE_MAP: Record<string, string> = {
-            'cc_student_data': 'cc_deleted_students',
-            'cc_groups': 'cc_deleted_groups',
-            'cc_halls': 'cc_deleted_halls',
-            'cc_student_subscriptions': 'cc_deleted_subscriptions'
-        };
+        console.log('📡 [StudioContext] Converging state for:', activeSlug);
 
-        // 1. Sync Staff List
-        if (cloudState.staff_data && JSON.stringify(cloudState.staff_data) !== JSON.stringify(settings.staff)) {
-            console.log('📡 [StudioContext] Staff data update detected from cloud');
-            const key = getScopedKey(STORAGE_KEY, activeSlug);
-            const local = loadSettings(activeSlug);
-            const nextSettings = { ...local, staff: cloudState.staff_data };
-            localStorage.setItem(key, JSON.stringify(nextSettings));
-            setSettings(nextSettings);
-            changed = true;
+        // 1. Merge Staff List
+        const local = loadSettings(activeSlug);
+        if (cloudState.staff_data) {
+            const cloudStaffStr = JSON.stringify(cloudState.staff_data);
+            const localStaffStr = JSON.stringify(local.staff);
+            if (cloudStaffStr !== localStaffStr) {
+                const key = getScopedKey(STORAGE_KEY, activeSlug);
+                const nextSettings = { ...local, staff: cloudState.staff_data };
+                localStorage.setItem(key, JSON.stringify(nextSettings));
+                setSettings(nextSettings);
+                changed = true;
+            }
         }
 
-        // 2. Sync Studio Data WITH Symmetric Merge & Tombstone Enforcement
+        // 2. Single-Pass Studio Data Convergence
         if (cloudState.studio_data) {
             import('@/lib/sync-store').then(({ mergeStudioData }) => {
-                const studioData = cloudState.studio_data;
-                const cloudKeys = Object.keys(studioData);
+                const cloudStudioData = cloudState.studio_data;
+                const localStudioData: Record<string, any> = {};
                 
-                cloudKeys.forEach(key => {
-                    const cloudVal = studioData[key];
-                    const localValRaw = localStorage.getItem(key);
-                    const localVal = localValRaw ? JSON.parse(localValRaw) : null;
-                    
-                    // SYMMETRIC MERGE: Instead of overwriting, we merge the cloud item into the local item
-                    let converged: any;
-                    
-                    if (!localVal) {
-                        converged = cloudVal;
-                    } else {
-                        const mergedBag = mergeStudioData({ [key]: localVal }, { [key]: cloudVal });
-                        converged = mergedBag[key];
-
-                        // --- CASCADING CLEANUP HOOKS ---
-                        // If we detect NEW deletions in a tombstone list, we must trigger associated cleanups
-                        if (key.startsWith('cc_deleted_')) {
-                            const newIds = (converged as string[]).filter(id => !((localVal as string[]) || []).includes(id));
-                            if (newIds.length > 0) {
-                                if (key.startsWith('cc_deleted_groups')) {
-                                    import('@/lib/event-store').then(mod => {
-                                        newIds.forEach(id => mod.deleteGroupEvents(id));
-                                    });
-                                }
-                                if (key.startsWith('cc_deleted_students')) {
-                                    import('@/lib/student-store').then(mod => {
-                                        newIds.forEach(id => mod.unregisterStudentUid(id));
-                                    });
-                                }
-                            }
+                // Gather local state for all syncable prefixes
+                import('@/lib/utils').then(({ SYNC_COLLECTIONS }) => {
+                    Object.keys(localStorage).forEach(k => {
+                        if (SYNC_COLLECTIONS.some(p => k.startsWith(p)) && k.includes(`_${activeSlug}`)) {
+                            try {
+                                const val = localStorage.getItem(k);
+                                if (val) localStudioData[k] = JSON.parse(val);
+                            } catch {}
                         }
-                    }
+                    });
 
-                    const convergedStr = JSON.stringify(converged);
-                    if (localValRaw !== convergedStr) {
-                        localStorage.setItem(key, convergedStr);
-                        changed = true;
+                    // ATOMIC MERGE
+                    const converged = mergeStudioData(cloudStudioData, localStudioData);
+                    let syncChanged = false;
+
+                    Object.keys(converged).forEach(key => {
+                        const nextValStr = JSON.stringify(converged[key]);
+                        const curValRaw = localStorage.getItem(key);
+                        if (nextValStr !== curValRaw) {
+                            localStorage.setItem(key, nextValStr);
+                            syncChanged = true;
+                            changed = true;
+                        }
+                    });
+
+                    if (syncChanged) {
+                        performUniversalIntegrityCheck(activeSlug);
+                        window.dispatchEvent(new Event('cc_attendance_update'));
+                        window.dispatchEvent(new Event('cc_groups_update'));
+                        window.dispatchEvent(new Event('cc_calendar_events_update'));
+                        window.dispatchEvent(new Event('cc_student_update'));
+                        window.dispatchEvent(new Event('cc_teacher_update'));
+                        console.log('📡 [StudioContext] UI update triggered from atomic convergence');
                     }
                 });
+            });
+        }
 
-                if (changed) {
-                    performUniversalIntegrityCheck(settings.studioSlug || '');
-                    window.dispatchEvent(new Event('cc_attendance_update'));
-                    window.dispatchEvent(new Event('cc_groups_update'));
-                    window.dispatchEvent(new Event('cc_calendar_events_update'));
-                }
-
-                if (changed) {
-                    console.log('📡 [StudioContext] UI update triggered from symmetric cloud merge for:', activeSlug);
+        return changed;
+    }, [settings.staff]);
                     const next = loadSettings(activeSlug);
                     setSettings(next);
                     
