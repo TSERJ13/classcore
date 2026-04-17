@@ -79,13 +79,22 @@ export function getEvents(): CalendarEvent[] {
             saveEvents(events);
         }
 
-        // Safety filter: remove events with missing/malformed start_time or end_time
-        // These can cause the calendar renderer to crash with NaN positions
-        const validEvents = events.filter((e: CalendarEvent) =>
-            e && e.id && e.date &&
-            typeof e.start_time === 'string' && e.start_time.includes(':') &&
-            typeof e.end_time === 'string' && e.end_time.includes(':')
-        );
+        // 4. AUTO-PURGE ORPHANS: 
+        // If an event belongs to a group that is in the deletion tombstone, purge it now.
+        const deletedGroupsKey = `cc_deleted_groups_${activeSlug}`;
+        const rawDeleted = localStorage.getItem(deletedGroupsKey);
+        const deletedGroupIds = rawDeleted ? JSON.parse(rawDeleted) : [];
+        const deletedSet = new Set(Array.isArray(deletedGroupIds) ? deletedGroupIds : []);
+
+        if (deletedSet.size > 0) {
+            const initialCount = validEvents.length;
+            const healthyEvents = validEvents.filter(e => !e.group_id || !deletedSet.has(e.group_id));
+            if (healthyEvents.length < initialCount) {
+                console.log(`🧹 [EventStore] Auto-purged ${initialCount - healthyEvents.length} orphaned events from deleted groups`);
+                saveEvents(healthyEvents);
+                return healthyEvents;
+            }
+        }
 
         return validEvents;
     } catch {

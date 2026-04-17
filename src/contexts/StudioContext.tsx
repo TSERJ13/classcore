@@ -140,6 +140,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 });
 
                 if (changed) {
+                    performUniversalIntegrityCheck(settings.studioSlug || '');
+                    window.dispatchEvent(new Event('cc_attendance_update'));
+                    window.dispatchEvent(new Event('cc_groups_update'));
+                    window.dispatchEvent(new Event('cc_calendar_events_update'));
+                }
+
+                if (changed) {
                     console.log('📡 [StudioContext] UI update triggered from symmetric cloud merge for:', activeSlug);
                     const next = loadSettings(activeSlug);
                     setSettings(next);
@@ -689,6 +696,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);
 
+    useEffect(() => {
+        if (isLoaded && settings.studioSlug) {
+            performUniversalIntegrityCheck(settings.studioSlug);
+        }
+    }, [isLoaded, settings.studioSlug]);
+
     return (
         <StudioContext.Provider value={{
             settings, activeBranchId, isLoaded, setTheme, setStudioName, setStudioSlug,
@@ -754,4 +767,97 @@ export function useStudio() {
     const ctx = useContext(StudioContext);
     if (!ctx) throw new Error('useStudio must be used inside StudioProvider');
     return ctx;
+}
+
+/**
+ * Nuclear Platform Integrity Guard:
+ * Automatically purges orphans and "ghost" records across all collections
+ * when our sync engine detects deletions (via tombstones).
+ */
+function performUniversalIntegrityCheck(slug: string) {
+    if (typeof window === 'undefined' || !slug) return;
+    
+    console.log('🛡️ [IntegrityCheck] Running global self-healing sweep...');
+
+    // 1. Gather Deletion Tombstones
+    const getTombstone = (base: string) => {
+        const raw = localStorage.getItem(`${base}_${slug}`);
+        try { return new Set(raw ? JSON.parse(raw) : []); } catch { return new Set(); }
+    };
+
+    const deletedGroups = getTombstone('cc_deleted_groups');
+    const deletedStudents = getTombstone('cc_deleted_students');
+
+    if (deletedGroups.size === 0 && deletedStudents.size === 0) return;
+
+    // 2. Scan & Purge: Calendar Events
+    const eventsKey = `cc_calendar_events_${slug}`;
+    const rawEvents = localStorage.getItem(eventsKey);
+    if (rawEvents) {
+        try {
+            const events = JSON.parse(rawEvents);
+            if (Array.isArray(events)) {
+                const healthy = events.filter((e: any) => 
+                    (!e.group_id || !deletedGroups.has(e.group_id)) &&
+                    (!e.student_id || !deletedStudents.has(e.student_id))
+                );
+                if (healthy.length < events.length) {
+                    console.log(`🧹 [IntegrityCheck] Purged ${events.length - healthy.length} orphaned events`);
+                    localStorage.setItem(eventsKey, JSON.stringify(healthy));
+                }
+            }
+        } catch {}
+    }
+
+    // 3. Scan & Purge: Attendance Archive
+    const archiveKey = `cc_attendance_archive_${slug}`;
+    const rawArchive = localStorage.getItem(archiveKey);
+    if (rawArchive) {
+        try {
+            const archive = JSON.parse(rawArchive);
+            let archiveChanged = false;
+            
+            // Format: { "2024-04-15": { "event_id": { "student_id": "present" } } }
+            Object.keys(archive).forEach(date => {
+                Object.keys(archive[date]).forEach(eventId => {
+                    // Check if eventId belongs to a deleted group (Events IDs usually start with grp_[groupId])
+                    const isGroupEvent = eventId.startsWith('grp_');
+                    const groupId = isGroupEvent ? eventId.split('_')[1] : null;
+                    
+                    if (groupId && deletedGroups.has(groupId)) {
+                        delete archive[date][eventId];
+                        archiveChanged = true;
+                    } else {
+                        // Also filter internal student records
+                        const studentRecords = archive[date][eventId] || {};
+                        let recordPurged = false;
+                        Object.keys(studentRecords).forEach(studentId => {
+                            if (deletedStudents.has(studentId)) {
+                                delete archive[date][eventId][studentId];
+                                archiveChanged = true;
+                                recordPurged = true;
+                            }
+                        });
+
+                        // If class is empty after purging students, purge class
+                        if (Object.keys(archive[date][eventId] || {}).length === 0) {
+                            delete archive[date][eventId];
+                            archiveChanged = true;
+                        }
+                    }
+                });
+                
+                // If day is empty, purge it
+                if (Object.keys(archive[date] || {}).length === 0) {
+                    delete archive[date];
+                    archiveChanged = true;
+                }
+            });
+
+            if (archiveChanged) {
+                console.log('🧹 [IntegrityCheck] Purged orphaned records from Attendance Archive');
+                localStorage.setItem(archiveKey, JSON.stringify(archive));
+            }
+        } catch {}
+    }
 }
