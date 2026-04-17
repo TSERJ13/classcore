@@ -1,0 +1,137 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap');
+
+:root {
+  --background: 28 45% 95%;
+  --foreground: 20 20% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 20% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 20% 15%;
+  --primary: 15 75% 45%; /* Burnt Orange */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 90% 48%; /* Gold */
+  --secondary-foreground: 20 20% 15%;
+  --muted: 25 20% 90%;
+  --muted-foreground: 25 10% 45%;
+  --accent: 350 65% 35%; /* Deep Maroon */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 25 20% 85%;
+  --input: 25 20% 85%;
+  --ring: 15 75% 45%;
+  --radius: 1.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 20 20% 8%;
+    --foreground: 25 15% 95%;
+    --card: 20 20% 12%;
+    --card-foreground: 25 15% 95%;
+    --popover: 20 20% 12%;
+    --popover-foreground: 25 15% 95%;
+    --primary: 18 80% 55%;
+    --primary-foreground: 20 20% 10%;
+    --secondary: 42 85% 60%;
+    --secondary-foreground: 20 20% 10%;
+    --muted: 20 20% 18%;
+    --muted-foreground: 25 10% 65%;
+    --accent: 355 60% 45%;
+    --accent-foreground: 25 15% 95%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 20 20% 20%;
+    --input: 20 20% 20%;
+    --ring: 18 80% 55%;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  font-family: 'Outfit', sans-serif;
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Glassmorphism Classes */
+.glass {
+  background: rgba(var(--card), 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Background Animation: Floating Leaves */
+.leaves-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.leaf {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  background: opacity(0.4);
+  filter: blur(1px);
+  animation: fall linear infinite;
+}
+
+@keyframes fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(110vh) rotate(360deg) translateX(50px);
+    opacity: 0;
+  }
+}
+
+/* Dynamic Gradients */
+.bg-autumn-gradient {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--accent) / 0.1));
+}
+
+.text-gradient {
+  background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-premium {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  color: white;
+  box-shadow: 0 4px 15px rgba(var(--primary), 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(var(--primary), 0.4);
+  filter: brightness(1.1);
+}

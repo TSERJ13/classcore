@@ -5,7 +5,7 @@ import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
     Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2
 } from 'lucide-react';
-import { checkCloudConnection, syncStaffToCloud } from '@/lib/sync-store';
+import { checkCloudConnection, syncStaffToCloud, masterStudioPurge } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
@@ -1372,8 +1372,7 @@ export default function SettingsPage() {
                                         danger: true
                                     });
                                     if (ok) {
-                                        const { resetStudioData } = await import('@/lib/settings-store');
-                                        await resetStudioData(settings.studioSlug);
+                                        await masterStudioPurge(settings.studioSlug);
                                         addNotification(l('სტუდია სრულად გასუფთავდა', 'Студия полностью очищена', 'Studio fully reset'), 'success');
                                         window.location.reload();
                                     }
