@@ -149,10 +149,18 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     // If branchId is explicitly provided or we should use the active one
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
-    // Certain keys should always be studio-level (not branch-scoped)
-    const sharedKeys = [STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 'cc_global_history', 'cc_global_trash'];
+    // Certain keys should always be studio-level (not branch-scoped) for stable cloud sync
+    const sharedKeys = [
+        STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 
+        'cc_global_history', 'cc_global_trash',
+        'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
+        'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
+        'cc_subscription_plans', 'cc_shop_products', 'cc_shop_sales',
+        'cc_audit_log', 'cc_security_log', 'cc_salary_update',
+        'cc_notifications'
+    ];
     if (sharedKeys.includes(base)) {
-        return `${base}_${finalSlug}`; // Settings itself and registration list must stay slug-based for discovery
+        return `${base}_${finalSlug}`; // Settings and core collections must stay slug-based for reliable sync discovery
     }
 
     // ALWAYS scope by branch ID if available, including 'main'

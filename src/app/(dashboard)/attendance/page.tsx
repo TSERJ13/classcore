@@ -218,12 +218,37 @@ export default function AttendancePage() {
     useEffect(() => {
         const loadAtt = () => {
             const key = getScopedKey('cc_attendance_archive');
-            const saved = localStorage.getItem(key);
+            let saved = localStorage.getItem(key);
+
+            // 🚚 MIGRATION: If new scoped key is empty, check legacy branch-scoped key formats
+            if (!saved) {
+                const slug = settings.studioSlug;
+                const legacyKeys = [
+                    `cc_attendance_archive_${slug}_main`,
+                    `cc_attendance_archive_${settings.orgId}_main`,
+                    `cc_attendance_archive_${slug}` // Fallback
+                ];
+                
+                for (const lKey of legacyKeys) {
+                    const legacyData = localStorage.getItem(lKey);
+                    if (legacyData) {
+                        console.log('🚚 [Attendance] Migrating legacy archive from:', lKey);
+                        localStorage.setItem(key, legacyData);
+                        saved = legacyData;
+                        break;
+                    }
+                }
+            }
+
             if (saved) {
-                const data = JSON.parse(saved);
-                if (data[dateKey] && data[dateKey][selectedClass]) {
-                    setAtt(data[dateKey][selectedClass]);
-                    return;
+                try {
+                    const data = JSON.parse(saved);
+                    if (data[dateKey] && data[dateKey][selectedClass]) {
+                        setAtt(data[dateKey][selectedClass]);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('❌ [Attendance] Failed to parse archive:', e);
                 }
             }
             setAtt({});
@@ -232,7 +257,7 @@ export default function AttendancePage() {
         loadAtt();
         window.addEventListener('cc_attendance_update', loadAtt);
         return () => window.removeEventListener('cc_attendance_update', loadAtt);
-    }, [dateKey, selectedClass]);
+    }, [dateKey, selectedClass, settings.studioSlug, settings.orgId]);
 
     const saveAttendance = useCallback((newAtt: Record<string, State>) => {
         const key = getScopedKey('cc_attendance_archive');

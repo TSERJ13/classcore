@@ -509,19 +509,40 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         };
     }, [defaultSlug]);
 
-    // Automatic Cloud Sync
+    // Automatic Cloud Sync Pulse
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
+            // CRITICAL SEQUENCING: We must NEVER push local state until we have successfully PULLed from the cloud.
+            // This prevents new devices (like phones) from "wiping" the cloud with their local empty state.
+            if (!isLoaded || !firstSyncDone || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
 
             const studioData: Record<string, any> = {};
             const keys = Object.keys(localStorage);
+            
+            // Explicit registry of collection prefixes that MUST be synced to the cloud.
+            const SYNC_PREFIXES = [
+                'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
+                'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
+                'cc_subscription_plans', 'cc_shop_products', 'cc_shop_sales',
+                'cc_audit_log', 'cc_security_log', 'cc_salary_update',
+                'cc_notifications', 'cc_calendar_events', 'cc_global_trash',
+                'cc_studio_settings' // The core setting storage
+            ];
+
             keys.forEach(k => {
-                if (k.includes(`_${settings.studioSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`))) {
+                // MATCHING LOGIC: We sync keys that:
+                // 1. Match a known syncable prefix
+                // 2. AND belong to either this studio slug or this org ID
+                const isSyncablePrefix = SYNC_PREFIXES.some(p => k.startsWith(p));
+                const belongsToStudio = k.includes(`_${settings.studioSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`));
+                
+                if (isSyncablePrefix && belongsToStudio) {
                     try {
                         const val = localStorage.getItem(k);
                         if (val) studioData[k] = JSON.parse(val);
-                    } catch {}
+                    } catch (e) {
+                         console.error('⚠️ [SyncPulse] Failed to parse key:', k, e);
+                    }
                 }
             });
 
@@ -531,10 +552,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     if (isFresh) localStorage.removeItem(`cc_is_fresh_${settings.studioSlug}`);
                 });
             });
-        }, 1000); // 1s debounce to feel more like a direct database connection
+        }, 1200); // 1.2s debounce to allow local operations to settle
 
         return () => clearTimeout(timer);
-    }, [isLoaded, settings, pushCounter]);
+    }, [isLoaded, firstSyncDone, settings, pushCounter]);
 
     // Realtime Pulse updates
     useEffect(() => {
