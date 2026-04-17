@@ -115,7 +115,7 @@ export const SYNC_COLLECTIONS = [
     'cc_subscription_plans', 'cc_student_subscriptions', 'cc_shop_products', 
     'cc_shop_sales', 'cc_audit_log', 'cc_security_log', 'cc_salary_update',
     'cc_notifications', 'cc_calendar_events', 'cc_global_history', 
-    'cc_global_trash', 'cc_studio_settings'
+    'cc_global_trash', 'cc_studio_settings', 'cc_deleted_'
 ];
 
 // Keys that belong to the browser session, NOT a specific studio

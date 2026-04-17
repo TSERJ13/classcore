@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent, Calendar, Plus } from 'lucide-react';
+import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent, Calendar, Plus, Eye, EyeOff } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, getCurrencySymbol } from '@/lib/utils';
@@ -220,7 +220,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-surface text-muted hover:text-primary transition-all"
                                 >
-                                    {showPassword ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5 opacity-40 rotate-45" />}
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40 shadow-sm" />}
                                 </button>
                             </div>
                             <p className="px-1 text-[9px] text-muted opacity-50 italic">{l('მიუთითეთ თუ გსურთ მასწავლებელს ჰქონდეს პირადი წვდომა სისტემაზე', 'Укажите, თუ хотите, чтобы у учителя был личный доступ к системе', 'Set this if you want the teacher to have personal access to the system')}</p>
