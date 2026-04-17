@@ -130,7 +130,9 @@ export async function pushStudioStateToCloud(
 
         // 1. Normalize local data (Strip suffixes)
         const incomingNormalized = normalizeData(studioData, slug, orgId || current?.org_id);
-        const cloudNormalized = current?.studio_data || {};
+        // CRITICAL: Normalize the EXISTING cloud state too before merging.
+        // This prevents old suffixed keys from "re-merging" into the clean keys.
+        const cloudNormalized = normalizeData(current?.studio_data || {}, slug, current?.org_id);
 
         // 2. Converge
         let finalStaff = staff;
@@ -145,11 +147,15 @@ export async function pushStudioStateToCloud(
         // to prevent them from resurrecting on devices with missing OrgIds.
         const cleanedStudioData: Record<string, any> = {};
         Object.keys(finalStudioData).forEach(k => {
-            // If the key is clean (doesn't contain a suffix), preserve it.
-            // (Normalization was done above, so we only want clean keys here)
-            // We also filter out any key that might have slipped through with a suffix.
-            if (!k.includes(`_${slug}`) && (!current?.org_id || !k.includes(`_${current.org_id}`))) {
+            // SCORCHED EARTH: If the key contains a suffix of THIS studio, discard it.
+            // We only keep the CLEAN, normalized keys (e.g. 'cc_groups').
+            const hasSlugSuffix = slug && k.includes(`_${slug}`);
+            const hasIdSuffix = current?.org_id && k.includes(`_${current.org_id}`);
+            
+            if (!hasSlugSuffix && !hasIdSuffix) {
                 cleanedStudioData[k] = finalStudioData[k];
+            } else {
+                console.warn(`🧹 [SyncStore] Scrubbed legacy cloud artifact: ${k}`);
             }
         });
         
@@ -421,47 +427,43 @@ export async function masterStudioPurge(slug: string): Promise<void> {
         const configEntry = allStaff.find(s => s.id === '__studio_config__');
         if (!configEntry) return;
 
-        const studioData = configEntry.studio_data || {};
-        const cleanedData: any = {};
-
+        // 1. Scrub actual studio_data JSON
+        const dbStudioData = current.studio_data || {};
+        const cleanedStudioData: any = {};
+        
         // Essential framework keys to PRESERVE
         const FRAMEWORK_KEYS = [
             'studioName', 'logoDataUrl', 'themeKey', 'currency', 
             'branches', 'notifications', 'sms_templates', 'orgId', 'org_id'
         ];
 
-        // Operational keys to DELETE (Scorched Earth)
-        const OPERATIONAL_PREFIXES = [
-            'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
-            'cc_student_subscriptions', 'cc_calendar_events', 'cc_attendance_data',
-            'cc_checkins', 'cc_shop_sales', 'cc_shop_products', 'cc_sales',
-            'cc_deleted_', 'chat_', 'group_chat_'
-        ];
-
-        for (const key in studioData) {
-            if (FRAMEWORK_KEYS.includes(key)) {
-                cleanedData[key] = studioData[key];
-            } else if (OPERATIONAL_PREFIXES.some(p => key.startsWith(p))) {
-                // Explicitly omit
-                continue;
-            } else {
-                // Preserve unknown keys for safety
-                cleanedData[key] = studioData[key];
+        Object.keys(dbStudioData).forEach(k => {
+            if (FRAMEWORK_KEYS.includes(k)) {
+                cleanedStudioData[k] = dbStudioData[k];
             }
-        }
+        });
 
-        // Construct cleaned staff array
-        const nextStaff = [
-            ...allStaff.filter(s => s.id !== '__studio_config__'),
-            { id: '__studio_config__', studio_data: cleanedData }
-        ];
+        // 2. Scrub Staff Data (Destroy Shadows)
+        const nextStaff = allStaff.map(s => {
+            // If it's the config placeholder, clean its internal studio_data too
+            if (s.id === '__studio_config__') {
+                return { id: '__studio_config__', studio_data: cleanedStudioData };
+            }
+            // Keep actual staff members (roles/names) but we could also clear their personal data if needed.
+            // For now, preservation of staff is intentional framework support.
+            return s;
+        });
 
-        // Direct database update to bypass local-to-cloud merge logic
+        const nextUpdatedAt = new Date().toISOString();
+        
+        // 3. NUCLEAR UPDATE: Wipe studio_data AND staff_data AND emails registry
         const { error: pushError } = await supabase
             .from(SETTINGS_TABLE)
             .update({
+                studio_data: cleanedStudioData,
                 staff_data: nextStaff,
-                updated_at: new Date().toISOString()
+                staff_emails: [], // Nuclear: Force cold lookup for next sync
+                updated_at: nextUpdatedAt
             })
             .eq('studio_slug', slug);
 
