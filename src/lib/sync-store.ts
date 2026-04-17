@@ -23,18 +23,22 @@ export function mergeStudioData(existing: any, incoming: any): any {
         ...(incoming || {}) // Start with a shallow merge of all keys
     };
 
-    // 1. Gather ALL tombstones from BOTH sides
+    // 1. Gather ALL tombstones from BOTH sides (UNION)
     const allTombstones: Record<string, Set<string>> = {};
-    const keys = Object.keys(finalData);
+    const allKeys = new Set([...Object.keys(existing || {}), ...Object.keys(incoming || {})]);
     
-    keys.forEach(k => {
+    allKeys.forEach(k => {
         if (k.startsWith('cc_deleted_')) {
-            const ids = Array.isArray(finalData[k]) ? finalData[k] : [];
-            allTombstones[k] = new Set(ids);
+            const idsCloud = Array.isArray(existing?.[k]) ? existing[k] : [];
+            const idsLocal = Array.isArray(incoming?.[k]) ? incoming[k] : [];
+            allTombstones[k] = new Set([...idsCloud, ...idsLocal]);
+            // Persist the unioned tombstone back to the final data so it propagates
+            finalData[k] = Array.from(allTombstones[k]);
         }
     });
 
     // 2. Converge Collections and Enforce Deletions
+    const keys = Object.keys(finalData);
     keys.forEach(key => {
         if (key.startsWith('cc_deleted_')) return;
 
