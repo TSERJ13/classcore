@@ -20,22 +20,14 @@ const SETTINGS_TABLE = 'studio_settings';
 export function mergeStudioData(existing: any, incoming: any): any {
     const finalData = { ...(existing || {}) };
 
-    // Base prefixes for collections and their corresponding tombstones
-    const TOMBSTONES: Record<string, string> = {
-        'cc_student_data': 'cc_deleted_students',
-        'cc_groups': 'cc_deleted_groups',
-        'cc_halls': 'cc_deleted_halls',
-        'cc_student_subscriptions': 'cc_deleted_subscriptions',
-        'cc_checkins': 'cc_deleted_checkins'
-    };
-
-    // 1. PRE-EXTRACT ALL TOMBSTONES from both sides to ensure they are available for any collection merge
+    // Dynamic Tombstone Resolution:
+    // Any key cc_abc has a potential tombstone cc_deleted_abc.
+    // We scan both sides to gather all active tombstones.
     const allTombstoneKeys = new Set<string>();
-    Object.values(TOMBSTONES).forEach(prefix => {
-        // Find all keys in existing or incoming that match this tombstone prefix
-        Object.keys(existing || {}).concat(Object.keys(incoming || {})).forEach(k => {
-            if (k.startsWith(prefix)) allTombstoneKeys.add(k);
-        });
+    const scanKeys = Object.keys(existing || {}).concat(Object.keys(incoming || {}));
+    
+    scanKeys.forEach(k => {
+        if (k.startsWith('cc_deleted_')) allTombstoneKeys.add(k);
     });
 
     // Pre-calculate merged tombstones for all found keys
@@ -44,7 +36,6 @@ export function mergeStudioData(existing: any, incoming: any): any {
         const local = (incoming[tKey] || []) as string[];
         const cloud = (existing[tKey] || []) as string[];
         mergedTombstones[tKey] = Array.from(new Set([...(Array.isArray(local) ? local : []), ...(Array.isArray(cloud) ? cloud : [])]));
-        // ALWAYS PERSIST THE MERGED TOMBSTONE
         finalData[tKey] = mergedTombstones[tKey];
     });
 
@@ -52,20 +43,19 @@ export function mergeStudioData(existing: any, incoming: any): any {
         const itemIncoming = incoming[key];
         const itemExisting = existing[key];
 
-        // Skip if this key is ALREADY a tombstone (handled in pre-extraction above)
-        const isTombstone = Object.values(TOMBSTONES).some(p => key.startsWith(p));
-        if (isTombstone) continue;
+        // Skip if this key is ALREADY a tombstone
+        if (key.startsWith('cc_deleted_')) continue;
 
-        // Identify if this key corresponds to any tombstone
-        let tKey: string | undefined;
-        for (const [prefix, tPrefix] of Object.entries(TOMBSTONES)) {
-            if (key.startsWith(prefix)) {
-                tKey = tPrefix + key.replace(prefix, '');
-                break;
-            }
-        }
+        // Convention: cc_abc -> cc_deleted_abc
+        // Special case: cc_student_data -> cc_deleted_students (legacy compatibility)
+        let tKey = `cc_deleted_${key.replace(/^cc_/, '').replace(/_data$/, '')}`;
+        if (key.startsWith('cc_student_data')) tKey = `cc_deleted_students${key.replace('cc_student_data', '')}`;
+        if (key.startsWith('cc_groups')) tKey = `cc_deleted_groups${key.replace('cc_groups', '')}`;
+        if (key.startsWith('cc_halls')) tKey = `cc_deleted_halls${key.replace('cc_halls', '')}`;
+        if (key.startsWith('cc_checkins')) tKey = `cc_deleted_checkins${key.replace('cc_checkins', '')}`;
+        if (key.startsWith('cc_student_subscriptions')) tKey = `cc_deleted_subscriptions${key.replace('cc_student_subscriptions', '')}`;
         
-        const deletedIds = new Set(tKey ? (mergedTombstones[tKey] || []) : []);
+        const deletedIds = new Set(mergedTombstones[tKey] || []);
 
         if (typeof itemIncoming === 'object' && itemIncoming !== null && !Array.isArray(itemIncoming)) {
             // Record-based merge (e.g. students: Record<string, Student>)

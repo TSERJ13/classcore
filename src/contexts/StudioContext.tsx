@@ -105,16 +105,31 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     const localVal = localValRaw ? JSON.parse(localValRaw) : null;
                     
                     // SYMMETRIC MERGE: Instead of overwriting, we merge the cloud item into the local item
-                    // This protects local "dirty" changes that haven't been pushed yet.
                     let converged: any;
                     
                     if (!localVal) {
                         converged = cloudVal;
                     } else {
-                        // Merge logic wrapped in a mini-proxy to fit mergeStudioData expected input
-                        // We treat the single key as if it were the whole studio_data for the merge utility
                         const mergedBag = mergeStudioData({ [key]: localVal }, { [key]: cloudVal });
                         converged = mergedBag[key];
+
+                        // --- CASCADING CLEANUP HOOKS ---
+                        // If we detect NEW deletions in a tombstone list, we must trigger associated cleanups
+                        if (key.startsWith('cc_deleted_')) {
+                            const newIds = (converged as string[]).filter(id => !((localVal as string[]) || []).includes(id));
+                            if (newIds.length > 0) {
+                                if (key.startsWith('cc_deleted_groups')) {
+                                    import('@/lib/event-store').then(mod => {
+                                        newIds.forEach(id => mod.deleteGroupEvents(id));
+                                    });
+                                }
+                                if (key.startsWith('cc_deleted_students')) {
+                                    import('@/lib/student-store').then(mod => {
+                                        newIds.forEach(id => mod.unregisterStudentUid(id));
+                                    });
+                                }
+                            }
+                        }
                     }
 
                     const convergedStr = JSON.stringify(converged);
@@ -499,40 +514,32 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             // This prevents new devices (like phones) from "wiping" the cloud with their local empty state.
             if (!isLoaded || !firstSyncDone || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
 
-            const studioData: Record<string, any> = {};
-            const keys = Object.keys(localStorage);
-            
-            // Explicit registry of collection prefixes that MUST be synced to the cloud.
-            const SYNC_PREFIXES = [
-                'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
-                'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
-                'cc_subscription_plans', 'cc_shop_products', 'cc_shop_sales',
-                'cc_audit_log', 'cc_security_log', 'cc_salary_update',
-                'cc_notifications', 'cc_calendar_events', 'cc_global_trash',
-                'cc_studio_settings' // The core setting storage
-            ];
-
-            keys.forEach(k => {
-                const isSyncablePrefix = SYNC_PREFIXES.some(p => k.startsWith(p));
-                const belongsToStudio = k.includes(`_${settings.studioSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`));
+            import('@/lib/utils').then(({ SYNC_COLLECTIONS }) => {
+                const studioData: Record<string, any> = {};
+                const keys = Object.keys(localStorage);
                 
-                if (isSyncablePrefix && belongsToStudio) {
-                    try {
-                        const val = localStorage.getItem(k);
-                        if (val) studioData[k] = JSON.parse(val);
-                    } catch (e) {
-                         console.error('⚠️ [SyncPulse] Failed to parse key:', k, e);
+                keys.forEach(k => {
+                    const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
+                    const belongsToStudio = k.includes(`_${settings.studioSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`));
+                    
+                    if (isSyncablePrefix && belongsToStudio) {
+                        try {
+                            const val = localStorage.getItem(k);
+                            if (val) studioData[k] = JSON.parse(val);
+                        } catch (e) {
+                             console.error('⚠️ [SyncPulse] Failed to parse key:', k, e);
+                        }
                     }
-                }
-            });
+                });
 
-            import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
-                const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
-                // Use FRESH settings from loadSettings if available to avoid React state lag
-                const freshSettings = loadSettings(settings.studioSlug!);
-                
-                pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, settings.orgId, isFresh).then(() => {
-                    if (isFresh) localStorage.removeItem(`cc_is_fresh_${settings.studioSlug}`);
+                import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
+                    const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
+                    // Use FRESH settings from loadSettings if available to avoid React state lag
+                    const freshSettings = loadSettings(settings.studioSlug!);
+                    
+                    pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, settings.orgId, isFresh).then(() => {
+                        if (isFresh) localStorage.removeItem(`cc_is_fresh_${settings.studioSlug}`);
+                    });
                 });
             });
         }, 1500); // Increased to 1.5s to ensure local multi-key writes (like group + schedule) are finished
@@ -649,29 +656,31 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
 
         if (profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
-            // 🚨 STORAGE ISOLATION GUARD
-            // If we detect a mismatch between the logged-in profile and the current local settings,
-            // we must ensure that no local data "bleeds" into the new account.
-            console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing storage isolation.');
+            // 🚨 NUCLEAR STORAGE ISOLATION GUARD
+            // This sweep ensures that NO data from any other studio remains in active memory
+            // when switching to a new account, effectively preventing cross-account pollution universally.
+            console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing nuclear storage isolation.');
             
             const currentSlug = profile.studio_slug;
             const currentOrgId = profile.org_id;
 
-            // Purge any keys that belong to OTHER studios from active memory
-            const keys = Object.keys(localStorage);
-            keys.forEach(k => {
-                if (k.startsWith('cc_') && !k.includes(`_${currentSlug}`) && !k.includes(`_${currentOrgId}`)) {
-                    // This key belongs to a different studio session. 
-                    // To prevent cross-account pollution, we clear it if it's an operational collection.
-                    const collections = [
-                        'cc_student_data', 'cc_groups', 'cc_halls', 'cc_checkins', 
-                        'cc_attendance_archive', 'cc_student_subscriptions'
-                    ];
-                    if (collections.some(c => k.startsWith(c))) {
-                        console.log('🧹 [Isolation] Purging orphaned key from different session:', k);
+            import('@/lib/utils').then(({ PROTECTED_GLOBAL_KEYS }) => {
+                const keys = Object.keys(localStorage);
+                keys.forEach(k => {
+                    // We target all our internal keys (cc_)
+                    if (k.startsWith('cc_')) {
+                        // EXCEPTION: Protected global keys (like study registry, auth etc.)
+                        if (PROTECTED_GLOBAL_KEYS.some(pk => k.startsWith(pk))) return;
+
+                        // EXCEPTION: Keys that already belong to the CURRENT studio session
+                        const belongsToCurrent = k.includes(`_${currentSlug}`) || k.includes(`_${currentOrgId}`);
+                        if (belongsToCurrent) return;
+
+                        // NUCLEAR PURGE: This key belongs to a different studio session.
+                        console.log('🧹 [NuclearIsolation] Purging orphaned data key:', k);
                         localStorage.removeItem(k);
                     }
-                }
+                });
             });
 
             setSettings(prev => saveSettings({ orgId: profile.org_id }, prev, prev.studioSlug));

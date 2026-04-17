@@ -107,6 +107,24 @@ export const STORAGE_KEY = 'cc_studio_settings';
 export const ACTIVE_SLUG_KEY = 'cc_active_studio_slug';
 export const REGISTRY_KEY = 'cc_studios_list';
 
+// --- UNIVERSAL SYNC REGISTRY ---
+// All operational data collections (current and future) follow this registry.
+export const SYNC_COLLECTIONS = [
+    'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
+    'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
+    'cc_subscription_plans', 'cc_student_subscriptions', 'cc_shop_products', 
+    'cc_shop_sales', 'cc_audit_log', 'cc_security_log', 'cc_salary_update',
+    'cc_notifications', 'cc_calendar_events', 'cc_global_history', 
+    'cc_global_trash', 'cc_studio_settings'
+];
+
+// Keys that belong to the browser session, NOT a specific studio
+export const PROTECTED_GLOBAL_KEYS = [
+    STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 
+    'cc_last_version', 'cc_onboarding_in_progress', 'cc_staff_session',
+    'cc_staff_auth'
+];
+
 /** Helper to get active studio slug from URL or localStorage */
 export function getActiveSlug(): string | null {
     if (typeof window === 'undefined') return null;
@@ -149,17 +167,7 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     // If branchId is explicitly provided or we should use the active one
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
-    // Certain keys should always be studio-level (not branch-scoped) for stable cloud sync
-    const sharedKeys = [
-        STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 
-        'cc_global_history', 'cc_global_trash',
-        'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
-        'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
-        'cc_subscription_plans', 'cc_shop_products', 'cc_shop_sales',
-        'cc_audit_log', 'cc_security_log', 'cc_salary_update',
-        'cc_notifications'
-    ];
-    if (sharedKeys.includes(base)) {
+    if (PROTECTED_GLOBAL_KEYS.includes(base) || SYNC_COLLECTIONS.includes(base) || base.startsWith('cc_deleted_')) {
         return `${base}_${finalSlug}`; // Settings and core collections must stay slug-based for reliable sync discovery
     }
 
