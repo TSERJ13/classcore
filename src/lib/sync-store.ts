@@ -417,7 +417,7 @@ export async function masterStudioPurge(slug: string): Promise<void> {
         const supabase = createClient();
         const { data: current, error: pullError } = await supabase
             .from(SETTINGS_TABLE)
-            .select('staff_data, studio_slug')
+            .select('staff_data, studio_slug, studio_data') // Added studio_data
             .eq('studio_slug', slug)
             .maybeSingle();
 
@@ -438,9 +438,12 @@ export async function masterStudioPurge(slug: string): Promise<void> {
         ];
 
         Object.keys(dbStudioData).forEach(k => {
+            // Essential framework keys to PRESERVE
             if (FRAMEWORK_KEYS.includes(k)) {
                 cleanedStudioData[k] = dbStudioData[k];
             }
+            // CRITICAL: We EXPLICITLY do NOT preserve 'cc_deleted_*' keys here
+            // to ensure a truly clean slate without old tombstones.
         });
 
         // 2. Scrub Staff Data (Destroy Shadows)
