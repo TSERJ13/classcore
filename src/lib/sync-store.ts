@@ -200,7 +200,7 @@ export async function pushStudioStateToCloud(
     }
 }
 
-export async function pullStudioStateFromCloud(slug: string, targetScopeId: string): Promise<{ staff_data: StaffMember[], studio_data: any, org_id?: string } | null> {
+export async function pullStudioStateFromCloud(slug: string, targetScopeId?: string): Promise<{ staff_data: StaffMember[], studio_data: any, org_id?: string } | null> {
     if (typeof window === 'undefined') return null;
     if (!slug || slug === 'demo.classcore.ge') return null;
 
@@ -235,7 +235,7 @@ export async function syncStaffToCloud(slug: string, staff: StaffMember[], orgId
 }
 
 export async function fetchStaffFromCloud(slug: string): Promise<StaffMember[] | null> {
-    const state = await pullStudioStateFromCloud(slug);
+    const state = await pullStudioStateFromCloud(slug, slug);
     return state?.staff_data || null;
 }
 
@@ -401,7 +401,7 @@ export async function checkCloudConnection(slug: string): Promise<boolean> {
 }
 
 export async function fetchStudioDataFromCloud(slug: string): Promise<any | null> {
-    const state = await pullStudioStateFromCloud(slug);
+    const state = await pullStudioStateFromCloud(slug, slug);
     return state?.studio_data || null;
 }
 

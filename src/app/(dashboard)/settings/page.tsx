@@ -1371,21 +1371,40 @@ export default function SettingsPage() {
                                         message: l('ეს გაასუფთავებს აბსოლუტურად ყველა მონაცემს მოსწავლეების, ჯგუფების და ფინანსების ჩათვლით. შენარჩუნდება მხოლოდ სტუდიის სახელი და პერსონალი.', 'Это очистит абсолютно все данные, включая учеников, группы и финансы. Сохранятся только название студии и персонал.', 'This will clear absolutely all data including students, groups, and finances. Only studio name and staff will be kept.'),
                                         danger: true
                                     });
-                                    if (ok) {
-                                        await masterStudioPurge(settings.studioSlug);
-                                        addNotification(l('სტუდია სრულად გასუფთავდა', 'Студия полностью очищена', 'Studio fully reset'), 'success');
-                                        window.location.reload();
-                                    }
-                                }}
-                                className="w-full py-4 rounded-2xl bg-rose-500 text-white text-xs font-black tracking-[0.2em] shadow-lg shadow-rose-500/20 hover:bg-rose-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                {l('სრული გასუფთავება', 'Полный сброс', 'FULL MASTER RESET')}
-                            </button>
+                                <div className="space-y-4">
+                                    <button
+                                        onClick={async () => {
+                                            const ok = await confirm.confirm({
+                                                title: l('სტუდიის სრული გასუფთავება', 'Полная очистка студии', 'Full Studio Reset'),
+                                                message: l('ეს გაასუფთავებს აბსოლუტურად ყველა მონაცემს მოსწავლეების, ჯგუფების და ფინანსების ჩათვლით. შენარჩუნდება მხოლოდ სტუდიის სახელი და პერსონალი.', 'Это очистит абсолютно все данные, включая учеников, группы и финансы. Сохранятся только название студии и персонал.', 'This will clear absolutely all data including students, groups, and finances. Only studio name and staff will be kept.'),
+                                                danger: true
+                                            });
+                                            if (ok) {
+                                                await masterStudioPurge(settings.studioSlug);
+                                                addNotification(l('სტუდია სრულად გასუფთავდა', 'Студия полностью очищена', 'Studio fully reset'), 'success');
+                                                window.location.reload();
+                                            }
+                                        }}
+                                        className="w-full py-4 rounded-2xl bg-rose-500 text-white text-xs font-black tracking-[0.2em] shadow-lg shadow-rose-500/20 hover:bg-rose-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                        {l('სრული გასუფთავება', 'Полный сброс', 'FULL MASTER RESET')}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+                    </Section>
+                )}
+
+                <div className="flex flex-col items-center justify-center gap-2 py-4">
+                    <div className="flex items-center justify-center text-[10px] text-muted-foreground/40 px-1 font-bold tracking-widest">
+                        <span>ClassCore v2.1 · classcore.ge</span>
                     </div>
-                </Section>
-            )}
-        </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 scale-90">
+                        <Zap className="w-2.5 h-2.5 text-indigo-500" />
+                        <span className="text-[8px] font-black tracking-[0.3em] text-indigo-500 uppercase">System Integrity: Scorched Earth v2.1</span>
+                    </div>
+                </div>
+            </div>
     );
 }
