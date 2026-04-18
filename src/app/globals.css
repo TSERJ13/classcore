@@ -6,39 +6,56 @@
 
 @layer base {
     html {
-        background-color: var(--bg-base);
+        background-color: #ffffff;
     }
     
     :root {
         --sidebar-w: 240px;
-        --bg-base: #f9f8f6; /* Soft Beige */
-        --bg-surface: #ffffff;
+        --bg-base: #ffffff;
+        --bg-surface: #f4f7fa;
         --bg-card: #ffffff;
-        --text-primary: #1a1a1a;
+        --text-primary: #111827;
         --text-muted: #6b7280;
         --border-subtle: #e5e7eb;
 
-        /* Autumn Palette */
-        --primary: 15 75% 45%; /* Burnt Orange */
-        --accent: 350 65% 35%; /* Deep Maroon */
-        --gold: 45 90% 48%; /* Gold */
-        
-        --sidebar-bg: #1a1a1f;
+        /* Default aliases for Tailwind */
+        --primary: var(--text-primary);
+        --muted: var(--text-muted);
+        --card: var(--bg-card);
+        --surface: var(--bg-surface);
+
+        /* Sidebar - Default dark as requested */
+        --sidebar-bg: #111118;
         --sidebar-text: rgba(255, 255, 255, 0.9);
         --sidebar-text-muted: rgba(255, 255, 255, 0.35);
         --sidebar-border: rgba(255, 255, 255, 0.08);
         --sidebar-hover: rgba(255, 255, 255, 0.06);
     }
 
+    .light-theme {
+        --bg-base: #f4f7fa;
+        --bg-surface: #ffffff;
+        --bg-card: #ffffff;
+        --text-primary: #0f172a;
+        --text-muted: #64748b;
+        --border-subtle: #e2e8f0;
+        --primary: #0f172a;
+        --muted: #64748b;
+        --card: #ffffff;
+        --surface: #ffffff;
+    }
+
     .dark {
-        --bg-base: #0f0f12;
-        --bg-surface: #1a1a1f;
-        --bg-card: #1a1a1f;
+        --bg-base: #09090b;
+        --bg-surface: #18181b;
+        --bg-card: #18181b;
         --text-primary: #f8fafc;
         --text-muted: #94a3b8;
         --border-subtle: #27272a;
-        --primary: 18 80% 55%;
-        --accent: 355 60% 45%;
+        --primary: #f8fafc;
+        --muted: #94a3b8;
+        --card: #18181b;
+        --surface: #18181b;
     }
 
     * {
