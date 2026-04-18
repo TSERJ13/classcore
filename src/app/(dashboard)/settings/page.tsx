@@ -667,10 +667,6 @@ export default function SettingsPage() {
                     </Row>
                 </Section>
             )}
-
-            <div className="flex items-center justify-center text-[10px] text-muted/20 px-1 font-bold tracking-widest">
-                <span>ClassCore v1.0 · classcore.ge</span>
-            </div>
             {/* Password Modal */}
             {showPwdModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in duration-200">
