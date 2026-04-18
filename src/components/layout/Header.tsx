@@ -89,9 +89,10 @@ export function Header() {
 
     return (
         <>
-            <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-xl border-b border-border-subtle pt-[calc(0.5rem+env(safe-area-inset-top,0px))] md:pt-2">
-                <div className="max-w-6xl mx-auto w-full flex items-center justify-between px-4 md:px-8 py-2 relative">
-                    <div className="flex items-center gap-3">
+            <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-xl border-b border-border-subtle">
+                <div className="max-w-6xl mx-auto w-full grid grid-cols-3 items-center px-4 md:px-8 h-12 md:h-14 relative">
+                    {/* Left Column: Sidebar Toggle (Mobile) */}
+                    <div className="flex items-center">
                         <button
                             onClick={toggle}
                             className="md:hidden p-2 -ml-2 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
@@ -101,18 +102,18 @@ export function Header() {
                         </button>
                     </div>
 
-                    {/* Centered Page Title */}
-                    <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
-                        <h1 className="text-[11px] xs:text-[12px] md:text-sm font-extrabold text-primary tracking-tight md:tracking-wide truncate max-w-[100px] xs:max-w-[140px] md:max-w-[240px]">
+                    {/* Center Column: Page Title (Perfectly Centered) */}
+                    <div className="flex justify-center items-center pointer-events-none">
+                        <h1 className="text-[11px] xs:text-[12px] md:text-sm font-extrabold text-primary tracking-tight md:tracking-wide truncate max-w-[100px] xs:max-w-[140px] md:max-w-[240px] text-center">
                             {displayTitle || rawTitle}
                         </h1>
                     </div>
 
-                    <div className="flex items-center gap-0 md:gap-2">
+                    {/* Right Column: Actions */}
+                    <div className="flex items-center justify-end gap-2">
                         {!loading && !user && (
                             <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg tracking-wider">{t.login}</Link>
                         )}
-
                         <div className="h-6 w-px bg-border-subtle/50 mx-1 hidden md:block" />
                     </div>
                 </div>
