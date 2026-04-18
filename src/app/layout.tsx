@@ -58,7 +58,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                             </ConfirmProvider>
                             <div className="fixed bottom-4 left-0 right-0 flex flex-col items-center justify-center gap-1.5 pointer-events-none z-50">
                                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 shadow-xl scale-90">
-                                    <span className="text-[8px] font-black tracking-[0.3em] text-white/50 uppercase">System Integrity: Scorched Earth v2.2.2</span>
+                                    <span className="text-[8px] font-black tracking-[0.3em] text-white/50 uppercase">System Integrity: Scorched Earth v2.2.3</span>
                                 </div>
                             </div>
                         </StudioProvider>
