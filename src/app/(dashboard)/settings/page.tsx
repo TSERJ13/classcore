@@ -1364,33 +1364,25 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="pt-4 border-t border-border-subtle/20">
-                            <button
-                                onClick={async () => {
-                                    const ok = await confirm({
-                                        title: l('სტუდიის სრული გასუფთავება', 'Полная очистка студии', 'Full Studio Reset'),
-                                        message: l('ეს გაასუფთავებს აბსოლუტურად ყველა მონაცემს მოსწავლეების, ჯგუფების და ფინანსების ჩათვლით. შენარჩუნდება მხოლოდ სტუდიის სახელი და პერსონალი.', 'Это очистит абсолютно все данные, включая учеников, группы и финансы. Сохранятся только название студии и персонал.', 'This will clear absolutely all data including students, groups, and finances. Only studio name and staff will be kept.'),
-                                        danger: true
-                                    });
-                                <div className="space-y-4">
-                                    <button
-                                        onClick={async () => {
-                                            const ok = await confirm.confirm({
-                                                title: l('სტუდიის სრული გასუფთავება', 'Полная очистка студии', 'Full Studio Reset'),
-                                                message: l('ეს გაასუფთავებს აბსოლუტურად ყველა მონაცემს მოსწავლეების, ჯგუფების და ფინანსების ჩათვლით. შენარჩუნდება მხოლოდ სტუდიის სახელი და პერსონალი.', 'Это очистит абсолютно все данные, включая учеников, группы и финансы. Сохранятся только название студии и персонал.', 'This will clear absolutely all data including students, groups, and finances. Only studio name and staff will be kept.'),
-                                                danger: true
-                                            });
-                                            if (ok) {
-                                                await masterStudioPurge(settings.studioSlug);
-                                                addNotification(l('სტუდია სრულად გასუფთავდა', 'Студия полностью очищена', 'Studio fully reset'), 'success');
-                                                window.location.reload();
-                                            }
-                                        }}
-                                        className="w-full py-4 rounded-2xl bg-rose-500 text-white text-xs font-black tracking-[0.2em] shadow-lg shadow-rose-500/20 hover:bg-rose-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                        {l('სრული გასუფთავება', 'Полный сброс', 'FULL MASTER RESET')}
-                                    </button>
-                                </div>
+                            <div className="space-y-4">
+                                <button
+                                    onClick={async () => {
+                                        const ok = await confirm({
+                                            title: l('სტუდიის სრული გასუფთავება', 'Полная очистка студии', 'Full Studio Reset'),
+                                            message: l('ეს გაასუფთავებს აბსოლუტურად ყველა მონაცემს მოსწავლეების, ჯგუფების და ფინანსების ჩათვლით. შენარჩუნდება მხოლოდ სტუდიის სახელი და პერსონალი.', 'Это очистит абсолютно все данные, включая учеников, группы и финансы. Сохранятся только название студии и персонал.', 'This will clear absolutely all data including students, groups, and finances. Only studio name and staff will be kept.'),
+                                            danger: true
+                                        });
+                                        if (ok) {
+                                            await masterStudioPurge(settings.studioSlug);
+                                            addNotification(l('სტუდია სრულად გასუფთავდა', 'Студия полностью очищена', 'Studio fully reset'), 'success');
+                                            window.location.reload();
+                                        }
+                                    }}
+                                    className="w-full py-4 rounded-2xl bg-rose-500 text-white text-xs font-black tracking-[0.2em] shadow-lg shadow-rose-500/20 hover:bg-rose-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    {l('სრული გასუფთავება', 'Полный сброс', 'FULL MASTER RESET')}
+                                </button>
                             </div>
                         </div>
                     </Section>
