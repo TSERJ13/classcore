@@ -35,9 +35,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                             {/* Main area */}
                             <div className="flex-1 flex flex-col min-w-0">
-                                <div className="block md:hidden">
-                                    <Header />
-                                </div>
 
                                 {/* Page content */}
                                 <main className="flex-1">
