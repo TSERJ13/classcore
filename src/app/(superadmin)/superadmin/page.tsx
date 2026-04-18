@@ -49,69 +49,73 @@ export default function SuperAdminDashboard() {
     useEffect(() => {
         if (loading) return;
 
-            // DATABASE-FIRST AGGREGATION
-            let totalStudentsCount = 0;
-            let totalRevenueSum = 0;
-            let activeSubscriptions = 0;
-            let calculatedMrr = 0;
-            const monthTotals: Record<string, number> = {};
-            const allPayments: any[] = [];
-            const now = new Date();
+        const aggregate = async () => {
+            try {
+                // DATABASE-FIRST AGGREGATION: Fetch truth directly from administrative API
+                const verified = await syncGlobalAdminRegistry();
+                if (!verified) return;
 
-            verified.forEach((s: any) => {
-                if (s.slug === 'demo.classcore.ge') return;
-                
-                totalStudentsCount += (s.studentCount || 0);
-                totalRevenueSum += (s.revenue || 0);
-                activeSubscriptions += (s.activeSubsCount || 0);
-                calculatedMrr += (s.activeSubsCount * 49); // Base MRR
+                let totalStudentsCount = 0;
+                let totalRevenueSum = 0;
+                let activeSubscriptions = 0;
+                let calculatedMrr = 0;
+                const monthTotals: Record<string, number> = {};
+                const now = new Date();
 
-                // Revenue Timeline (last 6 months - we use the updatedAt relative path as a mock since we don't have historical day logs in this API yet)
-                const d = new Date(s.updatedAt);
-                if (!isNaN(d.getTime())) {
-                    const monthKey = d.toLocaleString('default', { month: 'short' });
-                    monthTotals[monthKey] = (monthTotals[monthKey] || 0) + (s.revenue || 0);
+                verified.forEach((s: any) => {
+                    if (s.slug === 'demo.classcore.ge') return;
+                    
+                    totalStudentsCount += (s.studentCount || 0);
+                    totalRevenueSum += (s.revenue || 0);
+                    activeSubscriptions += (s.activeSubsCount || 0);
+                    calculatedMrr += (s.activeSubsCount * 49); // Base MRR
+
+                    const d = new Date(s.updatedAt);
+                    if (!isNaN(d.getTime())) {
+                        const monthKey = d.toLocaleString('default', { month: 'short' });
+                        monthTotals[monthKey] = (monthTotals[monthKey] || 0) + (s.revenue || 0);
+                    }
+                });
+
+                // Prepare revenue timeline (last 6 months)
+                const months = [];
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date();
+                    d.setMonth(now.getMonth() - i);
+                    const m = d.toLocaleString('default', { month: 'short' });
+                    months.push({ name: m, rev: monthTotals[m] || 0 });
                 }
-            });
+                setRevenueTimeline(months);
 
-            // Prepare revenue timeline (last 6 months)
-            const months = [];
-            for (let i = 5; i >= 0; i--) {
-                const d = new Date();
-                d.setMonth(now.getMonth() - i);
-                const m = d.toLocaleString('default', { month: 'short' });
-                months.push({ name: m, rev: monthTotals[m] || 0 });
+                const events = verified
+                    .filter((s: any) => s.slug !== 'demo.classcore.ge')
+                    .sort((a: any, b: any) => b.updatedAt.localeCompare(a.updatedAt))
+                    .slice(0, 4)
+                    .map((s: any) => ({
+                        studio: s.name || s.slug,
+                        action: t.sa_activity_update,
+                        time: `${Math.max(1, Math.floor((now.getTime() - new Date(s.updatedAt).getTime()) / (1000 * 60 * 60)))}${t.sa_hoursAgo}`
+                    }));
+
+                if (events.length === 0) {
+                    events.push({ studio: t.navSectionSystem, action: t.sa_noRecords, time: t.now });
+                }
+                setRecentEvents(events);
+
+                setStats({
+                    totalStudios: verified.filter((s: any) => s.slug !== 'demo.classcore.ge').length,
+                    totalStudents: totalStudentsCount,
+                    activeSubs: activeSubscriptions,
+                    totalRevenue: totalRevenueSum,
+                    totalSms: totalStudentsCount * 8, // Estimated
+                    mrr: calculatedMrr
+                });
+            } catch (err) {
+                console.error('Critical crash during dashboard aggregation:', err);
             }
-            setRevenueTimeline(months);
+        };
 
-            // Recent events - we get these from the already fetched cloud data (which includes owner and updated info)
-            const events = verified
-                .filter((s: any) => s.slug !== 'demo.classcore.ge')
-                .sort((a: any, b: any) => b.updatedAt.localeCompare(a.updatedAt))
-                .slice(0, 4)
-                .map((s: any) => ({
-                    studio: s.name || s.slug,
-                    action: t.sa_activity_update,
-                    time: `${Math.max(1, Math.floor((now.getTime() - new Date(s.updatedAt).getTime()) / (1000 * 60 * 60)))}${t.sa_hoursAgo}`
-                }));
-
-            if (events.length === 0) {
-                events.push({ studio: t.navSectionSystem, action: t.sa_noRecords, time: t.now });
-            }
-            setRecentEvents(events);
-
-            setStats({
-                totalStudios: verified.filter((s: any) => s.slug !== 'demo.classcore.ge').length,
-                totalStudents: totalStudentsCount,
-                activeSubs: activeSubscriptions,
-                totalRevenue: totalRevenueSum,
-                totalSms: totalStudentsCount * 8, // Estimated
-                mrr: calculatedMrr
-            });
-        } catch (err) {
-            console.error('Critical crash during dashboard aggregation:', err);
-            // We don't throw, just log and keep previous/empty state to prevent GlobalErrorBoundary
-        }
+        aggregate();
     }, [slugs, lang, loading]);
 
     const handleGlobalPurge = async () => {
