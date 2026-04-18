@@ -35,8 +35,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                             {/* Main area */}
                             <div className="flex-1 flex flex-col min-w-0">
-                                {/* Mobile header with hamburger + notifications */}
-                                <Header />
+                                {/* Mobile header only — Desktop uses Sidebar for all controls */}
+                                <div className="md:hidden">
+                                    <Header />
+                                </div>
 
                                 {/* Page content */}
                                 <main className="flex-1">
