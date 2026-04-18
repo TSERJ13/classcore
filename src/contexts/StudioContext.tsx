@@ -140,34 +140,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         return changed;
     }, [settings.staff]);
-                    const next = loadSettings(activeSlug);
-                    setSettings(next);
-                    
-                    const events = [
-                        'cc_active_branch_change', 'cc_settings_update', 'cc_student_update', 
-                        'cc_groups_update', 'cc_halls_update', 'cc_subscription_update', 
-                        'cc_calendar_events_update', 'cc_checkins_update'
-                    ];
-                    events.forEach(e => window.dispatchEvent(new Event(e)));
-                }
-            });
-        }
-
-        if (changed) {
-            console.log('📡 [StudioContext] UI update triggered from cloud pulse for:', activeSlug);
-            const next = loadSettings(activeSlug);
-            setSettings(next);
-            
-            const events = [
-                'cc_active_branch_change', 'cc_settings_update', 'cc_student_update', 
-                'cc_groups_update', 'cc_halls_update', 'cc_subscription_update', 
-                'cc_calendar_events_update', 'cc_checkins_update'
-            ];
-            events.forEach(e => window.dispatchEvent(new Event(e)));
-        }
-
-        return changed;
-    }, [settings.staff]);
 
     const markLocalUpdate = useCallback(() => {
         const now = Date.now();
