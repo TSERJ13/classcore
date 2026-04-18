@@ -34,7 +34,8 @@ export function checkCacheVersion(): void {
             console.log('[CacheBuster] Purge complete. System is now at version:', CURRENT_CACHE_VERSION);
             
             // Forces a one-time reload to ensure all stores re-initialize from scratch
-            window.location.reload();
+            // We reload with a unique parameter to bypass some CDN/Service Worker caches
+            window.location.href = window.location.pathname + '?v=' + Date.now();
         }
     } catch (e) {
         console.error('[CacheBuster] Failed to process cache version check', e);
