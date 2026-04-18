@@ -523,7 +523,10 @@ export function Header() {
 
     return (
         <>
-            <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-2 bg-card/90 backdrop-blur-xl border-b border-border-subtle pt-[calc(0.5rem+env(safe-area-inset-top,0px))] md:pt-2">
+            <header 
+                className="sticky top-0 z-30 flex items-center justify-between px-4 bg-card/90 backdrop-blur-xl border-b border-border-subtle"
+                style={{ paddingTop: 0, marginTop: 0, height: '56px' }}
+            >
                 <div className="flex items-center gap-3">
                     <button
                         onClick={toggle}
