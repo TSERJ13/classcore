@@ -89,29 +89,32 @@ export function Header() {
 
     return (
         <>
-            <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-2 bg-card/90 backdrop-blur-xl border-b border-border-subtle pt-[calc(0.5rem+env(safe-area-inset-top,0px))] md:pt-2">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={toggle}
-                        className="md:hidden p-2 -ml-2 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
-                        aria-label="Menu"
-                    >
-                        <Menu className="w-6 h-6" />
-                    </button>
-                </div>
-                {/* Centered Page Title */}
-                <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
-                    <h1 className="text-[11px] xs:text-[12px] md:text-sm font-extrabold text-primary tracking-tight md:tracking-wide truncate max-w-[100px] xs:max-w-[140px] md:max-w-[240px]">
-                        {displayTitle || rawTitle}
-                    </h1>
-                </div>
+            <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-xl border-b border-border-subtle pt-[calc(0.5rem+env(safe-area-inset-top,0px))] md:pt-2">
+                <div className="max-w-6xl mx-auto w-full flex items-center justify-between px-4 md:px-8 py-2 relative">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={toggle}
+                            className="md:hidden p-2 -ml-2 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
+                            aria-label="Menu"
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
+                    </div>
 
-                <div className="flex items-center gap-0 md:gap-2">
-                    {!loading && !user && (
-                        <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg tracking-wider">{t.login}</Link>
-                    )}
+                    {/* Centered Page Title */}
+                    <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
+                        <h1 className="text-[11px] xs:text-[12px] md:text-sm font-extrabold text-primary tracking-tight md:tracking-wide truncate max-w-[100px] xs:max-w-[140px] md:max-w-[240px]">
+                            {displayTitle || rawTitle}
+                        </h1>
+                    </div>
 
-                    <div className="h-6 w-px bg-border-subtle/50 mx-1 hidden md:block" />
+                    <div className="flex items-center gap-0 md:gap-2">
+                        {!loading && !user && (
+                            <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg tracking-wider">{t.login}</Link>
+                        )}
+
+                        <div className="h-6 w-px bg-border-subtle/50 mx-1 hidden md:block" />
+                    </div>
                 </div>
             </header>
 
