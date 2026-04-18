@@ -743,9 +743,6 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-6 animate-fade-in relative">
-            <div className="hidden md:flex items-center justify-between px-1">
-                <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight">{t.dashboard}</h1>
-            </div>
 
 
             {/* Account Locked / Suspended Overlay */}
@@ -813,9 +810,6 @@ export default function DashboardPage() {
                 <div>
                     <div className="flex items-center flex-wrap gap-2.5 sm:gap-4">
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
-                                {t.welcomeBack} {profile?.first_name || ''} 
-                            </h1>
                             <span className="text-xl sm:text-2xl">👋</span>
                         </div>
                         {billing && (

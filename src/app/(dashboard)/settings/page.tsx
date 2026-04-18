@@ -348,9 +348,6 @@ export default function SettingsPage() {
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-10">
-            <div className="hidden md:flex items-center justify-between px-1">
-                <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight">{t.settings}</h1>
-            </div>
             {isAdmin && (
                 <>
                     <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>

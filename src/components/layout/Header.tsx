@@ -89,7 +89,7 @@ export function Header() {
 
     return (
         <>
-            <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-xl border-b border-border-subtle md:hidden">
+            <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-xl border-b border-border-subtle">
                 <div className="max-w-6xl mx-auto w-full grid grid-cols-3 items-center px-4 md:px-8 h-12 md:h-14 relative">
                     {/* Left Column: Sidebar Toggle (Mobile) */}
                     <div className="flex items-center">
