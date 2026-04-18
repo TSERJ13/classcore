@@ -1293,7 +1293,7 @@ export default function SettingsPage() {
                                             return;
                                         }
 
-                                        removeBranch(branchToDeleteId);
+                                        removeBranch(branchToDeleteId!);
                                         setBranchToDeleteId(null);
                                         setBranchDeletePass('');
                                         setBranchDeleteError('');
@@ -1339,7 +1339,7 @@ export default function SettingsPage() {
                                     key={cat.id}
                                     onClick={async () => {
                                         const ok = await confirm({
-                                            title: l('მონაცემების გასუფთავება', 'Очистка данных', 'Clear Data'),
+                                            title: l('მონაცემების გასუფთავება', 'Оინსტრუქცია', 'Clear Data'),
                                             message: l(`ნამდვილად გსურთ "${cat.label}" მონაცემების სრული წაშლა?`, `Вы уверены, что хотите полностью удалить данные "${cat.label}"?`, `Are you sure you want to permanently delete all data for "${cat.label}"?`),
                                             danger: true
                                         });
@@ -1385,18 +1385,19 @@ export default function SettingsPage() {
                                 </button>
                             </div>
                         </div>
-                    </Section>
-                )}
+                    </div>
+                </Section>
+            )}
 
-                <div className="flex flex-col items-center justify-center gap-2 py-4">
-                    <div className="flex items-center justify-center text-[10px] text-muted-foreground/40 px-1 font-bold tracking-widest">
-                        <span>ClassCore v2.1 · classcore.ge</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 scale-90">
-                        <Zap className="w-2.5 h-2.5 text-indigo-500" />
-                        <span className="text-[8px] font-black tracking-[0.3em] text-indigo-500 uppercase">System Integrity: Scorched Earth v2.1</span>
-                    </div>
+            <div className="flex flex-col items-center justify-center gap-2 py-4">
+                <div className="flex items-center justify-center text-[10px] text-muted-foreground/40 px-1 font-bold tracking-widest">
+                    <span>ClassCore v2.1 · classcore.ge</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 scale-90">
+                    <Zap className="w-2.5 h-2.5 text-indigo-500" />
+                    <span className="text-[8px] font-black tracking-[0.3em] text-indigo-500 uppercase">System Integrity: Scorched Earth v2.1</span>
                 </div>
             </div>
+        </div>
     );
 }

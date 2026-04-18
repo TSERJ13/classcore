@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings, getStaffSession, patchNotifications, patchSecurity, applyTheme, cleanupRegistry, DEFAULT_SETTINGS } from '@/lib/settings-store';
+import { scrubLocalStorage } from '@/lib/sync-store';
 import { getScopedKey, STORAGE_KEY, ACTIVE_SLUG_KEY } from '@/lib/utils';
 import { type StudioSettings, type ThemeKey, type Branch, type StaffMember, type TrashItem, type SubscriptionLog } from '@/types';
 import { useUser } from '@/hooks/useUser';
@@ -640,33 +641,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
 
         if (profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
-            // 🚨 NUCLEAR STORAGE ISOLATION GUARD
-            // This sweep ensures that NO data from any other studio remains in active memory
+            // 🚨 NUCLEAR STORAGE ISOLATION GUARD: SCORCHED EARTH v2.1
+            // This ensures that NO data from any other studio remains in active memory
             // when switching to a new account, effectively preventing cross-account pollution universally.
-            console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing nuclear storage isolation.');
+            console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing nuclear storage isolation (Scorched Earth v2.1).');
             
-            const currentSlug = profile.studio_slug;
-            const currentOrgId = profile.org_id;
-
-            import('@/lib/utils').then(({ PROTECTED_GLOBAL_KEYS }) => {
-                const keys = Object.keys(localStorage);
-                keys.forEach(k => {
-                    // We target all our internal keys (cc_)
-                    if (k.startsWith('cc_')) {
-                        // EXCEPTION: Protected global keys (like study registry, auth etc.)
-                        if (PROTECTED_GLOBAL_KEYS.some(pk => k.startsWith(pk))) return;
-
-                        // EXCEPTION: Keys that already belong to the CURRENT studio session
-                        const belongsToCurrent = k.includes(`_${currentSlug}`) || k.includes(`_${currentOrgId}`);
-                        if (belongsToCurrent) return;
-
-                        // NUCLEAR PURGE: This key belongs to a different studio session.
-                        console.log('🧹 [NuclearIsolation] Purging orphaned data key:', k);
-                        localStorage.removeItem(k);
-                    }
-                });
-            });
-
+            scrubLocalStorage(profile.studio_slug!, profile.org_id);
             setSettings(prev => saveSettings({ orgId: profile.org_id }, prev, prev.studioSlug));
         }
     }, [user?.email, profile, settings, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
@@ -675,9 +655,11 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     useEffect(() => {
         if (isLoaded && settings.studioSlug) {
-            performUniversalIntegrityCheck(settings.studioSlug);
+            // SCORCHED EARTH v2.1: Always ensure local integrity on every load/active session
+            scrubLocalStorage(settings.studioSlug, settings.orgId);
+            performUniversalIntegrityCheck(settings.studioSlug, settings.orgId);
         }
-    }, [isLoaded, settings.studioSlug]);
+    }, [isLoaded, settings.studioSlug, settings.orgId]);
 
     return (
         <StudioContext.Provider value={{

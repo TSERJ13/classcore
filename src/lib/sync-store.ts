@@ -3,10 +3,43 @@ import { type StaffMember } from '@/types';
 
 const SETTINGS_TABLE = 'studio_settings';
 
+/** 
+ * SCORCHED EARTH v2.1 Integrity Whitelist
+ * Keys here are exempt from the global purge to preserve session and preferences.
+ */
+export const INTEGRITY_WHITELIST = [
+    'cc_auth_token', 
+    'cc_active_slug', 
+    'cc_active_branch_',
+    'cc_last_local_update',
+    'cc_onboarding_done',
+    'cc_theme',
+    'cc_studio_name'
+];
+
 /**
  * Consolidates all studio state into a single push to prevent race conditions or overwrites.
- * Updates staff_data, staff_emails, and studio_data in one UPSERT.
  */
+export function scrubLocalStorage(activeSlug: string, orgId?: string) {
+    if (typeof window === 'undefined' || !activeSlug) return;
+    
+    console.log(`🛡️ [ScorchedEarth] Scrubbing localStorage for [Slug: ${activeSlug}] [OrgId: ${orgId || 'None'}]`);
+    
+    Object.keys(localStorage).forEach(key => {
+        if (!key.startsWith('cc_')) return;
+        
+        // 1. Whitelist Check
+        if (INTEGRITY_WHITELIST.some(p => key.startsWith(p))) return;
+        
+        // 2. Ownership Check
+        const belongsToCurrent = key.endsWith(`_${activeSlug}`) || (orgId && key.endsWith(`_${orgId}`));
+        if (belongsToCurrent) return;
+
+        // 3. NUCLEAR PURGE: This is a legacy or orphaned artifact from a different studio.
+        console.warn(`🧹 [ScorchedEarth] Purging alien artifact: ${key}`);
+        localStorage.removeItem(key);
+    });
+}
 /**
  * Consolidates all studio state into a single push with Optimistic Locking and Retry logic.
  * Ensures that concurrent updates from multiple clients do not overwrite each other.
@@ -119,6 +152,9 @@ export async function pushStudioStateToCloud(
     if (!slug || slug === 'demo.classcore.ge') return;
 
     try {
+        // SCORCHED EARTH v2.1: Purge alien artifacts BEFORE normalization
+        scrubLocalStorage(slug, orgId);
+
         const supabase = createClient();
         const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
