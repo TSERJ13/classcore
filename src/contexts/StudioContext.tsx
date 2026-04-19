@@ -423,18 +423,16 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const setCustomRoles = useCallback((roles: string[]) => {
         setSettings(prev => saveSettings({ customRoles: roles }, prev, prev.studioSlug));
     }, []);
+    // 1. Reactive Sync Initiation: Trigger pull whenever the slug is identified/changed
     useEffect(() => {
-        // 1. Initial Local Hydration: Make the UI usable immediately
-        const local = loadSettings(defaultSlug || undefined);
-        setSettings(local);
-        setIsLoaded(true); // UI is now ready with local data!
-
-        if (typeof window !== 'undefined' && local.studioSlug) {
-            const savedBranch = localStorage.getItem(`cc_active_branch_${local.studioSlug}`);
-            if (savedBranch) setActiveBranchIdState(savedBranch);
-            else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
+        if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') {
+            setFirstSyncDone(true);
+            return;
         }
 
+        const activeSlug = settings.studioSlug;
+        console.log('📡 [StudioContext] Reactive Pull initiated for:', activeSlug);
+        
         // 2. Background Cloud Sync: Don't block the UI
         const safetyTimer = setTimeout(() => {
             if (!hasSyncedRef.current) {
@@ -444,14 +442,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }, 12000);
 
         const timer = setTimeout(() => {
-            const activeSlug = local.studioSlug;
-            if (!activeSlug || activeSlug === 'demo.classcore.ge' || activeSlug === 'superadmin') {
-                setFirstSyncDone(true);
-                return;
-            }
-
-            console.log('📡 [StudioContext] Background Pull for:', activeSlug);
-            
             import('@/lib/sync-store').then(({ fetchStaffFromCloud, pullStudioStateFromCloud }) => {
                 const targetScopeId = settings.orgId || activeSlug;
                 Promise.all([
@@ -476,20 +466,35 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         });
                     }
                     setFirstSyncDone(true);
+                    console.log('✅ [StudioContext] Reactive Pull successful');
                 }).catch(err => {
-                    console.error('📡 [StudioContext] Background Cloud Sync Failed:', err);
+                    console.error('📡 [StudioContext] Reactive Pull Failed:', err);
                     setFirstSyncDone(true);
                 });
             }).catch(() => {
                 setFirstSyncDone(true);
             });
-        }, 200); // Small buffer to let the UI breathe first
+        }, 100);
 
-        cleanupRegistry();
         return () => {
             clearTimeout(timer);
             clearTimeout(safetyTimer);
         };
+    }, [isLoaded, settings.studioSlug, settings.orgId]);
+
+    // Initial hydration from local storage
+    useEffect(() => {
+        const local = loadSettings(defaultSlug || undefined);
+        setSettings(local);
+        setIsLoaded(true);
+
+        if (typeof window !== 'undefined' && local.studioSlug) {
+            const savedBranch = localStorage.getItem(`cc_active_branch_${local.studioSlug}`);
+            if (savedBranch) setActiveBranchIdState(savedBranch);
+            else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
+        }
+        
+        cleanupRegistry();
     }, [defaultSlug]);
     // Automatic Cloud Sync Pulse
     useEffect(() => {
