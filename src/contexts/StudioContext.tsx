@@ -522,11 +522,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                 keys.forEach(k => {
                     const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-                    // INCLUSIVE SCOPING: Pick up both slug-based discoveries and authoritative org-based data.
-                    // This ensures cc_studio_settings (slug-based) and operational data (org-based) both sync.
-                    const belongsToActiveSilo = k.endsWith(`_${activeSlug}`) || k.endsWith(`_${authoritativeScopeId}`);
-                    
-                    if (isSyncablePrefix && belongsToActiveSilo) {
+                    if (isSyncablePrefix && (k.endsWith(`_${activeSlug}`) || k.endsWith(`_${authoritativeScopeId}`))) {
                         try {
                             const val = localStorage.getItem(k);
                             if (val) studioData[k] = JSON.parse(val);
@@ -536,22 +532,76 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     }
                 });
 
-                const syncKeys = Object.keys(studioData);
-                if (syncKeys.length > 0) {
-                    console.log(`📡 [SyncPulse] Prepared data for: ${activeSlug} (${syncKeys.length} collections)`);
-                }
-
-                import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
+                import('@/lib/sync-store').then(({ pushStudioStateToCloud, pushEntityToCloud }) => {
                     const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
-                    // Use FRESH settings from loadSettings if available to avoid React state lag
                     const freshSettings = loadSettings(settings.studioSlug!);
-                    
-                    pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, settings.orgId, isFresh).then(() => {
-                        console.log('🚀 [SyncPulse] Push successful for:', settings.studioSlug);
-                        if (isFresh) localStorage.removeItem(`cc_is_fresh_${settings.studioSlug}`);
-                    }).catch(err => {
-                        console.error('❌ [SyncPulse] Push failed:', err);
-                    });
+                    const orgId = settings.orgId;
+
+                    // 1. Legacy Pulse (Maintain studio_settings for global framework items)
+                    pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, orgId, isFresh);
+
+                    // 2. Granular SQL Normalization Sync
+                    if (orgId) {
+                        const tableMap: Record<string, string> = {
+                            'cc_student_data': 'students',
+                            'cc_groups': 'groups',
+                            'cc_halls': 'halls',
+                            'cc_calendar_events': 'calendar_events',
+                            'cc_subscription_plans': 'subscription_plans',
+                            'cc_student_subscriptions': 'student_subscriptions',
+                            'cc_attendance_data': 'attendance_records',
+                            'cc_hall_rentals': 'hall_rentals',
+                            'cc_shop_products': 'inventory_products',
+                            'cc_shop_sales': 'sales',
+                            'cc_global_history': 'audit_logs',
+                            'cc_global_trash': 'trash'
+                        };
+
+                        Object.keys(studioData).forEach(k => {
+                            const baseKey = k.replace(`_${activeSlug}`, '').replace(`_${orgId}`, '');
+                            const tableName = tableMap[baseKey];
+                            if (tableName) {
+                                const data = studioData[k];
+                                if (Array.isArray(data)) {
+                                    data.forEach(item => pushEntityToCloud(orgId, tableName, item));
+                                } else if (typeof data === 'object' && data !== null) {
+                                    // Handle map-based structures (like student_data with IDs as keys)
+                                    Object.values(data).forEach(item => pushEntityToCloud(orgId, tableName, item));
+                                }
+                            }
+                        });
+                        
+                        // Sync branches and staff specifically
+                        if (freshSettings.branches) {
+                            freshSettings.branches.forEach(b => pushEntityToCloud(orgId, 'branches', b));
+                        }
+                        if (freshSettings.staff) {
+                            freshSettings.staff.forEach(s => pushEntityToCloud(orgId, 'staff', s));
+                        }
+
+                        // Sync base studio metadata
+                        pushEntityToCloud(orgId, 'studios', {
+                            id: orgId, // Using orgId as the UUID primary key for the studio record
+                            org_id: orgId,
+                            studio_slug: activeSlug,
+                            studio_name: freshSettings.studioName,
+                            logo_url: freshSettings.logoDataUrl,
+                            currency: freshSettings.currency,
+                            language: freshSettings.language,
+                            timezone: freshSettings.timezone,
+                            theme_key: freshSettings.themeKey,
+                            is_wizard_completed: freshSettings.isWizardCompleted,
+                            owner_info: freshSettings.owner_info,
+                            settings: {
+                                notifications: freshSettings.notifications,
+                                security: freshSettings.security,
+                                sms_templates: freshSettings.sms_templates,
+                                accentColor: freshSettings.accentColor,
+                                pausePrices: freshSettings.pausePrices,
+                                landingContent: freshSettings.landingContent
+                            }
+                        });
+                    }
                 });
             });
         }, 1500); // Increased to 1.5s to ensure local multi-key writes (like group + schedule) are finished

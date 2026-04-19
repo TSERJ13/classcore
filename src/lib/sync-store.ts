@@ -1,5 +1,5 @@
 import { createClient } from './supabase/client';
-import { type StaffMember } from '@/types';
+import { type StaffMember, type Student, type Group, type Hall, type CalendarEvent, type SubscriptionPlan, type StudentSubscription, type AttendanceRecord, type HallRental, type Product, type Sale, type TrashItem } from '@/types';
 
 const SETTINGS_TABLE = 'studio_settings';
 
@@ -31,6 +31,7 @@ export function scrubLocalStorage(activeSlug: string, orgId?: string) {
         console.log('🛡️ [ScorchedEarth] Scrubbing bypassed: Protected system slug.');
         return;
     }
+    Object.keys(localStorage).forEach(key => {
         if (!key.startsWith('cc_')) return;
         
         // 1. Whitelist Check
@@ -161,6 +162,7 @@ export async function pushStudioStateToCloud(
         scrubLocalStorage(slug, orgId);
 
         const supabase = createClient();
+        const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
             .select('staff_data, org_id') // studio_data column doesn't exist in DB
             .eq('studio_slug', slug)
@@ -555,7 +557,64 @@ export function triggerInstantSync() {
     }
 }
 
-/**
- * Consolidates all studio state into a single push with Optimistic Locking and Retry logic.
+
+/** 
+ * NEW: GRANULAR ENTITY SYNC (Normalized SQL Model) 
  */
-// ... (rest of the file)
+
+export async function pushEntityToCloud(orgId: string, table: string, entity: any) {
+    if (!orgId || !table || !entity) return;
+    try {
+        const supabase = createClient();
+        const payload = { ...entity, org_id: orgId };
+        
+        // Ensure ID is present for upsert
+        if (!payload.id) {
+            console.error(`❌ [SyncStore] Cannot push to ${table}: Missing ID`);
+            return;
+        }
+
+        const { error } = await supabase
+            .from(table)
+            .upsert(payload, { onConflict: 'id' });
+
+        if (error) throw error;
+        console.log(`✅ [SyncStore] Granular push to ${table} successful: ${payload.id}`);
+    } catch (err) {
+        console.error(`❌ [SyncStore] Granular push to ${table} failed:`, err);
+    }
+}
+
+export async function deleteEntityFromCloud(orgId: string, table: string, id: string) {
+    if (!orgId || !table || !id) return;
+    try {
+        const supabase = createClient();
+        const { error } = await supabase
+            .from(table)
+            .delete()
+            .eq('id', id)
+            .eq('org_id', orgId);
+
+        if (error) throw error;
+        console.log(`✅ [SyncStore] Granular delete from ${table} successful: ${id}`);
+    } catch (err) {
+        console.error(`❌ [SyncStore] Granular delete from ${table} failed:`, err);
+    }
+}
+
+export async function fetchEntitiesFromCloud(orgId: string, table: string) {
+    if (!orgId || !table) return null;
+    try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+            .from(table)
+            .select('*')
+            .eq('org_id', orgId);
+
+        if (error) throw error;
+        return data;
+    } catch (err) {
+        console.error(`❌ [SyncStore] Granular fetch from ${table} failed:`, err);
+        return null;
+    }
+}
