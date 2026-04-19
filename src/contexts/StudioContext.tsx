@@ -440,57 +440,33 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             return;
         }
 
-        console.log('📡 [StudioContext] Reactive Pull initiated for:', activeSlug);
+        // --- OPTIMISTIC BACKGROUND HYDRATION ---
+        console.log('🔄 [StudioContext] Background sync started for:', activeSlug);
         
-        // 2. Background Cloud Sync
-        const safetyTimer = setTimeout(() => {
-            if (!hasSyncedRef.current) {
-                console.log('📡 [StudioContext] Sync safety release triggered');
-                setFirstSyncDone(true);
-            }
-        }, 12000);
-
-        const timer = setTimeout(() => {
-            import('@/lib/sync-store').then(({ fetchStaffFromCloud, pullStudioStateFromCloud }) => {
-                const targetScopeId = activeSlug; // CRITICAL: Always use slug for local mapping to match getScopedKey force 
-                Promise.all([
-                    fetchStaffFromCloud(activeSlug),
-                    pullStudioStateFromCloud(activeSlug, targetScopeId)
-                ]).then(([cloudStaff, cloudState]) => {
-                    hasSyncedRef.current = true;
-                    lastSyncedSlugRef.current = activeSlug;
-                    
-                    if (cloudStaff && cloudStaff.length > 0) {
-                        const nextSettings: Partial<StudioSettings> = { staff: cloudStaff };
-                        if (cloudState?.org_id && cloudState.org_id !== settings.orgId) {
-                            nextSettings.orgId = cloudState.org_id;
-                        }
-                        setSettings(prev => saveSettings(nextSettings, prev, activeSlug));
-                    }
-
-                    if (cloudState) {
-                        import('@/lib/utils').then(({ consolidateStudioKeys }) => {
-                            const authoritativeId = cloudState.org_id || settings.orgId;
-                            consolidateStudioKeys(activeSlug, authoritativeId);
-                            applyCloudState(activeSlug, cloudState);
-                        });
-                    }
-                    setFirstSyncDone(true);
-                    console.log('✅ [StudioContext] Reactive Pull successful for:', activeSlug);
-                }).catch(err => {
-                    console.error('📡 [StudioContext] Reactive Pull Failed:', err);
-                    setFirstSyncDone(true);
+        import('@/lib/sync-store').then(async ({ pullStudioStateFromCloud }) => {
+            const authoritativeId = settings.orgId || activeSlug;
+            const cloudState = await pullStudioStateFromCloud(activeSlug, authoritativeId);
+            
+            if (cloudState) {
+                console.log('✅ [StudioContext] Remote state integrated');
+                setSettings(prev => ({
+                    ...prev,
+                    orgId: cloudState.org_id || prev.orgId
+                }));
+                
+                setInitialStaff(cloudState.staff_data);
+                setInitialStudioData(cloudState.studio_data);
+                
+                // Silent hydration of localStorage
+                Object.entries(cloudState.studio_data).forEach(([key, val]) => {
+                    if (val) localStorage.setItem(key, JSON.stringify(val));
                 });
-            }).catch(() => {
-                setFirstSyncDone(true);
-            });
-        }, 100);
+            }
+            setFirstSyncDone(true);
+        });
 
-        return () => {
-            clearTimeout(timer);
-            clearTimeout(safetyTimer);
-        };
-    }, [isLoaded, settings.studioSlug, firstSyncDone]); // Removed settings.orgId to break the loop
+        return () => {};
+    }, [activeSlug, settings.orgId]);
 
     // Initial hydration from local storage
     useEffect(() => {
@@ -626,20 +602,27 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                         import('@/lib/sync-store').then(({ deleteEntityFromCloud }) => {
                             Object.keys(studioData).forEach(k => {
-                                const baseKey = k.replace(`_${activeSlug}`, '').replace(`_${orgId}`, '');
-                                const tableName = deleteTableMap[baseKey];
+                                // 🚨 ROBUST MATCHING: Use startsWith to handle branch-prefixed tombstones
+                                const entry = Object.entries(deleteTableMap).find(([prefix]) => k.startsWith(prefix));
                                 
-                                if (tableName && Array.isArray(studioData[k])) {
+                                if (entry && Array.isArray(studioData[k])) {
+                                    const [prefix, tableName] = entry;
                                     const deletedIds = studioData[k] as string[];
+                                    
                                     deletedIds.forEach(async (id) => {
+                                        console.log(`🧹 [Purge] Requesting cloud deletion from ${tableName} for ID: ${id}`);
                                         const success = await deleteEntityFromCloud(orgId, tableName, id);
                                         if (success) {
-                                            // Optional: Local cleanup of the tombstone list
-                                            const current = JSON.parse(localStorage.getItem(k) || '[]');
-                                            if (Array.isArray(current)) {
-                                                const next = current.filter(cid => cid !== id);
-                                                if (next.length === 0) localStorage.removeItem(k);
-                                                else localStorage.setItem(k, JSON.stringify(next));
+                                            console.log(`✅ [Purge] Successfully deleted from ${tableName}: ${id}`);
+                                            // Local cleanup of the tombstone list
+                                            const currentVal = localStorage.getItem(k);
+                                            if (currentVal) {
+                                                const current = JSON.parse(currentVal);
+                                                if (Array.isArray(current)) {
+                                                    const next = current.filter(cid => cid !== id);
+                                                    if (next.length === 0) localStorage.removeItem(k);
+                                                    else localStorage.setItem(k, JSON.stringify(next));
+                                                }
                                             }
                                         }
                                     });
