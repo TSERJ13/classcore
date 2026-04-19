@@ -337,11 +337,13 @@ export default function SettingsPage() {
 
     if (!isLoaded || !profile) {
         return (
-            <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-                {/* Minimal Skeleton while profile is resolving */}
-                <div className="h-10 bg-muted/5 rounded-2xl w-1/4 animate-pulse ml-2" />
-                <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
-                <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
+            <div className="fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8">
+                <div className="flex flex-col items-center justify-center gap-6 mt-12">
+                    <Logo size={80} animated loading />
+                    <div className="text-center space-y-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading...'}</p>
+                    </div>
+                </div>
             </div>
         );
     }

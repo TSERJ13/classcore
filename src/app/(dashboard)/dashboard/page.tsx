@@ -732,10 +732,12 @@ export default function DashboardPage() {
 
     if (!isLoaded || (loading && !isDemo)) {
         return (
-            <div className="h-[80vh] flex flex-col items-center justify-center gap-6">
-                <Logo size={80} animated loading />
-                <div className="text-center space-y-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading Dashboard...'}</p>
+            <div className="fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8">
+                <div className="flex flex-col items-center justify-center gap-6 mt-12">
+                    <Logo size={80} animated loading />
+                    <div className="text-center space-y-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading Dashboard...'}</p>
+                    </div>
                 </div>
             </div>
         );
