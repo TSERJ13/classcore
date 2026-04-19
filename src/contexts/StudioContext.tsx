@@ -514,179 +514,177 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             // This prevents new devices (like phones) from "wiping" the cloud with their local empty state.
             if (!isLoaded || !firstSyncDone || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
 
-            import('@/lib/utils').then(({ SYNC_COLLECTIONS }) => {
-                const studioData: Record<string, any> = {};
-                const keys = Object.keys(localStorage);
-                
-                const authoritativeScopeId = settings.orgId || settings.studioSlug!;
-                const activeSlug = settings.studioSlug!;
+            const { SYNC_COLLECTIONS } = await import('@/lib/utils');
+            const studioData: Record<string, any> = {};
+            const keys = Object.keys(localStorage);
+            
+            const authoritativeScopeId = settings.orgId || settings.studioSlug!;
+            const activeSlug = settings.studioSlug!;
 
-                keys.forEach(k => {
-                    const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-                    if (isSyncablePrefix && (k.endsWith(`_${activeSlug}`) || k.endsWith(`_${authoritativeScopeId}`))) {
-                        try {
-                            const val = localStorage.getItem(k);
-                            if (val) studioData[k] = JSON.parse(val);
-                        } catch (e) {
-                             console.error('⚠️ [SyncPulse] Failed to parse key:', k, e);
+            keys.forEach(k => {
+                const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
+                if (isSyncablePrefix && (k.endsWith(`_${activeSlug}`) || k.endsWith(`_${authoritativeScopeId}`))) {
+                    try {
+                        const val = localStorage.getItem(k);
+                        if (val) studioData[k] = JSON.parse(val);
+                    } catch (e) {
+                            console.error('⚠️ [SyncPulse] Failed to parse key:', k, e);
+                    }
+                }
+            });
+
+            const { pushStudioStateToCloud, pushEntityToCloud } = await import('@/lib/sync-store');
+            const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
+            const freshSettings = loadSettings(settings.studioSlug!);
+            let orgId = settings.orgId;
+
+            // 0. AUTO-INITIALIZE OrgId (Safety Guard)
+            // If we are in a non-demo studio and orgId is missing, generate one to enable sync.
+            if (!orgId && settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge' && settings.studioSlug !== 'superadmin') {
+                orgId = crypto.randomUUID();
+                console.warn(`🚨 [StudioContext] OrgId missing for ${activeSlug}. Initializing unique ID: ${orgId}`);
+                setSettings(prev => ({ ...prev, orgId }));
+            }
+
+            // 1. Legacy Pulse (Maintain studio_settings for global framework items)
+            pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, orgId, isFresh);
+
+            // 2. Granular SQL Normalization Sync
+            if (orgId) {
+                const tableMap: Record<string, string> = {
+                    'cc_student_data': 'students',
+                    'cc_groups': 'groups',
+                    'cc_halls': 'halls',
+                    'cc_calendar_events': 'calendar_events',
+                    'cc_subscription_plans': 'subscription_plans',
+                    'cc_student_subscriptions': 'student_subscriptions',
+                    'cc_attendance_data': 'attendance_records',
+                    'cc_hall_rentals': 'hall_rentals',
+                    'cc_shop_products': 'inventory_products',
+                    'cc_shop_sales': 'sales',
+                    'cc_global_history': 'audit_logs',
+                    'cc_global_trash': 'trash'
+                };
+
+                // 1. PRIMARY METADATA SYNC (The "Anchor" record)
+                // We MUST push the studio record FIRST because all other records (students, groups)
+                // have a Foreign Key (org_id) that references this table.
+                if (orgId && orgId.length > 30) {
+                    console.log('🛡️ [SyncPulse] Consolidating framework identity...');
+                    
+                    // A. Ensure Studio exists
+                    await pushEntityToCloud(orgId, 'studios', {
+                        id: orgId, 
+                        org_id: orgId,
+                        studio_slug: activeSlug,
+                        studio_name: freshSettings.studioName,
+                        logo_url: freshSettings.logoDataUrl || null,
+                        currency: freshSettings.currency || 'GEL',
+                        language: freshSettings.language || 'ka',
+                        timezone: freshSettings.timezone || 'Asia/Tbilisi',
+                        theme_key: freshSettings.themeKey || 'indigo',
+                        is_wizard_completed: freshSettings.isWizardCompleted || false,
+                        owner_info: freshSettings.owner_info || null,
+                        settings: {
+                            notifications: freshSettings.notifications,
+                            security: freshSettings.security,
+                            sms_templates: freshSettings.sms_templates,
+                            accentColor: freshSettings.accentColor,
+                            pausePrices: freshSettings.pausePrices,
+                            landingContent: freshSettings.landingContent
+                        }
+                    });
+
+                    // B. Ensure User Profile is linked to this Org
+                    const supabase = (await import('@/lib/supabase/client')).createClient();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        await supabase.from('profiles').upsert({
+                            id: user.id,
+                            org_id: orgId,
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+
+                    // C. Sync Branches
+                    if (freshSettings.branches) {
+                        for (const b of freshSettings.branches) {
+                            await pushEntityToCloud(orgId, 'branches', b);
                         }
                     }
-                });
 
-                import('@/lib/sync-store').then(({ pushStudioStateToCloud, pushEntityToCloud }) => {
-                    const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
-                    const freshSettings = loadSettings(settings.studioSlug!);
-                    let orgId = settings.orgId;
-
-                    // 0. AUTO-INITIALIZE OrgId (Safety Guard)
-                    // If we are in a non-demo studio and orgId is missing, generate one to enable sync.
-                    if (!orgId && settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge' && settings.studioSlug !== 'superadmin') {
-                        orgId = crypto.randomUUID();
-                        console.warn(`🚨 [StudioContext] OrgId missing for ${activeSlug}. Initializing unique ID: ${orgId}`);
-                        setSettings(prev => ({ ...prev, orgId }));
+                    // D. Sync Staff
+                    if (freshSettings.staff) {
+                        for (const s of freshSettings.staff) {
+                            await pushEntityToCloud(orgId, 'staff', s);
+                        }
                     }
 
-                    // 1. Legacy Pulse (Maintain studio_settings for global framework items)
-                    pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, orgId, isFresh);
-
-                    // 2. Granular SQL Normalization Sync
-                    if (orgId) {
-                        const tableMap: Record<string, string> = {
-                            'cc_student_data': 'students',
-                            'cc_groups': 'groups',
-                            'cc_halls': 'halls',
-                            'cc_calendar_events': 'calendar_events',
-                            'cc_subscription_plans': 'subscription_plans',
-                            'cc_student_subscriptions': 'student_subscriptions',
-                            'cc_attendance_data': 'attendance_records',
-                            'cc_hall_rentals': 'hall_rentals',
-                            'cc_shop_products': 'inventory_products',
-                            'cc_shop_sales': 'sales',
-                            'cc_global_history': 'audit_logs',
-                            'cc_global_trash': 'trash'
-                        };
-
-                        // 1. PRIMARY METADATA SYNC (The "Anchor" record)
-                        // We MUST push the studio record FIRST because all other records (students, groups)
-                        // have a Foreign Key (org_id) that references this table.
-                        if (orgId && orgId.length > 30) {
-                            console.log('🛡️ [SyncPulse] Consolidating framework identity...');
-                            
-                            // A. Ensure Studio exists
-                            await pushEntityToCloud(orgId, 'studios', {
-                                id: orgId, 
-                                org_id: orgId,
-                                studio_slug: activeSlug,
-                                studio_name: freshSettings.studioName,
-                                logo_url: freshSettings.logoDataUrl || null,
-                                currency: freshSettings.currency || 'GEL',
-                                language: freshSettings.language || 'ka',
-                                timezone: freshSettings.timezone || 'Asia/Tbilisi',
-                                theme_key: freshSettings.themeKey || 'indigo',
-                                is_wizard_completed: freshSettings.isWizardCompleted || false,
-                                owner_info: freshSettings.owner_info || null,
-                                settings: {
-                                    notifications: freshSettings.notifications,
-                                    security: freshSettings.security,
-                                    sms_templates: freshSettings.sms_templates,
-                                    accentColor: freshSettings.accentColor,
-                                    pausePrices: freshSettings.pausePrices,
-                                    landingContent: freshSettings.landingContent
+                    // 2. OPERATIONAL DATA SYNC (The "Children" records)
+                    // Now that the 'parent' (Studio) exists, we can safely push students, groups, etc.
+                    console.log('📦 [SyncPulse] Committing operational updates...');
+                    
+                    const tableKeys = Object.keys(studioData);
+                    for (const k of tableKeys) {
+                        const baseKey = k.replace(`_${activeSlug}`, '').replace(`_${orgId}`, '');
+                        const tableName = tableMap[baseKey];
+                        
+                        if (tableName) {
+                            const data = studioData[k];
+                            if (Array.isArray(data)) {
+                                for (const item of data) {
+                                    await pushEntityToCloud(orgId, tableName, item);
                                 }
-                            });
-
-                            // B. Ensure User Profile is linked to this Org
-                            const supabase = (await import('@/lib/supabase/client')).createClient();
-                            const { data: { user } } = await supabase.auth.getUser();
-                            if (user) {
-                                await supabase.from('profiles').upsert({
-                                    id: user.id,
-                                    org_id: orgId,
-                                    updated_at: new Date().toISOString()
-                                });
-                            }
-
-                            // C. Sync Branches
-                            if (freshSettings.branches) {
-                                for (const b of freshSettings.branches) {
-                                    await pushEntityToCloud(orgId, 'branches', b);
+                            } else if (typeof data === 'object' && data !== null) {
+                                for (const item of Object.values(data)) {
+                                    await pushEntityToCloud(orgId, tableName, item);
                                 }
                             }
+                        }
+                    }
+                }
 
-                            // D. Sync Staff
-                            if (freshSettings.staff) {
-                                for (const s of freshSettings.staff) {
-                                    await pushEntityToCloud(orgId, 'staff', s);
-                                }
-                            }
+                // 3. Cloud Deletion Sync (Tombstone processing)
+                const deleteTableMap: Record<string, string> = {
+                    'cc_deleted_students': 'students',
+                    'cc_deleted_groups': 'groups',
+                    'cc_deleted_halls': 'halls',
+                    'cc_deleted_subscriptions': 'student_subscriptions',
+                    'cc_deleted_plans': 'subscription_plans',
+                    'cc_deleted_calendar': 'calendar_events',
+                    'cc_deleted_attendance': 'attendance_records'
+                };
 
-                            // 2. OPERATIONAL DATA SYNC (The "Children" records)
-                            // Now that the 'parent' (Studio) exists, we can safely push students, groups, etc.
-                            console.log('📦 [SyncPulse] Committing operational updates...');
-                            
-                            const tableKeys = Object.keys(studioData);
-                            for (const k of tableKeys) {
-                                const baseKey = k.replace(`_${activeSlug}`, '').replace(`_${orgId}`, '');
-                                const tableName = tableMap[baseKey];
-                                
-                                if (tableName) {
-                                    const data = studioData[k];
-                                    if (Array.isArray(data)) {
-                                        for (const item of data) {
-                                            await pushEntityToCloud(orgId, tableName, item);
-                                        }
-                                    } else if (typeof data === 'object' && data !== null) {
-                                        for (const item of Object.values(data)) {
-                                            await pushEntityToCloud(orgId, tableName, item);
-                                        }
+                const { deleteEntityFromCloud } = await import('@/lib/sync-store');
+                const keys = Object.keys(studioData);
+                for (const k of keys) {
+                    // 🚨 ROBUST MATCHING: Use startsWith to handle branch-prefixed tombstones
+                    const entry = Object.entries(deleteTableMap).find(([prefix]) => k.startsWith(prefix));
+                    
+                    if (entry && Array.isArray(studioData[k])) {
+                        const [prefix, tableName] = entry;
+                        const deletedIds = studioData[k] as string[];
+                        
+                        for (const id of deletedIds) {
+                            console.log(`🧹 [Purge] Requesting cloud deletion from ${tableName} for ID: ${id}`);
+                            const success = await deleteEntityFromCloud(orgId!, tableName, id);
+                            if (success) {
+                                console.log(`✅ [Purge] Successfully deleted from ${tableName}: ${id}`);
+                                // Local cleanup of the tombstone list
+                                const currentVal = localStorage.getItem(k);
+                                if (currentVal) {
+                                    const current = JSON.parse(currentVal);
+                                    if (Array.isArray(current)) {
+                                        const next = current.filter(cid => cid !== id);
+                                        if (next.length === 0) localStorage.removeItem(k);
+                                        else localStorage.setItem(k, JSON.stringify(next));
                                     }
                                 }
                             }
                         }
-
-                        // 3. Cloud Deletion Sync (Tombstone processing)
-                        const deleteTableMap: Record<string, string> = {
-                            'cc_deleted_students': 'students',
-                            'cc_deleted_groups': 'groups',
-                            'cc_deleted_halls': 'halls',
-                            'cc_deleted_subscriptions': 'student_subscriptions',
-                            'cc_deleted_plans': 'subscription_plans',
-                            'cc_deleted_calendar': 'calendar_events',
-                            'cc_deleted_attendance': 'attendance_records'
-                        };
-
-                        import('@/lib/sync-store').then(({ deleteEntityFromCloud }) => {
-                            Object.keys(studioData).forEach(k => {
-                                // 🚨 ROBUST MATCHING: Use startsWith to handle branch-prefixed tombstones
-                                const entry = Object.entries(deleteTableMap).find(([prefix]) => k.startsWith(prefix));
-                                
-                                if (entry && Array.isArray(studioData[k])) {
-                                    const [prefix, tableName] = entry;
-                                    const deletedIds = studioData[k] as string[];
-                                    
-                                    deletedIds.forEach(async (id) => {
-                                        console.log(`🧹 [Purge] Requesting cloud deletion from ${tableName} for ID: ${id}`);
-                                        const success = await deleteEntityFromCloud(orgId, tableName, id);
-                                        if (success) {
-                                            console.log(`✅ [Purge] Successfully deleted from ${tableName}: ${id}`);
-                                            // Local cleanup of the tombstone list
-                                            const currentVal = localStorage.getItem(k);
-                                            if (currentVal) {
-                                                const current = JSON.parse(currentVal);
-                                                if (Array.isArray(current)) {
-                                                    const next = current.filter(cid => cid !== id);
-                                                    if (next.length === 0) localStorage.removeItem(k);
-                                                    else localStorage.setItem(k, JSON.stringify(next));
-                                                }
-                                            }
-                                        }
-                                    });
-                                }
-                            });
-                        });
                     }
-                });
-            });
+                }
+            }
         }, 1500); // Increased to 1.5s to ensure local multi-key writes (like group + schedule) are finished
 
         return () => clearTimeout(timer);
