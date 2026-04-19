@@ -450,6 +450,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }
         }, 12000);
 
+        const timer = setTimeout(() => {
             import('@/lib/sync-store').then(({ fetchStaffFromCloud, pullStudioStateFromCloud }) => {
                 const targetScopeId = activeSlug; // CRITICAL: Always use slug for local mapping to match getScopedKey force 
                 Promise.all([
