@@ -515,14 +515,17 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     const freshSettings = loadSettings(settings.studioSlug!);
                     
                     pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, settings.orgId, isFresh).then(() => {
+                        console.log('🚀 [SyncPulse] Push successful for:', settings.studioSlug);
                         if (isFresh) localStorage.removeItem(`cc_is_fresh_${settings.studioSlug}`);
+                    }).catch(err => {
+                        console.error('❌ [SyncPulse] Push failed:', err);
                     });
                 });
             });
         }, 1500); // Increased to 1.5s to ensure local multi-key writes (like group + schedule) are finished
 
         return () => clearTimeout(timer);
-    }, [isLoaded, firstSyncDone, settings, pushCounter]);
+    }, [isLoaded, firstSyncDone, settings.studioSlug, settings.orgId, pushCounter]);
 
     // Realtime Pulse updates
     useEffect(() => {
@@ -652,9 +655,19 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing nuclear storage isolation (Scorched Earth v2.1).');
             
             scrubLocalStorage(profile.studio_slug!, profile.org_id);
-            setSettings(prev => saveSettings({ orgId: profile.org_id }, prev, prev.studioSlug));
+            setSettings(prev => ({ ...prev, orgId: profile.org_id }));
+            // We use direct setState instead of saveSettings here to avoid immediate recursion
+            if (typeof window !== 'undefined' && profile.studio_slug) {
+                const key = getScopedKey(STORAGE_KEY, profile.studio_slug);
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    data.orgId = profile.org_id;
+                    localStorage.setItem(key, JSON.stringify(data));
+                }
+            }
         }
-    }, [user?.email, profile, settings, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
+    }, [user?.email, profile?.id, profile?.org_id, profile?.studio_slug, settings.studioSlug, settings.orgId, settings.studioName, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
 
     useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);
 
