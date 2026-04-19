@@ -1,9 +1,4 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { useStudio } from '@/contexts/StudioContext';
-import { useUser } from '@/hooks/useUser';
-import { usePathname, useRouter } from 'next/navigation';
-import { ShieldAlert, Mail, Phone, LogOut } from 'lucide-react';
+import { Logo } from '@/components/ui/Logo';
 
 export function DashboardHydrationGuard({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
@@ -40,11 +35,15 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
     // Block until: Hydrated AND Auth Loaded AND Session Verified
     if (!mounted || authLoading || isVerified === null) {
         return (
-            <div className="min-h-screen bg-base flex flex-col items-center justify-center p-8 space-y-4">
-                <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">
-                    სესია მოწმდება...
-                </p>
+            <div className="min-h-screen bg-base flex flex-col items-center justify-center p-8">
+                <div className="h-[80vh] flex flex-col items-center justify-center gap-6">
+                    <Logo size={80} animated loading />
+                    <div className="text-center space-y-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                            ჩატვირთვა...
+                        </p>
+                    </div>
+                </div>
             </div>
         );
     }
