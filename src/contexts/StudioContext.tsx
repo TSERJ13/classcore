@@ -494,10 +494,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 const keys = Object.keys(localStorage);
                 
                 const authoritativeScopeId = settings.orgId || settings.studioSlug!;
+                const activeSlug = settings.studioSlug!;
+
                 keys.forEach(k => {
                     const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-                    // STRICT SCOPING: Only pick up keys belonging to the CURRENT authoritative silo
-                    const belongsToActiveSilo = k.endsWith(`_${authoritativeScopeId}`);
+                    // INCLUSIVE SCOPING: Pick up both slug-based discoveries and authoritative org-based data.
+                    // This ensures cc_studio_settings (slug-based) and operational data (org-based) both sync.
+                    const belongsToActiveSilo = k.endsWith(`_${activeSlug}`) || k.endsWith(`_${authoritativeScopeId}`);
                     
                     if (isSyncablePrefix && belongsToActiveSilo) {
                         try {
@@ -508,6 +511,11 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         }
                     }
                 });
+
+                const syncKeys = Object.keys(studioData);
+                if (syncKeys.length > 0) {
+                    console.log(`📡 [SyncPulse] Prepared data for: ${activeSlug} (${syncKeys.length} collections)`);
+                }
 
                 import('@/lib/sync-store').then(({ pushStudioStateToCloud }) => {
                     const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
