@@ -316,7 +316,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             syncTeacherGroups(newMember.id, `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name, newMember.assigned_group_ids || []);
             return saveSettings({ staff: nextStaff }, prev, prev.studioSlug);
         });
-    }, [markLocalUpdate, syncTeacherGroups]);
+        triggerPush();
+    }, [markLocalUpdate, syncTeacherGroups, triggerPush]);
 
     const removeStaff = useCallback((id: string) => {
         markLocalUpdate();
@@ -329,7 +330,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             const staff = (prev.staff || []).filter(s => s.id !== id);
             return saveSettings({ staff }, prev, prev.studioSlug);
         });
-    }, [activeBranchId, markLocalUpdate, syncTeacherGroups]);
+        triggerPush();
+    }, [activeBranchId, markLocalUpdate, syncTeacherGroups, triggerPush]);
 
     const updateStaff = useCallback((id: string, patch: Partial<StaffMember>) => {
         markLocalUpdate();
@@ -346,7 +348,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             });
             return saveSettings({ staff }, prev, prev.studioSlug);
         });
-    }, [markLocalUpdate, syncTeacherGroups]);
+        triggerPush();
+    }, [markLocalUpdate, syncTeacherGroups, triggerPush]);
 
     const addToTrash = useCallback((item: Omit<TrashItem, 'deletedAt' | 'deletedBy'>) => {
         setSettings(prev => {
