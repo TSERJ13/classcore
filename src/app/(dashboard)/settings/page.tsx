@@ -1,6 +1,5 @@
 'use client';
-
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
     Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2
@@ -17,6 +16,7 @@ import { cn, getInitials, compactSlugify, formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { Logo } from '@/components/ui/Logo';
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
