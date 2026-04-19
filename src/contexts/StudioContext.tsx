@@ -466,7 +466,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         });
 
         return () => {};
-    }, [activeSlug, settings.orgId]);
+    }, [settings.studioSlug, settings.orgId]);
 
     // Initial hydration from local storage
     useEffect(() => {
