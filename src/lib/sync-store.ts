@@ -638,7 +638,10 @@ export function triggerInstantSync() {
  */
 
 export async function pushEntityToCloud(orgId: string, table: string, entity: any) {
-    if (!orgId || !table || !entity) return;
+    if (!orgId || !table || !entity) {
+        if (!orgId && table) console.warn(`⚠️ [SyncStore] Skipping granular push to [${table}]: Missing OrgId`);
+        return;
+    }
     try {
         const supabase = createClient();
         const payload = { ...entity, org_id: orgId };

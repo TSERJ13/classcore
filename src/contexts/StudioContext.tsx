@@ -535,7 +535,15 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 import('@/lib/sync-store').then(({ pushStudioStateToCloud, pushEntityToCloud }) => {
                     const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
                     const freshSettings = loadSettings(settings.studioSlug!);
-                    const orgId = settings.orgId;
+                    let orgId = settings.orgId;
+
+                    // 0. AUTO-INITIALIZE OrgId (Safety Guard)
+                    // If we are in a non-demo studio and orgId is missing, generate one to enable sync.
+                    if (!orgId && settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge' && settings.studioSlug !== 'superadmin') {
+                        orgId = crypto.randomUUID();
+                        console.warn(`🚨 [StudioContext] OrgId missing for ${activeSlug}. Initializing unique ID: ${orgId}`);
+                        setSettings(prev => ({ ...prev, orgId }));
+                    }
 
                     // 1. Legacy Pulse (Maintain studio_settings for global framework items)
                     pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, orgId, isFresh);
