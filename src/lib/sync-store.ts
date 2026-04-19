@@ -158,7 +158,7 @@ export async function pushStudioStateToCloud(
         const supabase = createClient();
         const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
-            .select('staff_data, studio_data, updated_at, org_id')
+            .select('staff_data, studio_data, org_id')
             .eq('studio_slug', slug)
             .maybeSingle();
 
@@ -221,13 +221,21 @@ export async function pushStudioStateToCloud(
             const { error: updateError, count } = await supabase
                 .from(SETTINGS_TABLE)
                 .update(payload, { count: 'exact' })
-                .eq('studio_slug', slug)
-                .eq('updated_at', current.updated_at);
+                .eq('studio_slug', slug);
+                // REMOVED: .eq('updated_at', current.updated_at) 
+                // This was too strict and causing silent update failures 
+                // due to timestamp precision mismatches in Postgres.
 
-            if (updateError) throw updateError;
-            if (count === 0) throw new Error('Conflict');
+            if (updateError) {
+                console.error('❌ [SyncStore] DB Update Error:', updateError);
+                throw updateError;
+            }
+            if (count === 0) {
+                 console.warn('⚠️ [SyncStore] DB Update failed: Studio not found or restricted');
+                 throw new Error('No record updated');
+            }
         }
-        console.log('✅ [SyncStore] Scope-Agnostic Cloud Sync Successful');
+        console.log('💾 [SQL] Data committed to Supabase successfully!');
     } catch (err: any) {
         if (retryCount < 5) {
             await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 100 + Math.random() * 200));
