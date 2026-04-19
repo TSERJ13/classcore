@@ -221,8 +221,8 @@ export async function pushStudioStateToCloud(
         const payload: any = {
             studio_slug: slug,
             org_id: orgId || current?.org_id || '',
-            staff_data: unifiedData, // Unified blob
-            staff_emails: staffEmails,
+            owner_info: { staff: finalStaff },
+            settings: finalCleaned,
             updated_at: nextUpdatedAt
         };
 
