@@ -482,7 +482,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             clearTimeout(safetyTimer);
         };
     }, [defaultSlug]);
-
     // Automatic Cloud Sync Pulse
     useEffect(() => {
         const timer = setTimeout(() => {
