@@ -50,8 +50,6 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
     const isEdit = !!teacher;
 
-    console.log('TeacherModal v2.3.2 - Live Check');
-
     useEffect(() => {
         if (open) {
             setForm(teacher ? { ...teacher } : { ...EMPTY, role: 'teacher', email: '', password: '' });
