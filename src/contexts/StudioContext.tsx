@@ -494,7 +494,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
         }
         
-        cleanupRegistry();
+        // Removed cleanupRegistry: It was too aggressive and wiped data during early hydration
     }, [defaultSlug]);
     // Automatic Cloud Sync Pulse
     useEffect(() => {

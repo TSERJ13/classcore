@@ -25,7 +25,12 @@ export function scrubLocalStorage(activeSlug: string, orgId?: string) {
     
     console.log(`🛡️ [ScorchedEarth] Scrubbing localStorage for [Slug: ${activeSlug}] [OrgId: ${orgId || 'None'}]`);
     
-    Object.keys(localStorage).forEach(key => {
+    // SAFEGUARD: Never scrub if we are in demo mode or unidentified.
+    // This prevents accidental wiping of data during early hydration or between session switches.
+    if (activeSlug === 'demo.classcore.ge' || activeSlug === 'superadmin') {
+        console.log('🛡️ [ScorchedEarth] Scrubbing bypassed: Protected system slug.');
+        return;
+    }
         if (!key.startsWith('cc_')) return;
         
         // 1. Whitelist Check
@@ -218,24 +223,16 @@ export async function pushStudioStateToCloud(
             if (insertError && insertError.code === '23505') throw new Error('Conflict');
             if (insertError) throw insertError;
         } else {
-            const { error: updateError, count } = await supabase
+            const { error: upsertError } = await supabase
                 .from(SETTINGS_TABLE)
-                .update(payload, { count: 'exact' })
-                .eq('studio_slug', slug);
-                // REMOVED: .eq('updated_at', current.updated_at) 
-                // This was too strict and causing silent update failures 
-                // due to timestamp precision mismatches in Postgres.
+                .upsert(payload, { onConflict: 'studio_slug' });
 
-            if (updateError) {
-                console.error('❌ [SyncStore] DB Update Error:', updateError);
-                throw updateError;
-            }
-            if (count === 0) {
-                 console.warn('⚠️ [SyncStore] DB Update failed: Studio not found or restricted');
-                 throw new Error('No record updated');
+            if (upsertError) {
+                console.error('❌ [SyncStore] DB Upsert Error:', upsertError);
+                throw upsertError;
             }
         }
-        console.log('💾 [SQL] Data committed to Supabase successfully!');
+        console.log('💾 [SQL] Data committed to Supabase successfully via Upsert!');
     } catch (err: any) {
         if (retryCount < 5) {
             await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 100 + Math.random() * 200));
