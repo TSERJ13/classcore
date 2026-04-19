@@ -442,31 +442,42 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         // --- OPTIMISTIC BACKGROUND HYDRATION ---
         console.log('🔄 [StudioContext] Background sync started for:', activeSlug);
+        lastSyncedSlugRef.current = activeSlug; // 🚨 BRAKE: Prevent infinite loops
         
         import('@/lib/sync-store').then(async ({ pullStudioStateFromCloud }) => {
             const authoritativeId = settings.orgId || activeSlug;
             const cloudState = await pullStudioStateFromCloud(activeSlug, authoritativeId);
             
-            if (cloudState) {
+            if (cloudState && cloudState.studio_data) {
                 console.log('✅ [StudioContext] Remote state integrated');
-                setSettings(prev => ({
-                    ...prev,
-                    orgId: cloudState.org_id || prev.orgId
-                }));
+                
+                // If the cloud has a defined org_id, ensure we adopt it locally
+                if (cloudState.org_id && cloudState.org_id !== settings.orgId) {
+                    setSettings(prev => ({
+                        ...prev,
+                        orgId: cloudState.org_id
+                    }));
+                }
                 
                 setInitialStaff(cloudState.staff_data);
                 setInitialStudioData(cloudState.studio_data);
                 
                 // Silent hydration of localStorage
                 Object.entries(cloudState.studio_data).forEach(([key, val]) => {
-                    if (val) localStorage.setItem(key, JSON.stringify(val));
+                    if (val) {
+                        try {
+                            localStorage.setItem(key, JSON.stringify(val));
+                        } catch (e) {
+                            console.error(`⚠️ [Sync] Failed to save key [${key}] to localStorage:`, e);
+                        }
+                    }
                 });
             }
             setFirstSyncDone(true);
         });
 
         return () => {};
-    }, [settings.studioSlug, settings.orgId]);
+    }, [settings.studioSlug, firstSyncDone]); // 🚨 DECOUPLED: Removed settings.orgId to break the loop
 
     // Initial hydration from local storage
     useEffect(() => {
