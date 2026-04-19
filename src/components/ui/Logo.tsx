@@ -37,7 +37,7 @@ export const Logo: React.FC<LogoProps> = ({
             <stop offset="0%" style={{ stopColor: '#6366f1', stopOpacity: 1 }} />
             <stop offset="100%" style={{ stopColor: '#4f46e5', stopOpacity: 1 }} />
           </linearGradient>
-          
+          <style>{`
             @keyframes slow-spin {
               from { transform: rotate(0deg); }
               to { transform: rotate(360deg); }
