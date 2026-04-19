@@ -256,26 +256,101 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId?: str
 
     try {
         const supabase = createClient();
-        const { data, error } = await supabase
+        
+        // 1. Fetch Main Studio Record (The Framework)
+        const { data: studioRecord, error: studioError } = await supabase
             .from(SETTINGS_TABLE)
             .select('staff_data, org_id')
             .eq('studio_slug', slug)
             .single();
 
-        if (error) throw error;
+        if (studioError) throw studioError;
         
-        // Unpack unified blob
-        const unified = data.staff_data || {};
-        const staff = unified._staff || (Array.isArray(unified) ? unified : []);
-        const studio_data = unified._operations || {};
+        const orgId = studioRecord.org_id;
+        const unified = studioRecord.staff_data || {};
+        
+        // 2. Hydrate Base Framework
+        let staff = unified._staff || (Array.isArray(unified) ? unified : []);
+        const base_studio_data = unified._operations || {};
+        
+        // 3. UNIFIED SQL PULL: If we have an OrgId, fetch all granular tables
+        if (orgId) {
+            console.log(`📡 [SyncStore] Performing Unified SQL Pull for Org: ${orgId}`);
+            
+            const tables = [
+                { id: 'students', key: 'cc_student_data' },
+                { id: 'groups', key: 'cc_groups' },
+                { id: 'halls', key: 'cc_halls' },
+                { id: 'calendar_events', key: 'cc_calendar_events' },
+                { id: 'subscription_plans', key: 'cc_subscription_plans' },
+                { id: 'student_subscriptions', key: 'cc_student_subscriptions' },
+                { id: 'attendance_records', key: 'cc_attendance_data' },
+                { id: 'hall_rentals', key: 'cc_hall_rentals' },
+                { id: 'inventory_products', key: 'cc_shop_products' },
+                { id: 'sales', key: 'cc_shop_sales' },
+                { id: 'trash', key: 'cc_global_trash' },
+                { id: 'audit_logs', key: 'cc_global_history' }
+            ];
 
-        const scopedData = denormalizeData(studio_data, targetScopeId);
+            const fetches = tables.map(t => 
+                supabase.from(t.id).select('*').eq('org_id', orgId)
+            );
+
+            // Also fetch Branches and Staff specially
+            const extraFetches = [
+                supabase.from('branches').select('*').eq('org_id', orgId),
+                supabase.from('staff').select('*').eq('org_id', orgId),
+                supabase.from('studios').select('*').eq('org_id', orgId).maybeSingle()
+            ];
+
+            const [tableResults, extraResults] = await Promise.all([
+                Promise.all(fetches),
+                Promise.all(extraFetches)
+            ]);
+
+            // Merge Granular Operational Data into Studio Data
+            tableResults.forEach((res, index) => {
+                if (res.data && res.data.length > 0) {
+                    const key = tables[index].key;
+                    base_studio_data[key] = res.data;
+                }
+            });
+
+            // Merge Branches
+            if (extraResults[0].data && extraResults[0].data.length > 0) {
+                base_studio_data['branches'] = extraResults[0].data;
+            }
+
+            // Merge Staff
+            if (extraResults[1].data && extraResults[1].data.length > 0) {
+                staff = extraResults[1].data;
+            }
+
+            // Merge Studio Metadata (Name, Logo, etc.)
+            if (extraResults[2].data) {
+                const s = extraResults[2].data;
+                base_studio_data['studioName'] = s.studio_name;
+                base_studio_data['logoDataUrl'] = s.logo_url;
+                base_studio_data['themeKey'] = s.theme_key;
+                base_studio_data['currency'] = s.currency;
+                base_studio_data['language'] = s.language;
+                base_studio_data['timezone'] = s.timezone;
+                // Settings blob
+                if (s.settings) {
+                    Object.assign(base_studio_data, s.settings);
+                }
+            }
+        }
+
+        const scopedData = denormalizeData(base_studio_data, targetScopeId);
+        
         return { 
             staff_data: staff, 
             studio_data: scopedData,
-            org_id: data.org_id 
+            org_id: orgId 
         };
-    } catch {
+    } catch (err) {
+        console.error('❌ [SyncStore] Unified Pull failed:', err);
         return null;
     }
 }
