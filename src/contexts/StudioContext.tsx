@@ -77,6 +77,15 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         let changed = false;
 
         console.log('📡 [StudioContext] Converging state for:', activeSlug);
+        
+        // 🚨 CRITICAL PROTECTION: If we just updated locally, IGNORE cloud updates for a window
+        // to prevent an empty cloud pull from overwriting our new local data before it pushes.
+        const lastUpdate = parseInt(localStorage.getItem('cc_last_local_update') || '0');
+        const now = Date.now();
+        if (now - lastUpdate < 8000) { // 8 second protection window
+            console.warn('🛡️ [StudioContext] Local update is very fresh. Blocking cloud overwrite to prevent data loss.');
+            return false;
+        }
 
         // 1. Merge Staff List
         const local = loadSettings(activeSlug);
@@ -663,19 +672,27 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing nuclear storage isolation (Scorched Earth v2.1).');
             
             scrubLocalStorage(profile.studio_slug!, profile.org_id);
-            setSettings(prev => ({ ...prev, orgId: profile.org_id }));
+            setSettings(prev => {
+                if (prev.orgId === profile.org_id) return prev;
+                return { ...prev, orgId: profile.org_id };
+            });
+            
             // We use direct setState instead of saveSettings here to avoid immediate recursion
             if (typeof window !== 'undefined' && profile.studio_slug) {
                 const key = getScopedKey(STORAGE_KEY, profile.studio_slug);
                 const raw = localStorage.getItem(key);
                 if (raw) {
-                    const data = JSON.parse(raw);
-                    data.orgId = profile.org_id;
-                    localStorage.setItem(key, JSON.stringify(data));
+                    try {
+                        const data = JSON.parse(raw);
+                        if (data.orgId !== profile.org_id) {
+                            data.orgId = profile.org_id;
+                            localStorage.setItem(key, JSON.stringify(data));
+                        }
+                    } catch {}
                 }
             }
         }
-    }, [user?.email, profile?.id, profile?.org_id, profile?.studio_slug, settings.studioSlug, settings.orgId, settings.studioName, setStudioName, setStudioSlug, isLoaded, setOwnerInfo]);
+    }, [user?.email, profile?.id, profile?.org_id, profile?.studio_slug, settings.studioSlug, settings.orgId, settings.studioName, isLoaded]);
 
     useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);
 
