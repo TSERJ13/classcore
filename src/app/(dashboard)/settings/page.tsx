@@ -335,7 +335,7 @@ export default function SettingsPage() {
     const ThemeBgCls = theme.bg;
     const ThemeBorderCls = theme.border;
 
-    if (!isLoaded) {
+    if (!isLoaded || !profile) {
         return (
             <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
                 <div className="h-10 bg-muted/5 rounded-2xl w-1/4 animate-pulse ml-2" />
