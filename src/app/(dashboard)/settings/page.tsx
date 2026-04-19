@@ -1385,14 +1385,8 @@ export default function SettingsPage() {
                 </Section>
             )}
 
-            <div className="flex flex-col items-center justify-center gap-2 py-4">
-                <div className="mt-4">
-                    {/* Visual spacer removed */}
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 scale-90">
-                    <Zap className="w-2.5 h-2.5 text-indigo-500" />
-                    <span className="text-[8px] font-black tracking-[0.3em] text-indigo-500 uppercase">System Integrity: Scorched Earth v2.1</span>
-                </div>
+            <div className="flex flex-col items-center justify-center gap-2 py-8">
+                {/* Footer spacer */}
             </div>
         </div>
     );

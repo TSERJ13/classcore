@@ -732,7 +732,7 @@ export default function DashboardPage() {
 
     if (!isLoaded || (loading && !isDemo)) {
         return (
-            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 animate-pulse">
+            <div className="h-[80vh] flex flex-col items-center justify-center gap-6">
                 <Logo size={80} animated loading />
                 <div className="text-center space-y-2">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading Dashboard...'}</p>

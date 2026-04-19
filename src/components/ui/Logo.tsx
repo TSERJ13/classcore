@@ -20,7 +20,7 @@ export const Logo: React.FC<LogoProps> = ({
     <div 
       className={cn(
         "relative flex items-center justify-center transition-all duration-700", 
-        loading && "animate-pulse scale-110", 
+        loading && "animate-slow-spin opacity-80", 
         className
       )} 
       style={{ width: size, height: size }}
@@ -38,7 +38,10 @@ export const Logo: React.FC<LogoProps> = ({
             <stop offset="100%" style={{ stopColor: '#4f46e5', stopOpacity: 1 }} />
           </linearGradient>
           
-          <style>{`
+            @keyframes slow-spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
             @keyframes draw-c {
               0% { stroke-dashoffset: 200; opacity: 1; }
               50% { opacity: 1; }
@@ -52,6 +55,9 @@ export const Logo: React.FC<LogoProps> = ({
               0%, 100% { transform: translate(0, 0) rotate(0deg); }
               33% { transform: translate(3px, -3px) rotate(1deg); }
               66% { transform: translate(-2px, 2px) rotate(-1deg); }
+            }
+            .animate-slow-spin {
+              animation: slow-spin 8s linear infinite;
             }
             .animate-c {
               stroke-dasharray: 200;
