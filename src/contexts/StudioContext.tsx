@@ -577,37 +577,72 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                                     Object.values(data).forEach(item => pushEntityToCloud(orgId, tableName, item));
                                 }
                             }
-                        });
-                        
-                        // Sync branches and staff specifically
-                        if (freshSettings.branches) {
-                            freshSettings.branches.forEach(b => pushEntityToCloud(orgId, 'branches', b));
-                        }
-                        if (freshSettings.staff) {
-                            freshSettings.staff.forEach(s => pushEntityToCloud(orgId, 'staff', s));
+                        // 2. Metadata Sync (Studios, Branches, Staff)
+                        if (orgId) {
+                            // Sync branches and staff specifically
+                            if (freshSettings.branches) {
+                                freshSettings.branches.forEach(b => pushEntityToCloud(orgId, 'branches', b));
+                            }
+                            if (freshSettings.staff) {
+                                freshSettings.staff.forEach(s => pushEntityToCloud(orgId, 'staff', s));
+                            }
+
+                            // Sync base studio metadata
+                            pushEntityToCloud(orgId, 'studios', {
+                                id: orgId, // Using orgId as the UUID primary key for the studio record
+                                org_id: orgId,
+                                studio_slug: activeSlug,
+                                studio_name: freshSettings.studioName,
+                                logo_url: freshSettings.logoDataUrl,
+                                currency: freshSettings.currency,
+                                language: freshSettings.language,
+                                timezone: freshSettings.timezone,
+                                theme_key: freshSettings.themeKey,
+                                is_wizard_completed: freshSettings.isWizardCompleted,
+                                owner_info: freshSettings.owner_info,
+                                settings: {
+                                    notifications: freshSettings.notifications,
+                                    security: freshSettings.security,
+                                    sms_templates: freshSettings.sms_templates,
+                                    accentColor: freshSettings.accentColor,
+                                    pausePrices: freshSettings.pausePrices,
+                                    landingContent: freshSettings.landingContent
+                                }
+                            });
                         }
 
-                        // Sync base studio metadata
-                        pushEntityToCloud(orgId, 'studios', {
-                            id: orgId, // Using orgId as the UUID primary key for the studio record
-                            org_id: orgId,
-                            studio_slug: activeSlug,
-                            studio_name: freshSettings.studioName,
-                            logo_url: freshSettings.logoDataUrl,
-                            currency: freshSettings.currency,
-                            language: freshSettings.language,
-                            timezone: freshSettings.timezone,
-                            theme_key: freshSettings.themeKey,
-                            is_wizard_completed: freshSettings.isWizardCompleted,
-                            owner_info: freshSettings.owner_info,
-                            settings: {
-                                notifications: freshSettings.notifications,
-                                security: freshSettings.security,
-                                sms_templates: freshSettings.sms_templates,
-                                accentColor: freshSettings.accentColor,
-                                pausePrices: freshSettings.pausePrices,
-                                landingContent: freshSettings.landingContent
-                            }
+                        // 3. Cloud Deletion Sync (Tombstone processing)
+                        const deleteTableMap: Record<string, string> = {
+                            'cc_deleted_students': 'students',
+                            'cc_deleted_groups': 'groups',
+                            'cc_deleted_halls': 'halls',
+                            'cc_deleted_subscriptions': 'student_subscriptions',
+                            'cc_deleted_plans': 'subscription_plans',
+                            'cc_deleted_calendar': 'calendar_events',
+                            'cc_deleted_attendance': 'attendance_records'
+                        };
+
+                        import('@/lib/sync-store').then(({ deleteEntityFromCloud }) => {
+                            Object.keys(studioData).forEach(k => {
+                                const baseKey = k.replace(`_${activeSlug}`, '').replace(`_${orgId}`, '');
+                                const tableName = deleteTableMap[baseKey];
+                                
+                                if (tableName && Array.isArray(studioData[k])) {
+                                    const deletedIds = studioData[k] as string[];
+                                    deletedIds.forEach(async (id) => {
+                                        const success = await deleteEntityFromCloud(orgId, tableName, id);
+                                        if (success) {
+                                            // Optional: Local cleanup of the tombstone list
+                                            const current = JSON.parse(localStorage.getItem(k) || '[]');
+                                            if (Array.isArray(current)) {
+                                                const next = current.filter(cid => cid !== id);
+                                                if (next.length === 0) localStorage.removeItem(k);
+                                                else localStorage.setItem(k, JSON.stringify(next));
+                                            }
+                                        }
+                                    });
+                                }
+                            });
                         });
                     }
                 });

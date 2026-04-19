@@ -663,8 +663,8 @@ export async function pushEntityToCloud(orgId: string, table: string, entity: an
     }
 }
 
-export async function deleteEntityFromCloud(orgId: string, table: string, id: string) {
-    if (!orgId || !table || !id) return;
+export async function deleteEntityFromCloud(orgId: string, table: string, id: string): Promise<boolean> {
+    if (!orgId || !table || !id) return false;
     try {
         const supabase = createClient();
         const { error } = await supabase
@@ -675,8 +675,10 @@ export async function deleteEntityFromCloud(orgId: string, table: string, id: st
 
         if (error) throw error;
         console.log(`✅ [SyncStore] Granular delete from ${table} successful: ${id}`);
+        return true;
     } catch (err) {
         console.error(`❌ [SyncStore] Granular delete from ${table} failed:`, err);
+        return false;
     }
 }
 
