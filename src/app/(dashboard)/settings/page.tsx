@@ -1386,8 +1386,8 @@ export default function SettingsPage() {
             )}
 
             <div className="flex flex-col items-center justify-center gap-2 py-4">
-                <div className="mt-8 mb-4">
-                    <span className="opacity-0">.</span>
+                <div className="mt-4">
+                    {/* Visual spacer removed */}
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 scale-90">
                     <Zap className="w-2.5 h-2.5 text-indigo-500" />

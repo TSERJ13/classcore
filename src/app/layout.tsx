@@ -49,7 +49,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </head>
             <body className="min-h-screen bg-base antialiased font-sans">
                     <CacheBuster />
-                    <span className="opacity-0">.</span>
                     <LanguageProvider defaultLang={activeLang}>
                         <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
                             <ConfirmProvider>
