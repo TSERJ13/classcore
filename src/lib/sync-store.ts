@@ -219,8 +219,10 @@ export async function pushStudioStateToCloud(
         };
 
         const payload: any = {
-            studio_slug: slug,
+            id: orgId || current?.org_id || current?.id, // Ensure consistent primary key
             org_id: orgId || current?.org_id || '',
+            studio_slug: slug,
+            studio_name: studioData.studioName || current?.studio_name || 'My Studio',
             owner_info: { staff: finalStaff },
             settings: finalCleaned,
             updated_at: nextUpdatedAt
@@ -233,7 +235,7 @@ export async function pushStudioStateToCloud(
         } else {
             const { error: upsertError } = await supabase
                 .from(SETTINGS_TABLE)
-                .upsert(payload, { onConflict: 'studio_slug' });
+                .upsert(payload, { onConflict: 'id' }); // Conflict on ID is safer for granular model
 
             if (upsertError) {
                 console.error('❌ [SyncStore] DB Upsert Error:', upsertError);
