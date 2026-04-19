@@ -451,6 +451,20 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             if (cloudState && cloudState.studio_data) {
                 console.log('✅ [StudioContext] Remote state integrated');
                 
+                const authoritativeId = cloudState.org_id || settings.orgId || activeSlug;
+
+                // 🚨 PROFILE SYNC: Grant the current user access to this Org in Supabase
+                const supabase = (await import('@/lib/supabase/client')).createClient();
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user && authoritativeId && authoritativeId.length > 30) { // Ensure it's a UUID
+                    console.log('🛡️ [StudioContext] Syncing user profile for OrgId:', authoritativeId);
+                    await supabase.from('profiles').upsert({
+                        id: user.id,
+                        org_id: authoritativeId,
+                        updated_at: new Date().toISOString()
+                    });
+                }
+                
                 // If the cloud has a defined org_id, ensure we adopt it locally
                 if (cloudState.org_id && cloudState.org_id !== settings.orgId) {
                     setSettings(prev => ({
@@ -552,43 +566,25 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                             'cc_global_trash': 'trash'
                         };
 
-                        Object.keys(studioData).forEach(k => {
-                            const baseKey = k.replace(`_${activeSlug}`, '').replace(`_${orgId}`, '');
-                            const tableName = tableMap[baseKey];
-                            if (tableName) {
-                                const data = studioData[k];
-                                if (Array.isArray(data)) {
-                                    data.forEach(item => pushEntityToCloud(orgId, tableName, item));
-                                } else if (typeof data === 'object' && data !== null) {
-                                    // Handle map-based structures (like student_data with IDs as keys)
-                                    Object.values(data).forEach(item => pushEntityToCloud(orgId, tableName, item));
-                                }
-                            }
-                        });
-
-                        // 2. Metadata Sync (Studios, Branches, Staff)
-                        if (orgId) {
-                            // Sync branches and staff specifically
-                            if (freshSettings.branches) {
-                                freshSettings.branches.forEach(b => pushEntityToCloud(orgId, 'branches', b));
-                            }
-                            if (freshSettings.staff) {
-                                freshSettings.staff.forEach(s => pushEntityToCloud(orgId, 'staff', s));
-                            }
-
-                            // Sync base studio metadata
-                            pushEntityToCloud(orgId, 'studios', {
-                                id: orgId, // Using orgId as the UUID primary key for the studio record
+                        // 1. PRIMARY METADATA SYNC (The "Anchor" record)
+                        // We MUST push the studio record FIRST because all other records (students, groups)
+                        // have a Foreign Key (org_id) that references this table.
+                        if (orgId && orgId.length > 30) {
+                            console.log('🛡️ [SyncPulse] Consolidating framework identity...');
+                            
+                            // A. Ensure Studio exists
+                            await pushEntityToCloud(orgId, 'studios', {
+                                id: orgId, 
                                 org_id: orgId,
                                 studio_slug: activeSlug,
                                 studio_name: freshSettings.studioName,
-                                logo_url: freshSettings.logoDataUrl,
-                                currency: freshSettings.currency,
-                                language: freshSettings.language,
-                                timezone: freshSettings.timezone,
-                                theme_key: freshSettings.themeKey,
-                                is_wizard_completed: freshSettings.isWizardCompleted,
-                                owner_info: freshSettings.owner_info,
+                                logo_url: freshSettings.logoDataUrl || null,
+                                currency: freshSettings.currency || 'GEL',
+                                language: freshSettings.language || 'ka',
+                                timezone: freshSettings.timezone || 'Asia/Tbilisi',
+                                theme_key: freshSettings.themeKey || 'indigo',
+                                is_wizard_completed: freshSettings.isWizardCompleted || false,
+                                owner_info: freshSettings.owner_info || null,
                                 settings: {
                                     notifications: freshSettings.notifications,
                                     security: freshSettings.security,
@@ -598,6 +594,54 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                                     landingContent: freshSettings.landingContent
                                 }
                             });
+
+                            // B. Ensure User Profile is linked to this Org
+                            const supabase = (await import('@/lib/supabase/client')).createClient();
+                            const { data: { user } } = await supabase.auth.getUser();
+                            if (user) {
+                                await supabase.from('profiles').upsert({
+                                    id: user.id,
+                                    org_id: orgId,
+                                    updated_at: new Date().toISOString()
+                                });
+                            }
+
+                            // C. Sync Branches
+                            if (freshSettings.branches) {
+                                for (const b of freshSettings.branches) {
+                                    await pushEntityToCloud(orgId, 'branches', b);
+                                }
+                            }
+
+                            // D. Sync Staff
+                            if (freshSettings.staff) {
+                                for (const s of freshSettings.staff) {
+                                    await pushEntityToCloud(orgId, 'staff', s);
+                                }
+                            }
+
+                            // 2. OPERATIONAL DATA SYNC (The "Children" records)
+                            // Now that the 'parent' (Studio) exists, we can safely push students, groups, etc.
+                            console.log('📦 [SyncPulse] Committing operational updates...');
+                            
+                            const tableKeys = Object.keys(studioData);
+                            for (const k of tableKeys) {
+                                const baseKey = k.replace(`_${activeSlug}`, '').replace(`_${orgId}`, '');
+                                const tableName = tableMap[baseKey];
+                                
+                                if (tableName) {
+                                    const data = studioData[k];
+                                    if (Array.isArray(data)) {
+                                        for (const item of data) {
+                                            await pushEntityToCloud(orgId, tableName, item);
+                                        }
+                                    } else if (typeof data === 'object' && data !== null) {
+                                        for (const item of Object.values(data)) {
+                                            await pushEntityToCloud(orgId, tableName, item);
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         // 3. Cloud Deletion Sync (Tombstone processing)
