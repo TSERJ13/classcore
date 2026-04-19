@@ -161,9 +161,8 @@ export async function pushStudioStateToCloud(
         scrubLocalStorage(slug, orgId);
 
         const supabase = createClient();
-        const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
-            .select('staff_data, studio_data, org_id')
+            .select('staff_data, org_id') // studio_data column doesn't exist in DB
             .eq('studio_slug', slug)
             .maybeSingle();
 
@@ -209,11 +208,19 @@ export async function pushStudioStateToCloud(
             ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
         ]));
 
+        // 🚨 SCHEMA ALIGNMENT: 
+        // Since the 'studio_data' column is missing in the PRODUCTION DB, 
+        // we consolidate EVERYTHING into 'staff_data' as a unified storage blob.
+        // This prevents data loss on refresh.
+        const unifiedData = {
+            _staff: finalStaff,
+            _operations: finalCleaned
+        };
+
         const payload: any = {
             studio_slug: slug,
             org_id: orgId || current?.org_id || '',
-            staff_data: finalStaff,
-            studio_data: finalCleaned, 
+            staff_data: unifiedData, // Unified blob
             staff_emails: staffEmails,
             updated_at: nextUpdatedAt
         };
@@ -249,19 +256,22 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId?: str
         const supabase = createClient();
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
-            .select('staff_data, studio_data, updated_at, org_id')
+            .select('staff_data, org_id')
             .eq('studio_slug', slug)
-            .maybeSingle();
+            .single();
 
-        if (error || !data) return null;
+        if (error) throw error;
+        
+        // Unpack unified blob
+        const unified = data.staff_data || {};
+        const staff = unified._staff || (Array.isArray(unified) ? unified : []);
+        const studio_data = unified._operations || {};
 
-        // Denormalize cloud data using the device's specific scope ID (Slug or OrgId)
-        const scopedData = denormalizeData(data.studio_data || {}, targetScopeId);
-
-        return {
-            staff_data: (data.staff_data || []) as StaffMember[],
+        const scopedData = denormalizeData(studio_data, targetScopeId);
+        return { 
+            staff_data: staff, 
             studio_data: scopedData,
-            org_id: data.org_id
+            org_id: data.org_id 
         };
     } catch {
         return null;
