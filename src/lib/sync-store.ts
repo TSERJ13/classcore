@@ -162,6 +162,8 @@ export async function pushStudioStateToCloud(
         scrubLocalStorage(slug, orgId);
 
         const supabase = createClient();
+        const { SYNC_COLLECTIONS } = await import('@/lib/utils');
+        
         const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
             .select('staff_data, org_id') // studio_data column doesn't exist in DB
@@ -199,10 +201,17 @@ export async function pushStudioStateToCloud(
             } else {
                 console.warn(`🧹 [SyncStore] Scrubbed legacy cloud artifact: ${k}`);
             }
+        // 🚨 GHOST KILLER: Explicitly exclude operational collections from the legacy JSON blob.
+        // We only want to store framework metadata (logo, name, theme) in the blob now.
+        const blobOnlyData: Record<string, any> = {};
+        Object.keys(cleanedStudioData).forEach(k => {
+            const isOperational = SYNC_COLLECTIONS.some(p => k.startsWith(p));
+            if (!isOperational) {
+                blobOnlyData[k] = cleanedStudioData[k];
+            }
         });
         
-        // Ensure even the cleanedStudioData is truly clean of artifacts
-        const finalCleaned = cleanedStudioData;
+        const finalCleaned = blobOnlyData;
 
         const nextUpdatedAt = new Date().toISOString();
         const staffEmails = Array.from(new Set([
@@ -335,9 +344,15 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId?: str
                 base_studio_data['currency'] = s.currency;
                 base_studio_data['language'] = s.language;
                 base_studio_data['timezone'] = s.timezone;
-                // Settings blob
+                // Settings blob (Careful merge: Don't let the blob overwrite granular SQL data)
                 if (s.settings) {
-                    Object.assign(base_studio_data, s.settings);
+                    Object.keys(s.settings).forEach(k => {
+                        const isOperational = SYNC_COLLECTIONS.some(p => k.startsWith(p));
+                        // ONLY allow non-operational settings to be assigned from the blob
+                        if (!isOperational) {
+                            base_studio_data[k] = s.settings[k];
+                        }
+                    });
                 }
             }
         }
