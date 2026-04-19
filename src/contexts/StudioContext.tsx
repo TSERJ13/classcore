@@ -499,13 +499,50 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         setSettings(local);
         setIsLoaded(true);
 
+        const syncIdentity = async () => {
+            if (!local.studioSlug || local.studioSlug === 'demo.classcore.ge' || local.studioSlug === 'superadmin') return;
+            
+            try {
+                const supabase = (await import('@/lib/supabase/client')).createClient();
+                const { data: cloudStudio } = await supabase
+                    .from('studios')
+                    .select('org_id')
+                    .eq('studio_slug', local.studioSlug)
+                    .maybeSingle();
+
+                if (cloudStudio?.org_id && cloudStudio.org_id !== local.orgId) {
+                    console.warn(`🆔 [StudioContext] Identity mismatch detected. Cloud: ${cloudStudio.org_id}, Local: ${local.orgId}`);
+                    
+                    // 1. MIGRATE LOCAL KEYS: Rename all cc_*_OLDID to cc_*_NEWID
+                    const oldId = local.orgId;
+                    const newId = cloudStudio.org_id;
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(k => {
+                        if (oldId && k.endsWith(`_${oldId}`)) {
+                            const newKey = k.replace(`_${oldId}`, `_${newId}`);
+                            localStorage.setItem(newKey, localStorage.getItem(k)!);
+                            localStorage.removeItem(k);
+                        }
+                    });
+
+                    // 2. Update settings and trigger re-hydration
+                    const nextSettings = { ...local, orgId: newId };
+                    saveSettings(local.studioSlug, nextSettings);
+                    setSettings(nextSettings);
+                    console.log(`✅ [StudioContext] Identity migrated to cloud authoritative ID: ${newId}`);
+                }
+            } catch (err) {
+                console.error('❌ [StudioContext] Identity sync failed:', err);
+            }
+        };
+
+        syncIdentity();
+
         if (typeof window !== 'undefined' && local.studioSlug) {
             const savedBranch = localStorage.getItem(`cc_active_branch_${local.studioSlug}`);
             if (savedBranch) setActiveBranchIdState(savedBranch);
             else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
         }
-        
-        // Removed cleanupRegistry: It was too aggressive and wiped data during early hydration
     }, [defaultSlug]);
     // Automatic Cloud Sync Pulse
     useEffect(() => {
@@ -541,9 +578,18 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             // 0. AUTO-INITIALIZE OrgId (Safety Guard)
             // If we are in a non-demo studio and orgId is missing, generate one to enable sync.
             if (!orgId && settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge' && settings.studioSlug !== 'superadmin') {
-                orgId = crypto.randomUUID();
-                console.warn(`🚨 [StudioContext] OrgId missing for ${activeSlug}. Initializing unique ID: ${orgId}`);
-                setSettings(prev => ({ ...prev, orgId }));
+                // Check cloud first one last time to prevent accidental new generation
+                const supabase = (await import('@/lib/supabase/client')).createClient();
+                const { data: cloudStudio } = await supabase.from('studios').select('org_id').eq('studio_slug', settings.studioSlug).maybeSingle();
+                
+                if (cloudStudio?.org_id) {
+                    orgId = cloudStudio.org_id;
+                    setSettings(prev => ({ ...prev, orgId }));
+                } else {
+                    orgId = crypto.randomUUID();
+                    console.warn(`🚨 [StudioContext] OrgId missing for ${activeSlug}. Initializing unique ID: ${orgId}`);
+                    setSettings(prev => ({ ...prev, orgId }));
+                }
             }
 
             // 1. Legacy Pulse (Maintain studio_settings for global framework items)
