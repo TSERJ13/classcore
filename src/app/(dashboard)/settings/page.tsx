@@ -1386,7 +1386,7 @@ export default function SettingsPage() {
             )}
 
             <div className="flex flex-col items-center justify-center gap-2 py-8">
-                {/* Footer spacer */}
+                {/* Build cache-buster v2.3.4 - UI Cleaned */}
             </div>
         </div>
     );
