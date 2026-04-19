@@ -188,33 +188,20 @@ export async function pushStudioStateToCloud(
             finalStudioData = mergeStudioData(cloudNormalized, incomingNormalized);
         }
     
-        // 3. CLOUD SCRUBBING: Permanently remove any legacy suffixed keys from the cloud JSON
-        // to prevent them from resurrecting on devices with missing OrgIds.
+        // 3. Cloud Normalization (Cleanup legacy shadows from the record)
         const cleanedStudioData: Record<string, any> = {};
         Object.keys(finalStudioData).forEach(k => {
-            // SCORCHED EARTH: If the key contains a suffix of THIS studio, discard it.
-            // We only keep the CLEAN, normalized keys (e.g. 'cc_groups').
             const hasSlugSuffix = slug && k.includes(`_${slug}`);
             const hasIdSuffix = current?.org_id && k.includes(`_${current.org_id}`);
             
             if (!hasSlugSuffix && !hasIdSuffix) {
                 cleanedStudioData[k] = finalStudioData[k];
-            } else {
-                console.warn(`🧹 [SyncStore] Scrubbed legacy cloud artifact: ${k}`);
             }
         });
         
-        // 🚨 GHOST KILLER: Explicitly exclude operational collections from the legacy JSON blob.
-        // We only want to store framework metadata (logo, name, theme) in the blob now.
-        const blobOnlyData: Record<string, any> = {};
-        Object.keys(cleanedStudioData).forEach(k => {
-            const isOperational = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-            if (!isOperational) {
-                blobOnlyData[k] = cleanedStudioData[k];
-            }
-        });
-        
-        const finalCleaned = blobOnlyData;
+        // 🚨 MEMORY RESTORE: Do NOT filter out operational data from the blob.
+        // This ensures the site 'remembers' everything immediately on refresh.
+        const finalCleaned = cleanedStudioData;
 
         const nextUpdatedAt = new Date().toISOString();
         const staffEmails = Array.from(new Set([
@@ -347,12 +334,12 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId?: str
                 base_studio_data['currency'] = s.currency;
                 base_studio_data['language'] = s.language;
                 base_studio_data['timezone'] = s.timezone;
-                // Settings blob (Careful merge: Don't let the blob overwrite granular SQL data)
+                // Settings blob (Careful merge: Combined with Granular SQL)
                 if (s.settings) {
                     Object.keys(s.settings).forEach(k => {
-                        const isOperational = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-                        // ONLY allow non-operational settings to be assigned from the blob
-                        if (!isOperational) {
+                        // 🚨 HYBRID RESTORE: If this key isn't already populated from SQL,
+                        // or if we simply want to ensure instant memory, assign it from the blob.
+                        if (!base_studio_data[k]) {
                             base_studio_data[k] = s.settings[k];
                         }
                     });
@@ -609,7 +596,7 @@ export async function masterStudioPurge(slug: string): Promise<void> {
         const { error: pushError } = await supabase
             .from(SETTINGS_TABLE)
             .update({
-                settings: cleanedStudioData,
+                settings: finalCleaned, // THE RESTORED BLOB
                 owner_info: { staff: nextStaff },
                 updated_at: nextUpdatedAt
             })
