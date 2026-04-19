@@ -577,6 +577,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                                     Object.values(data).forEach(item => pushEntityToCloud(orgId, tableName, item));
                                 }
                             }
+                        });
+
                         // 2. Metadata Sync (Studios, Branches, Staff)
                         if (orgId) {
                             // Sync branches and staff specifically
