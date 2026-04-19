@@ -338,8 +338,8 @@ export default function SettingsPage() {
     if (!isLoaded || !profile) {
         return (
             <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+                {/* Minimal Skeleton while profile is resolving */}
                 <div className="h-10 bg-muted/5 rounded-2xl w-1/4 animate-pulse ml-2" />
-                <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
                 <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
                 <div className="bg-card border border-border-subtle rounded-3xl h-24 w-full animate-pulse opacity-50" />
             </div>

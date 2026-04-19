@@ -415,10 +415,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         setSettings(prev => saveSettings({ customRoles: roles }, prev, prev.studioSlug));
     }, []);
 
-    // Initial Hydration & Cloud Pull
-    useEffect(() => {
+        // 1. Initial Local Hydration: Make the UI usable immediately
         const local = loadSettings(defaultSlug || undefined);
         setSettings(local);
+        setIsLoaded(true); // UI is now ready with local data!
 
         if (typeof window !== 'undefined' && local.studioSlug) {
             const savedBranch = localStorage.getItem(`cc_active_branch_${local.studioSlug}`);
@@ -426,24 +426,22 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
         }
 
+        // 2. Background Cloud Sync: Don't block the UI
         const safetyTimer = setTimeout(() => {
             if (!hasSyncedRef.current) {
-                console.warn('📡 [StudioContext] Sync safety release triggered');
+                console.log('📡 [StudioContext] Sync safety release triggered');
                 setFirstSyncDone(true);
-                setIsLoaded(true);
             }
-        }, 8000);
+        }, 12000);
 
         const timer = setTimeout(() => {
             const activeSlug = local.studioSlug;
             if (!activeSlug || activeSlug === 'demo.classcore.ge' || activeSlug === 'superadmin') {
-                console.log('📡 [StudioContext] Skipping cloud pull for:', activeSlug);
                 setFirstSyncDone(true);
-                setIsLoaded(true);
                 return;
             }
 
-            console.log('📡 [StudioContext] Mounting & Pulling latest state for:', activeSlug);
+            console.log('📡 [StudioContext] Background Pull for:', activeSlug);
             
             import('@/lib/sync-store').then(({ fetchStaffFromCloud, pullStudioStateFromCloud }) => {
                 const targetScopeId = settings.orgId || activeSlug;
@@ -463,24 +461,20 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                     if (cloudState) {
                         import('@/lib/utils').then(({ consolidateStudioKeys }) => {
-                            // Use the cloud's org_id as the absolute Truth for consolidation
                             const authoritativeId = cloudState.org_id || settings.orgId;
                             consolidateStudioKeys(activeSlug, authoritativeId);
                             applyCloudState(activeSlug, cloudState);
                         });
                     }
-
                     setFirstSyncDone(true);
-                    setIsLoaded(true);
                 }).catch(err => {
-                    console.error('📡 [StudioContext] Initial Cloud Sync Failed:', err);
+                    console.error('📡 [StudioContext] Background Cloud Sync Failed:', err);
                     setFirstSyncDone(true);
-                    setIsLoaded(true);
                 });
             }).catch(() => {
-                setIsLoaded(true);
+                setFirstSyncDone(true);
             });
-        }, 50);
+        }, 200); // Small buffer to let the UI breathe first
 
         cleanupRegistry();
         return () => {
@@ -667,9 +661,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     useEffect(() => {
         if (isLoaded && settings.studioSlug) {
-            // SCORCHED EARTH v2.1: Always ensure local integrity on every load/active session
-            scrubLocalStorage(settings.studioSlug, settings.orgId);
-            performUniversalIntegrityCheck(settings.studioSlug, settings.orgId);
+            // Defer heavy integrity checks to background
+            const timer = setTimeout(() => {
+                scrubLocalStorage(settings.studioSlug!, settings.orgId);
+                performUniversalIntegrityCheck(settings.studioSlug!, settings.orgId);
+            }, 3000); // 3 seconds delay
+            return () => clearTimeout(timer);
         }
     }, [isLoaded, settings.studioSlug, settings.orgId]);
 
