@@ -201,6 +201,8 @@ export async function pushStudioStateToCloud(
             } else {
                 console.warn(`🧹 [SyncStore] Scrubbed legacy cloud artifact: ${k}`);
             }
+        });
+        
         // 🚨 GHOST KILLER: Explicitly exclude operational collections from the legacy JSON blob.
         // We only want to store framework metadata (logo, name, theme) in the blob now.
         const blobOnlyData: Record<string, any> = {};
