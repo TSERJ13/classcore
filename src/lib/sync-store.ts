@@ -1,7 +1,7 @@
 import { createClient } from './supabase/client';
 import { type StaffMember, type Student, type Group, type Hall, type CalendarEvent, type SubscriptionPlan, type StudentSubscription, type AttendanceRecord, type HallRental, type Product, type Sale, type TrashItem } from '@/types';
 
-const SETTINGS_TABLE = 'studios';
+const SETTINGS_TABLE = 'studio_settings';
 
 /** 
  * SCORCHED EARTH v2.1 Integrity Whitelist
@@ -166,7 +166,7 @@ export async function pushStudioStateToCloud(
         
         const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
-            .select('settings, owner_info, org_id')
+            .select('studio_slug, staff_data, staff_emails, org_id, updated_at')
             .eq('studio_slug', slug)
             .maybeSingle();
 
@@ -174,10 +174,13 @@ export async function pushStudioStateToCloud(
 
         // 1. Normalize local data (Strip suffixes)
         const incomingNormalized = normalizeData(studioData, slug, orgId || current?.org_id);
-        const cloudData = current?.settings || {};
-        const staffFromCloud = current?.owner_info?.staff || [];
         
-        const cloudNormalized = normalizeData(cloudData, slug, current?.org_id);
+        // Extract data from the unified staff_data blob
+        const unifiedBlob = current?.staff_data || {};
+        const cloudOperations = unifiedBlob._operations || {};
+        const staffFromCloud = unifiedBlob._staff || (Array.isArray(current?.staff_data) ? current.staff_data : []);
+        
+        const cloudNormalized = normalizeData(cloudOperations, slug, current?.org_id);
 
         // 2. Converge
         let finalStaff = staff;
@@ -209,22 +212,18 @@ export async function pushStudioStateToCloud(
             ...(finalStaff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
         ]));
 
-        // 🚨 SCHEMA ALIGNMENT: 
-        // Since the 'studio_data' column is missing in the PRODUCTION DB, 
-        // we consolidate EVERYTHING into 'staff_data' as a unified storage blob.
-        // This prevents data loss on refresh.
+
+        // Build unified blob for studio_settings.staff_data
         const unifiedData = {
             _staff: finalStaff,
             _operations: finalCleaned
         };
 
         const payload: any = {
-            id: orgId || current?.org_id || current?.id, // Ensure consistent primary key
-            org_id: orgId || current?.org_id || '',
             studio_slug: slug,
-            studio_name: studioData.studioName || current?.studio_name || 'My Studio',
-            owner_info: { staff: finalStaff },
-            settings: finalCleaned,
+            org_id: orgId || current?.org_id || '',
+            staff_data: unifiedData,
+            staff_emails: staffEmails,
             updated_at: nextUpdatedAt
         };
 
@@ -235,7 +234,7 @@ export async function pushStudioStateToCloud(
         } else {
             const { error: upsertError } = await supabase
                 .from(SETTINGS_TABLE)
-                .upsert(payload, { onConflict: 'id' }); // Conflict on ID is safer for granular model
+                .upsert(payload, { onConflict: 'studio_slug' });
 
             if (upsertError) {
                 console.error('❌ [SyncStore] DB Upsert Error:', upsertError);
