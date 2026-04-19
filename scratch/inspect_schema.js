@@ -1,27 +1,31 @@
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
-const SUPABASE_URL = 'https://xnhzqalncwcefnhoqzxe.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuaHpxYWxuY3djZWZuaG9xenhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODU5MjcsImV4cCI6MjA4NzM2MTkyN30.tapUV9nQIYkJif0lS9OQNFSBgIoZLuJhexcmtfj3h48';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 async function inspectSchema() {
-    console.log('🧐 [Audit] Inspecting studio_settings schema...');
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    console.log('🕵️ Inspecting Database Schema...');
 
-    const { data, error } = await supabase
-        .from('studio_settings')
-        .select('*')
-        .limit(1);
+    const { data: tables, error: tError } = await supabase.rpc('get_tables_and_columns'); 
+    
+    // Fallback: Use information_schema via query if RPC fails
+    const { data: infoSchema, error: iError } = await supabase
+        .from('pg_catalog.pg_tables') // This might not be accessible via rest
+        .select('tablename')
+        .eq('schemaname', 'public');
 
-    if (error) {
-        console.error('❌ [Audit] Error:', error.message);
-        return;
-    }
-
-    if (data && data.length > 0) {
-        console.log('📋 [Audit] Available columns:', Object.keys(data[0]).join(', '));
-        console.log('📄 [Audit] Row Sample:', JSON.stringify(data[0], null, 2));
-    } else {
-        console.log('⚠️ [Audit] No data found to inspect columns.');
+    // Most reliable for us: Just try to select from likely candidates
+    const candidates = ['studio_settings', 'studios', 'profiles'];
+    for (const table of candidates) {
+        const { data, error } = await supabase.from(table).select('*').limit(1);
+        if (error) {
+            console.log(`❌ Table [${table}] check failed:`, error.message);
+        } else {
+            console.log(`✅ Table [${table}] exists. Columns:`, data[0] ? Object.keys(data[0]) : 'Empty table');
+        }
     }
 }
 

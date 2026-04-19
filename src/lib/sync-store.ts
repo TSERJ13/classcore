@@ -1,7 +1,7 @@
 import { createClient } from './supabase/client';
 import { type StaffMember, type Student, type Group, type Hall, type CalendarEvent, type SubscriptionPlan, type StudentSubscription, type AttendanceRecord, type HallRental, type Product, type Sale, type TrashItem } from '@/types';
 
-const SETTINGS_TABLE = 'studio_settings';
+const SETTINGS_TABLE = 'studios';
 
 /** 
  * SCORCHED EARTH v2.1 Integrity Whitelist
@@ -166,7 +166,7 @@ export async function pushStudioStateToCloud(
         
         const { data: current, error: fetchError } = await supabase
             .from(SETTINGS_TABLE)
-            .select('staff_data, org_id') // studio_data column doesn't exist in DB
+            .select('settings, owner_info, org_id')
             .eq('studio_slug', slug)
             .maybeSingle();
 
@@ -174,19 +174,20 @@ export async function pushStudioStateToCloud(
 
         // 1. Normalize local data (Strip suffixes)
         const incomingNormalized = normalizeData(studioData, slug, orgId || current?.org_id);
-        // CRITICAL: Normalize the EXISTING cloud state too before merging.
-        // This prevents old suffixed keys from "re-merging" into the clean keys.
-        const cloudNormalized = normalizeData(current?.studio_data || {}, slug, current?.org_id);
+        const cloudData = current?.settings || {};
+        const staffFromCloud = current?.owner_info?.staff || [];
+        
+        const cloudNormalized = normalizeData(cloudData, slug, current?.org_id);
 
         // 2. Converge
         let finalStaff = staff;
         let finalStudioData = incomingNormalized;
         
         if (current && !forceOverwrite) {
-            finalStaff = mergeStaff(current.staff_data || [], staff);
+            finalStaff = mergeStaff(staffFromCloud, staff);
             finalStudioData = mergeStudioData(cloudNormalized, incomingNormalized);
         }
-
+    
         // 3. CLOUD SCRUBBING: Permanently remove any legacy suffixed keys from the cloud JSON
         // to prevent them from resurrecting on devices with missing OrgIds.
         const cleanedStudioData: Record<string, any> = {};
@@ -608,9 +609,8 @@ export async function masterStudioPurge(slug: string): Promise<void> {
         const { error: pushError } = await supabase
             .from(SETTINGS_TABLE)
             .update({
-                studio_data: cleanedStudioData,
-                staff_data: nextStaff,
-                staff_emails: [], // Nuclear: Force cold lookup for next sync
+                settings: cleanedStudioData,
+                owner_info: { staff: nextStaff },
                 updated_at: nextUpdatedAt
             })
             .eq('studio_slug', slug);
