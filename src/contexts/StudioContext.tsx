@@ -424,6 +424,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         setSettings(prev => saveSettings({ customRoles: roles }, prev, prev.studioSlug));
     }, []);
     // 1. Reactive Sync Initiation: Trigger pull whenever the slug is identified/changed
+    const lastSyncedSlugRef = useRef<string | null>(null);
+
     useEffect(() => {
         if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') {
             setFirstSyncDone(true);
@@ -431,9 +433,16 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
 
         const activeSlug = settings.studioSlug;
+        
+        // Prevent infinite loops if the slug hasn't actually changed 
+        // and we already completed a successful pull for it.
+        if (lastSyncedSlugRef.current === activeSlug && firstSyncDone) {
+            return;
+        }
+
         console.log('📡 [StudioContext] Reactive Pull initiated for:', activeSlug);
         
-        // 2. Background Cloud Sync: Don't block the UI
+        // 2. Background Cloud Sync
         const safetyTimer = setTimeout(() => {
             if (!hasSyncedRef.current) {
                 console.log('📡 [StudioContext] Sync safety release triggered');
@@ -449,6 +458,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     pullStudioStateFromCloud(activeSlug, targetScopeId)
                 ]).then(([cloudStaff, cloudState]) => {
                     hasSyncedRef.current = true;
+                    lastSyncedSlugRef.current = activeSlug;
                     
                     if (cloudStaff && cloudStaff.length > 0) {
                         const nextSettings: Partial<StudioSettings> = { staff: cloudStaff };
@@ -466,7 +476,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         });
                     }
                     setFirstSyncDone(true);
-                    console.log('✅ [StudioContext] Reactive Pull successful');
+                    console.log('✅ [StudioContext] Reactive Pull successful for:', activeSlug);
                 }).catch(err => {
                     console.error('📡 [StudioContext] Reactive Pull Failed:', err);
                     setFirstSyncDone(true);
@@ -480,7 +490,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             clearTimeout(timer);
             clearTimeout(safetyTimer);
         };
-    }, [isLoaded, settings.studioSlug, settings.orgId]);
+    }, [isLoaded, settings.studioSlug, firstSyncDone]); // Removed settings.orgId to break the loop
 
     // Initial hydration from local storage
     useEffect(() => {
