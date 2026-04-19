@@ -3,7 +3,7 @@
  * Manages deleted items with a 30-day retention policy.
  */
 import { getScopedKey, getActiveSlug } from './utils';
-import { pushStudioStateToCloud } from './sync-store';
+import { triggerInstantSync } from './sync-store';
 
 export interface TrashItem {
     id: string;
@@ -46,10 +46,7 @@ export function moveToTrash(type: TrashItem['type'], data: any, branchId: string
         const updated = [newItem, ...trash];
         localStorage.setItem(getScopedKey(TRASH_KEY), JSON.stringify(updated));
         
-        const activeSlug = getActiveSlug();
-        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            pushStudioStateToCloud(activeSlug, [], { [getScopedKey(TRASH_KEY)]: updated });
-        }
+        triggerInstantSync();
         window.dispatchEvent(new Event('cc_trash_update'));
     } catch (e) {
         console.error('Moving to trash failed:', e);
@@ -61,10 +58,7 @@ export function removeFromTrash(id: string) {
     const trash = getTrash().filter(item => item.id !== id);
     localStorage.setItem(getScopedKey(TRASH_KEY), JSON.stringify(trash));
     
-    const activeSlug = getActiveSlug();
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { [getScopedKey(TRASH_KEY)]: trash });
-    }
+    triggerInstantSync();
     window.dispatchEvent(new Event('cc_trash_update'));
 }
 
@@ -76,10 +70,7 @@ export function cleanupOldTrash() {
     if (filtered.length !== trash.length) {
         localStorage.setItem(getScopedKey(TRASH_KEY), JSON.stringify(filtered));
         
-        const activeSlug = getActiveSlug();
-        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            pushStudioStateToCloud(activeSlug, [], { [getScopedKey(TRASH_KEY)]: filtered });
-        }
+        triggerInstantSync();
         window.dispatchEvent(new Event('cc_trash_update'));
     }
 }

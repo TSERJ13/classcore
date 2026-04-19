@@ -30,7 +30,7 @@ export interface Group {
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
-import { pushStudioStateToCloud } from './sync-store';
+import { triggerInstantSync } from './sync-store';
 
 const BASE_GROUPS_KEY = 'cc_groups';
 const BASE_DELETED_GROUPS_KEY = 'cc_deleted_groups';
@@ -96,11 +96,7 @@ export function saveGroups(groups: Group[]): void {
     localStorage.setItem(key, JSON.stringify(groups));
     markLocalUpdate();
     
-    // Immediate Cloud Sync
-    const activeSlug = localStorage.getItem('cc_active_studio_slug');
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { [key]: groups });
-    }
+    triggerInstantSync();
 
     window.dispatchEvent(new Event('cc_groups_update'));
 }
@@ -260,14 +256,7 @@ export function deleteGroup(id: string): void {
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
 
-    // Immediate Cloud Sync
-    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { 
-            [key]: updated,
-            [deletedKey]: deletedIds
-        });
-    }
+    triggerInstantSync();
 
     // CLEANUP CALENDAR: Remove all recurring events for this group
     import('./event-store').then(mod => {

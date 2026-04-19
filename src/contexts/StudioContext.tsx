@@ -571,6 +571,18 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             triggerPush();
         };
 
+        const handleInstantSyncRequest = () => {
+            console.log('🚀 [StudioContext] Executing requested Instant Sync');
+            if (settings.studioSlug) {
+                const fresh = loadSettings(settings.studioSlug);
+                setSettings(fresh);
+                markLocalUpdate();
+                triggerPush();
+            }
+        };
+
+        window.addEventListener('cc_instant_sync_request', handleInstantSyncRequest);
+
         const events = [
             'cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
             'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 

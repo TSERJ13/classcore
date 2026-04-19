@@ -1386,8 +1386,8 @@ export default function SettingsPage() {
             )}
 
             <div className="flex flex-col items-center justify-center gap-2 py-4">
-                <div className="flex items-center justify-center text-[10px] text-muted-foreground/40 px-1 font-bold tracking-widest">
-                    <span>ClassCore v2.1 · classcore.ge</span>
+                <div className="mt-8 mb-4">
+                    <span className="opacity-0">.</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 scale-90">
                     <Zap className="w-2.5 h-2.5 text-indigo-500" />

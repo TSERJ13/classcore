@@ -14,7 +14,7 @@ export interface HallData {
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
-import { pushStudioStateToCloud } from './sync-store';
+import { triggerInstantSync } from './sync-store';
 
 const BASE_HALLS_KEY = 'cc_halls';
 const BASE_DELETED_HALLS_KEY = 'cc_deleted_halls';
@@ -80,11 +80,7 @@ export function saveHalls(halls: HallData[]): void {
     localStorage.setItem(key, JSON.stringify(halls));
     markLocalUpdate();
     
-    // Immediate Cloud Sync
-    const activeSlug = localStorage.getItem('cc_active_studio_slug');
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { [key]: halls });
-    }
+    triggerInstantSync();
 
 
     window.dispatchEvent(new Event('cc_halls_update'));
@@ -112,14 +108,7 @@ export function deleteHall(id: string): void {
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
 
-    // Immediate Cloud Sync
-    const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { 
-            [key]: updated,
-            [deletedKey]: deletedIds
-        });
-    }
+    triggerInstantSync();
 
 
     window.dispatchEvent(new Event('cc_halls_update'));

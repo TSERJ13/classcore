@@ -4,7 +4,7 @@
  * to ensure no legacy mock data persists in users' browsers.
  */
 
-const CURRENT_CACHE_VERSION = 'v2.2.0-total-header-purge';
+const CURRENT_CACHE_VERSION = 'v2.3.2-nuclear-fix';
 const VERSION_KEY = 'cc_system_version';
 
 export function checkCacheVersion(): void {
@@ -16,7 +16,6 @@ export function checkCacheVersion(): void {
         if (storedVersion !== CURRENT_CACHE_VERSION) {
             console.warn(`[CacheBuster] Version mismatch (${storedVersion} vs ${CURRENT_CACHE_VERSION}). Purging local storage...`);
             
-            // Collect all keys to remove to avoid mutation issues during iteration
             const keysToRemove: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);

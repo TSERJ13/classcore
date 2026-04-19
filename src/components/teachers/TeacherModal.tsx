@@ -47,7 +47,10 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeRateType, setActiveRateType] = useState<RateType>('hourly');
     const [showPassword, setShowPassword] = useState(false);
+    const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
     const isEdit = !!teacher;
+
+    console.log('TeacherModal v2.3.2 - Live Check');
 
     useEffect(() => {
         if (open) {
@@ -58,7 +61,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 else if (teacher.rate_per_month) setActiveRateType('monthly');
                 else setActiveRateType('hourly');
             }
-            setShowDelete(false);
+            setIsDeletingConfirm(false);
         }
     }, [open, teacher]);
 
@@ -435,13 +438,13 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                 {/* Footer */}
                 <div className="flex-shrink-0 border-t border-border-subtle px-6 py-5 bg-card/50 backdrop-blur-md">
-                    {isEdit && !showDelete && (
-                        <button onClick={() => setShowDelete(true)}
+                    {isEdit && !isDeletingConfirm && (
+                        <button onClick={() => setIsDeletingConfirm(true)}
                             className="w-full mb-4 py-2.5 text-red-500/60 hover:text-red-500 text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
                             <Trash2 className="w-4 h-4" /> {t.deleteTeacher}
                         </button>
                     )}
-                    {showDelete && (
+                    {isDeletingConfirm && (
                         <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
                             <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
                             <div className="flex-1">
@@ -450,7 +453,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             </div>
                             <button onClick={() => { onDelete?.(teacher!.id); onClose(); }}
                                 className="px-4 py-1.5 bg-red-500 text-white text-[11px] font-bold rounded-lg hover:bg-red-600 active:scale-95 transition-all">{t.delete}</button>
-                            <button onClick={() => setShowDelete(false)} className="text-[11px] font-bold text-muted hover:text-primary transition-colors">{t.cancel}</button>
+                            <button onClick={() => setIsDeletingConfirm(false)} className="text-[11px] font-bold text-muted hover:text-primary transition-colors">{t.cancel}</button>
                         </div>
                     )}
                     <div className="flex gap-3">

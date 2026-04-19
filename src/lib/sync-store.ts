@@ -529,3 +529,18 @@ export async function masterStudioPurge(slug: string): Promise<void> {
 }
 
 
+/**
+ * INSTANT SYNC TRIGGER:
+ * Dispatches a global event that StudioContext listens to for immediate cloud commitment.
+ */
+export function triggerInstantSync() {
+    if (typeof window !== 'undefined') {
+        console.log('🚀 [SyncStore] Instant Sync Triggered');
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
+    }
+}
+
+/**
+ * Consolidates all studio state into a single push with Optimistic Locking and Retry logic.
+ */
+// ... (rest of the file)

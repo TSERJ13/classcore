@@ -1,6 +1,6 @@
 import { compactSlugify, STORAGE_KEY, ACTIVE_SLUG_KEY, REGISTRY_KEY, getActiveSlug as getActiveSlugLowLevel, getScopedKey, markLocalUpdate } from './utils';
 export { STORAGE_KEY, ACTIVE_SLUG_KEY, REGISTRY_KEY, getScopedKey };
-import { syncStaffToCloud, fetchStaffFromCloud } from './sync-store';
+import { triggerInstantSync } from './sync-store';
 
 import { 
     type ThemeKey, 
@@ -519,20 +519,7 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
             
             if (finalSlug && finalSlug !== 'demo.classcore.ge') {
                 const isVitalUpdate = s.staff || s.security || s.branches || s.studioName || s.logoDataUrl;
-                if (isVitalUpdate) {
-                    import('./sync-store').then(({ pushStudioStateToCloud }) => {
-                        // Push full state including staff and studioData
-                        const allKeys = Object.keys(localStorage);
-                        const studioData: Record<string, any> = {};
-                        // Simple scan for scoped keys to include in this instant push
-                        allKeys.forEach(k => {
-                            if (k.includes(`_${finalSlug}`) || (next.orgId && k.includes(`_${next.orgId}`))) {
-                                try { studioData[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch {}
-                            }
-                        });
-                        pushStudioStateToCloud(finalSlug, next.staff, studioData, 0, next.orgId);
-                    });
-                }
+                triggerInstantSync();
             }
 
             if (next.studioName) {
