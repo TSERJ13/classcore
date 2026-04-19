@@ -414,7 +414,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const setCustomRoles = useCallback((roles: string[]) => {
         setSettings(prev => saveSettings({ customRoles: roles }, prev, prev.studioSlug));
     }, []);
-
+    useEffect(() => {
         // 1. Initial Local Hydration: Make the UI usable immediately
         const local = loadSettings(defaultSlug || undefined);
         setSettings(local);
