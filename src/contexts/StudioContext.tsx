@@ -509,7 +509,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     }, [defaultSlug]);
     // Automatic Cloud Sync Pulse
     useEffect(() => {
-        const timer = setTimeout(() => {
+        const timer = setTimeout(async () => {
             // CRITICAL SEQUENCING: We must NEVER push local state until we have successfully PULLed from the cloud.
             // This prevents new devices (like phones) from "wiping" the cloud with their local empty state.
             if (!isLoaded || !firstSyncDone || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
