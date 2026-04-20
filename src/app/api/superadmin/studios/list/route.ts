@@ -50,7 +50,7 @@ export async function GET() {
             const ownerFromStaff = allStaff.find?.((s: any) => s.role === 'owner');
             
             const targetSlug = row.studio_slug;
-            const settingsKey = `cc_studio_settings_${targetSlug}`;
+            const settingsKey = isUnified ? 'cc_studio_settings' : `cc_studio_settings_${targetSlug}`;
             const settingsObj = studioConfig[settingsKey] || {};
 
             // In legacy, owner_info might be at the root of studioConfig, in new it's inside settingsObj
@@ -69,12 +69,12 @@ export async function GET() {
             let revenue = 0;
             let activeSubsCount = 0;
 
-            const studentKey = `cc_student_data_${targetSlug}`.toLowerCase();
-            const groupKey = `cc_groups_${targetSlug}`.toLowerCase();
-            const hallKey = `cc_halls_${targetSlug}`.toLowerCase();
-            const billingKey = `cc_saas_billing_${targetSlug}`.toLowerCase();
-            const subsKey = `cc_student_subscriptions_${targetSlug}`.toLowerCase();
-            const shopKey = `cc_shop_sales_${targetSlug}`.toLowerCase();
+            const studentKey = isUnified ? 'cc_student_data' : `cc_student_data_${targetSlug}`.toLowerCase();
+            const groupKey = isUnified ? 'cc_groups' : `cc_groups_${targetSlug}`.toLowerCase();
+            const hallKey = isUnified ? 'cc_halls' : `cc_halls_${targetSlug}`.toLowerCase();
+            const billingKey = isUnified ? 'cc_saas_billing' : `cc_saas_billing_${targetSlug}`.toLowerCase();
+            const subsKey = isUnified ? 'cc_student_subscriptions' : `cc_student_subscriptions_${targetSlug}`.toLowerCase();
+            const shopKey = isUnified ? 'cc_shop_sales' : `cc_shop_sales_${targetSlug}`.toLowerCase();
 
             Object.entries(studioConfig || {}).forEach(([key, value]) => {
                 const lowerKey = key.toLowerCase();

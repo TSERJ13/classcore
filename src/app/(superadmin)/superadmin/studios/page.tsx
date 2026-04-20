@@ -116,12 +116,22 @@ async function pushMetaToCloud(slug: string, patch: object) {
         const next = { ...existing, ...patch };
         localStorage.setItem(`cc_sa_meta_${slug}`, JSON.stringify(next));
         
-        // Find orgId to ensure scoped update
-        const settings = loadSettings(slug);
-        const studioData: Record<string, any> = {};
-        studioData[`cc_sa_meta_${slug}`] = next;
+        // 🚨 CRITICAL FIX: We MUST NOT use pushStudioStateToCloud from SuperAdmin!
+        // Superadmin does not have the client's local storage block, so pushing local state
+        // would overwrite the entire database with empty data!
+        // Instead, use our safe server-side partial merge API.
+        const res = await fetch('/api/superadmin/studios/update-meta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug, patch })
+        });
         
-        await pushStudioStateToCloud(slug, settings.staff || [], studioData, 0, settings.orgId);
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Failed to update meta');
+        }
+        
+        console.log(`✅ [Superadmin] pushMetaToCloud safe merge successful for ${slug}`);
     } catch (e) {
         console.error('❌ pushMetaToCloud failed:', e);
     }
@@ -351,27 +361,28 @@ export default function StudiosPage() {
 
     const syncStudio = async (slug: string) => {
         try {
-            const s = loadSettings(slug);
-            const allKeys = Object.keys(localStorage);
-            const studioData: Record<string, any> = {};
-            const prefixes = [
-                'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
-                'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
-                'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications',
-                'cc_deleted_students', 'cc_deleted_subscriptions', 'cc_hall_rental',
-                'cc_uid_registry', 'cc_attendance_archive', 'cc_expenses',
-                'cc_audit_logs', 'cc_salary_status', 'cc_trash_bin',
-                'cc_sa_meta', 'cc_saas_billing', 'cc_saas_payments'
-            ];
+            // 🚨 CRITICAL FIX: Safe server-side merge
+            // Superadmin has incomplete data locally. Using pushStudioStateToCloud would OVERWRITE 
+            // the studio's entire database with missing data. 
+            // We only send the specific chunks we care about (billing and meta).
+            
+            const metaPatch = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}');
+            const billingPatch = JSON.parse(localStorage.getItem(`cc_saas_billing_${slug}`) || 'null');
 
-            allKeys.forEach(k => {
-                if (prefixes.some(p => k.startsWith(p)) && k.includes(`_${slug}`)) {
-                    try { studioData[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch { }
-                }
+            // Find other saas settings like payments just in case we want to merge them later,
+            // but the main fix is just billing and meta.
+            const res = await fetch('/api/superadmin/studios/update-meta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug, patch: metaPatch, billingPatch: billingPatch })
             });
 
-            await pushStudioStateToCloud(slug, s.staff || [], studioData, 0, s.orgId);
-            console.log('📡 [Superadmin] Immediate sync successful for:', slug);
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error);
+            }
+
+            console.log('📡 [Superadmin] Safe Immediate sync successful for:', slug);
         } catch (err) {
             console.error('📡 [Superadmin] Sync failed:', err);
         }
@@ -681,8 +692,21 @@ export default function StudiosPage() {
             
             localStorage.setItem(`cc_studio_settings_${cleanSlug}`, JSON.stringify(settings));
 
-            // CRITICAL: Push updated state to cloud so it's no longer "Local Only"
-            await pushStudioStateToCloud(cleanSlug, settings.staff || [], settings);
+            // CRITICAL: Push updated state to cloud using Safe Merge
+            // We DO NOT use pushStudioStateToCloud because SuperAdmin doesn't have the full local database
+            // and it would overwrite the studio's entire operations object with just settings!
+            const patch = {
+                studioName: settings.studioName,
+                studioSlug: settings.studioSlug,
+                logoDataUrl: settings.logoDataUrl,
+                owner_info: settings.owner_info
+            };
+
+            await fetch('/api/superadmin/studios/update-meta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug: cleanSlug, patch })
+            });
 
         } catch (e) {
             console.error('❌ Error updating local settings:', e);
