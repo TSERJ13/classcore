@@ -117,11 +117,12 @@ export function getStudents(): Student[] {
         // 🚨 Filter by Active Branch
         // If activeBranch is 'all' (Manager view), show everyone.
         // Otherwise, show students belonging to this branch OR students with NO branch (Main fallback)
+        // OR students marked as 'all' (Shared students)
         if (activeBranch === 'all') return nonDeleted;
         
         return nonDeleted.filter(s => {
             const bId = s.branch_id || 'main'; // Fallback for legacy data
-            return bId === activeBranch;
+            return bId === activeBranch || bId === 'all';
         });
     } catch {
         return INITIAL_STUDENTS;
