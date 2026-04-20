@@ -288,7 +288,10 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             compact={!exp} 
                             mode="session" 
                             align="left" 
-                            className={cn(exp && "w-full bg-white/5 border-white/10 hover:bg-white/10")} 
+                            className={cn(
+                                exp && "w-full bg-white/5 border-white/10 hover:bg-white/10",
+                                isMobile && "h-9 py-1 px-3 text-[9px] min-w-[100px]"
+                            )} 
                         />
                         
                         <button
@@ -296,14 +299,14 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             className={cn(
                                 "flex items-center gap-3 transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
                                 exp 
-                                    ? cn("w-full px-4 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-10" : "h-11")
+                                    ? cn("w-full px-4 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-9" : "h-11")
                                     : "w-10 h-10 justify-center rounded-xl bg-white/5 border border-white/10 shadow-sm"
                             )}
                             title={l('გასვლა', 'Выйти', 'Logout')}
                         >
-                            <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", isMobile ? "w-3.5 h-3.5" : "w-4 h-4")} strokeWidth={2.5} />
+                            <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", isMobile ? "w-3 h-3" : "w-4 h-4")} strokeWidth={2.5} />
                             {exp && (
-                                <span className={cn("font-black tracking-[0.15em] uppercase truncate", isMobile ? "text-[10px]" : "text-[11px]")}>
+                                <span className={cn("font-black tracking-[0.15em] uppercase truncate", isMobile ? "text-[9px]" : "text-[11px]")}>
                                     {l('გასვლა', 'Выйти', 'Logout')}
                                 </span>
                             )}
