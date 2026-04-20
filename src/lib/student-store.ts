@@ -93,7 +93,6 @@ export function getStudents(): Student[] {
         // ─── Hybrid Branch Logic ───
         // Students are GLOBAL (slug scope), but we filter them in the UI by branchId.
         // Legacy students with NO branch_id will be mapped to the 'main' branch by default.
-        const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
 
         const allMerged = [...merged, ...newOnes];
 
