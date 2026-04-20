@@ -191,20 +191,9 @@ export async function pushStudioStateToCloud(
             finalStudioData = mergeStudioData(cloudNormalized, incomingNormalized);
         }
     
-        // 3. Cloud Normalization (Cleanup legacy shadows from the record)
-        const cleanedStudioData: Record<string, any> = {};
-        Object.keys(finalStudioData).forEach(k => {
-            const hasSlugSuffix = slug && k.includes(`_${slug}`);
-            const hasIdSuffix = current?.org_id && k.includes(`_${current.org_id}`);
-            
-            if (!hasSlugSuffix && !hasIdSuffix) {
-                cleanedStudioData[k] = finalStudioData[k];
-            }
-        });
-        
-        // 🚨 MEMORY RESTORE: Do NOT filter out operational data from the blob.
-        // This ensures the site 'remembers' everything immediately on refresh.
-        const finalCleaned = cleanedStudioData;
+        // 3. The data is already normalized by normalizeData() above.
+        // No additional filtering needed — just use finalStudioData directly.
+        const finalCleaned = finalStudioData;
 
         const nextUpdatedAt = new Date().toISOString();
         const staffEmails = Array.from(new Set([
@@ -257,7 +246,7 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId?: str
     try {
         const supabase = createClient();
         
-        // 1. Fetch Main Studio Record (The Framework)
+        // Fetch from studio_settings — the SINGLE source of truth
         const { data: studioRecord, error: studioError } = await supabase
             .from(SETTINGS_TABLE)
             .select('staff_data, org_id')
@@ -269,84 +258,11 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId?: str
         const orgId = studioRecord.org_id;
         const unified = studioRecord.staff_data || {};
         
-        // 2. Hydrate Base Framework
-        let staff = unified._staff || (Array.isArray(unified) ? unified : []);
+        // Extract staff and operations from the unified blob
+        const staff = unified._staff || (Array.isArray(unified) ? unified : []);
         const base_studio_data = unified._operations || {};
         
-        // 3. UNIFIED SQL PULL: If we have an OrgId, fetch all granular tables
-        if (orgId) {
-            console.log(`📡 [SyncStore] Performing Unified SQL Pull for Org: ${orgId}`);
-            
-            const tables = [
-                { id: 'students', key: 'cc_student_data' },
-                { id: 'groups', key: 'cc_groups' },
-                { id: 'halls', key: 'cc_halls' },
-                { id: 'calendar_events', key: 'cc_calendar_events' },
-                { id: 'subscription_plans', key: 'cc_subscription_plans' },
-                { id: 'student_subscriptions', key: 'cc_student_subscriptions' },
-                { id: 'attendance_records', key: 'cc_attendance_data' },
-                { id: 'hall_rentals', key: 'cc_hall_rentals' },
-                { id: 'inventory_products', key: 'cc_shop_products' },
-                { id: 'sales', key: 'cc_shop_sales' },
-                { id: 'trash', key: 'cc_global_trash' },
-                { id: 'audit_logs', key: 'cc_global_history' }
-            ];
-
-            const fetches = tables.map(t => 
-                supabase.from(t.id).select('*').eq('org_id', orgId)
-            );
-
-            // Also fetch Branches and Staff specially
-            const extraFetches = [
-                supabase.from('branches').select('*').eq('org_id', orgId),
-                supabase.from('staff').select('*').eq('org_id', orgId),
-                supabase.from('studios').select('*').eq('org_id', orgId).maybeSingle()
-            ];
-
-            const [tableResults, extraResults] = await Promise.all([
-                Promise.all(fetches),
-                Promise.all(extraFetches)
-            ]);
-
-            // Merge Granular Operational Data into Studio Data
-            tableResults.forEach((res, index) => {
-                if (res.data && res.data.length > 0) {
-                    const key = tables[index].key;
-                    base_studio_data[key] = res.data;
-                }
-            });
-
-            // Merge Branches
-            if (extraResults[0].data && extraResults[0].data.length > 0) {
-                base_studio_data['branches'] = extraResults[0].data;
-            }
-
-            // Merge Staff
-            if (extraResults[1].data && extraResults[1].data.length > 0) {
-                staff = extraResults[1].data;
-            }
-
-            // Merge Studio Metadata (Name, Logo, etc.)
-            if (extraResults[2].data) {
-                const s = extraResults[2].data;
-                base_studio_data['studioName'] = s.studio_name;
-                base_studio_data['logoDataUrl'] = s.logo_url;
-                base_studio_data['themeKey'] = s.theme_key;
-                base_studio_data['currency'] = s.currency;
-                base_studio_data['language'] = s.language;
-                base_studio_data['timezone'] = s.timezone;
-                // Settings blob (Careful merge: Combined with Granular SQL)
-                if (s.settings) {
-                    Object.keys(s.settings).forEach(k => {
-                        // 🚨 HYBRID RESTORE: If this key isn't already populated from SQL,
-                        // or if we simply want to ensure instant memory, assign it from the blob.
-                        if (!base_studio_data[k]) {
-                            base_studio_data[k] = s.settings[k];
-                        }
-                    });
-                }
-            }
-        }
+        console.log(`📡 [SyncStore] Pull complete. Staff: ${staff.length}, Operations keys: ${Object.keys(base_studio_data).length}`);
 
         const scopedData = denormalizeData(base_studio_data, targetScopeId);
         
@@ -356,7 +272,7 @@ export async function pullStudioStateFromCloud(slug: string, targetScopeId?: str
             org_id: orgId 
         };
     } catch (err) {
-        console.error('❌ [SyncStore] Unified Pull failed:', err);
+        console.error('❌ [SyncStore] Pull failed:', err);
         return null;
     }
 }
@@ -593,12 +509,11 @@ export async function masterStudioPurge(slug: string): Promise<void> {
 
         const nextUpdatedAt = new Date().toISOString();
         
-        // 3. NUCLEAR UPDATE: Wipe studio_data AND staff_data AND emails registry
+        // 3. NUCLEAR UPDATE: Wipe operational data
         const { error: pushError } = await supabase
             .from(SETTINGS_TABLE)
             .update({
-                settings: finalCleaned, // THE RESTORED BLOB
-                owner_info: { staff: nextStaff },
+                staff_data: { _staff: nextStaff, _operations: cleanedStudioData },
                 updated_at: nextUpdatedAt
             })
             .eq('studio_slug', slug);
