@@ -454,15 +454,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             const cloudState = await pullStudioStateFromCloud(activeSlug, activeSlug);
             
             if (cloudState && cloudState.studio_data) {
-                console.log('✅ [StudioContext] Remote state integrated');
+                console.log('✅ [StudioContext] Remote state received. Applying...');
                 
                 const authoritativeId = cloudState.org_id || settings.orgId || activeSlug;
 
                 // 🚨 PROFILE SYNC: Grant the current user access to this Org in Supabase
                 const supabase = (await import('@/lib/supabase/client')).createClient();
                 const { data: { user } } = await supabase.auth.getUser();
-                if (user && authoritativeId && authoritativeId.length > 30) { // Ensure it's a UUID
-                    console.log('🛡️ [StudioContext] Syncing user profile for OrgId:', authoritativeId);
+                if (user && authoritativeId && authoritativeId.length > 30) {
                     await supabase.from('profiles').upsert({
                         id: user.id,
                         org_id: authoritativeId,
@@ -478,19 +477,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     }));
                 }
                 
-                setInitialStaff(cloudState.staff_data);
-                setInitialStudioData(cloudState.studio_data);
-                
-                // Silent hydration of localStorage
-                Object.entries(cloudState.studio_data).forEach(([key, val]) => {
-                    if (val) {
-                        try {
-                            localStorage.setItem(key, JSON.stringify(val));
-                        } catch (e) {
-                            console.error(`⚠️ [Sync] Failed to save key [${key}] to localStorage:`, e);
-                        }
-                    }
-                });
+                // APPLY cloud state to both React state AND localStorage
+                // This is the CRITICAL step that was broken before (setInitialStaff/setInitialStudioData don't exist)
+                applyCloudState(activeSlug, cloudState);
             }
             setFirstSyncDone(true);
         });
