@@ -786,7 +786,7 @@ export default function DashboardPage() {
             )}
 
             {/* Billing Expiration Notification */}
-            {billing?.plan === 'trial' && billing?.status === 'trial' && (billing?.daysLeftInTrial ?? 0) <= 3 && (
+            {settings.plan !== 'pro' && billing?.plan === 'trial' && billing?.status === 'trial' && (billing?.daysLeftInTrial ?? 0) <= 3 && (
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-2 sm:p-5 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
                     <div className="flex items-center gap-2.5 sm:gap-4 text-center sm:text-left">
                         <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
@@ -811,22 +811,16 @@ export default function DashboardPage() {
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <div className="flex items-center flex-wrap gap-2.5 sm:gap-4">
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight flex items-center gap-2">
                                 {t.greeting || 'გამარჯობა'}, {profile?.first_name || profile?.full_name?.split(' ')[0] || ''} <span className="text-xl sm:text-2xl">👋</span>
+                                {settings.plan === 'pro' && (
+                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border border-amber-300/20 animate-in zoom-in-50 duration-700">
+                                        <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest leading-none">PRO</span>
+                                    </div>
+                                )}
                             </h1>
                         </div>
-                        {billing && (
-                            <span className={cn(
-                                "px-2.5 py-0.5 rounded-lg text-white text-[9px] sm:text-[11px] font-black tracking-tighter shadow-lg shrink-0",
-                                (billing?.plan === 'pro' || billing?.plan === 'enterprise') ? "bg-emerald-500 shadow-emerald-500/20" :
-                                billing?.plan === 'starter' ? "bg-blue-500 shadow-blue-500/20" :
-                                billing?.plan === 'growth' ? "bg-violet-500 shadow-violet-500/20" :
-                                "bg-amber-500 shadow-amber-500/20"
-                            )}>
-                                {String(billing?.plan === 'pro' || billing?.plan === 'enterprise' ? 'PRO' : (billing?.plan || 'TRIAL')).toUpperCase()}
-                            </span>
-                        )}
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted font-black mt-1 tracking-[0.15em] opacity-40">
                         {profile?.studio_name || 'ClassCore Studio'} · <span suppressHydrationWarning className="text-indigo-500">{dateStr}</span>
@@ -1243,8 +1237,8 @@ export default function DashboardPage() {
             )}
 
             {/* Trial Banner at bottom */}
-            {billing?.status === 'trial' && (
-                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 text-white shadow-2xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4 sm:gap-6 mt-6 sm:mt-12 mb-32 sm:mb-8 relative z-10 border border-white/10 w-full">
+            {settings.plan !== 'pro' && billing?.status === 'trial' && (
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 text-white shadow-2xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4 sm:gap-6 mt-6 sm:mt-12 mb-36 sm:mb-8 pb-8 sm:pb-8 relative z-10 border border-white/10 w-full">
                     <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left">
                         <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-inner">
                             <Zap className="w-5 h-5 sm:w-7 sm:h-7 text-white animate-pulse" />
