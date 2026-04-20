@@ -34,8 +34,19 @@ export async function GET() {
 
         if (error) throw error;
 
+        // Fetch fallback data from 'studios' table because operations can sometimes be wiped/empty
+        const { data: stdData } = await supabase.from('studios').select('studio_slug, owner_info, studio_name, logo_url');
+        const stdMap = new Map();
+        if (stdData) {
+            stdData.forEach(s => stdMap.set(s.studio_slug, s));
+        }
+
         // Process data to extract owner info
         const studios = data.map(row => {
+            const targetSlug = row.studio_slug;
+            const masterStudio = stdMap.get(targetSlug) || {};
+            const fallbackOwner = masterStudio.owner_info || {};
+
             const staffDataObj = row.staff_data || {};
             const isUnified = staffDataObj && !Array.isArray(staffDataObj) && (staffDataObj._staff || staffDataObj._operations);
             
@@ -49,7 +60,6 @@ export async function GET() {
 
             const ownerFromStaff = allStaff.find?.((s: any) => s.role === 'owner');
             
-            const targetSlug = row.studio_slug;
             const settingsKey = isUnified ? 'cc_studio_settings' : `cc_studio_settings_${targetSlug}`;
             const settingsObj = studioConfig[settingsKey] || {};
 
@@ -60,7 +70,9 @@ export async function GET() {
                 ? `${ownerFromConfig.first_name} ${ownerFromConfig.last_name || ''}`.trim()
                 : ownerFromStaff 
                     ? `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || ownerFromStaff.full_name
-                    : 'N/A';
+                    : fallbackOwner.first_name
+                        ? `${fallbackOwner.first_name} ${fallbackOwner.last_name || ''}`.trim()
+                        : 'N/A';
 
             // Extract counts for students, groups, halls, and billing
             let studentCount = 0;
@@ -110,12 +122,12 @@ export async function GET() {
 
             return {
                 slug: row.studio_slug,
-                name: settingsObj.studioName || studioConfig.studioName || row.studio_slug,
+                name: settingsObj.studioName || studioConfig.studioName || masterStudio.studio_name || row.studio_slug,
                 ownerName,
-                ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || 'N/A',
-                ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || 'N/A',
+                ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || fallbackOwner.email || 'N/A',
+                ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || fallbackOwner.phone || 'N/A',
                 updatedAt: row.updated_at,
-                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || null,
+                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || masterStudio.logo_url || null,
                 studentCount,
                 groupCount,
                 hallCount,
