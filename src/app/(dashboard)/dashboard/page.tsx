@@ -812,7 +812,9 @@ export default function DashboardPage() {
                 <div>
                     <div className="flex items-center flex-wrap gap-2.5 sm:gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="text-xl sm:text-2xl">👋</span>
+                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
+                                {t.greeting || 'გამარჯობა'}, {profile?.first_name || profile?.full_name?.split(' ')[0] || ''} <span className="text-xl sm:text-2xl">👋</span>
+                            </h1>
                         </div>
                         {billing && (
                             <span className={cn(

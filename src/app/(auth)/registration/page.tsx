@@ -112,7 +112,31 @@ export default function RegistrationPage() {
                     }
                 });
                 
-                // CRITICAL ISOLATION FLAGS:
+                // CRITICAL FIX: Seed initial settings so first login pushes proper owner data to SuperAdmin!
+                const initialSettings = {
+                    studioSlug: studioSlug,
+                    studioName: studioName,
+                    language: lang,
+                    owner_info: {
+                        first_name: firstName,
+                        last_name: lastName,
+                        email: email,
+                        phone: fullPhone
+                    },
+                    staff: [{
+                        id: Math.random().toString(36).substring(2, 9),
+                        first_name: firstName,
+                        last_name: lastName,
+                        full_name: `${firstName} ${lastName}`.trim(),
+                        email: email,
+                        phone: fullPhone,
+                        role: 'owner',
+                        status: 'active',
+                        created_at: new Date().toISOString()
+                    }]
+                };
+                localStorage.setItem(`cc_studio_settings_${studioSlug}`, JSON.stringify(initialSettings));
+
                 // 1. Force the next sync pulse to OVERWRITE cloud instead of MERGING (prevents orphan leaks)
                 localStorage.setItem(`cc_is_fresh_${studioSlug}`, 'true');
                 // 2. Mark onboarding as in progress to guide initial UI

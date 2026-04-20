@@ -36,16 +36,30 @@ export async function GET() {
 
         // Process data to extract owner info
         const studios = data.map(row => {
-            const allStaff = (row.staff_data as any[]) || [];
-            const ownerFromStaff = allStaff.find(s => s.role === 'owner');
-            // Extract the config BUT DO NOT RETURN IT WHOLE
-            const studioConfig = allStaff.find(s => s.id === '__studio_config__')?.studio_data || {};
-            const ownerFromConfig = studioConfig.owner_info || {};
+            const staffDataObj = row.staff_data || {};
+            const isUnified = staffDataObj && !Array.isArray(staffDataObj) && (staffDataObj._staff || staffDataObj._operations);
+            
+            const allStaff = isUnified 
+                ? (Array.isArray(staffDataObj._staff) ? staffDataObj._staff : []) 
+                : (Array.isArray(staffDataObj) ? staffDataObj : []);
+                
+            const studioConfig = isUnified
+                ? (staffDataObj._operations || {})
+                : (allStaff.find?.((s: any) => s.id === '__studio_config__')?.studio_data || {});
+
+            const ownerFromStaff = allStaff.find?.((s: any) => s.role === 'owner');
+            
+            const targetSlug = row.studio_slug;
+            const settingsKey = `cc_studio_settings_${targetSlug}`;
+            const settingsObj = studioConfig[settingsKey] || {};
+
+            // In legacy, owner_info might be at the root of studioConfig, in new it's inside settingsObj
+            const ownerFromConfig = settingsObj.owner_info || studioConfig.owner_info || {};
 
             const ownerName = ownerFromConfig.first_name 
                 ? `${ownerFromConfig.first_name} ${ownerFromConfig.last_name || ''}`.trim()
                 : ownerFromStaff 
-                    ? `${ownerFromStaff.first_name} ${ownerFromStaff.last_name || ''}`.trim() 
+                    ? `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || ownerFromStaff.full_name
                     : 'N/A';
 
             // Extract counts for students, groups, halls, and billing
@@ -55,7 +69,6 @@ export async function GET() {
             let revenue = 0;
             let activeSubsCount = 0;
 
-            const targetSlug = row.studio_slug;
             const studentKey = `cc_student_data_${targetSlug}`.toLowerCase();
             const groupKey = `cc_groups_${targetSlug}`.toLowerCase();
             const hallKey = `cc_halls_${targetSlug}`.toLowerCase();
@@ -97,25 +110,23 @@ export async function GET() {
 
             return {
                 slug: row.studio_slug,
-                name: studioConfig.studioName || row.studio_slug,
+                name: settingsObj.studioName || studioConfig.studioName || row.studio_slug,
                 ownerName,
                 ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || 'N/A',
                 ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || 'N/A',
                 updatedAt: row.updated_at,
-                logoUrl: studioConfig.logoDataUrl || null,
+                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || null,
                 studentCount,
                 groupCount,
                 hallCount,
                 activeSubsCount,
                 revenue,
-                plan: studioConfig.plan || 'trial',
-                suspended: studioConfig.suspended === true,
+                plan: settingsObj.plan || studioConfig.plan || 'trial',
+                suspended: settingsObj.suspended === true || studioConfig.suspended === true,
                 billingStatus: billingObj.status || 'active',
                 daysLeft: billingObj.daysLeftInTrial ?? 30
             };
         });
-
-
 
         return NextResponse.json({ studios });
     } catch (err: any) {
