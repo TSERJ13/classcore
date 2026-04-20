@@ -84,7 +84,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     const hasAccess = await verifyUserInStudio(currentSlug, currentUserEmail);
                     
                     if (!hasAccess) {
-                        console.warn('🚨 [UserProvider] Access denied by database.');
+                        console.warn(`🚨 [UserProvider] Access denied for ${currentUserEmail} in studio ${currentSlug}. No matching record in staff_emails or staff_data.`);
                         setIsVerified(false);
                         await logout();
                         return;

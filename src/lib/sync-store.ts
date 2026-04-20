@@ -335,7 +335,13 @@ export async function verifyUserInStudio(slug: string, query: string): Promise<b
 
         if (error || !data) return false;
 
-        // Check in unified blob
+        // 1. FAST PATH: Check the staff_emails array column
+        if (Array.isArray(data.staff_emails)) {
+            const hasMatch = terms.some(t => data.staff_emails.includes(t));
+            if (hasMatch) return true;
+        }
+
+        // 2. FALLBACK: Check in unified blob (for latest/un-indexed data)
         const unified = data.staff_data || {};
         const staffList = unified._staff || (Array.isArray(data.staff_data) ? data.staff_data : []);
 
@@ -345,7 +351,8 @@ export async function verifyUserInStudio(slug: string, query: string): Promise<b
             const sPhone = (s.phone || s.phone_number || '').replace(/[^0-9]/g, '');
             return terms.some(t => t === sEmail || (sPhone && (sPhone === t || sPhone.endsWith(t))));
         });
-    } catch {
+    } catch (err: any) {
+        console.error('❌ [Sync] verifyUserInStudio failed:', err.message);
         return false;
     }
 }
