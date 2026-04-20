@@ -900,7 +900,7 @@ export default function AnalyticsPage() {
     return (
         <div className="max-w-[1440px] mx-auto space-y-8 animate-fade-up pb-20">
             {/* Standard Header Actions */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 px-4 sm:px-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                 <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-500/20">
                         <BarChart3 className="w-6 h-6" />
@@ -933,7 +933,7 @@ export default function AnalyticsPage() {
                 </div>
             </div>
 
-            <div className="space-y-6 px-4 sm:px-0">
+            <div className="space-y-6">
             {/* 1. AI Studio Assistant - Premium Dynamic Hero */}
             <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 rounded-3xl sm:rounded-[2.5rem] p-5 sm:p-6 md:p-8 relative overflow-hidden group shadow-2xl shadow-indigo-600/30 mb-6 sm:mb-8 transition-all duration-500 hover:scale-[1.01] w-full">
                 {/* Decorative Elements */}
