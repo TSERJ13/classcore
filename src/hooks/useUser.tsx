@@ -125,6 +125,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 const latestStaff = settings.staff?.find((s: any) => s.id === staff.id) || staff;
                 setUser({ id: latestStaff.id, email: latestStaff.email } as any);
                 setProfile({
+                    ...(latestStaff.permissions || {}), // 🚀 Flatten permissions to root for Sidebar visibility
                     ...latestStaff,
                     studio_name: settings.studioName,
                     studio_slug: slug,
