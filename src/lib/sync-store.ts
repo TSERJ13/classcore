@@ -61,6 +61,13 @@ export async function pushStudioStateToCloud(
     try {
         const supabase = createClient();
 
+        // EMPTY PUSH PROTECTION: Never overwrite cloud with empty data
+        // This prevents new devices / incognito from wiping the database
+        if ((!staff || staff.length === 0) && Object.keys(studioData).length === 0) {
+            console.warn('⚠️ [Sync] Push blocked: refusing to overwrite cloud with empty data');
+            return;
+        }
+
         // 1. Strip slug/orgId suffixes from localStorage keys to get clean base keys
         const operations: Record<string, any> = {};
         Object.entries(studioData).forEach(([key, value]) => {
