@@ -85,13 +85,26 @@ export async function POST(req: Request) {
             }
         }
 
-        // 3. Save back
+        // 3. Save back to operational blob
         const { error: updateError } = await supabase
             .from('studio_settings')
             .update({ staff_data: currentData })
             .eq('studio_slug', slug);
 
         if (updateError) throw updateError;
+
+        // 🚀 4. Propagate to Master Record (studios table) for performant listing & fallbacks
+        if (patch) {
+            console.log(`📡 [UpdateMeta] Propagating master metadata for: ${slug}`);
+            await supabase
+                .from('studios')
+                .update({
+                    studio_name: patch.studioName || undefined,
+                    logo_url: patch.logoDataUrl || undefined,
+                    owner_info: patch.owner_info || undefined
+                })
+                .eq('studio_slug', slug);
+        }
 
         return NextResponse.json({ success: true });
     } catch (err: any) {

@@ -63,15 +63,20 @@ export async function GET() {
             const settingsKey = isUnified ? 'cc_studio_settings' : `cc_studio_settings_${targetSlug}`;
             const settingsObj = studioConfig[settingsKey] || {};
 
-            // In legacy, owner_info might be at the root of studioConfig, in new it's inside settingsObj
-            const ownerFromConfig = settingsObj.owner_info || studioConfig.owner_info || {};
+            // In legacy, owner_info might be at the root of studioConfig or as individual columns
+            const ownerFromConfig = settingsObj.owner_info || studioConfig.owner_info || {
+                first_name: settingsObj.owner_first_name || studioConfig.owner_first_name || settingsObj.first_name || studioConfig.first_name,
+                last_name: settingsObj.owner_last_name || studioConfig.owner_last_name || settingsObj.last_name || studioConfig.last_name,
+                email: settingsObj.owner_email || studioConfig.owner_email || settingsObj.email || studioConfig.email,
+                phone: settingsObj.owner_phone || studioConfig.owner_phone || settingsObj.phone || studioConfig.phone
+            };
 
             const ownerName = ownerFromConfig.first_name 
                 ? `${ownerFromConfig.first_name} ${ownerFromConfig.last_name || ''}`.trim()
                 : ownerFromStaff 
-                    ? `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || ownerFromStaff.full_name
-                    : fallbackOwner.first_name
-                        ? `${fallbackOwner.first_name} ${fallbackOwner.last_name || ''}`.trim()
+                    ? `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || (ownerFromStaff as any).full_name
+                    : (fallbackOwner.first_name || fallbackOwner.owner_first_name)
+                        ? `${fallbackOwner.first_name || fallbackOwner.owner_first_name} ${fallbackOwner.last_name || fallbackOwner.owner_last_name || ''}`.trim()
                         : 'N/A';
 
             // Extract counts for students, groups, halls, and billing
@@ -127,7 +132,7 @@ export async function GET() {
                 ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || fallbackOwner.email || 'N/A',
                 ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || fallbackOwner.phone || 'N/A',
                 updatedAt: row.updated_at,
-                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || masterStudio.logo_url || null,
+                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || settingsObj.logo_url || studioConfig.logo_url || settingsObj.logo || studioConfig.logo || masterStudio.logo_url || null,
                 studentCount,
                 groupCount,
                 hallCount,
@@ -140,7 +145,7 @@ export async function GET() {
             };
         });
 
-        return NextResponse.json({ studios });
+        return NextResponse.json({ studios }, { headers: responseHeaders });
     } catch (err: any) {
         console.error('❌ SuperAdmin Studio List API Error:', err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });

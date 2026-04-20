@@ -106,10 +106,17 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         // 2. Apply Operational Data from cloud → localStorage
         if (cloudState.studio_data) {
+            const settingsKey = getScopedKey(STORAGE_KEY, activeSlug);
             Object.entries(cloudState.studio_data).forEach(([key, value]) => {
                 if (value !== null && value !== undefined) {
                     localStorage.setItem(key, JSON.stringify(value));
                     changed = true;
+
+                    // 🚨 CRITICAL: If settings key is updated from cloud, sync React state immediately
+                    if (key === settingsKey) {
+                        setSettings(value as any);
+                        console.log('📡 [Sync] Studio settings refreshed from cloud');
+                    }
                 }
             });
 

@@ -92,19 +92,35 @@ export async function pushStudioStateToCloud(
             
         orgId = orgId || current?.org_id || '';
         
-        // 🚨 CRITICAL FIX: Safe Merge!
-        // Previous logic overwrote the ENTIRE JSON blob with partial updates (e.g. when saving a single expense).
-        // Now, we smartly merge the incoming operations with the existing cloud state.
-        const currentBlob = current?.staff_data || { _staff: [], _operations: {} };
-        const existingOperations = currentBlob._operations || {};
+        // 🚨 CRITICAL FIX: Safe Merge & Legacy Migration!
+        // Previous logic overwrote the ENTIRE JSON blob with partial updates or failed to merge with legacy array formats.
+        const staffDataObj = current?.staff_data || {};
+        const isLegacy = Array.isArray(staffDataObj);
         
-        // If the incoming operation contains a subset of keys (e.g. just cc_expenses), it merges at the top-level keys.
-        // For example, replacing the entire cc_student_data block if it's provided, while leaving cc_halls intact.
+        let existingStaff: StaffMember[] = [];
+        let existingOperations: Record<string, any> = {};
+
+        if (isLegacy) {
+            // MIGRATION: Convert legacy array format to unified object format
+            console.warn(`⚙️ [Sync] Migrating legacy studio format for: ${slug}`);
+            existingStaff = staffDataObj.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
+            const configObj = staffDataObj.find((s: any) => s.id === '__studio_config__');
+            if (configObj && configObj.studio_data) {
+                // Legacy operations were often stored with slug suffixes
+                Object.entries(configObj.studio_data).forEach(([k, v]) => {
+                    let base = k;
+                    if (base.endsWith(`_${slug}`)) base = base.slice(0, -(slug.length + 1));
+                    existingOperations[base] = v;
+                });
+            }
+        } else {
+            existingStaff = staffDataObj._staff || [];
+            existingOperations = staffDataObj._operations || {};
+        }
+        
+        // Smart merge
         const mergedOperations = { ...existingOperations, ...operations };
-        
-        // Only overwrite staff if the incoming staff array is explicitly provided and non-empty. 
-        // Otherwise, preserve existing staff.
-        const mergedStaff = (staff && staff.length > 0) ? staff : (currentBlob._staff || []);
+        const mergedStaff = (staff && staff.length > 0) ? staff : existingStaff;
 
         const blob = {
             _staff: mergedStaff,
@@ -133,6 +149,23 @@ export async function pushStudioStateToCloud(
         if (error) {
             console.error('❌ [Sync] Push failed:', error.message);
             throw error;
+        }
+
+        // 🚀 MASTER PROPAGATION: Ensure vital metadata is synced to the top-level 'studios' table
+        // This makes it visible to SuperAdmin even if the operational blob is empty or in-transition.
+        if (operations.cc_studio_settings) {
+            const settings = operations.cc_studio_settings;
+            if (settings.logoDataUrl || settings.owner_info || settings.studioName) {
+                console.log('📡 [Sync] Propagating master metadata for:', slug);
+                await supabase
+                    .from('studios')
+                    .update({
+                        logo_url: settings.logoDataUrl || undefined,
+                        studio_name: settings.studioName || undefined,
+                        owner_info: settings.owner_info || undefined
+                    })
+                    .eq('studio_slug', slug);
+            }
         }
 
         console.log(`✅ [Sync] Push OK → ${staff.length} staff, ${Object.keys(operations).length} data keys`);
