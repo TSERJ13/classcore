@@ -62,6 +62,13 @@ export function removeFromTrash(id: string) {
     window.dispatchEvent(new Event('cc_trash_update'));
 }
 
+export function clearTrash() {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getScopedKey(TRASH_KEY), JSON.stringify([]));
+    triggerInstantSync();
+    window.dispatchEvent(new Event('cc_trash_update'));
+}
+
 export function cleanupOldTrash() {
     if (typeof window === 'undefined') return;
     const trash = getTrash();

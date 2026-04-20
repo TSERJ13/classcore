@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getHistory, AuditEntry } from '@/lib/audit-store';
-import { getTrash, removeFromTrash, TrashItem } from '@/lib/trash-store';
+import { getTrash, removeFromTrash, clearTrash, TrashItem } from '@/lib/trash-store';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Receipt, Search, Download, Trash2, RotateCcw, AlertCircle, Building2, History as HistoryIcon, Clock, CheckCircle2, CreditCard, UserMinus, ShieldAlert, Zap, RefreshCw } from 'lucide-react';
@@ -111,6 +111,18 @@ export default function UnifiedHistoryPage() {
         }
     };
 
+    const handleDeletePermanently = (id: string) => {
+        if (confirm(lang === 'ka' ? 'დარწმუნებული ხართ რომ გსურთ სრულად წაშლა? მონაცემი აღარ აღდგება.' : 'Are you sure you want to permanently delete? This cannot be undone.')) {
+            removeFromTrash(id);
+        }
+    };
+
+    const handleClearTrash = () => {
+        if (confirm(lang === 'ka' ? 'ნამდვილად გსურთ ნაგვის ყუთის სრულად გასუფთავება?' : 'Are you sure you want to empty the trash?')) {
+            clearTrash();
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-8">
                     <div className="flex items-center justify-between gap-2 w-full px-1 sm:px-0">
@@ -138,13 +150,22 @@ export default function UnifiedHistoryPage() {
                             </button>
                         </div>
 
-                        {activeTab === 'audit' && (
+                        {activeTab === 'audit' ? (
                             <button
                                 onClick={exportToCSV}
                                 className="bg-white text-black h-12 w-12 sm:w-auto sm:px-5 rounded-[1.25rem] font-black text-[10px] tracking-widest flex items-center justify-center gap-2 hover:scale-[0.98] transition-all shadow-sm border border-border-subtle shrink-0"
                             >
                                 <Download className="w-4 h-4" />
                                 <span className="hidden sm:inline">{t.exportExcel || 'Export'}</span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleClearTrash}
+                                disabled={filteredTrash.length === 0}
+                                className="bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white disabled:opacity-50 disabled:hover:bg-rose-500/10 disabled:hover:text-rose-500 h-12 w-12 sm:w-auto sm:px-5 rounded-[1.25rem] font-black text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm shrink-0"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                <span className="hidden sm:inline">{lang === 'ka' ? 'გასუფთავება' : 'Empty Trash'}</span>
                             </button>
                         )}
                     </div>
@@ -323,39 +344,48 @@ export default function UnifiedHistoryPage() {
                         ) : (
                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {filteredTrash.map(item => (
-                                    <div key={item.id} className="p-4 md:p-6 bg-surface/50 rounded-[1.5rem] md:rounded-[2rem] border border-border-subtle hover:border-rose-500/30 transition-all group relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-3 md:p-4">
+                                    <div key={item.id} className="p-3 md:p-4 bg-surface/50 rounded-[1.25rem] md:rounded-[1.5rem] border border-border-subtle hover:border-rose-500/30 transition-all group relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-2 md:p-3">
                                             <div className="flex items-center gap-1.5 text-rose-500/40">
-                                                <Clock className="w-2.5 h-2.5 md:w-3 h-3" />
+                                                <Clock className="w-2.5 h-2.5" />
                                                 <span className="text-[8px] md:text-[9px] font-black tracking-widest">
                                                     30d left
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3 md:gap-4">
-                                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-card border border-border-subtle flex items-center justify-center text-muted group-hover:text-rose-500 group-hover:bg-rose-500/5 transition-all shrink-0">
-                                                <Building2 className="w-5 h-5 md:w-6 md:h-6" />
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-card border border-border-subtle flex items-center justify-center text-muted group-hover:text-rose-500 group-hover:bg-rose-500/5 transition-all shrink-0">
+                                                <Building2 className="w-4 h-4 md:w-5 md:h-5" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="text-sm md:text-base font-black text-primary truncate tracking-tight">
+                                                <h3 className="text-sm font-black text-primary truncate tracking-tight">
                                                     {item.data.name || item.data.fullName || item.data.first_name || 'Unnamed Item'}
                                                 </h3>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-0.5 md:mt-1">
-                                                    <span className="w-fit text-[9px] md:text-[10px] font-black text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/10">
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 mt-0.5">
+                                                    <span className="w-fit text-[9px] font-black text-indigo-400 bg-indigo-500/5 px-1.5 py-0.5 rounded border border-indigo-500/10">
                                                         {item.type}
                                                     </span>
-                                                    <span className="text-[9px] md:text-[10px] font-bold text-muted">
+                                                    <span className="text-[9px] font-bold text-muted">
                                                         Deleted {new Date(item.deletedAt).toLocaleDateString()}
                                                     </span>
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => handleRestore(item)}
-                                                className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-lg active:scale-95 shrink-0"
-                                                title="Restore"
-                                            >
-                                                <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
-                                            </button>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <button
+                                                    onClick={() => handleDeletePermanently(item.id)}
+                                                    className="w-8 h-8 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-surface border border-border-subtle text-muted hover:bg-rose-500 hover:text-white hover:border-rose-500 flex items-center justify-center transition-all shadow-sm active:scale-95"
+                                                    title={lang === 'ka' ? 'სრულად წაშლა' : 'Delete Permanently'}
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleRestore(item)}
+                                                    className="w-8 h-8 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-95"
+                                                    title={lang === 'ka' ? 'აღდგენა' : 'Restore'}
+                                                >
+                                                    <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
