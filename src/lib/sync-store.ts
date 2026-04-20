@@ -83,32 +83,44 @@ export async function pushStudioStateToCloud(
             operations[baseKey] = value;
         });
 
-        // 2. Build the unified blob
+        // 4. Fetch current record to get existing state and org_id
+        const { data: current } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('org_id, staff_data')
+            .eq('studio_slug', slug)
+            .maybeSingle();
+            
+        orgId = orgId || current?.org_id || '';
+        
+        // 🚨 CRITICAL FIX: Safe Merge!
+        // Previous logic overwrote the ENTIRE JSON blob with partial updates (e.g. when saving a single expense).
+        // Now, we smartly merge the incoming operations with the existing cloud state.
+        const currentBlob = current?.staff_data || { _staff: [], _operations: {} };
+        const existingOperations = currentBlob._operations || {};
+        
+        // If the incoming operation contains a subset of keys (e.g. just cc_expenses), it merges at the top-level keys.
+        // For example, replacing the entire cc_student_data block if it's provided, while leaving cc_halls intact.
+        const mergedOperations = { ...existingOperations, ...operations };
+        
+        // Only overwrite staff if the incoming staff array is explicitly provided and non-empty. 
+        // Otherwise, preserve existing staff.
+        const mergedStaff = (staff && staff.length > 0) ? staff : (currentBlob._staff || []);
+
         const blob = {
-            _staff: staff || [],
-            _operations: operations
+            _staff: mergedStaff,
+            _operations: mergedOperations
         };
 
         // 3. Build staff_emails for quick lookups
         const staffEmails = Array.from(new Set([
-            ...(staff || []).map(s => s.email?.toLowerCase().trim()).filter(Boolean),
-            ...(staff || []).map(s => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
+            ...(mergedStaff || []).map((s: any) => s.email?.toLowerCase().trim()).filter(Boolean),
+            ...(mergedStaff || []).map((s: any) => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
         ]));
-
-        // 4. Fetch current record to get org_id if we don't have it
-        if (!orgId) {
-            const { data: current } = await supabase
-                .from(SETTINGS_TABLE)
-                .select('org_id')
-                .eq('studio_slug', slug)
-                .maybeSingle();
-            orgId = current?.org_id || '';
-        }
 
         // 5. Upsert to database
         const payload: any = {
             studio_slug: slug,
-            org_id: orgId || '',
+            org_id: orgId,
             staff_data: blob,
             staff_emails: staffEmails,
             updated_at: new Date().toISOString()
