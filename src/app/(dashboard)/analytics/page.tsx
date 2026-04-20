@@ -898,7 +898,7 @@ export default function AnalyticsPage() {
     const revenueMax = Math.max(...revenueChartData.map(d => d.value), 100);
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-20">
+        <div className="max-w-[1440px] mx-auto space-y-8 animate-fade-up pb-20">
             {/* Standard Header Actions */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 px-4 sm:px-0">
                 <div className="flex items-center gap-3">
@@ -959,7 +959,7 @@ export default function AnalyticsPage() {
                         </div>
                     </div>
                     
-                    <div className="flex-1 w-full lg:max-w-2xl px-1 sm:px-2">
+                    <div className="flex-1 w-full lg:max-w-4xl px-1 sm:px-2">
                         <div className="bg-white/10 backdrop-blur-md rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-white/15 shadow-2xl overflow-hidden relative min-h-[60px] sm:min-h-[80px] flex items-center group/card">
                             <div className="absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-emerald-400 opacity-60 group-hover/card:bg-white transition-colors" />
                             <p className="text-xs sm:text-base font-bold text-white leading-tight sm:leading-relaxed italic animate-in fade-in slide-in-from-right-8 duration-700">

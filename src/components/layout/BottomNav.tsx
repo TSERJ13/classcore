@@ -27,14 +27,14 @@ export function BottomNav() {
         <nav
             className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111114]/95 backdrop-blur-xl border-t border-white/[0.08]"
             style={{ 
-                paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
+                paddingBottom: 'env(safe-area-inset-bottom, 12px)',
                 transform: 'translateZ(0)',
                 WebkitTransform: 'translateZ(0)',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden'
             }}
         >
-            <div className="flex items-center justify-around w-full max-w-[420px] md:max-w-xl mx-auto px-2 py-1.5 h-16 md:h-20">
+            <div className="flex items-center justify-between w-full max-w-[600px] md:max-w-3xl mx-auto px-6 py-1.5 h-16 md:h-20">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (

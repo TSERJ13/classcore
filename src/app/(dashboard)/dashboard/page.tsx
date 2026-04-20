@@ -815,7 +815,7 @@ export default function DashboardPage() {
                             <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight flex items-center gap-2">
                                 {t.greeting || 'გამარჯობა'}, {profile?.first_name || profile?.full_name?.split(' ')[0] || ''} <span className="text-xl sm:text-2xl">👋</span>
                                 {settings.plan === 'pro' && (
-                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border border-amber-300/20 animate-in zoom-in-50 duration-700">
+                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-[0_0_15px_rgba(79,70,229,0.2)] border border-indigo-400/20 animate-in zoom-in-50 duration-700">
                                         <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest leading-none">PRO</span>
                                     </div>
                                 )}
