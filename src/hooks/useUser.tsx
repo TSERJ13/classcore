@@ -141,7 +141,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
             refreshSession();
         });
 
-        return () => subscription.unsubscribe();
+        // 🚀 REACTIVE PERMISSIONS: Listen for background sync updates.
+        // This ensures that if the owner changes Nini's permissions on another device,
+        // her sidebar will update instantly when the sync pulse arrives.
+        const handleSettingsUpdate = () => {
+            console.log('📡 [UserProvider] Settings updated via sync. Refreshing profile permissions...');
+            refreshSession();
+        };
+        window.addEventListener('cc_settings_update', handleSettingsUpdate);
+
+        return () => {
+            subscription.unsubscribe();
+            window.removeEventListener('cc_settings_update', handleSettingsUpdate);
+        };
     }, []);
 
     useEffect(() => {
