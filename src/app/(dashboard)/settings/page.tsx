@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { checkCloudConnection, syncStaffToCloud, masterStudioPurge } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
+import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useStudio } from '@/contexts/StudioContext';
@@ -316,18 +317,36 @@ export default function SettingsPage() {
         }
     }
 
-    function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        if (!validateImageSize(file)) {
+            addNotification({
+                type: 'error',
+                title: t.imageError || 'Error',
+                message: t.fileTooLarge,
+                duration: 4000
+            });
+            return;
+        }
+
         setUploading(true);
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const result = ev.target?.result as string;
-            setLogo(result);
+        try {
+            const optimizedBase64 = await processProfileImage(file);
+            setLogo(optimizedBase64);
+            addNotification(l('ლოგო წარმატებით განახლდა', 'Логотип успешно обновлен', 'Logo successfully updated'), 'success');
+        } catch (err) {
+            addNotification({
+                type: 'error',
+                title: t.imageError || 'Error',
+                message: t.imageProcessingError,
+                duration: 4000
+            });
+        } finally {
             setUploading(false);
             if (fileRef.current) fileRef.current.value = '';
-        };
-        reader.readAsDataURL(file);
+        }
     }
 
     const theme = THEMES[settings.themeKey];
@@ -375,7 +394,13 @@ export default function SettingsPage() {
                                         {t.uploadAction}
                                     </button>
                                     {settings.logoDataUrl && (
-                                        <button onClick={() => setLogo(null)} className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors">
+                                        <button 
+                                            onClick={() => {
+                                                setLogo(null);
+                                                addNotification(l('ლოგო წაიშალა', 'Логотип удален', 'Logo removed'), 'success');
+                                            }} 
+                                            className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors"
+                                        >
                                             {t.removeAction}
                                         </button>
                                     )}
@@ -392,13 +417,13 @@ export default function SettingsPage() {
                                         setNameVal(nextName);
                                     }}
                                     onKeyDown={e => e.key === 'Enter' && saveName()} 
-                                    readOnly={!isSuperAdmin}
+                                    readOnly={!isAdmin}
                                     className={cn(
                                         "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                        !isSuperAdmin && "opacity-60 cursor-not-allowed"
+                                        !isAdmin && "opacity-60 cursor-not-allowed"
                                     )} 
                                 />
-                                {profile?.role === 'superadmin' && (
+                                {isAdmin && (
                                     <button onClick={saveName} className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
                                         {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
                                     </button>
@@ -415,13 +440,13 @@ export default function SettingsPage() {
                                             onChange={e => setSlugVal(compactSlugify(e.target.value))}
                                             onKeyDown={e => e.key === 'Enter' && saveSlug()}
                                             placeholder="studio-slug"
-                                            readOnly={profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge'}
+                                            readOnly={!isAdmin && settings.studioSlug !== 'demo.classcore.ge'}
                                             className={cn(
                                                 "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors",
-                                                (profile?.role !== 'superadmin' && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
+                                                (!isAdmin && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
                                             )}
                                         />
-                                        {(profile?.role === 'superadmin' || settings.studioSlug === 'demo.classcore.ge' || !settings.studioSlug) && (
+                                        {(isAdmin || settings.studioSlug === 'demo.classcore.ge' || !settings.studioSlug) && (
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => setSlugVal(compactSlugify(nameVal || settings.studioName))}

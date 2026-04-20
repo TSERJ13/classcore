@@ -14,11 +14,18 @@ BEGIN
         SELECT table_name 
         FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name IN ('students', 'groups', 'halls', 'staff', 'student_subscriptions', 'subscription_plans', 'calendar_events', 'attendance_records', 'studios', 'branches')
+        AND table_name IN (
+            'profiles', 'students', 'groups', 'halls', 'staff', 
+            'student_subscriptions', 'subscription_plans', 'calendar_events', 
+            'attendance_records', 'studios', 'branches', 'studio_settings',
+            'hall_rentals', 'inventory_products', 'sales', 'trash', 'audit_logs'
+        )
     ) LOOP
         -- Drop old restrictive policies
         EXECUTE format('DROP POLICY IF EXISTS "Org isolation" ON public.%I', t);
         EXECUTE format('DROP POLICY IF EXISTS "Users can manage their own profile" ON public.%I', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Authenticated write" ON public.%I', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Self manage" ON public.%I', t);
         
         -- Create a RECOVERABLE policy: 
         -- Allow access if the org_id matches the one in their profile,

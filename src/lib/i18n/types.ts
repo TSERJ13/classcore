@@ -637,6 +637,8 @@ export interface Translations {
     salaryPercentage: string;
     deleteTeacher: string;
     actionIrreversible: string;
+    fileTooLarge: string;
+    imageProcessingError: string;
     // GroupModal extra
     editGroup: string;
     newGroup: string;

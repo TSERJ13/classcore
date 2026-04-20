@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
+import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 
 export default function StudentRegistrationPage() {
     const { studio } = useParams() as { studio: string };
@@ -56,12 +57,24 @@ export default function StudentRegistrationPage() {
 
     if (!isMounted) return null;
 
-    const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => setPhotoPreview(reader.result as string);
-        reader.readAsDataURL(file);
+
+        if (!validateImageSize(file)) {
+            setErrors(prev => ({ ...prev, photo: t.fileTooLarge }));
+            return;
+        }
+
+        try {
+            setErrors(prev => ({ ...prev, photo: '' }));
+            const optimizedBase64 = await processProfileImage(file);
+            setPhotoPreview(optimizedBase64);
+        } catch (err) {
+            setErrors(prev => ({ ...prev, photo: t.imageProcessingError }));
+        } finally {
+            if (fileRef.current) fileRef.current.value = '';
+        }
     };
 
     const validate = () => {
@@ -203,7 +216,11 @@ export default function StudentRegistrationPage() {
                         )}
                     </button>
                     <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-                    <p className="text-[10px] text-muted opacity-40 font-bold mt-2 tracking-wider">{t.photoOptional}</p>
+                    {errors.photo ? (
+                        <p className="text-[10px] font-black text-red-500 mt-2">{errors.photo}</p>
+                    ) : (
+                        <p className="text-[10px] text-muted opacity-40 font-bold mt-2 tracking-wider">{t.photoOptional}</p>
+                    )}
                 </div>
 
                 {/* Fields */}

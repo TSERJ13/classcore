@@ -8,10 +8,12 @@ import { Card } from '@/components/ui/Card';
 import { Trash2, Search, RotateCcw, AlertCircle, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
+import { useConfirm } from '@/contexts/ConfirmContext';
 
 export default function TrashPage() {
     const { t, lang } = useT();
     const { settings } = useStudio();
+    const confirm = useConfirm();
     const [trash, setTrash] = useState<TrashItem[]>([]);
     const [search, setSearch] = useState('');
 
@@ -27,12 +29,7 @@ export default function TrashPage() {
         return name.includes(search.toLowerCase());
     });
 
-    const handleRestore = (item: TrashItem) => {
-        // Logic to restore based on type
-        // This usually involves pushing the data back to its respective collection
-        // For simplicity in this demo, we just remove from trash and show a message
-        // Real implementation should insert into localStorage/Supabase
-
+    const handleRestore = async (item: TrashItem) => {
         const keyMap: Record<string, string> = {
             'student': 'cc_students',
             'teacher': 'cc_teachers',
@@ -42,16 +39,17 @@ export default function TrashPage() {
 
         const prefix = keyMap[item.type];
         if (prefix) {
-            // Restore logic...
             const branchSlug = settings.studioSlug;
             const storageKey = `${prefix}_${branchSlug}_${item.branchId}`;
             const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
             localStorage.setItem(storageKey, JSON.stringify([...existing, item.data]));
 
-            // Remove from trash
             removeFromTrash(item.id);
             window.dispatchEvent(new Event(`cc_${item.type}s_update`));
-            alert(lang === 'ka' ? 'აღდგენილია!' : 'Restored!');
+            await confirm.alert({
+                message: lang === 'ka' ? 'აღდგენილია!' : 'Restored!',
+                confirmText: t.ok || 'OK'
+            });
         }
     };
 

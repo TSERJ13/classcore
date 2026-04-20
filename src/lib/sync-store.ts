@@ -151,8 +151,8 @@ export async function pushStudioStateToCloud(
             throw error;
         }
 
-        // 🚀 MASTER PROPAGATION: Ensure vital metadata is synced to the top-level 'studios' table
-        // This makes it visible to SuperAdmin even if the operational blob is empty or in-transition.
+        // 🚀 MASTER PROPAGATION: Ensure vital metadata is synced to top-level tables
+        // 1. Update 'studios' metadata
         if (operations.cc_studio_settings) {
             const settings = operations.cc_studio_settings;
             if (settings.logoDataUrl || settings.owner_info || settings.studioName) {
@@ -165,6 +165,41 @@ export async function pushStudioStateToCloud(
                         owner_info: settings.owner_info || undefined
                     })
                     .eq('studio_slug', slug);
+            }
+        }
+
+        // 2. Propagate 'staff' members to standalone table
+        if (mergedStaff && mergedStaff.length > 0) {
+            console.log('📡 [Sync] Propagating staff records for:', slug);
+            const staffPayload = mergedStaff.map(s => ({
+                id: s.id,
+                org_id: orgId,
+                first_name: s.first_name || '',
+                last_name: s.last_name || '',
+                full_name: s.full_name || `${s.first_name} ${s.last_name}`.trim(),
+                email: s.email,
+                phone: s.phone || s.phone_number,
+                password: s.password,
+                role: s.role,
+                status: s.status || 'active',
+                photo_url: s.photo_url,
+                permissions: s.permissions,
+                specialty: s.specialty || [],
+                salary_rates: {
+                    hourly: s.rate_per_hour,
+                    monthly: s.rate_per_month,
+                    percentage: s.salary_percentage
+                },
+                assigned_group_ids: s.assigned_group_ids || [],
+                allowed_branch_ids: s.allowedBranchIds || []
+            }));
+
+            const { error: staffError } = await supabase
+                .from('staff')
+                .upsert(staffPayload, { onConflict: 'id' });
+            
+            if (staffError) {
+                console.warn('⚠️ [Sync] Staff propagation failed (non-critical):', staffError.message);
             }
         }
 
@@ -373,12 +408,65 @@ export async function masterStudioPurge(slug: string): Promise<void> {
 }
 
 /**
- * Simple merge utility: Union of two arrays by ID field.
- * Used by applyCloudState for staff merging.
+ * CLOUD LOGIN FALLBACK:
+ * Finds all studios where a staff member with this email/phone exists.
+ * Returns { slug, staff } pairs for authentication.
  */
-export function mergeStudioData(cloud: Record<string, any>, local: Record<string, any>): Record<string, any> {
-    // Cloud wins — simply use cloud data
-    return { ...local, ...cloud };
+export async function findAllStudiosByStaffEmail(query: string): Promise<Array<{ slug: string, staff: StaffMember }>> {
+    if (typeof window === 'undefined' || !query) return [];
+    
+    const cleanQuery = query.trim().toLowerCase();
+    const digitsOnly = query.replace(/[^0-9]/g, '');
+    const terms = Array.from(new Set([cleanQuery, digitsOnly].filter(t => t.length > 2)));
+
+    try {
+        const supabase = createClient();
+        
+        // Search the staff_emails array column
+        const { data, error } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('studio_slug, staff_data, org_id')
+            .contains('staff_emails', [cleanQuery]); // Start with exact email match
+
+        if (error) {
+            console.error('❌ [Sync] Global staff search failed:', error.message);
+            return [];
+        }
+
+        const results: Array<{ slug: string, staff: StaffMember }> = [];
+
+        (data || []).forEach(row => {
+            const unified = row.staff_data || {};
+            const staffList: StaffMember[] = unified._staff || (Array.isArray(row.staff_data) ? row.staff_data : []);
+            
+            // Find the specific staff member in this studio's blob
+            const member = staffList.find(s => {
+                const sEmail = s.email?.toLowerCase().trim();
+                const sPhone = (s.phone || s.phone_number || '').replace(/[^0-9]/g, '');
+                return terms.some(t => t === sEmail || (sPhone && (sPhone === t || sPhone.endsWith(t))));
+            });
+
+            if (member) {
+                results.push({
+                    slug: row.studio_slug,
+                    staff: { ...member, org_id: row.org_id } // Inject org_id for correct scoping
+                });
+            }
+        });
+
+        return results;
+    } catch (err) {
+        console.error('❌ [Sync] Global staff lookup error:', err);
+        return [];
+    }
+}
+
+/**
+ * Partial Hydration: Fetch ONLY staff list for a slug
+ */
+export async function fetchStaffFromCloud(slug: string): Promise<StaffMember[] | null> {
+    const state = await pullStudioStateFromCloud(slug, slug);
+    return state?.staff_data || null;
 }
 
 // Legacy compat stubs — these are no longer used but keep exports

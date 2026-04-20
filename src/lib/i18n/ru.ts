@@ -618,7 +618,7 @@ export const ru: Translations = {
     newTeacher: 'Новый преподаватель',
     staffMember: 'Сотрудник',
     upload: 'Загрузить',
-    maxFileSize: 'JPG, PNG · макс 5MB',
+    maxFileSize: 'JPG, PNG · макс 2MB',
     basicInfo: 'Основная информация',
     fullNamePlaceholder: 'Напр: Нино Беридзе',
     phonePlaceholder: '577 XX XX XX',
@@ -634,6 +634,8 @@ export const ru: Translations = {
     salaryPercentage: 'Процент от выручки (Salary %)',
     deleteTeacher: 'Удалить преподавателя',
     actionIrreversible: 'Это действие необратимо',
+    fileTooLarge: 'Файл превышает 2МБ',
+    imageProcessingError: 'Ошибка при обработке изображения',
     // GroupModal extra
     editGroup: 'Редактировать группу',
     newGroup: 'Новая группа',

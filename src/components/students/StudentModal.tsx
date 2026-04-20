@@ -9,6 +9,8 @@ import {
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn, getInitials, isExpiringSoon, formatCurrency } from '@/lib/utils';
+import { addNotification } from '@/lib/notification-store';
+import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 import { generateStudentCode, generateQRDataUrl } from '@/lib/qr';
 import { loadSettings } from '@/lib/settings-store';
 import { Student } from '@/types';
@@ -435,17 +437,34 @@ export function StudentModal({
         setForm(p => ({ ...p, social_links: { ...p.social_links, [k]: v } }));
     }
 
-    function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-            const result = ev.target?.result as string;
-            setPhotoPreview(result);
-            set('photo_url', result);
+
+        if (!validateImageSize(file)) {
+            addNotification({
+                type: 'error',
+                title: t.imageError || 'Error',
+                message: t.fileTooLarge,
+                duration: 4000
+            });
+            return;
+        }
+
+        try {
+            const optimizedBase64 = await processProfileImage(file);
+            setPhotoPreview(optimizedBase64);
+            set('photo_url', optimizedBase64);
+        } catch (err) {
+            addNotification({
+                type: 'error',
+                title: t.imageError || 'Error',
+                message: t.imageProcessingError,
+                duration: 4000
+            });
+        } finally {
             if (fileRef.current) fileRef.current.value = '';
-        };
-        reader.readAsDataURL(file);
+        }
     }
 
     function handleAddStyle() {

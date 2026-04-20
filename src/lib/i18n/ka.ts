@@ -618,7 +618,7 @@ export const ka: Translations = {
     newTeacher: 'ახალი მასწავლებელი',
     staffMember: 'სტაფის წევრი',
     upload: 'ატვირთვა',
-    maxFileSize: 'JPG, PNG · მაქს 5MB',
+    maxFileSize: 'JPG, PNG · მაქს 2MB',
     basicInfo: 'ძირითადი ინფორმაცია',
     fullNamePlaceholder: 'მაგ: ნინო ბერიძე',
     phonePlaceholder: '577 XX XX XX',
@@ -634,6 +634,8 @@ export const ka: Translations = {
     salaryPercentage: 'პროცენტული წილი (Salary %)',
     deleteTeacher: 'მასწავლებლის წაშლა',
     actionIrreversible: 'ეს ქმედება საბოლოოა',
+    fileTooLarge: 'ფაილის ზომა აჭარბებს 2MB-ს',
+    imageProcessingError: 'ფოტოს დამუშავების შეცდომა',
     // GroupModal extra
     editGroup: 'ჯგუფის რედაქტირება',
     newGroup: 'ახალი ჯგუფი',

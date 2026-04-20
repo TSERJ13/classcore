@@ -9,6 +9,8 @@ import type { Teacher, TeacherStatus } from '@/types';
 import type { Translations } from '@/lib/i18n';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { generateTimeOptions } from '@/lib/date-utils';
+import { validateImageSize, processProfileImage } from '@/lib/image-utils';
+import { addNotification } from '@/lib/notification-store';
 
 interface Group { id: string; name: string; }
 
@@ -126,15 +128,32 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                 ref={fileInputRef}
                                 accept="image/*"
                                 className="hidden"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                     const file = e.target.files?.[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (ev) => {
-                                            setF('photo_url', ev.target?.result as string);
-                                            if (fileInputRef.current) fileInputRef.current.value = '';
-                                        };
-                                        reader.readAsDataURL(file);
+                                    if (!file) return;
+
+                                    if (!validateImageSize(file)) {
+                                        addNotification({
+                                            type: 'error',
+                                            title: t.imageError || 'Error',
+                                            message: t.fileTooLarge,
+                                            duration: 4000
+                                        });
+                                        return;
+                                    }
+
+                                    try {
+                                        const optimizedBase64 = await processProfileImage(file);
+                                        setF('photo_url', optimizedBase64);
+                                    } catch (err) {
+                                        addNotification({
+                                            type: 'error',
+                                            title: t.imageError || 'Error',
+                                            message: t.imageProcessingError,
+                                            duration: 4000
+                                        });
+                                    } finally {
+                                        if (fileInputRef.current) fileInputRef.current.value = '';
                                     }
                                 }}
                             />

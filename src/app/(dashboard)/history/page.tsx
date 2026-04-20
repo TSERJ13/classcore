@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Receipt, Search, Download, Trash2, RotateCcw, AlertCircle, Building2, History as HistoryIcon, Clock, CheckCircle2, CreditCard, UserMinus, ShieldAlert, Zap, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
+import { useConfirm } from '@/contexts/ConfirmContext';
 
 function getActionMeta(action: string, lang: string) {
     const meta: Record<string, { icon: any, color: string, label: string }> = {
@@ -27,6 +28,7 @@ function getActionMeta(action: string, lang: string) {
 export default function UnifiedHistoryPage() {
     const { t, lang } = useT();
     const { settings } = useStudio();
+    const confirm = useConfirm();
     const [activeTab, setActiveTab] = useState<'audit' | 'trash'>('audit');
     const [auditHistory, setAuditHistory] = useState<AuditEntry[]>([]);
     const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
@@ -90,7 +92,7 @@ export default function UnifiedHistoryPage() {
         document.body.removeChild(link);
     };
 
-    const handleRestore = (item: TrashItem) => {
+    const handleRestore = async (item: TrashItem) => {
         const keyMap: Record<string, string> = {
             'student': 'cc_students',
             'teacher': 'cc_teachers',
@@ -107,18 +109,27 @@ export default function UnifiedHistoryPage() {
 
             removeFromTrash(item.id);
             window.dispatchEvent(new Event(`cc_${item.type}s_update`));
-            alert(lang === 'ka' ? 'აღდგენილია!' : 'Restored!');
+            await confirm.alert({
+                message: lang === 'ka' ? 'აღდგენილია!' : 'Restored!',
+                confirmText: t.ok || 'OK'
+            });
         }
     };
 
-    const handleDeletePermanently = (id: string) => {
-        if (confirm(lang === 'ka' ? 'დარწმუნებული ხართ რომ გსურთ სრულად წაშლა? მონაცემი აღარ აღდგება.' : 'Are you sure you want to permanently delete? This cannot be undone.')) {
+    const handleDeletePermanently = async (id: string) => {
+        if (await confirm({
+            message: lang === 'ka' ? 'დარწმუნებული ხართ რომ გსურთ სრულად წაშლა? მონაცემი აღარ აღდგება.' : 'Are you sure you want to permanently delete? This cannot be undone.',
+            danger: true
+        })) {
             removeFromTrash(id);
         }
     };
 
-    const handleClearTrash = () => {
-        if (confirm(lang === 'ka' ? 'ნამდვილად გსურთ ნაგვის ყუთის სრულად გასუფთავება?' : 'Are you sure you want to empty the trash?')) {
+    const handleClearTrash = async () => {
+        if (await confirm({
+            message: lang === 'ka' ? 'ნამდვილად გსურთ ნაგვის ყუთის სრულად გასუფთავება?' : 'Are you sure you want to empty the trash?',
+            danger: true
+        })) {
             clearTrash();
         }
     };

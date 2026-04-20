@@ -618,7 +618,7 @@ export const en: Translations = {
     newTeacher: 'New Teacher',
     staffMember: 'Staff Member',
     upload: 'Upload',
-    maxFileSize: 'JPG, PNG · max 5MB',
+    maxFileSize: 'JPG, PNG · max 2MB',
     basicInfo: 'Basic Info',
     fullNamePlaceholder: 'e.g. Nino Beridze',
     phonePlaceholder: '577 XX XX XX',
@@ -634,6 +634,8 @@ export const en: Translations = {
     salaryPercentage: 'Salary Percentage (%)',
     deleteTeacher: 'Delete Teacher',
     actionIrreversible: 'This action is irreversible',
+    fileTooLarge: 'File size exceeds 2MB',
+    imageProcessingError: 'Image processing error',
     // GroupModal extra
     editGroup: 'Edit Group',
     newGroup: 'New Group',
