@@ -80,6 +80,15 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         console.log('📡 [Sync] Applying cloud state for:', activeSlug);
 
+        // 🚨 CRITICAL PROTECTION: If we just updated locally, IGNORE cloud updates for a window
+        // This prevents an empty/stale cloud pull from overwriting our new local data before it pushes.
+        const lastUpdate = parseInt(localStorage.getItem('cc_last_local_update') || '0');
+        const now = Date.now();
+        if (now - lastUpdate < 6000) { // 6 second protection window
+            console.warn('🛡️ [Sync] Local update is very fresh. Blocking cloud overwrite to prevent data loss.');
+            return false;
+        }
+
         // 1. Apply Staff from cloud → localStorage settings blob + React state
         if (cloudState.staff_data) {
             const local = loadSettings(activeSlug);
@@ -418,32 +427,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             // So pull must also write with slug suffix, not orgId
             const cloudState = await pullStudioStateFromCloud(activeSlug, activeSlug);
             
-            if (cloudState && cloudState.studio_data) {
-                console.log('✅ [StudioContext] Remote state received. Applying...');
-                
-                const authoritativeId = cloudState.org_id || settings.orgId || activeSlug;
-
-                // 🚨 PROFILE SYNC: Grant the current user access to this Org in Supabase
-                const supabase = (await import('@/lib/supabase/client')).createClient();
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user && authoritativeId && authoritativeId.length > 30) {
-                    await supabase.from('profiles').upsert({
-                        id: user.id,
-                        org_id: authoritativeId,
-                        updated_at: new Date().toISOString()
-                    });
-                }
-                
-                // If the cloud has a defined org_id, ensure we adopt it locally
-                if (cloudState.org_id && cloudState.org_id !== settings.orgId) {
-                    setSettings(prev => ({
-                        ...prev,
-                        orgId: cloudState.org_id
-                    }));
-                }
-                
-                // APPLY cloud state to both React state AND localStorage
-                // This is the CRITICAL step that was broken before (setInitialStaff/setInitialStudioData don't exist)
+            if (cloudState && (cloudState.staff_data || cloudState.studio_data)) {
+                console.log('✅ [Sync] Cloud data received. Applying...');
+                // Apply cloud state directly — this handles staff, operations, and orgId
                 applyCloudState(activeSlug, cloudState);
             }
             setFirstSyncDone(true);
@@ -457,45 +443,6 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         const local = loadSettings(defaultSlug || undefined);
         setSettings(local);
         setIsLoaded(true);
-
-        const syncIdentity = async () => {
-            if (!local.studioSlug || local.studioSlug === 'demo.classcore.ge' || local.studioSlug === 'superadmin') return;
-            
-            try {
-                const supabase = (await import('@/lib/supabase/client')).createClient();
-                const { data: cloudStudio } = await supabase
-                    .from('studios')
-                    .select('org_id')
-                    .eq('studio_slug', local.studioSlug)
-                    .maybeSingle();
-
-                if (cloudStudio?.org_id && cloudStudio.org_id !== local.orgId) {
-                    console.warn(`🆔 [StudioContext] Identity mismatch detected. Cloud: ${cloudStudio.org_id}, Local: ${local.orgId}`);
-                    
-                    // 1. MIGRATE LOCAL KEYS: Rename all cc_*_OLDID to cc_*_NEWID
-                    const oldId = local.orgId;
-                    const newId = cloudStudio.org_id;
-                    const keys = Object.keys(localStorage);
-                    keys.forEach(k => {
-                        if (oldId && k.endsWith(`_${oldId}`)) {
-                            const newKey = k.replace(`_${oldId}`, `_${newId}`);
-                            localStorage.setItem(newKey, localStorage.getItem(k)!);
-                            localStorage.removeItem(k);
-                        }
-                    });
-
-                    // 2. Update settings and trigger re-hydration
-                    const nextSettings = { ...local, orgId: newId };
-                    saveSettings(local.studioSlug, nextSettings);
-                    setSettings(nextSettings);
-                    console.log(`✅ [StudioContext] Identity migrated to cloud authoritative ID: ${newId}`);
-                }
-            } catch (err) {
-                console.error('❌ [StudioContext] Identity sync failed:', err);
-            }
-        };
-
-        syncIdentity();
 
         if (typeof window !== 'undefined' && local.studioSlug) {
             const savedBranch = localStorage.getItem(`cc_active_branch_${local.studioSlug}`);
