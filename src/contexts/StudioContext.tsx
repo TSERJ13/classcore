@@ -520,13 +520,30 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             triggerPush();
         };
 
-        const handleInstantSyncRequest = () => {
+        const handleInstantSyncRequest = async () => {
             console.log('🚀 [StudioContext] Executing requested Instant Sync');
             if (settings.studioSlug) {
-                const fresh = loadSettings(settings.studioSlug);
+                const activeSlug = settings.studioSlug;
+                const fresh = loadSettings(activeSlug);
                 setSettings(fresh);
                 markLocalUpdate();
-                triggerPush();
+                
+                // PUSH IMMEDIATELY (bypass the 1.5s timer)
+                const { SYNC_COLLECTIONS } = await import('@/lib/utils');
+                const studioData: Record<string, any> = {};
+                Object.keys(localStorage).forEach(k => {
+                    const isSyncable = SYNC_COLLECTIONS.some((p: string) => k.startsWith(p));
+                    if (isSyncable && k.endsWith(`_${activeSlug}`)) {
+                        try {
+                            const val = localStorage.getItem(k);
+                            if (val) studioData[k] = JSON.parse(val);
+                        } catch {}
+                    }
+                });
+
+                const { pushStudioStateToCloud } = await import('@/lib/sync-store');
+                await pushStudioStateToCloud(activeSlug, fresh.staff || [], studioData, 0, settings.orgId);
+                console.log('✅ [InstantSync] Immediate Push Over.');
             }
         };
 
