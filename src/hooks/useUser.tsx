@@ -53,51 +53,59 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const refreshSession = async () => {
             const { data: { user: u }, error: authError } = await supabase.auth.getUser();
             const staffSess = getStaffSession();
+            const urlSlug = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null;
 
-            if (authError || (!u && !staffSess)) {
+            // 🚨 RESILIENCE FIX: Ignore authError if we have a valid staff session.
+            if (!u && !staffSess) {
+                if (authError) console.log('🔍 [UserProvider] No active session found. Supabase Auth Error:', authError.message);
                 setIsVerified(false);
                 setLoading(false);
                 return;
             }
 
-            const currentUserEmail = u?.email || staffSess?.staff?.email;
-            let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug;
+            const currentUserIdentity = u?.email || staffSess?.staff?.email || staffSess?.staff?.phone || (staffSess as any)?.staff?.phone_number;
+            let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug || (urlSlug && urlSlug !== 'dashboard' && urlSlug !== 'login' ? urlSlug : null);
             const isOwner = u?.user_metadata?.role === 'owner';
             const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
 
-            if (currentUserEmail && !currentSlug && !isSuperAdminRoute) {
+            console.log(`🚩 [UserProvider] Context: Identity=${currentUserIdentity}, Slug=${currentSlug}, isOwner=${isOwner}, isSuperAdminRoute=${isSuperAdminRoute}`);
+
+            if (currentUserIdentity && !currentSlug && !isSuperAdminRoute) {
                 try {
                     const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
-                    const matches = await findAllStudiosByStaffEmail(currentUserEmail);
+                    const matches = await findAllStudiosByStaffEmail(currentUserIdentity);
                     if (matches && matches.length > 0) {
                         currentSlug = matches[0].slug;
-                        console.log(`📡 [UserProvider] Recovered studio slug for staff: ${currentSlug}`);
+                        console.log(`📡 [UserProvider] Recovered studio slug via global search: ${currentSlug}`);
                     }
                 } catch (err) {
                     console.error('⚠️ [UserProvider] Slug recovery failed:', err);
                 }
             }
 
-            if (currentUserEmail && currentSlug && !isSuperAdminRoute && !isOwner) {
+            if (currentUserIdentity && currentSlug && !isSuperAdminRoute && !isOwner) {
                 try {
+                    console.log(`🔍 [UserProvider] Verifying ${currentUserIdentity} access to ${currentSlug}...`);
                     const { verifyUserInStudio } = await import('@/lib/sync-store');
-                    const hasAccess = await verifyUserInStudio(currentSlug, currentUserEmail);
+                    const hasAccess = await verifyUserInStudio(currentSlug, currentUserIdentity);
                     
                     if (!hasAccess) {
-                        console.warn(`🚨 [UserProvider] Access denied for ${currentUserEmail} in studio ${currentSlug}. No matching record in staff_emails or staff_data.`);
+                        console.warn(`🚨 [UserProvider] VERIFICATION DENIED for ${currentUserIdentity} in ${currentSlug}. User found in session but missing in DB staff_emails.`);
                         setIsVerified(false);
-                        await logout();
                         return;
                     }
+                    console.log(`✅ [UserProvider] Verification SUCCESS for ${currentUserIdentity} in ${currentSlug}`);
                     setIsVerified(true);
                 } catch (err) {
-                    console.error('⚠️ [UserProvider] DB Verification failed:', err);
+                    console.error('⚠️ [UserProvider] DB Verification crashed:', err);
                     setIsVerified(false);
                     return;
                 }
             } else {
-                const emailConfirmed = !!u?.email_confirmed_at || !!staffSess;
-                setIsVerified(!!currentUserEmail && !!currentSlug && emailConfirmed);
+                const identityConfirmed = !!u?.email_confirmed_at || !!staffSess;
+                const status = !!currentUserIdentity && !!currentSlug && identityConfirmed;
+                console.log(`🏳️ [UserProvider] Identity shortcut verification: ${status} (Identity: ${!!currentUserIdentity}, Slug: ${!!currentSlug}, Confirmed: ${identityConfirmed})`);
+                setIsVerified(status);
             }
 
             if (u) {

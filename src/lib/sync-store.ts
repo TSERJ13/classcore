@@ -133,7 +133,7 @@ export async function pushStudioStateToCloud(
         // 3. Build staff_emails for quick lookups
         const staffEmails = Array.from(new Set([
             ...(mergedStaff || []).map((s: any) => s.email?.toLowerCase().trim()).filter(Boolean),
-            ...(mergedStaff || []).map((s: any) => s.phone?.replace(/[^0-9+]/g, '')).filter(Boolean)
+            ...(mergedStaff || []).map((s: any) => s.phone?.replace(/[^0-9]/g, '')).filter(Boolean)
         ]));
 
         // 5. Upsert to database
@@ -150,7 +150,11 @@ export async function pushStudioStateToCloud(
             .upsert(payload, { onConflict: 'studio_slug' });
 
         if (error) {
-            console.error('❌ [Sync] Push failed:', error.message);
+            if (error.code === '42501') {
+                console.error('❌ [Sync] Permission Denied (42501). Staff cannot write to studio_settings. Ensure RLS policies allow "anon" role to UPDATE.');
+            } else {
+                console.error('❌ [Sync] Push failed:', error.message, error.code);
+            }
             throw error;
         }
 
@@ -159,16 +163,25 @@ export async function pushStudioStateToCloud(
         if (operations.cc_studio_settings) {
             const settings = operations.cc_studio_settings;
             if (settings.logoDataUrl || settings.owner_info || settings.studioName || settings.plan) {
-                console.log('📡 [Sync] Propagating master metadata for:', slug);
-                await supabase
-                    .from('studios')
-                    .update({
-                        logo_url: settings.logoDataUrl || undefined,
-                        studio_name: settings.studioName || undefined,
-                        owner_info: settings.owner_info || undefined,
-                        plan: settings.plan || undefined // Ensure plan is synced to master truth
-                    })
-                    .eq('studio_slug', slug);
+                try {
+                    console.log('📡 [Sync] Propagating master metadata for:', slug);
+                    const { error: propError } = await supabase
+                        .from('studios')
+                        .update({
+                            logo_url: settings.logoDataUrl || undefined,
+                            studio_name: settings.studioName || undefined,
+                            owner_info: settings.owner_info || undefined,
+                            plan: settings.plan || undefined,
+                            status: settings.status || undefined
+                        })
+                        .eq('studio_slug', slug);
+
+                    if (propError) {
+                        console.warn('⚠️ [Sync] Studios master update failed (likely missing columns):', propError.message, propError.details);
+                    }
+                } catch (propErr) {
+                    console.error('❌ [Sync] Master propagation crash:', propErr);
+                }
             }
         }
 
@@ -232,24 +245,39 @@ export async function pullStudioStateFromCloud(
     try {
         const supabase = createClient();
 
-        const { data, error } = await supabase
-            .from(SETTINGS_TABLE)
-            .select('staff_data, org_id')
-            .eq('studio_slug', slug)
-            .maybeSingle();
+        // 1. Fetch from both tables in parallel
+        const [settingsRes, masterRes] = await Promise.all([
+            supabase.from(SETTINGS_TABLE).select('staff_data, org_id, updated_at').eq('studio_slug', slug).maybeSingle(),
+            supabase.from('studios').select('plan, status').eq('studio_slug', slug).maybeSingle()
+        ]);
 
-        if (error) {
-            console.error('❌ [Sync] Pull failed:', error.message);
+        if (settingsRes.error) {
+            console.error('❌ [Sync] Pull from studio_settings failed:', settingsRes.error.message);
             return null;
         }
+
+        const data = settingsRes.data;
         if (!data) {
-            console.warn('⚠️ [Sync] No record found for slug:', slug);
+            console.warn('⚠️ [Sync] No settings record found for slug:', slug);
             return null;
         }
 
+        const master = masterRes.data;
         const unified = data.staff_data || {};
         const staff = unified._staff || (Array.isArray(unified) ? unified : []);
         const operations = unified._operations || {};
+
+        // 🚨 MASTER TRUTH OVERRIDE: Ensure plan/status come from the top-level table
+        if (master) {
+            const settingsKey = `cc_studio_settings_${slug}`;
+            const settingsObj = operations[settingsKey] || {};
+            operations[settingsKey] = {
+                ...settingsObj,
+                plan: master.plan || settingsObj.plan,
+                status: master.status || settingsObj.status
+            };
+            console.log(`📡 [Sync] Injected Master Truth: Plan=${master.plan}, Status=${master.status}`);
+        }
 
         // Add scope suffix back to operation keys
         // so they match localStorage format (e.g., cc_student_data → cc_student_data_stdancestudio)
@@ -263,7 +291,8 @@ export async function pullStudioStateFromCloud(
         return {
             staff_data: staff,
             studio_data: scopedData,
-            org_id: data.org_id
+            org_id: data.org_id,
+            updated_at: data.updated_at
         };
     } catch (err) {
         console.error('❌ [Sync] Pull error:', err);
@@ -333,26 +362,49 @@ export async function verifyUserInStudio(slug: string, query: string): Promise<b
             .eq('studio_slug', slug)
             .single();
 
-        if (error || !data) return false;
+        if (error) {
+            console.error('❌ [Sync] verifyUserInStudio DB Error:', error.message, error.details);
+            return false;
+        }
+
+        if (!data) {
+            console.warn('🔍 [Sync] No studio settings found for slug:', slug);
+            return false;
+        }
+
+        console.log(`📡 [Sync] verifyUserInStudio context: slug=${slug}, query=${query}, terms=${JSON.stringify(terms)}`);
 
         // 1. FAST PATH: Check the staff_emails array column
         if (Array.isArray(data.staff_emails)) {
             const hasMatch = terms.some(t => data.staff_emails.includes(t));
-            if (hasMatch) return true;
+            if (hasMatch) {
+                console.log(`✅ [Sync] Fast-path verification successful in staff_emails array for: ${query}`);
+                return true;
+            }
+            console.log(`🔍 [Sync] No match in staff_emails array. Indexed array contents:`, data.staff_emails);
         }
 
         // 2. FALLBACK: Check in unified blob (for latest/un-indexed data)
         const unified = data.staff_data || {};
         const staffList = unified._staff || (Array.isArray(data.staff_data) ? data.staff_data : []);
+        console.log(`🔍 [Sync] Falling back to raw staff_data search. List size: ${staffList.length}`);
 
-        return staffList.some((s: any) => {
+        const hasFallbackMatch = staffList.some((s: any) => {
             if (s.id === '__studio_config__') return false;
             const sEmail = s.email?.toLowerCase().trim();
             const sPhone = (s.phone || s.phone_number || '').replace(/[^0-9]/g, '');
-            return terms.some(t => t === sEmail || (sPhone && (sPhone === t || sPhone.endsWith(t))));
+            const matchStatus = terms.some(t => t === sEmail || (sPhone && (sPhone === t || sPhone.endsWith(t))));
+            if (matchStatus) console.log(`✅ [Sync] Fallback match found in staff_data:`, s);
+            return matchStatus;
         });
+
+        if (!hasFallbackMatch) {
+            console.warn(`🚫 [Sync] Access DENIED for ${query} in ${slug}. Not found in staff_emails or staff_data.`);
+        }
+
+        return hasFallbackMatch;
     } catch (err: any) {
-        console.error('❌ [Sync] verifyUserInStudio failed:', err.message);
+        console.error('❌ [Sync] verifyUserInStudio unexpected error:', err.message);
         return false;
     }
 }
@@ -433,11 +485,12 @@ export async function findAllStudiosByStaffEmail(query: string): Promise<Array<{
     try {
         const supabase = createClient();
         
-        // Search the staff_emails array column
+        // 🚨 NUCLEAR SEARCH: Search for ALL possible identity variants (email and phone)
+        // This ensures that '+995...' and '995...' both find the relevant records.
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
             .select('studio_slug, staff_data, org_id')
-            .contains('staff_emails', [cleanQuery]); // Start with exact email match
+            .or(terms.map(t => `staff_emails.cs.{"${t}"}`).join(',')); 
 
         if (error) {
             console.error('❌ [Sync] Global staff search failed! Table:', SETTINGS_TABLE, 'Error:', error.message, 'Code:', error.code);

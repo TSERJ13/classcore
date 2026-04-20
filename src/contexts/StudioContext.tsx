@@ -74,20 +74,30 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
      * Cloud data overwrites local state. No protection windows, no merging.
      * The cloud is the single source of truth.
      */
-    const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any, org_id?: string }) => {
+    const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any, org_id?: string, updated_at?: string }) => {
         if (!cloudState || !activeSlug) return false;
         let changed = false;
 
-        console.log('📡 [Sync] Applying cloud state for:', activeSlug);
-
-        // 🚨 CRITICAL PROTECTION: If we just updated locally, IGNORE cloud updates for a window
-        // This prevents an empty/stale cloud pull from overwriting our new local data before it pushes.
-        const lastUpdate = parseInt(localStorage.getItem('cc_last_local_update') || '0');
+        const cloudTimestamp = cloudState.updated_at ? new Date(cloudState.updated_at).getTime() : 0;
+        const lastLocalUpdate = parseInt(localStorage.getItem('cc_last_local_update') || '0');
         const now = Date.now();
-        if (now - lastUpdate < 6000) { // 6 second protection window
+
+        // 🚨 CRITICAL PROTECTION: Timestamp-Based Verification
+        // If our local device has a "Last Update" that is NEWER than the cloud's record,
+        // it means the cloud is stale (likely because our previous PUSH failed).
+        // In this case, we MUST NOT overwrite our local data with the stale cloud state.
+        if (lastLocalUpdate > cloudTimestamp && (now - lastLocalUpdate < 300000)) { // 5 minute safety buffer
+            console.warn(`🛡️ [Sync] Local data (${new Date(lastLocalUpdate).toLocaleTimeString()}) is NEWER than Cloud data (${new Date(cloudTimestamp).toLocaleTimeString()}). Blocking stale overwrite.`);
+            return false;
+        }
+
+        // Standard 6s protection window still applies for very rapid pulses
+        if (now - lastLocalUpdate < 6000) {
             console.warn('🛡️ [Sync] Local update is very fresh. Blocking cloud overwrite to prevent data loss.');
             return false;
         }
+
+        console.log('📡 [Sync] Applying cloud state for:', activeSlug);
 
         // 1. Apply Staff from cloud → localStorage settings blob + React state
         if (cloudState.staff_data) {
