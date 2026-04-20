@@ -69,18 +69,23 @@ export async function pushStudioStateToCloud(
         }
 
         // 1. Strip slug/orgId suffixes from localStorage keys to get clean base keys
+        // 🚨 OPTIMIZATION: Exclude heavy, standalone-synced data from the main blob
+        const EXCLUDED_FROM_BLOB = ['cc_global_trash', 'cc_global_history', 'cc_audit_log'];
+        
         const operations: Record<string, any> = {};
         Object.entries(studioData).forEach(([key, value]) => {
             let baseKey = key;
-            // Remove slug suffix (e.g., cc_student_data_stdancestudio → cc_student_data)
             if (slug && baseKey.endsWith(`_${slug}`)) {
                 baseKey = baseKey.slice(0, -(slug.length + 1));
             }
-            // Remove orgId suffix if slug didn't match
             if (orgId && baseKey.endsWith(`_${orgId}`)) {
                 baseKey = baseKey.slice(0, -(orgId.length + 1));
             }
-            operations[baseKey] = value;
+            
+            // Only include if NOT in exclusion list
+            if (!EXCLUDED_FROM_BLOB.includes(baseKey)) {
+                operations[baseKey] = value;
+            }
         });
 
         // 4. Fetch current record to get existing state and org_id
@@ -93,7 +98,6 @@ export async function pushStudioStateToCloud(
         orgId = orgId || current?.org_id || '';
         
         // 🚨 CRITICAL FIX: Safe Merge & Legacy Migration!
-        // Previous logic overwrote the ENTIRE JSON blob with partial updates or failed to merge with legacy array formats.
         const staffDataObj = current?.staff_data || {};
         const isLegacy = Array.isArray(staffDataObj);
         
@@ -106,11 +110,10 @@ export async function pushStudioStateToCloud(
             existingStaff = staffDataObj.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
             const configObj = staffDataObj.find((s: any) => s.id === '__studio_config__');
             if (configObj && configObj.studio_data) {
-                // Legacy operations were often stored with slug suffixes
                 Object.entries(configObj.studio_data).forEach(([k, v]) => {
                     let base = k;
                     if (base.endsWith(`_${slug}`)) base = base.slice(0, -(slug.length + 1));
-                    existingOperations[base] = v;
+                    if (!EXCLUDED_FROM_BLOB.includes(base)) existingOperations[base] = v;
                 });
             }
         } else {
@@ -155,14 +158,15 @@ export async function pushStudioStateToCloud(
         // 1. Update 'studios' metadata
         if (operations.cc_studio_settings) {
             const settings = operations.cc_studio_settings;
-            if (settings.logoDataUrl || settings.owner_info || settings.studioName) {
+            if (settings.logoDataUrl || settings.owner_info || settings.studioName || settings.plan) {
                 console.log('📡 [Sync] Propagating master metadata for:', slug);
                 await supabase
                     .from('studios')
                     .update({
                         logo_url: settings.logoDataUrl || undefined,
                         studio_name: settings.studioName || undefined,
-                        owner_info: settings.owner_info || undefined
+                        owner_info: settings.owner_info || undefined,
+                        plan: settings.plan || undefined // Ensure plan is synced to master truth
                     })
                     .eq('studio_slug', slug);
             }

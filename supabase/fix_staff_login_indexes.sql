@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_studio_settings_staff_emails ON public.studio_set
 -- 3. Backfill the column from existing JSON data (if any)
 -- This extracts emails and phones from the _staff array in the staff_data blob.
 UPDATE public.studio_settings
-SET staff_emails = (
+SET staff_emails = COALESCE((
     SELECT array_agg(DISTINCT val)
     FROM (
         SELECT jsonb_array_elements(staff_data->'_staff')->>'email' as val
@@ -26,7 +26,7 @@ SET staff_emails = (
         SELECT jsonb_array_elements(staff_data->'_staff')->>'phone' as val
     ) s
     WHERE val IS NOT NULL AND val != ''
-)
+), '{}')
 WHERE staff_data ? '_staff';
 
 COMMIT;

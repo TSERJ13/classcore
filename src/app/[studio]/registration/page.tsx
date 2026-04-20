@@ -20,12 +20,34 @@ export default function StudentRegistrationPage() {
 
     useEffect(() => {
         setIsMounted(true);
-        try {
-            const loaded = loadSettings(studio);
-            setSettings(loaded);
-        } catch (e) {
-            setSettings(DEFAULT_SETTINGS);
-        }
+        const initBranding = async () => {
+            try {
+                // 1. Try local cache first
+                const loaded = loadSettings(studio);
+                if (loaded && loaded.studioName) {
+                    setSettings(loaded);
+                    return;
+                }
+
+                // 2. Cloud Fallback for public visitors
+                console.log('📡 [Registration] Branding missing locally. Fetching from cloud for:', studio);
+                const { fetchStudioDataFromCloud } = await import('@/lib/sync-store');
+                const cloudData = await fetchStudioDataFromCloud(studio);
+                
+                if (cloudData && cloudData.cc_studio_settings) {
+                    const branding = cloudData.cc_studio_settings;
+                    setSettings((prev: any) => ({
+                        ...prev,
+                        studioName: branding.studioName || studio,
+                        logoDataUrl: branding.logoDataUrl || null,
+                        branches: branding.branches || prev.branches
+                    }));
+                }
+            } catch (e) {
+                console.warn('⚠️ [Registration] Branding fetch failed:', e);
+            }
+        };
+        initBranding();
     }, [studio]);
 
     useEffect(() => {
