@@ -70,86 +70,51 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const lastLocalUpdateRef = useRef<number>(0);
 
     /**
-     * Consolidates cloud state application logic with strict tombstone enforcement.
+     * Cloud-First State Application:
+     * Cloud data overwrites local state. No protection windows, no merging.
+     * The cloud is the single source of truth.
      */
-    const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any }) => {
+    const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any, org_id?: string }) => {
         if (!cloudState || !activeSlug) return false;
         let changed = false;
 
-        console.log('📡 [StudioContext] Converging state for:', activeSlug);
-        
-        // 🚨 CRITICAL PROTECTION: If we just updated locally, IGNORE cloud updates for a window
-        // to prevent an empty cloud pull from overwriting our new local data before it pushes.
-        const lastUpdate = parseInt(localStorage.getItem('cc_last_local_update') || '0');
-        const now = Date.now();
-        if (now - lastUpdate < 8000) { // 8 second protection window
-            console.warn('🛡️ [StudioContext] Local update is very fresh. Blocking cloud overwrite to prevent data loss.');
-            return false;
+        console.log('📡 [Sync] Applying cloud state for:', activeSlug);
+
+        // 1. Apply Staff from cloud → localStorage settings blob + React state
+        if (cloudState.staff_data) {
+            const local = loadSettings(activeSlug);
+            const nextSettings = { 
+                ...local, 
+                staff: cloudState.staff_data,
+                orgId: cloudState.org_id || local.orgId
+            };
+            const key = getScopedKey(STORAGE_KEY, activeSlug);
+            localStorage.setItem(key, JSON.stringify(nextSettings));
+            setSettings(nextSettings);
+            changed = true;
+            console.log(`📡 [Sync] Staff updated: ${cloudState.staff_data.length} members`);
         }
 
-        // 1. Merge Staff List
-        const local = loadSettings(activeSlug);
-        if (cloudState.staff_data) {
-            const cloudStaffStr = JSON.stringify(cloudState.staff_data);
-            const localStaffStr = JSON.stringify(local.staff);
-            if (cloudStaffStr !== localStaffStr) {
-                const key = getScopedKey(STORAGE_KEY, activeSlug);
-                const nextSettings = { ...local, staff: cloudState.staff_data };
-                localStorage.setItem(key, JSON.stringify(nextSettings));
-                setSettings(nextSettings);
-                changed = true;
+        // 2. Apply Operational Data from cloud → localStorage
+        if (cloudState.studio_data) {
+            Object.entries(cloudState.studio_data).forEach(([key, value]) => {
+                if (value !== null && value !== undefined) {
+                    localStorage.setItem(key, JSON.stringify(value));
+                    changed = true;
+                }
+            });
+
+            if (changed) {
+                // Notify all UI components that data has changed
+                ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 
+                 'cc_student_update', 'cc_teacher_update', 'cc_subscription_update']
+                    .forEach(e => window.dispatchEvent(new Event(e)));
+                console.log(`📡 [Sync] Operational data updated: ${Object.keys(cloudState.studio_data).length} keys`);
             }
         }
 
-        // 2. Converge Operational Data
-        if (cloudState.studio_data) {
-            import('@/lib/sync-store').then(({ mergeStudioData }) => {
-                const cloudStudioData = cloudState.studio_data; // Pre-scoped by the pull engine
-                const localStudioData: Record<string, any> = {};
-                
-                import('@/lib/utils').then(({ SYNC_COLLECTIONS }) => {
-                    // Gather only local data matching this studio's scope
-                    Object.keys(localStorage).forEach(k => {
-                        const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-                        const belongsToStudio = k.includes(`_${activeSlug}`) || (settings.orgId && k.includes(`_${settings.orgId}`));
-                        if (isSyncablePrefix && belongsToStudio) {
-                            try {
-                                const val = localStorage.getItem(k);
-                                if (val) localStudioData[k] = JSON.parse(val);
-                            } catch {}
-                        }
-                    });
-
-                    const converged = mergeStudioData(cloudStudioData, localStudioData);
-                    let syncChanged = false;
-
-                    Object.keys(converged).forEach(key => {
-                        const nextValStr = JSON.stringify(converged[key]);
-                        const curValRaw = localStorage.getItem(key);
-                        if (nextValStr !== curValRaw) {
-                            localStorage.setItem(key, nextValStr);
-                            syncChanged = true;
-                            changed = true;
-                        }
-                    });
-
-                    if (syncChanged) {
-                        import('@/lib/utils').then(({ consolidateStudioKeys }) => {
-                            // Ensure we always consolidate against the CURRENT authoritative ID
-                            const authoritativeId = cloudState.org_id || settings.orgId;
-                            consolidateStudioKeys(activeSlug, authoritativeId);
-                            performUniversalIntegrityCheck(activeSlug, authoritativeId);
-                            console.log('📡 [StudioContext] UI update triggered from atomic convergence');
-                            ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 'cc_student_update', 'cc_teacher_update']
-                                .forEach(e => window.dispatchEvent(new Event(e)));
-                        });
-                    }
-                });
-            });
-        }
-
         return changed;
-    }, [settings.staff]);
+    }, []);
 
     const markLocalUpdate = useCallback(() => {
         const now = Date.now();
@@ -538,61 +503,33 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
         }
     }, [defaultSlug]);
-    // Automatic Cloud Sync Pulse
+    // Automatic Cloud Sync Pulse — pushes local changes to cloud
     useEffect(() => {
         const timer = setTimeout(async () => {
-            // CRITICAL SEQUENCING: We must NEVER push local state until we have successfully PULLed from the cloud.
-            // This prevents new devices (like phones) from "wiping" the cloud with their local empty state.
-            if (!isLoaded || !firstSyncDone || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
+            if (!isLoaded || !firstSyncDone || !settings.studioSlug || 
+                settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
 
-            const { SYNC_COLLECTIONS } = await import('@/lib/utils');
-            const studioData: Record<string, any> = {};
-            const keys = Object.keys(localStorage);
-            
-            const authoritativeScopeId = settings.orgId || settings.studioSlug!;
             const activeSlug = settings.studioSlug!;
-
-            keys.forEach(k => {
-                const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-                if (isSyncablePrefix && (k.endsWith(`_${activeSlug}`) || k.endsWith(`_${authoritativeScopeId}`))) {
+            const { SYNC_COLLECTIONS } = await import('@/lib/utils');
+            
+            // Gather all syncable localStorage data for this studio
+            const studioData: Record<string, any> = {};
+            Object.keys(localStorage).forEach(k => {
+                const isSyncable = SYNC_COLLECTIONS.some((p: string) => k.startsWith(p));
+                if (isSyncable && k.endsWith(`_${activeSlug}`)) {
                     try {
                         const val = localStorage.getItem(k);
                         if (val) studioData[k] = JSON.parse(val);
-                    } catch (e) {
-                            console.error('⚠️ [SyncPulse] Failed to parse key:', k, e);
-                    }
+                    } catch {}
                 }
             });
 
+            // Push to cloud
             const { pushStudioStateToCloud } = await import('@/lib/sync-store');
-            const isFresh = localStorage.getItem(`cc_is_fresh_${settings.studioSlug}`) === 'true';
-            const freshSettings = loadSettings(settings.studioSlug!);
-            let orgId = settings.orgId;
-
-            // 0. AUTO-INITIALIZE OrgId (Safety Guard)
-            // If we are in a non-demo studio and orgId is missing, generate one to enable sync.
-            if (!orgId && settings.studioSlug && settings.studioSlug !== 'demo.classcore.ge' && settings.studioSlug !== 'superadmin') {
-                // Check cloud first one last time to prevent accidental new generation
-                const supabase = (await import('@/lib/supabase/client')).createClient();
-                const { data: cloudStudio } = await supabase.from('studios').select('org_id').eq('studio_slug', settings.studioSlug).maybeSingle();
-                
-                if (cloudStudio?.org_id) {
-                    orgId = cloudStudio.org_id;
-                    setSettings(prev => ({ ...prev, orgId }));
-                } else {
-                    orgId = crypto.randomUUID();
-                    console.warn(`🚨 [StudioContext] OrgId missing for ${activeSlug}. Initializing unique ID: ${orgId}`);
-                    setSettings(prev => ({ ...prev, orgId }));
-                }
-            }
-
-            // Push everything to studio_settings as a unified blob
-            // This is the ONLY proven working persistence mechanism
-            await pushStudioStateToCloud(settings.studioSlug!, freshSettings.staff || [], studioData, 0, orgId, isFresh);
+            const freshSettings = loadSettings(activeSlug);
+            await pushStudioStateToCloud(activeSlug, freshSettings.staff || [], studioData, 0, settings.orgId);
             
-            console.log('✅ [SyncPulse] Push complete.');
-
-        }, 1500); // Increased to 1.5s to ensure local multi-key writes (like group + schedule) are finished
+        }, 1500);
 
         return () => clearTimeout(timer);
     }, [isLoaded, firstSyncDone, settings.studioSlug, settings.orgId, pushCounter]);
