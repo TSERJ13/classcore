@@ -448,8 +448,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         lastSyncedSlugRef.current = activeSlug; // 🚨 BRAKE: Prevent infinite loops
         
         import('@/lib/sync-store').then(async ({ pullStudioStateFromCloud }) => {
-            const authoritativeId = settings.orgId || activeSlug;
-            const cloudState = await pullStudioStateFromCloud(activeSlug, authoritativeId);
+            // CRITICAL: Always use slug as scope for localStorage keys
+            // Push reads keys like cc_student_data_stdancestudio (slug suffix)
+            // So pull must also write with slug suffix, not orgId
+            const cloudState = await pullStudioStateFromCloud(activeSlug, activeSlug);
             
             if (cloudState && cloudState.studio_data) {
                 console.log('✅ [StudioContext] Remote state integrated');
@@ -621,8 +623,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }, () => {
                 console.log('📡 [StudioContext] Realtime Update Pulse received');
                 import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
-                    const targetScopeId = settings.orgId || settings.studioSlug!;
-                    pullStudioStateFromCloud(settings.studioSlug!, targetScopeId).then(state => {
+                    pullStudioStateFromCloud(settings.studioSlug!, settings.studioSlug!).then(state => {
                         if (state) applyCloudState(settings.studioSlug!, state);
                     });
                 });
