@@ -35,6 +35,8 @@ export const viewport: Viewport = {
 
 
 
+import { UserProvider } from '@/hooks/useUser';
+
 export default function RootLayout({ children }: { children: ReactNode }) {
     const cookieStore = cookies();
     const activeSlug = cookieStore.get('cc_active_slug')?.value || null;
@@ -49,15 +51,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </head>
             <body className="min-h-screen bg-base antialiased font-sans">
                     <CacheBuster />
-                    <LanguageProvider defaultLang={activeLang}>
-                        <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
-                            <ConfirmProvider>
-                                <GlobalErrorBoundary>
-                                    {children}
-                                </GlobalErrorBoundary>
-                            </ConfirmProvider>
-                        </StudioProvider>
-                    </LanguageProvider>
+                    <UserProvider>
+                        <LanguageProvider defaultLang={activeLang}>
+                            <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
+                                <ConfirmProvider>
+                                    <GlobalErrorBoundary>
+                                        {children}
+                                    </GlobalErrorBoundary>
+                                </ConfirmProvider>
+                            </StudioProvider>
+                        </LanguageProvider>
+                    </UserProvider>
             </body>
         </html>
     );

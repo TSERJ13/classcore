@@ -1,3 +1,4 @@
+'use client';
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -8,12 +9,29 @@ const SUPER_ADMIN_EMAILS = [
     'sergi.tsivtsivadze@gmail.com'
 ];
 
-export function useUser() {
+import React, { createContext, useContext, ReactNode } from 'react';
+
+interface UserContextValue {
+    user: User | null;
+    profile: any | null;
+    loading: boolean;
+    isVerified: boolean | null;
+    logout: () => Promise<void>;
+}
+
+const UserContext = createContext<UserContextValue>({
+    user: null,
+    profile: null,
+    loading: true,
+    isVerified: null,
+    logout: async () => {},
+});
+
+export function UserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [isVerified, setIsVerified] = useState<boolean | null>(null);
-    const lastVerifyRef = useRef<number>(0);
-    const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
     const [profile, setProfile] = useState<{
         studio_name?: string; studio_slug?: string; org_id?: string; first_name?: string; last_name?: string; phone?: string; role?: string; photo_url?: string; is_activated?: boolean; allowedBranchIds?: string[];
         canViewAttendance?: boolean;
@@ -27,25 +45,12 @@ export function useUser() {
         canViewShop?: boolean;
         canViewAnalytics?: boolean;
         canViewSMS?: boolean;
-        // Legacy support
-        can_view_attendance?: boolean;
-        can_view_subscriptions?: boolean;
-        can_view_students?: boolean;
-        can_view_calendar?: boolean;
-        can_edit_calendar?: boolean;
-        can_view_groups?: boolean;
-        can_view_teachers?: boolean;
-        can_view_halls?: boolean;
-        can_view_shop?: boolean;
-        can_view_analytics?: boolean;
-        can_view_sms?: boolean;
     } | null>(null);
 
     useEffect(() => {
         const supabase = createClient();
 
         const refreshSession = async () => {
-            // 1. Get current Auth User (Direct from Supabase)
             const { data: { user: u }, error: authError } = await supabase.auth.getUser();
             const staffSess = getStaffSession();
 
@@ -60,35 +65,33 @@ export function useUser() {
             const isOwner = u?.user_metadata?.role === 'owner';
             const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
 
-            // 1.5. Slug Recovery for Staff (If they don't have it in their Auth Metadata)
             if (currentUserEmail && !currentSlug && !isSuperAdminRoute) {
                 try {
                     const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
                     const matches = await findAllStudiosByStaffEmail(currentUserEmail);
                     if (matches && matches.length > 0) {
                         currentSlug = matches[0].slug;
-                        console.log(`📡 [useUser] Recovered studio slug for staff: ${currentSlug}`);
+                        console.log(`📡 [UserProvider] Recovered studio slug for staff: ${currentSlug}`);
                     }
                 } catch (err) {
-                    console.error('⚠️ [useUser] Slug recovery failed:', err);
+                    console.error('⚠️ [UserProvider] Slug recovery failed:', err);
                 }
             }
 
-            // 2. Direct Database Verification (No caching, no hacks)
             if (currentUserEmail && currentSlug && !isSuperAdminRoute && !isOwner) {
                 try {
                     const { verifyUserInStudio } = await import('@/lib/sync-store');
                     const hasAccess = await verifyUserInStudio(currentSlug, currentUserEmail);
                     
                     if (!hasAccess) {
-                        console.warn('🚨 [useUser] Access denied by database.');
+                        console.warn('🚨 [UserProvider] Access denied by database.');
                         setIsVerified(false);
                         await logout();
                         return;
                     }
                     setIsVerified(true);
                 } catch (err) {
-                    console.error('⚠️ [useUser] DB Verification failed:', err);
+                    console.error('⚠️ [UserProvider] DB Verification failed:', err);
                     setIsVerified(false);
                     return;
                 }
@@ -97,17 +100,16 @@ export function useUser() {
                 setIsVerified(!!currentUserEmail && !!currentSlug && emailConfirmed);
             }
 
-            // 3. Set Identity & Profile
             if (u) {
                 setUser(u);
                 const meta = u.user_metadata || {};
                 setProfile({
                     ...meta,
                     studio_name: meta.studio_name,
-                    studio_slug: currentSlug, // Use the (possibly recovered) slug
+                    studio_slug: currentSlug,
                     role: meta.role || 'admin',
                     photo_url: meta.photo_url || meta.avatar_url,
-                    is_activated: meta.is_activated !== false, // Default to true if not explicitly false
+                    is_activated: meta.is_activated !== false,
                 });
             } else if (staffSess) {
                 const { staff, slug } = staffSess;
@@ -118,7 +120,7 @@ export function useUser() {
                     ...latestStaff,
                     studio_name: settings.studioName,
                     studio_slug: slug,
-                    is_activated: true, // Manual staff session is intrinsically activated
+                    is_activated: true,
                 });
             }
 
@@ -134,7 +136,6 @@ export function useUser() {
         return () => subscription.unsubscribe();
     }, []);
 
-    // Sync profile to cookies for SSR navigation/header consistency
     useEffect(() => {
         if (profile) {
             if (profile.role) {
@@ -151,7 +152,6 @@ export function useUser() {
         await supabase.auth.signOut();
         setStaffSession(null);
         
-        // Clear all cc_ related cookies to ensure SSR components (like the landing page) stay in sync
         document.cookie = "cc_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         document.cookie = "cc_studio_name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         document.cookie = "cc_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
@@ -160,5 +160,13 @@ export function useUser() {
         window.location.href = '/login';
     };
 
-    return { user, profile, loading, isVerified, logout };
+    return (
+        <UserContext.Provider value={{ user, profile, loading, isVerified, logout }}>
+            {children}
+        </UserContext.Provider>
+    );
+}
+
+export function useUser() {
+    return useContext(UserContext);
 }
