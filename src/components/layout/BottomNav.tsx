@@ -34,7 +34,7 @@ export function BottomNav() {
                 WebkitBackfaceVisibility: 'hidden'
             }}
         >
-            <div className="flex items-center justify-between w-full max-w-[500px] md:max-w-3xl mx-auto px-6 pt-4 pb-2 h-20">
+            <div className="flex items-center justify-center gap-[6vw] sm:gap-14 w-full max-w-4xl mx-auto px-6 pt-4 pb-2 h-20">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (

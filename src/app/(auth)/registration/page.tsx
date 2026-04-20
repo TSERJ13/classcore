@@ -187,7 +187,7 @@ export default function RegistrationPage() {
                     {step === 'initial' && (
                         <div className="space-y-8">
                             <div className="text-center space-y-3 mb-10 relative">
-                                <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('რეგისტრაცია', 'Регистрация', 'Fast Registration')}</h2>
+                                <h2 className="text-[26px] sm:text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('რეგისტრაცია', 'Регистрация', 'Fast Registration')}</h2>
                                 <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
                                     <Sparkles className="w-4 h-4 animate-pulse" />
                                     {l('დაიწყე სტუდიის მართვა 60 წამში', 'Запустите студию за 60 сек', 'Launch your studio in 60s')}

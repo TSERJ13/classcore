@@ -210,7 +210,7 @@ export default function LoginPage() {
                     ) : (
                         <>
                             <div className="text-center space-y-3 mb-10 relative">
-                                <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('ავტორიზაცია', 'Вход', 'Access Portal')}</h2>
+                                <h2 className="text-[26px] sm:text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('ავტორიზაცია', 'Вход', 'Access Portal')}</h2>
                                 <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
                                     <Sparkles className="w-4 h-4 animate-pulse" />
                                     {l('სტუდიის მართვის სისტემა', 'Система управления', 'Studio Management OS')}
