@@ -605,7 +605,7 @@ export default function SettingsPage() {
                         <div className="flex gap-2">
                             <input 
                                 value={settings.owner_info?.first_name || profile?.first_name || ''} 
-                                onChange={e => setOwnerInfo({ first_name: e.target.value })}
+                                onChange={e => setOwnerInfo({ ...settings.owner_info, first_name: e.target.value })}
                                 placeholder={t.firstNameLabel}
                                 readOnly={!isSuperAdmin}
                                 className={cn(
@@ -615,7 +615,7 @@ export default function SettingsPage() {
                             />
                             <input 
                                 value={settings.owner_info?.last_name || profile?.last_name || ''} 
-                                onChange={e => setOwnerInfo({ last_name: e.target.value })}
+                                onChange={e => setOwnerInfo({ ...settings.owner_info, last_name: e.target.value })}
                                 placeholder={t.lastNameLabel}
                                 readOnly={!isSuperAdmin}
                                 className={cn(

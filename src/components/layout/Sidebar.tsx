@@ -77,12 +77,16 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                     "flex flex-col justify-center h-12 transition-all duration-300 min-w-0 flex-1 py-0.5",
                     exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                 )}>
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className={cn("font-black text-white truncate tracking-tight leading-tight", isMobile ? "text-[12.5px]" : "text-[14px]")}>
-                            {settings?.studioName || profile?.studio_name || 'Studio'}
-                        </span>
-
-                    </div>
+                        <div className="flex items-center gap-2 mb-1 min-w-0">
+                            <span className={cn("font-black text-white truncate tracking-tight leading-tight", isMobile ? "text-[12.5px]" : "text-[14px]")}>
+                                {settings?.studioName || profile?.studio_name || 'Studio'}
+                            </span>
+                            {settings?.plan === 'pro' && (
+                                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_12px_rgba(245,158,11,0.2)] border border-amber-300/20 shrink-0 animate-in zoom-in-50 duration-500">
+                                    <span className="text-[7.5px] font-black text-white uppercase tracking-widest leading-none">PRO</span>
+                                </div>
+                            )}
+                        </div>
 
                     <button
                         onClick={(e) => {

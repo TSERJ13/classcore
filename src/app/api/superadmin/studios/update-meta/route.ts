@@ -101,7 +101,8 @@ export async function POST(req: Request) {
                 .update({
                     studio_name: patch.studioName || undefined,
                     logo_url: patch.logoDataUrl || undefined,
-                    owner_info: patch.owner_info || undefined
+                    owner_info: patch.owner_info || undefined,
+                    plan: patch.plan || undefined
                 })
                 .eq('studio_slug', slug);
         }

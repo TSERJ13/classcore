@@ -375,6 +375,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     studioSlug: '',
     isWizardCompleted: false,
     logoDataUrl: null,
+    plan: 'trial',
     currency: 'GEL',
     language: 'ka',
     timezone: 'Asia/Tbilisi',

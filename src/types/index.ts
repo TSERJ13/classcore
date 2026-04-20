@@ -100,6 +100,7 @@ export interface StudioSettings {
     studioSlug: string;
     isWizardCompleted?: boolean;
     logoDataUrl: string | null;   // base64 image or null
+    plan?: 'trial' | 'pro' | 'custom';
     currency: 'GEL' | 'USD' | 'EUR';
     language: 'ka' | 'ru' | 'en';
     timezone: string;
