@@ -87,8 +87,8 @@ export function getEvents(): CalendarEvent[] {
         const deletedSet = new Set(Array.isArray(deletedGroupIds) ? deletedGroupIds : []);
 
         if (deletedSet.size > 0) {
-            const initialCount = validEvents.length;
-            const healthyEvents = validEvents.filter(e => !e.group_id || !deletedSet.has(e.group_id));
+            const initialCount = events.length;
+            const healthyEvents = events.filter((e: CalendarEvent) => !e.group_id || !deletedSet.has(e.group_id));
             if (healthyEvents.length < initialCount) {
                 console.log(`🧹 [EventStore] Auto-purged ${initialCount - healthyEvents.length} orphaned events from deleted groups`);
                 saveEvents(healthyEvents);
@@ -96,7 +96,7 @@ export function getEvents(): CalendarEvent[] {
             }
         }
 
-        return validEvents;
+        return events;
     } catch {
         return SEED_WEEK;
     }

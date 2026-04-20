@@ -75,10 +75,18 @@ export async function pushStudioStateToCloud(
         const operations: Record<string, any> = {};
         Object.entries(studioData).forEach(([key, value]) => {
             let baseKey = key;
-            if (slug && baseKey.endsWith(`_${slug}`)) {
+            
+            // 1. Identification: if key contains both slug and branchId, strip SLUG but KEEP branchId suffix for the cloud blob
+            // Example: cc_groups_stdance_branch1 -> cc_groups_branch1
+            if (slug && baseKey.includes(`_${slug}_`)) {
+                baseKey = baseKey.replace(`_${slug}_`, '_');
+            } else if (slug && baseKey.endsWith(`_${slug}`)) {
                 baseKey = baseKey.slice(0, -(slug.length + 1));
             }
-            if (orgId && baseKey.endsWith(`_${orgId}`)) {
+
+            if (orgId && baseKey.includes(`_${orgId}_`)) {
+                baseKey = baseKey.replace(`_${orgId}_`, '_');
+            } else if (orgId && baseKey.endsWith(`_${orgId}`)) {
                 baseKey = baseKey.slice(0, -(orgId.length + 1));
             }
             
@@ -280,11 +288,20 @@ export async function pullStudioStateFromCloud(
         }
 
         // Add scope suffix back to operation keys
-        // so they match localStorage format (e.g., cc_student_data → cc_student_data_stdancestudio)
+        // If key already has a branch suffix (e.g. cc_groups_branch1), inject slug in middle: cc_groups_slug_branch1
         const scope = scopeId || slug;
         const scopedData: Record<string, any> = {};
         Object.entries(operations).forEach(([key, value]) => {
-            scopedData[`${key}_${scope}`] = value;
+            const parts = key.split('_');
+            if (parts.length > 2 && !key.startsWith('cc_studio_settings')) {
+                // It's likely a branch-scoped key like cc_groups_main
+                const base = parts.slice(0, -1).join('_');
+                const bId = parts[parts.length - 1];
+                scopedData[`${base}_${scope}_${bId}`] = value;
+            } else {
+                // Global key or settings
+                scopedData[`${key}_${scope}`] = value;
+            }
         });
 
         console.log(`✅ [Sync] Pull OK ← ${staff.length} staff, ${Object.keys(operations).length} data keys`);

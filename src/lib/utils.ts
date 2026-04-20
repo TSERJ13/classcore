@@ -239,16 +239,29 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     // If branchId is explicitly provided or we should use the active one
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
-    if (PROTECTED_GLOBAL_KEYS.includes(base) || SYNC_COLLECTIONS.includes(base) || base.startsWith('cc_deleted_')) {
-        return `${base}_${finalSlug}`; // Settings and core collections must stay slug-based for reliable sync discovery
+    // ─── Scoping Logic ───
+    const globalCollections = [
+        'cc_student_data', 
+        'cc_studio_settings', 
+        'cc_staff', 
+        'cc_subscription_plans', 
+        'cc_student_subscriptions', 
+        'cc_deleted_students',
+        'cc_deleted_subscriptions',
+        'cc_audit_log',
+        'cc_security_log'
+    ];
+
+    if (PROTECTED_GLOBAL_KEYS.includes(base) || globalCollections.includes(base)) {
+        return `${base}_${finalSlug}`; // These are SHARED across all branches
     }
 
-    // ALWAYS scope by branch ID if available, including 'main'
-    if (bId) {
-        return `${base}_${scopeId}_${bId}`;
+    // Branch-Scoped: Groups, Attendance, Calendar, Halls, etc.
+    if (bId && bId !== 'all') {
+        return `${base}_${finalSlug}_${bId}`;
     }
 
-    return `${base}_${scopeId}`;
+    return `${base}_${finalSlug}`;
 }
 
 /** 

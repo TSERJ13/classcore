@@ -90,11 +90,16 @@ export function getStudents(): Student[] {
             .filter(student => !baseIds.has(student.id))
             .map(student => student as Student);
 
+        // ─── Hybrid Branch Logic ───
+        // Students are GLOBAL (slug scope), but we filter them in the UI by branchId.
+        // Legacy students with NO branch_id will be mapped to the 'main' branch by default.
+        const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
+
         const allMerged = [...merged, ...newOnes];
 
         // Final normalization pass: ensure enrolled_group_ids is populated from legacy classes
         const finalStudents = allMerged.map(student => {
-            const s = { ...student } as Student & { classes?: string[] };
+            const s = { ...student } as Student & { classes?: string[]; branch_id?: string };
             if (!s.enrolled_group_ids) s.enrolled_group_ids = [];
 
             if (s.classes && Array.isArray(s.classes)) {
@@ -106,8 +111,18 @@ export function getStudents(): Student[] {
             return s as Student;
         });
 
-        // Filter out deleted IDs (including mock students)
-        return finalStudents.filter(s => !deletedIds.has(s.id));
+        // Filter out deleted IDs
+        const nonDeleted = finalStudents.filter(s => !deletedIds.has(s.id));
+
+        // 🚨 Filter by Active Branch
+        // If activeBranch is 'all' (Manager view), show everyone.
+        // Otherwise, show students belonging to this branch OR students with NO branch (Main fallback)
+        if (activeBranch === 'all') return nonDeleted;
+        
+        return nonDeleted.filter(s => {
+            const bId = s.branch_id || 'main'; // Fallback for legacy data
+            return bId === activeBranch;
+        });
     } catch {
         return INITIAL_STUDENTS;
     }

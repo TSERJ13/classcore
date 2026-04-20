@@ -11,7 +11,7 @@ interface LogoProps {
 
 export const Logo: React.FC<LogoProps> = ({ 
   className, 
-  size = 48, 
+  size = 80, // Updated default to match loader for stability
   animated = true, 
   transparent = false,
   loading = false
@@ -19,7 +19,7 @@ export const Logo: React.FC<LogoProps> = ({
   return (
     <div 
       className={cn(
-        "relative flex items-center justify-center transition-all duration-700", 
+        "relative flex items-center justify-center", // Removed transition-all to prevent size-jump on load
         loading && "animate-slow-spin opacity-80", 
         className
       )} 
