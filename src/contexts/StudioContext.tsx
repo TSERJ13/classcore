@@ -115,8 +115,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
             if (changed) {
                 // Notify all UI components that data has changed
-                ['cc_attendance_update', 'cc_groups_update', 'cc_calendar_events_update', 
-                 'cc_student_update', 'cc_teacher_update', 'cc_subscription_update']
+                ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
+                 'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
+                 'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
+                 'cc_salary_update', 'cc_trash_update', 'cc_history_update']
                     .forEach(e => window.dispatchEvent(new Event(e)));
                 console.log(`📡 [Sync] Operational data updated: ${Object.keys(cloudState.studio_data).length} keys`);
             }
@@ -553,7 +555,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             'cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
             'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
             'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
-            'cc_salary_update', 'cc_active_branch_change'
+            'cc_salary_update', 'cc_active_branch_change', 'cc_trash_update', 'cc_history_update'
         ];
 
         events.forEach(e => window.addEventListener(e, handleAutoMark));
