@@ -429,7 +429,7 @@ export async function findAllStudiosByStaffEmail(query: string): Promise<Array<{
             .contains('staff_emails', [cleanQuery]); // Start with exact email match
 
         if (error) {
-            console.error('❌ [Sync] Global staff search failed:', error.message);
+            console.error('❌ [Sync] Global staff search failed! Table:', SETTINGS_TABLE, 'Error:', error.message, 'Code:', error.code);
             return [];
         }
 

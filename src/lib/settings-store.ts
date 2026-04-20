@@ -134,8 +134,9 @@ export async function validateStaffLogin(email: string, password: string): Promi
         }
 
     } catch (err: any) {
-        console.error('❌ Cloud Fallback Critical Error:', err);
-        return { error: 'სისტემური შეცდომა სინქრონიზაციისას.' };
+        console.error('❌ [Auth] Cloud Fallback Critical Error:', err);
+        const msg = err.message || 'Unknown';
+        return { error: `სისტემური შეცდომა სინქრონიზაციისას (${msg}). შეამოწმეთ ინტერნეტი ან სცადეთ მოგვიანებით.` };
     }
 
     return null;
