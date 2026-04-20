@@ -154,55 +154,55 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const setLogo = useCallback((dataUrl: string | null) => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ logoDataUrl: dataUrl }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setNotification = useCallback((key: keyof StudioSettings['notifications'], val: boolean) => {
         markLocalUpdate();
         setSettings(prev => patchNotifications({ [key]: val }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setSecurity = useCallback((key: keyof StudioSettings['security'], val: number | boolean) => {
         markLocalUpdate();
         setSettings(prev => patchSecurity({ [key]: val }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setLandingContent = useCallback((content: Partial<StudioSettings['landingContent']>) => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ landingContent: { ...prev.landingContent, ...content } }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setSmsTemplates = useCallback((templates: StudioSettings['sms_templates']) => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ sms_templates: templates }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setCurrency = useCallback((c: 'GEL' | 'USD' | 'EUR') => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ currency: c }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setLanguage = useCallback((l: 'ka' | 'ru' | 'en') => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ language: l }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setTimezone = useCallback((t: string) => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ timezone: t }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setGoogleCalendar = useCallback((v: boolean) => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ googleCalendarEnabled: v }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const setPausePrice = useCallback((days: '7' | '14' | '30' | '60', price: number) => {
@@ -210,13 +210,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         setSettings(prev => saveSettings({
             pausePrices: { ...prev.pausePrices, [days]: price }
         }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
     
     const setWizardCompleted = useCallback((completed: boolean) => {
         markLocalUpdate();
         setSettings(prev => saveSettings({ isWizardCompleted: completed }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
         if (completed && typeof window !== 'undefined') {
             localStorage.setItem('cc_onboarding_done', 'true');
         }
@@ -234,7 +234,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 ...info
             }
         }, prev, prev.studioSlug));
-        triggerPush();
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
     }, [markLocalUpdate, triggerPush]);
 
     const addBranch = useCallback((name: string, address?: string) => {
@@ -292,8 +292,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             syncTeacherGroups(newMember.id, `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name, newMember.assigned_group_ids || []);
             return saveSettings({ staff: nextStaff }, prev, prev.studioSlug);
         });
-        triggerPush();
-    }, [markLocalUpdate, syncTeacherGroups, triggerPush]);
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
+    }, [markLocalUpdate, syncTeacherGroups]);
 
     const removeStaff = useCallback((id: string) => {
         markLocalUpdate();
@@ -306,8 +306,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             const staff = (prev.staff || []).filter(s => s.id !== id);
             return saveSettings({ staff }, prev, prev.studioSlug);
         });
-        triggerPush();
-    }, [activeBranchId, markLocalUpdate, syncTeacherGroups, triggerPush]);
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
+    }, [activeBranchId, markLocalUpdate, syncTeacherGroups]);
 
     const updateStaff = useCallback((id: string, patch: Partial<StaffMember>) => {
         markLocalUpdate();
@@ -324,8 +324,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             });
             return saveSettings({ staff }, prev, prev.studioSlug);
         });
-        triggerPush();
-    }, [markLocalUpdate, syncTeacherGroups, triggerPush]);
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
+    }, [markLocalUpdate, syncTeacherGroups]);
 
     const addToTrash = useCallback((item: Omit<TrashItem, 'deletedAt' | 'deletedBy'>) => {
         setSettings(prev => {
@@ -519,7 +519,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }
             
             markLocalUpdate();
-            triggerPush();
+            window.dispatchEvent(new Event('cc_instant_sync_request'));
         };
 
         const handleInstantSyncRequest = async () => {
