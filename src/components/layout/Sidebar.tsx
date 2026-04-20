@@ -41,7 +41,7 @@ const ALL_ITEMS: (NavItem & { color: string })[] = [
 ];
 
 // ── Studio Header Block with Hover Branch Switcher ──
-function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, profile, user, theme, setBranchModalOpen }: any) {
+function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch, t, lang, profile, user, theme, setBranchModalOpen }: any) {
     const [isHovered, setIsHovered] = useState(false);
 
     const allowedBranches = useMemo(() => {
@@ -56,11 +56,12 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
     const getInitial = (name: string) => name?.trim().charAt(0).toUpperCase() || 'S';
 
     return (
-        <div className="relative border-b border-[var(--sidebar-border)] bg-white/[0.01] px-4 py-3 md:py-6">
+        <div className={cn("relative border-b border-[var(--sidebar-border)] bg-white/[0.01] px-4", isMobile ? "py-2.5" : "py-3 md:py-6")}>
             <div className="flex items-center gap-3">
                 <div
                     className={cn(
-                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
+                        "rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
+                        isMobile ? "w-10 h-10" : "w-12 h-12",
                         !settings?.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
                     )}
                     style={settings?.logoDataUrl ? { borderColor: theme.accentHex } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}
@@ -70,7 +71,6 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                     ) : (
                         <span className="text-lg font-black" style={{ color: theme.accentHex }}>{getInitial(settings?.studioName || '')}</span>
                     )}
-
                 </div>
 
                 <div className={cn(
@@ -78,7 +78,7 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                     exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                 )}>
                     <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[14px] font-black text-white truncate tracking-tight leading-tight">
+                        <span className={cn("font-black text-white truncate tracking-tight leading-tight", isMobile ? "text-[12.5px]" : "text-[14px]")}>
                             {settings?.studioName || profile?.studio_name || 'Studio'}
                         </span>
 
@@ -90,15 +90,16 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
                             if (exp) setIsHovered(!isHovered);
                         }}
                         className={cn(
-                            "flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
+                            "flex items-center gap-1.5 px-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
+                            isMobile ? "py-0.5" : "py-1",
                             isHovered && "border-indigo-500/40 bg-indigo-500/10"
                         )}
                     >
-                        <Building2 className={cn("w-3 h-3 transition-colors", isHovered ? "text-indigo-400" : "text-white/40")} />
-                        <span className={cn("text-[10px] font-black tracking-tight truncate max-w-[100px]", isHovered ? "text-indigo-400" : "text-white/60")}>
+                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3 h-3", isHovered ? "text-indigo-400" : "text-white/40")} />
+                        <span className={cn("font-black tracking-tight truncate max-w-[100px]", isHovered ? "text-indigo-400" : "text-white/60", isMobile ? "text-[9px]" : "text-[10px]")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
-                        <ChevronRight className={cn("w-2.5 h-2.5 text-white/20 transition-all", isHovered && "rotate-90 text-indigo-400")} />
+                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-2 h-2" : "w-2.5 h-2.5", isHovered && "rotate-90 text-indigo-400")} />
                     </button>
                 </div>
             </div>
@@ -161,7 +162,7 @@ function StudioBlock({ exp, settings, activeBranchId, setActiveBranch, t, lang, 
 }
 
 // ── Nav Items ──
-function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any) {
+function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRole }: any) {
     return (
         <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-0.5">
             {ALL_ITEMS.filter(item => {
@@ -200,7 +201,8 @@ function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any)
                             href={href}
                             onClick={close}
                             className={cn(
-                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link h-10 w-full pl-4 gap-3.5',
+                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full',
+                                isMobile ? 'h-9 pl-3 gap-2.5' : 'h-10 pl-4 gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -208,14 +210,15 @@ function NavItems({ exp, profile, pathname, theme, t, close, defaultRole }: any)
                                 <span className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]', theme.text.replace('text-', 'bg-'))} />
                             )}
                             <div className={cn(
-                                "flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-300",
+                                "flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-300",
+                                isMobile ? "w-7 h-7" : "w-8 h-8",
                                 !active && "group-hover/link:bg-white/5",
                                 active && "bg-white/10"
                             )}>
-                                <Icon className={cn('w-[21px] h-[21px] transition-all duration-200', active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
+                                <Icon className={cn('transition-all duration-200', isMobile ? "w-[18px] h-[18px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className="truncate text-[14.5px] font-black transition-all duration-300 opacity-100 max-w-[160px] tracking-tight">
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[160px] tracking-tight", isMobile ? "text-[13px]" : "text-[14.5px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -259,13 +262,13 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             ) : (
                 <>
                     <StudioBlock
-                        exp={exp} settings={settings} activeBranchId={activeBranchId}
+                        exp={exp} isMobile={isMobile} settings={settings} activeBranchId={activeBranchId}
                         setActiveBranch={setActiveBranch} t={t} lang={lang}
                         profile={profile} user={user} theme={theme} setBranchModalOpen={setBranchModalOpen}
                     />
 
                     <div className="relative flex-1 overflow-hidden flex flex-col no-scrollbar">
-                        <NavItems exp={exp} profile={profile} pathname={pathname} theme={theme} t={t} close={close} defaultRole={defaultRole} />
+                        <NavItems exp={exp} isMobile={isMobile} profile={profile} pathname={pathname} theme={theme} t={t} close={close} defaultRole={defaultRole} />
                     </div>
                     {!isMobile && (
                         <button
@@ -280,7 +283,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
-                        exp ? "p-4 space-y-3" : "py-4 flex flex-col items-center gap-4"
+                        exp ? (isMobile ? "p-3 space-y-2.5" : "p-4 space-y-3") : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
                             compact={!exp} 
@@ -294,14 +297,14 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             className={cn(
                                 "flex items-center gap-3 transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
                                 exp 
-                                    ? "w-full px-4 h-11 bg-white/5 border border-white/10 rounded-xl" 
+                                    ? cn("w-full px-4 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-10" : "h-11")
                                     : "w-10 h-10 justify-center rounded-xl bg-white/5 border border-white/10 shadow-sm"
                             )}
                             title={l('გასვლა', 'Выйти', 'Logout')}
                         >
-                            <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", exp ? "w-4 h-4" : "w-4 h-4")} strokeWidth={2.5} />
+                            <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", isMobile ? "w-3.5 h-3.5" : "w-4 h-4")} strokeWidth={2.5} />
                             {exp && (
-                                <span className="text-[11px] font-black tracking-[0.15em] uppercase truncate">
+                                <span className={cn("font-black tracking-[0.15em] uppercase truncate", isMobile ? "text-[10px]" : "text-[11px]")}>
                                     {l('გასვლა', 'Выйти', 'Logout')}
                                 </span>
                             )}
