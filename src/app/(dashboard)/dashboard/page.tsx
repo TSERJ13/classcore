@@ -1255,6 +1255,9 @@ export default function DashboardPage() {
                     </Link>
                 </div>
             )}
+
+            {/* Bottom spacer for mobile navigation clearance */}
+            <div className="h-20 lg:hidden" />
         </div>
     );
 }
