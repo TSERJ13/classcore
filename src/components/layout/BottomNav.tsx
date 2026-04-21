@@ -25,16 +25,16 @@ export function BottomNav() {
 
     return (
         <nav
-            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111114]/95 backdrop-blur-xl border-t border-white/[0.08]"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111114]/98 backdrop-blur-2xl border-t border-white/[0.05]"
             style={{ 
-                paddingBottom: 'env(safe-area-inset-bottom, 10px)',
+                paddingBottom: 'env(safe-area-inset-bottom, 6px)',
                 transform: 'translateZ(0)',
                 WebkitTransform: 'translateZ(0)',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden'
             }}
         >
-            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-1.5 pb-0 h-[62px]">
+            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-0.5 pb-0 h-[54px]">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (

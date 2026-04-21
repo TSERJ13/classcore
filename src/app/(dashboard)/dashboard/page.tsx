@@ -236,21 +236,24 @@ export default function DashboardPage() {
     useEffect(() => {
         const refreshData = () => {
             const sales = getSales();
-            const studentsList = getStudents();
+            let studentsList = getStudents();
+            const allSubsListRaw = Object.values(getSubscriptions()).flat();
+            
+            // ROLE FILTER: Restrict data for teachers
+            const isTeacher = profile?.role === 'teacher' || profile?.role === 'coach';
+            const assignedIds = profile?.assigned_group_ids || [];
+            
+            if (isTeacher) {
+                studentsList = studentsList.filter(s => 
+                    s.enrolled_group_ids?.some(gid => assignedIds.includes(gid))
+                );
+            }
+
+            const allSubsList = isTeacher 
+                ? allSubsListRaw.filter(sub => assignedIds.includes(sub.group_id || ''))
+                : allSubsListRaw;
+
             const students = studentsList.length;
-
-            const now = new Date();
-            const currentMonth = now.toISOString().split('-').slice(0, 2).join('-');
-
-            // Fiscal Year start: Sept 1st
-            const fiscalYearStart = new Date(now.getFullYear(), 8, 1);
-            if (now < fiscalYearStart) fiscalYearStart.setFullYear(fiscalYearStart.getFullYear() - 1);
-            const fiscalYearStr = fiscalYearStart.toISOString().split('T')[0];
-
-            let activeCount = 0;
-            let inactiveCount = 0;
-            const activeSubStudentIds = new Set<string>();
-            const allSubsList = Object.values(getSubscriptions()).flat();
 
             studentsList.forEach(s => {
                 const sub = (s as any).subscription || getSubscription(s.id);
@@ -396,8 +399,23 @@ export default function DashboardPage() {
     }, [t, settings.studioName, revenueRange]);
 
     useEffect(() => {
-        const checkins = getTodayCheckins();
-        const sales = getSales();
+        let checkins = getTodayCheckins();
+        let sales = getSales();
+        
+        // ROLE FILTER: Restrict data for teachers
+        const isTeacher = profile?.role === 'teacher' || profile?.role === 'coach';
+        const assignedIds = profile?.assigned_group_ids || [];
+
+        if (isTeacher) {
+            // Filter checkins by class -> group link
+            // For simplicity, we filter by student enrolled groups since checkin record doesn't always have group_id but student does
+            checkins = checkins.filter(c => {
+                // If the checkin has a class_id, we can check that class's group
+                // But most checkins here are for "Today", we can filter by assigned groups
+                return assignedIds.includes(c.groupId || '');
+            });
+            sales = sales.filter(s => s.groupId && assignedIds.includes(s.groupId));
+        }
 
         const allStudents = getStudents();
         const activeIds = new Set(allStudents.map(s => s.id));
@@ -465,6 +483,9 @@ export default function DashboardPage() {
                 const validGroupIds = new Set(existingGroups.map(g => g.id));
                 
                 const events = evByDate.filter(ev => {
+                    if (isTeacher && ev.group_id && !assignedIds.includes(ev.group_id)) {
+                        return false;
+                    }
                     if (ev.type === 'group_class' && ev.group_id) {
                         return validGroupIds.has(ev.group_id);
                     }

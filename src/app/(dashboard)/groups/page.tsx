@@ -175,7 +175,12 @@ export default function GroupsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
-                {groups.map(group => {
+                {groups.filter(g => {
+                    if (profile?.role === 'teacher' || profile?.role === 'coach') {
+                        return profile.assigned_group_ids?.includes(g.id);
+                    }
+                    return true;
+                }).map(group => {
                     const fillPct = Math.round((group.enrolled / group.capacity) * 100);
                     const teacher = teachers.find(tc => tc.id === group.teacherId);
                     const secondaryTeacher = group.secondaryTeacherId ? teachers.find(tc => tc.id === group.secondaryTeacherId) : null;

@@ -128,61 +128,62 @@ export default function TeachersPage() {
                 <div className="grid gap-4 stagger">
                     {filtered.map(teacher => (
                         <div key={teacher.id}
-                            className="group bg-card border-2 border-border-subtle hover:border-violet-500/40 hover:shadow-xl hover:shadow-violet-500/5 rounded-[2rem] p-6 transition-all duration-300 relative overflow-hidden flex flex-col">
-                            <div className="flex items-start gap-5">
-                                {/* Avatar */}
-                                <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-lg font-black text-white flex-shrink-0 shadow-lg shadow-violet-500/20 group-hover:scale-110 transition-transform overflow-hidden">
-                                    {teacher.photo_url ? (
-                                        <img src={teacher.photo_url} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        getInitials(`${teacher.first_name || ''} ${teacher.last_name || teacher.full_name || ''}`)
-                                    )}
+                            className="group bg-card border-2 border-border-subtle hover:border-violet-500/40 hover:shadow-xl hover:shadow-violet-500/5 rounded-3xl p-4 transition-all duration-300 relative overflow-hidden flex flex-col">
+                            <div className="flex items-start gap-4">
+                                {/* Avatar with Status Dot */}
+                                <div className="relative flex-shrink-0">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-base font-black text-white shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-transform overflow-hidden">
+                                        {teacher.photo_url ? (
+                                            <img src={teacher.photo_url} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            getInitials(`${teacher.first_name || ''} ${teacher.last_name || teacher.full_name || ''}`)
+                                        )}
+                                    </div>
+                                    <div className={cn(
+                                        "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card shadow-sm",
+                                        teacher.status === 'active' ? "bg-emerald-500" : 
+                                        teacher.status === 'on_leave' ? "bg-amber-500" : "bg-muted"
+                                    )} />
                                 </div>
 
                                 {/* Info */}
-                                <div className="flex-1 min-w-0 pt-0.5">
-                                    <div className="flex flex-wrap items-center gap-2.5 mb-2">
-                                        <p className="text-base font-black text-primary group-hover:text-violet-600 transition-colors tracking-tight">{teacher.first_name} {teacher.last_name}</p>
-                                        <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider', STATUS_STYLE[teacher.status])}>
-                                            {STATUS_LABEL[teacher.status]}
-                                        </span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-sm font-black text-primary group-hover:text-violet-600 transition-colors tracking-tight truncate">
+                                            {teacher.first_name} {teacher.last_name}
+                                        </p>
+                                        
+                                        {/* Actions */}
+                                        <button onClick={(e) => { e.stopPropagation(); openEdit(teacher); }}
+                                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface border border-border-subtle text-muted hover:text-violet-600 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all shadow-sm">
+                                            <Edit2 className="w-3 h-3" />
+                                        </button>
                                     </div>
 
-
-                                    {/* Contacts & rates */}
-                                    <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] font-bold text-muted opacity-50 px-1">
-                                        <span className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 opacity-40" />{teacher.phone}</span>
-                                        {teacher.email && <span className="flex items-center gap-2 hidden md:flex"><Mail className="w-3.5 h-3.5 opacity-40" />{teacher.email}</span>}
-                                        <div className="flex gap-4">
-                                            {teacher.rate_per_hour && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_hour, settings.currency)} / {t.perHourShort}</span>}
-                                            {teacher.rate_per_month && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_month, settings.currency)} / {t.perMonthShort}</span>}
-                                            {teacher.salary_percentage && <span className="text-rose-500 font-black tracking-tight">{teacher.salary_percentage}% ({t.shareShort})</span>}
+                                    {/* Contacts & rates - more compact */}
+                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-muted/60">
+                                        <span className="flex items-center gap-1.5"><Phone className="w-3 h-3 opacity-40" />{teacher.phone}</span>
+                                        <div className="flex gap-3">
+                                            {teacher.rate_per_hour && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_hour, settings.currency)}/h</span>}
+                                            {teacher.rate_per_month && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_month, settings.currency)}/m</span>}
                                         </div>
                                     </div>
 
-                                    {/* Assigned groups */}
+                                    {/* Assigned groups - even smaller font */}
                                     {(teacher.assigned_group_ids || []).length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border-subtle/50">
+                                        <div className="flex flex-wrap gap-1 mt-2.5 pt-2.5 border-t border-border-subtle/30">
                                             {teacher.assigned_group_ids.map(gid => (
-                                                <span key={gid} className="px-3 py-1.5 bg-surface border border-border-subtle text-muted text-[10px] font-black tracking-widest rounded-xl flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                    <BookOpen className="w-3.5 h-3.5 text-violet-500" />{GROUP_MAP[gid] ?? gid}
+                                                <span key={gid} className="px-2 py-0.5 bg-surface text-muted/50 text-[8px] font-black tracking-wider rounded-md flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                    <BookOpen className="w-2.5 h-2.5 text-violet-500/50" />{GROUP_MAP[gid] ?? gid}
                                                 </span>
                                             ))}
                                             {teacher.assigned_individual && (
-                                                <span className="px-3 py-1.5 bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 text-[10px] font-black tracking-widest rounded-xl flex items-center gap-2">
-                                                    <Zap className="w-3.5 h-3.5" />{t.indSessionShort}
+                                                <span className="px-2 py-0.5 bg-indigo-500/5 text-indigo-600/60 text-[8px] font-black tracking-wider rounded-md flex items-center gap-1">
+                                                    <Zap className="w-2.5 h-2.5" />{t.indSessionShort}
                                                 </span>
                                             )}
                                         </div>
                                     )}
-                                </div>
-
-                                {/* Actions - faint by default, prominent on hover */}
-                                <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
-                                    <button onClick={(e) => { e.stopPropagation(); openEdit(teacher); }}
-                                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-violet-600 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all shadow-sm">
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
                                 </div>
                             </div>
                         </div>

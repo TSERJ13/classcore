@@ -198,7 +198,16 @@ export default function AttendancePage() {
     const dateInputRef = useRef<HTMLInputElement>(null);
     const dateInputSidebarRef = useRef<HTMLInputElement>(null);
     const dateKey = getLocalISODate(selectedDate);
-    const filteredSchedule = getEventsByDate(dateKey);
+    const rawSchedule = getEventsByDate(dateKey);
+    
+    const filteredSchedule = useMemo(() => {
+        return rawSchedule.filter(ev => {
+            if (profile?.role === 'teacher' || profile?.role === 'coach') {
+                return profile.assigned_group_ids?.includes(ev.group_id || '');
+            }
+            return true;
+        });
+    }, [rawSchedule, profile]);
 
     const [selectedClass, setSelectedClass] = useState(filteredSchedule[0]?.id || '');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
