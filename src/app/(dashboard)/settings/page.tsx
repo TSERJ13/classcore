@@ -621,18 +621,6 @@ export default function SettingsPage() {
                                     </div>
                                 )}
                             </div>
-                        </Row>                                       </a>
-                                        <button onClick={copyRegLink} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
-                                            {copiedRegLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100 italic text-[10px] text-amber-600 font-bold uppercase tracking-widest">
-                                        <AlertTriangle className="w-3 h-3" />
-                                        {l('მიუთითეთ მისამართი აქტივაციისთვის', 'Укажите адрес для активации', 'Set slug to activate link')}
-                                    </div>
-                                )}
-                            </div>
                         </Row>
                     </Section>
 
