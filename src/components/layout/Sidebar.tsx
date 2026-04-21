@@ -201,7 +201,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             onClick={close}
                             className={cn(
                                 'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full',
-                                isMobile ? 'h-9 pl-3 gap-2.5' : 'h-9 lg:h-10 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
+                                isMobile ? 'h-9 pl-3 gap-2.5' : 'h-8.5 pl-3 gap-3',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -217,7 +217,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                                 <Icon className={cn('transition-all duration-200', isMobile ? "w-[18px] h-[18px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[160px] tracking-tight", isMobile ? "text-[13px]" : "text-[13.5px] lg:text-[14.5px]")}>
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight", isMobile ? "text-[13px]" : "text-[12.5px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -241,7 +241,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             suppressHydrationWarning
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-hidden transition-[width] duration-300 ease-in-out pt-safe pb-safe',
-                exp ? (isMobile ? 'w-[200px]' : 'w-[220px]') : 'w-[72px]'
+                exp ? (isMobile ? 'w-[200px]' : 'w-[240px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -273,23 +273,25 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                         <button
                             onClick={toggleExpanded}
                             className={cn(
-                                'absolute z-30 top-1/2 -translate-y-1/2 -right-3 w-6 h-10 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-md transform active:scale-95'
+                                'absolute z-50 top-1/2 -translate-y-1/2 -right-4 w-7 h-11 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-[4px_0_10px_rgba(0,0,0,0.2)] transform active:scale-95'
                             )}
                         >
-                            <ChevronRight className={cn('w-3.5 h-3.5 transition-transform duration-300', exp && 'rotate-180')} />
+                            <ChevronRight className={cn('w-4 h-4 transition-transform duration-300', exp && 'rotate-180')} />
                         </button>
                     )}
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
-                        exp ? (isMobile ? "p-3 space-y-2.5" : "p-4 space-y-3") : "py-4 flex flex-col items-center gap-4"
+                        exp 
+                            ? (isMobile ? "p-3 space-y-2.5" : "p-3 flex items-center gap-2") 
+                            : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
                             compact={!exp} 
                             mode="session" 
                             align="left" 
                             className={cn(
-                                exp && "w-full bg-white/5 border-white/10 hover:bg-white/10",
+                                exp && "flex-1 bg-white/5 border-white/10 hover:bg-white/10 h-10",
                                 isMobile && "h-9 py-1 px-3 text-[9px] min-w-[100px]"
                             )} 
                         />
@@ -297,19 +299,14 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                         <button
                             onClick={logout}
                             className={cn(
-                                "flex items-center gap-3 transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
+                                "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
                                 exp 
-                                    ? cn("w-full px-4 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-9" : "h-11")
-                                    : "w-10 h-10 justify-center rounded-xl bg-white/5 border border-white/10 shadow-sm"
+                                    ? cn("w-10 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-9" : "h-10")
+                                    : "w-10 h-10 rounded-xl bg-white/5 border border-white/10 shadow-sm"
                             )}
                             title={l('გასვლა', 'Выйти', 'Logout')}
                         >
                             <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", isMobile ? "w-3 h-3" : "w-4 h-4")} strokeWidth={2.5} />
-                            {exp && (
-                                <span className={cn("font-black tracking-[0.15em] uppercase truncate", isMobile ? "text-[9px]" : "text-[11px]")}>
-                                    {l('გასვლა', 'Выйти', 'Logout')}
-                                </span>
-                            )}
                         </button>
                     </div>
                 </>
@@ -354,7 +351,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-hidden z-40', expanded ? 'w-[220px]' : 'w-[72px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-hidden z-40', expanded ? 'w-[240px]' : 'w-[72px]')}>
                 <SidebarContent
                     exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
