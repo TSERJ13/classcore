@@ -8,7 +8,6 @@ import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
 const SUPER_ADMIN_EMAILS = [
-    'adminclasscore@gmail.com',
     'support@classcore.ge', 
     'admin@classcore.ge',
     'sergi.tsivtsivadze@gmail.com'
