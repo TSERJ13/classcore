@@ -61,10 +61,10 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                 <div
                     className={cn(
                         "rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
-                        isMobile ? "w-10 h-10" : "w-12 h-12",
+                        isMobile ? "w-11 h-11" : "w-16 h-16",
                         !settings?.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
                     )}
-                    style={settings?.logoDataUrl ? { borderColor: theme.accentHex } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}
+                    style={settings?.logoDataUrl ? { borderColor: theme.accentHex, borderWidth: isMobile ? '2px' : '3px' } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}
                 >
                     {settings?.logoDataUrl ? (
                         <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
@@ -78,7 +78,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                     exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                 )}>
                     <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className={cn("font-black text-white truncate tracking-tight leading-tight", isMobile ? "text-[12.5px]" : "text-[14px]")}>
+                        <span className={cn("font-black text-white truncate tracking-tight leading-tight", isMobile ? "text-[12.5px]" : "text-[16px]")}>
                             {settings?.studioName || profile?.studio_name || 'Studio'}
                         </span>
                     </div>
@@ -89,16 +89,16 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                             if (exp) setIsHovered(!isHovered);
                         }}
                         className={cn(
-                            "flex items-center gap-1.5 px-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
-                            isMobile ? "py-0.5" : "py-1",
+                            "flex items-center gap-1.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
+                            isMobile ? "py-0.5 px-2" : "py-1.5",
                             isHovered && "border-indigo-500/40 bg-indigo-500/10"
                         )}
                     >
-                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3 h-3", isHovered ? "text-indigo-400" : "text-white/40")} />
-                        <span className={cn("font-black tracking-tight truncate max-w-[100px]", isHovered ? "text-indigo-400" : "text-white/60", isMobile ? "text-[9px]" : "text-[10px]")}>
+                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3.5 h-3.5", isHovered ? "text-indigo-400" : "text-white/40")} />
+                        <span className={cn("font-black tracking-tight truncate max-w-[120px]", isHovered ? "text-indigo-400" : "text-white/60", isMobile ? "text-[9px]" : "text-[11px]")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
-                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-2.5 h-2.5", isHovered && "rotate-90 text-indigo-400")} />
+                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-3 h-3", isHovered && "rotate-90 text-indigo-400")} />
                     </button>
                 </div>
             </div>
@@ -226,7 +226,10 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                                 <Icon className={cn('transition-all duration-200', isMobile ? "w-3.5 h-3.5" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 3 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[10px]" : "text-[12px]")}>
+                                <span className={cn(
+                                    "truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", 
+                                    isMobile ? "text-[9.5px]" : href === '/dashboard' ? "text-[15px]" : "text-[13px]"
+                                )}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -249,7 +252,8 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
         <aside
             suppressHydrationWarning
             className={cn(
-                'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transition-[width] duration-300 ease-in-out pt-safe pb-safe shadow-2xl',
+                'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transition-[width] duration-300 ease-in-out shadow-2xl',
+                isMobile ? 'pt-4 pb-safe' : 'pt-0',
                 exp ? (isMobile ? 'w-[190px]' : 'w-[341px]') : 'w-[72px]'
             )}
         >
@@ -280,8 +284,8 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     </div>
 
                     <div className={cn(
-                        "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 pt-1.5",
-                        exp ? (isMobile ? "p-2 pb-safe" : "p-4 pb-safe") : "py-4"
+                        "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 transition-all",
+                        exp ? (isMobile ? "p-2 pb-safe" : "p-4 pb-10") : "py-4"
                     )}>
                         <div className={cn(
                             "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl p-0.5",
@@ -292,7 +296,8 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 mode="session" 
                                 align="left" 
                                 className={cn(
-                                    exp ? "flex-1 hover:bg-white/[0.05] h-9 px-3" : "w-8.5 h-8.5 bg-white/5 rounded-xl"
+                                    exp ? "flex-1 hover:bg-white/[0.05] h-9 px-3" : "w-8.5 h-8.5 bg-white/5 rounded-xl",
+                                    isMobile && "scale-90 origin-left"
                                 )} 
                             />
                             
@@ -302,7 +307,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 onClick={logout}
                                 className={cn(
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
-                                    exp ? "w-10 h-9" : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2"
+                                    exp ? (isMobile ? "w-12 h-9 -ml-1" : "w-10 h-9") : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
@@ -354,7 +359,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
         <>
             <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[341px]' : 'w-[72px]')}>
                 <SidebarContent
-                    exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
+                    exp={expanded} isMobile={false} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
                     profile={profile} user={user} theme={theme} setBranchModalOpen={setBranchModalOpen}
                     pathname={pathname} close={close} defaultRole={defaultRole} logout={logout} toggleExpanded={toggleExpanded}

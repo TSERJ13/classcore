@@ -456,6 +456,15 @@ export function Header() {
 
     return (
         <>
+            <style jsx global>{`
+                @keyframes pulse-slow {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.3; transform: scale(0.85); }
+                }
+                .animate-pulse-slow {
+                    animation: pulse-slow 4s ease-in-out infinite;
+                }
+            `}</style>
             <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card/90 backdrop-blur-xl border-b border-border-subtle h-[60px] md:h-[68px]">
                 <div className="flex items-center gap-3">
                     <button
@@ -474,6 +483,19 @@ export function Header() {
                 </div>
 
                 <div className="flex items-center gap-0 md:gap-2">
+                    {/* Cloud Sync Dot */}
+                    <div 
+                        className="flex items-center justify-center w-8 h-8 group relative"
+                        title={syncStatus === 'synced' ? 'Cloud Synced' : syncStatus === 'syncing' ? 'Syncing...' : 'Sync Error'}
+                    >
+                        <div className={cn(
+                            "w-2 h-2 rounded-full transition-all duration-1000",
+                            syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse-slow" : 
+                            syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : 
+                            "bg-red-500 animate-bounce"
+                        )} />
+                    </div>
+
                     {!loading && !user && (
                         <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg tracking-wider">{t.login}</Link>
                     )}
