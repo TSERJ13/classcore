@@ -63,12 +63,7 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
             </div>
 
             {/* Dashboard Content - Always mounted after hydration for background init */}
-            <div className={cn(
-                "w-full h-full transition-all duration-500",
-                isLoading ? "blur-sm opacity-0" : "opacity-100 blur-0"
-            )}>
-                {children}
-            </div>
+            {children}
         </>
     );
 }
