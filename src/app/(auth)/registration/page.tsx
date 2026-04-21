@@ -177,7 +177,7 @@ export default function RegistrationPage() {
             <div className="w-full max-w-4xl relative z-10 flex flex-col gap-8 pt-0 pb-8 duration-700">
                 <div className="flex flex-col items-center gap-6">
                     <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={110} transparent />
+                        <Logo size={90} transparent />
                     </Link>
                 </div>
 
@@ -186,10 +186,10 @@ export default function RegistrationPage() {
                     
                     {step === 'initial' && (
                         <div className="space-y-8">
-                            <div className="text-center space-y-3 mb-10 relative">
-                                <h2 className="text-[26px] sm:text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('რეგისტრაცია', 'Регистрация', 'Fast Registration')}</h2>
+                            <div className="text-center space-y-3 mb-8 relative">
+                                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('რეგისტრაცია', 'Регистрация', 'Fast Registration')}</h2>
                                 <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
-                                    <Sparkles className="w-4 h-4 animate-pulse" />
+                                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                                     {l('დაიწყე სტუდიის მართვა 60 წამში', 'Запустите студию за 60 сек', 'Launch your studio in 60s')}
                                 </p>
                             </div>
@@ -387,7 +387,7 @@ export default function RegistrationPage() {
                                             type="submit" 
                                             disabled={loading || getPasswordStrength() < 2 || !agreed}
                                             className={cn(
-                                                "w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-sm transition-all duration-300 flex items-center justify-center gap-4 relative overflow-hidden group",
+                                                "w-full h-12 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all duration-300 flex items-center justify-center gap-4 relative overflow-hidden group",
                                                 loading || getPasswordStrength() < 2 || !agreed 
                                                     ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
                                                     : "bg-slate-900 text-white shadow-2xl shadow-indigo-500/20 active:scale-[0.98] hover:bg-slate-800"
@@ -451,7 +451,7 @@ export default function RegistrationPage() {
                         <span className="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
                         <Globe className="w-4 h-4 text-slate-400" />
                     </div>
-                    <p className="text-[10px] font-black text-slate-400 tracking-[0.5em] uppercase leading-none">ClassCore COSMOS OS</p>
+                    <p className="text-[10px] font-black text-slate-400 tracking-[0.5em] uppercase leading-none">Clascore.ge</p>
                 </div>
             </div>
         </div>

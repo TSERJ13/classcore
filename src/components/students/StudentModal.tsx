@@ -275,6 +275,7 @@ export function StudentModal({
         email: '',
         birth_date: '',
         notes: '',
+        parent_name: '',
         dance_style: '',
         medical_cert_expires_at: '',
         photo_url: '',
@@ -326,6 +327,11 @@ export function StudentModal({
                     lName = parts.slice(1).join(' ') || '';
                 }
 
+                const notes = student.notes ?? '';
+                const parentMatch = notes.match(/^Parent:\s*([^|]*)\|?\s*(.*)$/);
+                const parentName = parentMatch ? parentMatch[1].trim() : '';
+                const cleanNotes = parentMatch ? parentMatch[2].trim() : notes;
+
                 setForm({
                     id: student.id,
                     first_name: fName,
@@ -333,7 +339,8 @@ export function StudentModal({
                     phone: student.phone ?? '',
                     email: student.email ?? '',
                     birth_date: student.birth_date ?? '',
-                    notes: student.notes ?? '',
+                    notes: cleanNotes,
+                    parent_name: parentName,
                     dance_style: student.dance_style ?? '',
                     medical_cert_expires_at: student.medical_cert_expires_at ?? '',
                     photo_url: student.photo_url ?? '',
@@ -597,8 +604,13 @@ export function StudentModal({
         }
 
         // If ID changed, we might need to handle it, but let onSave handle the bulk
+        const finalNotes = form.parent_name 
+            ? `Parent: ${form.parent_name} | ${form.notes}`
+            : form.notes;
+
         onSave({
             ...form,
+            notes: finalNotes,
             discount_value: form.discount_value === '' ? 0 : form.discount_value,
             id: finalId,
             full_name: fullName
@@ -782,130 +794,47 @@ export function StudentModal({
                                         </Field>
                                     </div>
 
-                                    {/* Discount / Student Special Rate */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-60 flex items-center gap-2 px-1">
-                                                <Tag className="w-3.5 h-3.5" /> {t.studentDiscount}
-                                            </label>
-                                            <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 shadow-sm">
-                                                <input
-                                                    type="number"
-                                                    value={form.discount_value}
-                                                    onFocus={(e) => e.target.select()}
-                                                    onChange={(e) => set('discount_value', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                                    placeholder="0"
-                                                    className="flex-1 bg-transparent px-3 py-1.5 text-sm font-bold text-primary outline-none"
-                                                />
-                                                <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-lg p-0.5 shrink-0">
+                                    <Field icon={<Calendar className="w-4 h-4" />} label={t.birthDate}>
+                                        <input 
+                                            type="date"
+                                            value={form.birth_date} 
+                                            onChange={e => set('birth_date', e.target.value)} 
+                                            className={cn(inputCls, "h-[42px]")}
+                                        />
+                                    </Field>
+
+                                    <Field icon={<User className="w-4 h-4" />} label={t.gender}>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { id: 'male', label: t.boy, icon: User, color: 'text-indigo-600', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+                                                { id: 'female', label: t.girl, icon: User, color: 'text-pink-600', bg: 'bg-pink-500/10', border: 'border-pink-500/20' }
+                                            ].map((g) => {
+                                                const isSelected = form.gender === g.id;
+                                                return (
                                                     <button
+                                                        key={g.id}
                                                         type="button"
-                                                        onClick={(e) => { e.preventDefault(); set('discount_type', 'percent'); }}
+                                                        onClick={() => set('gender', g.id as any)}
                                                         className={cn(
-                                                            "px-3 py-1 text-[10px] font-black rounded-md transition-all",
-                                                            form.discount_type === 'percent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
+                                                            "flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-300",
+                                                            isSelected ? cn(g.border, g.bg, "shadow-sm shadow-indigo-500/10 scale-[1.02]") : "border-border-subtle bg-surface hover:border-indigo-500/20"
                                                         )}
                                                     >
-                                                        %
+                                                        <g.icon className={cn("w-4 h-4", isSelected ? g.color : "text-muted/40")} />
+                                                        <span className={cn(
+                                                            "text-[11px] font-black uppercase tracking-widest",
+                                                            isSelected ? g.color : "text-muted"
+                                                        )}>
+                                                            {g.label}
+                                                        </span>
+                                                        {isSelected && <Check className={cn("w-3.5 h-3.5 ml-auto", g.color)} strokeWidth={3} />}
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => { e.preventDefault(); set('discount_type', 'fixed'); }}
-                                                        className={cn(
-                                                            "px-3 py-1 text-[10px] font-black rounded-md transition-all",
-                                                            form.discount_type === 'fixed' ? "bg-indigo-600 text-white shadow-sm" : "text-muted/60 hover:text-indigo-500"
-                                                        )}
-                                                    >
-                                                        ₾
-                                                    </button>
-                                                </div>
-                                            </div>
+                                                )
+                                            })}
                                         </div>
-
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-60 flex items-center gap-2 px-1">
-                                                <User className="w-3.5 h-3.5" /> {t.contactPerson}
-                                            </label>
-                                            <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 shadow-sm">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => set('contact_person', 'parent')}
-                                                    className={cn(
-                                                        "flex-1 py-2 text-[10px] font-black rounded-lg transition-all",
-                                                        form.contact_person === 'parent' ? "bg-indigo-600 text-white shadow-sm" : "text-muted hover:bg-surface/50"
-                                                    )}
-                                                >
-                                                    {t.parent}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => set('contact_person', 'self')}
-                                                    className={cn(
-                                                        "flex-1 py-2 text-[10px] font-black rounded-lg transition-all",
-                                                        form.contact_person === 'self' ? "bg-indigo-600 text-white shadow-sm" : "text-muted hover:bg-surface/50"
-                                                    )}
-                                                >
-                                                    {t.self}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <Field icon={<User className="w-4 h-4" />} label={t.gender}>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {[
-                                                    { id: 'male', label: t.boy, color: 'text-indigo-600', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-                                                    { id: 'female', label: t.girl, color: 'text-pink-600', bg: 'bg-pink-500/10', border: 'border-pink-500/20' }
-                                                ].map((g) => {
-                                                    const isSelected = form.gender === g.id;
-                                                    return (
-                                                        <button
-                                                            key={g.id}
-                                                            type="button"
-                                                            onClick={() => set('gender', g.id as any)}
-                                                            className={cn(
-                                                                "flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all duration-300",
-                                                                isSelected ? cn(g.border, g.bg, "shadow-sm shadow-indigo-500/5") : "border-border-subtle bg-surface hover:border-indigo-500/20"
-                                                            )}
-                                                        >
-                                                            <div className={cn(
-                                                                "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
-                                                                isSelected ? g.bg : "bg-surface border border-border-subtle"
-                                                            )}>
-                                                                <User className={cn("w-3 h-3", isSelected ? g.color : "text-muted/40")} />
-                                                            </div>
-                                                            <span className={cn(
-                                                                "text-[9px] font-black uppercase tracking-widest",
-                                                                isSelected ? g.color : "text-muted"
-                                                            )}>
-                                                                {g.label}
-                                                            </span>
-                                                            {isSelected && <Check className={cn("w-3 h-3 ml-auto", g.color)} />}
-                                                        </button>
-                                                    )
-                                                })}
-                                            </div>
-                                        </Field>
-                                    </div>
+                                    </Field>
 
                                     <div className="grid grid-cols-2 gap-4">
-                                        <Field icon={<Phone className="w-4 h-4" />} label={t.studentPhone + ' *'}>
-                                            <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="555 XX XX XX" className={inputCls} />
-                                        </Field>
-                                        <Field icon={<Mail className="w-4 h-4" />} label={t.email}>
-                                            <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@gmail.com" className={inputCls} />
-                                        </Field>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Field icon={<Calendar className="w-4 h-4" />} label={t.birthDate}>
-                                            <input 
-                                                type="date"
-                                                value={form.birth_date} 
-                                                onChange={e => set('birth_date', e.target.value)} 
-                                                className={cn(inputCls, "h-[42px]")}
-                                            />
-                                        </Field>
                                         <Field icon={<MessageCircle className="w-4 h-4" />} label={t.preferredLanguage}>
                                             <SearchSelect
                                                 options={[
@@ -914,92 +843,40 @@ export function StudentModal({
                                                     { value: 'en', label: t.english as string }
                                                 ]}
                                                 value={form.preferred_language || 'ka'}
-                                                                                                onChange={val => set('preferred_language', val)}
+                                                onChange={val => set('preferred_language', val)}
+                                                className="h-[42px]"
+                                            />
+                                        </Field>
+                                        <Field icon={<User className="w-4 h-4" />} label={t.contactPerson}>
+                                            <SearchSelect
+                                                options={[
+                                                    { value: 'self', label: t.self as string },
+                                                    { value: 'parent', label: t.parent as string }
+                                                ]}
+                                                value={form.contact_person || ''}
+                                                onChange={val => set('contact_person', val as any)}
                                                 className="h-[42px]"
                                             />
                                         </Field>
                                     </div>
-                                </div>
-                            </section>
 
-                            {/* Social Links */}
-                            <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
-                                    {t.socialNetworks}
-                                </p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="relative">
-                                        <Facebook className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-600" />
-                                        <input value={form.social_links.facebook} onChange={e => setSocial('facebook', e.target.value)} placeholder="Facebook" className={cn(inputCls, 'pl-9 text-[11px]')} />
-                                    </div>
-                                    <div className="relative">
-                                        <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-pink-600" />
-                                        <input value={form.social_links.instagram} onChange={e => setSocial('instagram', e.target.value)} placeholder="Instagram" className={cn(inputCls, 'pl-9 text-[11px]')} />
-                                    </div>
-                                    <div className="relative">
-                                        <Send className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-500" />
-                                        <input value={form.social_links.telegram} onChange={e => setSocial('telegram', e.target.value)} placeholder="@username" className={cn(inputCls, 'pl-9 text-[11px]')} />
-                                    </div>
-                                    <div className="relative">
-                                        <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-500" />
-                                        <input value={form.social_links.whatsapp} onChange={e => setSocial('whatsapp', e.target.value)} placeholder="WhatsApp" className={cn(inputCls, 'pl-9 text-[11px]')} />
-                                    </div>
-                                </div>
-                            </section>
+                                    <Field icon={<Phone className="w-4 h-4" />} label={t.studentPhone + ' *'}>
+                                        <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="555 XX XX XX" className={inputCls} />
+                                    </Field>
 
-                            {/* Passport / Documents */}
-                            <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
-                                    <FileText className="w-3.5 h-3.5" /> {t.documents}
-                                </p>
-                                <div className={cn(
-                                    "bg-surface border rounded-2xl p-4 space-y-4 shadow-inner transition-colors",
-                                    passportExpired ? "border-red-500/30 bg-red-500/5" : passportExpiring ? "border-amber-500/30 bg-amber-500/5" : "border-border-subtle"
-                                )}>
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[11px] font-bold text-muted px-1 tracking-wider opacity-60">{t.passportCopy}</label>
-                                        {form.passport_url && (
-                                            <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{t.uploaded}</span>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            const input = document.createElement('input');
-                                            input.type = 'file';
-                                            input.accept = 'application/pdf,image/*';
-                                            input.onchange = (e: Event) => {
-                                                const file = (e.target as HTMLInputElement).files?.[0];
-                                                if (file) {
-                                                    const reader = new FileReader();
-                                                    reader.onload = (ev) => set('passport_url', ev.target?.result as string);
-                                                    reader.readAsDataURL(file);
-                                                }
-                                            };
-                                            input.click();
-                                        }}
-                                        className="w-full py-2.5 bg-card border border-border-subtle hover:border-indigo-500/40 text-xs font-bold text-muted hover:text-indigo-500 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
-                                    >
-                                        <Download className="w-3.5 h-3.5 opacity-60" /> {form.passport_url ? t.change : t.uploadHint}
-                                    </button>
-                                    <Field icon={<Calendar className="w-4 h-4" />} label={t.passportExpiry}>
-                                        <div className="space-y-2">
+                                    {form.contact_person === 'parent' && (
+                                        <Field icon={<User className="w-4 h-4" />} label={t.parentName || "მშობლის სახელი და გვარი"}>
                                             <input 
-                                                type="date"
-                                                value={form.passport_expires_at} 
-                                                onChange={e => set('passport_expires_at', e.target.value)} 
-                                                className={inputCls}
+                                                value={form.parent_name} 
+                                                onChange={e => set('parent_name', e.target.value)} 
+                                                placeholder={t.parentNamePlaceholder || "მშობლის სახელი და გვარი"} 
+                                                className={inputCls} 
                                             />
-                                            {passportExpired && (
-                                                <p className="text-[10px] font-black text-red-500 flex items-center gap-1.5 px-1 animate-pulse">
-                                                    <AlertTriangle className="w-3 h-3" /> {t.expired}
-                                                </p>
-                                            )}
-                                            {!passportExpired && passportExpiring && (
-                                                <p className="text-[10px] font-black text-amber-600 flex items-center gap-1.5 px-1">
-                                                    <AlertTriangle className="w-3 h-3" /> {t.expiringSoon}
-                                                </p>
-                                            )}
-                                        </div>
+                                        </Field>
+                                    )}
+
+                                    <Field icon={<Mail className="w-4 h-4" />} label={t.email}>
+                                        <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@gmail.com" className={inputCls} />
                                     </Field>
                                 </div>
                             </section>
@@ -1035,47 +912,65 @@ export function StudentModal({
                                 </div>
                             </section>
 
-                            {/* Dynamic Styles / Categories */}
+                            {/* Social Links */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center justify-between">
-                                    <span>{t.categories}</span>
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
+                                    {t.socialNetworks}
                                 </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {availableStyles.map(s => {
-                                        const currentStyles = (form.dance_style || '').split(',').map(x => x.trim()).filter(Boolean);
-                                        const isSelected = currentStyles.includes(s);
-                                        return (
-                                            <div key={s} className="relative group">
-                                                <button onClick={() => toggleStyle(s)}
-                                                    className={cn(
-                                                        'px-3 py-2 text-[11px] font-bold rounded-xl border transition-all shadow-sm pr-7',
-                                                        isSelected
-                                                            ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 scale-105'
-                                                            : 'bg-surface border-border-subtle text-muted hover:text-primary'
-                                                    )}>
-                                                    {s}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleRemoveStyle(s); }}
-                                                    className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500 hover:text-white"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        )
-                                    })}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="relative">
+                                        <Facebook className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-600" />
+                                        <input value={form.social_links.facebook} onChange={e => setSocial('facebook', e.target.value)} placeholder="Facebook" className={cn(inputCls, 'pl-9 text-[11px]')} />
+                                    </div>
+                                    <div className="relative">
+                                        <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-pink-600" />
+                                        <input value={form.social_links.instagram} onChange={e => setSocial('instagram', e.target.value)} placeholder="Instagram" className={cn(inputCls, 'pl-9 text-[11px]')} />
+                                    </div>
+                                    <div className="relative">
+                                        <Send className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-500" />
+                                        <input value={form.social_links.telegram} onChange={e => setSocial('telegram', e.target.value)} placeholder="@username" className={cn(inputCls, 'pl-9 text-[11px]')} />
+                                    </div>
+                                    <div className="relative">
+                                        <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-500" />
+                                        <input value={form.social_links.whatsapp} onChange={e => setSocial('whatsapp', e.target.value)} placeholder="WhatsApp" className={cn(inputCls, 'pl-9 text-[11px]')} />
+                                    </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <input
-                                        value={newStyleInput}
-                                        onChange={e => setNewStyleInput(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleAddStyle()}
-                                        placeholder={t.newStylePlaceholder}
-                                        className={cn(inputCls, 'py-2 text-[11px]')}
-                                    />
-                                    <button onClick={handleAddStyle} className="px-3 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
-                                        <Plus className="w-4 h-4" />
-                                    </button>
+                            </section>
+
+                            {/* Discount / Student Special Rate */}
+                            <section className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40 flex items-center gap-2 px-1">
+                                        <Tag className="w-3.5 h-3.5" /> {t.studentDiscount}
+                                    </label>
+                                    <div className="flex bg-surface border border-border-subtle rounded-2xl p-1.5 gap-2 shadow-sm">
+                                        <input
+                                            type="number"
+                                            value={form.discount_value}
+                                            onFocus={(e) => e.target.select()}
+                                            onChange={(e) => set('discount_value', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                            placeholder="0"
+                                            className="flex-1 bg-transparent px-4 py-2 text-sm font-bold text-primary outline-none"
+                                        />
+                                        <div className="flex items-center gap-1 bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-1 shrink-0">
+                                            {[
+                                                { id: 'percent', label: '%' },
+                                                { id: 'fixed', label: settings.currencySymbol || '₾' }
+                                            ].map(type => (
+                                                <button
+                                                    key={type.id}
+                                                    type="button"
+                                                    onClick={(e) => { e.preventDefault(); set('discount_type', type.id); }}
+                                                    className={cn(
+                                                        "px-4 py-1.5 text-[11px] font-black rounded-lg transition-all",
+                                                        form.discount_type === type.id ? "bg-indigo-600 text-white shadow-md scale-[1.05]" : "text-muted/60 hover:text-indigo-500 hover:bg-white"
+                                                    )}
+                                                >
+                                                    {type.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </section>
 

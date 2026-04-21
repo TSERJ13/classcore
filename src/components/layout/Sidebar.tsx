@@ -201,7 +201,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             onClick={close}
                             className={cn(
                                 'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full',
-                                isMobile ? 'h-9 pl-3 gap-2.5' : 'h-10 pl-4 gap-3.5',
+                                isMobile ? 'h-9 pl-3 gap-2.5' : 'h-9 lg:h-10 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -210,14 +210,14 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             )}
                             <div className={cn(
                                 "flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-300",
-                                isMobile ? "w-7 h-7" : "w-8 h-8",
+                                isMobile ? "w-7 h-7" : "w-7 h-7 lg:w-8 h-8",
                                 !active && "group-hover/link:bg-white/5",
                                 active && "bg-white/10"
                             )}>
                                 <Icon className={cn('transition-all duration-200', isMobile ? "w-[18px] h-[18px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[160px] tracking-tight", isMobile ? "text-[13px]" : "text-[14.5px]")}>
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[160px] tracking-tight", isMobile ? "text-[13px]" : "text-[13.5px] lg:text-[14.5px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}

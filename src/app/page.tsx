@@ -226,14 +226,14 @@ export default function LandingPage() {
         <div className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white">
             {/* Header */}
             <header className={cn(
-                "fixed top-0 inset-x-0 z-[110] transition-all duration-500 px-6",
-                scrolled ? "bg-white/90 backdrop-blur-2xl border-b border-indigo-50/50 shadow-xl py-4" : "bg-white/80 backdrop-blur-xl py-8"
+                "fixed top-0 inset-x-0 z-[110] transition-all duration-500 px-4",
+                scrolled ? "bg-white/90 backdrop-blur-2xl border-b border-indigo-50/50 shadow-xl py-3" : "bg-white/80 backdrop-blur-xl py-6"
             )}>
                 <div style={{ height: 'env(safe-area-inset-top, 0px)' }} />
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-1.5 md:gap-3 shrink-0">
-                        <Logo className="w-8 h-8 md:w-12 md:h-12" transparent />
-                        <span className="text-xl md:text-2xl font-black tracking-tight">ClassCore</span>
+                    <Link href="/" className="flex items-center gap-1.5 shrink-0">
+                        <Logo className="w-7 h-7 md:w-10 md:h-10" transparent />
+                        <span className="text-lg md:text-xl font-black tracking-tight">ClassCore</span>
                     </Link>
 
                     <nav className="hidden lg:flex items-center gap-12">

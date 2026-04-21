@@ -172,7 +172,7 @@ export default function LoginPage() {
             <div className="w-full max-w-[440px] flex flex-col pt-0 pb-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <div className="flex flex-col items-center gap-6 mb-4">
                     <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={110} transparent />
+                        <Logo size={90} transparent />
                     </Link>
                 </div>
 
@@ -209,10 +209,10 @@ export default function LoginPage() {
                         </div>
                     ) : (
                         <>
-                            <div className="text-center space-y-3 mb-10 relative">
-                                <h2 className="text-[26px] sm:text-4xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('ავტორიზაცია', 'Вход', 'Access Portal')}</h2>
+                            <div className="text-center space-y-3 mb-8 relative">
+                                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter leading-none uppercase">{l('ავტორიზაცია', 'Вход', 'Access Portal')}</h2>
                                 <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest leading-none flex items-center justify-center gap-3 opacity-90">
-                                    <Sparkles className="w-4 h-4 animate-pulse" />
+                                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                                     {l('სტუდიის მართვის სისტემა', 'Система управления', 'Studio Management OS')}
                                 </p>
                             </div>
@@ -278,7 +278,7 @@ export default function LoginPage() {
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-sm shadow-xl shadow-slate-900/10 active:scale-[0.98] transition-all hover:bg-slate-800 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-50"
+                                        className="w-full h-12 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-slate-900/10 active:scale-[0.98] transition-all hover:bg-slate-800 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-50"
                                     >
                                         {isSubmitting ? (
                                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -308,7 +308,7 @@ export default function LoginPage() {
                         <span className="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
                         <Globe className="w-4 h-4 text-slate-400" />
                     </div>
-                    <p className="text-[10px] font-black text-slate-400 tracking-[0.5em] uppercase leading-none">ClassCore COSMOS OS</p>
+                    <p className="text-[10px] font-black text-slate-400 tracking-[0.5em] uppercase leading-none">Clascore.ge</p>
                 </div>
             </div>
 

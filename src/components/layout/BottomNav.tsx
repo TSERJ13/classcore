@@ -27,14 +27,14 @@ export function BottomNav() {
         <nav
             className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111114]/95 backdrop-blur-xl border-t border-white/[0.08]"
             style={{ 
-                paddingBottom: 'env(safe-area-inset-bottom, 12px)',
+                paddingBottom: 'env(safe-area-inset-bottom, 10px)',
                 transform: 'translateZ(0)',
                 WebkitTransform: 'translateZ(0)',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden'
             }}
         >
-            <div className="flex items-center justify-around sm:justify-center sm:gap-14 w-full max-w-4xl mx-auto px-1 pt-4 pb-2 h-20">
+            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-3 pb-1 h-[72px]">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (
@@ -42,15 +42,15 @@ export function BottomNav() {
                             key={href}
                             href={href}
                             className={cn(
-                                'flex flex-col items-center gap-2.5 px-2 py-1 rounded-xl transition-all duration-150 min-w-[64px] md:min-w-[80px] touch-manipulation',
+                                'flex flex-col items-center gap-1.5 px-2 py-1 rounded-xl transition-all duration-150 min-w-[60px] md:min-w-[100px] touch-manipulation',
                                 active ? 'text-indigo-400' : 'text-white/35'
                             )}
                         >
-                            <div className={cn('relative w-6 h-6 md:w-8 md:h-8 flex items-center justify-center', active && 'scale-110')}>
+                            <div className={cn('relative w-5 h-5 md:w-7 md:h-7 flex items-center justify-center', active && 'scale-110')}>
                                 {active && <span className="absolute inset-0 scale-150 rounded-xl bg-indigo-500/15" />}
-                                <Icon className="relative w-5 h-5 md:w-6 md:h-6 scale-[1.05]" strokeWidth={active ? 2.5 : 1.8} />
+                                <Icon className="relative w-4.5 h-4.5 md:w-5.5 md:h-5.5" strokeWidth={active ? 2.5 : 2} />
                             </div>
-                            <span className="text-[9px] md:text-[11px] font-semibold truncate">{t[labelKey]}</span>
+                            <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest truncate">{t[labelKey]}</span>
                         </Link>
                     );
                 })}
@@ -58,12 +58,12 @@ export function BottomNav() {
                 {/* "More" opens the full sidebar drawer */}
                 <button
                     onClick={open}
-                    className="flex flex-col items-center gap-2.5 px-2 py-2 rounded-xl text-white/35 hover:text-white/60 min-w-[48px] md:min-w-[64px] touch-manipulation transition-colors"
+                    className="flex flex-col items-center gap-1.5 px-2 py-1 rounded-xl text-white/35 hover:text-white/60 min-w-[60px] md:min-w-[100px] touch-manipulation transition-colors"
                 >
-                    <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
-                        <Menu className="w-5 h-5 md:w-6 md:h-6 scale-[1.05]" strokeWidth={1.8} />
+                    <div className="w-5 h-5 md:w-7 md:h-7 flex items-center justify-center">
+                        <Menu className="w-4.5 h-4.5 md:w-5.5 md:h-5.5" strokeWidth={2} />
                     </div>
-                    <span className="text-[9px] md:text-[11px] font-semibold">{t.more}</span>
+                    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest">{t.more}</span>
                 </button>
             </div>
         </nav>
