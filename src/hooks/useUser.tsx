@@ -5,7 +5,7 @@ import { User } from '@supabase/supabase-js';
 import { getStaffSession, setStaffSession, loadSettings, getActiveSlug } from '@/lib/settings-store';
 
 const SUPER_ADMIN_EMAILS = [
-    'support@classcore.ge', 'adminclasscore@gmail.com'
+    'adminclasscore@gmail.com', 'support@classcore.ge'
 ];
 
 import React, { createContext, useContext, ReactNode } from 'react';
@@ -69,17 +69,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
                 
                 // SuperAdmins are allowed to access the dashboard as well
-                if (isSuperAdmin && typeof window !== 'undefined' && window.location.pathname === '/login') {
-                    window.location.href = '/dashboard';
-                    return;
-                }
+
 
                 const currentUserIdentity = u?.email || staffSess?.staff?.email || staffSess?.staff?.phone || (staffSess as any)?.staff?.phone_number;
                 let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug || (urlSlug && urlSlug !== 'dashboard' && urlSlug !== 'login' ? urlSlug : null) || fallbackSlug;
-                const isOwner = u?.user_metadata?.role === 'owner';
+                const isOwner = u?.user_metadata?.role === 'owner' || isSuperAdmin;
                 const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
 
-                console.log(`🚩 [UserProvider] Context: Identity=${currentUserIdentity}, Slug=${currentSlug}, isOwner=${isOwner}, isSuperAdminRoute=${isSuperAdminRoute}`);
+                console.log(`🚩 [UserProvider] Context: Identity=${currentUserIdentity}, Slug=${currentSlug}, isOwner=${isOwner}, isSuperAdmin=${isSuperAdmin}, isSuperAdminRoute=${isSuperAdminRoute}`);
 
                 if (currentUserIdentity && !currentSlug && !isSuperAdminRoute) {
                     try {
@@ -124,9 +121,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
                         ...meta,
                         studio_name: meta.studio_name,
                         studio_slug: currentSlug,
-                        role: meta.role || 'admin',
+                        role: isSuperAdmin ? 'owner' : (meta.role || 'admin'),
                         photo_url: meta.photo_url || meta.avatar_url,
                         is_activated: meta.is_activated !== false,
+                        // Grant all permissions to SuperAdmin
+                        ...(isSuperAdmin ? {
+                            canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
+                            canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
+                            canViewTeachers: true, canViewHalls: true, canViewShop: true,
+                            canViewAnalytics: true, canViewSMS: true
+                        } : {})
                     });
                 } else if (staffSess) {
                     const { staff, slug } = staffSess;

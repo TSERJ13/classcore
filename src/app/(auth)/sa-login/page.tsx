@@ -8,8 +8,8 @@ import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
 const SUPER_ADMIN_EMAILS = [
-    'support@classcore.ge', 
-    'adminclasscore@gmail.com'
+    'adminclasscore@gmail.com',
+    'support@classcore.ge'
 ];
 
 export default function SALoginPage() {
@@ -134,7 +134,7 @@ export default function SALoginPage() {
                                     type="text"
                                     required
                                     placeholder="Login"
-                                    className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-500 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-white placeholder:text-zinc-400 outline-none transition-all autofill-fix"
+                                    className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-500 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-white placeholder:text-zinc-300 outline-none transition-all autofill-fix"
                                 />
                             </div>
                         </div>

@@ -9,8 +9,8 @@ import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
 
 const SUPER_ADMIN_EMAILS = [
-    'support@classcore.ge', 
-    'adminclasscore@gmail.com'
+    'adminclasscore@gmail.com',
+    'support@classcore.ge'
 ];
 
 export default function LoginPage() {
@@ -42,10 +42,7 @@ export default function LoginPage() {
                 const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
                 
                 // SuperAdmins can access the dashboard (User side) as well
-                if (isSuperAdmin) {
-                    window.location.href = '/dashboard';
-                    return;
-                }
+
 
                 const currentSlug = profile?.studio_slug;
                 const isOwner = profile?.role === 'owner';
@@ -132,7 +129,7 @@ export default function LoginPage() {
                     return;
                 }
 
-                const isSuperAdmin = email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
+                const isSuperAdmin = signedInUser?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === signedInUser.email?.toLowerCase());
 
                 // SECURITY: Enforce email activation
                 if (signedInUser && !signedInUser.email_confirmed_at && !isSuperAdmin) {
@@ -251,7 +248,7 @@ export default function LoginPage() {
                                             <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
                                                 <Lock className="w-3.5 h-3.5" />
                                             </div>
-                                            {l('პაროლი', 'Пароль', 'Security Key')}
+                                            {l('პაროლი', 'Паროль', 'Security Key')}
                                         </label>
                                         <Link href="/forgot-password" className="text-[11px] font-black text-indigo-600 px-1 tracking-tighter hover:text-indigo-700 transition-colors uppercase decoration-indigo-200 hover:underline">
                                             {l('დაგავიწყდათ?', 'Забыли?', 'Recovery')}

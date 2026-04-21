@@ -50,6 +50,8 @@ const StudioContext = createContext<StudioContextValue | null>(null);
 
 export function StudioProvider({ children, defaultSlug, defaultStudioName }: { children: React.ReactNode; defaultSlug?: string | null; defaultStudioName?: string }) {
     const { user, profile, loading: authLoading } = useUser();
+    const isSuperAdmin = user?.email && ['adminclasscore@gmail.com', 'support@classcore.ge'].some(e => e.toLowerCase() === user.email?.toLowerCase());
+
     const [settings, setSettings] = useState<StudioSettings>(() => {
         if (defaultSlug) {
             return { ...DEFAULT_SETTINGS, studioSlug: defaultSlug, studioName: defaultStudioName || DEFAULT_SETTINGS.studioName };
@@ -591,7 +593,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         const isDefaultName = settings.studioName.toLowerCase().includes('demo') ||
             settings.studioName === 'ჩემი სტუდია' || settings.studioName === '' || settings.studioName === 'Studio';
 
-        if (isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
+        if (!isSuperAdmin && isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
             const hasCleansed = localStorage.getItem(`cc_cleansed_${profile.studio_slug}`);
             if (!hasCleansed) {
                 const keys = Object.keys(localStorage);
@@ -637,7 +639,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }
         }
 
-        if (profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
+        if (!isSuperAdmin && profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
             // 🚨 NUCLEAR STORAGE ISOLATION GUARD: SCORCHED EARTH v2.1
             // This ensures that NO data from any other studio remains in active memory
             // when switching to a new account, effectively preventing cross-account pollution universally.
