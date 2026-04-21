@@ -97,12 +97,29 @@ export async function pushStudioStateToCloud(
         });
 
         // 4. Fetch current record to get existing state and org_id
-        const { data: current } = await supabase
+        const { data: current, error: readError } = await supabase
             .from(SETTINGS_TABLE)
             .select('org_id, staff_data')
             .eq('studio_slug', slug)
             .maybeSingle();
             
+        // 🛡️ PROTECTION 1: If we can't read from the cloud (e.g. RLS block or network), 
+        // DO NOT PUSH. Overwriting blindly is how data gets lost.
+        if (readError) {
+            console.error('❌ [Sync] Read failed before push. Aborting to protect data integrity.');
+            return;
+        }
+
+        // 🛡️ PROTECTION 2: If the local state is EMPTY (Default) and the cloud ALREADY HAS DATA,
+        // DO NOT PUSH. This prevents a fresh browser session from wiping out the cloud.
+        const isLocalEmpty = (!staff || staff.length === 0) && (!operations || Object.keys(operations).length <= 1);
+        const cloudHasData = current?.staff_data && (current.staff_data._staff?.length > 0 || Object.keys(current.staff_data._operations || {}).length > 0);
+
+        if (isLocalEmpty && cloudHasData) {
+            console.warn('⚠️ [Sync] Local state is empty but cloud has data. Aborting push to prevent wipeout.');
+            return;
+        }
+
         orgId = orgId || current?.org_id || '';
         
         // 🚨 CRITICAL FIX: Safe Merge & Legacy Migration!
