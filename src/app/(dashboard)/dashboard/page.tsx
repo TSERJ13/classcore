@@ -255,6 +255,13 @@ export default function DashboardPage() {
 
             const students = studentsList.length;
 
+            const now = new Date();
+            const currentMonth = now.toISOString().split('-').slice(0, 2).join('-');
+
+            let activeCount = 0;
+            let inactiveCount = 0;
+            const activeSubStudentIds = new Set<string>();
+
             studentsList.forEach(s => {
                 const sub = (s as any).subscription || getSubscription(s.id);
                 if (sub && sub.status === 'active') {
