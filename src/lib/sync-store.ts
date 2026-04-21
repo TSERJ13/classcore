@@ -270,21 +270,55 @@ export async function pullStudioStateFromCloud(
             return null;
         }
 
-        const master = masterRes.data;
-        const unified = data.staff_data || {};
-        const staff = unified._staff || (Array.isArray(unified) ? unified : []);
-        const operations = unified._operations || {};
+        let staff = unified._staff || (Array.isArray(unified) ? unified : []);
+        let operations = unified._operations || {};
 
-        // 🚨 MASTER TRUTH OVERRIDE: Ensure plan/status come from the top-level table
+        // 🚨 RESILIENT RECOVERY: If the blob is empty, try to hydrate from standalone tables
+        if ((!staff || staff.length === 0) && data.org_id) {
+            console.log('🛡️ [Sync] Settings blob has no staff. Attempting resilient recovery from master tables...');
+            const { data: standaloneStaff } = await supabase
+                .from('staff')
+                .select('*')
+                .eq('org_id', data.org_id);
+            
+            if (standaloneStaff && standaloneStaff.length > 0) {
+                console.log(`✅ [Sync] Recovered ${standaloneStaff.length} staff records from master table.`);
+                staff = standaloneStaff.map(s => ({
+                    id: s.id,
+                    org_id: s.org_id,
+                    full_name: s.full_name,
+                    first_name: s.first_name,
+                    last_name: s.last_name,
+                    phone: s.phone,
+                    email: s.email,
+                    role: s.role,
+                    permissions: s.permissions,
+                    photo_url: s.photo_url,
+                    specialty: s.specialty,
+                    rate_per_hour: (s.salary_rates as any)?.hourly,
+                    rate_per_month: (s.salary_rates as any)?.monthly,
+                    salary_percentage: (s.salary_rates as any)?.percentage,
+                    assigned_group_ids: s.assigned_group_ids,
+                    allowedBranchIds: s.allowed_branch_ids,
+                    status: s.status,
+                    created_at: s.created_at
+                }));
+            }
+        }
+
+        const settingsKey = `cc_studio_settings_${slug}`;
+        let settingsObj = operations[settingsKey] || {};
+
         if (master) {
-            const settingsKey = `cc_studio_settings_${slug}`;
-            const settingsObj = operations[settingsKey] || {};
+            console.log('📡 [Sync] Hydrating identity from master studios table...');
             operations[settingsKey] = {
                 ...settingsObj,
+                studioName: master.studio_name || settingsObj.studioName,
+                logoDataUrl: master.logo_url || settingsObj.logoDataUrl || null,
                 plan: master.plan || settingsObj.plan,
-                status: master.status || settingsObj.status
+                status: master.status || settingsObj.status,
+                owner_info: master.owner_info || settingsObj.owner_info
             };
-            console.log(`📡 [Sync] Injected Master Truth: Plan=${master.plan}, Status=${master.status}`);
         }
 
         // Add scope suffix back to operation keys
