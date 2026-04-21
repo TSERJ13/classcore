@@ -1419,7 +1419,7 @@ export default function SettingsPage() {
             )}
 
             {/* Backup & Export */}
-            {isOwner && (
+            {isAdmin && (
                 <Section title={l('რეზერვი და ექსპორტი', 'Бэკაპი и Экспорт', 'Backup & Export')} icon={Download} defaultOpen={false}>
                     <div className="p-6 space-y-4">
                         <div className="flex flex-col gap-2 bg-indigo-500/5 p-4 rounded-2xl border border-indigo-500/10">
