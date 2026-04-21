@@ -21,12 +21,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DashboardHydrationGuard>
             <KillSwitchGate>
                 <MobileMenuProvider>
-                    <div className="flex min-h-[100dvh] bg-base">
+                    <div className="flex min-h-[100dvh] bg-base overflow-x-hidden">
                         {/* Sidebar — handles both desktop sticky & mobile drawer internally */}
                         <Sidebar defaultExpanded={defaultExpanded} defaultRole={defaultRole} />
 
                         {/* Main area */}
-                        <div className="flex-1 flex flex-col min-w-0">
+                        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
                             {/* Mobile header with hamburger + notifications */}
                             <Header />
 

@@ -842,6 +842,13 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight flex items-center gap-2">
                                 {t.greeting || 'გამარჯობა'}, {profile?.first_name || profile?.full_name?.split(' ')[0] || ''} <span className="text-xl sm:text-2xl">👋</span>
+                                <button 
+                                    onClick={() => setShowAddStudent(true)}
+                                    className="ml-1 w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 active:scale-95 transition-all lg:hidden"
+                                    aria-label="Quick Add"
+                                >
+                                    <Plus className="w-5 h-5" strokeWidth={3} />
+                                </button>
                                 {settings.plan === 'pro' && (
                                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-[0_0_15px_rgba(79,70,229,0.2)] border border-indigo-400/20 animate-in zoom-in-50 duration-700">
                                         <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest leading-none">PRO</span>

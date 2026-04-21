@@ -95,7 +95,7 @@ export function LanguageSwitcher({
                 <div className={cn(
                     "absolute z-50 animate-in fade-in slide-in-from-bottom-2 duration-200",
                     variant === 'sidebar'
-                        ? "bottom-[calc(100%+4px)] bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] rounded-2xl shadow-2xl overflow-hidden"
+                        ? "bottom-[calc(100%+8px)] bg-[var(--sidebar-bg)] border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden"
                         : cn("top-full mt-1 bg-card border border-border-subtle rounded-xl shadow-xl overflow-hidden", (variant === 'landing' || (!compact && !hideLabel)) && "min-w-[140px]"),
                     (compact || hideLabel) && variant === 'sidebar'
                         ? "w-[44px] left-1/2 -translate-x-1/2"

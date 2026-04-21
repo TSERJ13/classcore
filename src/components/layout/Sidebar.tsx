@@ -249,8 +249,8 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
         <aside
             suppressHydrationWarning
             className={cn(
-                'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-hidden transition-[width] duration-300 ease-in-out pt-safe pb-safe shadow-2xl',
-                exp ? (isMobile ? 'w-[200px]' : 'w-[280px]') : 'w-[72px]'
+                'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transition-[width] duration-300 ease-in-out pt-safe pb-safe shadow-2xl',
+                exp ? (isMobile ? 'w-[200px]' : 'w-[310px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -284,7 +284,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                         exp ? (isMobile ? "p-2 pb-safe" : "p-4 pb-safe") : "py-4"
                     )}>
                         <div className={cn(
-                            "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl overflow-hidden",
+                            "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl",
                             !exp && "flex-col bg-transparent border-none"
                         )}>
                             <LanguageSwitcher 
@@ -352,7 +352,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[280px]' : 'w-[72px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[310px]' : 'w-[72px]')}>
                 <SidebarContent
                     exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}

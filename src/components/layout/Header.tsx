@@ -456,14 +456,14 @@ export function Header() {
 
     return (
         <>
-            <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-2 pt-safe bg-card/90 backdrop-blur-xl border-b border-border-subtle">
+            <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card/90 backdrop-blur-xl border-b border-border-subtle h-[60px] md:h-[68px]">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={toggle}
-                        className="md:hidden p-2 -ml-2 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
+                        className="md:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
                         aria-label="Menu"
                     >
-                        <Menu className="w-6 h-6" />
+                        <Menu className="w-5.5 h-5.5" />
                     </button>
                 </div>
                 {/* Centered Page Title */}

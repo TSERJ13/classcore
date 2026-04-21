@@ -114,7 +114,7 @@ function Field({ icon, label, children }: { icon: React.ReactNode; label: string
     return (
         <div className="space-y-1.5 min-w-0">
             {label && (
-                <label className="flex items-center gap-2 text-xs font-bold text-muted opacity-70 px-1">
+                <label className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-muted opacity-70 px-1">
                     <span className="opacity-40">{icon}</span>
                     {label}
                 </label>
@@ -614,7 +614,7 @@ export function StudentModal({
     const passportExpiring = form.passport_expires_at ? isExpiringSoon(form.passport_expires_at, 30) : false;
     const passportExpired = form.passport_expires_at ? new Date(form.passport_expires_at) < new Date() : false;
 
-    const inputCls = 'w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2 text-sm text-primary font-medium placeholder:text-muted/30 outline-none transition-all shadow-sm';
+    const inputCls = 'w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-1.5 sm:py-2 text-[13px] sm:text-sm text-primary font-medium placeholder:text-muted/30 outline-none transition-all shadow-sm';
 
 
     return (
@@ -624,7 +624,7 @@ export function StudentModal({
                 "fixed z-50 flex flex-col bg-card border-border-subtle shadow-2xl duration-300 overflow-hidden",
                 centered
                     ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] sm:w-[min(100vw,640px)] max-h-[92dvh] border animate-in fade-in zoom-in-95 rounded-[2rem]"
-                    : "inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full sm:w-[min(100vw,420px)] max-h-[92dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-3xl sm:rounded-none"
+                    : "inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full sm:w-[min(100vw,420px)] max-h-[92dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-3xl sm:rounded-none pb-[calc(72px+env(safe-area-inset-bottom,0px))] sm:pb-0"
             )}>
                 {/* Handle for mobile */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
@@ -700,7 +700,7 @@ export function StudentModal({
                 )}
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain pb-24">
                     {activeTab === 'info' ? (
                         <>
                             {/* Photo Upload */}
@@ -1182,7 +1182,9 @@ export function StudentModal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex gap-3 px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md">
+                <div className="flex gap-3 px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md relative">
+                    {/* Grounding Filler for mobile */}
+                    <div className="absolute top-full left-0 right-0 h-[200px] bg-card sm:hidden" />
                     {isEdit && !isTeacher && onDelete && (
                         <button
                             onClick={async () => {
