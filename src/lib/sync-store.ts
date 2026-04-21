@@ -273,13 +273,16 @@ export async function pullStudioStateFromCloud(
         let staff = unified._staff || (Array.isArray(unified) ? unified : []);
         let operations = unified._operations || {};
 
-        // 🚨 RESILIENT RECOVERY: If the blob is empty, try to hydrate from standalone tables
-        if ((!staff || staff.length === 0) && data.org_id) {
+        // 🚨 SUPER-RESILIENT RECOVERY: 
+        // Even if data.org_id is missing in the blob, we use the one from the master studios table!
+        const effectiveOrgId = data.org_id || master?.org_id;
+
+        if ((!staff || staff.length === 0) && effectiveOrgId) {
             console.log('🛡️ [Sync] Settings blob has no staff. Attempting resilient recovery from master tables...');
             const { data: standaloneStaff } = await supabase
                 .from('staff')
                 .select('*')
-                .eq('org_id', data.org_id);
+                .eq('org_id', effectiveOrgId);
             
             if (standaloneStaff && standaloneStaff.length > 0) {
                 console.log(`✅ [Sync] Recovered ${standaloneStaff.length} staff records from master table.`);
@@ -317,7 +320,8 @@ export async function pullStudioStateFromCloud(
                 logoDataUrl: master.logo_url || settingsObj.logoDataUrl || null,
                 plan: master.plan || settingsObj.plan,
                 status: master.status || settingsObj.status,
-                owner_info: master.owner_info || settingsObj.owner_info
+                owner_info: master.owner_info || settingsObj.owner_info,
+                orgId: master.org_id || settingsObj.orgId // 🚨 CRITICAL: Restore the orgId to the local settings!
             };
         }
 
