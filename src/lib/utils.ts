@@ -248,7 +248,6 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
     // ─── Scoping Logic ───
-    const globalCollections = [
     // Unified Scoping: Always use the authoritative scopeId (OrgId if available, else Slug)
     if (bId && bId !== 'all') {
         return `${base}_${scopeId}_${bId}`;
