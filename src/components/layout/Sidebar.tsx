@@ -201,7 +201,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             onClick={close}
                             className={cn(
                                 'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full nav-item-dynamic',
-                                isMobile ? 'h-7.5 pl-3 gap-2' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
+                                isMobile ? 'h-7 pl-3 gap-2' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -217,7 +217,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                                 <Icon className={cn('transition-all duration-200', isMobile ? "w-[17px] h-[17px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[11.5px]" : "text-[13.5px] lg:text-[14.5px]")}>
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[10.5px]" : "text-[13.5px] lg:text-[14.5px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -283,7 +283,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
                         exp 
-                            ? (isMobile ? "p-2 flex items-center gap-2" : "p-3 flex items-center gap-4") 
+                            ? (isMobile ? "p-1.5 flex items-center gap-2 mb-16" : "p-3 flex items-center gap-4") 
                             : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
