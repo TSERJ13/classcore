@@ -241,7 +241,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             suppressHydrationWarning
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-hidden transition-[width] duration-300 ease-in-out pt-safe pb-safe',
-                exp ? (isMobile ? 'w-[220px]' : 'w-[240px]') : 'w-[72px]'
+                exp ? (isMobile ? 'w-[210px]' : 'w-[230px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -351,7 +351,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[240px]' : 'w-[72px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[230px]' : 'w-[72px]')}>
                 <SidebarContent
                     exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
@@ -362,7 +362,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
             <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
 
-            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[220px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[210px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
                 <SidebarContent
                     exp={true} isMobile={true} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
