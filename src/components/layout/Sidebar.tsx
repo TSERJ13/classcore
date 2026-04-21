@@ -357,23 +357,25 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[341px]' : 'w-[72px]')}>
-                <SidebarContent
-                    exp={expanded} isMobile={false} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
-                    activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
-                    profile={profile} user={user} theme={theme} setBranchModalOpen={setBranchModalOpen}
-                    pathname={pathname} close={close} defaultRole={defaultRole} logout={logout} toggleExpanded={toggleExpanded}
-                />
-                {mounted && (
-                    <button
-                        onClick={toggleExpanded}
-                        className={cn(
-                            'absolute z-50 top-1/2 -translate-y-1/2 -right-3.5 w-7 h-11 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-[4px_0_10px_rgba(0,0,0,0.2)] transform active:scale-95'
-                        )}
-                    >
-                        <ChevronRight className={cn('w-4 h-4 transition-transform duration-300', expanded && 'rotate-180')} />
-                    </button>
-                )}
+            <div className={cn('hidden md:block transition-[width] duration-300 ease-in-out flex-shrink-0', expanded ? 'w-[341px]' : 'w-[72px]')}>
+                <div className={cn('fixed left-0 top-0 bottom-0 z-40 h-full overflow-visible transition-[width] duration-300 ease-in-out', expanded ? 'w-[341px]' : 'w-[72px]')}>
+                    <SidebarContent
+                        exp={expanded} isMobile={false} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
+                        activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
+                        profile={profile} user={user} theme={theme} setBranchModalOpen={setBranchModalOpen}
+                        pathname={pathname} close={close} defaultRole={defaultRole} logout={logout} toggleExpanded={toggleExpanded}
+                    />
+                    {mounted && (
+                        <button
+                            onClick={toggleExpanded}
+                            className={cn(
+                                'absolute z-50 top-1/2 -translate-y-1/2 -right-3.5 w-7 h-11 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-[4px_0_10px_rgba(0,0,0,0.2)] transform active:scale-95'
+                            )}
+                        >
+                            <ChevronRight className={cn('w-4 h-4 transition-transform duration-300', expanded && 'rotate-180')} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />

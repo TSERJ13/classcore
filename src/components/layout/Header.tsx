@@ -482,35 +482,19 @@ export function Header() {
                     </h1>
                 </div>
 
-                <div className="flex items-center gap-0 md:gap-2">
-                    {/* Cloud Sync Dot */}
-                    <div 
-                        className="flex items-center justify-center w-8 h-8 group relative"
-                        title={syncStatus === 'synced' ? 'Cloud Synced' : syncStatus === 'syncing' ? 'Syncing...' : 'Sync Error'}
-                    >
-                        <div className={cn(
-                            "w-2 h-2 rounded-full transition-all duration-1000",
-                            syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse-slow" : 
-                            syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : 
-                            "bg-red-500 animate-bounce"
-                        )} />
-                    </div>
-
-                    {!loading && !user && (
-                        <Link href="/login" className="md:hidden px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg tracking-wider">{t.login}</Link>
-                    )}
+                <div className="flex items-center gap-0.5 md:gap-2">
                     <button
                         onClick={() => {
                             setNotesOpen(true);
                             setMessengerOpen(false);
                             setNotifOpen(false);
                         }}
-                        className="relative w-9 h-9 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        className="relative w-11 h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Notes"
                     >
-                        <Pin className="w-4 h-4 -rotate-45" />
+                        <Pin className="w-5 h-5 -rotate-45" />
                         {uncompletedNotesCount > 0 && (
-                            <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
+                            <span className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
                         )}
                     </button>
 
@@ -520,13 +504,13 @@ export function Header() {
                             setNotifOpen(false);
                             setNotesOpen(false);
                         }}
-                        className="relative w-9 h-9 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        className="relative w-11 h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Messenger"
                     >
-                        <MessageSquare className="w-4 h-4" />
+                        <MessageSquare className="w-5 h-5" />
                         {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
                             <span className={cn(
-                                "absolute top-2 right-2 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
+                                "absolute top-3 right-3 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
                                 unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
                             )} />
                         )}
@@ -538,12 +522,12 @@ export function Header() {
                             setMessengerOpen(false);
                             setNotesOpen(false);
                         }}
-                        className="relative w-9 h-9 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        className="relative w-11 h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Notifications"
                     >
-                        <Bell className="w-4 h-4" />
+                        <Bell className="w-5 h-5" />
                         {unreadCount > 0 && (
-                            <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
+                            <span className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
                         )}
                     </button>
                 </div>

@@ -863,12 +863,13 @@ export default function DashboardPage() {
                                 {t.greeting || 'გამარჯობა'}, {profile?.first_name || profile?.full_name?.split(' ')[0] || ''} <span className="text-xl sm:text-2xl">👋</span>
                                 
                                 {/* Cloud Sync Status Indicator */}
-                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface/30 border border-border-subtle/50 group cursor-default transition-all" 
+                                <div 
+                                    className="flex items-center justify-center w-6 h-6 group relative" 
                                     title={lastSyncTime ? `ბოლო სინქრონიზაცია: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'სინქრონიზაცია ჩართულია'}>
                                     <div className={cn(
-                                        "w-1.5 h-1.5 rounded-full transition-all duration-500",
-                                        syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" :
-                                        syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500"
+                                        "w-2 h-2 rounded-full transition-all duration-1000",
+                                        syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse-slow" :
+                                        syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500 animate-bounce"
                                     )} />
                                     <span className="text-[9px] font-black text-primary/40 group-hover:text-primary/60 transition-colors uppercase tracking-widest">
                                         {syncStatus === 'synced' ? (lang === 'ka' ? 'ღრუბელი' : 'Cloud') : 

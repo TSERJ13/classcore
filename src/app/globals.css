@@ -352,6 +352,15 @@ input:-webkit-autofill:active {
     animation: float 8s ease-in-out infinite;
 }
 
+@keyframes pulse-slow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.9); }
+}
+
+.animate-pulse-slow {
+    animation: pulse-slow 4s ease-in-out infinite;
+}
+
 .pause-animation {
     animation-play-state: paused !important;
 }
