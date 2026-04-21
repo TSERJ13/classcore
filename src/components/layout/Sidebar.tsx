@@ -201,7 +201,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             onClick={close}
                             className={cn(
                                 'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full nav-item-dynamic',
-                                isMobile ? 'h-8 pl-3 gap-2' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
+                                isMobile ? 'h-7.5 pl-3 gap-2' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -210,14 +210,14 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             )}
                             <div className={cn(
                                 "flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-300",
-                                isMobile ? "w-7 h-7" : "w-7 h-7 lg:w-8 h-8",
+                                isMobile ? "w-6.5 h-6.5" : "w-7 h-7 lg:w-8 h-8",
                                 !active && "group-hover/link:bg-white/5",
                                 active && "bg-white/10"
                             )}>
-                                <Icon className={cn('transition-all duration-200', isMobile ? "w-[18px] h-[18px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
+                                <Icon className={cn('transition-all duration-200', isMobile ? "w-[17px] h-[17px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[12px]" : "text-[13.5px] lg:text-[14.5px]")}>
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[11.5px]" : "text-[13.5px] lg:text-[14.5px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -283,7 +283,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
                         exp 
-                            ? (isMobile ? "p-2.5 flex items-center gap-2" : "p-3 flex items-center gap-4") 
+                            ? (isMobile ? "p-2 flex items-center gap-2" : "p-3 flex items-center gap-4") 
                             : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
@@ -291,8 +291,8 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             mode="session" 
                             align="left" 
                             className={cn(
-                                exp && "flex-1 bg-white/5 border-white/10 hover:bg-white/10 h-10",
-                                isMobile && "h-9 py-1 px-3 text-[9px] min-w-[100px]"
+                                exp && "flex-1 bg-white/5 border-white/10 hover:bg-white/10 h-8 lg:h-10",
+                                isMobile && "h-8 py-1 px-3 text-[9px] min-w-[80px]"
                             )} 
                         />
                         
@@ -301,7 +301,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             className={cn(
                                 "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0 ml-1",
                                 exp 
-                                    ? cn("w-10 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-9" : "h-10")
+                                    ? cn("w-9 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-8" : "h-10")
                                     : "w-10 h-10 rounded-xl bg-white/5 border border-white/10 shadow-sm"
                             )}
                             title={l('გასვლა', 'Выйти', 'Logout')}
