@@ -98,7 +98,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                         <span className={cn("font-black tracking-tight truncate max-w-[100px]", isHovered ? "text-indigo-400" : "text-white/60", isMobile ? "text-[9px]" : "text-[10px]")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
-                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-2 h-2" : "w-2.5 h-2.5", isHovered && "rotate-90 text-indigo-400")} />
+                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-2.5 h-2.5", isHovered && "rotate-90 text-indigo-400")} />
                     </button>
                 </div>
             </div>
@@ -210,7 +210,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             onClick={close}
                             className={cn(
                                 'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full nav-item-dynamic',
-                                isMobile ? 'h-7 pl-3 gap-2' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
+                                isMobile ? 'h-8 pl-2 gap-1.5' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -219,14 +219,14 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             )}
                             <div className={cn(
                                 "flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-300",
-                                isMobile ? "w-6.5 h-6.5" : "w-7 h-7 lg:w-8 h-8",
+                                isMobile ? "w-6 h-6" : "w-7 h-7 lg:w-8 h-8",
                                 !active && "group-hover/link:bg-white/5",
                                 active && "bg-white/10"
                             )}>
-                                <Icon className={cn('transition-all duration-200', isMobile ? "w-[17px] h-[17px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
+                                <Icon className={cn('transition-all duration-200', isMobile ? "w-3.5 h-3.5" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 3 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[10.5px]" : "text-[12px]")}>
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[10px]" : "text-[12px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -250,7 +250,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             suppressHydrationWarning
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transition-[width] duration-300 ease-in-out pt-safe pb-safe shadow-2xl',
-                exp ? (isMobile ? 'w-[220px]' : 'w-[341px]') : 'w-[72px]'
+                exp ? (isMobile ? 'w-[190px]' : 'w-[341px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -373,7 +373,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
             <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
 
-            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[220px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[190px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
                 <SidebarContent
                     exp={true} isMobile={true} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}

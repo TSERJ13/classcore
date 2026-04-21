@@ -1216,26 +1216,20 @@ export function StudentModal({
                         <button
                             onClick={async () => {
                                 if (await confirm(t.confirmDelete)) {
-                                    onDelete(form.id);
-                                    onClose();
-                                }
-                            }}
-                            className="w-12 h-12 flex items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 transition-all rounded-xl shadow-sm active:scale-95 shrink-0"
-                            title={t.delete}
-                        >
-                            <Trash2 className="w-5 h-5" />
-                        </button>
-                    )}
-                    <button onClick={onClose} className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted hover:text-primary text-sm font-bold rounded-xl transition-all shadow-sm">
+                <div className="p-4 sm:p-5 border-t border-border-subtle bg-surface/50 flex gap-2 sm:gap-3 flex-shrink-0">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest"
+                    >
                         {t.cancel}
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={!form.first_name || !form.phone || saving}
-                        className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:scale-100 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-500/25 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        className="flex-[1.5] py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:scale-100 text-white text-[10px] xs:text-[11px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-500/25 active:scale-95 transition-all flex items-center justify-center gap-1.5 sm:gap-2 uppercase tracking-widest px-2"
                     >
-                        {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" strokeWidth={3} />}
-                        {saving ? t.loading : t.save}
+                        {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" strokeWidth={3} />}
+                        <span className="truncate">{saving ? t.loading : t.save}</span>
                     </button>
                 </div>
             </div>

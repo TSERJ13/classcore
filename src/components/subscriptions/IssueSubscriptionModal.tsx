@@ -26,6 +26,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const { t, lang } = useT();
     const { settings, logSubscription } = useStudio();
     const { user, profile } = useUser();
+
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [students, setStudents] = useState(() => {
         const s = getStudents();
         return (Array.isArray(s) ? s : []).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
@@ -234,9 +236,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         }
 
         const commentParts: string[] = [];
-        commentParts.push(`გადახდა: ${formatCurrency(paidNow, settings.currency)} (${payMethod === 'cash' ? 'ნაღდი' : payMethod === 'card' ? 'ბარათი' : 'გადარიცხვა'})`);
-        if (appliedBalance > 0) commentParts.push(`ბალანსიდან: ${formatCurrency(appliedBalance, settings.currency)}`);
-        if (overpayment > 0) commentParts.push(`ბალანსზე: +${formatCurrency(overpayment, settings.currency)}`);
+        commentParts.push(`${l('გადახდა', 'Оплата', 'Paid')}: ${formatCurrency(paidNow, settings.currency)} (${payMethod === 'cash' ? l('ნაღდი', 'Наличные', 'Cash') : payMethod === 'card' ? l('ბარათი', 'Карта', 'Card') : l('გადარიცხვა', 'Перевод', 'Transfer')})`);
+        if (appliedBalance > 0) commentParts.push(`${l('ბალანსიდან', 'С баланса', 'From Balance')}: ${formatCurrency(appliedBalance, settings.currency)}`);
+        if (overpayment > 0) commentParts.push(`${l('ბალანსზე', 'На баланс', 'To Balance')}: +${formatCurrency(overpayment, settings.currency)}`);
 
         const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
 
@@ -636,16 +638,16 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                 {/* Footer */}
                 {step === 'form' && (
-                    <div className="p-4 border-t border-border-subtle bg-surface/50 flex gap-2">
-                        <button onClick={onClose} className="flex-1 py-2.5 bg-card border border-border-subtle hover:border-border text-muted hover:text-primary text-[10px] font-bold rounded-xl transition-all shadow-sm">
+                    <div className="p-3 sm:p-4 border-t border-border-subtle bg-surface/50 flex gap-2 flex-shrink-0">
+                        <button onClick={onClose} className="flex-1 py-3 bg-card border border-border-subtle hover:border-border text-muted hover:text-primary text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
                             {t.cancel}
                         </button>
                         <button
                             onClick={handleIssue}
                             disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
-                            className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 text-white text-[10px] font-black rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                            className="flex-[1.5] py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 text-white text-[10px] xs:text-[11px] sm:text-xs font-black rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 uppercase tracking-widest px-2"
                         >
-                            <Save className="w-3.5 h-3.5" /> {t.issueAction}
+                            <Save className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
                         </button>
                     </div>
                 )}

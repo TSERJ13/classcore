@@ -454,33 +454,33 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Footer */}
-                <div className="flex-shrink-0 border-t border-border-subtle px-6 py-5 bg-card/50 backdrop-blur-md">
+                <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md">
                     {isEdit && !isDeletingConfirm && (
                         <button onClick={() => setIsDeletingConfirm(true)}
-                            className="w-full mb-4 py-2.5 text-red-500/60 hover:text-red-500 text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
-                            <Trash2 className="w-4 h-4" /> {t.deleteTeacher}
+                            className="w-full mb-3 sm:mb-4 py-2 sm:py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
+                            <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.deleteTeacher}</span>
                         </button>
                     )}
                     {isDeletingConfirm && (
-                        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
-                            <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                        <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
+                            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 flex-shrink-0" />
                             <div className="flex-1">
-                                <p className="text-xs font-black text-red-600">{t.deleteQuestion}</p>
-                                <p className="text-[10px] text-red-600/60 font-medium">{t.actionIrreversible}</p>
+                                <p className="text-[10px] sm:text-xs font-black text-red-600">{t.deleteQuestion}</p>
+                                <p className="text-[9px] sm:text-[10px] text-red-600/60 font-medium">{t.actionIrreversible}</p>
                             </div>
                             <button onClick={() => { onDelete?.(teacher!.id); onClose(); }}
-                                className="px-4 py-1.5 bg-red-500 text-white text-[11px] font-bold rounded-lg hover:bg-red-600 active:scale-95 transition-all">{t.delete}</button>
-                            <button onClick={() => setIsDeletingConfirm(false)} className="text-[11px] font-bold text-muted hover:text-primary transition-colors">{t.cancel}</button>
+                                className="px-3 py-1 sm:px-4 sm:py-1.5 bg-red-500 text-white text-[10px] sm:text-[11px] font-bold rounded-lg hover:bg-red-600 active:scale-95 transition-all">{t.delete}</button>
+                            <button onClick={() => setIsDeletingConfirm(false)} className="text-[10px] sm:text-[11px] font-bold text-muted hover:text-primary transition-colors">{t.cancel}</button>
                         </div>
                     )}
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 sm:gap-3">
                         <button onClick={onClose}
-                            className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted hover:text-primary text-sm font-bold rounded-xl transition-all shadow-sm">
+                            className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">
                             {t.cancel}
                         </button>
                         <button onClick={save} disabled={!form.first_name?.trim() || !form.last_name?.trim() || !form.phone?.trim()}
-                            className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 active:scale-95">
-                            <Check className="w-5 h-5" /> {t.save}
+                            className="flex-[1.5] py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-[10px] sm:text-sm font-black rounded-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-indigo-500/25 active:scale-95 uppercase tracking-widest px-2">
+                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.save}</span>
                         </button>
                     </div>
                 </div>

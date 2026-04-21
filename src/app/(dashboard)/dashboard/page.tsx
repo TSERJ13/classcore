@@ -788,18 +788,7 @@ export default function DashboardPage() {
         };
     }, [settings?.studioSlug]);
 
-    if (!isLoaded || (loading && !isDemo)) {
-        return (
-            <div className="fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8">
-                <div className="flex flex-col items-center justify-center gap-6 mt-12">
-                    <Logo size={80} animated loading />
-                    <div className="text-center space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading Dashboard...'}</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    if (!isLoaded || (loading && !isDemo)) return null;
 
     return (
         <div className="space-y-6 animate-fade-in relative">

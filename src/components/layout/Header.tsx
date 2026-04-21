@@ -467,8 +467,8 @@ export function Header() {
                     </button>
                 </div>
                 {/* Centered Page Title */}
-                <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
-                    <h1 className="text-[11px] xs:text-[12px] md:text-sm font-extrabold text-primary tracking-tight md:tracking-wide truncate max-w-[100px] xs:max-w-[140px] md:max-w-[240px]">
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                    <h1 className="text-[11px] xs:text-[12px] md:text-sm font-black text-primary tracking-tight md:tracking-wider truncate max-w-[120px] xs:max-w-[160px] md:max-w-[300px] uppercase">
                         {displayTitle || rawTitle}
                     </h1>
                 </div>
