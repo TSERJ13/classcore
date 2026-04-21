@@ -231,9 +231,9 @@ export default function LandingPage() {
             )}>
                 <div style={{ height: 'env(safe-area-inset-top, 0px)' }} />
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-1.5 shrink-0">
-                        <Logo className="w-7 h-7 md:w-10 md:h-10" transparent />
-                        <span className="text-lg md:text-xl font-black tracking-tight">ClassCore</span>
+                    <Link href="/" className="flex items-center gap-1 md:gap-1.5 shrink-0">
+                        <Logo className="w-5 h-5 md:w-10 md:h-10" transparent />
+                        <span className="text-[15px] md:text-xl font-black tracking-tight">ClassCore</span>
                     </Link>
 
                     <nav className="hidden lg:flex items-center gap-12">
@@ -242,11 +242,11 @@ export default function LandingPage() {
                         ))}
                     </nav>
 
-                    <div className="flex items-center gap-3 md:gap-4 shrink-0">
-                        <Link href={isLoggedIn ? "/dashboard" : "/login"} className="h-9 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-[10px] md:text-[13px] text-white font-black px-4 md:px-8 rounded-xl md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-wide whitespace-nowrap">
+                    <div className="flex items-center gap-2 md:gap-4 shrink-0">
+                        <Link href={isLoggedIn ? "/dashboard" : "/login"} className="h-8 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-[9px] md:text-[13px] text-white font-black px-3 md:px-8 rounded-lg md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-wide whitespace-nowrap">
                             {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('შესვლა', 'Войти', 'Login')}
                         </Link>
-                        <div className="shrink-0 min-w-[40px]">
+                        <div className="shrink-0 min-w-[32px] md:min-w-[40px]">
                             <LanguageSwitcher compact={true} variant="landing" align="right" />
                         </div>
                     </div>
