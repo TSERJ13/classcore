@@ -465,20 +465,20 @@ export function Header() {
                     animation: pulse-slow 4s ease-in-out infinite;
                 }
             `}</style>
-            <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card/90 backdrop-blur-xl border-b border-border-subtle h-[60px] md:h-[68px]">
+            <header className="sticky top-0 z-30 flex items-center justify-between px-4 pb-3 pt-safe bg-card/90 backdrop-blur-xl border-b border-border-subtle h-auto min-h-[64px] md:min-h-[72px]">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={toggle}
                         className="md:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
                         aria-label="Menu"
                     >
-                        <Menu className="w-5.5 h-5.5" />
+                        <Menu className="w-6 h-6" />
                     </button>
                 </div>
                 {/* Centered Page Title */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                    <h1 className="text-[11px] xs:text-[12px] md:text-sm font-black text-primary tracking-tight md:tracking-wider truncate max-w-[120px] xs:max-w-[160px] md:max-w-[300px] uppercase">
-                        {displayTitle || rawTitle}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mt-safe pointer-events-none">
+                    <h1 className="text-[12px] md:text-sm font-black text-primary tracking-tight md:tracking-wider truncate max-w-[140px] md:max-w-[300px] uppercase">
+                        {displayTitle || rawTitle || (isDashboard ? t.dashboard : '')}
                     </h1>
                 </div>
 

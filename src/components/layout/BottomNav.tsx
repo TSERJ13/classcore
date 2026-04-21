@@ -47,14 +47,14 @@ export function BottomNav() {
                             href={href}
                             className={cn(
                                 'flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl transition-all duration-150 min-w-[64px] touch-manipulation',
-                                active ? 'text-white' : 'text-white/40'
+                                active ? 'text-indigo-400' : 'text-white/40'
                             )}
                         >
                             <div className={cn('relative w-8 h-8 flex items-center justify-center', active && 'scale-110')}>
-                                {active && <span className="absolute inset-0 scale-110 rounded-xl bg-white/10" />}
+                                {active && <span className="absolute inset-0 scale-110 rounded-xl bg-indigo-500/10" />}
                                 <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-80")} strokeWidth={active ? 2.5 : 2} />
                             </div>
-                            <span className={cn("text-[9px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-40")}>
+                            <span className={cn("text-[8px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-40")}>
                                 {t[labelKey]}
                             </span>
                         </Link>
