@@ -48,10 +48,10 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
         <>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
-                "animate-in slide-in-from-bottom sm:slide-in-from-right",
-                "rounded-none sm:rounded-none"
+                "animate-in fade-in duration-300 sm:slide-in-from-right",
+                "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
                     {/* Header */}
                     <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10">
@@ -65,7 +65,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                     </div>
 
                     {/* Body */}
-                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-10">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-32">
                         <div className="flex items-center gap-4 mb-2">
                             <button
                                 onClick={() => {

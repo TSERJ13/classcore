@@ -62,13 +62,6 @@
         box-sizing: border-box;
     }
 
-    html,
-    body {
-        height: -webkit-fill-available;
-        min-height: 100dvh;
-        overscroll-behavior-y: none;
-        overflow-x: hidden;
-    }
 
     body {
         background-color: var(--bg-base, #ffffff);

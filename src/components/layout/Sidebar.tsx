@@ -108,53 +108,6 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                 <div className={cn(
                     "absolute left-4 right-4 top-[94%] z-50 bg-[#1c1c28] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 origin-top",
                     isHovered ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
-                )}>
-                    <div className="p-2 space-y-1">
-                        {allowedBranches.length > 0 && (
-                            <div className="max-h-48 overflow-y-auto no-scrollbar space-y-1">
-                                {allowedBranches.map((branch: any) => {
-                                    const active = branch.id === activeBranchId;
-                                    return (
-                                        <button
-                                            key={branch.id}
-                                            onClick={() => {
-                                                setActiveBranch(branch.id);
-                                                setIsHovered(false);
-                                            }}
-                                            className={cn(
-                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all group/branch",
-                                                active
-                                                    ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-                                                    : "hover:bg-white/5 text-white/60 hover:text-white"
-                                            )}
-                                        >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <Building2 className={cn("w-3.5 h-3.5", active ? "text-white" : "opacity-40 group-hover/branch:opacity-100")} />
-                                                <span className="text-[11px] font-bold truncate tracking-tight">
-                                                    {branch.id === 'main' ? t.mainBranch : branch.name}
-                                                </span>
-                                            </div>
-                                            {active && <Check className="w-3 h-3" strokeWidth={3} />}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {(profile?.role === 'owner' || profile?.role === 'admin') && (
-                            <button
-                                onClick={() => {
-                                    setBranchModalOpen(true);
-                                    setIsHovered(false);
-                                }}
-                                className="w-full py-2 flex items-center justify-center gap-1.5 text-indigo-400 hover:text-indigo-300 transition-colors group/add-branch"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span className="text-[10px] font-black tracking-widest">{l('ფილიალის დამატება', 'Добавить филиал', 'Add Branch')}</span>
-                            </button>
-                        )}
-                    </div>
-                </div>
             )}
         </div>
     );
@@ -283,7 +236,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 transition-all",
-                        exp ? (isMobile ? "p-2 pb-10" : "p-4 pb-6") : "py-4"
+                        exp ? (isMobile ? "p-2 pb-24" : "p-4 pb-6") : "py-4"
                     )}>
                         <div className={cn(
                             "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl p-0.5",

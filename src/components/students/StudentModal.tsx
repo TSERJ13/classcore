@@ -620,12 +620,6 @@ export function StudentModal({
     return (
         <>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-            <div className={cn(
-                "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[520px] sm:max-h-none h-[100dvh] sm:h-auto",
-                "animate-in slide-in-from-bottom sm:slide-in-from-right",
-                "rounded-none sm:rounded-none"
-            )}>
                 {/* Handle for mobile */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
                     <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
@@ -699,8 +693,6 @@ export function StudentModal({
                     </div>
                 )}
 
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-10">
                     {activeTab === 'info' ? (
                         <>
                             {/* Photo Upload */}

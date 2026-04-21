@@ -49,6 +49,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeRateType, setActiveRateType] = useState<RateType>('hourly');
     const [showPassword, setShowPassword] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
     const isEdit = !!teacher;
 
@@ -77,15 +78,20 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
 
 
-    function save() {
+    async function save() {
         if (!form.first_name?.trim() || !form.last_name?.trim() || !form.phone?.trim()) return;
-
-        const finalForm = { 
-            ...form,
-            full_name: `${form.first_name.trim()} ${form.last_name.trim()}`
-        };
-        onSave(finalForm);
-        onClose();
+        setSaving(true);
+        try {
+            await new Promise(r => setTimeout(r, 400));
+            const finalForm = { 
+                ...form,
+                full_name: `${form.first_name.trim()} ${form.last_name.trim()}`
+            };
+            onSave(finalForm);
+            onClose();
+        } finally {
+            setSaving(false);
+        }
     }
 
     if (!open) return null;
@@ -95,10 +101,10 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
 
             <div className={cn(
-                "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
-                "animate-in slide-in-from-bottom sm:slide-in-from-right",
-                "rounded-none sm:rounded-none"
+                "animate-in fade-in duration-300 sm:slide-in-from-right",
+                "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
 
                 {/* Header */}
@@ -116,7 +122,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-10">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-32">
                     {/* Photo Upload */}
                     {/* Photo Upload & Role */}
                     <div className="flex gap-4">
@@ -478,8 +484,6 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">
                             {t.cancel}
                         </button>
-                        <button onClick={save} disabled={!form.first_name?.trim() || !form.last_name?.trim() || !form.phone?.trim()}
-                            className="flex-[1.5] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] sm:text-sm font-black rounded-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 uppercase tracking-widest px-2">
                             <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{saving ? t.loading : t.save}</span>
                         </button>
                     </div>
