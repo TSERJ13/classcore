@@ -200,7 +200,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     return (
         <>
             <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
-            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[min(100vw,480px)] max-h-[92dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-3xl sm:rounded-none">
+            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[min(100vw,480px)] max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
 
                 {/* Handle for mobile */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
@@ -218,19 +218,20 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6 overscroll-contain">
+                <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6 overscroll-contain pb-32">
 
                     {/* Group name */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
                             <BookOpen className="w-3 h-3" /> {t.groupName}
                         </label>
-                        <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Dance Group..." className={inputCls} />
+                        <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Dance Group..." 
+                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                     </div>
 
                     {/* Teacher */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
                             <GraduationCap className="w-3 h-3" /> {t.teachers}
                         </label>
                         <SearchSelect
@@ -340,7 +341,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     {/* ─── Schedule Builder (Simplified Multi-Day) ─────────────────────────────── */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
                                 <Calendar className="w-3 h-3" /> {t.schedule}
                             </label>
                         </div>
@@ -410,13 +411,14 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     {/* Capacity & Type */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
                                 <Users className="w-3 h-3" /> {t.capacity}
                             </label>
-                            <input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })} className={inputCls} />
+                            <input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })} 
+                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
                                 <BookOpen className="w-3 h-3" /> {t.subscriptionType}
                             </label>
                             <SearchSelect

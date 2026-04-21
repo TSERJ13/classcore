@@ -94,7 +94,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
         <>
             <div className="fixed inset-0 z-40 bg-transparent animate-in fade-in duration-200" onClick={onClose} />
 
-            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[min(100vw,420px)] max-h-[92dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-3xl sm:rounded-none">
+            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[min(100vw,420px)] max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
                 {/* Handle for mobile */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
                     <div className="w-10 h-1 rounded-full bg-border-subtle opacity-60" />
@@ -115,7 +115,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain pb-32">
                     {/* Photo Upload */}
                     {/* Photo Upload & Role */}
                     <div className="flex gap-4">
@@ -174,7 +174,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                         <div className="flex-1 space-y-2">
                             <div className="pt-2">
                                 <p className="text-sm font-black text-primary truncate">{(form.first_name || form.last_name) ? `${form.first_name || ''} ${form.last_name || ''}` : '...'}</p>
-                                <p className="text-[10px] text-muted font-medium opacity-60 tracking-widest mt-1">{t.basicInfo}</p>
+                                <p className="text-[10px] text-muted font-medium opacity-60 tracking-widest mt-1 uppercase">{t.basicInfo}</p>
                             </div>
                         </div>
                     </div>
@@ -185,47 +185,47 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{l('სახელი', 'Имя', 'First Name')} *</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('სახელი', 'Имя', 'First Name')} *</label>
                                 <div className="relative group/input">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.first_name ?? ''} onChange={e => setF('first_name', e.target.value)}
                                         placeholder={l('სახელი', 'Имя', 'First Name')}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{l('გვარი', 'Фамилия', 'Last Name')} *</label>
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('გვარი', 'Фамилия', 'Last Name')} *</label>
                                 <div className="relative group/input">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.last_name ?? ''} onChange={e => setF('last_name', e.target.value)}
                                         placeholder={l('გვარი', 'Фамилия', 'Last Name')}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                 </div>
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{t.teacherPhone} *</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.teacherPhone} *</label>
                             <div className="relative group/input">
                                 <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                 <input value={form.phone ?? ''} onChange={e => setF('phone', e.target.value)}
                                     placeholder={t.phonePlaceholder}
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{t.email}</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.email}</label>
                             <div className="relative group/input">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                 <input value={form.email ?? ''} onChange={e => setF('email', e.target.value)}
                                     placeholder={t.emailPlaceholder}
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1">{l('პაროლი', 'Пароль', 'Password')}</label>
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('პაროლი', 'Пароль', 'Password')}</label>
                             <div className="relative group/input">
                                 <Layout className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                 <input 
@@ -233,7 +233,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     value={form.password ?? ''} 
                                     onChange={e => setF('password', e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-12 py-3 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" 
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-12 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" 
                                 />
                                 <button
                                     type="button"

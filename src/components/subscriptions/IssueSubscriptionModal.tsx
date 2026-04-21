@@ -285,8 +285,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             <div className={cn(
                 "fixed z-[101] flex flex-col bg-card border-border-subtle shadow-2xl overflow-hidden transition-all duration-300",
                 centered
-                    ? `top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,512px)]'} max-h-[92dvh] border rounded-[2rem] animate-in fade-in zoom-in-95`
-                    : `inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,420px)]'} max-h-[92dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-[2rem] sm:rounded-none`
+                    ? `top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,512px)]'} max-h-[96dvh] border rounded-[2.5rem] animate-in fade-in zoom-in-95`
+                    : `inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,420px)]'} max-h-[96dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-[2.5rem] sm:rounded-none`
             )}>
                 {/* Handle for mobile */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
@@ -309,7 +309,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                     </button>
                 </div>
 
-                <div className="p-5 space-y-4 overflow-y-auto overscroll-contain flex-1">
+                <div className="p-5 space-y-4 overflow-y-auto overscroll-contain flex-1 pb-32">
 
                     {step === 'type_selection' ? (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -402,7 +402,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
                                 <div className="space-y-1.5 relative">
-                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.selectClient}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.selectClient}</label>
                                     <SearchSelect
                                         options={studentOptions}
                                         value={studentId}
@@ -412,7 +412,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.selectPlan}</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.selectPlan}</label>
                                     <SearchSelect
                                         options={planOptions}
                                         value={planId}
@@ -423,7 +423,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {plans.find(p => p.id === planId)?.type === 'group' && (
                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.addToGroup}</label>
+                                        <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.addToGroup}</label>
                                         <SearchSelect
                                             options={groupOptions}
                                             value={groupId}
@@ -439,7 +439,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 <div className="grid grid-cols-2 gap-3 items-end">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between px-1 h-5">
-                                            <label className="text-[9px] font-black text-muted tracking-widest flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-muted tracking-widest flex items-center gap-1 uppercase">
                                                 <Tag className="w-3 h-3" /> {t.price} ({settings.currency})
                                             </label>
                                         </div>
@@ -448,21 +448,21 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             value={price}
                                             onFocus={(e) => e.target.select()}
                                             onChange={(e) => setPrice(parseInt(e.target.value) || '')}
-                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] sm:text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
                                         />
                                     </div>
                                     <div className="space-y-1.5 min-w-0">
-                                        <label className="text-[9px] font-black text-muted tracking-widest px-1 flex items-center gap-1">
+                                        <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1 uppercase">
                                             <Percent className="w-3 h-3" /> {t.discount}
                                         </label>
-                                        <div className="flex bg-surface border border-border-subtle rounded-lg p-1 gap-1">
+                                        <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1">
                                             <input
                                                 type="number"
                                                 value={discount || ''}
                                                 onFocus={(e) => e.target.select()}
                                                 onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
                                                 placeholder="0"
-                                                className="flex-1 bg-transparent px-2 py-1 text-xs font-bold text-emerald-500 outline-none"
+                                                className="flex-1 bg-transparent px-2 py-1.5 text-[13px] sm:text-sm font-bold text-emerald-500 outline-none"
                                             />
                                             <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-md p-0.5 shrink-0">
                                                 <button
@@ -490,7 +490,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {/* Payment Method */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">გადახდის მეთოდი</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{l('გადახდის მეთოდი', 'Способ оплаты', 'Payment Method')}</label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {PAY_METHODS.map(m => (
                                             <button
@@ -530,14 +530,14 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {/* Amount paid input */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-muted tracking-widest px-1">{t.amountPaid} ({settings.currency})</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.amountPaid} ({settings.currency})</label>
                                     <input
                                         type="number"
                                         value={amountPaid}
                                         onFocus={(e) => e.target.select()}
                                         onChange={(e) => setAmountPaid(parseFloat(e.target.value) || '')}
                                         placeholder={remaining.toFixed(2)}
-                                        className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                        className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] sm:text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
                                     />
                                 </div>
 

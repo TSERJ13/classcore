@@ -222,6 +222,10 @@ export default function DashboardPage() {
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
+    
+    // Cloud Sync State
+    const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+    const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
 
     const [showAddStudent, setShowAddStudent] = useState(false);
     const [showIssueSub, setShowIssueSub] = useState(false);
@@ -404,6 +408,32 @@ export default function DashboardPage() {
             window.removeEventListener('cc_active_branch_change', refreshData);
         };
     }, [t, settings.studioName, revenueRange]);
+
+    // Cloud Sync Monitoring
+    useEffect(() => {
+        const handlePushOk = () => { setSyncStatus('synced'); setLastSyncTime(Date.now()); };
+        const handlePushStart = () => setSyncStatus('syncing');
+        const handlePushError = () => setSyncStatus('error');
+        const handleSyncStart = () => setSyncStatus('syncing');
+        const handleSyncDone = () => { setSyncStatus('synced'); setLastSyncTime(Date.now()); };
+        const handleSyncError = () => setSyncStatus('error');
+
+        window.addEventListener('cc_sync_push_ok', handlePushOk);
+        window.addEventListener('cc_sync_push_start', handlePushStart);
+        window.addEventListener('cc_sync_push_error', handlePushError);
+        window.addEventListener('cc_sync_start', handleSyncStart);
+        window.addEventListener('cc_sync_done', handleSyncDone);
+        window.addEventListener('cc_sync_error', handleSyncError);
+
+        return () => {
+            window.removeEventListener('cc_sync_push_ok', handlePushOk);
+            window.removeEventListener('cc_sync_push_start', handlePushStart);
+            window.removeEventListener('cc_sync_push_error', handlePushError);
+            window.removeEventListener('cc_sync_start', handleSyncStart);
+            window.removeEventListener('cc_sync_done', handleSyncDone);
+            window.removeEventListener('cc_sync_error', handleSyncError);
+        };
+    }, []);
 
     useEffect(() => {
         let checkins = getTodayCheckins();
@@ -842,13 +872,21 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight flex items-center gap-2">
                                 {t.greeting || 'გამარჯობა'}, {profile?.first_name || profile?.full_name?.split(' ')[0] || ''} <span className="text-xl sm:text-2xl">👋</span>
-                                <button 
-                                    onClick={() => setShowAddStudent(true)}
-                                    className="ml-1 w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 active:scale-95 transition-all lg:hidden"
-                                    aria-label="Quick Add"
-                                >
-                                    <Plus className="w-5 h-5" strokeWidth={3} />
-                                </button>
+                                
+                                {/* Cloud Sync Status Indicator */}
+                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface/30 border border-border-subtle/50 group cursor-default transition-all" 
+                                    title={lastSyncTime ? `ბოლო სინქრონიზაცია: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'სინქრონიზაცია ჩართულია'}>
+                                    <div className={cn(
+                                        "w-1.5 h-1.5 rounded-full transition-all duration-500",
+                                        syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" :
+                                        syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500"
+                                    )} />
+                                    <span className="text-[9px] font-black text-primary/40 group-hover:text-primary/60 transition-colors uppercase tracking-widest">
+                                        {syncStatus === 'synced' ? (lang === 'ka' ? 'ღრუბელი' : 'Cloud') : 
+                                        syncStatus === 'syncing' ? (lang === 'ka' ? 'ინახება...' : 'Syncing...') : 'Error'}
+                                    </span>
+                                </div>
+
                                 {settings.plan === 'pro' && (
                                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-[0_0_15px_rgba(79,70,229,0.2)] border border-indigo-400/20 animate-in zoom-in-50 duration-700">
                                         <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest leading-none">PRO</span>

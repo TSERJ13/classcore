@@ -517,29 +517,7 @@ export function Header() {
                             setNotesOpen(false);
                         }}
                         className="relative w-9 h-9 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                        aria-label="Notifications"
-                    >
-                        <Bell className="w-4 h-4" />
-                        {unreadCount > 0 && (
-                            <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 ring-2 ring-card shadow-sm" />
-                        )}
                     </button>
-
-                    <div className="h-6 w-px bg-border-subtle/50 mx-1 hidden md:block" />
-
-                    {/* Cloud Sync Status Indicator */}
-                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-surface/30 border border-border-subtle/50 group cursor-default" 
-                         title={lastSyncTime ? `ბოლო სინქრონიზაცია: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'სინქრონიზაცია ჩართულია'}>
-                        <div className={cn(
-                            "w-1.5 h-1.5 rounded-full transition-all duration-500",
-                            syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" :
-                            syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500"
-                        )} />
-                        <span className="text-[10px] font-black text-primary/40 group-hover:text-primary/60 transition-colors hidden xs:block">
-                            {syncStatus === 'synced' ? (lang === 'ka' ? 'ღრუბელი' : 'Cloud') : 
-                             syncStatus === 'syncing' ? (lang === 'ka' ? 'ინახება...' : 'Syncing...') : 'Error'}
-                        </span>
-                    </div>
                 </div>
             </header>
 

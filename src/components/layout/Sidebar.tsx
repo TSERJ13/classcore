@@ -226,7 +226,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                                 <Icon className={cn('transition-all duration-200', isMobile ? "w-[17px] h-[17px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[10.5px]" : "text-[13.5px] lg:text-[14.5px]")}>
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[10.5px]" : "text-[12px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -250,7 +250,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             suppressHydrationWarning
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transition-[width] duration-300 ease-in-out pt-safe pb-safe shadow-2xl',
-                exp ? (isMobile ? 'w-[200px]' : 'w-[310px]') : 'w-[72px]'
+                exp ? (isMobile ? 'w-[220px]' : 'w-[341px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -280,11 +280,11 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     </div>
 
                     <div className={cn(
-                        "mt-auto border-t border-[var(--sidebar-border)] bg-black/10",
+                        "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 pt-1.5",
                         exp ? (isMobile ? "p-2 pb-safe" : "p-4 pb-safe") : "py-4"
                     )}>
                         <div className={cn(
-                            "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl",
+                            "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl p-0.5",
                             !exp && "flex-col bg-transparent border-none"
                         )}>
                             <LanguageSwitcher 
@@ -292,21 +292,21 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 mode="session" 
                                 align="left" 
                                 className={cn(
-                                    exp ? "flex-1 hover:bg-white/[0.05] h-11 px-3" : "w-10 h-10 bg-white/5 rounded-xl"
+                                    exp ? "flex-1 hover:bg-white/[0.05] h-9 px-3" : "w-8.5 h-8.5 bg-white/5 rounded-xl"
                                 )} 
                             />
                             
-                            {exp && <div className="w-px h-6 bg-white/10 shrink-0" />}
+                            {exp && <div className="w-px h-5 bg-white/10 shrink-0" />}
 
                             <button
                                 onClick={logout}
                                 className={cn(
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
-                                    exp ? "w-12 h-11" : "w-10 h-10 rounded-xl bg-white/5 mt-2"
+                                    exp ? "w-10 h-9" : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
-                                <LogOut className="w-4 h-4 transition-transform duration-300 group-hover/logout:-translate-x-0.5" strokeWidth={2.5} />
+                                <LogOut className="w-3.5 h-3.5 transition-transform duration-300 group-hover/logout:-translate-x-0.5" strokeWidth={2.5} />
                             </button>
                         </div>
                     </div>
@@ -352,7 +352,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[310px]' : 'w-[72px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[341px]' : 'w-[72px]')}>
                 <SidebarContent
                     exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
@@ -373,7 +373,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
             <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
 
-            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[200px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[220px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
                 <SidebarContent
                     exp={true} isMobile={true} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}

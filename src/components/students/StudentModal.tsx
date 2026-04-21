@@ -620,12 +620,7 @@ export function StudentModal({
     return (
         <>
             <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
-            <div className={cn(
-                "fixed z-50 flex flex-col bg-card border-border-subtle shadow-2xl duration-300 overflow-hidden",
-                centered
-                    ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] sm:w-[min(100vw,640px)] max-h-[92dvh] border animate-in fade-in zoom-in-95 rounded-[2rem]"
-                    : "inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full sm:w-[min(100vw,420px)] max-h-[92dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-3xl sm:rounded-none pb-[calc(72px+env(safe-area-inset-bottom,0px))] sm:pb-0"
-            )}>
+            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[min(100vw,450px)] max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
                 {/* Handle for mobile */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
                     <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
@@ -700,7 +695,7 @@ export function StudentModal({
                 )}
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain pb-24">
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain pb-32">
                     {activeTab === 'info' ? (
                         <>
                             {/* Photo Upload */}
@@ -752,17 +747,18 @@ export function StudentModal({
                                 </section>
                             )}
 
-                                                        {/* Basic info */}
                             <section className="space-y-4">
-                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.basicInfo}</p>
+                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40 uppercase">{t.basicInfo}</p>
+                                
                                 <div className="space-y-4">
-                                    <Field icon={<Zap className="w-4 h-4" />} label="STUDENT ID">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">ID</label>
                                         <div className="flex gap-2">
                                             <input
                                                 value={form.id}
                                                 onChange={e => set('id', e.target.value)}
                                                 placeholder="e.g. AE00001"
-                                                className={cn(inputCls, "font-mono tracking-widest")}
+                                                className="flex-1 bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm font-mono tracking-widest text-primary outline-none transition-all"
                                             />
                                             {!form.id && (
                                                 <button
@@ -773,30 +769,47 @@ export function StudentModal({
                                                 </button>
                                             )}
                                         </div>
-                                    </Field>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Field icon={<User className="w-4 h-4" />} label={t.firstName + " *"}>
-                                            <input value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder={t.firstNamePlaceholder} className={inputCls} />
-                                        </Field>
-                                        <Field icon={<User className="w-4 h-4" />} label={t.lastName}>
-                                            <input value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder={t.lastNamePlaceholder} className={inputCls} />
-                                        </Field>
                                     </div>
 
-                                    <Field icon={<Calendar className="w-4 h-4" />} label={t.birthDate}>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.firstName} *</label>
+                                            <div className="relative group/input">
+                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                                <input value={form.first_name ?? ''} onChange={e => set('first_name', e.target.value)}
+                                                    placeholder={t.firstName}
+                                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.lastName} *</label>
+                                            <div className="relative group/input">
+                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                                <input value={form.last_name ?? ''} onChange={e => set('last_name', e.target.value)}
+                                                    placeholder={t.lastName}
+                                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.birthDate}</label>
                                         <input 
                                             type="date"
                                             value={form.birth_date} 
                                             onChange={e => set('birth_date', e.target.value)} 
-                                            className={cn(inputCls, "h-[42px]")}
+                                            className="w-full h-11 bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-2 text-[13px] sm:text-sm text-primary outline-none transition-all shadow-sm"
                                         />
-                                    </Field>
+                                    </div>
 
-                                    <Field icon={<User className="w-4 h-4" />} label={t.gender}>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
                                         <div className="grid grid-cols-2 gap-2">
                                             {[
-                                                { id: 'male', label: t.boy, icon: User, color: 'text-indigo-600', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-                                                { id: 'female', label: t.girl, icon: User, color: 'text-pink-600', bg: 'bg-pink-500/10', border: 'border-pink-500/20' }
+                                                { id: 'male', label: t.boy, color: 'text-indigo-600', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+                                                { id: 'female', label: t.girl, color: 'text-pink-600', bg: 'bg-pink-500/10', border: 'border-pink-500/20' }
                                             ].map((g) => {
                                                 const isSelected = form.gender === g.id;
                                                 return (
@@ -805,68 +818,82 @@ export function StudentModal({
                                                         type="button"
                                                         onClick={() => set('gender', g.id as any)}
                                                         className={cn(
-                                                            "flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-300",
-                                                            isSelected ? cn(g.border, g.bg, "shadow-sm shadow-indigo-500/10 scale-[1.02]") : "border-border-subtle bg-surface hover:border-indigo-500/20"
+                                                            "flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300",
+                                                            isSelected ? cn(g.border, g.bg, "shadow-sm scale-[1.02]") : "border-border-subtle bg-surface hover:border-indigo-500/20"
                                                         )}
                                                     >
-                                                        <g.icon className={cn("w-4 h-4", isSelected ? g.color : "text-muted/40")} />
                                                         <span className={cn(
-                                                            "text-[11px] font-black uppercase tracking-widest",
+                                                            "text-[10px] font-black uppercase tracking-widest",
                                                             isSelected ? g.color : "text-muted"
                                                         )}>
                                                             {g.label}
                                                         </span>
-                                                        {isSelected && <Check className={cn("w-3.5 h-3.5 ml-auto", g.color)} strokeWidth={3} />}
+                                                        {isSelected && <Check className={cn("w-3.5 h-3.5 ml-auto", g.color)} strokeWidth={4} />}
                                                     </button>
                                                 )
                                             })}
                                         </div>
-                                    </Field>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Field icon={<MessageCircle className="w-4 h-4" />} label={t.preferredLanguage}>
-                                            <SearchSelect
-                                                options={[
-                                                    { value: 'ka', label: t.georgian as string },
-                                                    { value: 'ru', label: t.russian as string },
-                                                    { value: 'en', label: t.english as string }
-                                                ]}
-                                                value={form.preferred_language || 'ka'}
-                                                onChange={val => set('preferred_language', val)}
-                                                className="h-[42px]"
-                                            />
-                                        </Field>
-                                        <Field icon={<User className="w-4 h-4" />} label={t.contactPerson}>
-                                            <SearchSelect
-                                                options={[
-                                                    { value: 'self', label: t.self as string },
-                                                    { value: 'parent', label: t.parent as string }
-                                                ]}
-                                                value={form.contact_person || ''}
-                                                onChange={val => set('contact_person', val as any)}
-                                                className="h-[42px]"
-                                            />
-                                        </Field>
                                     </div>
+                                </div>
 
-                                    <Field icon={<Phone className="w-4 h-4" />} label={t.studentPhone + ' *'}>
-                                        <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="555 XX XX XX" className={inputCls} />
-                                    </Field>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.preferredLanguage}</label>
+                                        <SearchSelect
+                                            options={[
+                                                { value: 'ka', label: t.georgian as string },
+                                                { value: 'ru', label: t.russian as string },
+                                                { value: 'en', label: t.english as string }
+                                            ]}
+                                            value={form.preferred_language || 'ka'}
+                                            onChange={val => set('preferred_language', val)}
+                                            className="h-11"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.contactPerson}</label>
+                                        <SearchSelect
+                                            options={[
+                                                { value: 'self', label: t.self as string },
+                                                { value: 'parent', label: t.parent as string }
+                                            ]}
+                                            value={form.contact_person || ''}
+                                            onChange={val => set('contact_person', val as any)}
+                                            className="h-11"
+                                        />
+                                    </div>
+                                </div>
 
-                                    {form.contact_person === 'parent' && (
-                                        <Field icon={<User className="w-4 h-4" />} label={t.parentName || "მშობლის სახელი და გვარი"}>
-                                            <input 
-                                                value={form.parent_name} 
-                                                onChange={e => set('parent_name', e.target.value)} 
-                                                placeholder={t.parentNamePlaceholder || "მშობლის სახელი და გვარი"} 
-                                                className={inputCls} 
-                                            />
-                                        </Field>
-                                    )}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.phone || 'Phone'} (SMS) *</label>
+                                    <div className="relative group/input">
+                                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                        <input value={form.phone ?? ''} onChange={e => set('phone', e.target.value)}
+                                            placeholder="555 XX XX XX"
+                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                    </div>
+                                </div>
 
-                                    <Field icon={<Mail className="w-4 h-4" />} label={t.email}>
-                                        <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@gmail.com" className={inputCls} />
-                                    </Field>
+                                {form.contact_person === 'parent' && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.parentName || "Parent Name"}</label>
+                                        <div className="relative group/input">
+                                            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                            <input value={form.parent_name ?? ''} onChange={e => set('parent_name', e.target.value)}
+                                                placeholder={t.parentNamePlaceholder}
+                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.email}</label>
+                                    <div className="relative group/input">
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                        <input value={form.email ?? ''} onChange={e => set('email', e.target.value)}
+                                            placeholder="email@gmail.com"
+                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                    </div>
                                 </div>
                             </section>
 
