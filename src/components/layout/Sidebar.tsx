@@ -200,8 +200,8 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             href={href}
                             onClick={close}
                             className={cn(
-                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full',
-                                isMobile ? 'h-9 pl-3 gap-2.5' : 'h-8.5 pl-3 gap-3',
+                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full nav-item-dynamic',
+                                isMobile ? 'h-9 pl-3 gap-2.5' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
                                 active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
@@ -217,7 +217,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                                 <Icon className={cn('transition-all duration-200', isMobile ? "w-[18px] h-[18px]" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             {exp && (
-                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight", isMobile ? "text-[13px]" : "text-[12.5px]")}>
+                                <span className={cn("truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", isMobile ? "text-[13px]" : "text-[13.5px] lg:text-[14.5px]")}>
                                     {t[labelKey]}
                                 </span>
                             )}
@@ -283,7 +283,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
                         exp 
-                            ? (isMobile ? "p-3 space-y-2.5" : "p-3 flex items-center gap-2") 
+                            ? (isMobile ? "p-3 space-y-2.5" : "p-3 flex items-center gap-4") 
                             : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
@@ -299,7 +299,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                         <button
                             onClick={logout}
                             className={cn(
-                                "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
+                                "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0 ml-1",
                                 exp 
                                     ? cn("w-10 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-9" : "h-10")
                                     : "w-10 h-10 rounded-xl bg-white/5 border border-white/10 shadow-sm"
@@ -351,7 +351,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-hidden z-40', expanded ? 'w-[240px]' : 'w-[72px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[240px]' : 'w-[72px]')}>
                 <SidebarContent
                     exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}

@@ -133,6 +133,25 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
+
+    /* iPad Orientation-Aware Sidebar Scaling */
+    @media (orientation: landscape) and (max-height: 850px) {
+        .nav-item-dynamic {
+            height: 34px !important;
+        }
+        .nav-item-text-dynamic {
+            font-size: 12.5px !important;
+        }
+    }
+
+    @media (orientation: portrait) {
+        .nav-item-dynamic {
+            height: 44px !important;
+        }
+        .nav-item-text-dynamic {
+            font-size: 14.5px !important;
+        }
+    }
 }
 
 /* ─── Animations ─────────────────────────────────────────────────────────── */
