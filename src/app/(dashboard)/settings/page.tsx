@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
-    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2, Eye, EyeOff, Download
+    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2, Eye, EyeOff, Download, Upload
 } from 'lucide-react';
 import { checkCloudConnection, syncStaffToCloud, masterStudioPurge } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
@@ -141,6 +141,7 @@ export default function SettingsPage() {
     const [uploading, setUploading] = useState(false);
     const [sessionVal, setSessionVal] = useState(settings.security.sessionTimeout);
     const fileRef = useRef<HTMLInputElement>(null);
+    const importFileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (settings.studioName && !nameVal) {
@@ -293,6 +294,91 @@ export default function SettingsPage() {
         } catch (err) {
             console.error('Export failed:', err);
             addNotification(l('ექსპორტი ვერ მოხერხდა', 'Ошибка экспорта', 'Export failed'), 'error');
+        }
+    }
+
+    async function handleImportData(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file || !settings.studioSlug) return;
+        
+        try {
+            const ok = await confirm({
+                title: l('მონაცემთა აღდგენა', 'Восстановление данных', 'Restore Data'),
+                message: l(
+                    'გაფრთხილება: ამ ფაილის ჩატვირთვა სრულად შეცვლის თქვენი სტუდიის ამჟამინდელ მონაცემებს (მოსწავლეები, ჯგუფები, ფინანსები). დარწმუნებული ხართ?',
+                    'Предупреждение: Загрузка этого файла полностью заменит текущие данные вашей студии (ученики, группы, финансы). Вы уверены?',
+                    'Warning: Loading this file will completely replace your studio’s current data (students, groups, finances). Are you sure?'
+                ),
+                confirmText: l('აღდგენა', 'Восстановить', 'Restore'),
+                danger: true
+            });
+
+            if (!ok) {
+                e.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const backup = JSON.parse(event.target?.result as string);
+                    
+                    // Validation
+                    if (!backup.data || !backup.studio_slug) {
+                        throw new Error('Invalid backup file format');
+                    }
+
+                    if (backup.studio_slug !== settings.studioSlug) {
+                         const matchOk = await confirm({
+                             title: l('შეუსაბამო მისამართი', 'Несоответствие адреса', 'Slug Mismatch'),
+                             message: l(
+                                 `ეს ფაილი ეკუთვნის სტუდიას "${backup.studio_slug}", ხოლო თქვენ იმყოფებით "${settings.studioSlug}"-ში. ნამდვილად გსურთ გაგრძელება?`,
+                                 `Этот файл принадлежит студии "${backup.studio_slug}", а вы находитесь в "${settings.studioSlug}". Вы уверены?`,
+                                 `This file belongs to studio "${backup.studio_slug}", but you are in "${settings.studioSlug}". Are you sure you want to continue?`
+                             ),
+                             danger: true
+                         });
+                         if (!matchOk) return;
+                    }
+
+                    // 1. Wipe current relevant keys for this slug to ensure a clean hydration
+                    const activeSlug = settings.studioSlug;
+                    Object.keys(localStorage).forEach(key => {
+                        if (key.endsWith(`_${activeSlug}`)) {
+                            localStorage.removeItem(key);
+                        }
+                    });
+
+                    // 2. Hydrate from backup
+                    Object.entries(backup.data).forEach(([key, value]) => {
+                        // Ensure we use the CURRENT active slug for the keys, in case they are restoring to a renamed studio
+                        let finalKey = key;
+                        if (backup.studio_slug !== activeSlug) {
+                            finalKey = key.replace(backup.studio_slug, activeSlug);
+                        }
+                        localStorage.setItem(finalKey, JSON.stringify(value));
+                    });
+
+                    // 3. Restore Settings if present
+                    if (backup.settings) {
+                        saveSettings(backup.settings, undefined, activeSlug);
+                    }
+
+                    addNotification(l('მონაცემები წარმატებით აღდგა', 'Данные успешно восстановлены', 'Data successfully restored'), 'success');
+                    
+                    // 4. Force reload to apply everything
+                    setTimeout(() => window.location.reload(), 1500);
+
+                } catch (err) {
+                    console.error('Import process failed:', err);
+                    addNotification(l('აღდგენა ვერ მოხერხდა: ფაილი დაზიანებულია', 'Восстановление не удалось: файл поврежден', 'Restore failed: file is corrupted'), 'error');
+                }
+            };
+            reader.readAsText(file);
+        } catch (err) {
+            console.error('Import failed:', err);
+        } finally {
+            e.target.value = '';
         }
     }
 
