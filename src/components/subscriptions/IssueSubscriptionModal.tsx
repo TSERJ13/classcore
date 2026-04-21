@@ -292,7 +292,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             )}>
 
                 {/* Header */}
-                <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
+                <div className="p-4 border-b border-border-subtle bg-white/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                             <CreditCard className="w-4 h-4" />
@@ -634,14 +634,14 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                 {/* Footer */}
                 {step === 'form' && (
-                    <div className="p-3 sm:p-4 border-t border-border-subtle bg-card/80 backdrop-blur-md flex gap-2 flex-shrink-0 sticky bottom-0 z-10 pb-safe-offset-2">
+                    <div className="p-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex gap-3 flex-shrink-0 sticky bottom-0 z-10 pb-safe">
                         <button onClick={onClose} className="flex-1 py-3 bg-card border border-border-subtle hover:border-border text-muted hover:text-primary text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
                             {t.cancel}
                         </button>
                         <button
                             onClick={handleIssue}
                             disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
-                            className="flex-[1.5] py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 text-white text-[10px] xs:text-[11px] sm:text-xs font-black rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 uppercase tracking-widest px-2"
+                            className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 text-white text-[10px] xs:text-[11px] sm:text-xs font-black rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 uppercase tracking-widest px-2"
                         >
                             <Save className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
                         </button>

@@ -108,7 +108,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
             )}>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md sticky top-0 z-10">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center shadow-inner">
                             <User className="w-5 h-5 text-indigo-500" />
@@ -460,15 +460,15 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md sticky bottom-0 z-10 pb-safe-offset-2">
+                <div className="px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe">
                     {isEdit && !isDeletingConfirm && (
                         <button onClick={() => setIsDeletingConfirm(true)}
-                            className="w-full mb-3 sm:mb-4 py-2 sm:py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
+                            className="w-full mb-4 py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
                             <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.deleteTeacher}</span>
                         </button>
                     )}
                     {isDeletingConfirm && (
-                        <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
+                        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
                             <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 flex-shrink-0" />
                             <div className="flex-1">
                                 <p className="text-[10px] sm:text-xs font-black text-red-600">{t.deleteQuestion}</p>
@@ -479,7 +479,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             <button onClick={() => setIsDeletingConfirm(false)} className="text-[10px] sm:text-[11px] font-bold text-muted hover:text-primary transition-colors">{t.cancel}</button>
                         </div>
                     )}
-                    <div className="flex gap-2 sm:gap-3">
+                    <div className="flex gap-3">
                         <button onClick={onClose}
                             className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">
                             {t.cancel}
@@ -487,7 +487,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                         <button 
                             onClick={save}
                             disabled={saving}
-                            className="flex-2 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] sm:text-sm uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
+                            className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] sm:text-sm uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
                         >
                             <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{saving ? t.loading : t.save}</span>
                         </button>
