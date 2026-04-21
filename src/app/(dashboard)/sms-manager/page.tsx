@@ -526,7 +526,7 @@ export default function SmsManagerPage() {
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 }
 

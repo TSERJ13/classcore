@@ -9,7 +9,7 @@ interface LogoProps {
   loading?: boolean;
 }
 
-export const Logo: React.FC<LogoProps> = ({ 
+export const Logo: React.FC<LogoProps> = React.memo(({ 
   className, 
   size = 80, // Updated default to match loader for stability
   animated = true, 
@@ -109,4 +109,6 @@ export const Logo: React.FC<LogoProps> = ({
       </svg>
     </div>
   );
-};
+});
+
+Logo.displayName = 'Logo';

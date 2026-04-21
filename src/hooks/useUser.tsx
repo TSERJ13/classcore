@@ -46,10 +46,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         canViewSMS?: boolean;
     } | null>(null);
 
+    const initialized = useRef(false);
     useEffect(() => {
         const supabase = createClient();
 
         const refreshSession = async () => {
+            if (initialized.current) return;
+            initialized.current = true;
             try {
                 const { data: { user: u }, error: authError } = await supabase.auth.getUser();
                 const staffSess = getStaffSession();
@@ -68,9 +71,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 const currentUserEmail = u?.email;
                 const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
                 
-                // SuperAdmins are allowed to access the dashboard as well
-
-
                 const currentUserIdentity = u?.email || staffSess?.staff?.email || staffSess?.staff?.phone || (staffSess as any)?.staff?.phone_number;
                 let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug || (urlSlug && urlSlug !== 'dashboard' && urlSlug !== 'login' ? urlSlug : null) || fallbackSlug;
                 const isOwner = u?.user_metadata?.role === 'owner' || isSuperAdmin;
@@ -108,8 +108,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     }
                 } else {
                     const identityConfirmed = !!u?.email_confirmed_at || !!staffSess;
-                    // 🛡️ LENIENT FIX: A user is verified if they have a confirmed identity, 
-                    // even if the specific studio slug is still being recovered.
                     const status = !!currentUserIdentity && identityConfirmed;
                     setIsVerified(status);
                 }
@@ -124,7 +122,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
                         role: isSuperAdmin ? 'owner' : (meta.role || 'admin'),
                         photo_url: meta.photo_url || meta.avatar_url,
                         is_activated: meta.is_activated !== false,
-                        // Grant all permissions to SuperAdmin
                         ...(isSuperAdmin ? {
                             canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
                             canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
@@ -151,20 +148,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 console.error('❌ [UserProvider] Critical failure:', err);
                 setIsVerified(false);
                 setLoading(false);
+                initialized.current = false; // Allow retry on failure
             }
         };
 
-        refreshSession();
-
+        // Don't call refreshSession() manually here. 
+        // supabase.auth.onAuthStateChange with internal getUser call will handle the initial state.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
             refreshSession();
         });
 
-        // 🚀 REACTIVE PERMISSIONS: Listen for background sync updates.
-        // This ensures that if the owner changes Nini's permissions on another device,
-        // her sidebar will update instantly when the sync pulse arrives.
         const handleSettingsUpdate = () => {
             console.log('📡 [UserProvider] Settings updated via sync. Refreshing profile permissions...');
+            initialized.current = false; // Allow refresh
             refreshSession();
         };
         window.addEventListener('cc_settings_update', handleSettingsUpdate);

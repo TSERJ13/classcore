@@ -4,6 +4,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { usePathname, useRouter } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
+import { cn } from '@/lib/utils';
 
 export function DashboardHydrationGuard({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
@@ -37,26 +38,37 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
         window.location.href = '/';
     };
 
-    // Block until: Hydrated AND Auth Loaded AND Session Verified
-    if (!mounted || authLoading || isVerified === null) {
-        return (
-            <div className="fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8">
-                {/* Visual Nudge Downwards (mt-12) for better optical centering */}
+    // Block only the initial hydration to prevent server/client mismatch
+    if (!mounted) return null;
+
+    const isLoading = authLoading || isVerified === null;
+
+    return (
+        <>
+            {/* Loading Overlay with Smooth Fade-out */}
+            <div className={cn(
+                "fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8 transition-all duration-700 pointer-events-none",
+                isLoading ? "opacity-100" : "opacity-0 invisible scale-105"
+            )}>
                 <div className="flex flex-col items-center justify-center gap-6">
                     <div className="w-[90px] h-[90px] flex items-center justify-center">
                         <Logo size={90} animated loading />
                     </div>
                     <div className="text-center space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">
                             ჩატვირთვა...
                         </p>
                     </div>
                 </div>
             </div>
-        );
-    }
 
-    // Full screen block is NO LONGER used here to allow Dashboard-Only mode.
-    // The restriction is now handled via pathname redirect above.
-    return <>{children}</>;
+            {/* Dashboard Content - Always mounted after hydration for background init */}
+            <div className={cn(
+                "w-full h-full transition-all duration-500",
+                isLoading ? "blur-sm opacity-0" : "opacity-100 blur-0"
+            )}>
+                {children}
+            </div>
+        </>
+    );
 }
