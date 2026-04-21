@@ -46,10 +46,15 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
-            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[420px] max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
+            <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className={cn(
+                "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "animate-in slide-in-from-bottom sm:slide-in-from-right",
+                "rounded-none sm:rounded-none"
+            )}>
                     {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: (form.color ?? '#6366f1') + '22', border: `1px solid ${form.color ?? '#6366f1'}44` }}>
                                 <DoorOpen className="w-4 h-4" style={{ color: form.color ?? '#6366f1' }} />
@@ -60,7 +65,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                     </div>
 
                     {/* Body */}
-                    <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6 overscroll-contain pb-32">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain">
                         <div className="flex items-center gap-4 mb-2">
                             <button
                                 onClick={() => {
@@ -104,7 +109,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 uppercase">{t.hallName} *</label>
                             <input value={form.name ?? ''} onChange={e => setF('name', e.target.value)}
                                 placeholder={t.hallNamePlaceholder}
-                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -112,19 +117,19 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                 <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4 uppercase">
                                     <Users className="w-3 h-3" /> {t.capacity}
                                 </label>
-                                <input type="number" min="1" value={form.capacity ?? ''}
+                                 <input type="number" min="1" value={form.capacity ?? ''}
                                     onChange={e => setF('capacity', e.target.value ? Number(e.target.value) : undefined)}
                                     placeholder="30"
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4 uppercase">
                                     <Layout className="w-3 h-3" /> {t.sqMeters || 'Sq. Meters'}
                                 </label>
-                                <input type="number" min="1" value={form.sq_meters ?? ''}
+                                 <input type="number" min="1" value={form.sq_meters ?? ''}
                                     onChange={e => setF('sq_meters', e.target.value ? Number(e.target.value) : undefined)}
                                     placeholder="150"
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
                         </div>
 
@@ -159,33 +164,33 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                         </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-card/80 backdrop-blur-md">
-                        {isEdit && !showDelete && !isTeacher && (
-                            <button onClick={() => setShowDelete(true)}
-                                className="w-full py-2 mb-2 sm:mb-3 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
-                                <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.deleteHall}</span>
-                            </button>
-                        )}
-                        {showDelete && (
-                            <div className="p-3 mb-2 sm:mb-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
-                                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                <p className="text-[10px] text-red-600 font-black flex-1">{t.deleteQuestion}</p>
-                                <button onClick={() => { onDelete?.(hall!.id); onClose(); }} className="text-[10px] font-black text-red-600 active:scale-95">{t.delete}</button>
-                                <button onClick={() => setShowDelete(false)} className="text-[10px] text-muted font-bold">{t.cancel}</button>
-                            </div>
-                        )}
-                        <div className="flex gap-2 sm:gap-3">
-                            <button onClick={onClose}
-                                className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">
-                                {t.cancel}
-                            </button>
-                            <button onClick={save} disabled={!form.name?.trim()}
-                                className="flex-[1.5] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] xs:text-[11px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 sm:gap-2 uppercase tracking-widest px-1">
-                                <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.save}</span>
-                            </button>
+                {/* Footer */}
+                <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-card/80 backdrop-blur-md sticky bottom-0 z-10 pb-safe-offset-2">
+                    {isEdit && !showDelete && !isTeacher && (
+                        <button onClick={() => setShowDelete(true)}
+                            className="w-full py-2 mb-2 sm:mb-3 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
+                            <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.deleteHall}</span>
+                        </button>
+                    )}
+                    {showDelete && (
+                        <div className="p-3 mb-2 sm:mb-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
+                            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                            <p className="text-[10px] text-red-600 font-black flex-1">{t.deleteQuestion}</p>
+                            <button onClick={() => { onDelete?.(hall!.id); onClose(); }} className="text-[10px] font-black text-red-600 active:scale-95">{t.delete}</button>
+                            <button onClick={() => setShowDelete(false)} className="text-[10px] text-muted font-bold">{t.cancel}</button>
                         </div>
+                    )}
+                    <div className="flex gap-2 sm:gap-3">
+                        <button onClick={onClose}
+                            className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">
+                            {t.cancel}
+                        </button>
+                        <button onClick={save} disabled={!form.name?.trim()}
+                            className="flex-[1.5] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] xs:text-[11px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 sm:gap-2 uppercase tracking-widest px-1">
+                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.save}</span>
+                        </button>
                     </div>
+                </div>
             </div>
         </>
     );

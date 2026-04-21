@@ -100,7 +100,7 @@ export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
                 className="fixed inset-y-0 right-0 z-[101] w-full sm:w-[450px] bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden"
             >
                 {/* Header */}
-                <div className="p-6 border-b border-border-subtle flex items-center justify-between bg-surface/30">
+                <div className="p-6 border-b border-border-subtle flex items-center justify-between bg-card/80 backdrop-blur-md sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", theme.bg, theme.text)}>
                             <StickyNote className="w-5 h-5" />
@@ -233,7 +233,7 @@ export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
                 </div>
 
                 {/* Footer Info */}
-                <div className="p-4 border-t border-border-subtle bg-surface/20 text-center">
+                <div className="p-4 border-t border-border-subtle bg-surface/20 text-center pb-safe-offset-2 sticky bottom-0 bg-card/80 backdrop-blur-md">
                     <p className="text-[10px] font-black text-muted/30 tracking-[0.2em]">
                         ClassCore Notes System
                     </p>

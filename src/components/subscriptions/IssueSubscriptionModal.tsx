@@ -283,20 +283,16 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     return (
         <>
-            <div className="fixed inset-0 z-[100] bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[101] flex flex-col bg-card border-border-subtle shadow-2xl overflow-hidden transition-all duration-300",
-                centered
-                    ? `top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,512px)]'} max-h-[96dvh] border rounded-[2.5rem] animate-in fade-in zoom-in-95`
-                    : `inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full ${step === 'type_selection' ? 'sm:w-[min(100vw,768px)]' : 'sm:w-[min(100vw,420px)]'} max-h-[96dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-[2.5rem] sm:rounded-none`
+                "fixed z-[101] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "animate-in slide-in-from-bottom sm:slide-in-from-right",
+                "rounded-none sm:rounded-none"
             )}>
-                {/* Handle for mobile */}
-                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
-                    <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
-                </div>
 
                 {/* Header */}
-                <div className="p-4 border-b border-border-subtle bg-surface/50 flex items-center justify-between">
+                <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                             <CreditCard className="w-4 h-4" />
@@ -311,7 +307,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                     </button>
                 </div>
 
-                <div className="p-5 space-y-4 overflow-y-auto overscroll-contain flex-1 pb-32">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain">
 
                     {step === 'type_selection' ? (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -638,7 +634,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                 {/* Footer */}
                 {step === 'form' && (
-                    <div className="p-3 sm:p-4 border-t border-border-subtle bg-surface/50 flex gap-2 flex-shrink-0">
+                    <div className="p-3 sm:p-4 border-t border-border-subtle bg-card/80 backdrop-blur-md flex gap-2 flex-shrink-0 sticky bottom-0 z-10 pb-safe-offset-2">
                         <button onClick={onClose} className="flex-1 py-3 bg-card border border-border-subtle hover:border-border text-muted hover:text-primary text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
                             {t.cancel}
                         </button>

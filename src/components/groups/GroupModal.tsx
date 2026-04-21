@@ -199,16 +199,17 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
-            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[480px] max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
+            <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className={cn(
+                "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "animate-in slide-in-from-bottom sm:slide-in-from-right",
+                "rounded-none sm:rounded-none"
+            )}>
 
-                {/* Handle for mobile */}
-                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
-                    <div className="w-10 h-1 rounded-full bg-border-subtle opacity-60" />
-                </div>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md sticky top-0 z-10">
                     <div>
                         <h2 className="text-base font-bold text-primary">{isEdit ? t.editGroup : t.newGroup}</h2>
                         <p className="text-xs text-muted mt-0.5 opacity-70">{isEdit ? group.name : t.addGroupDescription}</p>
@@ -217,8 +218,12 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                         <X className="w-5 h-5" />
                     </button>
                 </div>
+<button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
 
-                <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6 overscroll-contain pb-32">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain">
 
                     {/* Group name */}
                     <div className="space-y-1.5">
@@ -455,7 +460,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-card/80 backdrop-blur-md">
+                <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-card/80 backdrop-blur-md sticky bottom-0 z-10 pb-safe-offset-2">
                     {isEdit && !showDelete && !isTeacher && (
                         <button onClick={() => setShowDelete(true)} className="w-full py-2 sm:py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2 text-center px-2">
                             <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.deleteGroup}</span>

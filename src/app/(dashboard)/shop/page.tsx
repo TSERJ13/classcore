@@ -222,68 +222,81 @@ export default function ShopPage() {
 
             {/* Modal */}
             {isAddOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/20" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
-                    <div className="relative bg-card border border-border-subtle w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h2 className="text-xl font-black text-primary mb-6">{editingProduct ? t.edit : t.addNew}</h2>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.productTitle}</label>
-                                <input
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
-                                    value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
+                    <div className={cn(
+                        "relative bg-card flex flex-col shadow-2xl transition-all duration-300 overflow-hidden",
+                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-md sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95"
+                    )}>
+                        {/* Header */}
+                        <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                            <h2 className="text-sm font-black text-primary uppercase tracking-widest">{editingProduct ? t.edit : t.addNew}</h2>
+                            <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6 sm:p-0 space-y-6 overscroll-contain">
+                            <h2 className="text-xl font-black text-primary mb-6 hidden sm:block">{editingProduct ? t.edit : t.addNew}</h2>
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.price} ({settings.currency})</label>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.productTitle}</label>
                                     <input
-                                        type="number"
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
-                                        value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })}
+                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-amber-500/50"
+                                        value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                                     />
                                 </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.stockValue}</label>
-                                    <input
-                                        type="number"
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
-                                        value={form.quantity} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })}
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.size}</label>
-                                    <input
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
-                                        value={form.size} onChange={e => setForm({ ...form, size: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.weight}</label>
-                                    <input
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
-                                        value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.photo}</label>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-surface border border-dashed border-border-subtle flex items-center justify-center overflow-hidden">
-                                        {form.photo_url ? (
-                                            <img src={form.photo_url} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <Camera className="w-6 h-6 text-muted/30" />
-                                        )}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.price} ({settings.currency})</label>
+                                        <input
+                                            type="number"
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-amber-500/50"
+                                            value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })}
+                                        />
                                     </div>
-                                    <input type="file" id="photo-up" className="hidden" accept="image/*" onChange={handleFile} />
-                                    <label htmlFor="photo-up" className="px-4 py-2 bg-surface border border-border-subtle rounded-xl text-[10px] font-black tracking-widest cursor-pointer hover:bg-amber-50 transition-colors">{t.upload}</label>
+                                    <div>
+                                        <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.stockValue}</label>
+                                        <input
+                                            type="number"
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-amber-500/50"
+                                            value={form.quantity} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.size}</label>
+                                        <input
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-amber-500/50"
+                                            value={form.size} onChange={e => setForm({ ...form, size: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.weight}</label>
+                                        <input
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-amber-500/50"
+                                            value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.photo}</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-2xl bg-surface border border-dashed border-border-subtle flex items-center justify-center overflow-hidden">
+                                            {form.photo_url ? (
+                                                <img src={form.photo_url} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Camera className="w-6 h-6 text-muted/30" />
+                                            )}
+                                        </div>
+                                        <input type="file" id="photo-up" className="hidden" accept="image/*" onChange={handleFile} />
+                                        <label htmlFor="photo-up" className="px-4 py-2 bg-surface border border-border-subtle rounded-xl text-[10px] font-black tracking-widest cursor-pointer hover:bg-amber-50 transition-colors uppercase">{t.upload}</label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="mt-8 space-y-3">
+
+                        {/* Footer */}
+                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-card/80 backdrop-blur-md sticky bottom-0 z-10 space-y-3 pb-safe-offset-2">
                             {editingProduct && (
                                 <button
                                     onClick={async () => {
@@ -300,8 +313,8 @@ export default function ShopPage() {
                                 </button>
                             )}
                             <div className="flex gap-3">
-                                <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="flex-1 py-3 font-bold text-sm text-muted">{t.cancel}</button>
-                                <button onClick={handleSaveProduct} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all">{editingProduct ? t.save : t.add}</button>
+                                <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="flex-1 py-3 font-bold text-[12px] sm:text-sm text-muted uppercase tracking-widest">{t.cancel}</button>
+                                <button onClick={handleSaveProduct} className="flex-[1.5] py-4 bg-amber-500 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all uppercase tracking-widest">{editingProduct ? t.save : t.add}</button>
                             </div>
                         </div>
                     </div>
@@ -442,62 +455,74 @@ export default function ShopPage() {
 
             {/* Sell Modal */}
             {isSellOpen && selectedProduct && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsSellOpen(false)} />
-                    <div className="relative bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-                                <ShoppingBag className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-black text-primary">{t.sellAction}</h2>
-                                <p className="text-xs font-bold text-muted truncate max-w-[200px]">{selectedProduct.name}</p>
-                            </div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSellOpen(false)} />
+                    <div className={cn(
+                        "relative bg-card flex flex-col shadow-2xl transition-all duration-300 overflow-hidden",
+                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-sm sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95"
+                    )}>
+                        {/* Header */}
+                        <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                            <h2 className="text-sm font-black text-primary uppercase tracking-widest">{t.sellAction}</h2>
+                            <button onClick={() => setIsSellOpen(false)} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
                         </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.stockValue} ({t.inventory}: {selectedProduct.quantity})</label>
-                                <input
-                                    type="number" min="1" max={selectedProduct.quantity}
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50"
-                                    value={sellForm.quantity} onChange={e => setSellForm({ ...sellForm, quantity: Number(e.target.value) })}
-                                />
+                        
+                        <div className="flex-1 overflow-y-auto p-6 sm:p-0 space-y-6 overscroll-contain">
+                            <div className="flex items-center gap-4 mb-6 hidden sm:flex">
+                                <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                                    <ShoppingBag className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black text-primary">{t.sellAction}</h2>
+                                    <p className="text-xs font-bold text-muted truncate max-w-[200px]">{selectedProduct.name}</p>
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.studentLabel}</label>
-                                <div className="mb-3">
-                                    <SearchSelect
-                                        options={[
-                                            ...getStudentsAllBranches().map(s => ({
-                                                value: s.id, label: s.full_name + (s.branch_id ? ` (${s.branch_id})` : '')
-                                            })),
-                                            { value: 'other', label: t.otherCustomer }
-                                        ]}
-                                        value={sellForm.studentId}
-                                        onChange={(val: string) => setSellForm({ ...sellForm, studentId: val })}
-                                        className="!border-border-subtle hover:!border-indigo-500/50 [&>div]:py-3 [&>div]:text-sm"
-                                        placeholder={t.selectClient}
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.stockValue} ({t.inventory}: {selectedProduct.quantity})</label>
+                                    <input
+                                        type="number" min="1" max={selectedProduct.quantity}
+                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-indigo-500/50"
+                                        value={sellForm.quantity} onChange={e => setSellForm({ ...sellForm, quantity: Number(e.target.value) })}
                                     />
                                 </div>
-                                {sellForm.studentId === 'other' && (
-                                    <input
-                                        placeholder={t.teacherName}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 animate-in fade-in slide-in-from-top-1"
-                                        value={sellForm.customerName} onChange={e => setSellForm({ ...sellForm, customerName: e.target.value })}
-                                    />
-                                )}
-                            </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.studentLabel}</label>
+                                    <div className="mb-3">
+                                        <SearchSelect
+                                            options={[
+                                                ...getStudentsAllBranches().map(s => ({
+                                                    value: s.id, label: s.full_name + (s.branch_id ? ` (${s.branch_id})` : '')
+                                                })),
+                                                { value: 'other', label: t.otherCustomer }
+                                            ]}
+                                            value={sellForm.studentId}
+                                            onChange={(val: string) => setSellForm({ ...sellForm, studentId: val })}
+                                            className="!border-border-subtle hover:!border-indigo-500/50 [&>div]:py-3 [&>div]:text-[12px] sm:[&>div]:text-sm"
+                                            placeholder={t.selectClient}
+                                        />
+                                    </div>
+                                    {sellForm.studentId === 'other' && (
+                                        <input
+                                            placeholder={t.teacherName}
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-indigo-500/50 animate-in fade-in slide-in-from-top-1"
+                                            value={sellForm.customerName} onChange={e => setSellForm({ ...sellForm, customerName: e.target.value })}
+                                        />
+                                    )}
+                                </div>
 
-                            <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl flex items-center justify-between">
-                                <span className="text-[10px] font-black text-indigo-600 tracking-widest">{t.totalAmount}:</span>
-                                <span className="text-xl font-black text-indigo-600 font-mono tracking-tighter">{formatCurrency(selectedProduct.price * sellForm.quantity, settings.currency)}</span>
+                                <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-indigo-600 tracking-widest uppercase">{t.totalAmount}:</span>
+                                    <span className="text-xl font-black text-indigo-600 font-mono tracking-tighter">{formatCurrency(selectedProduct.price * sellForm.quantity, settings.currency)}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => setIsSellOpen(false)} className="flex-1 py-3 font-bold text-sm text-muted">{t.cancel}</button>
-                            <button onClick={handleSell} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        {/* Footer */}
+                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-card/80 backdrop-blur-md sticky bottom-0 z-10 flex gap-3 pb-safe-offset-2">
+                            <button onClick={() => setIsSellOpen(false)} className="flex-1 py-3 font-bold text-[12px] sm:text-sm text-muted uppercase tracking-widest">{t.cancel}</button>
+                            <button onClick={handleSell} className="flex-[1.5] py-4 bg-indigo-600 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                                 <CheckCircle2 className="w-4 h-4" />
                                 {t.save}
                             </button>
@@ -508,38 +533,50 @@ export default function ShopPage() {
 
             {/* Edit Sale Modal */}
             {isEditSaleOpen && selectedSale && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/20" onClick={() => setIsEditSaleOpen(false)} />
-                    <div className="relative bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-                                <Edit2 className="w-6 h-6" />
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsEditSaleOpen(false)} />
+                    <div className={cn(
+                        "relative bg-card flex flex-col shadow-2xl transition-all duration-300 overflow-hidden",
+                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-sm sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95"
+                    )}>
+                        {/* Header */}
+                        <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                            <h2 className="text-sm font-black text-primary uppercase tracking-widest">{t.editSale}</h2>
+                            <button onClick={() => setIsEditSaleOpen(false)} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6 sm:p-0 space-y-6 overscroll-contain">
+                            <div className="flex items-center gap-4 mb-6 hidden sm:flex">
+                                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+                                    <Edit2 className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black text-primary">{t.editSale}</h2>
+                                    <p className="text-xs font-bold text-muted truncate max-w-[200px]">{selectedSale.productName}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-lg font-black text-primary">{t.editSale}</h2>
-                                <p className="text-xs font-bold text-muted truncate max-w-[200px]">{selectedSale.productName}</p>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{t.stockValue} ({t.active}: {selectedSale.quantity})</label>
+                                    <input
+                                        type="number" min="1"
+                                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm focus:outline-none focus:border-amber-500/50"
+                                        value={sellForm.quantity} onChange={e => setSellForm({ ...sellForm, quantity: Number(e.target.value) })}
+                                    />
+                                </div>
+
+                                <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-amber-600 tracking-widest uppercase">{t.totalAmount} (new):</span>
+                                    <span className="text-xl font-black text-amber-600 font-mono tracking-tighter">{formatCurrency((selectedSale.price / selectedSale.quantity) * Number(sellForm.quantity), settings.currency)}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50">{t.stockValue} ({t.active}: {selectedSale.quantity})</label>
-                                <input
-                                    type="number" min="1"
-                                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50"
-                                    value={sellForm.quantity} onChange={e => setSellForm({ ...sellForm, quantity: Number(e.target.value) })}
-                                />
-                            </div>
-
-                            <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-center justify-between">
-                                <span className="text-[10px] font-black text-amber-600 tracking-widest">{t.totalAmount} (new):</span>
-                                <span className="text-xl font-black text-amber-600 font-mono tracking-tighter">{formatCurrency((selectedSale.price / selectedSale.quantity) * Number(sellForm.quantity), settings.currency)}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => setIsEditSaleOpen(false)} className="flex-1 py-3 font-bold text-sm text-muted">{t.cancel}</button>
-                            <button onClick={handleEditSale} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        {/* Footer */}
+                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-card/80 backdrop-blur-md sticky bottom-0 z-10 flex gap-3 pb-safe-offset-2">
+                            <button onClick={() => setIsEditSaleOpen(false)} className="flex-1 py-3 font-bold text-[12px] sm:text-sm text-muted uppercase tracking-widest">{t.cancel}</button>
+                            <button onClick={handleEditSale} className="flex-[1.5] py-4 bg-amber-500 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                                 <CheckCircle2 className="w-4 h-4" />
                                 {t.save}
                             </button>

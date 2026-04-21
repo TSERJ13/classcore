@@ -92,16 +92,17 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-transparent animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
 
-            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[420px] max-w-full max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
-                {/* Handle for mobile */}
-                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
-                    <div className="w-10 h-1 rounded-full bg-border-subtle opacity-60" />
-                </div>
+            <div className={cn(
+                "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "animate-in slide-in-from-bottom sm:slide-in-from-right",
+                "rounded-none sm:rounded-none"
+            )}>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md sticky top-0 z-10">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center shadow-inner">
                             <User className="w-5 h-5 text-indigo-500" />
@@ -115,7 +116,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain pb-32">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain">
                     {/* Photo Upload */}
                     {/* Photo Upload & Role */}
                     <div className="flex gap-4">
@@ -182,15 +183,14 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     {/* Basic info */}
                     <section className="space-y-4">
                         <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.basicInfo}</p>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('სახელი', 'Имя', 'First Name')} *</label>
                                 <div className="relative group/input">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.first_name ?? ''} onChange={e => setF('first_name', e.target.value)}
                                         placeholder={l('სახელი', 'Имя', 'First Name')}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                 </div>
                             </div>
                             <div className="space-y-1.5">
@@ -199,7 +199,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.last_name ?? ''} onChange={e => setF('last_name', e.target.value)}
                                         placeholder={l('გვარი', 'Фамилия', 'Last Name')}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                 </div>
                             </div>
                         </div>
@@ -454,7 +454,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md">
+                <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md sticky bottom-0 z-10 pb-safe-offset-2">
                     {isEdit && !isDeletingConfirm && (
                         <button onClick={() => setIsDeletingConfirm(true)}
                             className="w-full mb-3 sm:mb-4 py-2 sm:py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
@@ -479,8 +479,8 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             {t.cancel}
                         </button>
                         <button onClick={save} disabled={!form.first_name?.trim() || !form.last_name?.trim() || !form.phone?.trim()}
-                            className="flex-[1.5] py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-[10px] sm:text-sm font-black rounded-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-indigo-500/25 active:scale-95 uppercase tracking-widest px-2">
-                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.save}</span>
+                            className="flex-[1.5] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] sm:text-sm font-black rounded-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 uppercase tracking-widest px-2">
+                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{saving ? t.loading : t.save}</span>
                         </button>
                     </div>
                 </div>

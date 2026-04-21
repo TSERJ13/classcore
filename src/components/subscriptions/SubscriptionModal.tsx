@@ -42,19 +42,15 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
 
     return (
         <>
-            <div className="fixed inset-0 z-[100] bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
+            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[101] flex flex-col bg-card border-border-subtle shadow-2xl overflow-hidden transition-all duration-300",
-                centered
-                    ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] sm:w-[min(100vw,512px)] max-h-[92dvh] border rounded-[2.5rem] animate-in fade-in zoom-in-95"
-                    : "inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto w-full sm:w-[min(100vw,420px)] max-h-[92dvh] sm:max-h-none sm:border-l border-t sm:border-t-0 animate-in slide-in-from-bottom sm:slide-in-from-right rounded-t-[2.5rem] sm:rounded-none"
+                "fixed z-[101] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "animate-in slide-in-from-bottom sm:slide-in-from-right",
+                "rounded-none sm:rounded-none"
             )}>
-                {/* Handle for mobile */}
-                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
-                    <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
-                </div>
                 {/* Header */}
-                <div className="p-6 border-b border-border-subtle bg-surface/50 flex items-center justify-between">
+                <div className="p-6 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                             <CreditCard className="w-5 h-5" />
@@ -69,7 +65,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     </button>
                 </div>
 
-                <div className="p-8 space-y-6">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5 sm:space-y-6 overscroll-contain">
                     {/* Plan Name */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.studentName}</label>
@@ -214,7 +210,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 bg-surface/50 border-t border-border-subtle flex items-center justify-between gap-3">
+                <div className="p-4 sm:p-6 bg-card/80 backdrop-blur-md border-t border-border-subtle flex items-center justify-between gap-3 sticky bottom-0 z-10 pb-safe-offset-2">
                     {onDelete && !isTeacher && (
                         <button
                             onClick={async () => {

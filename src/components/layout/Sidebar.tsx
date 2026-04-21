@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, CalendarCheck, BookOpen, Settings,
     CreditCard, Receipt, GraduationCap, BarChart2,
     CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare,
-    Building2, Plus, Check, LogOut, Zap
+    Building2, Plus, Check, LogOut, Zap, Cloud
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -179,6 +179,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                     '/shop': 'canViewShop',
                     '/analytics': 'canViewAnalytics',
                     '/sms-manager': 'canViewSMS',
+                    '/billing': 'canViewBilling',
                 };
 
                 const permKey = mapping[item.href];
@@ -189,10 +190,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                     return (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role);
                 }
 
-                // --- MOBILE / iPAD ITEM PRUNING ---
-                // Only show core operational items on constrained screens to prevent scrolling junk
                 if (isMobile || (typeof window !== 'undefined' && window.innerWidth < 1024)) {
-                    // Strictly reduced list for mobile as requested
                     const ESSENTIAL_MOBILE = ['/dashboard', '/attendance', '/students', '/settings'];
                     return ESSENTIAL_MOBILE.includes(item.href);
                 }
@@ -228,7 +226,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             {exp && (
                                 <span className={cn(
                                     "truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", 
-                                    isMobile ? "text-[8.5px]" : href === '/dashboard' ? "text-[16px]" : "text-[14.5px]"
+                                    isMobile ? "text-[8.1px]" : href === '/dashboard' ? "text-[16px]" : "text-[14.5px]"
                                 )}>
                                     {t[labelKey]}
                                 </span>
@@ -285,7 +283,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 transition-all",
-                        exp ? (isMobile ? "p-2 pb-safe" : "p-4 pb-6") : "py-4"
+                        exp ? (isMobile ? "p-2 pb-10" : "p-4 pb-6") : "py-4"
                     )}>
                         <div className={cn(
                             "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl p-0.5",
@@ -297,17 +295,27 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 align="left" 
                                 className={cn(
                                     exp ? "flex-1 hover:bg-white/[0.05] h-9 px-3" : "w-8.5 h-8.5 bg-white/5 rounded-xl",
-                                    isMobile && "scale-[0.85] origin-left"
+                                    isMobile && "scale-[0.80] origin-left"
                                 )} 
                             />
                             
+                            {exp && (
+                                <div className="flex items-center gap-2 px-2 border-l border-white/10 ml-1">
+                                    <div className="relative flex items-center justify-center">
+                                        <Cloud className="w-3.5 h-3.5 text-emerald-500 opacity-40" strokeWidth={2.5} />
+                                        <div className="absolute inset-0 bg-emerald-500/30 rounded-full animate-pulse-slow blur-[4px]" />
+                                        <div className="absolute w-[6px] h-[6px] bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                    </div>
+                                </div>
+                            )}
+
                             {exp && <div className="w-px h-5 bg-white/10 shrink-0 mx-1" />}
 
                             <button
                                 onClick={logout}
                                 className={cn(
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
-                                    exp ? (isMobile ? "w-10 h-9" : "w-10 h-9") : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2"
+                                    exp ? (isMobile ? "w-9 h-9" : "w-10 h-9") : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
@@ -390,21 +398,57 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
             </div>
 
             {branchModalOpen && (profile?.role === 'owner' || profile?.role === 'admin') && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20" onClick={() => setBranchModalOpen(false)}>
-                    <div className="bg-card border border-border-subtle rounded-[2rem] w-full max-w-sm p-8 shadow-2xl flex flex-col gap-6" onClick={e => e.stopPropagation()}>
-                        <div className="flex flex-col items-center text-center gap-2">
-                            <Building2 className="w-8 h-8 text-indigo-500 mb-2" />
-                            <h3 className="text-xl font-black text-primary">{l('ახალი ფილიალი', 'Новый филиал', 'Add New Branch')}</h3>
+                <>
+                    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setBranchModalOpen(false)} />
+                    <div className={cn(
+                        "fixed z-[101] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                        "inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-sm sm:rounded-[2.5rem]",
+                        "animate-in zoom-in-95 sm:zoom-in-95"
+                    )}>
+                        {/* Header */}
+                        <div className="p-6 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                            <h2 className="text-sm font-black text-primary uppercase tracking-widest">{l('ახალი ფილიალი', 'Новый филиал', 'Add New Branch')}</h2>
+                            <button onClick={() => setBranchModalOpen(false)} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
                         </div>
-                        <input value={newBranchName} onChange={e => setNewBranchName(e.target.value)} placeholder={l('სახელი', 'Имя', 'Name')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold" />
-                        <input value={newBranchAddress} onChange={e => setNewBranchAddress(e.target.value)} placeholder={l('მისამართი', 'Адрес', 'Address')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold" />
-                        <div className="flex gap-3">
-                            <button onClick={() => setBranchModalOpen(false)} className="flex-1 py-3 bg-surface text-muted rounded-xl border border-border-subtle">{l('გაუქმება', 'Отмена', 'Cancel')}</button>
-                            <button onClick={() => { if (newBranchName.trim()) { addBranch(newBranchName.trim(), newBranchAddress.trim()); setBranchModalOpen(false); setNewBranchName(''); setNewBranchAddress(''); } }} className="flex-2 py-3 bg-indigo-600 text-white rounded-xl font-bold">{l('შექმნა', 'Создать', 'Create')}</button>
+
+                        <div className="flex-1 overflow-y-auto p-8 space-y-6 overscroll-contain">
+                            <div className="flex flex-col items-center text-center gap-2">
+                                <Building2 className="w-8 h-8 text-indigo-500 mb-2" />
+                                <h3 className="text-xl font-black text-primary">{l('ახალი ფილიალი', 'Новый филиალ', 'Add New Branch')}</h3>
+                            </div>
+                            <div className="space-y-4 text-left">
+                                <div>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{l('სახელი', 'Имя', 'Name')}</label>
+                                    <input autoFocus value={newBranchName} onChange={e => setNewBranchName(e.target.value)} placeholder={l('სახელი', 'Имя', 'Name')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm font-bold focus:outline-none focus:border-indigo-500/50" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{l('მისამართი', 'Адрес', 'Address')}</label>
+                                    <input value={newBranchAddress} onChange={e => setNewBranchAddress(e.target.value)} placeholder={l('მისამართი', 'Адрес', 'Address')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm font-bold focus:outline-none focus:border-indigo-500/50" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-6 bg-card/80 backdrop-blur-md border-t border-border-subtle flex gap-3 sticky bottom-0 z-10 pb-safe-offset-2">
+                            <button onClick={() => setBranchModalOpen(false)} className="flex-1 py-3 bg-surface text-muted rounded-xl border border-border-subtle text-xs font-black uppercase tracking-widest">{l('გაუქმება', 'Отмена', 'Cancel')}</button>
+                            <button
+                                onClick={() => {
+                                    if (newBranchName.trim()) {
+                                        addBranch(newBranchName.trim(), newBranchAddress.trim());
+                                        setBranchModalOpen(false);
+                                        setNewBranchName('');
+                                        setNewBranchAddress('');
+                                    }
+                                }}
+                                className="flex-2 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest"
+                            >
+                                {l('შექმნა', 'Создать', 'Create')}
+                            </button>
                         </div>
                     </div>
-                </div>
+                </>
             )}
         </>
     );
 }
+

@@ -66,18 +66,22 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
     // deleted local helper l
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/20 animate-in fade-in duration-200">
-            <div className="bg-card w-full max-w-md rounded-[2.5rem] shadow-2xl border border-border-subtle overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+        <div className={cn(
+            "fixed z-[201] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+            "inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md sm:rounded-[2.5rem]",
+            "animate-in zoom-in-95 sm:zoom-in-95"
+        )}>
 
                 {/* Header */}
-                <div className="p-6 border-b border-border-subtle bg-surface/50 flex items-center justify-between">
+                <div className="p-6 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-500">
                             <MessageSquare className="w-5 h-5" />
                         </div>
                         <div>
                             <h2 className="text-lg font-black text-primary tracking-tight">{t.sendSms}</h2>
-                            <p className="text-[10px] font-bold text-muted">{t.recipient}: <span className="text-primary">{studentName} ({studentPhone})</span></p>
+                            <p className="text-[10px] font-bold text-muted truncate max-w-[200px]">{t.recipient}: <span className="text-primary">{studentName} ({studentPhone})</span></p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-xl hover:bg-surface text-muted transition-colors">
@@ -86,7 +90,7 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
                 </div>
 
                 {/* Body */}
-                <div className="p-6 space-y-4">
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 overscroll-contain no-scrollbar">
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.messageText}</label>
                         <textarea
@@ -123,10 +127,10 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-border-subtle bg-surface/50 flex gap-3">
+                <div className="p-6 border-t border-border-subtle bg-card/80 backdrop-blur-md sticky bottom-0 z-10 flex gap-3 pb-safe-offset-2">
                     <button
                         onClick={onClose}
-                        className="flex-1 py-3.5 bg-card border border-border-subtle hover:border-border text-muted hover:text-primary text-xs font-bold rounded-2xl transition-all"
+                        className="flex-1 py-3.5 bg-surface border border-border-subtle hover:border-border text-muted hover:text-primary text-xs font-bold rounded-2xl transition-all"
                     >
                         {t.cancel}
                     </button>

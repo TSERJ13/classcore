@@ -476,7 +476,7 @@ export function Header() {
                     </button>
                 </div>
                 {/* Centered Page Title */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mt-safe pointer-events-none">
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%-4px)] pointer-events-none whitespace-nowrap">
                     <h1 className="text-[12px] md:text-sm font-black text-primary tracking-tight md:tracking-wider truncate max-w-[140px] md:max-w-[300px] uppercase">
                         {displayTitle || rawTitle || (isDashboard ? t.dashboard : '')}
                     </h1>
@@ -489,45 +489,45 @@ export function Header() {
                             setMessengerOpen(false);
                             setNotifOpen(false);
                         }}
-                        className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Notes"
                     >
-                        <Pin className="w-4 h-4 md:w-5 h-5 -rotate-45" />
+                        <Pin className="w-[18px] h-[18px] md:w-5 h-5 -rotate-45" />
                         {uncompletedNotesCount > 0 && (
-                            <span className="absolute top-2.5 right-2.5 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
+                            <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
                         )}
                     </button>
-
+ 
                     <button
                         onClick={() => {
                             setMessengerOpen(true);
                             setNotifOpen(false);
                             setNotesOpen(false);
                         }}
-                        className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Messenger"
                     >
-                        <MessageSquare className="w-4 h-4 md:w-5 h-5" />
+                        <MessageSquare className="w-[18px] h-[18px] md:w-5 h-5" />
                         {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
                             <span className={cn(
-                                "absolute top-2.5 right-2.5 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
+                                "absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
                                 unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
                             )} />
                         )}
                     </button>
-
+ 
                     <button
                         onClick={() => {
                             setNotifOpen((v: boolean) => !v);
                             setMessengerOpen(false);
                             setNotesOpen(false);
                         }}
-                        className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Notifications"
                     >
-                        <Bell className="w-4 h-4 md:w-5 h-5" />
+                        <Bell className="w-[18px] h-[18px] md:w-5 h-5" />
                         {unreadCount > 0 && (
-                            <span className="absolute top-2.5 right-2.5 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
+                            <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
                         )}
                     </button>
                 </div>
@@ -535,32 +535,46 @@ export function Header() {
 
             {/* New Branch Modal */}
             {branchModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 animate-in fade-in duration-300">
-                    <div className="bg-card border border-border-subtle rounded-[2rem] w-full max-w-sm p-8 shadow-2xl flex flex-col gap-6 animate-in zoom-in-95 duration-300">
-                        <div className="flex flex-col items-center text-center gap-2">
-                            <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-2">
-                                <Building2 className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-xl font-black text-primary tracking-tight">{t.newBranch}</h3>
-                            <p className="text-xs font-bold text-muted px-4 leading-relaxed opacity-60">
-                                {t.enterBranchName}
-                            </p>
+                <>
+                    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setBranchModalOpen(false)} />
+                    <div className={cn(
+                        "fixed z-[101] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                        "inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-sm sm:rounded-[2.5rem]",
+                        "animate-in zoom-in-95 sm:zoom-in-95"
+                    )}>
+                        {/* Header */}
+                        <div className="p-6 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                            <h2 className="text-sm font-black text-primary uppercase tracking-widest">{t.newBranch}</h2>
+                            <button onClick={() => setBranchModalOpen(false)} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="relative group">
-                                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-indigo-500 transition-colors" />
-                                <input
-                                    autoFocus
-                                    value={newBranchName}
-                                    onChange={e => setNewBranchName(e.target.value)}
-                                    placeholder={t.branchNamePlaceholder}
-                                    className="w-full bg-surface border border-border-subtle rounded-2xl pl-11 pr-4 py-4 text-sm font-black focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-inner"
-                                />
+                        <div className="flex-1 overflow-y-auto p-8 space-y-6 overscroll-contain">
+                            <div className="flex flex-col items-center text-center gap-2">
+                                <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-2">
+                                    <Building2 className="w-8 h-8" />
+                                </div>
+                                <h3 className="text-xl font-black text-primary tracking-tight">{t.newBranch}</h3>
+                                <p className="text-xs font-bold text-muted px-4 leading-relaxed opacity-60">
+                                    {t.enterBranchName}
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="relative group">
+                                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-indigo-500 transition-colors" />
+                                    <input
+                                        autoFocus
+                                        value={newBranchName}
+                                        onChange={e => setNewBranchName(e.target.value)}
+                                        placeholder={t.branchNamePlaceholder}
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl pl-11 pr-4 py-4 text-[12px] sm:text-sm font-black focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-inner"
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-3">
+                        {/* Footer */}
+                        <div className="p-6 bg-card/80 backdrop-blur-md border-t border-border-subtle flex gap-3 sticky bottom-0 z-10 pb-safe-offset-2">
                             <button
                                 onClick={() => {
                                     setBranchModalOpen(false);
@@ -583,7 +597,7 @@ export function Header() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </>
             )}
 
             {notifOpen && (
