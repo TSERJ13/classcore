@@ -48,7 +48,7 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
             {/* Loading Overlay with Smooth Fade-out */}
             <div className={cn(
                 "fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8 transition-all duration-700 pointer-events-none",
-                isLoading ? "opacity-100" : "opacity-0 invisible scale-105"
+                isLoading ? "opacity-100 scale-100" : "opacity-0 invisible scale-100"
             )}>
                 <div className="flex flex-col items-center justify-center gap-6">
                     <div className="w-[60px] h-[60px] flex items-center justify-center">
