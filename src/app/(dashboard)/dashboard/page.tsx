@@ -1256,8 +1256,8 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* Bottom spacer for mobile navigation clearance */}
-            <div className="h-20 lg:hidden" />
+            {/* Bottom spacer for mobile navigation clearance - increased for max scrolling range */}
+            <div className="h-48 lg:hidden" />
         </div>
     );
 }

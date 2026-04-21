@@ -283,7 +283,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
                         exp 
-                            ? (isMobile ? "p-1.5 flex items-center gap-2 mb-8" : "p-3 flex items-center gap-4") 
+                            ? (isMobile ? "p-1.5 flex items-center gap-2 mb-4" : "p-3 flex items-center gap-4") 
                             : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
