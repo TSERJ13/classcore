@@ -86,7 +86,7 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 export default function SettingsPage() {
     const { t, lang, setLang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const { settings, isLoaded, setTheme, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo } = useStudio();
+    const { settings, isLoaded, setTheme, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
     const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin';
@@ -1518,13 +1518,23 @@ export default function SettingsPage() {
                             </p>
                         </div>
 
-                        <button 
-                            onClick={handleExportData}
-                            className="w-full py-4 rounded-2xl bg-indigo-600 text-white text-xs font-black tracking-[0.2em] shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase"
-                        >
-                            <Download className="w-4 h-4" />
-                            {l('რეზერვის ჩამოტვირთვა', 'Скачать Бэкап', 'Download Backup')}
-                        </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button 
+                                onClick={handleExportData}
+                                className="py-4 rounded-2xl bg-indigo-600 text-white text-[10px] font-black tracking-[0.2em] shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-[0.95] transition-all flex items-center justify-center gap-2 uppercase"
+                            >
+                                <Download className="w-4 h-4" />
+                                {l('ჩამოტვირთვა', 'Скачать', 'Download')}
+                            </button>
+                            <button 
+                                onClick={() => importFileRef.current?.click()}
+                                className="py-4 rounded-2xl bg-surface border border-indigo-500/20 text-indigo-500 text-[10px] font-black tracking-[0.2em] hover:bg-indigo-500/5 active:scale-[0.95] transition-all flex items-center justify-center gap-2 uppercase"
+                            >
+                                <Upload className="w-4 h-4" />
+                                {l('აღდგენა ფაილიდან', 'Восстановить', 'Restore from File')}
+                            </button>
+                            <input ref={importFileRef} type="file" accept=".json" className="hidden" onChange={handleImportData} />
+                        </div>
                         
                         <p className="text-[8px] text-center font-bold text-muted/40 uppercase tracking-widest">
                             {l('ბოლო ავტომატური რეზერვი ღრუბელში:', 'Последний бэкап в облаке:', 'Last cloud backup:')} {new Date().toLocaleDateString()}
