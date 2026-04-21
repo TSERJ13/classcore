@@ -625,7 +625,7 @@ export function StudentModal({
                 "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 centered 
                     ? "inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-xl sm:max-h-[90vh] sm:rounded-[2.5rem] rounded-[2rem]"
-                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-full sm:h-auto top-0 bottom-0",
+                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto top-0 bottom-0",
                 "animate-in fade-in duration-300",
                 centered ? "zoom-in-95" : "sm:slide-in-from-right",
                 "rounded-none sm:rounded-none"

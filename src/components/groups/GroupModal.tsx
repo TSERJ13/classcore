@@ -202,14 +202,14 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto top-0 bottom-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
 
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md sticky top-0 z-10">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10">
                     <div>
                         <h2 className="text-base font-bold text-primary">{isEdit ? t.editGroup : t.newGroup}</h2>
                         <p className="text-xs text-muted mt-0.5 opacity-70">{isEdit ? group.name : t.addGroupDescription}</p>
@@ -456,7 +456,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-card/80 backdrop-blur-md sticky bottom-0 z-10 pb-safe-offset-2">
+                <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe">
                     {isEdit && !showDelete && !isTeacher && (
                         <button onClick={() => setShowDelete(true)} className="w-full py-2 sm:py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2 text-center px-2">
                             <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.deleteGroup}</span>
@@ -473,8 +473,8 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                         </div>
                     )}
                     <div className="flex gap-2 sm:gap-3">
-                        <button onClick={onClose} className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">{t.cancel}</button>
-                        <button onClick={save} disabled={!form.name || saving} className="flex-[1.5] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] xs:text-[11px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 sm:gap-2 uppercase tracking-widest px-2">
+                        <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest shadow-sm">{t.cancel}</button>
+                        <button onClick={save} disabled={!form.name || saving} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] xs:text-[11px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 sm:gap-2 uppercase tracking-widest px-2">
                             {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />}
                             <span className="truncate">{saving ? t.loading : t.saveAndSync}</span>
                         </button>

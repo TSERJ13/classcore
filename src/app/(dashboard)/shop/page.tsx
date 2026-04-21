@@ -226,10 +226,10 @@ export default function ShopPage() {
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} />
                     <div className={cn(
                         "relative bg-card flex flex-col shadow-2xl transition-all duration-300 overflow-hidden",
-                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-md sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95"
+                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-md sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95 h-full sm:h-auto top-0 bottom-0"
                     )}>
                         {/* Header */}
-                        <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                        <div className="p-4 border-b border-border-subtle bg-white/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
                             <h2 className="text-sm font-black text-primary uppercase tracking-widest">{editingProduct ? t.edit : t.addNew}</h2>
                             <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
                         </div>
@@ -296,25 +296,10 @@ export default function ShopPage() {
                         </div>
 
                         {/* Footer */}
-                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-card/80 backdrop-blur-md sticky bottom-0 z-10 space-y-3 pb-safe-offset-2">
-                            {editingProduct && (
-                                <button
-                                    onClick={async () => {
-                                        if (await confirm(t.deleteConfirm)) {
-                                            const newProds = products.filter(p => p.id !== editingProduct.id);
-                                            saveProducts(newProds);
-                                            setIsAddOpen(false);
-                                            setEditingProduct(null);
-                                        }
-                                    }}
-                                    className="w-full py-2.5 text-red-500/60 hover:text-red-500 text-[10px] font-black tracking-widest uppercase border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2"
-                                >
-                                    <Trash2 className="w-3 h-3" /> {t.delete}
-                                </button>
-                            )}
+                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-white/90 backdrop-blur-md pb-safe sticky bottom-0 z-10 space-y-3">
                             <div className="flex gap-3">
-                                <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="flex-1 py-3 font-bold text-[12px] sm:text-sm text-muted uppercase tracking-widest">{t.cancel}</button>
-                                <button onClick={handleSaveProduct} className="flex-[1.5] py-4 bg-amber-500 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all uppercase tracking-widest">{editingProduct ? t.save : t.add}</button>
+                                <button onClick={() => { setIsAddOpen(false); setEditingProduct(null); }} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold text-[12px] sm:text-sm uppercase tracking-widest rounded-xl transition-all">{t.cancel}</button>
+                                <button onClick={handleSaveProduct} className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all uppercase tracking-widest">{editingProduct ? t.save : t.add}</button>
                             </div>
                         </div>
                     </div>
@@ -459,10 +444,10 @@ export default function ShopPage() {
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSellOpen(false)} />
                     <div className={cn(
                         "relative bg-card flex flex-col shadow-2xl transition-all duration-300 overflow-hidden",
-                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-sm sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95"
+                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-sm sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95 h-full sm:h-auto top-0 bottom-0"
                     )}>
                         {/* Header */}
-                        <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                        <div className="p-4 border-b border-border-subtle bg-white/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
                             <h2 className="text-sm font-black text-primary uppercase tracking-widest">{t.sellAction}</h2>
                             <button onClick={() => setIsSellOpen(false)} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
                         </div>
@@ -520,9 +505,9 @@ export default function ShopPage() {
                         </div>
 
                         {/* Footer */}
-                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-card/80 backdrop-blur-md sticky bottom-0 z-10 flex gap-3 pb-safe-offset-2">
-                            <button onClick={() => setIsSellOpen(false)} className="flex-1 py-3 font-bold text-[12px] sm:text-sm text-muted uppercase tracking-widest">{t.cancel}</button>
-                            <button onClick={handleSell} className="flex-[1.5] py-4 bg-indigo-600 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-white/90 backdrop-blur-md pb-safe sticky bottom-0 z-10 flex gap-3">
+                            <button onClick={() => setIsSellOpen(false)} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold text-[12px] sm:text-sm uppercase tracking-widest rounded-xl transition-all">{t.cancel}</button>
+                            <button onClick={handleSell} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                                 <CheckCircle2 className="w-4 h-4" />
                                 {t.save}
                             </button>
@@ -537,12 +522,12 @@ export default function ShopPage() {
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsEditSaleOpen(false)} />
                     <div className={cn(
                         "relative bg-card flex flex-col shadow-2xl transition-all duration-300 overflow-hidden",
-                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-sm sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95"
+                        "inset-0 fixed sm:static sm:inset-auto sm:w-full sm:max-w-sm sm:rounded-[2.5rem] sm:p-8 sm:animate-in sm:zoom-in-95 h-full sm:h-auto top-0 bottom-0"
                     )}>
                         {/* Header */}
-                        <div className="p-4 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
+                        <div className="p-4 border-b border-border-subtle bg-white/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between sm:hidden">
                             <h2 className="text-sm font-black text-primary uppercase tracking-widest">{t.editSale}</h2>
-                            <button onClick={() => setIsEditSaleOpen(false)} className="p-2 text-muted"><Plus className="w-5 h-5 rotate-45" /></button>
+                            <button onClick={() => setIsEditSaleOpen(false)} className="p-2 text-muted"><X className="w-5 h-5" /></button>
                         </div>
                         
                         <div className="flex-1 overflow-y-auto p-6 sm:p-0 space-y-6 overscroll-contain">
@@ -574,9 +559,9 @@ export default function ShopPage() {
                         </div>
 
                         {/* Footer */}
-                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-card/80 backdrop-blur-md sticky bottom-0 z-10 flex gap-3 pb-safe-offset-2">
-                            <button onClick={() => setIsEditSaleOpen(false)} className="flex-1 py-3 font-bold text-[12px] sm:text-sm text-muted uppercase tracking-widest">{t.cancel}</button>
-                            <button onClick={handleEditSale} className="flex-[1.5] py-4 bg-amber-500 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                        <div className="p-4 sm:p-0 sm:mt-8 border-t sm:border-0 border-border-subtle bg-white/90 backdrop-blur-md pb-safe sticky bottom-0 z-10 flex gap-3">
+                            <button onClick={() => setIsEditSaleOpen(false)} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold text-[12px] sm:text-sm uppercase tracking-widest rounded-xl transition-all">{t.cancel}</button>
+                            <button onClick={handleEditSale} className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-[12px] sm:text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                                 <CheckCircle2 className="w-4 h-4" />
                                 {t.save}
                             </button>
