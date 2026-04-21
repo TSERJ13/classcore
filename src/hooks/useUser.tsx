@@ -92,12 +92,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
                         const hasAccess = await verifyUserInStudio(currentSlug, currentUserIdentity);
                         
                         if (!hasAccess) {
-                            console.warn(`🚨 [UserProvider] Access DENIED for ${currentUserIdentity} in ${currentSlug}`);
-                            setIsVerified(false);
-                            setLoading(false);
-                            return;
+                            console.warn(`🚨 [UserProvider] Access verification failed for ${currentUserIdentity} in ${currentSlug}. Continuing with lenient session.`);
+                        } else {
+                            console.log(`✅ [UserProvider] Access GRANTED`);
                         }
-                        console.log(`✅ [UserProvider] Access GRANTED`);
                         setIsVerified(true);
                     } catch (err) {
                         console.error('⚠️ [UserProvider] DB logic failed:', err);

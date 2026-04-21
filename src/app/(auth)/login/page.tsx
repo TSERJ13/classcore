@@ -320,7 +320,7 @@ export default function LoginPage() {
                         
                         <div className="relative">
                             <div className="absolute inset-0 bg-indigo-500/20 blur-[40px] animate-ping rounded-full scale-75" />
-                            <Logo size={120} animated loading className="relative z-10" />
+                            <Logo size={90} animated loading className="relative z-10" />
                         </div>
 
                         <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">

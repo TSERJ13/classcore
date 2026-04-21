@@ -327,11 +327,6 @@ export function StudentModal({
                     lName = parts.slice(1).join(' ') || '';
                 }
 
-                const notes = student.notes ?? '';
-                const parentMatch = notes.match(/^Parent:\s*([^|]*)\|?\s*(.*)$/);
-                const parentName = parentMatch ? parentMatch[1].trim() : '';
-                const cleanNotes = parentMatch ? parentMatch[2].trim() : notes;
-
                 setForm({
                     id: student.id,
                     first_name: fName,
@@ -339,8 +334,8 @@ export function StudentModal({
                     phone: student.phone ?? '',
                     email: student.email ?? '',
                     birth_date: student.birth_date ?? '',
-                    notes: cleanNotes,
-                    parent_name: parentName,
+                    notes: student.notes ?? '',
+                    parent_name: student.parent_name ?? '',
                     dance_style: student.dance_style ?? '',
                     medical_cert_expires_at: student.medical_cert_expires_at ?? '',
                     photo_url: student.photo_url ?? '',
@@ -603,14 +598,8 @@ export function StudentModal({
             unregisterStudentUid(student.id);
         }
 
-        // If ID changed, we might need to handle it, but let onSave handle the bulk
-        const finalNotes = form.parent_name 
-            ? `Parent: ${form.parent_name} | ${form.notes}`
-            : form.notes;
-
         onSave({
             ...form,
-            notes: finalNotes,
             discount_value: form.discount_value === '' ? 0 : form.discount_value,
             id: finalId,
             full_name: fullName

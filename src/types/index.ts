@@ -244,6 +244,7 @@ export interface Student {
     email?: string;
     birth_date?: string;
     notes?: string;
+    parent_name?: string;
     // dance niche
     dance_style?: string;
     // sports/admin niche
