@@ -178,9 +178,7 @@ export async function pushStudioStateToCloud(
                         .update({
                             logo_url: settings.logoDataUrl || undefined,
                             studio_name: settings.studioName || undefined,
-                            owner_info: settings.owner_info || undefined,
-                            plan: settings.plan || undefined,
-                            status: settings.status || undefined
+                            owner_info: settings.owner_info || undefined
                         })
                         .eq('studio_slug', slug);
 
