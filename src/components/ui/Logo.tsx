@@ -19,11 +19,11 @@ export const Logo: React.FC<LogoProps> = ({
   return (
     <div 
       className={cn(
-        "relative flex items-center justify-center", // Removed transition-all to prevent size-jump on load
-        loading && "animate-slow-spin opacity-80", 
+        "relative flex items-center justify-center overflow-hidden shrink-0", 
+        loading && "animate-slow-spin", 
         className
       )} 
-      style={{ width: size, height: size }}
+      style={{ width: `${size}px`, height: `${size}px`, minWidth: `${size}px`, minHeight: `${size}px` }}
     >
       <svg 
         width={size} 

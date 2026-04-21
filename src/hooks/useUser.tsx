@@ -105,7 +105,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     }
                 } else {
                     const identityConfirmed = !!u?.email_confirmed_at || !!staffSess;
-                    const status = !!currentUserIdentity && !!currentSlug && identityConfirmed;
+                    // 🛡️ LENIENT FIX: A user is verified if they have a confirmed identity, 
+                    // even if the specific studio slug is still being recovered.
+                    const status = !!currentUserIdentity && identityConfirmed;
                     setIsVerified(status);
                 }
 

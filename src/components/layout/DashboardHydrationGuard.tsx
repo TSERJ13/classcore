@@ -42,8 +42,10 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
         return (
             <div className="fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8">
                 {/* Visual Nudge Downwards (mt-12) for better optical centering */}
-                <div className="flex flex-col items-center justify-center gap-6 mt-12">
-                    <Logo size={80} animated loading />
+                <div className="flex flex-col items-center justify-center gap-6">
+                    <div className="w-[80px] h-[80px] flex items-center justify-center">
+                        <Logo size={80} animated loading />
+                    </div>
                     <div className="text-center space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                             ჩატვირთვა...
