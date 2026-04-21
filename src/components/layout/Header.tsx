@@ -517,6 +517,12 @@ export function Header() {
                             setNotesOpen(false);
                         }}
                         className="relative w-9 h-9 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        aria-label="Notifications"
+                    >
+                        <Bell className="w-4 h-4" />
+                        {unreadCount > 0 && (
+                            <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
+                        )}
                     </button>
                 </div>
             </header>

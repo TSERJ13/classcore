@@ -477,7 +477,6 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5" />}
                             <span className="truncate">{saving ? t.loading : t.saveAndSync}</span>
                         </button>
-                    </div>
                 </div>
             </div>
         </>

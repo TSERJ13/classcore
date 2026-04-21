@@ -185,8 +185,6 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                 <Check className="w-4 h-4" /> {t.save}
                             </button>
                         </div>
-                    </div>
-                </div>
                 </div>
             </div>
         </>
