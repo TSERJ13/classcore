@@ -269,21 +269,11 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     <div className="relative flex-1 overflow-hidden flex flex-col no-scrollbar">
                         <NavItems exp={exp} isMobile={isMobile} profile={profile} pathname={pathname} theme={theme} t={t} close={close} defaultRole={defaultRole} />
                     </div>
-                    {!isMobile && (
-                        <button
-                            onClick={toggleExpanded}
-                            className={cn(
-                                'absolute z-50 top-1/2 -translate-y-1/2 -right-4 w-7 h-11 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-[4px_0_10px_rgba(0,0,0,0.2)] transform active:scale-95'
-                            )}
-                        >
-                            <ChevronRight className={cn('w-4 h-4 transition-transform duration-300', exp && 'rotate-180')} />
-                        </button>
-                    )}
 
                     <div className={cn(
-                        "mt-auto border-t border-[var(--sidebar-border)] bg-white/[0.02] transition-all duration-300",
+                        "mt-auto border-t border-[var(--sidebar-border)] transition-all duration-300",
                         exp 
-                            ? (isMobile ? "p-1.5 flex items-center gap-2 mb-4" : "p-3 flex items-center gap-4") 
+                            ? (isMobile ? "p-1.5 flex items-center gap-2 mb-2 pt-4" : "p-3 flex items-center gap-4") 
                             : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
@@ -358,6 +348,16 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                     profile={profile} user={user} theme={theme} setBranchModalOpen={setBranchModalOpen}
                     pathname={pathname} close={close} defaultRole={defaultRole} logout={logout} toggleExpanded={toggleExpanded}
                 />
+                {mounted && (
+                    <button
+                        onClick={toggleExpanded}
+                        className={cn(
+                            'absolute z-50 top-1/2 -translate-y-1/2 -right-3.5 w-7 h-11 rounded-r-xl flex items-center justify-center bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] border-l-0 text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)] transition-all duration-150 shadow-[4px_0_10px_rgba(0,0,0,0.2)] transform active:scale-95'
+                        )}
+                    >
+                        <ChevronRight className={cn('w-4 h-4 transition-transform duration-300', expanded && 'rotate-180')} />
+                    </button>
+                )}
             </div>
 
             <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
