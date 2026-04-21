@@ -271,7 +271,7 @@ export async function pullStudioStateFromCloud(
         // 1. Fetch from both tables in parallel
         const [settingsRes, masterRes] = await Promise.all([
             supabase.from(SETTINGS_TABLE).select('staff_data, org_id, updated_at').eq('studio_slug', slug).maybeSingle(),
-            supabase.from('studios').select('plan, status').eq('studio_slug', slug).maybeSingle()
+            supabase.from('studios').select('studio_name, logo_url, plan, status, owner_info, org_id').eq('studio_slug', slug).maybeSingle()
         ]);
 
         if (settingsRes.error) {
