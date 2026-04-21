@@ -8,6 +8,11 @@ import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
 
+const SUPER_ADMIN_EMAILS = [
+    'support@classcore.ge', 
+    'admin@classcore.ge'
+];
+
 export default function LoginPage() {
     const { t, lang } = useT();
     const { user, profile, loading } = useUser();
@@ -34,6 +39,13 @@ export default function LoginPage() {
             // VERIFY SESSION (Ghost Login Protection)
             (async () => {
                 const currentUserEmail = user.email;
+                const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
+                
+                if (isSuperAdmin) {
+                    window.location.href = '/superadmin';
+                    return;
+                }
+
                 const currentSlug = profile?.studio_slug;
                 const isOwner = profile?.role === 'owner';
                 
@@ -62,14 +74,7 @@ export default function LoginPage() {
                     return;
                 }
 
-                const SUPER_ADMIN_EMAILS = ['adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge'];
-                const isSuperAdmin = user.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false;
-                
-                if (isSuperAdmin) {
-                    window.location.href = '/superadmin';
-                } else {
-                    window.location.href = '/dashboard';
-                }
+                window.location.href = '/dashboard';
             })();
         }
     }, [user, loading, lang, profile]);
@@ -126,11 +131,6 @@ export default function LoginPage() {
                     return;
                 }
 
-                const SUPER_ADMIN_EMAILS = [
-                    'support@classcore.ge', 
-                    'admin@classcore.ge',
-                    'sergi.tsivtsivadze@gmail.com'
-                ];
                 const isSuperAdmin = email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
 
                 // SECURITY: Enforce email activation
