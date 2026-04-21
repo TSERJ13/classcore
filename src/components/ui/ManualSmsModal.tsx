@@ -66,12 +66,14 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
     // deleted local helper l
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-        <div className={cn(
-            "fixed z-[201] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-            "inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md sm:rounded-[2.5rem]",
-            "animate-in zoom-in-95 sm:zoom-in-95"
-        )}>
+        <>
+            <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+            <div className={cn(
+                "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "animate-in slide-in-from-bottom sm:slide-in-from-right",
+                "rounded-none sm:rounded-none"
+            )}>
 
                 {/* Header */}
                 <div className="p-6 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
@@ -147,6 +149,6 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
                     </button>
                 </div>
             </div>
-        </div>
+        </>
     );
 }

@@ -218,10 +218,6 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-<button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
 
                 <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain">
 
