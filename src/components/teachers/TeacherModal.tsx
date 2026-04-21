@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent, Calendar, Plus, Eye, EyeOff } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
@@ -91,7 +91,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     if (!open) return null;
 
     return (
-        <React.Fragment>
+        <Fragment>
             <div className="fixed inset-0 z-40 bg-transparent animate-in fade-in duration-200" onClick={onClose} />
 
             <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[420px] max-w-full max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
@@ -485,6 +485,6 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     </div>
                 </div>
             </div>
-        </React.Fragment>
+        </Fragment>
     );
 }

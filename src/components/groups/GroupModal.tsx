@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { X, BookOpen, Clock, Users, Check, Trash2, AlertTriangle, GraduationCap, Plus, Calendar } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -198,7 +198,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     const dayFullLabels = lang === 'ka' ? DAY_FULL_KA : DAY_FULL_EN;
 
     return (
-        <React.Fragment>
+        <Fragment>
             <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
             <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[480px] max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
 
@@ -479,6 +479,6 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                         </button>
                 </div>
             </div>
-        </React.Fragment>
+        </Fragment>
     );
 }
