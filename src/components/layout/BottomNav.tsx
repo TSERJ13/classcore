@@ -25,16 +25,17 @@ export function BottomNav() {
 
     return (
         <nav
-            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--sidebar-bg)] border-t border-white/[0.08] shadow-[0_-10px_30px_rgba(0,0,0,0.3)]"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--sidebar-bg)] border-t border-white/[0.08] shadow-[0_-10px_40px_rgba(0,0,0,0.4)]"
             style={{ 
-                paddingBottom: 'env(safe-area-inset-bottom, 6px)',
+                paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
+                height: 'calc(70px + env(safe-area-inset-bottom, 0px))',
                 transform: 'translateZ(0)',
                 WebkitTransform: 'translateZ(0)',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden'
             }}
         >
-            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-0.5 pb-0 h-[54px]">
+            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-2 h-full">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (
@@ -42,15 +43,15 @@ export function BottomNav() {
                             key={href}
                             href={href}
                             className={cn(
-                                'flex flex-col items-center gap-1 px-1.5 py-0.5 rounded-xl transition-all duration-150 min-w-[60px] md:min-w-[100px] touch-manipulation',
+                                'flex flex-col items-center gap-1.5 px-1.5 py-1 rounded-xl transition-all duration-150 min-w-[64px] md:min-w-[100px] touch-manipulation',
                                 active ? 'text-indigo-400' : 'text-white/35'
                             )}
                         >
-                            <div className={cn('relative w-5 h-5 md:w-10 md:h-10 flex items-center justify-center', active && 'scale-110')}>
+                            <div className={cn('relative w-6 h-6 md:w-10 md:h-10 flex items-center justify-center', active && 'scale-110')}>
                                 {active && <span className="absolute inset-0 scale-125 rounded-2xl bg-indigo-500/15" />}
-                                <Icon className="relative w-5 h-5 md:w-8 md:h-8" strokeWidth={active ? 2.5 : 2} />
+                                <Icon className={cn("relative w-5 h-5 md:w-8 md:h-8", active ? "opacity-100" : "opacity-70")} strokeWidth={active ? 2.5 : 2} />
                             </div>
-                            <span className="text-[7.5px] md:text-[11px] font-black uppercase tracking-widest truncate">{t[labelKey]}</span>
+                            <span className={cn("text-[8px] md:text-[11px] font-black uppercase tracking-widest truncate", active ? "opacity-100" : "opacity-40")}>{t[labelKey]}</span>
                         </Link>
                     );
                 })}
@@ -58,12 +59,12 @@ export function BottomNav() {
                 {/* "More" opens the full sidebar drawer */}
                 <button
                     onClick={open}
-                    className="flex flex-col items-center gap-1 px-1.5 py-0.5 rounded-xl text-white/35 hover:text-white/60 min-w-[60px] md:min-w-[100px] touch-manipulation transition-colors"
+                    className="flex flex-col items-center gap-1.5 px-1.5 py-1 rounded-xl text-white/35 hover:text-white/60 min-w-[64px] md:min-w-[100px] touch-manipulation transition-colors"
                 >
-                    <div className="w-5 h-5 md:w-10 md:h-10 flex items-center justify-center">
-                        <Menu className="w-5 h-5 md:w-8 md:h-8" strokeWidth={2} />
+                    <div className="w-6 h-6 md:w-10 md:h-10 flex items-center justify-center">
+                        <Menu className="w-5 h-5 md:w-8 md:h-8 opacity-70" strokeWidth={2} />
                     </div>
-                    <span className="text-[7.5px] md:text-[11px] font-black uppercase tracking-widest">{t.more}</span>
+                    <span className="text-[8px] md:text-[11px] font-black uppercase tracking-widest opacity-40">{t.more}</span>
                 </button>
             </div>
         </nav>

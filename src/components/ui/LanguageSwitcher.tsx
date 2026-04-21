@@ -67,7 +67,8 @@ export function LanguageSwitcher({
                         ? "bg-transparent border-none text-white hover:bg-white/5"
                         : "bg-white border-slate-100 text-primary hover:text-indigo-600 hover:border-indigo-100 shadow-xl shadow-slate-200/50",
                     compact || hideLabel ? "w-10 h-10 md:w-12 md:h-12 justify-center rounded-xl md:rounded-2xl" : cn(
-                        "px-4 py-2 text-[11px] font-black tracking-widest rounded-xl min-w-[120px]",
+                        "px-2 md:px-4 py-2 text-[10px] md:text-[11px] font-black tracking-widest rounded-xl",
+                        variant === 'sidebar' ? "min-w-0 flex-1" : "min-w-[120px]",
                         variant === 'landing' && "px-3 py-1 md:px-4 md:py-1.5 h-8 md:h-9 text-[10px] rounded-xl"
                     ),
                     className

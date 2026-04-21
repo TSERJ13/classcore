@@ -192,7 +192,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                 // --- MOBILE / iPAD ITEM PRUNING ---
                 // Only show core operational items on constrained screens to prevent scrolling junk
                 if (isMobile || (typeof window !== 'undefined' && window.innerWidth < 1024)) {
-                    const ESSENTIAL_MOBILE = ['/dashboard', '/attendance', '/subscriptions', '/students', '/calendar', '/settings'];
+                    const ESSENTIAL_MOBILE = ['/dashboard', '/attendance', '/subscriptions', '/students', '/calendar', '/groups', '/settings'];
                     return ESSENTIAL_MOBILE.includes(item.href);
                 }
 
@@ -280,7 +280,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-black/10",
-                        exp ? "p-3 pb-safe" : "py-4"
+                        exp ? (isMobile ? "p-2.5 pb-safe" : "p-4 pb-safe") : "py-4"
                     )}>
                         <div className={cn(
                             "flex items-center gap-2",
@@ -291,7 +291,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 mode="session" 
                                 align="left" 
                                 className={cn(
-                                    exp ? "flex-1 bg-white/5 hover:bg-white/10 h-10 px-3" : "w-10 h-10"
+                                    exp ? "flex-1 bg-white/[0.03] hover:bg-white/[0.08] h-10 px-3 border border-white/5" : "w-10 h-10 border border-white/5"
                                 )} 
                             />
                             
@@ -299,7 +299,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 onClick={logout}
                                 className={cn(
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0 border border-white/5",
-                                    exp ? "w-10 h-10 rounded-xl" : "w-10 h-10 rounded-xl bg-white/5"
+                                    exp ? "w-10 h-10 rounded-xl bg-white/[0.03]" : "w-10 h-10 rounded-xl bg-white/5"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
