@@ -871,7 +871,6 @@ export default function DashboardPage() {
                                         syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse-slow" :
                                         syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500 animate-bounce"
                                     )} />
-                                    </span>
                                 </div>
 
                                 {settings.plan === 'pro' && (
