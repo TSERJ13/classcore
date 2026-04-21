@@ -25,17 +25,17 @@ export function BottomNav() {
 
     return (
         <nav
-            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--sidebar-bg)] border-t border-white/[0.08] shadow-[0_-10px_40px_rgba(0,0,0,0.4)]"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--sidebar-bg)] border-t border-white/[0.08] shadow-[0_-8px_30px_rgba(0,0,0,0.4)]"
             style={{ 
-                paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
-                height: 'calc(70px + env(safe-area-inset-bottom, 0px))',
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                height: 'calc(64px + env(safe-area-inset-bottom, 0px))',
                 transform: 'translateZ(0)',
                 WebkitTransform: 'translateZ(0)',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden'
             }}
         >
-            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-2 h-full">
+            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 h-[64px]">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (
