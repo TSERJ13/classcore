@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 
 const SUPER_ADMIN_EMAILS = [
     'support@classcore.ge', 
-    'admin@classcore.ge'
+    'admin@classcore.ge',
+    'adminclasscore@gmail.com'
 ];
 
 export default function LoginPage() {
@@ -41,8 +42,9 @@ export default function LoginPage() {
                 const currentUserEmail = user.email;
                 const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
                 
+                // SuperAdmins can access the dashboard (User side) as well
                 if (isSuperAdmin) {
-                    window.location.href = '/superadmin';
+                    window.location.href = '/dashboard';
                     return;
                 }
 

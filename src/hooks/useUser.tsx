@@ -2,10 +2,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { getStaffSession, setStaffSession, loadSettings } from '@/lib/settings-store';
+import { getStaffSession, setStaffSession, loadSettings, getActiveSlug } from '@/lib/settings-store';
 
 const SUPER_ADMIN_EMAILS = [
-    'support@classcore.ge', 'admin@classcore.ge'
+    'support@classcore.ge', 'admin@classcore.ge', 'adminclasscore@gmail.com'
 ];
 
 import React, { createContext, useContext, ReactNode } from 'react';
@@ -62,6 +62,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     if (authError) console.log('🔍 [UserProvider] No active session found. Supabase Auth Error:', authError.message);
                     setIsVerified(false);
                     setLoading(false);
+                    return;
+                }
+
+                const currentUserEmail = u?.email;
+                const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
+                
+                // SuperAdmins are allowed to access the dashboard as well
+                if (isSuperAdmin && typeof window !== 'undefined' && window.location.pathname === '/login') {
+                    window.location.href = '/dashboard';
                     return;
                 }
 

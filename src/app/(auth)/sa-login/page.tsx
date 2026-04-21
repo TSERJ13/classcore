@@ -9,7 +9,8 @@ import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
 const SUPER_ADMIN_EMAILS = [
     'support@classcore.ge', 
-    'admin@classcore.ge'
+    'admin@classcore.ge',
+    'adminclasscore@gmail.com'
 ];
 
 export default function SALoginPage() {
