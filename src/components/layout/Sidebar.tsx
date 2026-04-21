@@ -61,7 +61,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                 <div
                     className={cn(
                         "rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
-                        isMobile ? "w-11 h-11" : "w-16 h-16",
+                        isMobile ? "w-13 h-13" : "w-16 h-16",
                         !settings?.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
                     )}
                     style={settings?.logoDataUrl ? { borderColor: theme.accentHex, borderWidth: isMobile ? '2px' : '3px' } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}
@@ -228,7 +228,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             {exp && (
                                 <span className={cn(
                                     "truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", 
-                                    isMobile ? "text-[9.5px]" : href === '/dashboard' ? "text-[15px]" : "text-[13px]"
+                                    isMobile ? "text-[8.5px]" : href === '/dashboard' ? "text-[16px]" : "text-[14.5px]"
                                 )}>
                                     {t[labelKey]}
                                 </span>
@@ -254,7 +254,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transition-[width] duration-300 ease-in-out shadow-2xl',
                 isMobile ? 'pt-4 pb-safe' : 'pt-0',
-                exp ? (isMobile ? 'w-[190px]' : 'w-[341px]') : 'w-[72px]'
+                exp ? (isMobile ? 'w-[215px]' : 'w-[341px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -297,17 +297,17 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 align="left" 
                                 className={cn(
                                     exp ? "flex-1 hover:bg-white/[0.05] h-9 px-3" : "w-8.5 h-8.5 bg-white/5 rounded-xl",
-                                    isMobile && "scale-90 origin-left"
+                                    isMobile && "scale-[0.85] origin-left"
                                 )} 
                             />
                             
-                            {exp && <div className="w-px h-5 bg-white/10 shrink-0" />}
+                            {exp && <div className="w-px h-5 bg-white/10 shrink-0 mx-1" />}
 
                             <button
                                 onClick={logout}
                                 className={cn(
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
-                                    exp ? (isMobile ? "w-12 h-9 -ml-1" : "w-10 h-9") : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2"
+                                    exp ? (isMobile ? "w-10 h-9" : "w-10 h-9") : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
@@ -380,7 +380,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
             <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
 
-            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[190px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[215px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
                 <SidebarContent
                     exp={true} isMobile={true} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}

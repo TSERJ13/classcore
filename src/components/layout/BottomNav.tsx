@@ -38,7 +38,7 @@ export function BottomNav() {
             {/* Grounding Filler: Ensures no gap during scrolling/rubber-banding */}
             <div className="absolute top-full left-0 right-0 h-[200px] bg-[var(--sidebar-bg)]" />
 
-            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 h-[72px]">
+            <div className="flex items-center justify-around w-full max-w-5xl mx-auto px-1 h-[72px]">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (
@@ -46,15 +46,15 @@ export function BottomNav() {
                             key={href}
                             href={href}
                             className={cn(
-                                'flex flex-col items-center justify-center gap-1.5 px-1.5 py-1 rounded-xl transition-all duration-150 min-w-[64px] md:min-w-[100px] touch-manipulation',
-                                active ? 'text-indigo-400' : 'text-white/60'
+                                'flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl transition-all duration-150 min-w-[64px] touch-manipulation',
+                                active ? 'text-white' : 'text-white/40'
                             )}
                         >
-                            <div className={cn('relative w-6 h-6 md:w-10 md:h-10 flex items-center justify-center', active && 'scale-110')}>
-                                {active && <span className="absolute inset-0 scale-125 rounded-2xl bg-indigo-500/15" />}
-                                <Icon className={cn("relative w-5 h-5 md:w-8 md:h-8", active ? "opacity-100" : "opacity-90")} strokeWidth={active ? 2.5 : 2} />
+                            <div className={cn('relative w-8 h-8 flex items-center justify-center', active && 'scale-110')}>
+                                {active && <span className="absolute inset-0 scale-110 rounded-xl bg-white/10" />}
+                                <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-80")} strokeWidth={active ? 2.5 : 2} />
                             </div>
-                            <span className={cn("text-[8px] md:text-[11px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-60")}>
+                            <span className={cn("text-[9px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-40")}>
                                 {t[labelKey]}
                             </span>
                         </Link>
@@ -64,12 +64,12 @@ export function BottomNav() {
                 {/* "More" opens the full sidebar drawer */}
                 <button
                     onClick={open}
-                    className="flex flex-col items-center justify-center gap-1 px-1.5 py-1 rounded-xl text-white/60 hover:text-white min-w-[64px] md:min-w-[100px] touch-manipulation transition-colors"
+                    className="flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl text-white/40 hover:text-white min-w-[64px] touch-manipulation transition-colors"
                 >
-                    <div className="w-6 h-6 md:w-10 md:h-10 flex items-center justify-center">
-                        <Menu className="w-5 h-5 md:w-8 md:h-8 opacity-60" strokeWidth={2} />
+                    <div className="w-8 h-8 flex items-center justify-center">
+                        <Menu className="w-5 h-5 opacity-80" strokeWidth={2} />
                     </div>
-                    <span className="text-[7.5px] md:text-[11px] font-black uppercase tracking-widest opacity-60">{t.more}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{t.more}</span>
                 </button>
             </div>
         </nav>
