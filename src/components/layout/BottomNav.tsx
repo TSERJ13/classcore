@@ -43,15 +43,14 @@ export function BottomNav() {
                             key={href}
                             href={href}
                             className={cn(
-                                'flex flex-col items-center gap-1.5 px-1.5 py-1 rounded-xl transition-all duration-150 min-w-[64px] md:min-w-[100px] touch-manipulation',
+                                'flex flex-col items-center justify-center rounded-xl transition-all duration-150 min-w-[64px] md:min-w-[100px] touch-manipulation',
                                 active ? 'text-indigo-400' : 'text-white/35'
                             )}
                         >
-                            <div className={cn('relative w-6 h-6 md:w-10 md:h-10 flex items-center justify-center', active && 'scale-110')}>
+                            <div className={cn('relative w-8 h-8 md:w-10 md:h-10 flex items-center justify-center', active && 'scale-110')}>
                                 {active && <span className="absolute inset-0 scale-125 rounded-2xl bg-indigo-500/15" />}
-                                <Icon className={cn("relative w-5 h-5 md:w-8 md:h-8", active ? "opacity-100" : "opacity-70")} strokeWidth={active ? 2.5 : 2} />
+                                <Icon className={cn("relative w-6 h-6 md:w-8 md:h-8", active ? "opacity-100" : "opacity-70")} strokeWidth={active ? 2.5 : 2} />
                             </div>
-                            <span className={cn("text-[8px] md:text-[11px] font-black uppercase tracking-widest truncate", active ? "opacity-100" : "opacity-40")}>{t[labelKey]}</span>
                         </Link>
                     );
                 })}
@@ -59,12 +58,11 @@ export function BottomNav() {
                 {/* "More" opens the full sidebar drawer */}
                 <button
                     onClick={open}
-                    className="flex flex-col items-center gap-1.5 px-1.5 py-1 rounded-xl text-white/35 hover:text-white/60 min-w-[64px] md:min-w-[100px] touch-manipulation transition-colors"
+                    className="flex flex-col items-center justify-center rounded-xl text-white/35 hover:text-white/60 min-w-[64px] md:min-w-[100px] touch-manipulation transition-colors"
                 >
-                    <div className="w-6 h-6 md:w-10 md:h-10 flex items-center justify-center">
-                        <Menu className="w-5 h-5 md:w-8 md:h-8 opacity-70" strokeWidth={2} />
+                    <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
+                        <Menu className="w-6 h-6 md:w-8 md:h-8 opacity-70" strokeWidth={2} />
                     </div>
-                    <span className="text-[8px] md:text-[11px] font-black uppercase tracking-widest opacity-40">{t.more}</span>
                 </button>
             </div>
         </nav>

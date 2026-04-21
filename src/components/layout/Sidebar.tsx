@@ -192,7 +192,8 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                 // --- MOBILE / iPAD ITEM PRUNING ---
                 // Only show core operational items on constrained screens to prevent scrolling junk
                 if (isMobile || (typeof window !== 'undefined' && window.innerWidth < 1024)) {
-                    const ESSENTIAL_MOBILE = ['/dashboard', '/attendance', '/subscriptions', '/students', '/calendar', '/groups', '/settings'];
+                    // Strictly reduced list for mobile as requested
+                    const ESSENTIAL_MOBILE = ['/dashboard', '/attendance', '/students', '/settings'];
                     return ESSENTIAL_MOBILE.includes(item.href);
                 }
 
@@ -249,7 +250,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
             suppressHydrationWarning
             className={cn(
                 'relative h-full flex flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] overflow-hidden transition-[width] duration-300 ease-in-out pt-safe pb-safe shadow-2xl',
-                exp ? (isMobile ? 'w-[200px]' : 'w-[260px]') : 'w-[72px]'
+                exp ? (isMobile ? 'w-[200px]' : 'w-[280px]') : 'w-[72px]'
             )}
         >
             {!mounted && defaultExpanded === null ? (
@@ -280,26 +281,28 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-black/10",
-                        exp ? (isMobile ? "p-2.5 pb-safe" : "p-4 pb-safe") : "py-4"
+                        exp ? (isMobile ? "p-2 pb-safe" : "p-4 pb-safe") : "py-4"
                     )}>
                         <div className={cn(
-                            "flex items-center gap-2",
-                            !exp && "flex-col"
+                            "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl overflow-hidden",
+                            !exp && "flex-col bg-transparent border-none"
                         )}>
                             <LanguageSwitcher 
                                 compact={!exp} 
                                 mode="session" 
                                 align="left" 
                                 className={cn(
-                                    exp ? "flex-1 bg-white/[0.03] hover:bg-white/[0.08] h-10 px-3 border border-white/5" : "w-10 h-10 border border-white/5"
+                                    exp ? "flex-1 hover:bg-white/[0.05] h-11 px-3" : "w-10 h-10 bg-white/5 rounded-xl"
                                 )} 
                             />
                             
+                            {exp && <div className="w-px h-6 bg-white/10 shrink-0" />}
+
                             <button
                                 onClick={logout}
                                 className={cn(
-                                    "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0 border border-white/5",
-                                    exp ? "w-10 h-10 rounded-xl bg-white/[0.03]" : "w-10 h-10 rounded-xl bg-white/5"
+                                    "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
+                                    exp ? "w-12 h-11" : "w-10 h-10 rounded-xl bg-white/5 mt-2"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
@@ -349,7 +352,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[260px]' : 'w-[72px]')}>
+            <div className={cn('hidden md:flex flex-shrink-0 sticky top-0 h-screen transition-[width] duration-300 ease-in-out overflow-visible z-40', expanded ? 'w-[280px]' : 'w-[72px]')}>
                 <SidebarContent
                     exp={expanded} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}
