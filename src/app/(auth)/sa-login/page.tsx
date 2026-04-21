@@ -136,7 +136,7 @@ export default function SALoginPage() {
                                     type="text"
                                     required
                                     placeholder="Login"
-                                    className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-600 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-white placeholder:text-zinc-600 outline-none transition-all"
+                                    className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-500 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-white placeholder:text-zinc-400 outline-none transition-all autofill-fix"
                                 />
                             </div>
                         </div>
@@ -150,7 +150,7 @@ export default function SALoginPage() {
                                     type={showPassword ? "text" : "password"}
                                     required
                                     placeholder="Password"
-                                    className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-600 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-12 py-4 text-sm font-bold text-white placeholder:text-zinc-600 outline-none transition-all"
+                                    className="w-full bg-zinc-950/50 border border-zinc-800 focus:border-zinc-500 focus:ring-4 focus:ring-zinc-800/50 rounded-2xl pl-12 pr-12 py-4 text-sm font-bold text-white placeholder:text-zinc-400 outline-none transition-all autofill-fix"
                                 />
                                 <button
                                     type="button"
@@ -179,6 +179,15 @@ export default function SALoginPage() {
             <div className="absolute bottom-6 text-[10px] font-black tracking-widest text-zinc-600">
                 {t.restrictedZone}
             </div>
+            <style jsx global>{`
+                .autofill-fix:-webkit-autofill,
+                .autofill-fix:-webkit-autofill:hover, 
+                .autofill-fix:-webkit-autofill:focus {
+                    -webkit-text-fill-color: white !important;
+                    -webkit-box-shadow: 0 0 0px 1000px #09090b inset !important;
+                    transition: background-color 5000s ease-in-out 0s;
+                }
+            `}</style>
         </div>
     );
 }

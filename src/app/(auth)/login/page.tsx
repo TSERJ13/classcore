@@ -126,7 +126,12 @@ export default function LoginPage() {
                     return;
                 }
 
-                const SUPER_ADMIN_EMAILS = ['adminclasscore@gmail.com', 'support@classcore.ge', 'admin@classcore.ge'];
+                const SUPER_ADMIN_EMAILS = [
+                    'adminclasscore@gmail.com', 
+                    'support@classcore.ge', 
+                    'admin@classcore.ge',
+                    'sergi.tsivtsivadze@gmail.com'
+                ];
                 const isSuperAdmin = email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
 
                 // SECURITY: Enforce email activation
