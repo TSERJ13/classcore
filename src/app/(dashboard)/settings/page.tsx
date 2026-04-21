@@ -536,20 +536,35 @@ export default function SettingsPage() {
                                     </button>
                                     {settings.logoDataUrl && (
                                         <button 
-                                        <Row label={t.studioNameLabel} sub={t.sidebarShow}>
+                                            onClick={() => setLogo(null)}
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black tracking-widest transition-all"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            {t.removeAction || 'Remove'}
+                                        </button>
+                                    )}
+                                </div>
+                                <input 
+                                    type="file" 
+                                    ref={fileRef} 
+                                    onChange={handleLogoUpload} 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                />
+                            </div>
+                        </Row>
+
+                        <Row label={t.studioNameLabel} sub={l('სტუდიის სახელი, რომელიც გამოჩნდება ყველგან', 'Название студии, которое будет отображаться везде', 'Studio name that will appear everywhere')}>
                             <div className="flex items-center gap-2 w-full">
-                                 <input 
+                                <input 
                                     value={nameVal} 
-                                    onChange={e => {
-                                        const nextName = e.target.value;
-                                        setNameVal(nextName);
-                                    }}
+                                    onChange={e => setNameVal(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && saveName()} 
                                     readOnly={!isAdmin}
                                     className={cn(
                                         "w-full max-w-md bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-bold text-primary outline-none transition-all",
-                                        !isAdmin && "opacity-60 cursor-not-allowed"
-                                    )} 
+                                        !isAdmin && "opacity-60 grayscale cursor-not-allowed"
+                                    )}
                                 />
                                 {isAdmin && (
                                     <button onClick={saveName} className={cn('w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
@@ -558,6 +573,7 @@ export default function SettingsPage() {
                                 )}
                             </div>
                         </Row>
+
                         <Row label={t.urlSlugLabel} sub={l('სტუდიის უნიკალური მისამართი', 'Уникальный адрес студии', 'Unique studio address')}>
                             <div className="flex flex-col gap-2 items-start w-full">
                                 <div className="flex items-center gap-2 w-full">
