@@ -479,6 +479,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                         </button>
                 </div>
             </div>
+        </div>
         </Fragment>
     );
 }

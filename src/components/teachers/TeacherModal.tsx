@@ -485,6 +485,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     </div>
                 </div>
             </div>
+        </div>
         </Fragment>
     );
 }
