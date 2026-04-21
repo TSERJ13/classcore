@@ -108,6 +108,41 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                 <div className={cn(
                     "absolute left-4 right-4 top-[94%] z-50 bg-[#1c1c28] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 origin-top",
                     isHovered ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                )}>
+                    <div className="p-2 space-y-1">
+                        {allowedBranches.map((branch: any) => (
+                            <button
+                                key={branch.id}
+                                onClick={() => {
+                                    setActiveBranch(branch.id);
+                                    setIsHovered(false);
+                                }}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all",
+                                    branch.id === activeBranchId
+                                        ? "bg-indigo-500/10 text-indigo-400"
+                                        : "hover:bg-white/5 text-white/50 hover:text-white"
+                                )}
+                            >
+                                <span className="text-[11px] font-black truncate">{branch.name}</span>
+                                {branch.id === activeBranchId && <Check className="w-3 h-3" strokeWidth={3} />}
+                            </button>
+                        ))}
+
+                        {(profile?.role === 'owner' || profile?.role === 'admin') && (
+                            <button
+                                onClick={() => {
+                                    setBranchModalOpen(true);
+                                    setIsHovered(false);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all border border-indigo-500/20 mt-1"
+                            >
+                                <Plus className="w-3 h-3" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">{t.newBranch || 'New Branch'}</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
             )}
         </div>
     );

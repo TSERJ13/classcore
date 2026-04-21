@@ -465,6 +465,8 @@ export function Header() {
                     animation: pulse-slow 4s ease-in-out infinite;
                 }
             `}</style>
+            <header className="fixed top-0 right-0 left-0 lg:left-0 z-[40] h-14 md:h-16 bg-card/80 backdrop-blur-md border-b border-border-subtle flex items-center px-4 md:px-6 transition-all duration-300">
+                <div className="w-full flex items-center justify-between relative">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={toggle}

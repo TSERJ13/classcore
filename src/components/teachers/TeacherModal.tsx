@@ -484,6 +484,11 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">
                             {t.cancel}
                         </button>
+                        <button 
+                            onClick={save}
+                            disabled={saving}
+                            className="flex-2 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] sm:text-sm uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
+                        >
                             <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{saving ? t.loading : t.save}</span>
                         </button>
                     </div>
