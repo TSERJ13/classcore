@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, CalendarCheck, BookOpen, Settings,
     CreditCard, Receipt, GraduationCap, BarChart2,
     CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare,
-    Building2, Plus, Check, LogOut, Zap, Cloud
+    Building2, Plus, Check, LogOut, Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -299,17 +299,8 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 )} 
                             />
                             
-                            {exp && (
-                                <div className="flex items-center gap-2 px-2 border-l border-white/10 ml-1">
-                                    <div className="relative flex items-center justify-center">
-                                        <Cloud className="w-3.5 h-3.5 text-emerald-500 opacity-40" strokeWidth={2.5} />
-                                        <div className="absolute inset-0 bg-emerald-500/30 rounded-full animate-pulse-slow blur-[4px]" />
-                                        <div className="absolute w-[6px] h-[6px] bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                                    </div>
-                                </div>
-                            )}
 
-                            {exp && <div className="w-px h-5 bg-white/10 shrink-0 mx-1" />}
+                             {exp && <div className="w-px h-5 bg-white/10 shrink-0 mx-1" />}
 
                             <button
                                 onClick={logout}
