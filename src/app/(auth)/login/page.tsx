@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 
 const SUPER_ADMIN_EMAILS = [
     'support@classcore.ge', 
-    'admin@classcore.ge',
     'adminclasscore@gmail.com'
 ];
 

@@ -5,7 +5,7 @@ import { User } from '@supabase/supabase-js';
 import { getStaffSession, setStaffSession, loadSettings, getActiveSlug } from '@/lib/settings-store';
 
 const SUPER_ADMIN_EMAILS = [
-    'support@classcore.ge', 'admin@classcore.ge', 'adminclasscore@gmail.com'
+    'support@classcore.ge', 'adminclasscore@gmail.com'
 ];
 
 import React, { createContext, useContext, ReactNode } from 'react';
