@@ -1209,13 +1209,6 @@ export function StudentModal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex gap-3 px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md relative">
-                    {/* Grounding Filler for mobile */}
-                    <div className="absolute top-full left-0 right-0 h-[200px] bg-card sm:hidden" />
-                    {isEdit && !isTeacher && onDelete && (
-                        <button
-                            onClick={async () => {
-                                if (await confirm(t.confirmDelete)) {
                 <div className="p-4 sm:p-5 border-t border-border-subtle bg-surface/50 flex gap-2 sm:gap-3 flex-shrink-0">
                     <button
                         onClick={onClose}
