@@ -102,7 +102,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
             <div className={cn(
                 "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-full sm:h-auto top-0 bottom-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
@@ -481,15 +481,15 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     )}
                     <div className="flex gap-3">
                         <button onClick={onClose}
-                            className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest">
+                            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest shadow-sm">
                             {t.cancel}
                         </button>
                         <button 
                             onClick={save}
                             disabled={saving}
-                            className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] sm:text-sm uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[10px] sm:text-sm uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
                         >
-                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{saving ? t.loading : t.save}</span>
+                            <Check className="w-5 h-5 flex-shrink-0" /> <span className="truncate">{saving ? t.loading : t.save}</span>
                         </button>
                     </div>
                 </div>

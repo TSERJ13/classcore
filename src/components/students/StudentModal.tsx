@@ -625,7 +625,7 @@ export function StudentModal({
                 "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 centered 
                     ? "inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-xl sm:max-h-[90vh] sm:rounded-[2.5rem] rounded-[2rem]"
-                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
+                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-full sm:h-auto top-0 bottom-0",
                 "animate-in fade-in duration-300",
                 centered ? "zoom-in-95" : "sm:slide-in-from-right",
                 "rounded-none sm:rounded-none"
@@ -636,7 +636,7 @@ export function StudentModal({
                 </div>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-card/80 backdrop-blur-md sticky top-0 z-10">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10">
                     <div>
                         <h2 className="text-base font-bold text-primary">
                             {isEdit ? t.edit + ' — ' + form.first_name + ' ' + form.last_name : t.addStudent}
@@ -1217,18 +1217,18 @@ export function StudentModal({
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle bg-card/80 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-safe-offset-2">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-safe">
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
-                            className="flex-1 py-3 border border-border-subtle hover:bg-surface text-muted text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest"
+                            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest shadow-sm"
                         >
                             {t.cancel}
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={!form.first_name || !form.phone || saving}
-                            className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
                             {saving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                             {saving ? t.loading : t.save}

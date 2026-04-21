@@ -286,7 +286,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[120] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-full sm:h-auto top-0 bottom-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
@@ -635,13 +635,13 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 {/* Footer */}
                 {step === 'form' && (
                     <div className="p-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex gap-3 flex-shrink-0 sticky bottom-0 z-10 pb-safe">
-                        <button onClick={onClose} className="flex-1 py-3 bg-card border border-border-subtle hover:border-border text-muted hover:text-primary text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
+                        <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
                             {t.cancel}
                         </button>
                         <button
                             onClick={handleIssue}
                             disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
-                            className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 text-white text-[10px] xs:text-[11px] sm:text-xs font-black rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 uppercase tracking-widest px-2"
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white text-[10px] xs:text-[11px] sm:text-xs font-black rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 uppercase tracking-widest px-2"
                         >
                             <Save className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
                         </button>

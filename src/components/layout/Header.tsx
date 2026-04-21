@@ -465,7 +465,7 @@ export function Header() {
                     animation: pulse-slow 4s ease-in-out infinite;
                 }
             `}</style>
-            <header className="fixed top-0 right-0 left-0 lg:left-0 z-[40] h-14 md:h-16 bg-white/90 backdrop-blur-lg border-b border-border-subtle flex items-center px-4 md:px-6 transition-all duration-300">
+            <header className="sticky top-0 z-[30] h-14 md:h-16 bg-white/90 backdrop-blur-lg border-b border-border-subtle flex items-center px-4 md:px-6 transition-all duration-300 w-full flex-shrink-0">
                 <div className="w-full flex items-center justify-between relative">
                     <div className="flex items-center gap-3">
                         <button
