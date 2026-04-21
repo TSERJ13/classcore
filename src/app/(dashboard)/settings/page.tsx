@@ -174,6 +174,7 @@ export default function SettingsPage() {
     const [branchDeleteError, setBranchDeleteError] = useState('');
     const [isDeletingBranch, setIsDeletingBranch] = useState(false);
     const [editingStaffData, setEditingStaffData] = useState<any>(null);
+    const [showStaffPwd, setShowStaffPwd] = useState(false);
 
     // Sync local state when starting/stopping edit
     useEffect(() => {

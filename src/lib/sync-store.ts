@@ -285,8 +285,10 @@ export async function pullStudioStateFromCloud(
             return null;
         }
 
+        const unified = data.staff_data || {};
         let staff = unified._staff || (Array.isArray(unified) ? unified : []);
         let operations = unified._operations || {};
+        const master = masterRes.data;
 
         // 🚨 SUPER-RESILIENT RECOVERY: 
         // Even if data.org_id is missing in the blob, we use the one from the master studios table!
