@@ -465,71 +465,74 @@ export function Header() {
                     animation: pulse-slow 4s ease-in-out infinite;
                 }
             `}</style>
-            <header className="sticky top-0 z-30 flex items-center justify-between px-4 pb-3 pt-safe bg-card/90 backdrop-blur-xl border-b border-border-subtle h-auto min-h-[64px] md:min-h-[72px]">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={toggle}
-                        className="md:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
-                        aria-label="Menu"
-                    >
-                        <Menu className="w-6 h-6" />
-                    </button>
-                </div>
-                {/* Centered Page Title */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%-4px)] pointer-events-none whitespace-nowrap">
-                    <h1 className="text-[12px] md:text-sm font-black text-primary tracking-tight md:tracking-wider truncate max-w-[140px] md:max-w-[300px] uppercase">
-                        {displayTitle || rawTitle || (isDashboard ? t.dashboard : '')}
-                    </h1>
-                </div>
+            <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-xl border-b border-border-subtle pt-safe">
+                <div className="relative flex items-center justify-between px-4 h-14 md:h-[72px]">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={toggle}
+                            className="md:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
+                            aria-label="Menu"
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
+                    </div>
 
-                <div className="flex items-center gap-0.5 md:gap-2">
-                    <button
-                        onClick={() => {
-                            setNotesOpen(true);
-                            setMessengerOpen(false);
-                            setNotifOpen(false);
-                        }}
-                        className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                        aria-label="Notes"
-                    >
-                        <Pin className="w-[18px] h-[18px] md:w-5 h-5 -rotate-45" />
-                        {uncompletedNotesCount > 0 && (
-                            <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
-                        )}
-                    </button>
- 
-                    <button
-                        onClick={() => {
-                            setMessengerOpen(true);
-                            setNotifOpen(false);
-                            setNotesOpen(false);
-                        }}
-                        className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                        aria-label="Messenger"
-                    >
-                        <MessageSquare className="w-[18px] h-[18px] md:w-5 h-5" />
-                        {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
-                            <span className={cn(
-                                "absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
-                                unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
-                            )} />
-                        )}
-                    </button>
- 
-                    <button
-                        onClick={() => {
-                            setNotifOpen((v: boolean) => !v);
-                            setMessengerOpen(false);
-                            setNotesOpen(false);
-                        }}
-                        className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                        aria-label="Notifications"
-                    >
-                        <Bell className="w-[18px] h-[18px] md:w-5 h-5" />
-                        {unreadCount > 0 && (
-                            <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
-                        )}
-                    </button>
+                    {/* Centered Page Title */}
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none whitespace-nowrap">
+                        <h1 className="text-[12px] md:text-sm font-black text-primary tracking-tight md:tracking-wider truncate max-w-[140px] md:max-w-[300px] uppercase">
+                            {displayTitle || rawTitle || (isDashboard ? t.dashboard : '')}
+                        </h1>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 md:gap-2">
+                        <button
+                            onClick={() => {
+                                setNotesOpen(true);
+                                setMessengerOpen(false);
+                                setNotifOpen(false);
+                            }}
+                            className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            aria-label="Notes"
+                        >
+                            <Pin className="w-[18px] h-[18px] md:w-5 h-5 -rotate-45" />
+                            {uncompletedNotesCount > 0 && (
+                                <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
+                            )}
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setMessengerOpen(true);
+                                setNotifOpen(false);
+                                setNotesOpen(false);
+                            }}
+                            className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            aria-label="Messenger"
+                        >
+                            <MessageSquare className="w-[18px] h-[18px] md:w-5 h-5" />
+                            {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
+                                <span className={cn(
+                                    "absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
+                                    unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
+                                )} />
+                            )}
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setNotifOpen((v: boolean) => !v);
+                                setMessengerOpen(false);
+                                setNotesOpen(false);
+                            }}
+                            className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            aria-label="Notifications"
+                        >
+                            <Bell className="w-[18px] h-[18px] md:w-5 h-5" />
+                            {unreadCount > 0 && (
+                                <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
+                            )}
+                        </button>
+                    </div>
                 </div>
             </header>
 

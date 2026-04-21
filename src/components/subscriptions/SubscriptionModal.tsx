@@ -45,7 +45,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
             <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[101] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
                 "animate-in slide-in-from-bottom sm:slide-in-from-right",
                 "rounded-none sm:rounded-none"
             )}>
@@ -65,7 +65,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5 sm:space-y-6 overscroll-contain">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5 sm:space-y-6 overscroll-contain pb-10">
                     {/* Plan Name */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.studentName}</label>

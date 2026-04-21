@@ -96,7 +96,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
             <div className={cn(
                 "fixed z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
                 "animate-in slide-in-from-bottom sm:slide-in-from-right",
                 "rounded-none sm:rounded-none"
             )}>
@@ -116,7 +116,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-10">
                     {/* Photo Upload */}
                     {/* Photo Upload & Role */}
                     <div className="flex gap-4">
