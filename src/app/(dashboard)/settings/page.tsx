@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
-    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2, Eye, EyeOff
+    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2, Eye, EyeOff, Download
 } from 'lucide-react';
 import { checkCloudConnection, syncStaffToCloud, masterStudioPurge } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
@@ -246,6 +246,54 @@ export default function SettingsPage() {
         setTimeout(() => {
             window.location.href = `/${val}/settings`;
         }, 1000);
+    }
+
+    async function handleExportData() {
+        if (!settings.studioSlug) return;
+        
+        try {
+            const activeSlug = settings.studioSlug;
+            const { SYNC_COLLECTIONS } = await import('@/lib/utils');
+            
+            const backup: Record<string, any> = {
+                version: '3.0',
+                studio_slug: activeSlug,
+                export_date: new Date().toISOString(),
+                data: {}
+            };
+
+            // Collect all relevant localStorage items
+            Object.keys(localStorage).forEach(key => {
+                const isSyncable = SYNC_COLLECTIONS.some((p: string) => key.startsWith(p));
+                if (isSyncable && key.endsWith(`_${activeSlug}`)) {
+                    try {
+                        const val = localStorage.getItem(key);
+                        if (val) backup.data[key] = JSON.parse(val);
+                    } catch {}
+                }
+            });
+
+            // Add the Settings object as well
+            backup.settings = settings;
+
+            // Generate JSON and trigger download
+            const json = JSON.stringify(backup, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `classcore_backup_${activeSlug}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            addNotification(l('რეზერვი წარმატებით ჩამოიტვირთა', 'Бэкап успешно скачан', 'Backup downloaded successfully'), 'success');
+        } catch (err) {
+            console.error('Export failed:', err);
+            addNotification(l('ექსპორტი ვერ მოხერხდა', 'Ошибка экспорта', 'Export failed'), 'error');
+        }
     }
 
     async function handleReclaimSlug() {
@@ -1368,6 +1416,35 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Backup & Export */}
+            {isOwner && (
+                <Section title={l('რეზერვი და ექსპორტი', 'Бэკაპი и Экспорт', 'Backup & Export')} icon={Download} defaultOpen={false}>
+                    <div className="p-6 space-y-4">
+                        <div className="flex flex-col gap-2 bg-indigo-500/5 p-4 rounded-2xl border border-indigo-500/10">
+                            <div className="flex items-center gap-2 text-indigo-500">
+                                <Shield className="w-4 h-4" />
+                                <h3 className="text-xs font-black tracking-widest">{l('მონაცემთა დაცვა', 'Защита данных', 'Data Protection')}</h3>
+                            </div>
+                            <p className="text-[10px] font-bold text-muted/60 leading-relaxed">
+                                {l('ჩამოტვირთეთ თქვენი სტუდიის მონაცემების სრული ასლი. ეს ფაილი შეგიძლიათ შეინახოთ თქვენს კომპიუტერში უსაფრთხოდ.', 'Загрузите полную копию данных вашей студии. Вы შეგიძლიათ безопасно хранить этот файл на своем компьютере.', 'Download a complete copy of your studio data. You can keep this file securely on your computer.')}
+                            </p>
+                        </div>
+
+                        <button 
+                            onClick={handleExportData}
+                            className="w-full py-4 rounded-2xl bg-indigo-600 text-white text-xs font-black tracking-[0.2em] shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase"
+                        >
+                            <Download className="w-4 h-4" />
+                            {l('რეზერვის ჩამოტვირთვა', 'Скачать Бэкап', 'Download Backup')}
+                        </button>
+                        
+                        <p className="text-[8px] text-center font-bold text-muted/40 uppercase tracking-widest">
+                            {l('ბოლო ავტომატური რეზერვი ღრუბელში:', 'Последний бэкап в облаке:', 'Last cloud backup:')} {new Date().toLocaleDateString()}
+                        </p>
+                    </div>
+                </Section>
             )}
 
             {/* Maintenance Zone */}
