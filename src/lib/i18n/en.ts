@@ -1310,4 +1310,20 @@ export const en: Translations = {
     sa_search_studios: 'Studios',
     sa_search_students: 'Students',
     sa_search_payments: 'Payments',
+
+    // SuperAdmin Layout & Global (v4.5)
+    sa_lastSync: 'Last Sync',
+    sa_supportControl: 'Support Control',
+    sa_platformGlobalMgmt: 'Platform Management',
+    sa_universalSearch: 'Universal Search',
+    sa_systemNotes: 'System Notes',
+    sa_notePlaceholder: 'Type a note...',
+    sa_recentNotes: 'Recent Notes',
+    sa_notifications: 'Notifications',
+    sa_noAlerts: 'No Alerts',
+    sa_overdue: 'Overdue',
+    sa_attention: 'Attention',
+    sa_daysLeft: 'days left',
+    sa_hubTitle: 'Support Hub',
+    sa_hubSubtitle: 'Support',
 };

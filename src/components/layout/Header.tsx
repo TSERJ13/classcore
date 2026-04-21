@@ -78,6 +78,8 @@ export function Header() {
     const [profileOpen, setProfileOpen] = useState(false);
     const [branchModalOpen, setBranchModalOpen] = useState(false);
     const [newBranchName, setNewBranchName] = useState('');
+    const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+    const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
 
     const students = getStudents();
     const groups = getGroups();
@@ -381,6 +383,26 @@ export function Header() {
         return () => window.removeEventListener('storage', readLabel);
     }, [pathname]);
 
+    // Track Cloud Sync Status
+    useEffect(() => {
+        const handleSyncOk = (e: any) => {
+            setLastSyncTime(e.detail?.time || new Date().toISOString());
+            setSyncStatus('synced');
+            // Flash success state if it was syncing
+        };
+        const handleSyncStart = () => setSyncStatus('syncing');
+        
+        window.addEventListener('cc_sync_push_ok', handleSyncOk);
+        window.addEventListener('cc_sync_pull_ok', handleSyncOk);
+        window.addEventListener('cc_instant_sync_request', handleSyncStart);
+        
+        return () => {
+            window.removeEventListener('cc_sync_push_ok', handleSyncOk);
+            window.removeEventListener('cc_sync_pull_ok', handleSyncOk);
+            window.removeEventListener('cc_instant_sync_request', handleSyncStart);
+        };
+    }, []);
+
     const unreadCount = notifications.filter(n => !n.read).length;
 
     // Derive page title from t.* translations using pathname
@@ -504,6 +526,20 @@ export function Header() {
                     </button>
 
                     <div className="h-6 w-px bg-border-subtle/50 mx-1 hidden md:block" />
+
+                    {/* Cloud Sync Status Indicator */}
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-surface/30 border border-border-subtle/50 group cursor-default" 
+                         title={lastSyncTime ? `ბოლო სინქრონიზაცია: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'სინქრონიზაცია ჩართულია'}>
+                        <div className={cn(
+                            "w-1.5 h-1.5 rounded-full transition-all duration-500",
+                            syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" :
+                            syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500"
+                        )} />
+                        <span className="text-[10px] font-black text-primary/40 group-hover:text-primary/60 transition-colors hidden xs:block">
+                            {syncStatus === 'synced' ? (lang === 'ka' ? 'ღრუბელი' : 'Cloud') : 
+                             syncStatus === 'syncing' ? (lang === 'ka' ? 'ინახება...' : 'Syncing...') : 'Error'}
+                        </span>
+                    </div>
                 </div>
             </header>
 

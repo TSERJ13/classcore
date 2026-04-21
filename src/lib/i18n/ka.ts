@@ -1312,4 +1312,20 @@ export const ka: Translations = {
     sa_search_studios: 'სტუდიები',
     sa_search_students: 'მოსწავლეები',
     sa_search_payments: 'გადახდები',
+
+    // SuperAdmin Layout & Global (v4.5)
+    sa_lastSync: 'ბოლო სინქრონიზაცია',
+    sa_supportControl: 'მხარდაჭერის პანელი',
+    sa_platformGlobalMgmt: 'პლატფორმის მართვა',
+    sa_universalSearch: 'უნივერსალური ძებნა',
+    sa_systemNotes: 'სისტემური ჩანაწერები',
+    sa_notePlaceholder: 'ჩაწერეთ...',
+    sa_recentNotes: 'ბოლო ჩანაწერები',
+    sa_notifications: 'შეტყობინებები',
+    sa_noAlerts: 'შეტყობინება არ არის',
+    sa_overdue: 'ვადაგადაცილებული',
+    sa_attention: 'ყურადღება',
+    sa_daysLeft: 'დღე დარჩა',
+    sa_hubTitle: 'Support Hub',
+    sa_hubSubtitle: 'მხარდაჭერა',
 };

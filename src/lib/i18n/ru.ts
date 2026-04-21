@@ -1311,4 +1311,20 @@ export const ru: Translations = {
     sa_search_studios: 'Студии',
     sa_search_students: 'Студенты',
     sa_search_payments: 'Платежи',
+
+    // SuperAdmin Layout & Global (v4.5)
+    sa_lastSync: 'Последняя синхронизация',
+    sa_supportControl: 'Панель поддержки',
+    sa_platformGlobalMgmt: 'Управление платформой',
+    sa_universalSearch: 'Универсальный поиск',
+    sa_systemNotes: 'Системные заметки',
+    sa_notePlaceholder: 'Напишите...',
+    sa_recentNotes: 'Последние заметки',
+    sa_notifications: 'Уведомления',
+    sa_noAlerts: 'Уведомлений нет',
+    sa_overdue: 'Просрочено',
+    sa_attention: 'Внимание',
+    sa_daysLeft: 'дней осталось',
+    sa_hubTitle: 'Support Hub',
+    sa_hubSubtitle: 'Поддержка',
 };

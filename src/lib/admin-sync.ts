@@ -1,8 +1,20 @@
 import { getStudioRegistry } from './settings-store';
 
-export async function syncGlobalAdminRegistry() {
+export async function syncGlobalAdminRegistry(force = false) {
     try {
-        const res = await fetch(`/api/superadmin/studios/list?t=${Date.now()}`, {
+        // 🛡️ CACHE LAYER: 5-minute stale-while-revalidate
+        const lastSync = parseInt(localStorage.getItem('cc_sa_last_sync') || '0');
+        const now = Date.now();
+        const studiosData = localStorage.getItem('cc_sa_studios_data');
+        
+        if (!force && lastSync && (now - lastSync < 5 * 60 * 1000) && studiosData) {
+            console.log('⚡ [AdminSync] Using fresh cache (v4.5)');
+            try {
+                return JSON.parse(studiosData);
+            } catch { /* fallback to fetch */ }
+        }
+
+        const res = await fetch(`/api/superadmin/studios/list?t=${now}`, {
             cache: 'no-store',
             headers: { 'Pragma': 'no-cache' }
         });
@@ -33,13 +45,12 @@ export async function syncGlobalAdminRegistry() {
 
             // Update Registry with Cloud Truth
             localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(nextList)]));
-            
-            // Store the full details for pages that need it without hitting API again
             localStorage.setItem('cc_sa_studios_data', JSON.stringify(studios));
+            localStorage.setItem('cc_sa_last_sync', now.toString());
 
-            // If we are on an empty state but local still has something, force clear
-            if (cloudSlugs.length === 0 && localRegistry.length > 0 && !localRegistry.includes('demo.classcore.ge')) {
-                 localStorage.setItem('cc_studios_list', JSON.stringify([]));
+            // 📢 DISPATCH FEEDBACK EVENTS
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('cc_sync_pull_ok', { detail: { time: new Date().toISOString(), type: 'admin' } }));
             }
 
             return studios;

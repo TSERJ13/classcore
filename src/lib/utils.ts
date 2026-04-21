@@ -249,27 +249,12 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
 
     // ─── Scoping Logic ───
     const globalCollections = [
-        'cc_student_data', 
-        'cc_studio_settings', 
-        'cc_staff', 
-        'cc_subscription_plans', 
-        'cc_student_subscriptions', 
-        'cc_deleted_students',
-        'cc_deleted_subscriptions',
-        'cc_audit_log',
-        'cc_security_log'
-    ];
-
-    if (PROTECTED_GLOBAL_KEYS.includes(base) || globalCollections.includes(base)) {
-        return `${base}_${finalSlug}`; // These are SHARED across all branches
-    }
-
-    // Branch-Scoped: Groups, Attendance, Calendar, Halls, etc.
+    // Unified Scoping: Always use the authoritative scopeId (OrgId if available, else Slug)
     if (bId && bId !== 'all') {
-        return `${base}_${finalSlug}_${bId}`;
+        return `${base}_${scopeId}_${bId}`;
     }
 
-    return `${base}_${finalSlug}`;
+    return `${base}_${scopeId}`;
 }
 
 /** 

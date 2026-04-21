@@ -462,6 +462,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     // Initial hydration from local storage
     useEffect(() => {
         const local = loadSettings(defaultSlug || undefined);
+        
+        // 🛡️ DATA SHIELD (v4.4): Unify orphaned storage silos immediately!
+        if (local.studioSlug) {
+            import('@/lib/utils').then(({ consolidateStudioKeys }) => {
+                consolidateStudioKeys(local.studioSlug!, local.orgId);
+            });
+        }
+
         setSettings(local);
         setIsLoaded(true);
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Users, CalendarCheck, CalendarDays,
-    BookOpen, Menu,
+    BookOpen, Menu, CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
@@ -20,7 +20,7 @@ export function BottomNav() {
         { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
         { href: '/students', labelKey: 'students', icon: Users },
         { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck },
-        { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
+        { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard },
     ] as const;
 
     return (

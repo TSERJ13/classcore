@@ -32,6 +32,11 @@ export default function SystemPage() {
         return saved ? JSON.parse(saved) : [];
     });
     const [newPromo, setNewPromo] = useState({ code: '', discount: 10, type: 'percent' as const, singleUse: false, maxUses: 0 });
+    
+    // --- RESTORATION FIX (v4.5) ---
+    const [loading, setLoading] = useState(false);
+    const [confirmingId, setConfirmingId] = useState<string | null>(null);
+    const [done, setDone] = useState<string | null>(null);
 
     useEffect(() => {
         setMounted(true);

@@ -51,8 +51,8 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
                 isLoading ? "opacity-100" : "opacity-0 invisible scale-105"
             )}>
                 <div className="flex flex-col items-center justify-center gap-6">
-                    <div className="w-[90px] h-[90px] flex items-center justify-center">
-                        <Logo size={90} animated loading />
+                    <div className="w-[60px] h-[60px] flex items-center justify-center">
+                        <Logo size={60} animated loading />
                     </div>
                     <div className="text-center space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">

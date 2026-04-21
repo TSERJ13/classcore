@@ -34,6 +34,7 @@ export default function BroadcastPage() {
     const [history, setHistory] = useState<Array<BroadcastMsg & { sentAt: string; id: string }>>([]);
 
     useEffect(() => {
+        setMounted(true);
         const h = localStorage.getItem('cc_sa_broadcast_history');
         if (h) setHistory(JSON.parse(h));
     }, []);

@@ -244,6 +244,9 @@ export async function pushStudioStateToCloud(
         }
 
         console.log(`✅ [Sync] Push OK → ${staff.length} staff, ${Object.keys(operations).length} data keys`);
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('cc_sync_push_ok', { detail: { time: new Date().toISOString() } }));
+        }
     } catch (err: any) {
         if (retryCount < 3) {
             console.warn(`⚠️ [Sync] Push retry ${retryCount + 1}/3...`);
@@ -360,6 +363,9 @@ export async function pullStudioStateFromCloud(
         });
 
         console.log(`✅ [Sync] Pull OK ← ${staff.length} staff, ${Object.keys(operations).length} data keys`);
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('cc_sync_pull_ok', { detail: { time: new Date().toISOString() } }));
+        }
         return {
             staff_data: staff,
             studio_data: scopedData,

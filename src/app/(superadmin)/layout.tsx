@@ -27,6 +27,10 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [isNotesOpen, setIsNotesOpen] = useState(false);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+    
+    // --- CLOUD SYNC STATE (v4.5) ---
+    const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+    const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
 
     const SUPER_ADMIN_EMAILS = [
         'adminclasscore@gmail.com',
@@ -90,11 +94,25 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
         const handleOpenSearch = () => setIsGlobalSearchOpen(true);
 
-        window.addEventListener('keydown', handleDown);
         window.addEventListener('cc-open-search', handleOpenSearch);
+
+        // --- SYNC STATUS LISTENERS ---
+        const handleSyncOk = (e: any) => {
+            setLastSyncTime(e.detail?.time || new Date().toISOString());
+            setSyncStatus('synced');
+        };
+        const handleSyncStart = () => setSyncStatus('syncing');
+
+        window.addEventListener('cc_sync_push_ok', handleSyncOk);
+        window.addEventListener('cc_sync_pull_ok', handleSyncOk);
+        window.addEventListener('cc_instant_sync_request', handleSyncStart);
+
         return () => {
             window.removeEventListener('keydown', handleDown);
             window.removeEventListener('cc-open-search', handleOpenSearch);
+            window.removeEventListener('cc_sync_push_ok', handleSyncOk);
+            window.removeEventListener('cc_sync_pull_ok', handleSyncOk);
+            window.removeEventListener('cc_instant_sync_request', handleSyncStart);
         };
     }, []);
 
@@ -308,6 +326,22 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     </div>
 
                     <div className="flex items-center gap-2 pointer-events-auto bg-white/95 dark:bg-white/[0.02] backdrop-blur-xl border border-black/5 dark:border-white/5 p-1 rounded-2xl shadow-2xl shadow-black/5">
+                        {/* Cloud Sync Status Indicator (v4.5) */}
+                        <div className="hidden xs:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 group cursor-default" 
+                             title={lastSyncTime ? `${t.sa_lastSync}: ${new Date(lastSyncTime).toLocaleTimeString()}` : (lang === 'ka' ? 'სინქრონიზაცია ჩართულია' : 'Sync Active')}>
+                            <div className={cn(
+                                "w-1.5 h-1.5 rounded-full transition-all duration-500",
+                                syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" :
+                                syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500"
+                            )} />
+                            <span className="text-[10px] font-black text-primary/40 group-hover:text-primary/60 transition-colors">
+                                {syncStatus === 'synced' ? (lang === 'ka' ? 'ღრუბელი' : 'Cloud') : 
+                                 syncStatus === 'syncing' ? (lang === 'ka' ? 'ინახება...' : 'Syncing...') : 'Error'}
+                            </span>
+                        </div>
+
+                        <div className="w-px h-6 bg-black/5 dark:bg-white/5 mx-1 hidden xs:block" />
+
                         {/* Global Search Button */}
                         <button
                             onClick={() => setIsGlobalSearchOpen(true)}
