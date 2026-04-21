@@ -34,7 +34,7 @@ export function BottomNav() {
                 WebkitBackfaceVisibility: 'hidden'
             }}
         >
-            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-2 pb-0.5 h-[64px]">
+            <div className="flex items-center justify-around md:justify-evenly w-full max-w-5xl mx-auto px-1 pt-2 pb-0.5 h-[72px]">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (
@@ -42,15 +42,15 @@ export function BottomNav() {
                             key={href}
                             href={href}
                             className={cn(
-                                'flex flex-col items-center gap-1 px-2 py-0.5 rounded-xl transition-all duration-150 min-w-[60px] md:min-w-[100px] touch-manipulation',
+                                'flex flex-col items-center gap-1.5 px-2 py-0.5 rounded-xl transition-all duration-150 min-w-[64px] md:min-w-[100px] touch-manipulation',
                                 active ? 'text-indigo-400' : 'text-white/35'
                             )}
                         >
-                            <div className={cn('relative w-4.5 h-4.5 md:w-7 md:h-7 flex items-center justify-center', active && 'scale-110')}>
-                                {active && <span className="absolute inset-0 scale-150 rounded-xl bg-indigo-500/15" />}
-                                <Icon className="relative w-4 h-4 md:w-5.5 md:h-5.5" strokeWidth={active ? 2.5 : 2} />
+                            <div className={cn('relative w-6 h-6 md:w-10 md:h-10 flex items-center justify-center', active && 'scale-110')}>
+                                {active && <span className="absolute inset-0 scale-125 rounded-2xl bg-indigo-500/15" />}
+                                <Icon className="relative w-5.5 h-5.5 md:w-8 md:h-8" strokeWidth={active ? 2.5 : 2} />
                             </div>
-                            <span className="text-[7.5px] md:text-[10px] font-black uppercase tracking-widest truncate">{t[labelKey]}</span>
+                            <span className="text-[8px] md:text-[11px] font-black uppercase tracking-widest truncate">{t[labelKey]}</span>
                         </Link>
                     );
                 })}
@@ -58,12 +58,12 @@ export function BottomNav() {
                 {/* "More" opens the full sidebar drawer */}
                 <button
                     onClick={open}
-                    className="flex flex-col items-center gap-1 px-2 py-0.5 rounded-xl text-white/35 hover:text-white/60 min-w-[60px] md:min-w-[100px] touch-manipulation transition-colors"
+                    className="flex flex-col items-center gap-1.5 px-2 py-0.5 rounded-xl text-white/35 hover:text-white/60 min-w-[64px] md:min-w-[100px] touch-manipulation transition-colors"
                 >
-                    <div className="w-4.5 h-4.5 md:w-7 md:h-7 flex items-center justify-center">
-                        <Menu className="w-4 h-4 md:w-5.5 md:h-5.5" strokeWidth={2} />
+                    <div className="w-6 h-6 md:w-10 md:h-10 flex items-center justify-center">
+                        <Menu className="w-5.5 h-5.5 md:w-8 md:h-8" strokeWidth={2} />
                     </div>
-                    <span className="text-[7.5px] md:text-[10px] font-black uppercase tracking-widest">{t.more}</span>
+                    <span className="text-[8px] md:text-[11px] font-black uppercase tracking-widest">{t.more}</span>
                 </button>
             </div>
         </nav>
