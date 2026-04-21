@@ -484,7 +484,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             const studioData: Record<string, any> = {};
             Object.keys(localStorage).forEach(k => {
                 const isSyncable = SYNC_COLLECTIONS.some((p: string) => k.startsWith(p));
-                if (isSyncable && k.endsWith(`_${activeSlug}`)) {
+                // 🚨 CRITICAL FIX (v4.1): Support both Global keys (_slug) and Branch-scoped keys (_slug_branch)
+                const isMatch = k.endsWith(`_${activeSlug}`) || k.includes(`_${activeSlug}_`);
+                
+                if (isSyncable && isMatch) {
                     try {
                         const val = localStorage.getItem(k);
                         if (val) studioData[k] = JSON.parse(val);
@@ -554,7 +557,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 const studioData: Record<string, any> = {};
                 Object.keys(localStorage).forEach(k => {
                     const isSyncable = SYNC_COLLECTIONS.some((p: string) => k.startsWith(p));
-                    if (isSyncable && k.endsWith(`_${activeSlug}`)) {
+                    // 🚨 CRITICAL FIX (v4.1): Support both Global keys (_slug) and Branch-scoped keys (_slug_branch)
+                    const isMatch = k.endsWith(`_${activeSlug}`) || k.includes(`_${activeSlug}_`);
+                    
+                    if (isSyncable && isMatch) {
                         try {
                             const val = localStorage.getItem(k);
                             if (val) studioData[k] = JSON.parse(val);
