@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, DoorOpen, Users, Palette, Check, Trash2, AlertTriangle, Camera, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -45,9 +45,9 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
     if (!open) return null;
 
     return (
-        <>
+        <React.Fragment>
             <div className="fixed inset-0 z-40 bg-black/20 animate-in fade-in duration-200" onClick={onClose} />
-            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[420px] max-w-full max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
+            <div className="fixed inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto z-50 w-full sm:w-[420px] max-h-[96dvh] sm:max-h-none flex flex-col bg-card sm:border-l border-t sm:border-t-0 border-border-subtle shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-[2.5rem] sm:rounded-none overflow-hidden">
                     {/* Header */}
                     <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
                         <div className="flex items-center gap-3">
@@ -187,6 +187,6 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                         </div>
                 </div>
             </div>
-        </>
+        </React.Fragment>
     );
 }
