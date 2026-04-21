@@ -25,7 +25,7 @@ export function BottomNav() {
 
     return (
         <nav
-            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111114]/98 backdrop-blur-2xl border-t border-white/[0.05]"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--sidebar-bg)] border-t border-white/[0.08] shadow-[0_-10px_30px_rgba(0,0,0,0.3)]"
             style={{ 
                 paddingBottom: 'env(safe-area-inset-bottom, 6px)',
                 transform: 'translateZ(0)',

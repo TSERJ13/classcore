@@ -5,7 +5,7 @@ import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
 import {
     UserPlus, Search, Phone, Mail, Users, User, BookOpen,
-    ChevronRight, Edit2, Zap, CalendarDays, BarChart2, Trash2
+    ChevronRight, Edit2, Zap, CalendarDays, BarChart2, Trash2, MessageSquare
 } from 'lucide-react';
 import { cn, getInitials, formatCurrency } from '@/lib/utils';
 import { TeacherModal } from '@/components/teachers/TeacherModal';
@@ -161,8 +161,16 @@ export default function TeachersPage() {
                                     </div>
 
                                     {/* Contacts & rates - more compact */}
-                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-muted/60">
-                                        <span className="flex items-center gap-1.5"><Phone className="w-3 h-3 opacity-40" />{teacher.phone}</span>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-bold text-muted/60">
+                                        <div className="flex items-center gap-2">
+                                            <a href={`tel:${teacher.phone}`} className="flex items-center gap-1.5 hover:text-indigo-500 transition-colors">
+                                                <Phone className="w-3 h-3 opacity-40 shrink-0" />
+                                                {teacher.phone}
+                                            </a>
+                                            <a href={`sms:${teacher.phone}`} className="p-1 px-1.5 bg-indigo-500/5 hover:bg-indigo-500/10 rounded-md transition-all active:scale-90 group/sms">
+                                                <MessageSquare className="w-3 h-3 text-indigo-500 opacity-60 group-hover/sms:opacity-100" />
+                                            </a>
+                                        </div>
                                         <div className="flex gap-3">
                                             {teacher.rate_per_hour && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_hour, settings.currency)}/h</span>}
                                             {teacher.rate_per_month && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_month, settings.currency)}/m</span>}
