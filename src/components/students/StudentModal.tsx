@@ -1239,7 +1239,6 @@ export function StudentModal({
                     </button>
                 </div>
             </div>
-        </div>
 
             {student && (
                 <IssueSubscriptionModal
