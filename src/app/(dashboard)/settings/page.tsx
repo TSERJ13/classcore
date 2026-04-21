@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Building2, Bell, Globe, Shield, CreditCard, Palette,
-    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2
+    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2, Eye, EyeOff
 } from 'lucide-react';
 import { checkCloudConnection, syncStaffToCloud, masterStudioPurge } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
@@ -401,21 +401,8 @@ export default function SettingsPage() {
                                     </button>
                                     {settings.logoDataUrl && (
                                         <button 
-                                            onClick={() => {
-                                                setLogo(null);
-                                                addNotification(l('ლოგო წაიშალა', 'Логотип удален', 'Logo removed'), 'success');
-                                            }} 
-                                            className="px-4 py-2.5 rounded-xl bg-surface border border-border-subtle text-[10px] font-black text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            {t.removeAction}
-                                        </button>
-                                    )}
-                                </div>
-                                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                            </div>
-                        </Row>
-                        <Row label={t.studioNameLabel} sub={t.sidebarShow}>
-                            <div className="flex items-center gap-2">
+                                        <Row label={t.studioNameLabel} sub={t.sidebarShow}>
+                            <div className="flex items-center gap-2 w-full">
                                  <input 
                                     value={nameVal} 
                                     onChange={e => {
@@ -425,22 +412,22 @@ export default function SettingsPage() {
                                     onKeyDown={e => e.key === 'Enter' && saveName()} 
                                     readOnly={!isAdmin}
                                     className={cn(
-                                        "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                        "w-full max-w-md bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-bold text-primary outline-none transition-all",
                                         !isAdmin && "opacity-60 cursor-not-allowed"
                                     )} 
                                 />
                                 {isAdmin && (
-                                    <button onClick={saveName} className={cn('w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
-                                        {nameSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                                    <button onClick={saveName} className={cn('w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
+                                        {nameSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
                                     </button>
                                 )}
                             </div>
                         </Row>
-                        <Row label={t.urlSlugLabel}>
-                            <div className="flex flex-col gap-2 items-end">
-                                <div className="flex items-center gap-2 w-full justify-end">
-                                    <span className="text-muted/40 text-[10px]">/</span>
-                                    <div className="relative flex items-center gap-2 w-full max-w-[200px]">
+                        <Row label={t.urlSlugLabel} sub={l('სტუდიის უნიკალური მისამართი', 'Уникальный адрес студии', 'Unique studio address')}>
+                            <div className="flex flex-col gap-2 items-start w-full">
+                                <div className="flex items-center gap-2 w-full">
+                                    <span className="text-muted/40 text-xs font-mono">/</span>
+                                    <div className="relative flex items-center gap-2 w-full max-w-md">
                                         <input
                                             value={slugVal}
                                             onChange={e => setSlugVal(compactSlugify(e.target.value))}
@@ -448,7 +435,7 @@ export default function SettingsPage() {
                                             placeholder="studio-slug"
                                             readOnly={!isAdmin && settings.studioSlug !== 'demo.classcore.ge'}
                                             className={cn(
-                                                "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-mono text-muted outline-none transition-colors",
+                                                "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-mono text-muted outline-none transition-colors",
                                                 (!isAdmin && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
                                             )}
                                         />
@@ -456,20 +443,11 @@ export default function SettingsPage() {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => setSlugVal(compactSlugify(nameVal || settings.studioName))}
-                                                    className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl bg-surface text-muted hover:text-indigo-500 border border-border-subtle transition-all"
+                                                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-surface text-muted hover:text-indigo-500 border border-border-subtle transition-all"
                                                     title={l('სახელიდან გენერირება', 'Сгенерировать из названия', 'Generate from name')}
                                                 >
-                                                    <RefreshCcw className="w-3.5 h-3.5" />
+                                                    <RefreshCcw className="w-4 h-4" />
                                                 </button>
-                                                {profile?.role === 'superadmin' && settings.studioSlug && (
-                                                    <button
-                                                        onClick={handleReclaimSlug}
-                                                        className="px-2 py-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg text-[8px] font-black tracking-widest transition-all"
-                                                        title={t.reclaimName}
-                                                    >
-                                                        {t.reclaimAction}
-                                                    </button>
-                                                )}
                                                 <button
                                                     onClick={saveSlug}
                                                     disabled={!slugVal || slugVal === settings.studioSlug}
@@ -490,13 +468,25 @@ export default function SettingsPage() {
                         </Row>
 
                         <Row label={t.registrationLink} sub={l('სტუდენტების რეგისტრაციის ლინკი (ავტომატური დამატება)', 'Ссылка для регистрации студентов (авто-добавление)', 'Student registration link (automatic addition)')}>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full">
                                 {slugVal ? (
                                     <>
-                                        <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono truncate max-w-[200px] transition-colors">
-                                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                                            <span className="truncate">/{slugVal}/registration</span>
+                                        <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-indigo-500 hover:text-indigo-400 font-bold font-mono group transition-colors">
+                                            <ExternalLink className="w-4 h-4 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                            <span className="border-b border-indigo-500/30">/{slugVal}/registration</span>
                                         </a>
+                                        <button onClick={copyRegLink} className={cn('w-9 h-9 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
+                                            {copiedRegLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100 italic text-[10px] text-amber-600 font-bold uppercase tracking-widest">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        {l('მიუთითეთ მისამართი აქტივაციისთვის', 'Укажите адрес для активации', 'Set slug to activate link')}
+                                    </div>
+                                )}
+                            </div>
+                        </Row>                                       </a>
                                         <button onClick={copyRegLink} className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all flex-shrink-0', copiedRegLink ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:text-primary border border-border-subtle')}>
                                             {copiedRegLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                                         </button>
@@ -633,14 +623,14 @@ export default function SettingsPage() {
             {isOwner && (
                 <Section title={l('ანგარიში', 'Аккаунт', 'Account')} icon={User} defaultOpen={false}>
                     <Row label={l('სახელი და გვარი', 'Имя и Фаმილია', 'Full Name')} sub={l('მფლობელის სახელი და გვარი', 'Имя и фамилия владельца', 'First and last name of the studio owner')}>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 w-full items-start">
                             <input 
                                 value={settings.owner_info?.first_name || profile?.first_name || ''} 
                                 onChange={e => setOwnerInfo({ ...settings.owner_info, first_name: e.target.value })}
                                 placeholder={t.firstNameLabel}
                                 readOnly={!isSuperAdmin}
                                 className={cn(
-                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    "w-full max-w-[160px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-bold text-primary outline-none transition-all",
                                     !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
                                 )}
                             />
@@ -650,32 +640,36 @@ export default function SettingsPage() {
                                 placeholder={t.lastNameLabel}
                                 readOnly={!isSuperAdmin}
                                 className={cn(
-                                    "w-full max-w-[120px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
+                                    "w-full max-w-[160px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-bold text-primary outline-none transition-all",
                                     !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
                                 )}
                             />
                         </div>
                     </Row>
                     <Row label={t.emailLabel} sub={l('საკონტაქტო ელ-ფოსტა', 'Контактный email', 'Owner contact email')}>
-                        <div className="px-3 py-2 text-xs font-medium text-muted bg-surface/50 border border-border-subtle/50 rounded-xl">
-                            {settings.owner_info?.email || user?.email || 'N/A'}
+                        <div className="flex items-center w-full">
+                            <div className="px-4 py-2.5 text-sm font-bold text-muted bg-surface/50 border border-border-subtle/50 rounded-xl">
+                                {settings.owner_info?.email || user?.email || 'N/A'}
+                            </div>
                         </div>
                     </Row>
                     <Row label={t.phoneLabel} sub={l('საკონტაქტო ტელეფონი', 'Контактный телефон', 'Owner contact phone')}>
-                        <input 
-                            value={settings.owner_info?.phone || profile?.phone || ''} 
-                            onChange={e => setOwnerInfo({ phone: e.target.value })}
-                            placeholder="+995 ..."
-                            readOnly={!isSuperAdmin}
-                            className={cn(
-                                "w-full max-w-[200px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-3 py-2 text-xs font-medium text-primary outline-none transition-all",
-                                !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted text-right"
-                            )}
-                        />
+                        <div className="flex items-center w-full">
+                            <input 
+                                value={settings.owner_info?.phone || profile?.phone || ''} 
+                                onChange={e => setOwnerInfo({ phone: e.target.value })}
+                                placeholder="+995 ..."
+                                readOnly={!isSuperAdmin}
+                                className={cn(
+                                    "w-full max-w-[240px] bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-bold text-primary outline-none transition-all",
+                                    !isSuperAdmin && "opacity-60 cursor-not-allowed text-muted"
+                                )}
+                            />
+                        </div>
                     </Row>
                     <Row label={l('კაბინეტის ნომერი', 'Номер кабинета', 'Cabinet Number')} sub={l('უნიკალური საიდენტიფიკაციო კოდი', 'Уникальный идентификационный код', 'Unique identification code')}>
-                        <div className="flex items-center gap-2">
-                            <div className="px-4 py-2 bg-surface border border-border-subtle rounded-xl text-xs font-mono font-black text-indigo-500 shadow-inner">
+                        <div className="flex items-center gap-3 w-full">
+                            <div className="px-5 py-2.5 bg-surface border border-border-subtle rounded-xl text-sm font-mono font-black text-indigo-500 shadow-inner">
                                 {settings.cabinetCode || '---'}
                             </div>
                             <button 
@@ -683,20 +677,24 @@ export default function SettingsPage() {
                                     navigator.clipboard.writeText(settings.cabinetCode || '');
                                     addNotification(l('კოდი დაკოპირდა', 'Код скопирован', 'Code copied'), 'success');
                                 }}
-                                className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary transition-all"
+                                className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-primary transition-all"
                             >
-                                <Copy className="w-3.5 h-3.5" />
+                                <Copy className="w-4 h-4" />
                             </button>
                         </div>
                     </Row>
                     <Row label={l('პლატფორმის ენა', 'Язык платформы', 'Platform Language')} sub={l('თქვენი ძირითადი ენა სისტემაში', 'Ваш основной язык в системе', 'Your primary language in the system')}>
-                        <LanguageSwitcher variant="landing" mode="persistent" onChange={(l) => setLanguage(l as any)} />
+                        <div className="flex items-center w-full">
+                            <LanguageSwitcher variant="landing" mode="persistent" onChange={(l) => setLanguage(l as any)} />
+                        </div>
                     </Row>
                     <Row label={l('სისტემიდან გამოსვლა', 'Выйти из системы', 'Logout')} sub={t.logoutDesc}>
-                        <button onClick={logout} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group">
-                            <LogOutIcon className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                            {l('გამოსვლა', 'Выйти', 'Logout')}
-                        </button>
+                        <div className="flex items-center w-full">
+                            <button onClick={logout} className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group border border-rose-500/10">
+                                <LogOutIcon className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+                                {l('გამოსვლა', 'Выйти', 'Logout')}
+                            </button>
+                        </div>
                     </Row>
                 </Section>
             )}

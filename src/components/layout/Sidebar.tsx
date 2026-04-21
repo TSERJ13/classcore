@@ -273,7 +273,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] transition-all duration-300",
                         exp 
-                            ? (isMobile ? "p-1.5 flex items-center gap-2 mb-2 pt-4" : "p-3 flex items-center gap-4") 
+                            ? (isMobile ? "p-4 flex flex-col items-start gap-4 mb-2 pt-6" : "p-3 flex items-center gap-4") 
                             : "py-4 flex flex-col items-center gap-4"
                     )}>
                         <LanguageSwitcher 
@@ -281,22 +281,23 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             mode="session" 
                             align="left" 
                             className={cn(
-                                exp && "flex-1 bg-white/5 border-white/10 hover:bg-white/10 h-8 lg:h-10",
-                                isMobile && "h-8 py-1 px-3 text-[9px] min-w-[80px]"
+                                exp && "bg-white/5 border-white/10 hover:bg-white/10 h-8 lg:h-10",
+                                isMobile ? "w-full max-w-[140px] h-10 py-1 px-4 text-[11px]" : "flex-1"
                             )} 
                         />
                         
                         <button
                             onClick={logout}
                             className={cn(
-                                "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0 ml-1",
+                                "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
                                 exp 
-                                    ? cn("w-9 bg-white/5 border border-white/10 rounded-xl", isMobile ? "h-8" : "h-10")
+                                    ? cn("bg-white/5 border border-white/10 rounded-xl", isMobile ? "w-full max-w-[140px] h-11 px-4 gap-3 justify-start" : "w-10 h-10")
                                     : "w-10 h-10 rounded-xl bg-white/5 border border-white/10 shadow-sm"
                             )}
                             title={l('გასვლა', 'Выйти', 'Logout')}
                         >
-                            <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", isMobile ? "w-3 h-3" : "w-4 h-4")} strokeWidth={2.5} />
+                            <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5 whitespace-nowrap", isMobile ? "w-4 h-4 ml-1" : "w-4 h-4")} strokeWidth={2.5} />
+                            {isMobile && exp && <span className="text-[11px] font-black uppercase tracking-widest">{l('გასვლა', 'Выйти', 'Logout')}</span>}
                         </button>
                     </div>
                 </>
