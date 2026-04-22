@@ -48,7 +48,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
-                "rounded-none sm:rounded-none"
+                "rounded-none sm:rounded-none overflow-x-hidden max-w-full"
             )}>
                 {/* Mobile Drag Handle */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
@@ -219,7 +219,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-12 sm:pb-8">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-10 sm:pb-8">
                     <div className="flex gap-3">
                         {onDelete && !isTeacher && (
                             <button
@@ -229,7 +229,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                                         onClose();
                                     }
                                 }}
-                                className="px-4 py-3 rounded-xl bg-red-500/5 text-red-500 hover:bg-red-500/10 transition-all font-bold text-[11px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                                className="px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white transition-all font-bold text-[11px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-2"
                             >
                                 <Trash2 className="w-4 h-4 flex-shrink-0" />
                                 <span className="truncate">{t.delete}</span>
@@ -237,7 +237,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                         )}
                         <button
                             onClick={onClose}
-                            className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center"
+                            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center"
                         >
                             {t.cancel}
                         </button>
@@ -245,7 +245,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                             onClick={() => onSave(form)}
                             className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
-                            <Save className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                             <span className="truncate">{t.save}</span>
                         </button>
                     </div>

@@ -976,7 +976,7 @@ export const ka: Translations = {
     requiredField: 'სავალდებულოა',
     photoOptional: 'სურვილისამებრ',
     registering: 'დარეგისტრირება...',
-    saveAndSync: 'კალენდარში დამატება',
+    saveAndSync: 'დამატება',
     revenueTrend: 'შემოსავლების ტრენდი',
     attendanceAnalysis: 'დასწრების ანალიზი',
     recommendations: 'რეკომენდაციები',

@@ -289,7 +289,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
-                "rounded-none sm:rounded-none"
+                "rounded-none sm:rounded-none overflow-x-hidden max-w-full"
             )}>
                 {/* Mobile Drag Handle */}
                 <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
@@ -643,9 +643,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                 {/* Footer */}
                 {step === 'form' && (
-                    <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-12 sm:pb-8 flex-shrink-0">
+                    <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-10 sm:pb-8 flex-shrink-0">
                         <div className="flex gap-3">
-                            <button onClick={onClose} className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
+                            <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
                                 {t.cancel}
                             </button>
                             <button
@@ -653,7 +653,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
                                 className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-widest px-2"
                             >
-                                <Save className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
+                                <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
                             </button>
                         </div>
                     </div>

@@ -52,7 +52,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
-                "rounded-none sm:rounded-none overflow-x-hidden"
+                "rounded-none sm:rounded-none overflow-x-hidden max-w-full"
             )}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
@@ -175,7 +175,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                     </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-12 sm:pb-8 flex-shrink-0">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-10 sm:pb-8 flex-shrink-0">
                     {isEdit && !showDelete && !isTeacher && (
                         <button onClick={() => setShowDelete(true)}
                             className="w-full mb-4 py-2 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
@@ -194,12 +194,13 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                     )}
                     <div className="flex gap-3">
                         <button onClick={onClose}
-                            className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
+                            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
                             {t.cancel}
                         </button>
                         <button onClick={save} disabled={!form.name?.trim()}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
-                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.save}</span>
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                        >
+                            <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{isEdit ? t.save : t.add}</span>
                         </button>
                     </div>
                 </div>

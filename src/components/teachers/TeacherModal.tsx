@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { 
     X, User, Phone, Mail, Camera, Trash2, AlertTriangle, Check, 
     Plus, Upload, Globe, Search, ArrowRight, Save, Image as ImageIcon, AlertCircle,
-    BookOpen, Eye, EyeOff, Layout, Percent, Trash
+    BookOpen, Eye, EyeOff, Layout, Percent, Trash, Calendar
 } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
@@ -109,7 +109,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
-                "rounded-none sm:rounded-none overflow-x-hidden"
+                "rounded-none sm:rounded-none overflow-x-hidden max-w-full"
             )}>
 
                 {/* Header */}
@@ -471,7 +471,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-12 sm:pb-8">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-10 sm:pb-8">
                     {isEdit && !isDeletingConfirm && (
                         <button onClick={() => setIsDeletingConfirm(true)}
                             className="w-full mb-4 py-2 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
@@ -492,7 +492,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     )}
                     <div className="flex gap-3">
                         <button onClick={onClose}
-                            className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
+                            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
                             {t.cancel}
                         </button>
                         <button 
@@ -501,7 +501,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
                             {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5" />}
-                            <span className="truncate">{saving ? t.loading : t.save}</span>
+                            <span className="truncate">{saving ? t.loading : (isEdit ? t.save : t.add)}</span>
                         </button>
                     </div>
                 </div>
