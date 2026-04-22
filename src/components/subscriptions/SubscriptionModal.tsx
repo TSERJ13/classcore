@@ -10,6 +10,7 @@ import { type SubscriptionInfo, pauseActiveSubscription } from '@/lib/subscripti
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 import { cn } from '@/lib/utils';
+import { Portal } from '@/components/ui/Portal';
 
 interface SubscriptionModalProps {
     open: boolean;
@@ -41,26 +42,30 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
     const isSessionBased = form.type === 'sessions';
 
     return (
-        <>
-            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+        <Portal>
+            <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[120] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
+                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
-                "rounded-none sm:rounded-none overflow-x-hidden"
+                "rounded-none sm:rounded-none"
             )}>
+                {/* Mobile Drag Handle */}
+                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                    <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
+                </div>
                 {/* Header */}
-                <div className="p-6 border-b border-border-subtle bg-card/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                             <CreditCard className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-primary tracking-tight">{t.editSubscription}</h2>
-                            <p className="text-[10px] font-bold text-muted opacity-40">ID: {form.id}</p>
+                            <h2 className="text-sm font-black text-primary tracking-tight leading-none mb-1">{t.editSubscription}</h2>
+                            <p className="text-[9px] font-bold text-muted opacity-40 uppercase tracking-wider leading-none">ID: {form.id}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-surface text-muted transition-colors">
+                    <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all active:scale-95">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -210,7 +215,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 sm:p-6 bg-card/80 backdrop-blur-md border-t border-border-subtle flex items-center justify-between gap-3 sticky bottom-0 z-10 pb-safe-offset-2">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-safe pb-10">
                     {onDelete && !isTeacher && (
                         <button
                             onClick={async () => {
@@ -242,6 +247,6 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     </div>
                 </div>
             </div>
-        </>
+        </Portal>
     );
 }

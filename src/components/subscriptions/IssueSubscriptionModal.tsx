@@ -286,26 +286,29 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         <Portal>
             <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px]",
-                "top-0 bottom-0 !top-0",
+                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
-                "rounded-none sm:rounded-none overflow-hidden"
+                "rounded-none sm:rounded-none"
             )}>
+                {/* Mobile Drag Handle */}
+                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                    <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
+                </div>
 
                 {/* Header */}
-                <div className="p-4 border-b border-border-subtle bg-white/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
+                <div className="px-5 py-4 border-b border-border-subtle bg-white/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                             <CreditCard className="w-4 h-4" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-black text-primary tracking-tight">{t.issueSubscription}</h2>
-                            <p className="text-[9px] font-bold text-muted opacity-40">{t.newSale}</p>
+                            <h2 className="text-sm font-black text-primary tracking-tight leading-none mb-1">{t.issueSubscription}</h2>
+                            <p className="text-[9px] font-bold text-muted opacity-40 uppercase tracking-wider leading-none">{t.newSale}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface text-muted transition-colors">
-                        <X className="w-4 h-4" />
+                    <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all active:scale-95">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
