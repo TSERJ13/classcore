@@ -157,14 +157,6 @@ export async function pushStudioStateToCloud(
 
         // 🛡️ PROTECTION 2: If the local state is EMPTY (Default) and the cloud ALREADY HAS DATA,
         // DO NOT PUSH. This prevents a fresh browser session from wiping out the cloud.
-        const isLocalEmpty = (!staff || staff.length === 0) && (!operations || Object.keys(operations).length <= 1);
-        const cloudHasData = current?.staff_data && (current.staff_data._staff?.length > 0 || Object.keys(current.staff_data._operations || {}).length > 0);
-
-        if (isLocalEmpty && cloudHasData) {
-            console.warn('⚠️ [Sync] Local state is empty but cloud has data. Aborting push to prevent wipeout.');
-            return;
-        }
-
         orgId = orgId || current?.org_id || '';
         
         // 🚨 CRITICAL PROTECTION: Pull absolute latest before merging to prevent race conditions

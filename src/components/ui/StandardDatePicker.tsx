@@ -10,6 +10,7 @@ interface StandardDatePickerProps {
     label?: string;
     disabled?: boolean;
     required?: boolean;
+    hideIcon?: boolean;
 }
 
 export function StandardDatePicker({
@@ -18,7 +19,8 @@ export function StandardDatePicker({
     className,
     label,
     disabled = false,
-    required = false
+    required = false,
+    hideIcon = false
 }: StandardDatePickerProps) {
     return (
         <div className={cn("space-y-1.5 w-full", className)}>
@@ -28,7 +30,7 @@ export function StandardDatePicker({
                 </label>
             )}
             <div className="relative group/datepicker overflow-hidden rounded-2xl">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/datepicker:text-[#6d28d9] transition-colors pointer-events-none z-10" />
+                {!hideIcon && <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/datepicker:text-[#6d28d9] transition-colors pointer-events-none z-10" />}
                 <input
                     type="date"
                     value={value || ''}

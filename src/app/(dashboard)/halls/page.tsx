@@ -21,8 +21,11 @@ export default function HallsPage() {
     const [editing, setEditing] = useState<Hall | null>(null);
 
     useEffect(() => {
-        const stored = getHalls();
-        setHalls(stored as unknown as Hall[]);
+        const refresh = () => setHalls(getHalls() as unknown as Hall[]);
+        refresh();
+        
+        window.addEventListener('cc_halls_update', refresh);
+        return () => window.removeEventListener('cc_halls_update', refresh);
     }, []);
 
     function openAdd() { setEditing(null); setModalOpen(true); }

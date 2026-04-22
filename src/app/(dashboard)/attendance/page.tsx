@@ -263,8 +263,9 @@ export default function AttendancePage() {
         };
 
         loadAtt();
-        window.addEventListener('cc_attendance_update', loadAtt);
-        return () => window.removeEventListener('cc_attendance_update', loadAtt);
+        const events = ['cc_attendance_update', 'cc_student_update', 'cc_subscription_update'];
+        events.forEach(e => window.addEventListener(e, loadAtt));
+        return () => events.forEach(e => window.removeEventListener(e, loadAtt));
     }, [dateKey, selectedClass, settings.studioSlug, settings.orgId]);
 
     const saveAttendance = useCallback((newAtt: Record<string, State>) => {

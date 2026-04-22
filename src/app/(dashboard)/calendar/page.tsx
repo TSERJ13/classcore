@@ -1300,11 +1300,21 @@ export default function CalendarPage() {
     const [hasMounted, setHasMounted] = useState(false);
 
     useEffect(() => {
+        const refresh = () => {
+            setEvents(getEvents());
+            setTeachers(getTeachers());
+            setHalls(getHalls().filter(h => h.is_active));
+            setGroups(getGroups());
+        };
+
         setHasMounted(true);
-        setEvents(getEvents());
-        setTeachers(getTeachers());
-        setHalls(getHalls().filter(h => h.is_active));
-        setGroups(getGroups());
+        refresh();
+
+        const events = [
+            'cc_calendar_events_update', 'cc_teacher_update', 'cc_halls_update', 'cc_groups_update', 'cc_student_update'
+        ];
+        events.forEach(e => window.addEventListener(e, refresh));
+        return () => events.forEach(e => window.removeEventListener(e, refresh));
     }, [settings.activeBranchId]);
 
     // Initial mobile view
@@ -1915,13 +1925,14 @@ export default function CalendarPage() {
                             {t.todayBtn}
                         </button>
                         <div className="w-px h-3 bg-border-subtle mx-0.5" />
-                        <div className="hidden sm:flex items-center cursor-pointer active:scale-95 transition-transform overflow-hidden px-1">
+                        <div className="flex items-center cursor-pointer active:scale-95 transition-transform overflow-hidden px-1">
                             <StandardDatePicker
                                 value={toDateStr(anchor)}
                                 onChange={(val) => {
                                     const d = new Date(val);
                                     if (!isNaN(d.getTime())) setAnchor(d);
                                 }}
+                                hideIcon
                                 className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!p-0 [&_input]:!h-auto [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!text-primary [&_input]:text-center [&_input]:!w-24 [&_input]:!bg-transparent"
                             />
                         </div>

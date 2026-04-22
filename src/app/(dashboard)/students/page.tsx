@@ -37,8 +37,9 @@ export default function StudentsPage() {
     useEffect(() => {
         const load = () => setStudents(getStudents());
         load();
-        window.addEventListener('cc_student_update', load);
-        return () => window.removeEventListener('cc_student_update', load);
+        const events = ['cc_student_update', 'cc_subscription_update'];
+        events.forEach(e => window.addEventListener(e, load));
+        return () => events.forEach(e => window.removeEventListener(e, load));
     }, [isDemo, settings.activeBranchId]);
 
     const [search, setSearch] = useState('');
