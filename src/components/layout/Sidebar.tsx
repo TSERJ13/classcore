@@ -271,34 +271,34 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 transition-all",
-                        exp ? (isMobile ? "p-4 pb-20 pt-10" : "p-4 pb-6") : (isMobile ? "py-4 pb-20" : "py-4")
+                        exp ? (isMobile ? "p-3 pb-8 pt-4" : "p-4 pb-6") : (isMobile ? "py-4 pb-8" : "py-4")
                     )}>
                         <div className={cn(
                             "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl p-0.5",
-                            isMobile ? "flex-col bg-transparent border-none gap-4" : (!exp && "flex-col bg-transparent border-none")
+                            isMobile ? "flex-row justify-between bg-white/[0.02] px-2 py-1.5" : (!exp && "flex-col bg-transparent border-none")
                         )}>
                             <LanguageSwitcher 
-                                compact={!exp && !isMobile} 
+                                compact={true} 
                                 mode="session" 
-                                align={isMobile ? "center" : "left"} 
+                                align={isMobile ? "left" : "left"} 
                                 className={cn(
-                                    exp ? (isMobile ? "w-full flex justify-center hover:bg-white/[0.05] h-11 px-3" : "flex-1 hover:bg-white/[0.05] h-9 px-3") : "w-8.5 h-8.5 bg-white/5 rounded-xl",
-                                    isMobile && "scale-[1.1] origin-center"
+                                    exp ? (isMobile ? "flex-1 hover:bg-white/[0.05] h-8" : "flex-1 hover:bg-white/[0.05] h-9 px-3") : "w-8.5 h-8.5 bg-white/5 rounded-xl",
+                                    isMobile && "scale-[0.9] origin-left"
                                 )} 
                             />
                             
 
-                             {exp && !isMobile && <div className="w-px h-5 bg-white/10 shrink-0 mx-1" />}
+                             {exp && <div className={cn("w-px h-5 bg-white/10 shrink-0 mx-1", isMobile && "h-4 mx-2")} />}
 
                             <button
                                 onClick={logout}
                                 className={cn(
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
-                                    isMobile ? "w-12 h-12 bg-white/5 rounded-2xl" : (exp ? "w-10 h-9" : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2")
+                                    isMobile ? "w-8 h-8 rounded-lg" : (exp ? "w-10 h-9 ml-1" : "w-8.5 h-8.5 rounded-xl bg-white/5 mt-2")
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
-                                <LogOut className={cn("w-4 h-4 transition-transform duration-300 group-hover/logout:-translate-x-0.5", isMobile && "w-5 h-5")} strokeWidth={2.5} />
+                                <LogOut className={cn("w-3.5 h-3.5 transition-transform duration-300 group-hover/logout:-translate-x-0.5", isMobile && "w-3.5 h-3.5")} strokeWidth={2.5} />
                             </button>
                         </div>
                     </div>
