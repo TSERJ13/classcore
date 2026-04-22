@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Fragment } from 'react';
 import { X, Users, Trash2, AlertTriangle, Check, Palette, Clock, Calendar, Save, ArrowRight, User } from 'lucide-react';
-import { Portal } from '@/components/ui/Portal';
+import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
@@ -199,7 +199,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     const dayFullLabels = lang === 'ka' ? DAY_FULL_KA : DAY_FULL_EN;
 
     return (
-        <Portal>
+        <MainPortal>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
@@ -482,6 +482,6 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     </div>
                 </div>
             </div>
-        </Portal>
+        </MainPortal>
     );
 }

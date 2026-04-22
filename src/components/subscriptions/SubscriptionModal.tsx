@@ -10,7 +10,7 @@ import { type SubscriptionInfo, pauseActiveSubscription } from '@/lib/subscripti
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 import { cn } from '@/lib/utils';
-import { Portal } from '@/components/ui/Portal';
+import MainPortal from '@/components/ui/MainPortal';
 
 interface SubscriptionModalProps {
     open: boolean;
@@ -42,7 +42,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
     const isSessionBased = form.type === 'sessions';
 
     return (
-        <Portal>
+        <MainPortal>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
@@ -247,6 +247,6 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     </div>
                 </div>
             </div>
-        </Portal>
+        </MainPortal>
     );
 }

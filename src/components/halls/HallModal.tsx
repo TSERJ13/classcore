@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Fragment } from 'react';
 import { X, DoorOpen, Users, Palette, Check, Trash2, AlertTriangle, Camera, Layout } from 'lucide-react';
-import { Portal } from '@/components/ui/Portal';
+import MainPortal from '@/components/ui/MainPortal';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -46,7 +46,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
     if (!open) return null;
 
     return (
-        <Portal>
+        <MainPortal>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
@@ -193,6 +193,6 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                     </div>
                 </div>
             </div>
-        </Portal>
+        </MainPortal>
     );
 }

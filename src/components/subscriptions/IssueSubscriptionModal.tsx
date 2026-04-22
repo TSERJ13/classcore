@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Save, Plus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight } from 'lucide-react';
-import { Portal } from '@/components/ui/Portal';
+import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import type { SubscriptionInfo } from '@/lib/subscription-store';
 import { getStudents, updateStudent } from '@/lib/student-store';
@@ -283,7 +283,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     ];
 
     return (
-        <Portal>
+        <MainPortal>
             <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
                 "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
@@ -653,6 +653,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                     </div>
                 )}
             </div>
-        </Portal>
+        </MainPortal>
     );
 }
