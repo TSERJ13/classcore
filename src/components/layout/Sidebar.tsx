@@ -271,7 +271,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-white/[0.12] bg-black/5 transition-all pt-6",
-                        exp ? (isMobile ? "p-3 pb-48 mt-16" : "p-3 pb-6 mt-4") : (isMobile ? "py-8 pb-48" : "py-6")
+                        exp ? (isMobile ? "p-3 pb-10 mt-4" : "p-3 pb-6 mt-4") : (isMobile ? "py-8 pb-10" : "py-6")
                     )}>
                         <div className={cn(
                             "flex items-center justify-center transition-all duration-300 w-full overflow-hidden bg-white/[0.03] border border-white/5 rounded-[1.25rem] p-1",
