@@ -200,9 +200,9 @@ export default function SubscriptionsPage() {
                             <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </button>
                         <button onClick={() => setIssuing(true)}
-                            className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-4 rounded-[1.25rem] tracking-widest shadow-lg shadow-indigo-500/25 transition-all">
+                            className="flex-shrink-0 flex items-center justify-center gap-2 h-14 sm:h-12 px-6 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-black text-[12px] rounded-[1.25rem] tracking-widest shadow-xl shadow-indigo-500/25 transition-all active:scale-95 touch-manipulation">
                             <FolderPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'აბონემენტის გამოწერა' : lang === 'ru' ? 'Выдать абонемент' : 'Issue Subscription'}</span>
+                            <span>{t.issueSubscription.toUpperCase()}</span>
                         </button>
                     </div>
                 </div>

@@ -357,3 +357,31 @@ input:-webkit-autofill:active {
 .pause-animation {
     animation-play-state: paused !important;
 }
+
+/* ─── Dashboard stabilization ─────────────────────────────────────────── */
+:root {
+    --sidebar-width: 280px;
+}
+
+.dashboard-root {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    position: relative !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: none !important;
+    min-height: 100dvh !important;
+}
+
+.dashboard-stabilized-view {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    position: relative;
+    isolation: auto;
+}
+
+.dashboard-main-lock {
+    overflow-x: hidden !important;
+    -webkit-tap-highlight-color: transparent;
+    width: 100%;
+}

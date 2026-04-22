@@ -484,51 +484,48 @@ export default function SmsManagerPage() {
                                             </tr>
                                         ) : (
                                             logs.map((log, i) => (
-                                                <tr key={i} className="hover:bg-surface/50 transition-colors flex flex-col md:table-row p-4 md:p-0 border-b md:border-b-0 border-border-subtle/30 last:border-0 relative">
-                                                    <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500/20 md:hidden" />
+                                                <tr key={i} className="hover:bg-surface transition-colors flex flex-col md:table-row p-3 md:p-0 border-b md:border-b-0 border-border-subtle/30 last:border-0 relative">
+                                                    <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-indigo-500/30 md:hidden" />
                                                     
-                                                    <td className="px-5 py-4 md:py-4 text-primary/80 whitespace-nowrap text-[10px] md:text-xs">
-                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.dateTable}</span>
+                                                    <td className="px-4 py-1 md:py-4 text-primary/80 whitespace-nowrap text-[10px]">
+                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.dateTable}</span>
                                                         {new Date(log.timestamp).toLocaleString('ka-GE', {
                                                             month: 'short', day: 'numeric',
                                                             hour: '2-digit', minute: '2-digit'
                                                         })}
                                                     </td>
-                                                    <td className="px-5 py-1 md:py-4 text-primary font-bold">
-                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.userTable}</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center md:hidden">
-                                                                <User className="w-3 h-3 text-indigo-500" />
+                                                    <td className="px-4 py-1 md:py-4 text-primary font-bold">
+                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.userTable}</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-5 h-5 rounded-lg bg-indigo-500/5 flex items-center justify-center md:hidden shrink-0">
+                                                                <User className="w-2.5 h-2.5 text-indigo-500/60" />
                                                             </div>
-                                                            {log.studentName || '-'}
+                                                            <span className="truncate">{log.studentName || '-'}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-5 py-1 md:py-4 text-primary/80 font-mono text-[10px] md:text-xs">
-                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.numberTable}</span>
+                                                    <td className="px-4 py-1 md:py-4 text-primary/60 font-mono text-[10px]">
+                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.numberTable}</span>
                                                         {log.to}
                                                     </td>
-                                                    <td className="px-5 py-2 md:py-4">
-                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.sentStatus}</span>
-                                                        <div className="flex flex-col gap-1 items-start">
+                                                    <td className="px-4 py-1 md:py-4">
+                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.sentStatus}</span>
+                                                        <div className="flex items-center gap-2">
                                                             {log.status === 'success' || log.status === 'DELIVERED' ? (
-                                                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[9px] md:text-[10px] font-black tracking-wider uppercase">
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-black tracking-wider uppercase">
                                                                     {t.sentStatus}
                                                                 </span>
                                                             ) : (
-                                                                <div className="flex flex-col">
-                                                                    <span className="inline-flex items-center px-2 py-1 rounded bg-red-500/10 text-red-500 text-[9px] md:text-[10px] font-black tracking-wider uppercase">
-                                                                        {t.errorStatus}
-                                                                    </span>
-                                                                    {log.error && <span className="text-[9px] text-red-500/80 max-w-[150px] leading-tight break-words mt-1">{log.error}</span>}
-                                                                </div>
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[9px] font-black tracking-wider uppercase">
+                                                                    {t.errorStatus}
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-5 py-2 md:py-4 text-muted/80 text-[10px] md:text-xs w-full max-w-[250px] sm:max-w-xs xl:max-w-sm relative group/td">
-                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.msgIdTable}</span>
-                                                        <div className="flex flex-col gap-1">
-                                                            {log.text && <span className="truncate leading-tight font-medium text-primary/60">{log.text}</span>}
-                                                            <span className="text-[8px] font-mono text-muted/30">ID: {log.id || log.messageId || '-'}</span>
+                                                    <td className="px-4 py-1 md:py-4 text-muted/60 text-[10px] w-full max-w-[250px] relative group/td">
+                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.msgIdTable}</span>
+                                                        <div className="flex flex-col">
+                                                            {log.text && <span className="truncate leading-tight text-primary/40 font-medium">{log.text}</span>}
+                                                            <span className="text-[8px] font-mono opacity-30 mt-0.5">ID: {log.id || log.messageId || '-'}</span>
                                                         </div>
                                                     </td>
                                                 </tr>

@@ -491,12 +491,12 @@ export function Header() {
                                 setMessengerOpen(false);
                                 setNotifOpen(false);
                             }}
-                            className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                             aria-label="Notes"
                         >
-                            <Pin className="w-[18px] h-[18px] md:w-5 h-5 -rotate-45" />
+                            <Pin className="w-4 h-4 md:w-5 h-5 -rotate-45" />
                             {uncompletedNotesCount > 0 && (
-                                <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
+                                <span className="absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
                             )}
                         </button>
 
@@ -506,13 +506,13 @@ export function Header() {
                                 setNotifOpen(false);
                                 setNotesOpen(false);
                             }}
-                            className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                             aria-label="Messenger"
                         >
-                            <MessageSquare className="w-[18px] h-[18px] md:w-5 h-5" />
+                            <MessageSquare className="w-4 h-4 md:w-5 h-5" />
                             {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
                                 <span className={cn(
-                                    "absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full ring-2 ring-card shadow-sm",
+                                    "absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full ring-2 ring-card shadow-sm",
                                     unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
                                 )} />
                             )}
@@ -524,12 +524,12 @@ export function Header() {
                                 setMessengerOpen(false);
                                 setNotesOpen(false);
                             }}
-                            className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                             aria-label="Notifications"
                         >
-                            <Bell className="w-[18px] h-[18px] md:w-5 h-5" />
+                            <Bell className="w-4 h-4 md:w-5 h-5" />
                             {unreadCount > 0 && (
-                                <span className="absolute top-2 right-2 md:top-3 md:right-3 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
+                                <span className="absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
                             )}
                         </button>
                     </div>

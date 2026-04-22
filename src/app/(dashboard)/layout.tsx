@@ -19,50 +19,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const defaultRole = roleCookie || null;
     return (
         <DashboardHydrationGuard>
-            <style jsx global>{`
-                html, body {
-                    overflow-x: hidden !important;
-                    width: 100% !important;
-                    position: relative !important;
-                    touch-action: pan-y !important;
-                    -webkit-overflow-scrolling: touch !important;
-                    overscroll-behavior: none !important;
-                    height: 100% !important;
-                }
-                * {
-                    box-sizing: border-box !important;
-                }
-                #root, body > div {
-                    max-width: 100vw !important;
-                    overflow-x: hidden !important;
-                    position: relative;
-                }
-                main {
-                    overflow-x: hidden !important;
-                    -webkit-tap-highlight-color: transparent;
-                    width: 100%;
-                }
-            `}</style>
             <KillSwitchGate>
                 <MobileMenuProvider>
-                    <div className="flex min-h-[100dvh] bg-base overflow-x-hidden w-full max-w-full relative touch-pan-y isolate">
-                        {/* Sidebar — handles both desktop sticky & mobile drawer internally */}
+                    <div className="dashboard-root relative flex min-h-[100dvh] bg-surface overflow-x-hidden w-full isolation-auto">
                         <Sidebar defaultExpanded={defaultExpanded} defaultRole={defaultRole} />
-
-                        {/* Main area */}
-                        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-                            {/* Mobile header with hamburger + notifications */}
+                        <div className="dashboard-stabilized-view flex-1 flex flex-col min-w-0 transition-all duration-300 relative overflow-x-hidden md:pl-[var(--sidebar-width,0px)]">
                             <Header />
-
-                            {/* Page content */}
-                            <main className="flex-1">
-                                <div className="p-4 pb-40 md:p-8 md:pb-12 pb-safe">
+                            <main className="dashboard-main-lock flex-1 relative w-full overflow-x-hidden">
+                                <div className="p-4 sm:p-6 md:p-8 pb-32 sm:pb-32 md:pb-12 w-full max-w-full">
                                     {children}
                                 </div>
                             </main>
                         </div>
-
-                        {/* Mobile bottom nav */}
                         <BottomNav />
                     </div>
                 </MobileMenuProvider>

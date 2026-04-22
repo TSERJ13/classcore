@@ -25,20 +25,18 @@ export function BottomNav() {
 
     return (
         <nav
-            className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--sidebar-bg)] border-t border-white/[0.05] shadow-[0_-4px_15px_rgba(0,0,0,0.3)]"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#121212] border-t border-white/[0.05] shadow-[0_-8px_30px_rgba(0,0,0,0.4)] isolation-auto"
             style={{ 
                 paddingBottom: 'env(safe-area-inset-bottom, 0px)',
                 height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
-                transform: 'translateZ(0)',
-                WebkitTransform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden'
+                transform: 'translateZ(10px)',
+                WebkitTransform: 'translateZ(10px)',
             }}
         >
             {/* Grounding Filler: Ensures no gap during scrolling/rubber-banding */}
-            <div className="absolute top-full left-0 right-0 h-[200px] bg-[var(--sidebar-bg)]" />
+            <div className="absolute top-[99%] left-0 right-0 h-[300px] bg-[#121212]" />
 
-            <div className="flex items-center justify-around w-full max-w-5xl mx-auto px-1 h-[72px]">
+            <div className="flex items-center justify-around w-full max-w-5xl mx-auto px-1 h-[72px] relative z-10">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + '/');
                     return (

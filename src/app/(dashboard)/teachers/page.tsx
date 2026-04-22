@@ -117,9 +117,9 @@ export default function TeachersPage() {
 
                 {/* Add Teacher Action */}
                 <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-5 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-lg shadow-violet-600/20 transition-all touch-manipulation">
+                    className="flex-shrink-0 flex items-center justify-center gap-2 h-14 sm:h-12 px-5 bg-[#7c3aed] hover:bg-[#6d28d9] active:scale-95 text-white text-[12px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/20 transition-all touch-manipulation">
                     <UserPlus className="w-5 h-5 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">{t.addTeacher}</span>
+                    <span className="sm:inline">{t.addTeacher.toUpperCase()}</span>
                 </button>
             </div>
 
