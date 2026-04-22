@@ -177,7 +177,7 @@ export default function StudentsPage() {
                                 <button key={v.id} onClick={() => setStatusFilter(prev => prev === v.id ? 'all' : v.id as any)}
                                     className={cn(
                                     'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all',
-                                    statusFilter === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface-hover', v.hoverColor)
+                                    statusFilter === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-surface-hover', v.hoverColor)
                                 )}>
                                 <v.icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden sm:inline whitespace-nowrap">{v.label}</span>

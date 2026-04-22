@@ -183,7 +183,7 @@ export default function SubscriptionsPage() {
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
                                         'flex-1 flex items-center justify-center gap-1.5 px-3 h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
-                                        tab === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-white/50', v.hoverColor)
+                                        tab === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-white/50', v.hoverColor)
                                     )}>
                                     <v.icon className="w-4 h-4 flex-shrink-0" />
                                     <span className="hidden sm:inline whitespace-nowrap">{v.label}</span>
@@ -215,7 +215,7 @@ export default function SubscriptionsPage() {
                             onClick={() => setCategory('group')}
                             className={cn(
                                 'flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all truncate',
-                                category === 'group' ? 'bg-[#6d28d9] text-white shadow-md' : 'text-muted hover:text-primary'
+                                category === 'group' ? 'bg-[#6d28d9] text-white' : 'text-muted hover:text-primary'
                             )}
                         >
                             <Users className="w-4 h-4 shrink-0" />
@@ -225,7 +225,7 @@ export default function SubscriptionsPage() {
                             onClick={() => setCategory('individual')}
                             className={cn(
                                 'flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all truncate',
-                                category === 'individual' ? 'bg-amber-500 text-white shadow-md' : 'text-muted hover:text-primary'
+                                category === 'individual' ? 'bg-amber-500 text-white' : 'text-muted hover:text-primary'
                             )}
                         >
                             <User className="w-4 h-4 shrink-0" />

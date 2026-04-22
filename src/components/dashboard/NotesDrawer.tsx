@@ -137,7 +137,7 @@ export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
                             onClick={addNote}
                             disabled={!inputValue.trim()}
                             className={cn(
-                                "absolute bottom-3 right-3 p-2 rounded-xl text-white shadow-lg transition-all active:scale-90 disabled:opacity-30 disabled:grayscale disabled:scale-100",
+                                "absolute bottom-3 right-3 p-2 rounded-xl text-white transition-all active:scale-90 disabled:opacity-30 disabled:grayscale disabled:scale-100",
                                 `bg-gradient-to-br ${theme.from} ${theme.to}`
                             )}
                         >
@@ -169,8 +169,8 @@ export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
                                     note.completed
                                         ? "bg-surface/50 border-border-subtle/30 opacity-60"
                                         : note.pinned
-                                            ? "bg-indigo-500/5 border-indigo-500/20 shadow-lg shadow-indigo-500/5"
-                                            : "bg-surface border-border-subtle hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5"
+                                            ? "bg-indigo-500/5 border-indigo-500/20"
+                                            : "bg-surface border-border-subtle hover:border-indigo-500/30"
                                 )}
                             >
                                 <button

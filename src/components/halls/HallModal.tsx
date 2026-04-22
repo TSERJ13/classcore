@@ -49,7 +49,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
         <MainPortal>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "fixed z-[9999] flex flex-col bg-card transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden max-w-full"
@@ -57,7 +57,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-inner" style={{ backgroundColor: (form.color ?? '#6366f1') + '22', border: `1px solid ${form.color ?? '#6366f1'}44` }}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: (form.color ?? '#6366f1') + '22', border: `1px solid ${form.color ?? '#6366f1'}44` }}>
                             <DoorOpen className="w-5 h-5 transition-all" style={{ color: form.color ?? '#6366f1' }} />
                         </div>
                         <div>
@@ -130,7 +130,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                  <input type="number" min="1" value={form.capacity ?? ''}
                                     onChange={e => setF('capacity', e.target.value ? Number(e.target.value) : undefined)}
                                     placeholder="30"
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4 uppercase">
@@ -157,7 +157,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                 <Palette className="w-3 h-3" /> {t.hallColor}
                             </label>
                             <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
-                                <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
+                                <span className="w-8 h-8 rounded-lg border border-black/10 flex-shrink-0 overflow-hidden relative">
                                     <input type="color" value={form.color || '#6366f1'} onChange={e => setF('color', e.target.value)}
                                         className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
                                     <div className="w-full h-full pointer-events-none" style={{ backgroundColor: form.color || '#6366f1' }} />
@@ -198,7 +198,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                             {t.cancel}
                         </button>
                         <button onClick={save} disabled={!form.name?.trim()}
-                            className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-violet-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                            className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
                             <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{isEdit ? t.save : t.add}</span>
                         </button>

@@ -640,7 +640,7 @@ export function StudentModal({
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                             <User className="w-5 h-5" />
                         </div>
                         <div>
@@ -665,7 +665,7 @@ export function StudentModal({
                             className={cn(
                                 "h-8 sm:h-9 px-3 sm:px-4 flex items-center justify-center text-[9px] sm:text-[10px] font-black tracking-widest transition-all rounded-xl border shrink-0",
                                 activeTab === 'info'
-                                    ? "bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20"
+                                    ? "bg-indigo-500 text-white border-indigo-500"
                                     : "bg-indigo-500/10 text-indigo-400 hover:text-indigo-300 border-indigo-500/20"
                             )}
                         >
@@ -688,7 +688,7 @@ export function StudentModal({
                             className={cn(
                                 "w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
                                 activeTab === 'visits'
-                                    ? "bg-violet-500 text-white border-violet-500 shadow-lg shadow-violet-500/20"
+                                    ? "bg-violet-500 text-white border-violet-500"
                                     : "bg-violet-500/10 text-violet-400 hover:text-violet-300 border-violet-500/20"
                             )}
                         >
@@ -701,7 +701,7 @@ export function StudentModal({
                             className={cn(
                                 "w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
                                 activeTab === 'sales'
-                                    ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20"
+                                    ? "bg-amber-500 text-white border-amber-500"
                                     : "bg-amber-500/10 text-amber-400 hover:text-amber-300 border-amber-500/20"
                             )}
                         >
@@ -1012,7 +1012,7 @@ export function StudentModal({
                                 </p>
                                 <div className="bg-surface border border-border-subtle rounded-2xl p-4 shadow-inner">
                                     <div className="bg-gradient-to-br from-indigo-500/10 to-indigo-600/10 border border-indigo-500/20 rounded-2xl p-4 flex items-center gap-4 mb-4 shadow-sm">
-                                        <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 bg-indigo-500 flex items-center justify-center text-white text-base font-black shadow-lg">
+                                        <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 bg-indigo-500 flex items-center justify-center text-white text-base font-black">
                                             {photoPreview
                                                 ? <img src={photoPreview} alt="" className="w-full h-full object-cover" />
                                                 : getInitials(`${form.first_name} ${form.last_name}` || '??')
@@ -1086,7 +1086,7 @@ export function StudentModal({
                                 <div className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-4 shadow-inner">
                                     {form.nfc_uid ? (
                                         <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 shadow-sm animate-in zoom-in-95 duration-200">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                             <span className="text-xs font-mono font-black text-emerald-700 flex-1 truncate tracking-widest">{form.nfc_uid}</span>
                                             <button onClick={() => set('nfc_uid', '')} className="text-muted hover:text-red-500 transition-colors p-1">
                                                 <X className="w-4 h-4" />
@@ -1104,7 +1104,7 @@ export function StudentModal({
                                             'w-full flex items-center justify-center gap-2.5 py-3 rounded-xl text-xs font-black border transition-all shadow-sm',
                                             nfcScanning
                                                 ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600'
-                                                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-500/20 active:scale-95'
+                                                : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
                                         )}
                                     >
                                         {nfcScanning
@@ -1141,7 +1141,7 @@ export function StudentModal({
                                             </div>
                                             <p className="text-[11px] text-red-600/70 font-medium">{t.deleteWarning}</p>
                                             <div className="flex gap-2">
-                                                <button onClick={() => { onDelete?.(student!.id); onClose(); }} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-black rounded-xl shadow-lg shadow-red-500/20 active:scale-95 transition-all">
+                                                <button onClick={() => { onDelete?.(student!.id); onClose(); }} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all">
                                                     {t.yesDelete}
                                                 </button>
                                                 <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2.5 bg-card border border-border-subtle text-muted hover:text-primary text-xs font-bold rounded-xl transition-all">
@@ -1235,7 +1235,7 @@ export function StudentModal({
                         <button
                             onClick={handleSave}
                             disabled={!form.first_name || !form.phone || saving}
-                            className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-violet-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                            className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
                             {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5" />}
                             <span className="truncate">{saving ? t.loading : (isEdit ? t.save : t.add)}</span>

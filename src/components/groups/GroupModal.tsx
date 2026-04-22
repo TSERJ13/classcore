@@ -194,7 +194,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
         }
     };
 
-    const inputCls = "w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm";
+    const inputCls = "w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all";
 
     const dayFullLabels = lang === 'ka' ? DAY_FULL_KA : DAY_FULL_EN;
 
@@ -202,7 +202,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
         <MainPortal>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "fixed z-[9999] flex flex-col bg-card transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden max-w-full"
@@ -212,7 +212,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                             <Users className="w-5 h-5" />
                         </div>
                         <div>
@@ -237,7 +237,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             <BookOpen className="w-3 h-3" /> {t.groupName}
                         </label>
                         <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Dance Group..." 
-                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
                     </div>
 
                     {/* Teacher */}
@@ -340,7 +340,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             <Plus className="w-3 h-3" /> {t.groupColor}
                         </label>
                         <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
-                            <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
+                            <span className="w-8 h-8 rounded-lg border border-black/10 flex-shrink-0 overflow-hidden relative">
                                 <input type="color" value={form.color || '#6366f1'} onChange={e => setForm({ ...form, color: e.target.value })}
                                     className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
                                 <div className="w-full h-full pointer-events-none" style={{ backgroundColor: form.color || '#6366f1' }} />
@@ -366,7 +366,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                                         <button key={d} onClick={() => toggleDaySlot(d)}
                                             className={cn(
                                                 "flex-1 h-9 rounded-lg text-[10px] font-black transition-all border shrink-0",
-                                                isActive ? "bg-indigo-500 border-indigo-500 text-white shadow-md shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                                isActive ? "bg-indigo-500 border-indigo-500 text-white" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
                                             )}>
                                             {dayLabels[d]}
                                         </button>
@@ -426,7 +426,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                                 <Users className="w-3 h-3" /> {t.capacity}
                             </label>
                             <input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })} 
-                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
@@ -484,7 +484,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     )}
                     <div className="flex gap-3">
                         <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">{t.cancel}</button>
-                        <button onClick={save} disabled={!form.name || saving} className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-violet-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                        <button onClick={save} disabled={!form.name || saving} className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                             {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />}
                             <span className="truncate">{saving ? t.loading : (isEdit ? t.save : t.add)}</span>
                         </button>

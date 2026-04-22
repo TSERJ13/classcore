@@ -106,7 +106,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
 
             <div className={cn(
-                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "fixed z-[9999] flex flex-col bg-card transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden max-w-full"
@@ -115,7 +115,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                             <User className="w-5 h-5" />
                         </div>
                         <div>
@@ -207,7 +207,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.first_name ?? ''} onChange={e => setF('first_name', e.target.value)}
                                         placeholder={l('სახელი', 'Имя', 'First Name')}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
                                 </div>
                             </div>
                             <div className="space-y-1.5">
@@ -216,7 +216,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
                                     <input value={form.last_name ?? ''} onChange={e => setF('last_name', e.target.value)}
                                         placeholder={l('გვარი', 'Фамилия', 'Last Name')}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
                                 </div>
                             </div>
                         </div>
@@ -250,14 +250,14 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     value={form.password ?? ''} 
                                     onChange={e => setF('password', e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-12 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" 
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-12 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" 
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-surface text-muted hover:text-primary transition-all"
                                 >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40 shadow-sm" />}
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                 </button>
                             </div>
                             <p className="px-1 text-[9px] text-muted opacity-50 italic">{l('მიუთითეთ თუ გსურთ მასწავლებელს ჰქონდეს პირადი წვდომა სისტემაზე', 'Укажите, თუ хотите, чтобы у учителя был личный доступ к системе', 'Set this if you want the teacher to have personal access to the system')}</p>
@@ -298,7 +298,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-500">{getCurrencySymbol(settings.currency)}</div>
                                     <input type="number" value={form.rate_per_hour ?? ''}
                                         onChange={e => setF('rate_per_hour', e.target.value ? Number(e.target.value) : undefined)}
-                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="0" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all" placeholder="0" />
                                 </div>
                             </div>
 
@@ -309,7 +309,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-violet-500/10 flex items-center justify-center text-[10px] font-bold text-violet-500">{getCurrencySymbol(settings.currency)}</div>
                                     <input type="number" value={form.rate_per_month ?? ''}
                                         onChange={e => setF('rate_per_month', e.target.value ? Number(e.target.value) : undefined)}
-                                        className="w-full bg-surface border border-border-subtle focus:border-violet-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="0" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-violet-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all" placeholder="0" />
                                 </div>
                             </div>
 
@@ -320,7 +320,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-md bg-emerald-500/10 flex items-center justify-center"><Percent className="w-2.5 h-2.5 text-emerald-500" /></div>
                                     <input type="number" value={form.salary_percentage ?? ''}
                                         onChange={e => setF('salary_percentage', e.target.value ? Number(e.target.value) : undefined)}
-                                        className="w-full bg-surface border border-border-subtle focus:border-emerald-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all shadow-sm" placeholder="0" />
+                                        className="w-full bg-surface border border-border-subtle focus:border-emerald-500/60 rounded-xl pl-10 pr-4 py-2 text-xs text-primary font-black outline-none transition-all" placeholder="0" />
                                 </div>
                             </div>
                         </section>
@@ -345,7 +345,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                         
                         <div className="space-y-3">
                             {(form.working_schedule || []).map((sched, idx) => (
-                                <div key={idx} className="flex items-center gap-2 p-3 rounded-xl bg-surface border border-border-subtle shadow-sm animate-in slide-in-from-top-1 duration-200">
+                                <div key={idx} className="flex items-center gap-2 p-3 rounded-xl bg-surface border border-border-subtle animate-in slide-in-from-top-1 duration-200">
                                     <select 
                                         value={sched.day}
                                         onChange={e => {
@@ -439,7 +439,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                             className="sr-only"
                                         />
                                         <div className={cn('w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
-                                            allowed ? 'bg-indigo-500 border-indigo-500 shadow-md' : 'border-border-subtle bg-card')}>
+                                            allowed ? 'bg-indigo-500 border-indigo-500' : 'border-border-subtle bg-card')}>
                                             {allowed && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -498,7 +498,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                         <button 
                             onClick={save}
                             disabled={saving}
-                            className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-violet-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                            className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] text-white rounded-xl font-black text-[11px] sm:text-xs active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
                             {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5" />}
                             <span className="truncate">{saving ? t.loading : (isEdit ? t.save : t.add)}</span>

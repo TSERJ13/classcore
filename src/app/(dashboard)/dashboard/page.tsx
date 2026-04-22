@@ -848,7 +848,7 @@ export default function DashboardPage() {
                             </p>
                         </div>
                     </div>
-                    <Link href="/billing" className="w-full sm:w-auto text-center px-4 py-2 sm:px-6 sm:py-2.5 bg-amber-500 hover:bg-amber-600 text-[9px] sm:text-[11px] font-black text-white rounded-lg sm:rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 tracking-widest uppercase">
+                    <Link href="/billing" className="w-full sm:w-auto text-center px-4 py-2 sm:px-6 sm:py-2.5 bg-amber-500 hover:bg-amber-600 text-[9px] sm:text-[11px] font-black text-white rounded-lg sm:rounded-xl transition-all active:scale-95 tracking-widest uppercase">
                         {t.billing}
                     </Link>
                 </div>
@@ -868,13 +868,13 @@ export default function DashboardPage() {
                                     title={lastSyncTime ? `ბოლო სინქრონიზაცია: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'სინქრონიზაცია ჩართულია'}>
                                     <div className={cn(
                                         "w-2 h-2 rounded-full transition-all duration-1000",
-                                        syncStatus === 'synced' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse-slow" :
+                                        syncStatus === 'synced' ? "bg-emerald-500 animate-pulse-slow" :
                                         syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500 animate-bounce"
                                     )} />
                                 </div>
 
                                 {settings.plan === 'pro' && (
-                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-[0_0_15px_rgba(79,70,229,0.2)] border border-indigo-400/20 animate-in zoom-in-50 duration-700">
+                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 border border-indigo-400/20 animate-in zoom-in-50 duration-700">
                                         <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest leading-none">PRO</span>
                                     </div>
                                 )}
@@ -898,7 +898,7 @@ export default function DashboardPage() {
             {/* ─── Statistics ─── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch overflow-x-auto pb-2 scrollbar-none no-scrollbar">
                 {/* 1. Student Dynamics (Active vs New/Churn) */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px] min-w-[160px] flex-shrink-0 lg:flex-shrink">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px] min-w-[160px] flex-shrink-0 lg:flex-shrink">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
                         <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.studentDynamicsMonth}</p>
                     </div>
@@ -921,7 +921,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2">
                         <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in-50 duration-500",
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full animate-in fade-in zoom-in-50 duration-500",
                             liveStats.activeChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
                         )}>
                             {liveStats.activeChange >= 0 ? (
@@ -941,7 +941,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 2. Financial Overview (Revenue vs Debt) */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
                         <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.financialOverview}</p>
                     </div>
@@ -963,7 +963,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
                         <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in-50 duration-500",
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full animate-in fade-in zoom-in-50 duration-500",
                             liveStats.revenueChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
                         )}>
                             {liveStats.revenueChange >= 0 ? (
@@ -983,7 +983,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 3. Subscription Status (Active vs Expiring) */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
                         <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.subscriptionStats}</p>
                     </div>
@@ -1016,7 +1016,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 4. Attendance Rate */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center shadow-lg hover:shadow-xl transition-all h-full min-h-[220px]">
+                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
                         <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.attendanceRate}</p>
                     </div>
@@ -1093,7 +1093,7 @@ export default function DashboardPage() {
                                 const Icon = a.icon;
                                 const content = (
                                     <div className="flex flex-col items-center justify-start p-3 gap-2 w-full h-full text-center">
-                                        <div className={`w-10 h-10 rounded-[1rem] border flex items-center justify-center flex-shrink-0 ${a.color} shadow-sm group-hover:scale-110 transition-transform`}>
+                                        <div className={`w-10 h-10 rounded-[1rem] border flex items-center justify-center flex-shrink-0 ${a.color} group-hover:scale-110 transition-transform`}>
                                             <Icon className="w-5 h-5" />
                                         </div>
                                         <div className="flex flex-1 items-start justify-center mt-1">

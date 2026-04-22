@@ -48,8 +48,7 @@ export function BottomNav() {
                                 active ? 'text-indigo-400' : 'text-white/40'
                             )}
                         >
-                            <div className={cn('relative w-8 h-8 flex items-center justify-center', active && 'scale-110')}>
-                                {active && <span className="absolute inset-0 scale-110 rounded-xl bg-indigo-500/10" />}
+                            <div className={cn('relative w-8 h-8 flex items-center justify-center')}>
                                 <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-80")} strokeWidth={active ? 2.5 : 2} />
                             </div>
                             <span className={cn("text-[8px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-40")}>

@@ -651,7 +651,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             <button
                                 onClick={handleIssue}
                                 disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
-                                className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-50 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-widest px-2"
+                                className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-50 text-white rounded-xl font-black text-[11px] sm:text-xs flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-widest px-2"
                             >
                                 <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
                             </button>

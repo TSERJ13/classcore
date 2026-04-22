@@ -94,10 +94,10 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
             <div className="fixed inset-0 z-[60] bg-black/20" onClick={autoClose && !hasMultipleSubs ? onClose : undefined} />
             <div className="fixed inset-x-0 bottom-0 z-[70] flex justify-center pb-24 px-4 items-center sm:inset-0 sm:pb-0 animate-in fade-in zoom-in-95 duration-200">
                 <div className={cn(
-                    'w-[calc(100vw-4rem)] max-w-[280px] sm:w-full sm:max-w-sm rounded-[2.5rem] border shadow-2xl overflow-hidden bg-card',
-                    data.phase === 'success' && 'border-emerald-500/30 shadow-emerald-500/10',
-                    data.phase === 'confirm' && 'border-amber-500/30 shadow-amber-500/10',
-                    data.phase === 'double-success' && 'border-indigo-500/30 shadow-indigo-500/10',
+                    'w-[calc(100vw-4rem)] max-w-[280px] sm:w-full sm:max-w-sm rounded-[2.5rem] border overflow-hidden bg-card transition-all',
+                    data.phase === 'success' && 'border-emerald-500/10',
+                    data.phase === 'confirm' && 'border-amber-500/10',
+                    data.phase === 'double-success' && 'border-indigo-500/10',
                 )}>
                     {autoClose && !hasMultipleSubs && (
                         <div className="h-1 bg-surface relative overflow-hidden">
@@ -108,7 +108,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                     <div className="p-8">
                         <div className="flex justify-center mb-6">
                             <div className="relative">
-                                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${avatarColor(data.studentId)} flex items-center justify-center text-white text-3xl font-black shadow-xl`}>
+                                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${avatarColor(data.studentId)} flex items-center justify-center text-white text-3xl font-black`}>
                                     {getInitials(data.studentName)}
                                 </div>
                                 <div className={cn('absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-4 border-card',
@@ -154,7 +154,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                 </div>
                             </div>
                         ) : (
-                            <div className={cn('rounded-2xl p-4 mb-8 mt-2 flex items-center justify-between shadow-inner', data.sessionsRemaining <= 2 ? 'bg-red-500/5 border border-red-500/20' : 'bg-surface border border-border-subtle')}>
+                            <div className={cn('rounded-2xl p-4 mb-8 mt-2 flex items-center justify-between', data.sessionsRemaining <= 2 ? 'bg-red-500/5 border border-red-500/20' : 'bg-surface border border-border-subtle')}>
                                 <span className="text-xs font-bold text-muted opacity-60">{t.remaining} {data.isMonthly ? t.days : t.visits}</span>
                                 <div className="flex items-center gap-2">
                                     {(data.phase === 'success' || data.phase === 'double-success') && <span className="text-[10px] text-amber-600 font-black">-1</span>}
@@ -168,7 +168,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                         {data.phase === 'confirm' ? (
                             <div className="space-y-3">
                                 <p className="text-xs text-center text-muted font-medium mb-4">{t.confirmVisit}</p>
-                                <button onClick={onConfirm} className="w-full py-3.5 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all shadow-xl shadow-violet-600/30 uppercase tracking-widest">{t.yesConfirm}</button>
+                                <button onClick={onConfirm} className="w-full py-3.5 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all uppercase tracking-widest">{t.yesConfirm}</button>
                                 <button onClick={onClose} className="w-full py-3 bg-surface hover:bg-surface/80 text-muted font-bold text-sm rounded-2xl transition-all">{t.skip}</button>
                             </div>
                         ) : (
@@ -694,8 +694,8 @@ export default function AttendancePage() {
 
                     {/* Desktop Status Floater (Top Right) */}
                     <div className="hidden lg:flex absolute top-6 right-8 z-50 items-center justify-end pointer-events-none">
-                        {scanError && <span className="text-xs font-bold text-white bg-red-500 shadow-xl shadow-red-500/20 px-4 py-2.5 rounded-2xl animate-bounce">{scanError}</span>}
-                        {flash && <span className="text-xs font-bold text-white bg-emerald-500 shadow-xl shadow-emerald-500/20 px-4 py-2.5 rounded-2xl">{t.success}</span>}
+                        {scanError && <span className="text-xs font-bold text-white bg-red-500 px-4 py-2.5 rounded-2xl animate-bounce">{scanError}</span>}
+                        {flash && <span className="text-xs font-bold text-white bg-emerald-500 px-4 py-2.5 rounded-2xl">{t.success}</span>}
                     </div>
 
                     {/* Mobile Header / Stretched Date Picker */}
@@ -712,7 +712,7 @@ export default function AttendancePage() {
                         {/* Stretched Date Picker (Mobile) */}
                         {mounted && (
                             <div className="w-full flex flex-col gap-2 relative z-20">
-                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle shadow-sm mb-1 relative overflow-hidden group">
+                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
                                     <button
                                         onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
@@ -757,7 +757,7 @@ export default function AttendancePage() {
                                 {/* Desktop Date Picker */}
                                 {mounted && (
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle shadow-sm mb-1 relative overflow-hidden group">
+                                        <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
                                             <button
                                                 onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
                                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
@@ -829,8 +829,8 @@ export default function AttendancePage() {
                                                 )}>{getTeacherName(s.teacher_id)}</span>
                                                 {isCurrent && (
                                                     <span className={cn(
-                                                        'w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]',
-                                                        isActive ? 'bg-white shadow-white/50' : 'bg-emerald-500'
+                                                        'w-2 h-2 rounded-full animate-pulse',
+                                                        isActive ? 'bg-white' : 'bg-emerald-500'
                                                     )} />
                                                 )}
                                             </div>
@@ -872,7 +872,7 @@ export default function AttendancePage() {
                                                         });
                                                         saveAttendance(n);
                                                         setTimeout(() => setSubs(getSubscriptions()), 20);
-                                                    }} className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[8px] font-black tracking-wider hover:bg-emerald-500/20 shadow-sm transition-colors">{t.markAllPresent}</button>
+                                                    }} className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[8px] font-black tracking-wider hover:bg-emerald-500/20 transition-colors">{t.markAllPresent}</button>
 
                                                     {hasAnyAtt && (
                                                         <button onClick={async () => {
@@ -888,7 +888,7 @@ export default function AttendancePage() {
                                                                 saveAttendance(n);
                                                                 setTimeout(() => setSubs(getSubscriptions()), 20);
                                                             });
-                                                        }} className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-[8px] font-black tracking-wider hover:bg-red-500/20 shadow-sm transition-colors ml-1">{t.deleteAttendance}</button>
+                                                        }} className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-[8px] font-black tracking-wider hover:bg-red-500/20 transition-colors ml-1">{t.deleteAttendance}</button>
                                                     )}
                                                 </>
                                             );
@@ -945,7 +945,6 @@ export default function AttendancePage() {
                                                                 state === 'absent' ? "border-red-500" :
                                                                     isExpired ? "border-red-500" : "border-border-subtle hover:border-indigo-500/50"
                                                     )}
-                                                    style={state === 'present' ? { boxShadow: '0 0 10px rgba(16,185,129,0.2)' } : undefined}
                                                 >
                                                     <span className={cn(
                                                         `w-full h-full rounded-full flex items-center justify-center group-hover/avatar:scale-105 transition-transform duration-300 overflow-hidden`,
@@ -1022,13 +1021,13 @@ export default function AttendancePage() {
 
                                                             return (
                                                                 <>
-                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner">
+                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30">
                                                                         <div
                                                                             className={cn(
-                                                                                "h-full shadow-[0_0_8px_rgba(99,102,241,0.2)] transition-all duration-500",
-                                                                                remaining <= 0 || isExpired ? "bg-red-500 shadow-red-500/20" :
-                                                                                    remaining <= 3 ? "bg-gradient-to-r from-red-500 to-rose-600 shadow-red-500/20" :
-                                                                                        remaining <= 5 ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-amber-500/20" :
+                                                                                "h-full transition-all duration-500",
+                                                                                remaining <= 0 || isExpired ? "bg-red-500" :
+                                                                                    remaining <= 3 ? "bg-gradient-to-r from-red-500 to-rose-600" :
+                                                                                        remaining <= 5 ? "bg-gradient-to-r from-amber-500 to-orange-500" :
                                                                                             "bg-gradient-to-r from-indigo-500 to-violet-500"
                                                                             )}
                                                                             style={{ width: `${isExpired ? 100 : Math.max(0, Math.min(100, (remaining / (activeSub.sessions_total ?? 1)) * 100))}%` }}
@@ -1064,10 +1063,10 @@ export default function AttendancePage() {
                                                 }}
                                                 className={cn(
                                                     "group/btn relative z-10 w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all active:scale-90 ml-auto flex-none",
-                                                    state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                        state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                            isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/10 shadow-sm" :
-                                                                `bg-transparent border-solid shadow-sm ${THEME_CLASSES[settings.themeKey] || THEME_CLASSES.indigo}`
+                                                    state === 'present' ? "bg-emerald-500 border-emerald-500 text-white" :
+                                                        state === 'absent' ? "bg-red-500 border-red-500 text-white" :
+                                                            isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/10" :
+                                                                `bg-transparent border-solid ${THEME_CLASSES[settings.themeKey] || THEME_CLASSES.indigo}`
                                                 )}
                                             >
                                                 {state === 'present' ? (
@@ -1096,7 +1095,7 @@ export default function AttendancePage() {
                         <div className={cn(
                             "bg-surface/30 flex-col overflow-hidden transition-all duration-300 ease-in-out lg:w-[35%] lg:min-w-[340px]",
                             drawerOpen
-                                ? "fixed inset-x-4 top-16 bottom-10 z-[100] bg-card rounded-[2.5rem] shadow-2xl flex border border-border-subtle animate-in slide-in-from-bottom-8 lg:static lg:inset-auto lg:z-0 lg:rounded-none lg:shadow-none lg:animate-none lg:border-l"
+                                ? "fixed inset-x-4 top-16 bottom-10 z-[100] bg-card rounded-[2.5rem] flex border border-border-subtle animate-in slide-in-from-bottom-8 lg:static lg:inset-auto lg:z-0 lg:rounded-none lg:shadow-none lg:animate-none lg:border-l"
                                 : "hidden lg:flex lg:border-l lg:border-border-subtle"
                         )}>
                             {selStudent ? (

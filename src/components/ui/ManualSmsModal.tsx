@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { X, Send, MessageSquare, AlertCircle } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 
+import { cn } from '@/lib/utils';
+
 interface ManualSmsModalProps {
     open: boolean;
     onClose: () => void;
@@ -69,7 +71,7 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
         <>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[120] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "fixed z-[120] flex flex-col bg-card transition-all duration-300 overflow-hidden",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden"
@@ -139,7 +141,7 @@ export function ManualSmsModal({ open, onClose, studentName, studentPhone }: Man
                     <button
                         onClick={handleSend}
                         disabled={!message.trim() || isSending}
-                        className="flex-1 py-3.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 disabled:hover:bg-sky-500 text-white text-xs font-black rounded-2xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                        className="flex-1 py-3.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 disabled:hover:bg-sky-500 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95"
                     >
                         {isSending ? (
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
