@@ -21,6 +21,7 @@ import { getGroups, addSlotToGroup, removeSlotFromGroup, createGroup, saveGroups
 import { saveSubscription } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
+import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 
 /* ─── Constants ──────────────────────────────────────────────── */
 const PALETTES = [

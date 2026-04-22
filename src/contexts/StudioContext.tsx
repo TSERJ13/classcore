@@ -138,7 +138,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                  'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
                  'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
                  'cc_salary_update', 'cc_trash_update', 'cc_history_update']
-                    .forEach(e => window.dispatchEvent(new Event(e)));
+                    .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
                 console.log(`📡 [Sync] Operational data updated: ${Object.keys(cloudState.studio_data).length} keys`);
             }
         }
@@ -540,7 +540,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     }, [settings.studioSlug, isLoaded, applyCloudState]);
 
     useEffect(() => {
-        const handleAutoMark = () => {
+        const handleAutoMark = (e?: Event) => {
+            // 🚨 LOOP PROTECTION: If the event was triggered by a cloud update, 
+            // DO NOT trigger another push. This breaks the infinite sync loop.
+            if ((e as CustomEvent)?.detail?.isRemote) {
+                console.log('📡 [StudioContext] Ignoring remote update event to prevent loop:', e?.type);
+                return;
+            }
+
             // CRITICAL: Refresh the local React state from localStorage immediately
             // so that the SyncPulse effect uses the LATEST values in its next run.
             if (settings.studioSlug) {

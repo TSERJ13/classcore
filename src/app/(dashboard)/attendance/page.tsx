@@ -39,7 +39,7 @@ type State = 'present' | 'absent' | 'none';
 import { getStudentsByClass } from '@/lib/student-data';
 
 const THEME_CLASSES: Record<string, string> = {
-    indigo: 'border-indigo-500 text-indigo-500 hover:bg-indigo-500/10',
+    indigo: 'border-#6d28d9 text-#6d28d9 hover:bg-#6d28d9/10',
     violet: 'border-violet-500 text-violet-500 hover:bg-violet-500/10',
     emerald: 'border-emerald-500 text-emerald-500 hover:bg-emerald-500/10',
     rose: 'border-rose-500 text-rose-500 hover:bg-rose-500/10',
@@ -54,7 +54,7 @@ const SCAN_MAP: Record<string, string> = {
     '04A32B1C': '1', '04B71E2D': '2', '04C85F3E': '3', '04D96A4F': '4',
 };
 
-const AVATAR_COLORS = ['from-indigo-500 to-violet-600', 'from-emerald-500 to-teal-600', 'from-rose-500 to-pink-600', 'from-amber-500 to-orange-600'];
+const AVATAR_COLORS = ['from-#6d28d9 to-violet-600', 'from-emerald-500 to-teal-600', 'from-rose-500 to-pink-600', 'from-amber-500 to-orange-600'];
 function avatarColor(id: string) { return AVATAR_COLORS[parseInt(id) % AVATAR_COLORS.length]; }
 
 // ─── Popup ─────────────────────────────────────────────────────────────────────
@@ -98,11 +98,11 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                     'w-[calc(100vw-4rem)] max-w-[280px] sm:w-full sm:max-w-sm rounded-[2.5rem] border overflow-hidden bg-card transition-all',
                     data.phase === 'success' && 'border-emerald-500/10',
                     data.phase === 'confirm' && 'border-amber-500/10',
-                    data.phase === 'double-success' && 'border-indigo-500/10',
+                    data.phase === 'double-success' && 'border-#6d28d9/10',
                 )}>
                     {autoClose && !hasMultipleSubs && (
                         <div className="h-1 bg-surface relative overflow-hidden">
-                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-indigo-500')}
+                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-#6d28d9')}
                                 style={{ width: `${progress}%`, transitionDuration: '1s' }} />
                         </div>
                     )}
@@ -115,7 +115,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                 <div className={cn('absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-4 border-card',
                                     data.phase === 'success' && 'bg-emerald-500',
                                     data.phase === 'confirm' && 'bg-amber-500',
-                                    data.phase === 'double-success' && 'bg-indigo-500',
+                                    data.phase === 'double-success' && 'bg-#6d28d9',
                                 )}>
                                     {data.phase === 'success' && <Check className="w-4 h-4 text-white" strokeWidth={4} />}
                                     {data.phase === 'confirm' && <AlertTriangle className="w-4 h-4 text-white" strokeWidth={3} />}
@@ -127,7 +127,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                             <h2 className="text-2xl font-black text-primary tracking-tight">{data.studentName}</h2>
                             {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendanceSheet} OK</p></>}
                             {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ {t.alreadyCheckedIn}</p>}
-                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-indigo-600 tracking-widest mt-2 bg-indigo-500/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
+                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-#5b21b6 tracking-widest mt-2 bg-#6d28d9/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
                         </div>
 
                         {hasMultipleSubs && subscriptions && onSelectSub ? (
@@ -140,11 +140,11 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                             <button
                                                 key={s.id}
                                                 onClick={() => onSelectSub(s.id)}
-                                                className="w-full text-left p-3 rounded-2xl bg-surface border border-border-subtle hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all group"
+                                                className="w-full text-left p-3 rounded-2xl bg-surface border border-border-subtle hover:border-#6d28d9/50 hover:bg-#6d28d9/5 transition-all group"
                                             >
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-[11px] font-black text-primary truncate max-w-[140px]">{s.plan}</span>
-                                                    <span className="text-[10px] font-black text-indigo-600 tabular-nums">
+                                                    <span className="text-[10px] font-black text-#5b21b6 tabular-nums">
                                                         {s.type === 'monthly' ? '∞' : rem}
                                                     </span>
                                                 </div>
@@ -664,7 +664,7 @@ export default function AttendancePage() {
         <div className="flex flex-col flex-1 min-h-screen -m-4 md:-m-8 bg-card animate-fade-up overflow-hidden">
             {!mounted ? (
                 <div className="flex-1 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-2xl border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+                    <div className="w-12 h-12 rounded-2xl border-4 border-#6d28d9/20 border-t-#6d28d9 animate-spin" />
                 </div>
             ) : (
                 <>
@@ -714,25 +714,25 @@ export default function AttendancePage() {
                                 <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
                                     <button
                                         onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                     >
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
-                                    <div className="relative flex-1 flex items-center justify-center cursor-pointer active:scale-[0.98] transition-transform">
+                                    <div className="relative flex-1 flex items-center justify-center transition-transform">
                                         <StandardDatePicker
                                             value={dateKey}
                                             onChange={(val) => {
                                                 const d = new Date(val);
                                                 if (!isNaN(d.getTime())) setSelectedDate(d);
                                             }}
-                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1.5 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent"
+                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-full"
                                         />
                                     </div>
 
                                     <button
                                         onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                     >
                                         <ChevronRight className="w-4 h-4" />
                                     </button>
@@ -751,7 +751,7 @@ export default function AttendancePage() {
                                         <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
                                             <button
                                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                             >
                                                 <ChevronLeft className="w-4 h-4" />
                                             </button>
@@ -769,7 +769,7 @@ export default function AttendancePage() {
 
                                             <button
                                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                             >
                                                 <ChevronRight className="w-4 h-4" />
                                             </button>
@@ -788,7 +788,7 @@ export default function AttendancePage() {
                                             className={cn(
                                                 'w-full text-left p-4 rounded-2xl transition-all group border relative overflow-hidden',
                                                 isActive
-                                                    ? 'bg-indigo-500 border-indigo-600 scale-[1.02] z-10 text-white'
+                                                    ? 'bg-#6d28d9 border-#5b21b6 scale-[1.02] z-10 text-white'
                                                     : 'bg-card border-border-subtle hover:bg-surface hover:border-border-subtle/50'
                                             )}>
                                             <h3 className={cn(
@@ -832,9 +832,9 @@ export default function AttendancePage() {
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
                                             <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {getTeacherName(cls.teacher_id)}</p>
                                             {cls.notes && (
-                                                <div className="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded-full">
-                                                    <Info className="w-3 h-3 text-indigo-400" />
-                                                    <p className="text-[9px] font-bold text-indigo-600 truncate max-w-[200px]">{cls.notes}</p>
+                                                <div className="flex items-center gap-1 px-2 py-0.5 bg-#f5f3ff border border-#ede9fe rounded-full">
+                                                    <Info className="w-3 h-3 text-#a78bfa" />
+                                                    <p className="text-[9px] font-bold text-#5b21b6 truncate max-w-[200px]">{cls.notes}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -883,7 +883,7 @@ export default function AttendancePage() {
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
                                                 'px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[10px] md:text-xs font-black whitespace-nowrap transition-colors border',
-                                                selectedClass === s.id ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-surface text-muted border-border-subtle'
+                                                selectedClass === s.id ? 'bg-#5b21b6 text-white border-indigo-700' : 'bg-surface text-muted border-border-subtle'
                                             )}>
                                             {s.title}
                                         </button>
@@ -912,7 +912,7 @@ export default function AttendancePage() {
                                             className={cn(
                                                 'w-full flex items-center gap-3 md:gap-4 p-3.5 md:p-5 rounded-[1.25rem] md:rounded-[2rem] transition-colors group border relative overflow-hidden cursor-pointer',
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
-                                                    isSel ? 'bg-indigo-50/50 border-indigo-200' :
+                                                    isSel ? 'bg-#f5f3ff/50 border-#ddd6fe' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
                                                 isExpired && 'opacity-80'
                                             )}>
@@ -926,7 +926,7 @@ export default function AttendancePage() {
                                                         !mounted ? "border-border-subtle" :
                                                             state === 'present' ? "border-emerald-500" :
                                                                 state === 'absent' ? "border-red-500" :
-                                                                    isExpired ? "border-red-500" : "border-border-subtle hover:border-indigo-500/50"
+                                                                    isExpired ? "border-red-500" : "border-border-subtle hover:border-#6d28d9/50"
                                                     )}
                                                 >
                                                     <span className={cn(
@@ -1011,7 +1011,7 @@ export default function AttendancePage() {
                                                                                 remaining <= 0 || isExpired ? "bg-red-500" :
                                                                                     remaining <= 3 ? "bg-gradient-to-r from-red-500 to-rose-600" :
                                                                                         remaining <= 5 ? "bg-gradient-to-r from-amber-500 to-orange-500" :
-                                                                                            "bg-gradient-to-r from-indigo-500 to-violet-500"
+                                                                                            "bg-gradient-to-r from-#6d28d9 to-violet-500"
                                                                             )}
                                                                             style={{ width: `${isExpired ? 100 : Math.max(0, Math.min(100, (remaining / (activeSub.sessions_total ?? 1)) * 100))}%` }}
                                                                         />
@@ -1140,7 +1140,7 @@ export default function AttendancePage() {
                                                                 setDrawerOpen(false);
                                                                 setEditModal(true);
                                                             }}
-                                                            className="p-2.5 rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-500 hover:border-indigo-500/30 transition-all active:scale-90"
+                                                            className="p-2.5 rounded-xl bg-surface border border-border-subtle text-muted hover:text-#6d28d9 hover:border-#6d28d9/30 transition-all active:scale-90"
                                                             title={t.edit}
                                                         >
                                                             <Edit2 className="w-4 h-4" />
@@ -1189,7 +1189,7 @@ export default function AttendancePage() {
                                                                             setDrawerOpen(false);
                                                                             setEditModal(true);
                                                                         }}
-                                                                        className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white border border-indigo-500/20 active:scale-90 transition-all shadow-sm"
+                                                                        className="p-2 rounded-xl bg-#6d28d9/10 text-#6d28d9 hover:bg-#6d28d9 hover:text-white border border-#6d28d9/20 active:scale-90 transition-all shadow-sm"
                                                                     >
                                                                         <Edit2 className="w-4 h-4" />
                                                                     </button>
@@ -1209,7 +1209,7 @@ export default function AttendancePage() {
                                                         <div className="flex items-center justify-center gap-2">
                                                             <a
                                                                 href={`tel:${selStudent.phone}`}
-                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] tracking-wider"
+                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-#6d28d9/10 text-#5b21b6 border border-#6d28d9/20 hover:bg-#6d28d9 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] tracking-wider"
                                                                 title={t.callStudent}
                                                             >
                                                                 <Phone className="w-3 h-3" />
@@ -1254,12 +1254,12 @@ export default function AttendancePage() {
                                                     </div>
 
                                                     <div className="grid grid-cols-2 gap-2 mt-4">
-                                                        <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-indigo-500/30 transition-colors group">
-                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-indigo-500 transition-colors">{t.remaining}</p>
+                                                        <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-#6d28d9/30 transition-colors group">
+                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-#6d28d9 transition-colors">{t.remaining}</p>
                                                             <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visit}</span></p>
                                                         </div>
-                                                        <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-indigo-500/30 transition-colors group">
-                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-indigo-500 transition-colors">{t.expiryDate}</p>
+                                                        <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-#6d28d9/30 transition-colors group">
+                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-#6d28d9 transition-colors">{t.expiryDate}</p>
                                                             <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span></p>
                                                         </div>
                                                     </div>
@@ -1278,14 +1278,14 @@ export default function AttendancePage() {
                                                             className={cn(
                                                                 "flex-1 py-3 flex items-center justify-center gap-2 text-[9px] font-black tracking-widest transition-all relative overflow-hidden",
                                                                 activeTab === tab.id
-                                                                    ? "text-indigo-600"
+                                                                    ? "text-#5b21b6"
                                                                     : "text-muted opacity-50 hover:opacity-100"
                                                             )}
                                                         >
                                                             <tab.icon className="w-3 h-3" />
                                                             <span>{tab.label}</span>
                                                             {activeTab === tab.id && (
-                                                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 shadow-[0_-4px_10px_rgba(99,102,241,0.5)]" />
+                                                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-#6d28d9 shadow-[0_-4px_10px_rgba(99,102,241,0.5)]" />
                                                             )}
                                                         </button>
                                                     ))}
@@ -1296,9 +1296,9 @@ export default function AttendancePage() {
                                                         <div className="space-y-3 pb-24">
                                                             {getStudentCheckins(selStudent.id).length > 0 ? (
                                                                 getStudentCheckins(selStudent.id).map((ch, i) => (
-                                                                    <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-surface/40 border border-border-subtle/30 group/row hover:border-indigo-500/30 transition-all">
+                                                                    <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-surface/40 border border-border-subtle/30 group/row hover:border-#6d28d9/30 transition-all">
                                                                         <div className="flex items-center gap-3">
-                                                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 flex-shrink-0">
+                                                                            <div className="w-8 h-8 rounded-lg bg-#6d28d9/10 flex items-center justify-center text-#6d28d9 flex-shrink-0">
                                                                                 <CalendarCheck className="w-3.5 h-3.5" />
                                                                             </div>
                                                                             <div>
@@ -1356,7 +1356,7 @@ export default function AttendancePage() {
                                                                     return (
                                                                         <div key={sub.id || idx} className={cn(
                                                                             "p-3 rounded-xl border transition-all",
-                                                                            isActive ? "bg-indigo-500/5 border-indigo-500/20" : "bg-surface/30 border-border-subtle opacity-60"
+                                                                            isActive ? "bg-#6d28d9/5 border-#6d28d9/20" : "bg-surface/30 border-border-subtle opacity-60"
                                                                         )}>
                                                                             <div className="flex justify-between items-start mb-2">
                                                                                 <div className="flex items-center gap-2">
@@ -1400,19 +1400,19 @@ export default function AttendancePage() {
                                                             <div className="space-y-3">
                                                                 <div className="flex items-center justify-between px-1">
                                                                     <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.transactionHistory}</p>
-                                                                    <p className="text-[10px] font-black text-indigo-600 tabular-nums">{studentSales.length} {t.products}</p>
+                                                                    <p className="text-[10px] font-black text-#5b21b6 tabular-nums">{studentSales.length} {t.products}</p>
                                                                 </div>
                                                                 {studentSales.map((sale) => (
-                                                                    <div key={sale.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-surface/50 border border-border-subtle/50 transition-all hover:border-indigo-500/20 hover:bg-card group">
+                                                                    <div key={sale.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-surface/50 border border-border-subtle/50 transition-all hover:border-#6d28d9/20 hover:bg-card group">
                                                                         <div className="flex items-center gap-4">
-                                                                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                                                <Package className="w-5 h-5 text-indigo-600" />
+                                                                            <div className="w-10 h-10 rounded-xl bg-#6d28d9/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                                                <Package className="w-5 h-5 text-#5b21b6" />
                                                                             </div>
                                                                             <div>
                                                                                 <p className="text-sm font-black text-primary leading-tight">{sale.productName}</p>
                                                                                 <div className="flex items-center gap-2 mt-1">
                                                                                     <span className="text-[10px] font-bold text-muted opacity-60">{sale.date}</span>
-                                                                                    <span className="text-[10px] font-black text-indigo-500/40 tracking-widest">{sale.quantity} ც.</span>
+                                                                                    <span className="text-[10px] font-black text-#6d28d9/40 tracking-widest">{sale.quantity} ც.</span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -1458,7 +1458,7 @@ export default function AttendancePage() {
                             ) : (
                                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center opacity-40 group">
                                     <div className="w-20 h-20 rounded-[2rem] bg-surface flex items-center justify-center mb-6 shadow-inner border border-border-subtle group-hover:scale-110 transition-transform">
-                                        <Scan className="w-8 h-8 text-indigo-500 opacity-50" />
+                                        <Scan className="w-8 h-8 text-#6d28d9 opacity-50" />
                                     </div>
                                     <p className="text-sm font-black text-primary tracking-tight">{t.scanCard}</p>
                                     <p className="text-[10px] font-bold text-muted mt-2 max-w-[160px] leading-relaxed tracking-wider">{t.waitingForScan}</p>

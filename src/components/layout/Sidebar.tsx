@@ -26,7 +26,7 @@ type NavItem = {
 const ALL_ITEMS: (NavItem & { color: string })[] = [
     { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, color: 'text-emerald-500' },
     { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck, color: 'text-blue-500' },
-    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard, color: 'text-indigo-500' },
+    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard, color: 'text-#6d28d9' },
     { href: '/students', labelKey: 'students', icon: Users, color: 'text-sky-500' },
     { href: '/calendar', labelKey: 'calendar', icon: CalendarDays, color: 'text-violet-500' },
     { href: '/groups', labelKey: 'groups', icon: BookOpen, color: 'text-purple-500' },
@@ -91,14 +91,14 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                         className={cn(
                             "flex items-center gap-1.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
                             isMobile ? "py-0.5 px-2" : "py-1.5",
-                            isHovered && "border-indigo-500/40 bg-indigo-500/10"
+                            isHovered && "border-#6d28d9/40 bg-#6d28d9/10"
                         )}
                     >
-                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3.5 h-3.5", isHovered ? "text-indigo-400" : "text-white/40")} />
-                        <span className={cn("font-black tracking-tight truncate max-w-[120px]", isHovered ? "text-indigo-400" : "text-white/60", isMobile ? "text-[9px]" : "text-[11px]")}>
+                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3.5 h-3.5", isHovered ? "text-#a78bfa" : "text-white/40")} />
+                        <span className={cn("font-black tracking-tight truncate max-w-[120px]", isHovered ? "text-#a78bfa" : "text-white/60", isMobile ? "text-[9px]" : "text-[11px]")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
-                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-3 h-3", isHovered && "rotate-90 text-indigo-400")} />
+                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-3 h-3", isHovered && "rotate-90 text-#a78bfa")} />
                     </button>
                 </div>
             </div>
@@ -120,7 +120,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                                 className={cn(
                                     "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all",
                                     branch.id === activeBranchId
-                                        ? "bg-indigo-500/10 text-indigo-400"
+                                        ? "bg-#6d28d9/10 text-#a78bfa"
                                         : "hover:bg-white/5 text-white/50 hover:text-white"
                                 )}
                             >
@@ -135,7 +135,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                                     setBranchModalOpen(true);
                                     setIsHovered(false);
                                 }}
-                                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all border border-indigo-500/20 mt-1"
+                                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-#6d28d9/10 text-#a78bfa hover:bg-#6d28d9/20 transition-all border border-#6d28d9/20 mt-1"
                             >
                                 <Plus className="w-3 h-3" />
                                 <span className="text-[10px] font-black uppercase tracking-widest">{t.newBranch || 'New Branch'}</span>
@@ -270,7 +270,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     </div>
 
                     <div className={cn(
-                        "mt-auto border-t border-[var(--sidebar-border)]/50 bg-black/5 transition-all pt-6",
+                        "mt-auto border-t border-white/[0.12] bg-black/5 transition-all pt-6",
                         exp ? (isMobile ? "p-3 pb-20 mt-4" : "p-3 pb-6 mt-4") : (isMobile ? "py-8 pb-20" : "py-6")
                     )}>
                         <div className={cn(
@@ -394,17 +394,17 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
                         <div className="flex-1 overflow-y-auto p-8 space-y-6 overscroll-contain">
                             <div className="flex flex-col items-center text-center gap-2">
-                                <Building2 className="w-8 h-8 text-indigo-500 mb-2" />
+                                <Building2 className="w-8 h-8 text-#6d28d9 mb-2" />
                                 <h3 className="text-xl font-black text-primary">{l('ახალი ფილიალი', 'Новый филиალ', 'Add New Branch')}</h3>
                             </div>
                             <div className="space-y-4 text-left">
                                 <div>
                                     <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{l('სახელი', 'Имя', 'Name')}</label>
-                                    <input autoFocus value={newBranchName} onChange={e => setNewBranchName(e.target.value)} placeholder={l('სახელი', 'Имя', 'Name')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm font-bold focus:outline-none focus:border-indigo-500/50" />
+                                    <input autoFocus value={newBranchName} onChange={e => setNewBranchName(e.target.value)} placeholder={l('სახელი', 'Имя', 'Name')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm font-bold focus:outline-none focus:border-#6d28d9/50" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-muted tracking-widest block mb-2 opacity-50 uppercase">{l('მისამართი', 'Адрес', 'Address')}</label>
-                                    <input value={newBranchAddress} onChange={e => setNewBranchAddress(e.target.value)} placeholder={l('მისამართი', 'Адрес', 'Address')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm font-bold focus:outline-none focus:border-indigo-500/50" />
+                                    <input value={newBranchAddress} onChange={e => setNewBranchAddress(e.target.value)} placeholder={l('მისამართი', 'Адрес', 'Address')} className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-[12px] sm:text-sm font-bold focus:outline-none focus:border-#6d28d9/50" />
                                 </div>
                             </div>
                         </div>
@@ -421,7 +421,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                                         setNewBranchAddress('');
                                     }
                                 }}
-                                className="flex-2 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest"
+                                className="flex-2 py-3 bg-#5b21b6 text-white rounded-xl font-black text-xs uppercase shadow-xl shadow-#5b21b6/20 active:scale-95 transition-all tracking-widest"
                             >
                                 {l('შექმნა', 'Создать', 'Create')}
                             </button>

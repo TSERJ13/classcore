@@ -45,7 +45,7 @@ export function BottomNav() {
                             href={href}
                             className={cn(
                                 'flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl transition-all duration-150 min-w-[64px] touch-manipulation',
-                                active ? 'text-indigo-400' : 'text-white/65'
+                                active ? 'text-[#c084fc]' : 'text-white/65'
                             )}
                         >
                             <div className={cn('relative w-8 h-8 flex items-center justify-center')}>
