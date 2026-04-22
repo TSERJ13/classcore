@@ -98,13 +98,6 @@ export default function TeachersPage() {
             <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
-                {/* Add Teacher Action */}
-                <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/30 transition-all touch-manipulation order-last sm:order-last">
-                    <UserPlus className="w-5 h-5" />
-                    <span className="hidden sm:inline uppercase">{t.addTeacher}</span>
-                </button>
-
                 {/* Quick stats - Scoped and Clean */}
                 <div className="flex items-center gap-2 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 py-1">
                     {[
@@ -112,7 +105,7 @@ export default function TeachersPage() {
                         { label: t.indSessionsShort, value: String(individualCount), icon: User, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
                         { label: t.groupsShort, value: String(groups.length), icon: BookOpen, colorCls: 'text-emerald-600', bgCls: 'bg-emerald-500/5' },
                     ].map(s => (
-                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit shadow-sm group hover:shadow-xl hover:shadow-black/5 transition-all text-center sm:text-left ${s.bgCls}`}>
+                        <div key={s.label} className={`flex flex-col justify-center px-4 sm:px-6 lg:px-10 h-12 lg:h-20 rounded-full border border-border-subtle/50 min-w-fit transition-all text-center sm:text-left ${s.bgCls}`}>
                             <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
                                 <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
                                 <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums">{s.value}</span>
@@ -121,6 +114,13 @@ export default function TeachersPage() {
                         </div>
                     ))}
                 </div>
+
+                {/* Add Teacher Action */}
+                <button onClick={openAdd}
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
+                    <UserPlus className="w-5 h-5" />
+                    <span className="hidden sm:inline uppercase">{t.addTeacher}</span>
+                </button>
             </div>
 
             {/* Teacher cards */}

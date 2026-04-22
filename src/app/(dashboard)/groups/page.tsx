@@ -165,7 +165,7 @@ export default function GroupsPage() {
                 {/* Add Group Action */}
                 {/* Add Group Action */}
                 <button onClick={() => { setEditing(null); setModalOpen(true); }}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/30 transition-all touch-manipulation">
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
                     <div className="relative">
                         <Users className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                         <Plus className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-[#6d28d9] rounded-full border border-white/20" />
@@ -187,7 +187,7 @@ export default function GroupsPage() {
                     const gColor = group.color || '#6366f1';
 
                     return (
-                        <div key={group.id} className="group relative bg-card border border-border-subtle hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.5rem] p-4 transition-all duration-300 overflow-hidden flex flex-col gap-3 min-h-[140px]">
+                        <div key={group.id} className="group relative bg-card border border-border-subtle hover:border-indigo-500/30 rounded-[1.5rem] p-4 transition-all duration-300 overflow-hidden flex flex-col gap-3 min-h-[140px]">
                             {/* Color Accent Bar */}
                             <div className="absolute top-0 left-0 w-full h-[4px]" style={{ backgroundColor: gColor, opacity: 0.6 }} />
                             
@@ -199,7 +199,7 @@ export default function GroupsPage() {
                                     </div>
                                                                   <div className="flex items-center gap-2">
                                         <div className="flex -space-x-3 overflow-hidden">
-                                            <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 shadow-sm overflow-hidden relative z-10">
+                                            <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 overflow-hidden relative z-10">
                                                 {teacher?.photo_url ? (
                                                     <img src={teacher.photo_url} alt={teacher.full_name} className="w-full h-full object-cover" />
                                                 ) : (
@@ -207,7 +207,7 @@ export default function GroupsPage() {
                                                 )}
                                             </div>
                                             {secondaryTeacher && (
-                                                <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 shadow-sm overflow-hidden relative group-hover:translate-x-1 transition-transform">
+                                                <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 overflow-hidden relative group-hover:translate-x-1 transition-transform">
                                                     {secondaryTeacher.photo_url ? (
                                                         <img src={secondaryTeacher.photo_url} alt={secondaryTeacher.full_name} className="w-full h-full object-cover" />
                                                     ) : (
@@ -234,7 +234,7 @@ export default function GroupsPage() {
                                 {/* Edit Action - faint by default, prominent on hover */}
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setEditing(group); setModalOpen(true); }}
-                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted group-hover:text-indigo-600 hover:border-indigo-500/40 transition-all shadow-sm opacity-60 group-hover:opacity-100 active:scale-90 shrink-0"
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted group-hover:text-indigo-600 hover:border-indigo-500/40 transition-all opacity-60 group-hover:opacity-100 active:scale-90 shrink-0"
                                 >
                                     <Pencil className="w-3.5 h-3.5" /> 
                                 </button>

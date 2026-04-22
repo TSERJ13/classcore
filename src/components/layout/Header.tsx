@@ -594,7 +594,7 @@ export function Header() {
                                     setBranchModalOpen(false);
                                     setNewBranchName('');
                                 }}
-                                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-2xl shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest"
+                                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-2xl active:scale-95 transition-all tracking-widest"
                             >
                                 {t.add}
                             </button>

@@ -131,6 +131,13 @@ export default function SubscriptionsPage() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Primary Action Button */}
+                    <button onClick={() => setIssuing(true)}
+                        className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation">
+                        <FolderPlus className="w-5 h-5 flex-shrink-0" />
+                        <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
+                    </button>
                 </div>
 
                 {/* Actions */}
@@ -172,13 +179,6 @@ export default function SubscriptionsPage() {
             {/* Primary Controls */}
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
-                    {/* Primary Action Button */}
-                    <button onClick={() => setIssuing(true)}
-                        className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest shadow-xl shadow-violet-600/30 transition-all active:scale-95 touch-manipulation order-last sm:order-last">
-                        <FolderPlus className="w-5 h-5 flex-shrink-0" />
-                        <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
-                    </button>
-
                     {/* Secondary Filters & Controls Grouped */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
                         {/* Status Tabs */}

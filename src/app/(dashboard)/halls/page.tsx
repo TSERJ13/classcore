@@ -99,7 +99,7 @@ export default function HallsPage() {
 
                 {/* Add Hall Action */}
                 <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/30 transition-all touch-manipulation">
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
                     <div className="relative flex items-center">
                         <DoorOpen className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                         <Plus className="absolute -top-1 -right-2.5 w-3.5 h-3.5 bg-[#6d28d9] rounded-full border border-white/20" />
@@ -112,7 +112,7 @@ export default function HallsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 stagger">
                     {halls.map(hall => (
                         <div key={hall.id}
-                            className="group bg-card border border-border-subtle hover:border-violet-500/40 hover:shadow-xl hover:shadow-violet-500/5 rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-6 transition-all duration-300 relative overflow-hidden flex flex-col gap-4">
+                            className="group bg-card border border-border-subtle hover:border-violet-500/40 rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-6 transition-all duration-300 relative overflow-hidden flex flex-col gap-4">
                             
                             <div className="flex items-start gap-4 sm:gap-5">
                                 {/* Avatar/Icon */}

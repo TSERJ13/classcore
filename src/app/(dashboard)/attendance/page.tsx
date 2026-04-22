@@ -752,7 +752,7 @@ export default function AttendancePage() {
 
                     <div className="flex flex-1 overflow-hidden">
                         {/* Left Panel: Schedule */}
-                        <div className="hidden lg:flex w-64 border-r border-border-subtle bg-surface/30 flex-col overflow-hidden">
+                        <div className="hidden lg:flex w-64 border-r border-border-subtle bg-surface/30 flex-col">
                             <div className="p-4 border-b border-border-subtle/50 flex flex-col gap-3">
                                 {/* Desktop Date Picker */}
                                 {mounted && (
@@ -795,7 +795,7 @@ export default function AttendancePage() {
                                 )}
                                 <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-border-subtle">
+                            <div className="flex-1 p-3 space-y-1.5">
                                 {mounted && filteredSchedule.map(s => {
                                     const isCurrent = isCurrentClass(s.start_time);
                                     const isActive = selectedClass === s.id;
@@ -803,9 +803,9 @@ export default function AttendancePage() {
                                     return (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
-                                                'w-full text-left p-4 rounded-2xl transition-all group border shadow-sm relative overflow-hidden',
+                                                'w-full text-left p-4 rounded-2xl transition-all group border relative overflow-hidden',
                                                 isActive
-                                                    ? 'bg-indigo-500 border-indigo-600 shadow-xl scale-[1.02] z-10'
+                                                    ? 'bg-indigo-500 border-indigo-600 scale-[1.02] z-10 text-white'
                                                     : 'bg-card border-border-subtle hover:bg-surface hover:border-border-subtle/50'
                                             )}>
                                             <h3 className={cn(
@@ -841,7 +841,7 @@ export default function AttendancePage() {
                         </div>
 
                         {/* Middle Panel: Student List */}
-                        <div className="flex-1 flex flex-col bg-card overflow-hidden border-r border-border-subtle">
+                        <div className="flex-1 flex flex-col bg-card border-r border-border-subtle">
                             <div className="p-3 md:p-6 border-b border-border-subtle/50 flex flex-col gap-3 md:gap-4 flex-shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -908,7 +908,7 @@ export default function AttendancePage() {
                                 </div>
                             </div>
                             {/* Native smooth scrolling config */}
-                            <div className="flex-1 overflow-y-auto p-2 md:p-4 pb-24 md:pb-4 space-y-2 md:space-y-3.5 overscroll-y-contain [will-change:scroll-position] [-webkit-overflow-scrolling:touch]">
+                            <div className="flex-1 p-2 md:p-4 pb-24 md:pb-4 space-y-2 md:space-y-3.5">
                                 {!mounted ? (
                                     <div className="space-y-4 px-2">
                                         {[1, 2, 3].map(i => (
@@ -927,7 +927,7 @@ export default function AttendancePage() {
                                         <div key={st.id}
                                             onClick={() => openProfile(st.id)}
                                             className={cn(
-                                                'w-full flex items-center gap-3 md:gap-4 p-3.5 md:p-5 rounded-[1.25rem] md:rounded-[2rem] transition-colors group border relative overflow-hidden cursor-pointer shadow-sm',
+                                                'w-full flex items-center gap-3 md:gap-4 p-3.5 md:p-5 rounded-[1.25rem] md:rounded-[2rem] transition-colors group border relative overflow-hidden cursor-pointer',
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
                                                     isSel ? 'bg-indigo-50/50 border-indigo-200' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
@@ -948,7 +948,7 @@ export default function AttendancePage() {
                                                     style={state === 'present' ? { boxShadow: '0 0 10px rgba(16,185,129,0.2)' } : undefined}
                                                 >
                                                     <span className={cn(
-                                                        `w-full h-full rounded-full flex items-center justify-center shadow-sm group-hover/avatar:scale-105 transition-transform duration-300 overflow-hidden`,
+                                                        `w-full h-full rounded-full flex items-center justify-center group-hover/avatar:scale-105 transition-transform duration-300 overflow-hidden`,
                                                         !mounted ? "bg-surface" : (isExpired ? "bg-red-500" : "bg-emerald-500")
                                                     )}>
                                                         {st.photo_url ? (

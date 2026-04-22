@@ -211,7 +211,7 @@ export default function ShopPage() {
                         setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
                         setIsAddOpen(true);
                     }}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/30 transition-all touch-manipulation"
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation"
                 >
                     <div className="relative flex items-center">
                         <ShoppingBag className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
@@ -409,11 +409,11 @@ export default function ShopPage() {
 
                 <div className="space-y-4">
                     {recentSales.map((sale) => (
-                        <div key={sale.id} className="flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] bg-surface/50 border border-border-subtle/50 hover:border-amber-500/30 hover:bg-card transition-all group relative overflow-hidden shadow-sm">
+                        <div key={sale.id} className="flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] bg-surface/50 border border-border-subtle/50 hover:border-amber-500/30 hover:bg-card transition-all group relative overflow-hidden">
                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500/20 group-hover:bg-indigo-500 transition-colors" />
 
                             <div className="flex items-center gap-4 sm:gap-6">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                                     <ShoppingBag className="w-5 h-5 text-indigo-600" />
                                 </div>
                                 <div className="min-w-0">
@@ -440,13 +440,13 @@ export default function ShopPage() {
                                             setSellForm({ studentId: sale.studentId, quantity: sale.quantity, customerName: sale.studentName });
                                             setIsEditSaleOpen(true);
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-card border border-border-subtle text-muted hover:text-amber-600 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all shadow-sm"
+                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-card border border-border-subtle text-muted hover:text-amber-600 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all"
                                     >
                                         <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }}
-                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-card border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm"
+                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-card border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
