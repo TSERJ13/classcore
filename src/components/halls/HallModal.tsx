@@ -48,8 +48,8 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
         <>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0",
+                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
@@ -165,7 +165,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                     </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe">
+                <div className="px-4 py-3 sm:px-5 sm:py-5 border-t border-border-subtle space-y-2 sm:space-y-3 flex-shrink-0 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe pb-10">
                     {isEdit && !showDelete && !isTeacher && (
                         <button onClick={() => setShowDelete(true)}
                             className="w-full py-2 mb-2 sm:mb-3 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">

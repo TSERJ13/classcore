@@ -685,7 +685,7 @@ export const ka: Translations = {
     neverExpires: 'არასდროს გადის ვადა',
     lessons: 'გაკვეთილები',
     unlimited: 'ულიმიტო დღეები',
-    issueAction: 'გაფორმება (გაყიდვა)',
+    issueAction: 'გაფორმება',
     paidAmountCurrency: 'გადახდილია: {amount} ლარი',
     // SMS
     sendSms: 'SMS გაგზავნა',

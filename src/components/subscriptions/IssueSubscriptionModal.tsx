@@ -285,9 +285,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         <>
             <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[120] flex flex-col bg-card shadow-2xl transition-all duration-300",
+                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300",
                 "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px]",
-                "top-0 bottom-0",
+                "top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-hidden"
             )}>
@@ -635,7 +635,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                 {/* Footer */}
                 {step === 'form' && (
-                    <div className="p-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex gap-3 flex-shrink-0 z-10 pb-safe">
+                    <div className="p-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex gap-3 flex-shrink-0 z-10 pb-safe pb-10">
                         <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
                             {t.cancel}
                         </button>

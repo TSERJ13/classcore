@@ -101,8 +101,8 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
 
             <div className={cn(
-                "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0",
+                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
@@ -460,7 +460,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe">
+                <div className="px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe pb-10">
                     {isEdit && !isDeletingConfirm && (
                         <button onClick={() => setIsDeletingConfirm(true)}
                             className="w-full mb-4 py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">

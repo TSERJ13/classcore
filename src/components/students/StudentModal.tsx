@@ -622,10 +622,10 @@ export function StudentModal({
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             
             <div className={cn(
-                "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
+                "fixed z-[9999] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 centered 
                     ? "inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-xl sm:max-h-[90vh] sm:rounded-[2.5rem] rounded-[2rem]"
-                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0",
+                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0 !top-0",
                 "animate-in fade-in duration-300",
                 centered ? "zoom-in-95" : "sm:slide-in-from-right",
                 "rounded-none sm:rounded-none"
@@ -1217,7 +1217,7 @@ export function StudentModal({
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-safe">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-safe pb-10">
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
