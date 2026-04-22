@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, CreditCard, Calendar, Save, Trash2, Pause } from 'lucide-react';
+import { X, CreditCard, Calendar, Save, Trash2, Pause, Check } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useUser } from '@/hooks/useUser';

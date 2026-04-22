@@ -200,9 +200,9 @@ export default function SubscriptionsPage() {
                             <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </button>
                         <button onClick={() => setIssuing(true)}
-                            className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-4 rounded-[1.25rem] tracking-widest shadow-lg shadow-indigo-500/25 transition-all">
-                            <FolderPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'აბონემენტის გამოწერა' : lang === 'ru' ? 'Выдать абонемент' : 'Issue Subscription'}</span>
+                            className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-5 rounded-[1.25rem] tracking-widest shadow-xl shadow-indigo-600/20 active:scale-95 transition-all">
+                            <Plus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline whitespace-nowrap uppercase">{lang === 'ka' ? 'აბონემენტის გამოწერა' : lang === 'ru' ? 'Выдать абонемент' : 'Issue Subscription'}</span>
                         </button>
                     </div>
                 </div>

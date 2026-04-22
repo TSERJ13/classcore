@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { 
     X, User, Phone, Mail, Camera, Trash2, AlertTriangle, Check, 
     Plus, Upload, Globe, Search, ArrowRight, Save, Image as ImageIcon, AlertCircle,
-    BookOpen, Eye, EyeOff, Layout, Percent, Trash, Calendar
+    BookOpen, Eye, EyeOff, Layout, Percent, Calendar
 } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';

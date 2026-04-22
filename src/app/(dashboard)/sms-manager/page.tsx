@@ -161,10 +161,10 @@ export default function SmsManagerPage() {
             </div>
 
             {/* Tabs */}
-            <div className={`p-1 bg-surface rounded-xl border border-border-subtle flex gap-1 w-full sm:w-fit flex-wrap`}>
+            <div className="grid grid-cols-2 md:flex p-1 bg-surface rounded-xl border border-border-subtle gap-1 w-full md:w-fit">
                 <button
                     onClick={() => setTab('text')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2
+                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
                         ${tab === 'text' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
                 >
                     <Settings2 className="w-4 h-4" />
@@ -172,7 +172,7 @@ export default function SmsManagerPage() {
                 </button>
                 <button
                     onClick={() => setTab('personal')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2
+                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
                         ${tab === 'personal' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
                 >
                     <User className="w-4 h-4" />
@@ -180,7 +180,7 @@ export default function SmsManagerPage() {
                 </button>
                 <button
                     onClick={() => setTab('holiday')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2
+                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
                         ${tab === 'holiday' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
                 >
                     <PartyPopper className="w-4 h-4" />
@@ -188,7 +188,7 @@ export default function SmsManagerPage() {
                 </button>
                 <button
                     onClick={() => setTab('stats')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2
+                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
                         ${tab === 'stats' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
                 >
                     <BarChart3 className="w-4 h-4" />
@@ -460,16 +460,15 @@ export default function SmsManagerPage() {
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="text-muted/40 border-b border-border-subtle">
-                                        <tr>
-                                            <th className="px-5 py-4 font-medium">{t.dateTable}</th>
-                                            <th className="px-5 py-4 font-medium">{t.userTable}</th>
-                                            <th className="px-5 py-4 font-medium">{t.numberTable}</th>
-                                            <th className="px-5 py-4 font-medium">{t.sentStatus}</th>
-                                            <th className="px-5 py-4 font-medium">{t.msgIdTable}</th>
+                                    <tbody className="divide-y divide-border-subtle flex flex-col md:table-row-group">
+                                        <tr className="hidden md:table-row bg-surface/30 uppercase text-[10px] font-black tracking-widest text-muted/40 border-b border-border-subtle">
+                                            <th className="px-5 py-3">{t.dateTable}</th>
+                                            <th className="px-5 py-3">{t.userTable}</th>
+                                            <th className="px-5 py-3">{t.numberTable}</th>
+                                            <th className="px-5 py-3">{t.sentStatus}</th>
+                                            <th className="px-5 py-3">{t.msgIdTable}</th>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border-subtle">
+
                                         {isLoadingLogs ? (
                                             <tr>
                                                 <td colSpan={5} className="px-5 py-8 text-center text-muted/40">
@@ -485,39 +484,56 @@ export default function SmsManagerPage() {
                                             </tr>
                                         ) : (
                                             logs.map((log, i) => (
-                                                <tr key={i} className="hover:bg-surface transition-colors">
-                                                    <td className="px-5 py-4 text-primary/80 whitespace-nowrap text-xs">
+                                                <tr key={i} className="hover:bg-surface/50 transition-colors flex flex-col md:table-row p-4 md:p-0 border-b md:border-b-0 border-border-subtle/30 last:border-0 relative">
+                                                    <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500/20 md:hidden" />
+                                                    
+                                                    <td className="px-5 py-4 md:py-4 text-primary/80 whitespace-nowrap text-[10px] md:text-xs">
+                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.dateTable}</span>
                                                         {new Date(log.timestamp).toLocaleString('ka-GE', {
                                                             month: 'short', day: 'numeric',
-                                                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                                                            hour: '2-digit', minute: '2-digit'
                                                         })}
                                                     </td>
-                                                    <td className="px-5 py-4 text-primary font-bold">{log.studentName || '-'}</td>
-                                                    <td className="px-5 py-4 text-primary/80 font-mono text-xs">{log.to}</td>
-                                                    <td className="px-5 py-4">
+                                                    <td className="px-5 py-1 md:py-4 text-primary font-bold">
+                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.userTable}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center md:hidden">
+                                                                <User className="w-3 h-3 text-indigo-500" />
+                                                            </div>
+                                                            {log.studentName || '-'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-1 md:py-4 text-primary/80 font-mono text-[10px] md:text-xs">
+                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.numberTable}</span>
+                                                        {log.to}
+                                                    </td>
+                                                    <td className="px-5 py-2 md:py-4">
+                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.sentStatus}</span>
                                                         <div className="flex flex-col gap-1 items-start">
                                                             {log.status === 'success' || log.status === 'DELIVERED' ? (
-                                                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black tracking-wider">
+                                                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[9px] md:text-[10px] font-black tracking-wider uppercase">
                                                                     {t.sentStatus}
                                                                 </span>
                                                             ) : (
-                                                                <>
-                                                                    <span className="inline-flex items-center px-2 py-1 rounded bg-red-500/10 text-red-500 text-[10px] font-black tracking-wider">
+                                                                <div className="flex flex-col">
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded bg-red-500/10 text-red-500 text-[9px] md:text-[10px] font-black tracking-wider uppercase">
                                                                         {t.errorStatus}
                                                                     </span>
-                                                                    {log.error && <span className="text-[10px] text-red-500/80 max-w-[150px] leading-tight break-words">{log.error}</span>}
-                                                                </>
+                                                                    {log.error && <span className="text-[9px] text-red-500/80 max-w-[150px] leading-tight break-words mt-1">{log.error}</span>}
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-5 py-4 text-muted/80 text-xs w-full max-w-[250px] sm:max-w-xs xl:max-w-sm relative group/td">
+                                                    <td className="px-5 py-2 md:py-4 text-muted/80 text-[10px] md:text-xs w-full max-w-[250px] sm:max-w-xs xl:max-w-sm relative group/td">
+                                                        <span className="md:hidden text-[9px] font-black text-muted/40 uppercase block mb-1">{t.msgIdTable}</span>
                                                         <div className="flex flex-col gap-1">
-                                                            {log.text && <span className="truncate leading-tight">{log.text}</span>}
-                                                            <span className="text-[9px] font-mono text-muted/40">ID: {log.id || log.messageId || '-'}</span>
+                                                            {log.text && <span className="truncate leading-tight font-medium text-primary/60">{log.text}</span>}
+                                                            <span className="text-[8px] font-mono text-muted/30">ID: {log.id || log.messageId || '-'}</span>
                                                         </div>
                                                     </td>
                                                 </tr>
                                             ))
+
                                         )}
                                     </tbody>
                                 </table>

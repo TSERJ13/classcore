@@ -484,14 +484,14 @@ export function Header() {
                         </h1>
                     </div>
 
-                    <div className="flex items-center gap-0.5 md:gap-2">
+                    <div className="flex items-center gap-0 md:gap-2 pr-0 sm:pr-2">
                         <button
                             onClick={() => {
                                 setNotesOpen(true);
                                 setMessengerOpen(false);
                                 setNotifOpen(false);
                             }}
-                            className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                             aria-label="Notes"
                         >
                             <Pin className="w-[18px] h-[18px] md:w-5 h-5 -rotate-45" />
@@ -506,7 +506,7 @@ export function Header() {
                                 setNotifOpen(false);
                                 setNotesOpen(false);
                             }}
-                            className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                             aria-label="Messenger"
                         >
                             <MessageSquare className="w-[18px] h-[18px] md:w-5 h-5" />
@@ -524,7 +524,7 @@ export function Header() {
                                 setMessengerOpen(false);
                                 setNotesOpen(false);
                             }}
-                            className="relative w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                            className="relative w-8 h-8 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                             aria-label="Notifications"
                         >
                             <Bell className="w-[18px] h-[18px] md:w-5 h-5" />
