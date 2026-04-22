@@ -98,11 +98,11 @@ export default function TeachersPage() {
             <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
-                {/* Add Teacher Action - Now Primary and Large */}
+                {/* Add Teacher Action */}
                 <button onClick={openAdd}
-                    className="w-full sm:w-auto flex items-center justify-center gap-3 h-16 sm:h-14 px-8 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[14px] font-black tracking-widest rounded-3xl shadow-2xl shadow-violet-600/40 transition-all touch-manipulation order-first sm:order-last">
-                    <UserPlus className="w-6 h-6 sm:w-5 h-5" />
-                    <span className="uppercase">{t.addTeacher}</span>
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/30 transition-all touch-manipulation order-last sm:order-last">
+                    <UserPlus className="w-5 h-5" />
+                    <span className="hidden sm:inline uppercase">{t.addTeacher}</span>
                 </button>
 
                 {/* Quick stats - Scoped and Clean */}

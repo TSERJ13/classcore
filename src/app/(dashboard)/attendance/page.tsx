@@ -662,7 +662,7 @@ export default function AttendancePage() {
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-100px)] -m-4 md:-m-8 bg-card animate-fade-up overflow-hidden">
+        <div className="flex flex-col min-h-[calc(100vh-100px)] -m-4 md:-m-8 bg-card animate-fade-up">
             {!mounted ? (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="w-12 h-12 rounded-2xl border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
