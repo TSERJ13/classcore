@@ -876,7 +876,7 @@ export default function SettingsPage() {
                                 <button
                                     onClick={handleChangePassword}
                                     disabled={pwdLoading || pwdSuccess}
-                                    className="px-4 py-2 rounded-xl text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors disabled:opacity-50">
+                                    className="px-4 py-2 rounded-xl text-xs font-medium bg-[#6d28d9] text-white hover:bg-[#5b21b6] transition-colors disabled:opacity-50 shadow-lg shadow-violet-500/20">
                                     {pwdLoading ? '...' : t.saveAction}
                                 </button>
                             </div>
@@ -923,23 +923,23 @@ export default function SettingsPage() {
                             >
                                 {t.cancel}
                             </button>
-                            <button
-                                onClick={() => {
-                                    if (!newBranchName.trim()) return;
-                                    if (editingBranchId) {
-                                        updateBranch(editingBranchId, { name: newBranchName.trim(), address: newBranchAddress.trim() });
-                                    } else {
-                                        addBranch(newBranchName.trim(), newBranchAddress.trim());
-                                    }
-                                    setBranchModalOpen(false);
-                                    setEditingBranchId(null);
-                                    setNewBranchName('');
-                                    setNewBranchAddress('');
-                                }}
-                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest"
-                            >
-                                {editingBranchId ? t.save : t.add}
-                            </button>
+                                <button
+                                    onClick={() => {
+                                        if (!newBranchName.trim()) return;
+                                        if (editingBranchId) {
+                                            updateBranch(editingBranchId, { name: newBranchName.trim(), address: newBranchAddress.trim() });
+                                        } else {
+                                            addBranch(newBranchName.trim(), newBranchAddress.trim());
+                                        }
+                                        setBranchModalOpen(false);
+                                        setEditingBranchId(null);
+                                        setNewBranchName('');
+                                        setNewBranchAddress('');
+                                    }}
+                                    className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest uppercase"
+                                >
+                                    {editingBranchId ? t.save : t.add}
+                                </button>
                         </div>
                     </div>
                 </div>
@@ -1098,31 +1098,44 @@ export default function SettingsPage() {
                                                     type="checkbox"
                                                     checked={allowed}
                                                     onChange={() => {
-                                                        const current = newStaff.allowedBranchIds || [];
-                                                        let next: string[];
-                                                        if (current.length === 0) {
-                                                            // If currently All (empty), and we uncheck one, include all EXCEPT this one
-                                                            next = settings.branches.filter(br => br.id !== b.id).map(br => br.id);
-                                                        } else {
-                                                            if (current.includes(b.id)) {
-                                                                next = current.filter(id => id !== b.id);
-                                                            } else {
-                                                                next = [...current, b.id];
-                                                            }
-                                                        }
-                                                        // Final cleanup: if everything is checked, reset to empty (All)
-                                                        if (next.length === settings.branches.length) {
-                                                            next = [];
-                                                        }
-                                                        setNewStaff({ ...newStaff, allowedBranchIds: next });
-                                                    }}
-                                                    className="sr-only"
-                                                />
-                                                <div className={cn('w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
-                                                    allowed ? 'bg-indigo-500 border-indigo-500 shadow-md' : 'border-border-subtle bg-card')}>
-                                                    {allowed && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
-                                                </div>
-                                                <span className={cn('text-sm font-bold', allowed ? 'text-primary' : 'text-muted')}>{b.name}</span>
+                                                        const current = newS                                <button
+                                    onClick={() => {
+                                        if (!newStaff.first_name || !newStaff.email) return;
+                                        addStaff({
+                                            ...newStaff,
+                                            full_name: `${newStaff.first_name} ${newStaff.last_name}`.trim(),
+                                            phone: '', // Optional for now
+                                            status: 'active'
+                                        } as any);
+                                        setStaffModalOpen(false);
+                                        // Reset
+                                        setNewStaff({
+                                            first_name: '',
+                                            last_name: '',
+                                            role: 'teacher',
+                                            email: '',
+                                            password: '',
+                                            permissions: {
+                                                canViewAttendance: true,
+                                                canViewSubscriptions: false,
+                                                canViewStudents: true,
+                                                canViewCalendar: true,
+                                                canEditCalendar: false,
+                                                canViewGroups: true,
+                                                canViewTeachers: true,
+                                                canViewHalls: false,
+                                                canViewShop: false,
+                                                canViewAnalytics: false,
+                                                canViewSMS: false,
+                                            },
+                                            allowedBranchIds: []
+                                        });
+                                    }}
+                                    className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest uppercase"
+                                >
+                                    {t.add}
+                                </button>
+text-muted')}>{b.name}</span>
                                             </label>
                                         );
                                     })}
@@ -1370,7 +1383,7 @@ export default function SettingsPage() {
                                                                 className="sr-only"
                                                             />
                                                             <div className={cn('w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
-                                                                isAllowed ? 'bg-indigo-500 border-indigo-500 shadow-md' : 'border-border-subtle bg-card')}>
+                                                                isAllowed ? 'bg-violet-500 border-violet-500 shadow-md' : 'border-border-subtle bg-card')}>
                                                                 {isAllowed && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
                                                             </div>
                                                             <div className="flex-1">
@@ -1416,7 +1429,7 @@ export default function SettingsPage() {
                                         </button>
                                         <button
                                             onClick={handleSave}
-                                            className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
+                                            className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase"
                                         >
                                             <Save className="w-4 h-4" />
                                             {l('შენახვა', 'Сохранить', 'Save')}

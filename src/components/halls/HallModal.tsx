@@ -198,7 +198,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                             {t.cancel}
                         </button>
                         <button onClick={save} disabled={!form.name?.trim()}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                            className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-violet-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
                             <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{isEdit ? t.save : t.add}</span>
                         </button>

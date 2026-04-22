@@ -168,7 +168,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                         {data.phase === 'confirm' ? (
                             <div className="space-y-3">
                                 <p className="text-xs text-center text-muted font-medium mb-4">{t.confirmVisit}</p>
-                                <button onClick={onConfirm} className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all shadow-xl shadow-indigo-600/20">{t.yesConfirm}</button>
+                                <button onClick={onConfirm} className="w-full py-3.5 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all shadow-xl shadow-violet-600/30 uppercase tracking-widest">{t.yesConfirm}</button>
                                 <button onClick={onClose} className="w-full py-3 bg-surface hover:bg-surface/80 text-muted font-bold text-sm rounded-2xl transition-all">{t.skip}</button>
                             </div>
                         ) : (
@@ -1456,7 +1456,7 @@ export default function AttendancePage() {
                                                 <div className="p-3 bg-card border-t border-border-subtle/50 flex items-center justify-between gap-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
                                                     <button
                                                         onClick={() => setIssueModalOpen(true)}
-                                                        className="flex-1 flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
+                                                        className="flex-1 flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl bg-[#6d28d9] hover:bg-[#5b21b6] text-white transition-all active:scale-95 shadow-lg shadow-violet-500/20"
                                                     >
                                                         <PlusCircle className="w-4 h-4" />
                                                         <span className="text-[8px] font-black tracking-tighter text-white/90">{t.issuePlan}</span>
@@ -1523,7 +1523,7 @@ export default function AttendancePage() {
                                                 onClick={() => setFreezeDays(d)}
                                                 className={cn(
                                                     "h-12 rounded-xl border font-black text-xs transition-all",
-                                                    freezeDays === d ? "bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-surface border-border-subtle hover:border-indigo-500/30"
+                                                    freezeDays === d ? "bg-[#6d28d9] border-[#6d28d9] text-white shadow-lg shadow-violet-500/20" : "bg-surface border-border-subtle hover:border-violet-500/30"
                                                 )}
                                             >
                                                 {d} {t.days}

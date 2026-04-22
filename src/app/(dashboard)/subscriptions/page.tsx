@@ -136,7 +136,7 @@ export default function SubscriptionsPage() {
                 {/* Actions */}
                 <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                     <button onClick={(e) => { e.stopPropagation(); setEditing(s); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all shadow-sm">
+                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-[#6d28d9] hover:border-violet-500/40 hover:bg-violet-500/5 transition-all shadow-sm">
                         <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); handleDelete(s.student_id, s.id); }}
@@ -168,7 +168,7 @@ export default function SubscriptionsPage() {
     };
 
     return (
-        <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-20">
+        <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-20">
             {/* Primary Controls */}
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
@@ -216,7 +216,7 @@ export default function SubscriptionsPage() {
                             onClick={() => setCategory('group')}
                             className={cn(
                                 'flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all truncate',
-                                category === 'group' ? 'bg-indigo-500 text-white shadow-md' : 'text-muted hover:text-primary'
+                                category === 'group' ? 'bg-[#6d28d9] text-white shadow-md' : 'text-muted hover:text-primary'
                             )}
                         >
                             <Users className="w-4 h-4 shrink-0" />

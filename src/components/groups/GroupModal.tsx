@@ -484,7 +484,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                     )}
                     <div className="flex gap-3">
                         <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">{t.cancel}</button>
-                        <button onClick={save} disabled={!form.name || saving} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                        <button onClick={save} disabled={!form.name || saving} className="flex-1 py-3 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-violet-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                             {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />}
                             <span className="truncate">{saving ? t.loading : (isEdit ? t.save : t.add)}</span>
                         </button>

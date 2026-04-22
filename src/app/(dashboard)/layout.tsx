@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="dashboard-stabilized-view flex-1 flex flex-col min-w-0 transition-all duration-300 relative overflow-x-hidden md:pl-[var(--sidebar-width,0px)]">
                             <Header />
                             <main className="dashboard-main-lock flex-1 relative w-full overflow-x-hidden">
-                                <div className="p-4 sm:p-6 md:p-8 pb-32 sm:pb-32 md:pb-12 w-full max-w-full">
+                                <div className="p-4 sm:p-6 md:p-8 pb-32 sm:pb-32 md:pb-12 w-full max-w-7xl mx-auto">
                                     {children}
                                 </div>
                             </main>

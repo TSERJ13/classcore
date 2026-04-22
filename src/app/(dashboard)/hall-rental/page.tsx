@@ -120,7 +120,7 @@ export default function HallRentalPage() {
     const paidTotal = rentals.filter(r => r.payment_status === 'paid').reduce((s, r) => s + r.total_price, 0);
 
     return (
-        <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
+        <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -128,7 +128,7 @@ export default function HallRentalPage() {
                     <p className="text-sm text-muted font-medium opacity-60">{rentals.length} {t.addRental.toLowerCase()}</p>
                 </div>
                 <button onClick={openAdd}
-                    className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl shadow-indigo-600/20 whitespace-nowrap">
+                    className="flex items-center justify-center gap-2 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-[0.97] transition-all text-white text-sm font-bold px-6 py-3.5 rounded-[1.25rem] shadow-xl shadow-violet-600/30 whitespace-nowrap uppercase tracking-widest">
                     <Plus className="w-4 h-4" />
                     <span>{t.addRental}</span>
                 </button>
@@ -528,7 +528,7 @@ export default function HallRentalPage() {
                             )}
                             <button onClick={saveRental}
                                 disabled={step === 2 && (!form.renter_name || !form.renter_phone || !form.start_date || !form.total_price)}
-                                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-black tracking-[0.15em] rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98]">
+                                className="flex-1 py-4 bg-[#6d28d9] hover:bg-[#5b21b6] disabled:opacity-40 text-white text-sm font-black tracking-[0.15em] rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-violet-600/30 transition-all active:scale-[0.98]">
                                 {step === 1 ? 'გაგრძელება →' : 'შენახვა'}
                             </button>
                         </div>

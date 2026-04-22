@@ -63,7 +63,7 @@ export default function HallsPage() {
 
     return (
         <>
-            <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
+            <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
             <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
                 {/* Quick stats */}
@@ -99,12 +99,12 @@ export default function HallsPage() {
 
                 {/* Add Hall Action */}
                 <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-5 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-lg shadow-violet-600/20 transition-all touch-manipulation">
+                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/30 transition-all touch-manipulation">
                     <div className="relative flex items-center">
-                        <DoorOpen className="w-5 h-5 sm:w-4 sm:h-4" />
-                        <Plus className="absolute -top-1 -right-2.5 w-3 h-3 text-white" />
+                        <DoorOpen className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
+                        <Plus className="absolute -top-1 -right-2.5 w-3.5 h-3.5 bg-[#6d28d9] rounded-full border border-white/20" />
                     </div>
-                    <span className="hidden sm:inline">{t.addHall}</span>
+                    <span className="hidden sm:inline uppercase">{t.addHall}</span>
                 </button>
             </div>
 

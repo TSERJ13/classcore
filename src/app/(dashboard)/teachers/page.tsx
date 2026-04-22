@@ -95,7 +95,7 @@ export default function TeachersPage() {
 
     return (
         <>
-            <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
+            <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
                 {/* Add Teacher Action - Now Primary and Large */}
@@ -121,13 +121,9 @@ export default function TeachersPage() {
                         </div>
                     ))}
                 </div>
-
-                </div>
-            </div>
             </div>
 
-
-                {/* Teacher cards */}
+            {/* Teacher cards */}
                 <div className="grid gap-4 stagger">
                     {filtered.map(teacher => (
                         <div key={teacher.id}

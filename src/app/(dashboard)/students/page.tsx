@@ -161,7 +161,7 @@ export default function StudentsPage() {
 
     return (
         <>
-            <div className="space-y-8 animate-fade-up max-w-[1440px] mx-auto pb-10">
+            <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
                 {/* Header / Actions - Responsive Layout */}
                 <div className="flex flex-col gap-3 w-full">
 
@@ -188,9 +188,9 @@ export default function StudentsPage() {
                         {/* Add Button */}
                         <div className="flex flex-shrink-0 items-center h-12">
                             <button onClick={openAdd}
-                                className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all text-white text-[10px] sm:text-xs font-black tracking-widest w-12 h-12 sm:w-auto px-0 sm:px-5 rounded-[1.25rem] shadow-lg shadow-indigo-500/20">
+                                className="flex-shrink-0 flex items-center justify-center gap-2 bg-[#6d28d9] hover:bg-[#5b21b6] transition-all text-white text-[11px] sm:text-xs font-black tracking-widest w-12 h-12 sm:w-auto px-0 sm:px-6 rounded-[1.25rem] shadow-xl shadow-violet-600/30 active:scale-95 touch-manipulation">
                                 <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden sm:inline whitespace-nowrap">{t.addStudent}</span>
+                                <span className="hidden sm:inline whitespace-nowrap uppercase">{t.addStudent}</span>
                             </button>
                         </div>
                     </div>
