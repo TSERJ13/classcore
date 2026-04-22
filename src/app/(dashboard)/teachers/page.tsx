@@ -97,7 +97,7 @@ export default function TeachersPage() {
         <>
             <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
+            <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
                 {/* Quick stats - Scoped and Clean */}
                 <div className="flex items-center gap-2 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 py-1">
                     {[
