@@ -319,13 +319,76 @@ export async function pushStudioStateToCloud(
 }
 
 /**
+ * CORE TRANSFORMATION: Converts a raw cloud blob into scoped local state.
+ */
+export function transformCloudBlobToLocalState(blob: any, scope: string, orgId?: string, updatedAt?: string) {
+    if (!blob) return null;
+
+    let staffArr = blob._staff || (Array.isArray(blob) ? blob : []);
+    const operations = blob._operations || {};
+
+    // Standard normalization for all staff records
+    if (staffArr.length > 0 && staffArr[0].salary_rates) {
+        staffArr = staffArr.map((s: any) => ({
+            id: s.id,
+            full_name: s.full_name,
+            email: s.email,
+            phone: s.phone,
+            role: s.role,
+            photo_url: s.photo_url,
+            specialty: s.specialty,
+            rate_per_hour: s.salary_rates?.hourly,
+            rate_per_month: s.salary_rates?.monthly,
+            salary_percentage: s.salary_rates?.percentage,
+            assigned_group_ids: s.assigned_group_ids,
+            allowedBranchIds: s.allowed_branch_ids,
+            status: s.status,
+            created_at: s.created_at
+        }));
+    }
+
+    const scopedData: Record<string, any> = {};
+    
+    Object.entries(operations).forEach(([key, value]) => {
+        const parts = key.split('_');
+        const isSyncable = [
+            'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
+            'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
+            'cc_subscription_plans', 'cc_student_subscriptions', 'cc_shop_products', 
+            'cc_shop_sales', 'cc_audit_log', 'cc_security_log', 'cc_salary_update',
+            'cc_notifications', 'cc_calendar_events', 'cc_global_history', 
+            'cc_global_trash', 'cc_studio_settings', 'cc_deleted_'
+        ].some(p => key.startsWith(p));
+
+        if (!isSyncable) {
+            scopedData[key] = value;
+            return;
+        }
+
+        if (parts.length > 2 && !key.startsWith('cc_studio_settings')) {
+            const base = parts.slice(0, -1).join('_');
+            const bId = parts[parts.length - 1];
+            scopedData[`${base}_${scope}_${bId}`] = value;
+        } else {
+            scopedData[`${key}_${scope}`] = value;
+        }
+    });
+
+    return {
+        staff_data: staffArr,
+        studio_data: scopedData,
+        org_id: orgId,
+        updated_at: updatedAt
+    };
+}
+
+/**
  * PULL: Read state from Supabase.
- * Returns staff + operational data (with slug suffix added back to keys).
  */
 export async function pullStudioStateFromCloud(
     slug: string,
     scopeId?: string
-): Promise<{ staff_data: StaffMember[], studio_data: Record<string, any>, org_id?: string } | null> {
+): Promise<{ staff_data: StaffMember[], studio_data: Record<string, any>, org_id?: string, updated_at?: string } | null> {
     if (typeof window === 'undefined') return null;
     if (!slug || slug === 'demo.classcore.ge') return null;
 
@@ -343,118 +406,29 @@ export async function pullStudioStateFromCloud(
             return null;
         }
 
-        const data = settingsRes.data;
-        if (!data) {
-            console.warn('⚠️ [Sync] No settings record found for slug:', slug);
-            return null;
-        }
+        const { data: data, error } = settingsRes;
+        if (!data || !data.staff_data) return null;
 
-        const unified = data.staff_data || {};
-        let staff = unified._staff || (Array.isArray(unified) ? unified : []);
-        let operations = unified._operations || {};
+        const scope = scopeId || slug;
+        const state = transformCloudBlobToLocalState(data.staff_data, scope, data.org_id, data.updated_at);
         const master = masterRes.data;
 
-        // 🚨 SUPER-RESILIENT RECOVERY: 
-        // Even if data.org_id is missing in the blob, we use the one from the master studios table!
-        const effectiveOrgId = data.org_id || master?.org_id;
-
-        if ((!staff || staff.length === 0) && effectiveOrgId) {
-            console.log('🛡️ [Sync] Settings blob has no staff. Attempting resilient recovery from master tables...');
-            const { data: standaloneStaff } = await supabase
-                .from('staff')
-                .select('*')
-                .eq('org_id', effectiveOrgId);
-            
-            if (standaloneStaff && standaloneStaff.length > 0) {
-                console.log(`✅ [Sync] Recovered ${standaloneStaff.length} staff records from master table.`);
-                staff = standaloneStaff.map(s => ({
-                    id: s.id,
-                    org_id: s.org_id,
-                    full_name: s.full_name,
-                    first_name: s.first_name,
-                    last_name: s.last_name,
-                    phone: s.phone,
-                    email: s.email,
-                    role: s.role,
-                    permissions: s.permissions,
-                    photo_url: s.photo_url,
-                    specialty: s.specialty,
-                    rate_per_hour: (s.salary_rates as any)?.hourly,
-                    rate_per_month: (s.salary_rates as any)?.monthly,
-                    salary_percentage: (s.salary_rates as any)?.percentage,
-                    assigned_group_ids: s.assigned_group_ids,
-                    allowedBranchIds: s.allowed_branch_ids,
-                    status: s.status,
-                    created_at: s.created_at
-                }));
-            }
-        }
-
-        const settingsKey = `cc_studio_settings_${slug}`;
-        let settingsObj = operations[settingsKey] || {};
-
-        if (master) {
-            console.log('📡 [Sync] Hydrating identity from master studios table...');
-            operations[settingsKey] = {
+        if (state && master) {
+            const settingsKey = `cc_studio_settings_${scope}`;
+            const settingsObj = state.studio_data[settingsKey] || {};
+            state.studio_data[settingsKey] = {
                 ...settingsObj,
                 studioName: master.studio_name || settingsObj.studioName,
                 logoDataUrl: master.logo_url || settingsObj.logoDataUrl || null,
                 plan: master.plan || settingsObj.plan,
                 status: master.status || settingsObj.status,
                 owner_info: master.owner_info || settingsObj.owner_info,
-                orgId: master.org_id || settingsObj.orgId // 🚨 CRITICAL: Restore the orgId to the local settings!
+                orgId: master.org_id || settingsObj.orgId
             };
         }
 
-        // Add scope suffix back to operation keys
-        // Logic: if the key is in SYNC_COLLECTIONS, append the scope.
-        // If it was branch-scoped (has a separator in cloud blob), keep that structure.
-        const scope = scopeId || slug;
-        const scopedData: Record<string, any> = {};
-        
-        Object.entries(operations).forEach(([key, value]) => {
-            // Key in cloud is "clean" (e.g. "cc_groups_main" or "cc_student_data")
-            const parts = key.split('_');
-            const basePrefix = parts.slice(0, 2).join('_'); // e.g. "cc_student" or "cc_groups"
-            
-            const isSyncable = [
-                'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
-                'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
-                'cc_subscription_plans', 'cc_student_subscriptions', 'cc_shop_products', 
-                'cc_shop_sales', 'cc_audit_log', 'cc_security_log', 'cc_salary_update',
-                'cc_notifications', 'cc_calendar_events', 'cc_global_history', 
-                'cc_global_trash', 'cc_studio_settings', 'cc_deleted_'
-            ].some(p => key.startsWith(p));
-
-            if (!isSyncable) {
-                scopedData[key] = value;
-                return;
-            }
-
-            // If it's a branch-scoped key (e.g. cc_groups_main), it arrives as cc_groups_main
-            // We need to transform it to cc_groups_{scope}_main
-            if (parts.length > 2 && !key.startsWith('cc_studio_settings')) {
-                // Determine if it actually has a branch ID
-                // Branch IDs are usually random strings or "main"
-                const base = parts.slice(0, -1).join('_');
-                const bId = parts[parts.length - 1];
-                scopedData[`${base}_${scope}_${bId}`] = value;
-            } else {
-                // Global key: cc_student_data -> cc_student_data_{scope}
-                scopedData[`${key}_${scope}`] = value;
-            }
-        });
-
-        console.log(`✅ [Sync] Pull OK ← ${staff.length} staff, ${Object.keys(operations).length} data keys`);
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('cc_sync_pull_ok', { detail: { time: new Date().toISOString() } }));
-        }
-        return {
-            staff_data: staff,
-            studio_data: scopedData,
-            org_id: data.org_id,
-            updated_at: data.updated_at
-        };
+        console.log(`✅ [Sync] Pull OK ← ${state?.staff_data?.length || 0} staff`);
+        return state as any;
     } catch (err) {
         console.error('❌ [Sync] Pull error:', err);
         return null;

@@ -523,13 +523,15 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 schema: 'public', 
                 table: 'studio_settings',
                 filter: `studio_slug=eq.${settings.studioSlug}`
-            }, () => {
-                console.log('📡 [StudioContext] Realtime Update Pulse received');
-                import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
+            }, (payload: any) => {
+                console.log('📡 [Sync] Realtime Pulse Payload received. Speed: Instant.');
+                const newData = payload.new;
+                if (!newData) return;
+
+                import('@/lib/sync-store').then(({ transformCloudBlobToLocalState }) => {
                     const scope = settings.orgId || settings.studioSlug!;
-                    pullStudioStateFromCloud(settings.studioSlug!, scope).then(state => {
-                        if (state) applyCloudState(settings.studioSlug!, state);
-                    });
+                    const state = transformCloudBlobToLocalState(newData.staff_data, scope, newData.org_id, newData.updated_at);
+                    if (state) applyCloudState(settings.studioSlug!, state);
                 });
             })
             .subscribe();
