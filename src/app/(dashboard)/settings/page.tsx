@@ -1098,44 +1098,22 @@ export default function SettingsPage() {
                                                     type="checkbox"
                                                     checked={allowed}
                                                     onChange={() => {
-                                                        const current = newS                                <button
-                                    onClick={() => {
-                                        if (!newStaff.first_name || !newStaff.email) return;
-                                        addStaff({
-                                            ...newStaff,
-                                            full_name: `${newStaff.first_name} ${newStaff.last_name}`.trim(),
-                                            phone: '', // Optional for now
-                                            status: 'active'
-                                        } as any);
-                                        setStaffModalOpen(false);
-                                        // Reset
-                                        setNewStaff({
-                                            first_name: '',
-                                            last_name: '',
-                                            role: 'teacher',
-                                            email: '',
-                                            password: '',
-                                            permissions: {
-                                                canViewAttendance: true,
-                                                canViewSubscriptions: false,
-                                                canViewStudents: true,
-                                                canViewCalendar: true,
-                                                canEditCalendar: false,
-                                                canViewGroups: true,
-                                                canViewTeachers: true,
-                                                canViewHalls: false,
-                                                canViewShop: false,
-                                                canViewAnalytics: false,
-                                                canViewSMS: false,
-                                            },
-                                            allowedBranchIds: []
-                                        });
-                                    }}
-                                    className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest uppercase"
-                                >
-                                    {t.add}
-                                </button>
-text-muted')}>{b.name}</span>
+                                                        const current = newStaff.allowedBranchIds;
+                                                        let next: string[];
+                                                        if (current.includes(b.id)) {
+                                                            next = current.filter(id => id !== b.id);
+                                                        } else {
+                                                            next = [...current, b.id];
+                                                        }
+                                                        setNewStaff({ ...newStaff, allowedBranchIds: next });
+                                                    }}
+                                                    className="sr-only"
+                                                />
+                                                <div className={cn('w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all',
+                                                    allowed ? 'bg-violet-500 border-violet-500 shadow-md' : 'border-border-subtle bg-card')}>
+                                                    {allowed && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
+                                                </div>
+                                                <span className={cn('text-sm font-bold', allowed ? 'text-primary' : 'text-muted')}>{b.name}</span>
                                             </label>
                                         );
                                     })}
@@ -1156,11 +1134,10 @@ text-muted')}>{b.name}</span>
                                     addStaff({
                                         ...newStaff,
                                         full_name: `${newStaff.first_name} ${newStaff.last_name}`.trim(),
-                                        phone: '', // Optional for now
+                                        phone: '',
                                         status: 'active'
                                     } as any);
                                     setStaffModalOpen(false);
-                                    // Reset
                                     setNewStaff({
                                         first_name: '',
                                         last_name: '',
@@ -1183,7 +1160,7 @@ text-muted')}>{b.name}</span>
                                         allowedBranchIds: []
                                     });
                                 }}
-                                className="flex-[2] py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest"
+                                className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest uppercase"
                             >
                                 {t.add}
                             </button>
