@@ -19,9 +19,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const defaultRole = roleCookie || null;
     return (
         <DashboardHydrationGuard>
+            <style jsx global>{`
+                html, body {
+                    overflow-x: hidden !important;
+                    width: 100% !important;
+                    position: relative !important;
+                    touch-action: pan-y !important;
+                    -webkit-overflow-scrolling: touch !important;
+                    overscroll-behavior: none !important;
+                    height: 100% !important;
+                }
+                * {
+                    box-sizing: border-box !important;
+                }
+                #root, body > div {
+                    max-width: 100vw !important;
+                    overflow-x: hidden !important;
+                    position: relative;
+                }
+                main {
+                    overflow-x: hidden !important;
+                    -webkit-tap-highlight-color: transparent;
+                    width: 100%;
+                }
+            `}</style>
             <KillSwitchGate>
                 <MobileMenuProvider>
-                    <div className="flex min-h-[100dvh] bg-base overflow-x-hidden w-full max-w-full relative touch-pan-y">
+                    <div className="flex min-h-[100dvh] bg-base overflow-x-hidden w-full max-w-full relative touch-pan-y isolate">
                         {/* Sidebar — handles both desktop sticky & mobile drawer internally */}
                         <Sidebar defaultExpanded={defaultExpanded} defaultRole={defaultRole} />
 
