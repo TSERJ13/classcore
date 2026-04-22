@@ -87,45 +87,44 @@ export default function SubscriptionsPage() {
         return (
             <div key={s.id}
                 className={cn(
-                    "group bg-card rounded-[2rem] p-5 transition-all duration-300 shadow-sm relative overflow-hidden flex flex-col hover:shadow-xl",
+                    "group bg-card rounded-[1.5rem] lg:rounded-[2.5rem] p-4 lg:p-6 transition-all duration-300 shadow-sm relative overflow-hidden flex flex-col hover:shadow-xl",
                     borderCls
                 )}>
-                <div className="flex items-start gap-4">
+                <div className="flex items-center lg:items-start gap-3 lg:gap-4">
                     {st?.photo_url ? (
-                        <img src={st.photo_url} alt={studentName} className="w-12 h-12 object-cover rounded-2xl border border-border-subtle/50 shadow-sm flex-shrink-0" />
+                        <img src={st.photo_url} alt={studentName} className="w-10 h-10 lg:w-12 lg:h-12 object-cover rounded-xl lg:rounded-2xl border border-border-subtle/50 shadow-sm flex-shrink-0" />
                     ) : (
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 font-bold border border-indigo-500/20 text-sm flex-shrink-0 shadow-sm">
+                        <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 font-bold border border-indigo-500/20 text-sm flex-shrink-0 shadow-sm">
                             {initial}
                         </div>
                     )}
-                    <div className="flex-1 min-w-0 pr-16 mt-0.5">
-                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                            <h3 className="text-sm font-black text-primary truncate max-w-full leading-none group-hover:text-indigo-600 transition-colors">{studentName}</h3>
-                            <span className="text-[10px] bg-surface px-1.5 py-0.5 rounded-md text-muted whitespace-nowrap hidden sm:inline-block border border-border-subtle/50">({s.student_id})</span>
+                    <div className="flex-1 min-w-0 pr-12 lg:pr-16">
+                        <div className="flex flex-wrap items-center gap-1.5 lg:gap-2 mb-0.5 lg:mb-1.5">
+                            <h3 className="text-xs lg:text-sm font-black text-primary truncate max-w-full leading-none group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{studentName}</h3>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-2.5">
+                        <div className="flex items-center gap-2 mb-1 lg:mb-2.5">
                             <span className={cn(
-                                "text-[10px] font-black px-2 py-0.5 border rounded-lg tracking-wider leading-none shadow-sm",
+                                "text-[8px] lg:text-[10px] font-black px-1.5 lg:px-2 py-0.5 border rounded-lg tracking-wider leading-none shadow-sm uppercase",
                                 isIndividual ? "bg-amber-500/10 text-amber-600 border-amber-500/20" : "bg-indigo-500/10 text-indigo-600 border-indigo-500/20"
                             )}>
-                                {(s.plan || 'სტანდარტული').toUpperCase()}
+                                {(s.plan || 'სტანდარტული')}
                             </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                            <div className="flex items-center gap-1.5 text-xs text-muted font-medium">
-                                <Clock className="w-3.5 h-3.5 opacity-60" />
-                                <span>ვადა: <b className="text-primary">{s.expires_at}</b></span>
+                        <div className="flex flex-row flex-wrap items-center gap-x-3 lg:gap-x-4 gap-y-1 mt-0.5 lg:mt-1 border-t lg:border-none border-border-subtle/30 pt-1 lg:pt-0">
+                            <div className="flex items-center gap-1 text-[9px] lg:text-xs text-muted font-bold opacity-70">
+                                <Clock className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
+                                <span>{s.expires_at}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted font-medium">
+                            <div className="flex items-center gap-1 text-[9px] lg:text-xs text-muted font-bold opacity-70">
                                 {s.type === 'sessions' ? (
                                     <>
-                                        <Users className="w-3.5 h-3.5 opacity-60" />
-                                        <span><b className="text-primary">{s.sessions_used}</b>/{s.sessions_total} ვიზიტი</span>
+                                        <Users className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
+                                        <span>{s.sessions_used}/{s.sessions_total}</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Clock className="w-3.5 h-3.5 opacity-60" />
-                                        <span><b className="text-primary">{s.sessions_used}</b> ვიზიტი (თვიური)</span>
+                                        <Clock className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
+                                        <span>{s.sessions_used} (M)</span>
                                     </>
                                 )}
                             </div>
@@ -134,14 +133,14 @@ export default function SubscriptionsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                <div className="absolute top-4 lg:top-6 right-4 lg:right-6 flex items-center gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-all lg:translate-x-2 lg:group-hover:translate-x-0">
                     <button onClick={(e) => { e.stopPropagation(); setEditing(s); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-[#6d28d9] hover:border-violet-500/40 hover:bg-violet-500/5 transition-all shadow-sm">
-                        <Edit2 className="w-3.5 h-3.5" />
+                        className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 transition-all shadow-sm active:scale-90">
+                        <Edit2 className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); handleDelete(s.student_id, s.id); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm">
-                        <Trash2 className="w-3.5 h-3.5" />
+                        className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 transition-all shadow-sm active:scale-90">
+                        <Trash2 className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
                     </button>
                 </div>
             </div>
@@ -193,9 +192,9 @@ export default function SubscriptionsPage() {
 
                         {/* Prices Action */}
                         <button onClick={() => window.location.href = '/subscriptions/plans'}
-                            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 px-5 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
+                            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 px-3 sm:px-5 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
                             <DollarSign strokeWidth={3} className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                            <span className="whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
+                            <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </button>
                     </div>
 

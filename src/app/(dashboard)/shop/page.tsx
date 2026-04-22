@@ -199,7 +199,9 @@ export default function ShopPage() {
                                 <s.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 ${s.colorCls} opacity-60`} />
                                 <span className="text-[13px] sm:text-[16px] lg:text-2xl font-black text-primary leading-none tabular-nums tracking-tight">{s.value}</span>
                             </div>
-                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase">{s.label}</p>
+                            <p className="text-[7px] sm:text-[8px] lg:text-[10px] text-muted font-black tracking-widest mt-1 lg:mt-2 opacity-40 uppercase truncate max-w-full">
+                                {s.label === t.totalSales ? (lang === 'ka' ? 'სულ გაყიდული' : s.label) : s.label}
+                            </p>
                         </div>
                     ))}
                 </div>

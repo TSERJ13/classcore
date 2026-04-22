@@ -61,7 +61,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                 <div
                     className={cn(
                         "rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
-                        isMobile ? "w-16 h-16" : (exp ? "w-16 h-16" : "w-10 h-10"),
+                        isMobile ? "w-14 h-14" : (exp ? "w-16 h-16" : "w-10 h-10"),
                         !settings?.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
                     )}
                     style={settings?.logoDataUrl ? { borderColor: theme.accentHex, borderWidth: isMobile ? '2px' : '3px' } : { backgroundColor: `${theme.accentHex}1a`, borderColor: `${theme.accentHex}33` }}
@@ -271,7 +271,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 transition-all",
-                        exp ? (isMobile ? "p-3 pb-8" : "p-4 pb-6") : (isMobile ? "py-4 pb-8" : "py-4")
+                        exp ? (isMobile ? "p-3 pb-12 pt-6" : "p-4 pb-6") : (isMobile ? "py-4 pb-12" : "py-4")
                     )}>
                         <div className={cn(
                             "flex items-center bg-white/[0.03] border border-white/5 rounded-2xl p-0.5",

@@ -609,7 +609,7 @@ export function Header() {
                         className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
                         onClick={() => setNotifOpen(false)}
                     />
-                    <div className="fixed top-0 right-0 h-full w-80 max-w-[90vw] z-50 bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="fixed top-0 right-0 h-full w-full md:w-80 z-50 bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         <div className="flex items-center justify-between px-5 py-5 border-b border-border-subtle">
                             <p className="text-sm font-black text-primary">{t.notifications}</p>
                             <div className="flex items-center gap-2">
@@ -680,7 +680,7 @@ export function Header() {
                             setSelectedChatId(null);
                         }}
                     />
-                    <div className="fixed top-0 right-0 h-full w-[400px] max-w-[95vw] z-50 bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="fixed top-0 right-0 h-full w-full md:w-[400px] z-50 bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         {/* Messenger Header */}
                         <div className="flex items-center justify-between px-5 py-5 border-b border-border-subtle bg-surface/30">
                             <div className="flex items-center gap-3">

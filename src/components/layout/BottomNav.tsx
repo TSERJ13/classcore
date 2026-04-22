@@ -45,13 +45,13 @@ export function BottomNav() {
                             href={href}
                             className={cn(
                                 'flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl transition-all duration-150 min-w-[64px] touch-manipulation',
-                                active ? 'text-indigo-400' : 'text-white/40'
+                                active ? 'text-indigo-400' : 'text-white/65'
                             )}
                         >
                             <div className={cn('relative w-8 h-8 flex items-center justify-center')}>
-                                <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-80")} strokeWidth={active ? 2.5 : 2} />
+                                <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-90")} strokeWidth={active ? 2.5 : 2} />
                             </div>
-                            <span className={cn("text-[8px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-40")}>
+                            <span className={cn("text-[8px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-65")}>
                                 {t[labelKey]}
                             </span>
                         </Link>
@@ -61,12 +61,12 @@ export function BottomNav() {
                 {/* "More" opens the full sidebar drawer */}
                 <button
                     onClick={open}
-                    className="flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl text-white/40 hover:text-white min-w-[64px] touch-manipulation transition-colors"
+                    className="flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl text-white/65 hover:text-white min-w-[64px] touch-manipulation transition-colors"
                 >
                     <div className="w-8 h-8 flex items-center justify-center">
-                        <Menu className="w-5 h-5 opacity-80" strokeWidth={2} />
+                        <Menu className="w-5 h-5 opacity-90" strokeWidth={2} />
                     </div>
-                    <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{t.more}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-65">{t.more}</span>
                 </button>
             </div>
         </nav>

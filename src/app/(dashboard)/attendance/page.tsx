@@ -720,24 +720,26 @@ export default function AttendancePage() {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
-                                    <button 
-                                        onClick={() => dateInputRef.current?.showPicker()}
-                                        className="flex-1 flex items-center justify-center gap-1.5 px-2 hover:bg-indigo-500/5 transition-all py-1.5 rounded-lg active:scale-95"
-                                    >
-                                        <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-60" />
-                                        <span className="text-[10px] font-black text-primary tracking-[0.05em]">{dateStr}</span>
-                                    </button>
+                                    <div className="relative flex-1 flex items-center justify-center">
+                                        <button 
+                                            onClick={() => dateInputRef.current?.showPicker()}
+                                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/5 hover:bg-indigo-500/10 active:scale-95 transition-all rounded-xl border border-indigo-500/10 group/cal"
+                                        >
+                                            <Calendar className="w-4 h-4 text-indigo-600 group-hover/cal:scale-110 transition-transform" />
+                                            <span className="text-[11px] font-black text-primary tracking-wider uppercase">{dateStr}</span>
+                                        </button>
 
-                                    <input 
-                                        ref={dateInputRef}
-                                        type="date"
-                                        className="absolute inset-0 opacity-0 -z-10 pointer-events-none"
-                                        value={dateKey}
-                                        onChange={(e) => {
-                                            const d = new Date(e.target.value);
-                                            if (!isNaN(d.getTime())) setSelectedDate(d);
-                                        }}
-                                    />
+                                        <input 
+                                            ref={dateInputRef}
+                                            type="date"
+                                            className="absolute inset-0 opacity-0 cursor-pointer pointer-events-none"
+                                            value={dateKey}
+                                            onChange={(e) => {
+                                                const d = new Date(e.target.value);
+                                                if (!isNaN(d.getTime())) setSelectedDate(d);
+                                            }}
+                                        />
+                                    </div>
 
                                     <button
                                         onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
