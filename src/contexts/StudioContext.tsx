@@ -81,25 +81,17 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         let changed = false;
 
         const cloudTimestamp = cloudState.updated_at ? new Date(cloudState.updated_at).getTime() : 0;
-        const lastLocalUpdate = parseInt(localStorage.getItem('cc_last_local_update') || '0');
+        const lastHandshake = parseInt(localStorage.getItem('cc_last_sync_handshake') || '0');
         const now = Date.now();
 
-        // 🚨 CRITICAL PROTECTION: Timestamp-Based Verification
-        // If our local device has a "Last Update" that is NEWER than the cloud's record,
-        // it means the cloud is stale (likely because our previous PUSH failed).
-        // In this case, we MUST NOT overwrite our local data with the stale cloud state.
-        if (lastLocalUpdate > cloudTimestamp && (now - lastLocalUpdate < 300000)) { // 5 minute safety buffer
-            console.warn(`🛡️ [Sync] Local data (${new Date(lastLocalUpdate).toLocaleTimeString()}) is NEWER than Cloud data (${new Date(cloudTimestamp).toLocaleTimeString()}). Blocking stale overwrite.`);
+        // 🚨 NEW LOGIC: If cloud is newer than our last successful handshake, we MUST apply it.
+        // We only block if the cloud is strictly OLDER than our last handshake.
+        if (cloudTimestamp <= lastHandshake && lastHandshake > 0) {
+            console.log('🛡️ [Sync] Cloud state is already synced or older. Skipping.');
             return false;
         }
 
-        // Standard 6s protection window still applies for very rapid pulses
-        if (now - lastLocalUpdate < 6000) {
-            console.warn('🛡️ [Sync] Local update is very fresh. Blocking cloud overwrite to prevent data loss.');
-            return false;
-        }
-
-        console.log('📡 [Sync] Applying cloud state for:', activeSlug);
+        console.log(`📡 [Sync] Pulsing cloud state (${new Date(cloudTimestamp).toLocaleTimeString()}) for: ${activeSlug}`);
 
         // 1. Apply Staff from cloud → localStorage settings blob + React state
         if (cloudState.staff_data) {
@@ -142,6 +134,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 console.log(`📡 [Sync] Operational data updated: ${Object.keys(cloudState.studio_data).length} keys`);
             }
         }
+
+        // Update handshake to prevent loops/re-pulls
+        localStorage.setItem('cc_last_sync_handshake', cloudTimestamp.toString());
+        
+        // Notify UI of sync success
+        window.dispatchEvent(new CustomEvent('cc_sync_status', { detail: { status: 'success', time: cloudTimestamp } }));
 
         return changed;
     }, []);

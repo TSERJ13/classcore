@@ -221,9 +221,11 @@ export async function pushStudioStateToCloud(
             updated_at: new Date().toISOString()
         };
 
-        const { error } = await supabase
+        const { data: pushData, error } = await supabase
             .from(SETTINGS_TABLE)
-            .upsert(payload, { onConflict: 'studio_slug' });
+            .upsert(payload, { onConflict: 'studio_slug' })
+            .select('updated_at')
+            .single();
 
         if (error) {
             if (error.code === '42501') {
@@ -232,6 +234,14 @@ export async function pushStudioStateToCloud(
                 console.error('❌ [Sync] Push failed:', error.message, error.code);
             }
             throw error;
+        }
+
+        // --- UPDATE HANDSHAKE ---
+        // We set our local handshake to match the server's update timestamp
+        if (pushData?.updated_at) {
+            const ts = new Date(pushData.updated_at).getTime();
+            localStorage.setItem('cc_last_sync_handshake', ts.toString());
+            console.log('✅ [Sync] Push successful. Handshake updated to:', new Date(ts).toLocaleTimeString());
         }
 
         // 🚀 MASTER PROPAGATION: Ensure vital metadata is synced to top-level tables
