@@ -503,7 +503,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-10">
+        <div className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
             {isAdmin && (
                 <>
                     <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
