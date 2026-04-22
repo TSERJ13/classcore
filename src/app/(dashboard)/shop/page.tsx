@@ -77,7 +77,7 @@ export default function ShopPage() {
             const newProd: Product = {
                 ...form as Product,
                 id: 'p' + Math.random().toString(36).substring(2, 7),
-                org_id: 'demo',
+                org_id: settings.orgId || 'demo',
                 is_active: true,
                 created_at: new Date().toISOString(),
                 quantity: Number(form.quantity) || 0,

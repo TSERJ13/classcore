@@ -19,12 +19,20 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(dateStr: string): string {
+    if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('ka-GE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
+    if (isNaN(date.getTime())) return dateStr;
+
+    const day = date.getDate();
+    const monthIndex = date.getMonth();
+    const year = date.getFullYear();
+
+    const geoMonthsShort = [
+        'იან', 'თებ', 'მარ', 'აპრ', 'მაი', 'ივნ',
+        'ივლ', 'აგვ', 'სექ', 'ოქტ', 'ნოე', 'დეკ'
+    ];
+
+    return `${day}. ${geoMonthsShort[monthIndex]}. ${year}`;
 }
 
 export function getCurrencySymbol(currency: string = 'GEL'): string {

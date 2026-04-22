@@ -910,7 +910,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
             group_id: groupId,
             title: finalTitle,
             teacher_id: teacherId,
-            org_id: 'demo',
+            org_id: settings.orgId || 'demo',
             color: selectedColor,
             created_at: new Date().toISOString()
         };

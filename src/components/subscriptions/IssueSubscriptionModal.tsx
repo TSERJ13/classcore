@@ -409,7 +409,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
                                 <div className="space-y-1.5 relative">
-                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.selectClient}</label>
+                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
                                     <SearchSelect
                                         options={studentOptions}
                                         value={studentId}
@@ -419,7 +419,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.selectPlan}</label>
+                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectPlan}</label>
                                     <SearchSelect
                                         options={planOptions}
                                         value={planId}
@@ -430,7 +430,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {plans.find(p => p.id === planId)?.type === 'group' && (
                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.addToGroup}</label>
+                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.addToGroup}</label>
                                         <SearchSelect
                                             options={groupOptions}
                                             value={groupId}
@@ -446,7 +446,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between px-1 h-5">
-                                            <label className="text-[10px] font-black text-muted tracking-widest flex items-center gap-1 uppercase">
+                                            <label className="text-[9px] font-black text-muted tracking-wider flex items-center gap-1 uppercase">
                                                 <Tag className="w-3 h-3" /> {t.price} ({settings.currency})
                                             </label>
                                         </div>
@@ -459,7 +459,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         />
                                     </div>
                                     <div className="space-y-1.5 min-w-0">
-                                        <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1 uppercase">
+                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 flex items-center gap-1 uppercase">
                                             <Percent className="w-3 h-3" /> {t.discount}
                                         </label>
                                         <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 overflow-hidden min-w-0">
@@ -497,7 +497,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {/* Payment Method */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{l('გადახდის მეთოდი', 'Способ оплаты', 'Payment Method')}</label>
+                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{l('გადახდის მეთოდი', 'Способ оплаты', 'Payment Method')}</label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {PAY_METHODS.map(m => (
                                             <button
@@ -537,7 +537,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 {/* Amount paid input */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase">{t.amountPaid} ({settings.currency})</label>
+                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.amountPaid} ({settings.currency})</label>
                                     <input
                                         type="number"
                                         value={amountPaid}

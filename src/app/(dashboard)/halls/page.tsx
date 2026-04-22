@@ -10,10 +10,12 @@ import type { Hall } from '@/types';
 import { getHalls, saveHalls } from '@/lib/hall-store';
 import { getGroups } from '@/lib/group-store';
 import { useMemo } from 'react';
+import { useStudio } from '@/contexts/StudioContext';
 
 
 export default function HallsPage() {
     const { t } = useT();
+    const { settings } = useStudio();
     const [halls, setHalls] = useState<Hall[]>([]);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Hall | null>(null);
@@ -32,7 +34,7 @@ export default function HallsPage() {
             updated = halls.map(h => h.id === editing.id ? { ...h, ...data } : h);
         } else {
             updated = [...halls, {
-                id: String(Date.now()), org_id: 'demo', created_at: new Date().toISOString(),
+                id: String(Date.now()), org_id: settings.orgId || 'demo', created_at: new Date().toISOString(),
                 name: '', color: '#6366f1', is_active: true, ...data,
             }];
         }

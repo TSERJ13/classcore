@@ -99,7 +99,7 @@ export default function HallRentalPage() {
             setRentals(prev => prev.map(r => r.id === editing.id ? { ...r, ...form } as HallRental : r));
         } else {
             setRentals(prev => [{
-                ...form, id: String(Date.now()), org_id: 'demo', created_at: new Date().toISOString(),
+                ...form, id: String(Date.now()), org_id: settings.orgId || 'demo', created_at: new Date().toISOString(),
             } as HallRental, ...prev]);
         }
         setModalOpen(false);

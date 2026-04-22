@@ -5,7 +5,7 @@ import { Search, UserPlus, Users, User, Calendar, Phone, ShieldAlert, Heart, Che
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { cn, getInitials, isExpiringSoon, calculateAge } from '@/lib/utils';
+import { cn, getInitials, isExpiringSoon, calculateAge, formatDate } from '@/lib/utils';
 import { StudentModal } from '@/components/students/StudentModal';
 import { getStudents } from '@/lib/student-store';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -130,7 +130,7 @@ export default function StudentsPage() {
             mod.updateStudent(studentId, {
                 ...data,
                 id: studentId,
-                org_id: 'demo',
+                org_id: settings.orgId || 'demo',
                 status: 'active',
                 created_at: data.created_at || new Date().toISOString()
             }, editing?.id);
@@ -335,9 +335,9 @@ export default function StudentsPage() {
                                                         </div>
                                                     )}
                                                     {student.birth_date && (
-                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase">
                                                             <Calendar className="w-2.5 h-2.5" />
-                                                            {student.birth_date} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)} ${t.years})`}
+                                                            {formatDate(student.birth_date)} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)} ${t.years})`}
                                                         </div>
                                                     )}
                                                 </div>
