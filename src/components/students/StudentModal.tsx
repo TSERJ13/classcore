@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef, useCallback, Fragment } from 'react
 import {
     X, User, Phone, Mail, Calendar, Trash2, Camera, Zap, QrCode, RefreshCw, Download, CreditCard,
     ShoppingBag, CalendarCheck, PlusCircle, MessageCircle, ChevronRight, ChevronLeft, Wifi, Link, Wallet,
-    Check, Plus, AlertTriangle, FileText, Facebook, Instagram, Send, Tag
+    Check, Plus, AlertTriangle, FileText, Facebook, Instagram, Send, Tag, Image as ImageIcon, Search, Save
 } from 'lucide-react';
+import { Portal } from '@/components/ui/Portal';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn, getInitials, isExpiringSoon, formatCurrency } from '@/lib/utils';
@@ -618,7 +619,7 @@ export function StudentModal({
 
 
     return (
-        <>
+        <Portal>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             
             <div className={cn(

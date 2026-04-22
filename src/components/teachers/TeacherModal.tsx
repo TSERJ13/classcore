@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Fragment } from 'react';
-import { X, User, Phone, Mail, DollarSign, BookOpen, Check, Trash2, AlertTriangle, Users, Camera, Layout, Percent, Calendar, Plus, Eye, EyeOff } from 'lucide-react';
+import { 
+    X, User, Phone, Mail, Camera, Trash2, AlertTriangle, Check, 
+    Plus, Upload, Globe, Search, ArrowRight, Save, Image as ImageIcon, AlertCircle
+} from 'lucide-react';
+import { Portal } from '@/components/ui/Portal';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, getCurrencySymbol } from '@/lib/utils';
@@ -97,7 +101,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     if (!open) return null;
 
     return (
-        <>
+        <Portal>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
 
             <div className={cn(
@@ -494,6 +498,6 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     </div>
                 </div>
             </div>
-        </>
+        </Portal>
     );
 }
