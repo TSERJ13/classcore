@@ -637,14 +637,19 @@ export function StudentModal({
                 </div>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10">
-                    <div>
-                        <h2 className="text-base font-bold text-primary">
-                            {isEdit ? t.edit + ' — ' + form.first_name + ' ' + form.last_name : t.addStudent}
-                        </h2>
-                        <p className="text-xs text-muted mt-0.5 font-medium opacity-70">
-                            {isEdit ? 'ID: ' + (student?.id || '—') : t.addStudentShort}
-                        </p>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner">
+                            <User className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-base font-bold text-primary leading-tight">
+                                {isEdit ? t.edit + ' — ' + form.first_name + ' ' + form.last_name : t.addStudent}
+                            </h2>
+                            <p className="text-xs text-muted mt-0.5 font-medium opacity-70 tracking-tight">
+                                {isEdit ? 'ID: ' + (student?.id || '—') : t.addStudentShort}
+                            </p>
+                        </div>
                     </div>
                     <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all active:scale-95">
                         <X className="w-5 h-5" />
@@ -1218,21 +1223,21 @@ export function StudentModal({
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-safe pb-10">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-12 sm:pb-8">
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
-                            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest shadow-sm"
+                            className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center"
                         >
                             {t.cancel}
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={!form.first_name || !form.phone || saving}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[10px] sm:text-sm font-black rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
-                            {saving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
-                            {saving ? t.loading : t.save}
+                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5" />}
+                            <span className="truncate">{saving ? t.loading : t.save}</span>
                         </button>
                     </div>
                 </div>

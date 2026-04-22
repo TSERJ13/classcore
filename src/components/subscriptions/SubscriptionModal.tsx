@@ -55,14 +55,18 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     <div className="w-10 h-1.5 rounded-full bg-border-subtle opacity-60" />
                 </div>
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner">
                             <CreditCard className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-black text-primary tracking-tight leading-none mb-1">{t.editSubscription}</h2>
-                            <p className="text-[9px] font-bold text-muted opacity-40 uppercase tracking-wider leading-none">ID: {form.id}</p>
+                            <h2 className="text-base font-bold text-primary leading-tight">
+                                {t.editSubscription}
+                            </h2>
+                            <p className="text-xs text-muted mt-0.5 font-medium opacity-70 tracking-tight">
+                                ID: {form.id}
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all active:scale-95">
@@ -215,34 +219,34 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-safe pb-10">
-                    {onDelete && !isTeacher && (
-                        <button
-                            onClick={async () => {
-                                if (await confirm(t.deleteSubConfirm)) {
-                                    onDelete(form.student_id, form.id);
-                                    onClose();
-                                }
-                            }}
-                            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/5 text-red-500 hover:bg-red-500/10 transition-all font-bold text-xs"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            {t.delete}
-                        </button>
-                    )}
-                    <div className="flex items-center gap-3 ml-auto">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-12 sm:pb-8">
+                    <div className="flex gap-3">
+                        {onDelete && !isTeacher && (
+                            <button
+                                onClick={async () => {
+                                    if (await confirm(t.deleteSubConfirm)) {
+                                        onDelete(form.student_id, form.id);
+                                        onClose();
+                                    }
+                                }}
+                                className="px-4 py-3 rounded-xl bg-red-500/5 text-red-500 hover:bg-red-500/10 transition-all font-bold text-[11px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                            >
+                                <Trash2 className="w-4 h-4 flex-shrink-0" />
+                                <span className="truncate">{t.delete}</span>
+                            </button>
+                        )}
                         <button
                             onClick={onClose}
-                            className="px-6 py-3 rounded-2xl text-xs font-bold text-muted hover:text-primary transition-all"
+                            className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center"
                         >
                             {t.cancel}
                         </button>
                         <button
                             onClick={() => onSave(form)}
-                            className="flex items-center gap-2 px-8 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 transition-all active:scale-[0.98] font-bold text-xs"
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
-                            <Save className="w-4 h-4" />
-                            {t.save}
+                            <Save className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                            <span className="truncate">{t.save}</span>
                         </button>
                     </div>
                 </div>

@@ -297,14 +297,18 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 </div>
 
                 {/* Header */}
-                <div className="px-5 py-4 border-b border-border-subtle bg-white/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                            <CreditCard className="w-4 h-4" />
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                            <CreditCard className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-black text-primary tracking-tight leading-none mb-1">{t.issueSubscription}</h2>
-                            <p className="text-[9px] font-bold text-muted opacity-40 uppercase tracking-wider leading-none">{t.newSale}</p>
+                            <h2 className="text-base font-bold text-primary leading-tight">
+                                {t.issueSubscription}
+                            </h2>
+                            <p className="text-xs text-muted mt-0.5 font-medium opacity-70 tracking-tight">
+                                {t.newSale}
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all active:scale-95">
@@ -639,17 +643,19 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                 {/* Footer */}
                 {step === 'form' && (
-                    <div className="p-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex gap-3 flex-shrink-0 z-10 pb-safe pb-10">
-                        <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
-                            {t.cancel}
-                        </button>
-                        <button
-                            onClick={handleIssue}
-                            disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white text-[10px] xs:text-[11px] sm:text-xs font-black rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 uppercase tracking-widest px-2"
-                        >
-                            <Save className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
-                        </button>
+                    <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-12 sm:pb-8 flex-shrink-0">
+                        <div className="flex gap-3">
+                            <button onClick={onClose} className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
+                                {t.cancel}
+                            </button>
+                            <button
+                                onClick={handleIssue}
+                                disabled={!studentId || !planId || (plans.find(p => p.id === planId)?.type === 'group' && !groupId)}
+                                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-widest px-2"
+                            >
+                                <Save className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> <span className="truncate">{t.issueAction}</span>
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

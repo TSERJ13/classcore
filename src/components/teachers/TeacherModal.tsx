@@ -113,17 +113,23 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
             )}>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center shadow-inner">
-                            <User className="w-5 h-5 text-indigo-500" />
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner">
+                            <User className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold text-primary">{isEdit ? t.editTeacher : t.newTeacher}</h2>
-                            <p className="text-xs text-muted mt-0.5 font-medium opacity-70">{isEdit ? teacher!.full_name : t.staffMember}</p>
+                            <h2 className="text-base font-bold text-primary leading-tight">
+                                {isEdit ? t.editTeacher : t.newTeacher}
+                            </h2>
+                            <p className="text-xs text-muted mt-0.5 font-medium opacity-70 tracking-tight">
+                                {isEdit ? teacher!.full_name : t.staffMember}
+                            </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all active:scale-95"><X className="w-5 h-5" /></button>
+                    <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface text-muted hover:text-primary transition-all active:scale-95">
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
                 {/* Body */}
@@ -465,10 +471,10 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 border-t border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe pb-10">
+                <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-12 sm:pb-8">
                     {isEdit && !isDeletingConfirm && (
                         <button onClick={() => setIsDeletingConfirm(true)}
-                            className="w-full mb-4 py-2.5 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
+                            className="w-full mb-4 py-2 text-red-500/60 hover:text-red-500 text-[10px] sm:text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
                             <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{t.deleteTeacher}</span>
                         </button>
                     )}
@@ -486,15 +492,16 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                     )}
                     <div className="flex gap-3">
                         <button onClick={onClose}
-                            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-sm font-bold rounded-xl transition-all uppercase tracking-widest shadow-sm">
+                            className="flex-1 py-3 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
                             {t.cancel}
                         </button>
                         <button 
                             onClick={save}
                             disabled={saving}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[10px] sm:text-sm uppercase shadow-xl shadow-indigo-600/20 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2"
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[11px] sm:text-xs shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                         >
-                            <Check className="w-5 h-5 flex-shrink-0" /> <span className="truncate">{saving ? t.loading : t.save}</span>
+                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4 sm:w-5 sm:h-5" />}
+                            <span className="truncate">{saving ? t.loading : t.save}</span>
                         </button>
                     </div>
                 </div>
