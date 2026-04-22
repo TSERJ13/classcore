@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
+import {
     Plus, Search, ShoppingBag, Package, TrendingUp, Filter,
     ArrowUpRight, Tag, Camera, CheckCircle2, Trash2, Edit, Edit2, AlertTriangle, ArrowRight, X, Check
 } from 'lucide-react';
