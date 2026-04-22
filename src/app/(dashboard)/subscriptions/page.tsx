@@ -170,39 +170,40 @@ export default function SubscriptionsPage() {
     return (
         <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-20">
             {/* Primary Controls */}
-            <div className="flex flex-col gap-3">
-                {/* Top Row: Tabs and Actions */}
-                <div className="flex flex-row items-stretch justify-between gap-2 overflow-visible w-full">
+            <div className="flex flex-col gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
+                    {/* Primary Action Button - Intense Violet */}
+                    <button onClick={() => setIssuing(true)}
+                        className="w-full sm:w-auto flex items-center justify-center gap-3 h-16 sm:h-14 px-8 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[14px] rounded-3xl tracking-widest shadow-2xl shadow-violet-600/40 transition-all active:scale-95 touch-manipulation order-first sm:order-last">
+                        <FolderPlus className="w-6 h-6 sm:w-5 h-5 flex-shrink-0" />
+                        <span>{t.issueSubscription.toUpperCase()}</span>
+                    </button>
 
-                    {/* Status Tabs (Row 1 on Mobile) */}
-                    <div className="flex flex-1 sm:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1 shrink-0">
-                        {[
-                            { id: 'active', label: t.statsActive, icon: Zap, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
-                            { id: 'paused', label: t.paused, icon: Pause, activeColor: 'bg-amber-500', hoverColor: 'hover:text-amber-600' },
-                            { id: 'expired', label: t.expired, icon: AlertCircle, activeColor: 'bg-red-500', hoverColor: 'hover:text-red-600' },
-                        ].map(v => (
-                            <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
-                                className={cn(
-                                    'flex-1 lg:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-0 sm:px-4 h-full rounded-xl text-[10px] sm:text-xs font-black tracking-widest transition-all',
-                                    tab === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-surface', v.hoverColor)
-                                )}>
-                                <v.icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden sm:inline whitespace-nowrap">{v.label}</span>
-                            </button>
-                        ))}
-                    </div>
+                    {/* Secondary Filters & Controls Grouped */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                        {/* Status Tabs */}
+                        <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 flex-1 sm:max-w-xs">
+                            {[
+                                { id: 'active', label: t.statsActive, icon: Zap, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'paused', label: t.paused, icon: Pause, activeColor: 'bg-amber-500', hoverColor: 'hover:text-amber-600' },
+                                { id: 'expired', label: t.expired, icon: AlertCircle, activeColor: 'bg-red-500', hoverColor: 'hover:text-red-600' },
+                            ].map(v => (
+                                <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
+                                    className={cn(
+                                        'flex-1 flex items-center justify-center gap-1.5 px-3 h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                                        tab === v.id ? cn(v.activeColor, 'text-white shadow-md') : cn('text-muted hover:bg-white/50', v.hoverColor)
+                                    )}>
+                                    <v.icon className="w-4 h-4 flex-shrink-0" />
+                                    <span className="hidden sm:inline whitespace-nowrap">{v.label}</span>
+                                </button>
+                            ))}
+                        </div>
 
-                    {/* Actions: Prices and Add (Row 2 on Mobile) */}
-                    <div className="flex flex-shrink-0 items-center gap-2 overflow-visible h-12">
+                        {/* Prices Action */}
                         <button onClick={() => window.location.href = '/subscriptions/plans'}
-                            className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500 text-emerald-600 font-black text-[10px] sm:text-xs w-12 h-12 sm:w-auto px-0 sm:px-4 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
-                            <DollarSign strokeWidth={3} className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
-                            <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
-                        </button>
-                        <button onClick={() => setIssuing(true)}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 h-14 sm:h-12 px-6 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-black text-[12px] rounded-[1.25rem] tracking-widest shadow-xl shadow-indigo-500/25 transition-all active:scale-95 touch-manipulation">
-                            <FolderPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
-                            <span>{t.issueSubscription.toUpperCase()}</span>
+                            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 px-5 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
+                            <DollarSign strokeWidth={3} className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                            <span className="whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </button>
                     </div>
                 </div>

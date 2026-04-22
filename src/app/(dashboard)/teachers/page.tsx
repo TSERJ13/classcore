@@ -97,9 +97,16 @@ export default function TeachersPage() {
         <>
             <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
-            <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
-                {/* Quick stats */}
-                <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 sm:flex-none py-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4 lg:gap-8">
+                {/* Add Teacher Action - Now Primary and Large */}
+                <button onClick={openAdd}
+                    className="w-full sm:w-auto flex items-center justify-center gap-3 h-16 sm:h-14 px-8 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[14px] font-black tracking-widest rounded-3xl shadow-2xl shadow-violet-600/40 transition-all touch-manipulation order-first sm:order-last">
+                    <UserPlus className="w-6 h-6 sm:w-5 h-5" />
+                    <span className="uppercase">{t.addTeacher}</span>
+                </button>
+
+                {/* Quick stats - Scoped and Clean */}
+                <div className="flex items-center gap-2 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 py-1">
                     {[
                         { label: t.totalTeachersShort, value: String(teachers.length), icon: Users, colorCls: 'text-violet-600', bgCls: 'bg-violet-500/5' },
                         { label: t.indSessionsShort, value: String(individualCount), icon: User, colorCls: 'text-indigo-600', bgCls: 'bg-indigo-500/5' },
@@ -115,12 +122,8 @@ export default function TeachersPage() {
                     ))}
                 </div>
 
-                {/* Add Teacher Action */}
-                <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 h-14 sm:h-12 px-5 bg-[#7c3aed] hover:bg-[#6d28d9] active:scale-95 text-white text-[12px] font-black tracking-widest rounded-[1.25rem] shadow-xl shadow-violet-600/20 transition-all touch-manipulation">
-                    <UserPlus className="w-5 h-5 sm:w-4 sm:h-4" />
-                    <span className="sm:inline">{t.addTeacher.toUpperCase()}</span>
-                </button>
+                </div>
+            </div>
             </div>
 
 
