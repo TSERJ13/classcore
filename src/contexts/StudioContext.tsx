@@ -488,14 +488,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             const activeSlug = settings.studioSlug!;
             const { SYNC_COLLECTIONS } = await import('@/lib/utils');
             
+            const { isKeyScopedToStudio } = await import('@/lib/utils');
+            
             // Gather all syncable localStorage data for this studio
             const studioData: Record<string, any> = {};
             Object.keys(localStorage).forEach(k => {
-                const isSyncable = SYNC_COLLECTIONS.some((p: string) => k.startsWith(p));
-                // 🚨 CRITICAL FIX (v4.1): Support both Global keys (_slug) and Branch-scoped keys (_slug_branch)
-                const isMatch = k.endsWith(`_${activeSlug}`) || k.includes(`_${activeSlug}_`);
-                
-                if (isSyncable && isMatch) {
+                if (isKeyScopedToStudio(k, activeSlug, settings.orgId)) {
                     try {
                         const val = localStorage.getItem(k);
                         if (val) studioData[k] = JSON.parse(val);
@@ -561,14 +559,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 markLocalUpdate();
                 
                 // PUSH IMMEDIATELY (bypass the 1.5s timer)
-                const { SYNC_COLLECTIONS } = await import('@/lib/utils');
+                const { isKeyScopedToStudio } = await import('@/lib/utils');
                 const studioData: Record<string, any> = {};
                 Object.keys(localStorage).forEach(k => {
-                    const isSyncable = SYNC_COLLECTIONS.some((p: string) => k.startsWith(p));
-                    // 🚨 CRITICAL FIX (v4.1): Support both Global keys (_slug) and Branch-scoped keys (_slug_branch)
-                    const isMatch = k.endsWith(`_${activeSlug}`) || k.includes(`_${activeSlug}_`);
-                    
-                    if (isSyncable && isMatch) {
+                    if (isKeyScopedToStudio(k, activeSlug, settings.orgId)) {
                         try {
                             const val = localStorage.getItem(k);
                             if (val) studioData[k] = JSON.parse(val);

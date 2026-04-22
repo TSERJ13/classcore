@@ -12,7 +12,7 @@ import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { SearchSelect } from '@/components/ui/SearchSelect';
-import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
+import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 interface IssueSubscriptionModalProps {
     open: boolean;
     onClose: () => void;
@@ -578,22 +578,18 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 <label className="text-[9px] font-black text-muted tracking-widest px-1 border-b border-border-subtle pb-1.5 block">{t.periodDuration}</label>
                                 <div className="space-y-3">
                                     <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle">
-                                        <label className="text-[9px] font-bold text-muted flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5 text-indigo-500"/> საწყისი თარიღი</label>
-                                        <DatePickerGrid 
-                                            value={startDate} 
-                                            onChange={(v) => setStartDate(v)} 
-                                            minYear={new Date().getFullYear() - 1}
-                                            maxYear={new Date().getFullYear() + 5}
+                                        <StandardDatePicker
+                                            label="საწყისი თარიღი"
+                                            value={startDate}
+                                            onChange={v => setStartDate(v)}
                                         />
                                     </div>
                                     <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle relative">
-                                        <label className="text-[9px] font-bold text-muted flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5 text-indigo-500"/> დასრულების თარიღი</label>
-                                        <DatePickerGrid 
-                                            value={endDate} 
-                                            onChange={(v) => setEndDate(v)}
+                                        <StandardDatePicker
+                                            label="დასრულების თარიღი"
+                                            value={endDate}
+                                            onChange={v => setEndDate(v)}
                                             disabled={neverExpires}
-                                            minYear={new Date().getFullYear() - 1}
-                                            maxYear={new Date().getFullYear() + 10}
                                         />
                                     </div>
                                 </div>

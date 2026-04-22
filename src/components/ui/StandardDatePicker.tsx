@@ -1,0 +1,47 @@
+'use client';
+
+import { Calendar } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface StandardDatePickerProps {
+    value: string;
+    onChange: (value: string) => void;
+    className?: string;
+    label?: string;
+    disabled?: boolean;
+    required?: boolean;
+}
+
+export function StandardDatePicker({
+    value,
+    onChange,
+    className,
+    label,
+    disabled = false,
+    required = false
+}: StandardDatePickerProps) {
+    return (
+        <div className={cn("space-y-1.5 w-full", className)}>
+            {label && (
+                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">
+                    {label} {required && '*'}
+                </label>
+            )}
+            <div className="relative group/datepicker">
+                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/datepicker:text-indigo-500 transition-colors pointer-events-none" />
+                <input
+                    type="date"
+                    value={value || ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    disabled={disabled}
+                    className={cn(
+                        "w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary transition-all shadow-sm outline-none",
+                        "appearance-none", // Remove default arrows
+                        "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer", // Hidden indicator covering input
+                        disabled && "opacity-50 cursor-not-allowed bg-muted/10"
+                    )}
+                />
+            </div>
+        </div>
+    );
+}

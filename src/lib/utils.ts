@@ -139,6 +139,27 @@ export function getActiveSlug(): string | null {
     return localStorage.getItem(ACTIVE_SLUG_KEY) || (typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null);
 }
 
+/**
+ * Helper to identify if a localStorage key belongs to a specific studio
+ * for synchronization purposes. Supports both slug and orgId scoping.
+ */
+export function isKeyScopedToStudio(key: string, slug: string, orgId?: string): boolean {
+    const isSyncable = SYNC_COLLECTIONS.some(p => key.startsWith(p));
+    if (!isSyncable) return false;
+
+    // Direct match with slug suffix: cc_student_data_stdance
+    const slugMatch = key.endsWith(`_${slug}`) || key.includes(`_${slug}_`);
+    if (slugMatch) return true;
+
+    // Direct match with orgId suffix: cc_student_data_uuid-123
+    if (orgId) {
+        const orgMatch = key.endsWith(`_${orgId}`) || key.includes(`_${orgId}_`);
+        if (orgMatch) return true;
+    }
+
+    return false;
+}
+
 /** 
  * NUCLEAR CONSOLIDATOR:
  * Merges different scoped silos (Slug vs UUID) into a single authoritative silo locally.

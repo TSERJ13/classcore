@@ -43,6 +43,51 @@ export function scrubLocalStorage(_activeSlug: string, _orgId?: string) {
 }
 
 /**
+ * SMART MERGE: Intelligently merges two operational blobs.
+ * Principle: Union arrays by ID (newest wins on collision), shallow-merge objects.
+ */
+function smartMergeCollections(existing: Record<string, any>, incoming: Record<string, any>): Record<string, any> {
+    const result = { ...existing };
+
+    Object.entries(incoming).forEach(([key, incomingVal]) => {
+        const existingVal = result[key];
+
+        if (!existingVal) {
+            // New key entirely
+            result[key] = incomingVal;
+            return;
+        }
+
+        // 1. Array Merge (Collection of Records)
+        if (Array.isArray(incomingVal) && Array.isArray(existingVal)) {
+            const map = new Map();
+            // Load existing items
+            existingVal.forEach(item => {
+                const id = item?.id || item?.student_id || JSON.stringify(item);
+                map.set(id, item);
+            });
+            // Overwrite with incoming items (newer)
+            incomingVal.forEach(item => {
+                const id = item?.id || item?.student_id || JSON.stringify(item);
+                map.set(id, { ...(map.get(id) || {}), ...item });
+            });
+            result[key] = Array.from(map.values());
+        } 
+        // 2. Object Merge (Settings/Config)
+        else if (typeof incomingVal === 'object' && incomingVal !== null &&
+                 typeof existingVal === 'object' && existingVal !== null) {
+            result[key] = { ...existingVal, ...incomingVal };
+        } 
+        // 3. Primitive Override
+        else {
+            result[key] = incomingVal;
+        }
+    });
+
+    return result;
+}
+
+/**
  * PUSH: Send local state to Supabase.
  * Reads staff from settings + operational data from localStorage,
  * packs them into a blob, and writes to studio_settings.staff_data.
@@ -122,33 +167,47 @@ export async function pushStudioStateToCloud(
 
         orgId = orgId || current?.org_id || '';
         
-        // 🚨 CRITICAL FIX: Safe Merge & Legacy Migration!
-        const staffDataObj = current?.staff_data || {};
-        const isLegacy = Array.isArray(staffDataObj);
+        // 🚨 CRITICAL PROTECTION: Pull absolute latest before merging to prevent race conditions
+        const { data: latest, error: pullError } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('staff_data, org_id')
+            .eq('studio_slug', slug)
+            .maybeSingle();
+
+        if (pullError) {
+            console.error('❌ [Sync] Fetch latest failed before push. Aborting safety merge.');
+            return;
+        }
+
+        const cloudStaffData = latest?.staff_data || {};
+        const isLegacy = Array.isArray(cloudStaffData);
         
-        let existingStaff: StaffMember[] = [];
-        let existingOperations: Record<string, any> = {};
+        let cloudStaff: StaffMember[] = [];
+        let cloudOperations: Record<string, any> = {};
 
         if (isLegacy) {
-            // MIGRATION: Convert legacy array format to unified object format
-            console.warn(`⚙️ [Sync] Migrating legacy studio format for: ${slug}`);
-            existingStaff = staffDataObj.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
-            const configObj = staffDataObj.find((s: any) => s.id === '__studio_config__');
-            if (configObj && configObj.studio_data) {
+            cloudStaff = cloudStaffData.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
+            const configObj = cloudStaffData.find((s: any) => s.id === '__studio_config__');
+            if (configObj?.studio_data) {
                 Object.entries(configObj.studio_data).forEach(([k, v]) => {
                     let base = k;
                     if (base.endsWith(`_${slug}`)) base = base.slice(0, -(slug.length + 1));
-                    if (!EXCLUDED_FROM_BLOB.includes(base)) existingOperations[base] = v;
+                    if (!EXCLUDED_FROM_BLOB.includes(base)) cloudOperations[base] = v;
                 });
             }
         } else {
-            existingStaff = staffDataObj._staff || [];
-            existingOperations = staffDataObj._operations || {};
+            cloudStaff = cloudStaffData._staff || [];
+            cloudOperations = cloudStaffData._operations || {};
         }
+
+        // --- RECORD-LEVEL SMART MERGE ---
+        const mergedOperations = smartMergeCollections(cloudOperations, operations);
         
-        // Smart merge
-        const mergedOperations = { ...existingOperations, ...operations };
-        const mergedStaff = (staff && staff.length > 0) ? staff : existingStaff;
+        // Staff Merge: Combine staff lists by ID
+        const staffMap = new Map();
+        cloudStaff.forEach(s => staffMap.set(s.id, s));
+        staff.forEach(s => staffMap.set(s.id, { ...(staffMap.get(s.id) || {}), ...s }));
+        const mergedStaff = Array.from(staffMap.values());
 
         const blob = {
             _staff: mergedStaff,

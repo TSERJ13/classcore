@@ -7,7 +7,7 @@ import { getTrash, removeFromTrash, clearTrash, TrashItem } from '@/lib/trash-st
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Receipt, Search, Download, Trash2, RotateCcw, AlertCircle, Building2, History as HistoryIcon, Clock, CheckCircle2, CreditCard, UserMinus, ShieldAlert, Zap, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getScopedKey } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 
@@ -102,8 +102,7 @@ export default function UnifiedHistoryPage() {
 
         const prefix = keyMap[item.type];
         if (prefix) {
-            const branchSlug = settings.studioSlug;
-            const storageKey = `${prefix}_${branchSlug}_${item.branchId}`;
+            const storageKey = getScopedKey(prefix, settings.studioSlug, item.branchId);
             const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
             localStorage.setItem(storageKey, JSON.stringify([...existing, item.data]));
 

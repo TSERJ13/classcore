@@ -10,7 +10,7 @@ import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useStudio } from '@/contexts/StudioContext';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, getScopedKey } from '@/lib/utils';
 import { recordSale, getSales, deleteSale, updateSale, type ShopSale } from '@/lib/sales-store';
 import { getStudentsAllBranches } from '@/lib/student-store';
 import type { Product } from '@/types';
@@ -40,7 +40,7 @@ export default function ShopPage() {
 
     useEffect(() => {
         const load = () => {
-            const saved = localStorage.getItem('cc_shop_products');
+            const saved = localStorage.getItem(getScopedKey('cc_shop_products'));
             if (saved) {
                 setProducts(JSON.parse(saved));
             } else {
@@ -60,7 +60,7 @@ export default function ShopPage() {
 
     const saveProducts = (newProds: Product[]) => {
         setProducts(newProds);
-        localStorage.setItem('cc_shop_products', JSON.stringify(newProds));
+        localStorage.setItem(getScopedKey('cc_shop_products'), JSON.stringify(newProds));
     };
 
     const handleSaveProduct = () => {

@@ -8,7 +8,7 @@ import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { type SubscriptionInfo, pauseActiveSubscription } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
-import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
+import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { cn } from '@/lib/utils';
 import MainPortal from '@/components/ui/MainPortal';
 
@@ -148,26 +148,16 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Purchased At */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.purchaseDate}</label>
-                            <DatePickerGrid 
-                                value={form.purchased_at} 
-                                onChange={(v) => setForm({ ...form, purchased_at: v })}
-                                minYear={new Date().getFullYear() - 5}
-                                maxYear={new Date().getFullYear() + 10}
-                            />
-                        </div>
-                        {/* Expires At */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.expiryDate}</label>
-                            <DatePickerGrid 
-                                value={form.expires_at} 
-                                onChange={(v) => setForm({ ...form, expires_at: v })}
-                                minYear={new Date().getFullYear() - 5}
-                                maxYear={new Date().getFullYear() + 10}
-                            />
-                        </div>
+                        <StandardDatePicker
+                            label={t.purchaseDate}
+                            value={form.purchased_at}
+                            onChange={(v) => setForm({ ...form, purchased_at: v })}
+                        />
+                        <StandardDatePicker
+                            label={t.expiryDate}
+                            value={form.expires_at}
+                            onChange={(v) => setForm({ ...form, expires_at: v })}
+                        />
                     </div>
 
                     {/* Teacher Comment */}

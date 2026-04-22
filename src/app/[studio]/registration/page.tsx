@@ -9,7 +9,7 @@ import { pushStudioStateToCloud } from '@/lib/sync-store';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
-import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
+import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 
 export default function StudentRegistrationPage() {
@@ -289,15 +289,10 @@ export default function StudentRegistrationPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 text-xs font-bold text-muted opacity-70 px-1">
-                        <span className="opacity-40"><Calendar className="w-4 h-4" /></span>
-                        {t.birthDate}
-                    </label>
-                    <DatePickerGrid
+                    <StandardDatePicker
+                        label={t.birthDate}
                         value={form.birth_date}
                         onChange={v => setForm(prev => ({ ...prev, birth_date: v }))}
-                        minYear={new Date().getFullYear() - 80}
-                        maxYear={new Date().getFullYear()}
                     />
                 </div>
 

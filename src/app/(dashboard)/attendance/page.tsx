@@ -28,6 +28,7 @@ import { getStudentSales, recordSale, type ShopSale } from '@/lib/sales-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
+import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
@@ -195,8 +196,6 @@ export default function AttendancePage() {
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const dateInputRef = useRef<HTMLInputElement>(null);
-    const dateInputSidebarRef = useRef<HTMLInputElement>(null);
     const dateKey = getLocalISODate(selectedDate);
     const rawSchedule = getEventsByDate(dateKey);
     
@@ -714,35 +713,25 @@ export default function AttendancePage() {
                             <div className="w-full flex flex-col gap-2 relative z-20">
                                 <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
                                     <button
-                                        onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
+                                        onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                     >
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
                                     <div className="relative flex-1 flex items-center justify-center">
-                                        <button 
-                                            onClick={() => dateInputRef.current?.showPicker()}
-                                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/5 hover:bg-indigo-500/10 active:scale-95 transition-all rounded-xl border border-indigo-500/10 group/cal"
-                                        >
-                                            <Calendar className="w-4 h-4 text-indigo-600 group-hover/cal:scale-110 transition-transform" />
-                                            <span className="text-[11px] font-black text-primary tracking-wider uppercase">{dateStr}</span>
-                                        </button>
-
-                                        <input 
-                                            ref={dateInputRef}
-                                            type="date"
-                                            className="absolute inset-0 opacity-0 cursor-pointer pointer-events-none"
+                                        <StandardDatePicker
                                             value={dateKey}
-                                            onChange={(e) => {
-                                                const d = new Date(e.target.value);
+                                            onChange={(val) => {
+                                                const d = new Date(val);
                                                 if (!isNaN(d.getTime())) setSelectedDate(d);
                                             }}
+                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1.5 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center"
                                         />
                                     </div>
 
                                     <button
-                                        onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
+                                        onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                     >
                                         <ChevronRight className="w-4 h-4" />
@@ -761,33 +750,23 @@ export default function AttendancePage() {
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
                                             <button
-                                                onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
+                                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
                                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                             >
                                                 <ChevronLeft className="w-4 h-4" />
                                             </button>
                                             
-                                            <button 
-                                                onClick={() => dateInputSidebarRef.current?.showPicker()}
-                                                className="flex-1 flex items-center justify-center gap-1.5 px-2 hover:bg-indigo-500/5 transition-all py-1.5 rounded-lg active:scale-95"
-                                            >
-                                                <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-60" />
-                                                <span className="text-[10px] font-black text-primary tracking-[0.05em]">{dateStr}</span>
-                                            </button>
-
-                                            <input 
-                                                ref={dateInputSidebarRef}
-                                                type="date"
-                                                className="absolute inset-0 opacity-0 -z-10 pointer-events-none"
+                                            <StandardDatePicker
                                                 value={dateKey}
-                                                onChange={(e) => {
-                                                    const d = new Date(e.target.value);
+                                                onChange={(val) => {
+                                                    const d = new Date(val);
                                                     if (!isNaN(d.getTime())) setSelectedDate(d);
                                                 }}
+                                                className="flex-1 flex items-center [&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1 [&_input]:!h-auto [&_input]:!pl-9 [&_input]:!text-[10px] [&_input]:!font-black [&_input]:!tracking-[0.05em] [&_input]:text-center"
                                             />
 
                                             <button
-                                                onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
+                                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
                                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-indigo-600 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                             >
                                                 <ChevronRight className="w-4 h-4" />
