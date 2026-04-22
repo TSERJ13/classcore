@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Fragment } from 'react';
-import { X, Users, Trash2, AlertTriangle, Check, Palette, Clock, Calendar, Save, ArrowRight, User } from 'lucide-react';
+import { X, Users, Trash2, AlertTriangle, Check, Palette, Clock, Calendar, Save, ArrowRight, User, BookOpen, GraduationCap, Plus } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
