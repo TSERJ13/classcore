@@ -18,6 +18,7 @@ import { Student } from '@/types';
 import { registerUid, unregisterStudentUid, getStudentUid } from '@/lib/student-store';
 import { getCustomStyles, addCustomStyle, removeCustomStyle } from '@/lib/style-store';
 import { getStudentSales, type ShopSale } from '@/lib/sales-store';
+import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 import { getStudentCheckins, type CheckinRecord } from '@/lib/checkin-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -810,11 +811,11 @@ export function StudentModal({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.birthDate}</label>
-                                        <input 
-                                            type="date"
+                                        <DatePickerGrid 
                                             value={form.birth_date} 
-                                            onChange={e => set('birth_date', e.target.value)} 
-                                            className="w-full h-11 bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-2 text-[13px] sm:text-sm text-primary outline-none transition-all shadow-sm"
+                                            onChange={v => set('birth_date', v)} 
+                                            maxYear={new Date().getFullYear()}
+                                            minYear={new Date().getFullYear() - 100}
                                         />
                                     </div>
 
