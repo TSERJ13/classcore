@@ -443,10 +443,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         lastSyncedSlugRef.current = activeSlug; // 🚨 BRAKE: Prevent infinite loops
         
         import('@/lib/sync-store').then(async ({ pullStudioStateFromCloud }) => {
-            // CRITICAL: Always use slug as scope for localStorage keys
-            // Push reads keys like cc_student_data_stdancestudio (slug suffix)
-            // So pull must also write with slug suffix, not orgId
-            const cloudState = await pullStudioStateFromCloud(activeSlug, activeSlug);
+            // CRITICAL: Use orgId as scope if available, otherwise fallback to slug
+            // This ensures data is written to the keys the UI components are actually watching
+            const local = loadSettings(activeSlug);
+            const scope = local.orgId || activeSlug;
+            
+            const cloudState = await pullStudioStateFromCloud(activeSlug, scope);
             
             if (cloudState && (cloudState.staff_data || cloudState.studio_data)) {
                 console.log('✅ [Sync] Cloud data received. Applying...');
@@ -526,7 +528,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             }, () => {
                 console.log('📡 [StudioContext] Realtime Update Pulse received');
                 import('@/lib/sync-store').then(({ pullStudioStateFromCloud }) => {
-                    pullStudioStateFromCloud(settings.studioSlug!, settings.studioSlug!).then(state => {
+                    const scope = settings.orgId || settings.studioSlug!;
+                    pullStudioStateFromCloud(settings.studioSlug!, scope).then(state => {
                         if (state) applyCloudState(settings.studioSlug!, state);
                     });
                 });

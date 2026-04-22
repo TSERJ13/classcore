@@ -197,9 +197,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                             className={cn(
                                 'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full nav-item-dynamic',
                                 isMobile ? 'h-8 pl-2 gap-1.5' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
-                                active 
-                                    ? (href === '/students' || href === '/subscriptions' ? 'bg-[#6d28d9] text-white' : `${theme.bg} ${theme.text}`)
-                                    : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
+                                active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
                             )}
                         >
                             {!exp && active && (
@@ -273,41 +271,37 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
 
                     <div className={cn(
                         "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 transition-all",
-                        exp ? (isMobile ? "p-3 pb-8 pt-4 mt-2" : "p-3 pb-4 pt-4 mt-1.5") : (isMobile ? "py-4 pb-8" : "py-4")
+                        exp ? (isMobile ? "p-3 pb-16 pt-6 mt-4" : "p-3 pb-5 pt-8 mt-4") : (isMobile ? "py-6 pb-16" : "py-4")
                     )}>
                         <div className={cn(
-                            "flex items-center transition-all duration-300",
-                            exp 
-                                ? "flex-row bg-white/[0.03] border border-white/5 rounded-2xl p-0.5" 
-                                : "flex-col bg-transparent border-none gap-2"
+                            "flex items-center transition-all duration-300 w-full",
+                            exp ? "gap-2" : "flex-col gap-4"
                         )}>
-                            <button
-                                onClick={logout}
-                                className={cn(
-                                    "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
-                                    exp 
-                                        ? "w-8.5 h-8.5 rounded-xl hover:bg-white/5 flex-1 relative -right-1" 
-                                        : "w-9 h-9 rounded-xl bg-white/5",
-                                    isMobile && "scale-90"
-                                )}
-                                title={l('გასვლა', 'Выйти', 'Logout')}
-                            >
-                                <LogOut className={cn("transition-transform duration-300 group-hover/logout:-translate-x-0.5", exp ? "w-3.5 h-3.5" : "w-4 h-4")} strokeWidth={2.5} />
-                            </button>
-
-                            {exp && <div className="w-px h-4 bg-white/10 shrink-0 mx-0.5" />}
-
                             <LanguageSwitcher 
                                 compact={!exp} 
                                 mode="session" 
                                 align={exp ? "left" : "center"} 
                                 className={cn(
                                     exp 
-                                        ? "flex-[5] hover:bg-white/[0.05] h-8.5 px-3" 
-                                        : "w-9 h-9 bg-white/5 rounded-xl justify-center",
-                                    isMobile && "scale-[0.85] origin-left"
+                                        ? "flex-[5] bg-white/5 rounded-xl border border-white/5 h-10 px-3" 
+                                        : "w-11 h-11 bg-white/5 rounded-xl justify-center",
+                                    isMobile && "scale-100"
                                 )} 
                             />
+                            
+                            <button
+                                onClick={logout}
+                                className={cn(
+                                    "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
+                                    exp 
+                                        ? "w-11 h-11 rounded-xl bg-white/5 flex-1" 
+                                        : "w-11 h-11 rounded-xl bg-white/5",
+                                    isMobile && "scale-110"
+                                )}
+                                title={l('გასვლა', 'Выйти', 'Logout')}
+                            >
+                                <LogOut className="w-5.5 h-5.5 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
                         </div>
                     </div>
                 </>

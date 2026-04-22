@@ -170,9 +170,9 @@ export default function StudentsPage() {
                         {/* Row 1 on Mobile: Status Filter */}
                         <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle p-1 rounded-2xl sm:rounded-[1.25rem] gap-1 shrink-0">
                             {[
-                                { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
-                                { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-emerald-500', hoverColor: 'hover:text-emerald-600' },
-                                { id: 'inactive', label: t.expired, icon: AlertCircle, activeColor: 'bg-rose-500', hoverColor: 'hover:text-rose-600' },
+                                { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-emerald-600' },
+                                { id: 'inactive', label: t.expired, icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-rose-600' },
                             ].map(v => (
                                 <button key={v.id} onClick={() => setStatusFilter(prev => prev === v.id ? 'all' : v.id as any)}
                                     className={cn(
