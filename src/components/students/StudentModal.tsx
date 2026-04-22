@@ -625,7 +625,7 @@ export function StudentModal({
                 "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
                 centered 
                     ? "inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-xl sm:max-h-[90vh] sm:rounded-[2.5rem] rounded-[2rem]"
-                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto top-0 bottom-0",
+                    : "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0",
                 "animate-in fade-in duration-300",
                 centered ? "zoom-in-95" : "sm:slide-in-from-right",
                 "rounded-none sm:rounded-none"
@@ -967,14 +967,14 @@ export function StudentModal({
                                     <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40 flex items-center gap-2 px-1">
                                         <Tag className="w-3.5 h-3.5" /> {t.studentDiscount}
                                     </label>
-                                    <div className="flex bg-surface border border-border-subtle rounded-2xl p-1.5 gap-2 shadow-sm">
+                                    <div className="flex bg-surface border border-border-subtle rounded-2xl p-1.5 gap-2 shadow-sm overflow-hidden">
                                         <input
                                             type="number"
                                             value={form.discount_value}
                                             onFocus={(e) => e.target.select()}
                                             onChange={(e) => set('discount_value', e.target.value === '' ? '' : parseFloat(e.target.value))}
                                             placeholder="0"
-                                            className="flex-1 bg-transparent px-4 py-2 text-sm font-bold text-primary outline-none"
+                                            className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm font-bold text-primary outline-none"
                                         />
                                         <div className="flex items-center gap-1 bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-1 shrink-0">
                                             {[

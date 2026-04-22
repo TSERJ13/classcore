@@ -285,10 +285,11 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         <>
             <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className={cn(
-                "fixed z-[120] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto top-0 bottom-0",
+                "fixed z-[120] flex flex-col bg-card shadow-2xl transition-all duration-300",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px]",
+                "top-0 bottom-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
-                "rounded-none sm:rounded-none overflow-x-hidden"
+                "rounded-none sm:rounded-none overflow-hidden"
             )}>
 
                 {/* Header */}
@@ -433,8 +434,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             </div>
 
                             {/* Price Block */}
-                            <div className="space-y-2 p-3 border border-border-subtle bg-surface/30 rounded-xl">
-                                <div className="grid grid-cols-2 gap-3 items-end">
+                            <div className="space-y-4 p-3 border border-border-subtle bg-surface/30 rounded-xl">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between px-1 h-5">
                                             <label className="text-[10px] font-black text-muted tracking-widest flex items-center gap-1 uppercase">
@@ -453,14 +454,14 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1 uppercase">
                                             <Percent className="w-3 h-3" /> {t.discount}
                                         </label>
-                                        <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1">
+                                        <div className="flex bg-surface border border-border-subtle rounded-xl p-1 gap-1 overflow-hidden min-w-0">
                                             <input
                                                 type="number"
                                                 value={discount || ''}
                                                 onFocus={(e) => e.target.select()}
                                                 onChange={(e) => setDiscount(parseFloat(e.target.value) || '')}
                                                 placeholder="0"
-                                                className="flex-1 bg-transparent px-2 py-1.5 text-[13px] sm:text-sm font-bold text-emerald-500 outline-none"
+                                                className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[13px] sm:text-sm font-bold text-emerald-500 outline-none"
                                             />
                                             <div className="flex bg-indigo-500/5 border border-indigo-500/10 rounded-md p-0.5 shrink-0">
                                                 <button
@@ -634,7 +635,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                 {/* Footer */}
                 {step === 'form' && (
-                    <div className="p-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex gap-3 flex-shrink-0 sticky bottom-0 z-10 pb-safe">
+                    <div className="p-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex gap-3 flex-shrink-0 z-10 pb-safe">
                         <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-[10px] sm:text-xs font-bold rounded-xl transition-all shadow-sm uppercase tracking-widest">
                             {t.cancel}
                         </button>

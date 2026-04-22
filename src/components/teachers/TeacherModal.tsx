@@ -102,7 +102,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
             <div className={cn(
                 "fixed z-[70] flex flex-col bg-card shadow-2xl transition-all duration-300 overflow-hidden",
-                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none h-[100dvh] sm:h-auto top-0 bottom-0",
+                "inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[500px] sm:max-h-none top-0 bottom-0",
                 "animate-in fade-in duration-300 sm:slide-in-from-right",
                 "rounded-none sm:rounded-none overflow-x-hidden"
             )}>
