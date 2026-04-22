@@ -610,8 +610,16 @@ export function Header() {
                         onClick={() => setNotifOpen(false)}
                     />
                     <div className="fixed top-0 right-0 h-full w-full md:w-80 z-50 bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="flex items-center justify-between px-5 py-5 border-b border-border-subtle">
-                            <p className="text-sm font-black text-primary">{t.notifications}</p>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface/30">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 shadow-inner">
+                                    <Bell className="w-5 h-5" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <p className="text-base font-black text-primary leading-tight">{t.notifications}</p>
+                                    <p className="text-[10px] text-muted font-bold tracking-tight opacity-70 uppercase">{t.recentActivity || 'Recent Activity'}</p>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2">
                                 {notifications.length > 0 && (
                                     <button onClick={handleClearAll} className="w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-all">

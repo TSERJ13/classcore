@@ -171,9 +171,9 @@ export default function SubscriptionsPage() {
             {/* Primary Controls */}
             <div className="flex flex-col gap-6">
                 <div className="flex flex-row items-center justify-between gap-4">
-                    <div className="flex flex-row items-center gap-3 flex-1 overflow-x-auto no-scrollbar">
+                    <div className="flex flex-row items-center gap-3 overflow-x-auto no-scrollbar pb-1">
                         {/* Status Tabs */}
-                        <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 flex-1 sm:max-w-xs">
+                        <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 w-fit">
                             {[
                                 { id: 'active', label: t.statsActive, icon: Zap, activeColor: 'bg-indigo-500', hoverColor: 'hover:text-indigo-600' },
                                 { id: 'paused', label: t.paused, icon: Pause, activeColor: 'bg-amber-500', hoverColor: 'hover:text-amber-600' },
@@ -181,7 +181,7 @@ export default function SubscriptionsPage() {
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
-                                        'flex-1 flex items-center justify-center gap-1.5 px-3 h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                                        'flex items-center justify-center gap-1.5 px-4 h-full rounded-xl text-[10px] font-black tracking-widest transition-all min-w-[60px] sm:min-w-[100px]',
                                         tab === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-white/50', v.hoverColor)
                                     )}>
                                     <v.icon className="w-4 h-4 flex-shrink-0" />
@@ -189,21 +189,23 @@ export default function SubscriptionsPage() {
                                 </button>
                             ))}
                         </div>
+                    </div>
 
+                    <div className="flex items-center gap-2 sm:gap-3">
                         {/* Prices Action */}
                         <button onClick={() => window.location.href = '/subscriptions/plans'}
                             className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 px-3 sm:px-5 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
                             <DollarSign strokeWidth={3} className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                             <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </button>
-                    </div>
 
-                    {/* Primary Action Button */}
-                    <button onClick={() => setIssuing(true)}
-                        className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation">
-                        <FolderPlus className="w-5 h-5 flex-shrink-0" />
-                        <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
-                    </button>
+                        {/* Primary Action Button */}
+                        <button onClick={() => setIssuing(true)}
+                            className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation">
+                            <FolderPlus className="w-5 h-5 flex-shrink-0" />
+                            <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col lg:flex-row items-stretch justify-between gap-3">

@@ -339,10 +339,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <div className="h-px bg-border-subtle w-full" />
                                     <button
                                         onClick={() => { setSelectedType('group'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-emerald-600 bg-surface/50 hover:bg-emerald-500/10 transition-colors tracking-widest group/btn"
+                                        className="w-full p-3 lg:p-4 flex items-center justify-center gap-2 text-[9px] lg:text-[10px] font-bold text-muted hover:text-emerald-600 bg-surface/50 hover:bg-emerald-500/10 transition-colors tracking-widest group/btn"
                                     >
-                                        <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover/btn:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                        <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover/btn:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                                         </div>
                                         <span>{t.groupOneTime}</span>
                                     </button>
@@ -364,10 +364,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <div className="h-px bg-border-subtle w-full" />
                                     <button
                                         onClick={() => { setSelectedType('individual'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-indigo-600 bg-surface/50 hover:bg-indigo-500/10 transition-colors tracking-widest group/btn"
+                                        className="w-full p-3 lg:p-4 flex items-center justify-center gap-2 text-[9px] lg:text-[10px] font-bold text-muted hover:text-indigo-600 bg-surface/50 hover:bg-indigo-500/10 transition-colors tracking-widest group/btn"
                                     >
-                                        <div className="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover/btn:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                        <div className="w-5 h-5 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover/btn:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                         </div>
                                         <span>{t.individualOneTime}</span>
                                     </button>
@@ -389,10 +389,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <div className="h-px bg-border-subtle w-full" />
                                     <button
                                         onClick={() => { setSelectedType('rental'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-4 flex items-center justify-center gap-2 text-xs font-bold text-muted hover:text-amber-600 bg-surface/50 hover:bg-amber-500/10 transition-colors tracking-widest group/btn"
+                                        className="w-full p-3 lg:p-4 flex items-center justify-center gap-2 text-[9px] lg:text-[10px] font-bold text-muted hover:text-amber-600 bg-surface/50 hover:bg-amber-500/10 transition-colors tracking-widest group/btn"
                                     >
-                                        <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover/btn:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                        <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover/btn:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                         </div>
                                         <span>{t.rentalOneTime}</span>
                                     </button>

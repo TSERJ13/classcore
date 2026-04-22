@@ -19,7 +19,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 const INITIAL_PRODUCTS: Product[] = [];
 
 export default function ShopPage() {
-    const { t } = useT();
+    const { t, lang } = useT();
     const { settings } = useStudio();
     const { confirm, alert } = useConfirm();
     const { user, profile } = useUser();

@@ -368,7 +368,6 @@ input:-webkit-autofill:active {
     position: relative !important;
     touch-action: pan-y !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: none !important;
     min-height: 100dvh !important;
 }
 
