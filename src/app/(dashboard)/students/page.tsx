@@ -170,7 +170,7 @@ export default function StudentsPage() {
                         {/* Row 1 on Mobile: Status Filter */}
                         <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle p-1 rounded-2xl sm:rounded-[1.25rem] gap-1 shrink-0">
                             {[
-                                { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-[#5b21b6]' },
                                 { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-emerald-600' },
                                 { id: 'inactive', label: t.expired, icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-rose-600' },
                             ].map(v => (
@@ -206,7 +206,7 @@ export default function StudentsPage() {
                                     "flex items-center justify-center w-10 sm:w-auto sm:px-4 h-full rounded-2xl sm:rounded-[1.25rem] border border-border-subtle bg-surface transition-all gap-1.5",
                                     groupDropdownOpen || groupFilter ? "bg-violet-500/10 text-violet-600 border-violet-500/30 shadow-sm" : "text-muted hover:bg-surface-hover"
                                 )}>
-                                <Filter className={cn("w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0", (groupDropdownOpen || groupFilter) ? "text-violet-500" : "text-indigo-500")} />
+                                <Filter className={cn("w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0", (groupDropdownOpen || groupFilter) ? "text-violet-500" : "text-[#6d28d9]")} />
                                 <span className="hidden sm:inline text-[10px] sm:text-xs font-black tracking-widest truncate max-w-[100px]">
                                     {groupFilter ? groups.find(g => g.id === groupFilter)?.name : (t.filterByGroups || 'ფილტრი')}
                                 </span>
@@ -218,19 +218,19 @@ export default function StudentsPage() {
                                     <div className="p-1 space-y-1">
                                         {/* Sort Section */}
                                         <div className="px-3 pt-2 pb-1 text-[10px] font-black text-muted tracking-widest">{'დახარისხება'}</div>
-                                        <button onClick={() => { setSortBy('none'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'none' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setSortBy('none'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'none' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{'ნაგულისხმევი'}</span>
                                             {sortBy === 'none' && <Check className="w-4 h-4" />}
                                         </button>
-                                        <button onClick={() => { setSortBy('first_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'first_name' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setSortBy('first_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'first_name' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.byFirstName}</span>
                                             {sortBy === 'first_name' && <Check className="w-4 h-4" />}
                                         </button>
-                                        <button onClick={() => { setSortBy('last_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'last_name' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setSortBy('last_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'last_name' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.byLastName}</span>
                                             {sortBy === 'last_name' && <Check className="w-4 h-4" />}
                                         </button>
-                                        <button onClick={() => { setSortBy('gender'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'gender' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setSortBy('gender'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'gender' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.gender}</span>
                                             {sortBy === 'gender' && <Check className="w-4 h-4" />}
                                         </button>
@@ -239,15 +239,15 @@ export default function StudentsPage() {
 
                                         {/* Gender Section */}
                                         <div className="px-3 pt-2 pb-1 text-[10px] font-black text-muted tracking-widest">{t.gender}</div>
-                                        <button onClick={() => { setGenderFilter('all'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'all' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setGenderFilter('all'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'all' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.allFilter}</span>
                                             {genderFilter === 'all' && <Check className="w-4 h-4" />}
                                         </button>
-                                        <button onClick={() => { setGenderFilter(prev => prev === 'male' ? 'all' : 'male'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'male' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setGenderFilter(prev => prev === 'male' ? 'all' : 'male'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'male' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.male}</span>
                                             {genderFilter === 'male' && <Check className="w-4 h-4" />}
                                         </button>
-                                        <button onClick={() => { setGenderFilter(prev => prev === 'female' ? 'all' : 'female'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'female' ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-muted hover:bg-surface-hover")}>
+                                        <button onClick={() => { setGenderFilter(prev => prev === 'female' ? 'all' : 'female'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", genderFilter === 'female' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.female}</span>
                                             {genderFilter === 'female' && <Check className="w-4 h-4" />}
                                         </button>
@@ -283,10 +283,10 @@ export default function StudentsPage() {
 
                         {/* Search */}
                         <div className="relative flex-1 group h-12">
-                            <Search className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
+                            <Search className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50 group-focus-within:text-[#6d28d9] transition-colors pointer-events-none" />
                             <input type="text" placeholder={t.search} value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                className="w-full h-full bg-surface border border-border-subtle rounded-2xl sm:rounded-[1.25rem] pl-9 sm:pl-10 pr-4 text-xs sm:text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-indigo-500/40 transition-all font-medium" />
+                                className="w-full h-full bg-surface border border-border-subtle rounded-2xl sm:rounded-[1.25rem] pl-9 sm:pl-10 pr-4 text-xs sm:text-sm text-primary placeholder:text-muted/30 focus:outline-none focus:border-[#6d28d9]/40 transition-all font-medium" />
                         </div>
                     </div>
                 </div>
@@ -300,14 +300,14 @@ export default function StudentsPage() {
 
                         return (
                             <div key={student.id}
-                                className="group bg-card border-2 border-border-subtle hover:border-indigo-500/40 rounded-[2rem] transition-all duration-300 cursor-pointer overflow-hidden p-5 relative flex flex-col">
+                                className="group bg-card border-2 border-border-subtle hover:border-[#6d28d9]/40 rounded-[2rem] transition-all duration-300 cursor-pointer overflow-hidden p-5 relative flex flex-col">
                                 <div className="flex items-start gap-4">
                                     {/* Avatar */}
-                                    <div className="w-14 h-14 rounded-2xl flex-shrink-0 overflow-hidden border-2 border-surface group-hover:border-indigo-500/20 transition-all">
+                                    <div className="w-14 h-14 rounded-2xl flex-shrink-0 overflow-hidden border-2 border-surface group-hover:border-[#6d28d9]/20 transition-all">
                                         {student.photo_url ? (
                                             <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-sm font-black text-white">
+                                            <div className="w-full h-full bg-gradient-to-br from-[#6d28d9] to-[#4338ca] flex items-center justify-center text-sm font-black text-white">
                                                 {getInitials(student.full_name)}
                                             </div>
                                         )}
@@ -316,7 +316,7 @@ export default function StudentsPage() {
                                     {/* Info */}
                                     <div className="flex-1 min-w-0 mt-0.5">
                                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                                            <h3 className="text-sm font-black text-primary truncate leading-tight group-hover:text-indigo-600 transition-colors">{student.full_name}</h3>
+                                            <h3 className="text-sm font-black text-primary truncate leading-tight group-hover:text-[#5b21b6] transition-colors">{student.full_name}</h3>
                                             {sub && <StatusBadge status={sub.status} t={t} />}
                                         </div>
 
@@ -351,7 +351,7 @@ export default function StudentsPage() {
 
                                                         const icons: Record<string, { color: string, icon: React.ReactNode }> = {
                                                             facebook: {
-                                                                color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20',
+                                                                color: 'text-[#6d28d9] bg-[#6d28d9]/10 border-[#6d28d9]/20',
                                                                 icon: <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
                                                             },
                                                             instagram: {
@@ -359,7 +359,7 @@ export default function StudentsPage() {
                                                                 icon: <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.17.054 1.805.249 2.227.412.558.217.957.477 1.377.896.419.42.679.819.896 1.377.163.422.358 1.057.412 2.227.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.054 1.17-.249 1.805-.412 2.227-.217.558-.477.957-.896 1.377-.42.419-.819.679-1.377.896-.422.163-1.057.358-2.227.412-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.17-.054-1.805-.249-2.227-.412-.558-.217-.957-.477-1.377-.896-.419-.42-.679-.819-.896-1.377-.163-.422-.358-1.057-.412-2.227-.058-1.266-.07-1.646-.07-4.85s.012-3.584.07-4.85c.054-1.17.249-1.805.412-2.227.217-.558.477-.957.896-1.377.42-.419.819-.679 1.377-.896.422-.163 1.057-.358 2.227-.412 1.266-.058 1.646-.07 4.85-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-1.277.057-2.148.259-2.911.556-.788.306-1.457.715-2.122 1.38-.665.665-1.074 1.334-1.38 2.122-.297.763-.499 1.634-.556 2.911-.058 1.28-.072 1.688-.072 4.947s.014 3.667.072 4.947c.057 1.277.259 2.148.556 2.911.306.788.715 1.457 1.38 2.122.665.665 1.334 1.074 2.122 1.38.763.297 1.634.499 2.911.556 1.28.058 1.688.072 4.947.072s3.667-.014 4.947-.072c1.277-.057 2.148-.259 2.911-.556.788-.306 1.457-.715 2.122-1.38.665-.665 1.074-1.334 1.38-2.122.297-.763.499-1.634.556-2.911.058-1.28.072-1.688.072-4.947s-.014-3.667-.072-4.947c-.057-1.277-.259-2.148-.556-2.911-.306-.788-.715-1.457-1.38-2.122-.665-.665-1.334-1.074-2.122-1.38-.763-.297-1.634-.499-2.911-.556-1.28-.058-1.688-.072-4.947-.072zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.791-4-4s1.791-4 4-4 4 1.791 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
                                                             },
                                                             telegram: {
-                                                                color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+                                                                color: 'text-indigo-400 bg-[#6d28d9]/10 border-[#6d28d9]/20',
                                                                 icon: <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.14-.26.26-.534.26l.195-2.93 5.318-4.803c.231-.205-.05-.319-.36-.113L6.47 13.91l-2.834-.884c-.616-.191-.628-.616.129-.913l11.07-4.262c.512-.191.96.117.859.37z" /></svg>
                                                             },
                                                             whatsapp: {
@@ -382,7 +382,7 @@ export default function StudentsPage() {
                                                 </div>
                                             )}
                                             {student.dance_style && (
-                                                <div className="flex items-center gap-1.5 text-[11px] text-indigo-500 font-bold">
+                                                <div className="flex items-center gap-1.5 text-[11px] text-[#6d28d9] font-bold">
                                                     <Heart className="w-3 h-3 opacity-70" />
                                                     <span>{student.dance_style}</span>
                                                 </div>
@@ -394,7 +394,7 @@ export default function StudentsPage() {
                                 {/* Actions hover */}
                                 <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                                     <button onClick={(e) => { e.stopPropagation(); openEdit(student); }}
-                                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all shadow-sm">
+                                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-[#5b21b6] hover:border-[#6d28d9]/40 hover:bg-[#6d28d9]/5 transition-all shadow-sm">
                                         <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                     <button onClick={(e) => { e.stopPropagation(); handleDelete(student.id); }}
@@ -424,7 +424,7 @@ export default function StudentsPage() {
                                                                     "h-full rounded-full transition-all duration-700 shadow-sm",
                                                                     remaining <= 0 ? "bg-red-500 shadow-red-500/20" :
                                                                         remaining <= 3 ? "bg-gradient-to-r from-red-500 to-amber-500 shadow-amber-500/20" :
-                                                                            "bg-gradient-to-r from-indigo-500 to-violet-500 shadow-indigo-500/20"
+                                                                            "bg-gradient-to-r from-[#6d28d9] to-violet-500 shadow-[#6d28d9]/20"
                                                                 )}
                                                                 style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
                                                             />

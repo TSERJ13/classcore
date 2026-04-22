@@ -270,21 +270,21 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     </div>
 
                     <div className={cn(
-                        "mt-auto border-t border-[var(--sidebar-border)] bg-black/10 transition-all",
-                        exp ? (isMobile ? "p-3 pb-16 pt-6 mt-4" : "p-3 pb-5 pt-8 mt-4") : (isMobile ? "py-6 pb-16" : "py-4")
+                        "mt-auto border-t border-[var(--sidebar-border)]/50 bg-black/5 transition-all pt-6",
+                        exp ? (isMobile ? "p-3 pb-20 mt-4" : "p-3 pb-6 mt-4") : (isMobile ? "py-8 pb-20" : "py-6")
                     )}>
                         <div className={cn(
-                            "flex items-center transition-all duration-300 w-full",
-                            exp ? "gap-2" : "flex-col gap-4"
+                            "flex items-center justify-center transition-all duration-300 w-full overflow-hidden bg-white/[0.03] border border-white/5 rounded-[1.25rem] p-1",
+                            exp ? "gap-1 flex-row h-12" : "flex-col gap-1 w-11 h-auto py-1"
                         )}>
                             <LanguageSwitcher 
                                 compact={!exp} 
                                 mode="session" 
-                                align={exp ? "left" : "center"} 
+                                align="center" 
                                 className={cn(
                                     exp 
-                                        ? "flex-[5] bg-white/5 rounded-xl border border-white/5 h-10 px-3" 
-                                        : "w-11 h-11 bg-white/5 rounded-xl justify-center",
+                                        ? "flex-1 hover:bg-white/5 rounded-xl h-10 px-2 transition-all" 
+                                        : "w-9 h-9 hover:bg-white/5 rounded-xl justify-center",
                                     isMobile && "scale-100"
                                 )} 
                             />
@@ -294,13 +294,13 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 className={cn(
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
                                     exp 
-                                        ? "w-11 h-11 rounded-xl bg-white/5 flex-1" 
-                                        : "w-11 h-11 rounded-xl bg-white/5",
-                                    isMobile && "scale-110"
+                                        ? "w-10 h-10 rounded-xl flex-1" 
+                                        : "w-9 h-9 rounded-xl",
+                                    isMobile && "scale-105"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
-                                <LogOut className="w-5.5 h-5.5 group-hover:translate-x-0.5 transition-transform" />
+                                <LogOut className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
                             </button>
                         </div>
                     </div>

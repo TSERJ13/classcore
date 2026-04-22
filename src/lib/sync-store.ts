@@ -405,18 +405,40 @@ export async function pullStudioStateFromCloud(
         }
 
         // Add scope suffix back to operation keys
-        // If key already has a branch suffix (e.g. cc_groups_branch1), inject slug in middle: cc_groups_slug_branch1
+        // Logic: if the key is in SYNC_COLLECTIONS, append the scope.
+        // If it was branch-scoped (has a separator in cloud blob), keep that structure.
         const scope = scopeId || slug;
         const scopedData: Record<string, any> = {};
+        
         Object.entries(operations).forEach(([key, value]) => {
+            // Key in cloud is "clean" (e.g. "cc_groups_main" or "cc_student_data")
             const parts = key.split('_');
+            const basePrefix = parts.slice(0, 2).join('_'); // e.g. "cc_student" or "cc_groups"
+            
+            const isSyncable = [
+                'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
+                'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
+                'cc_subscription_plans', 'cc_student_subscriptions', 'cc_shop_products', 
+                'cc_shop_sales', 'cc_audit_log', 'cc_security_log', 'cc_salary_update',
+                'cc_notifications', 'cc_calendar_events', 'cc_global_history', 
+                'cc_global_trash', 'cc_studio_settings', 'cc_deleted_'
+            ].some(p => key.startsWith(p));
+
+            if (!isSyncable) {
+                scopedData[key] = value;
+                return;
+            }
+
+            // If it's a branch-scoped key (e.g. cc_groups_main), it arrives as cc_groups_main
+            // We need to transform it to cc_groups_{scope}_main
             if (parts.length > 2 && !key.startsWith('cc_studio_settings')) {
-                // It's likely a branch-scoped key like cc_groups_main
+                // Determine if it actually has a branch ID
+                // Branch IDs are usually random strings or "main"
                 const base = parts.slice(0, -1).join('_');
                 const bId = parts[parts.length - 1];
                 scopedData[`${base}_${scope}_${bId}`] = value;
             } else {
-                // Global key or settings
+                // Global key: cc_student_data -> cc_student_data_{scope}
                 scopedData[`${key}_${scope}`] = value;
             }
         });

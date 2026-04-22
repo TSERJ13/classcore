@@ -661,7 +661,7 @@ export default function AttendancePage() {
     }
 
     return (
-        <div className="flex flex-col min-h-[calc(100vh-100px)] -m-4 md:-m-8 bg-card animate-fade-up">
+        <div className="flex flex-col flex-1 min-h-screen -m-4 md:-m-8 bg-card animate-fade-up overflow-hidden">
             {!mounted ? (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="w-12 h-12 rounded-2xl border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
@@ -719,14 +719,14 @@ export default function AttendancePage() {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
-                                    <div className="relative flex-1 flex items-center justify-center">
+                                    <div className="relative flex-1 flex items-center justify-center cursor-pointer active:scale-[0.98] transition-transform">
                                         <StandardDatePicker
                                             value={dateKey}
                                             onChange={(val) => {
                                                 const d = new Date(val);
                                                 if (!isNaN(d.getTime())) setSelectedDate(d);
                                             }}
-                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1.5 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center"
+                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1.5 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent"
                                         />
                                     </div>
 
@@ -756,14 +756,16 @@ export default function AttendancePage() {
                                                 <ChevronLeft className="w-4 h-4" />
                                             </button>
                                             
-                                            <StandardDatePicker
-                                                value={dateKey}
-                                                onChange={(val) => {
-                                                    const d = new Date(val);
-                                                    if (!isNaN(d.getTime())) setSelectedDate(d);
-                                                }}
-                                                className="flex-1 flex items-center [&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1 [&_input]:!h-auto [&_input]:!pl-9 [&_input]:!text-[10px] [&_input]:!font-black [&_input]:!tracking-[0.05em] [&_input]:text-center"
-                                            />
+                                            <div className="flex-1 flex items-center cursor-pointer active:scale-95 transition-transform">
+                                                <StandardDatePicker
+                                                    value={dateKey}
+                                                    onChange={(val) => {
+                                                        const d = new Date(val);
+                                                        if (!isNaN(d.getTime())) setSelectedDate(d);
+                                                    }}
+                                                    className="flex-1 flex items-center [&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1 [&_input]:!h-auto [&_input]:!pl-9 [&_input]:!text-[10px] [&_input]:!font-black [&_input]:!tracking-[0.05em] [&_input]:text-center [&_input]:!bg-transparent"
+                                                />
+                                            </div>
 
                                             <button
                                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}

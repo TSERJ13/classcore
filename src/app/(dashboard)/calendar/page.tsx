@@ -195,8 +195,8 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
             <div className="fixed inset-0 bg-black/20" />
             <div className="relative z-10 w-full max-w-sm bg-card border border-border-subtle rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                        <CalendarDays className="w-5 h-5 text-indigo-500" />
+                    <div className="w-10 h-10 rounded-xl bg-[#6d28d9]/10 flex items-center justify-center flex-shrink-0">
+                        <CalendarDays className="w-5 h-5 text-[#6d28d9]" />
                     </div>
                     <div>
                         <p className="text-sm font-bold text-primary">{ev.title}</p>
@@ -206,8 +206,8 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
                 <p className="text-xs text-muted font-medium opacity-70">ეს არის განმეორებადი გაკვეთილი. როგორ გსურთ გადატანა?</p>
                 <div className="space-y-2">
                     <button onClick={onThisOnly}
-                        className="w-full py-3 px-4 text-left text-sm font-bold text-primary bg-surface border border-border-subtle hover:border-indigo-500/40 hover:bg-indigo-500/5 rounded-xl transition-all flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 flex-shrink-0 text-xs font-black">1</span>
+                        className="w-full py-3 px-4 text-left text-sm font-bold text-primary bg-surface border border-border-subtle hover:border-[#6d28d9]/40 hover:bg-[#6d28d9]/5 rounded-xl transition-all flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-[#6d28d9]/10 flex items-center justify-center text-[#6d28d9] flex-shrink-0 text-xs font-black">1</span>
                         <div>
                             <p>მხოლოდ ეს გაკვეთილი</p>
                             <p className="text-[10px] font-medium text-muted opacity-50">{ev.date} → {newDate}</p>
@@ -251,7 +251,7 @@ function GridLines({ onClick }: { onClick: (e: React.MouseEvent<HTMLDivElement>)
                                 : "border-border-subtle/15 border-solid"
                     )} />
             ))}
-            <div className="absolute inset-0 bg-indigo-500/[0.00] group-hover:bg-indigo-500/[0.02] transition-colors pointer-events-none" />
+            <div className="absolute inset-0 bg-[#6d28d9]/[0.00] group-hover:bg-[#6d28d9]/[0.02] transition-colors pointer-events-none" />
             {/* Final bottom line */}
             <div className="absolute bottom-0 left-0 right-0 border-t border-black/40 pointer-events-none" />
         </div>
@@ -441,7 +441,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                     </div>
                     <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
                         <input value={form.title} onChange={e => setF('title', e.target.value)} placeholder="სათაური *"
-                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none" />
+                            className="w-full bg-surface border border-border-subtle focus:border-[#6d28d9]/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none" />
 
                         <div className="grid grid-cols-2 gap-2">
                             <div>
@@ -450,7 +450,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                     options={eventTypes}
                                     value={form.type}
                                     onChange={val => setF('type', val)}
-                                    className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                    className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                                 />
                             </div>
                             <div>
@@ -462,7 +462,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                     ]}
                                     value={form.recurring || 'none'}
                                     onChange={val => setF('recurring', val)}
-                                    className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                    className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                                 />
                             </div>
                         </div>
@@ -481,7 +481,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                         const g = groups.find(gr => gr.id === val);
                                         if (g?.teacherId) setF('teacher_id', g.teacherId);
                                     }}
-                                    className="!border-indigo-500/30 hover:!border-indigo-500/60 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                    className="!border-[#6d28d9]/30 hover:!border-[#6d28d9]/60 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                                 />
                             </div>
                         )}
@@ -492,7 +492,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                 options={halls.map((h: any) => ({ value: h.id, label: h.name }))}
                                 value={form.hall_id || ''}
                                 onChange={val => setF('hall_id', val)}
-                                className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                             />
                         </div>
 
@@ -502,7 +502,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                 options={teachers.map(tc => ({ value: tc.id, label: tc.full_name }))}
                                 value={form.teacher_id || ''}
                                 onChange={val => setF('teacher_id', val)}
-                                className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                             />
                         </div>
 
@@ -566,14 +566,14 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl cursor-pointer" onClick={() => setF('reminder_30m', !form.reminder_30m)}>
+                        <div className="flex items-center justify-between p-3 bg-[#6d28d9]/5 border border-[#6d28d9]/20 rounded-xl cursor-pointer" onClick={() => setF('reminder_30m', !form.reminder_30m)}>
                             <div className="flex items-center gap-3">
-                                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition-colors", form.reminder_30m ? "bg-indigo-500 text-white" : "bg-card text-muted opacity-40")}>
+                                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition-colors", form.reminder_30m ? "bg-[#6d28d9] text-white" : "bg-card text-muted opacity-40")}>
                                     <Clock className="w-4 h-4" />
                                 </div>
                                 <span className="text-xs font-bold text-primary opacity-80">{t.reminder30m}</span>
                             </div>
-                            <div className={cn("w-10 h-5 rounded-full p-1 transition-colors relative", form.reminder_30m ? "bg-indigo-500" : "bg-muted/30")}>
+                            <div className={cn("w-10 h-5 rounded-full p-1 transition-colors relative", form.reminder_30m ? "bg-[#6d28d9]" : "bg-muted/30")}>
                                 <div className={cn("w-3 h-3 bg-white rounded-full transition-all shadow-sm", form.reminder_30m ? "translate-x-5" : "translate-x-0")} />
                             </div>
                         </div>
@@ -589,7 +589,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                             <button key={d} onClick={() => toggleDay(d)}
                                                 className={cn(
                                                     "w-10 h-10 rounded-xl text-[10px] font-black transition-all border",
-                                                    isActive ? "bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                                    isActive ? "bg-[#6d28d9] border-[#6d28d9] text-white shadow-lg shadow-[#6d28d9]/20" : "bg-card border-border-subtle text-muted hover:border-[#6d28d9]/40"
                                                 )}>
                                                 {dayNames[d]}
                                             </button>
@@ -626,7 +626,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
                         <div>
                             <label className="text-[10px] text-muted mb-2 block tracking-wider font-bold opacity-70">{t.selectColor}</label>
-                            <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
+                            <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-[#6d28d9]/40 transition-colors">
                                 <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
                                     <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
                                         className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
@@ -650,7 +650,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                             }
                             onClose();
                         }} disabled={!form.title.trim()}
-                            className="flex-1 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
+                            className="flex-1 py-2.5 bg-[#6d28d9] hover:bg-indigo-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl shadow-lg shadow-[#6d28d9]/20 active:scale-95 transition-all">
                             {t.calSave}
                         </button>
                     </div>
@@ -744,7 +744,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                     )}
                     {ev.group_id && (() => { const g = groups.find(gr => gr.id === ev.group_id); return g ? <div className="flex items-center gap-2"><BookOpen className="w-3.5 h-3.5 opacity-40" />{g.name}</div> : null; })()}
                     {ev.reminder_30m && (
-                        <div className="flex items-center gap-2 text-indigo-500 font-bold">
+                        <div className="flex items-center gap-2 text-[#6d28d9] font-bold">
                             <Clock className="w-3.5 h-3.5" />
                             {t.reminder30m}
                         </div>
@@ -759,7 +759,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                             {t.calDelete}
                         </button>
                         <button onClick={() => setMode('edit')}
-                            className="flex-1 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
+                            className="flex-1 py-2 bg-[#6d28d9] hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-[#6d28d9]/20 active:scale-95 transition-all">
                             {t.calEditBtn}
                         </button>
                     </div>
@@ -968,7 +968,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                 options={eventTypes}
                                 value={form.type}
                                 onChange={val => setF('type', val)}
-                                className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                             />
                         </div>
                         <div>
@@ -980,7 +980,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                 ]}
                                 value={form.recurring}
                                 onChange={val => setF('recurring', val)}
-                                className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                             />
                         </div>
                     </div>
@@ -991,14 +991,14 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                             <div>
                                 <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.groupName}</label>
                                 <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder={t.calGroupNamePlaceholder}
-                                    className="w-full bg-surface border border-indigo-500/40 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
+                                    className="w-full bg-surface border border-[#6d28d9]/40 focus:border-[#6d28d9] rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
                             </div>
                         )
                     ) : (
                         <div>
                             <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calTitle}</label>
                             <input value={form.title} onChange={e => setF('title', e.target.value)} placeholder="სათაური *"
-                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
+                                className="w-full bg-surface border border-border-subtle focus:border-[#6d28d9]/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
                         </div>
                     )}
 
@@ -1007,7 +1007,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                         <div>
                             <div className="flex items-center justify-between mb-1">
                                 <label className="text-[10px] text-muted block tracking-wider font-bold opacity-70">{t.calGroup}</label>
-                                <button onClick={() => setIsNewGroup(!isNewGroup)} className="text-[10px] font-bold text-indigo-500 hover:underline">
+                                <button onClick={() => setIsNewGroup(!isNewGroup)} className="text-[10px] font-bold text-[#6d28d9] hover:underline">
                                     {isNewGroup ? '← სიიდან არჩევა' : t.calNewGroup}
                                 </button>
                             </div>
@@ -1024,7 +1024,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                         if (g && !form.title) setF('title', g.name);
                                         if (g?.teacherId) setF('teacher_id', g.teacherId);
                                     }}
-                                    className="!border-indigo-500/30 hover:!border-indigo-500/60 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                    className="!border-[#6d28d9]/30 hover:!border-[#6d28d9]/60 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                                 />
                             )}
                         </div>
@@ -1036,7 +1036,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                             options={halls.map((h: any) => ({ value: h.id, label: h.name }))}
                             value={form.hall_id}
                             onChange={val => setF('hall_id', val)}
-                            className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                            className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                         />
                     </div>
 
@@ -1049,7 +1049,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                             ]}
                             value={form.teacher_id}
                             onChange={val => setF('teacher_id', val)}
-                            className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                            className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                         />
                     </div>
 
@@ -1114,14 +1114,14 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     )}
 
                     {/* Reminder Toggle */}
-                    <div className="flex items-center justify-between p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl cursor-pointer" onClick={() => setF('reminder_30m', !form.reminder_30m)}>
+                    <div className="flex items-center justify-between p-3 bg-[#6d28d9]/5 border border-[#6d28d9]/20 rounded-xl cursor-pointer" onClick={() => setF('reminder_30m', !form.reminder_30m)}>
                         <div className="flex items-center gap-3">
-                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition-colors", form.reminder_30m ? "bg-indigo-500 text-white" : "bg-card text-muted opacity-40")}>
+                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition-colors", form.reminder_30m ? "bg-[#6d28d9] text-white" : "bg-card text-muted opacity-40")}>
                                 <Clock className="w-4 h-4" />
                             </div>
                             <span className="text-xs font-bold text-primary opacity-80">{t.reminder30m}</span>
                         </div>
-                        <div className={cn("w-10 h-5 rounded-full p-1 transition-colors relative", form.reminder_30m ? "bg-indigo-500" : "bg-muted/30")}>
+                        <div className={cn("w-10 h-5 rounded-full p-1 transition-colors relative", form.reminder_30m ? "bg-[#6d28d9]" : "bg-muted/30")}>
                             <div className={cn("w-3 h-3 bg-white rounded-full transition-all shadow-sm", form.reminder_30m ? "translate-x-5" : "translate-x-0")} />
                         </div>
                     </div>
@@ -1137,7 +1137,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                         <button key={d} onClick={() => toggleDay(d)}
                                             className={cn(
                                                 "w-10 h-10 rounded-xl text-[10px] font-black transition-all border",
-                                                isActive ? "bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                                isActive ? "bg-[#6d28d9] border-[#6d28d9] text-white shadow-lg shadow-[#6d28d9]/20" : "bg-card border-border-subtle text-muted hover:border-[#6d28d9]/40"
                                             )}>
                                             {dayNames[d]}
                                         </button>
@@ -1175,7 +1175,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
 
                     <div>
                         <label className="text-[10px] text-muted mb-2 block tracking-wider font-bold opacity-70">{t.selectColor}</label>
-                        <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
+                        <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-[#6d28d9]/40 transition-colors">
                             <span className="w-8 h-8 rounded-lg shadow-sm border border-black/10 flex-shrink-0 overflow-hidden relative">
                                 <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
                                     className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
@@ -1193,7 +1193,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                     <button onClick={onClose}
                         className="flex-1 py-2.5 border border-border-subtle text-muted hover:text-primary hover:bg-surface text-sm rounded-xl transition-all">{t.calCancel}</button>
                     <button onClick={save} disabled={form.type === 'group_class' ? (isNewGroup ? !newGroupName.trim() : !form.group_id) : !form.title.trim()}
-                        className="flex-1 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
+                        className="flex-1 py-2.5 bg-[#6d28d9] hover:bg-indigo-600 disabled:opacity-40 text-white text-sm font-semibold rounded-xl shadow-lg shadow-[#6d28d9]/20 active:scale-95 transition-all">
                         {t.calAdd}
                     </button>
                 </div>
@@ -1890,7 +1890,7 @@ export default function CalendarPage() {
                     {(['day', 'week', 'month'] as const).map(v => (
                         <button key={v} onClick={() => setView(v)}
                             className={cn('flex-1 sm:flex-none px-4 sm:px-5 h-full text-[11px] font-bold tracking-tight rounded-xl transition-all whitespace-nowrap',
-                                view === v ? 'bg-indigo-500 text-white shadow-md' : 'text-muted/60 hover:text-primary')}>
+                                view === v ? 'bg-[#6d28d9] text-white shadow-md' : 'text-muted/60 hover:text-primary')}>
                             <div className="flex items-center justify-center gap-2">
                                 {v === 'day' && <Calendar className="w-3.5 h-3.5 opacity-70" />}
                                 {v === 'week' && <CalendarDays className="w-3.5 h-3.5 opacity-70" />}
@@ -1905,21 +1905,28 @@ export default function CalendarPage() {
                     {/* Unified Navigation: [Left] [Today] [Date] [Right] */}
                     <div className="flex items-center justify-between w-full sm:w-auto bg-surface border border-border-subtle rounded-2xl p-0.5 shadow-sm h-11">
                         <button onClick={() => nav(-1)} 
-                            className="w-10 sm:w-9 h-full flex items-center justify-center rounded-xl hover:bg-indigo-50 text-muted hover:text-indigo-600 transition-all active:scale-95">
+                            className="w-10 sm:w-9 h-full flex items-center justify-center rounded-xl hover:bg-indigo-50 text-muted hover:text-[#6d28d9] transition-all active:scale-95">
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <div className="w-px h-3 bg-border-subtle mx-0.5" />
                         <button onClick={() => setAnchor(new Date())} 
-                            className="flex-1 sm:flex-none px-4 h-full text-[11px] font-bold tracking-tight rounded-xl hover:bg-indigo-50 text-indigo-600 transition-all active:scale-95">
+                            className="flex-1 sm:flex-none px-4 h-full text-[11px] font-bold tracking-tight rounded-xl hover:bg-indigo-50 text-[#6d28d9] transition-all active:scale-95">
                             {t.todayBtn}
                         </button>
                         <div className="w-px h-3 bg-border-subtle mx-0.5" />
-                        <span className="px-3 text-[11px] font-bold text-primary truncate hidden sm:inline-block">
-                            {formatDate(anchor, 'short')}
-                        </span>
+                        <div className="hidden sm:flex items-center cursor-pointer active:scale-95 transition-transform overflow-hidden px-1">
+                            <StandardDatePicker
+                                value={toDateStr(anchor)}
+                                onChange={(val) => {
+                                    const d = new Date(val);
+                                    if (!isNaN(d.getTime())) setAnchor(d);
+                                }}
+                                className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!p-0 [&_input]:!h-auto [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!text-primary [&_input]:text-center [&_input]:!w-24 [&_input]:!bg-transparent"
+                            />
+                        </div>
                         <div className="w-px h-3 bg-border-subtle mx-0.5 hidden sm:block" />
                         <button onClick={() => nav(1)} 
-                            className="w-10 sm:w-9 h-full flex items-center justify-center rounded-xl hover:bg-indigo-50 text-muted hover:text-indigo-600 transition-all active:scale-95">
+                            className="w-10 sm:w-9 h-full flex items-center justify-center rounded-xl hover:bg-indigo-50 text-muted hover:text-[#6d28d9] transition-all active:scale-95">
                             <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
@@ -1933,7 +1940,7 @@ export default function CalendarPage() {
                     <button
                         onClick={() => setFilterHall('all')}
                         className={cn('px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
-                            filterHall === 'all' ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-card border-border-subtle text-muted/60')}
+                            filterHall === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60')}
                     >
                         {t.allHalls}
                     </button>
@@ -1959,14 +1966,14 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-2">
                     {/* PDF Export */}
                     <button onClick={exportPDF}
-                        className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-indigo-500/40 text-muted hover:text-indigo-600 rounded-2xl transition-all shadow-sm group">
+                        className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-muted hover:text-[#6d28d9] rounded-2xl transition-all shadow-sm group">
                         <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
                     </button>
 
                     {/* Add Event */}
                     {canEdit && (
                         <button onClick={() => setAddDate(toDateStr(new Date()))}
-                            className="flex items-center justify-center gap-2 h-11 px-5 bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white text-[10px] font-black tracking-widest rounded-2xl shadow-lg shadow-indigo-500/20 transition-all">
+                            className="flex items-center justify-center gap-2 h-11 px-5 bg-[#6d28d9] hover:bg-indigo-600 active:scale-95 text-white text-[10px] font-black tracking-widest rounded-2xl shadow-lg shadow-[#6d28d9]/20 transition-all">
                             <CalendarPlus className="w-4 h-4" />
                             <span className="hidden sm:inline">{t.addEvent}</span>
                         </button>
@@ -1979,7 +1986,7 @@ export default function CalendarPage() {
                 <div className="flex-1 bg-surface/50 border border-border-subtle rounded-3xl overflow-hidden shadow-xl shadow-black/5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-subtle/50 bg-surface/30">
                         <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40">{formatDate(anchor, 'long')}</p>
-                        <p className="text-[10px] font-black tracking-[0.2em] text-indigo-500/60">{toDateStr(anchor)}</p>
+                        <p className="text-[10px] font-black tracking-[0.2em] text-[#6d28d9]/60">{toDateStr(anchor)}</p>
                     </div>
 
                     <div className="overflow-y-auto max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-border-subtle relative" ref={dayGridRef}>
@@ -2068,9 +2075,9 @@ export default function CalendarPage() {
                         {weekDates.map((d, i) => {
                             const isToday = toDateStr(d) === toDateStr(new Date());
                             return (
-                                <div key={i} className={cn('py-3.5 text-center border-r border-border-subtle/40 last:border-r-0 transition-colors', isToday ? 'bg-indigo-500/5' : '')}>
+                                <div key={i} className={cn('py-3.5 text-center border-r border-border-subtle/40 last:border-r-0 transition-colors', isToday ? 'bg-[#6d28d9]/5' : '')}>
                                     <p className="text-[10px] text-muted tracking-widest font-black opacity-40">{DAYS[d.getDay()]}</p>
-                                    <p className={cn('text-base font-black mt-1', isToday ? 'text-indigo-500 underline decoration-2 underline-offset-4' : 'text-primary')}>{d.getDate()}</p>
+                                    <p className={cn('text-base font-black mt-1', isToday ? 'text-[#6d28d9] underline decoration-2 underline-offset-4' : 'text-primary')}>{d.getDate()}</p>
                                 </div>
                             );
                         })}
@@ -2104,7 +2111,7 @@ export default function CalendarPage() {
                                 const isToday = dateStr === toDateStr(new Date());
 
                                 return (
-                                    <div key={di} className={cn("relative border-r border-border-subtle/40 last:border-r-0", (isToday && hasMounted) ? "bg-indigo-500/[0.02]" : "")}>
+                                    <div key={di} className={cn("relative border-r border-border-subtle/40 last:border-r-0", (isToday && hasMounted) ? "bg-[#6d28d9]/[0.02]" : "")}>
                                         <GridLines onClick={(e) => {
                                             const rect = e.currentTarget.getBoundingClientRect();
                                             const y = e.clientY - rect.top;
@@ -2189,10 +2196,10 @@ export default function CalendarPage() {
                                 <div key={dateStr}
                                     className={cn('border-b border-r border-border-subtle/40 p-2 cursor-pointer hover:bg-surface/40 transition-all min-h-[100px] flex flex-col',
                                         col === 6 ? 'border-r-0' : '',
-                                        (isToday && hasMounted) ? 'bg-indigo-500/5' : '')}
+                                        (isToday && hasMounted) ? 'bg-[#6d28d9]/5' : '')}
                                     onClick={() => { setAddDate(dateStr); setAddTime(null); }}>
                                     <span className={cn('inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black mb-1 shadow-sm',
-                                        isToday ? 'bg-indigo-500 text-white' : 'text-primary/70 bg-surface/50')}>
+                                        isToday ? 'bg-[#6d28d9] text-white' : 'text-primary/70 bg-surface/50')}>
                                         {d.getDate()}
                                     </span>
                                     <div className="flex-1 space-y-0.5 overflow-hidden">
@@ -2302,7 +2309,7 @@ export default function CalendarPage() {
                         teachers={teachers}
                         halls={halls}
                         groups={groups}
-                        className="h-full border-2 border-indigo-500 animate-pulse"
+                        className="h-full border-2 border-[#6d28d9] animate-pulse"
                     />
                 </div>
             )}
