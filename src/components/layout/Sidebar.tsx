@@ -270,12 +270,14 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     </div>
 
                     <div className={cn(
-                        "mt-auto border-t border-white/[0.12] bg-black/5 transition-all pt-4",
-                        exp ? (isMobile ? "p-3 pb-4 mt-2" : "p-3 pb-6 mt-4") : (isMobile ? "py-4 pb-4" : "py-6")
+                        "mt-auto border-t border-white/[0.12] bg-black/5 transition-all text-center",
+                        exp 
+                            ? (isMobile ? "p-2 py-5 mt-2" : "p-3 pb-6 mt-4") 
+                            : (isMobile ? "py-5" : "py-6")
                     )}>
                         <div className={cn(
-                            "flex items-center justify-center transition-all duration-300 w-full overflow-hidden bg-white/[0.03] border border-white/5 rounded-[1.25rem] p-1",
-                            exp ? "gap-1 flex-row h-12" : "flex-col gap-1 w-11 h-auto py-1"
+                            "flex items-center justify-center transition-all duration-300 w-full overflow-hidden bg-white/[0.03] border border-white/5 rounded-xl p-1",
+                            exp ? (isMobile ? "gap-1 flex-row h-10" : "gap-1 flex-row h-12") : "flex-col gap-1 w-11 h-auto py-1"
                         )}>
                             <LanguageSwitcher 
                                 compact={!exp} 
@@ -295,8 +297,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
                                     exp 
                                         ? "w-10 h-10 rounded-xl flex-1" 
-                                        : "w-9 h-9 rounded-xl",
-                                    isMobile && "scale-105"
+                                        : "w-9 h-9 rounded-xl"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
