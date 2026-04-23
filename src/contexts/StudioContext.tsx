@@ -438,6 +438,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     // 1. Reactive Sync Initiation: Trigger pull whenever the slug is identified/changed
     const lastSyncedSlugRef = useRef<string | null>(null);
 
+    // 1. Proactive Aggressive Hydration (Non-Blocking)
     useEffect(() => {
         if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') {
             setFirstSyncDone(true);
@@ -445,36 +446,40 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
 
         const activeSlug = settings.studioSlug;
-        
-        // Prevent infinite loops if the slug hasn't actually changed 
-        // and we already completed a successful pull for it.
-        if (lastSyncedSlugRef.current === activeSlug && firstSyncDone) {
-            return;
-        }
 
-        // --- PROACTIVE AGGRESSIVE HYDRATION ---
-        // Ensuring cloud data is pulled IMMEDIATELY on app start
-        console.log('🔄 [StudioContext] Proactive cloud sync started for:', activeSlug);
+        // Prevent redundant pulls
+        if (lastSyncedSlugRef.current === activeSlug) return;
         lastSyncedSlugRef.current = activeSlug;
+
+        console.log('🔄 [StudioContext] Background cloud sync started for:', activeSlug);
         
+        // Use a timeout to ensure UI can render even if cloud is slow
+        const syncTimeout = setTimeout(() => {
+            if (!firstSyncDone) {
+                console.warn('⚠️ [Sync] Cloud pull taking too long. Proceeding with local data.');
+                setFirstSyncDone(true);
+            }
+        }, 3500);
+
         import('@/lib/sync-store').then(async ({ pullStudioStateFromCloud }) => {
-            // CRITICAL: Use orgId as scope if available, otherwise fallback to slug
-            // This ensures data is written to the keys the UI components are actually watching
             const local = loadSettings(activeSlug);
             const scope = local.orgId || activeSlug;
             
-            const cloudState = await pullStudioStateFromCloud(activeSlug, scope);
-            
-            if (cloudState && (cloudState.staff_data || cloudState.studio_data)) {
-                console.log('✅ [Sync] Cloud data received. Applying...');
-                // Apply cloud state directly — this handles staff, operations, and orgId
-                applyCloudState(activeSlug, cloudState);
+            try {
+                const cloudState = await pullStudioStateFromCloud(activeSlug, scope);
+                
+                if (cloudState && (cloudState.staff_data || cloudState.studio_data)) {
+                    console.log('✅ [Sync] Cloud data received in background.');
+                    applyCloudState(activeSlug, cloudState);
+                }
+            } catch (err) {
+                console.error('❌ [Sync] Background pull failed:', err);
+            } finally {
+                clearTimeout(syncTimeout);
+                setFirstSyncDone(true);
             }
-            setFirstSyncDone(true);
         });
-
-        return () => {};
-    }, [settings.studioSlug, firstSyncDone]); // 🚨 DECOUPLED: Removed settings.orgId to break the loop
+    }, [isLoaded, settings.studioSlug]); 
 
     // Initial hydration from local storage
     useEffect(() => {
