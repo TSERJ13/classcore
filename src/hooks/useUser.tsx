@@ -91,6 +91,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
+                // 🚀 FORCE REDIRECT: Ensure mobile/web users land on their scoped workspace
+                if (typeof window !== 'undefined' && currentSlug && !isSuperAdminRoute && !isSuperAdmin) {
+                    const currentPath = window.location.pathname;
+                    const segments = currentPath.split('/').filter(Boolean);
+                    
+                    // If at root or /dashboard without a slug, go to /[slug]/dashboard
+                    if (segments.length === 0 || (segments.length === 1 && segments[0] === 'dashboard')) {
+                        console.log(`🚀 [UserProvider] Redirecting to scoped workspace: /${currentSlug}/dashboard`);
+                        window.location.href = `/${currentSlug}/dashboard`;
+                        return; // Halt to avoid state flashing
+                    }
+                }
+
                 if (currentUserIdentity && currentSlug && !isSuperAdminRoute && !isOwner) {
                     try {
                         const { verifyUserInStudio } = await import('@/lib/sync-store');
