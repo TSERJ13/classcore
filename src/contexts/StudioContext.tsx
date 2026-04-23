@@ -16,12 +16,14 @@ interface StudioContextType {
     updateSettings: (updates: Partial<StudioSettings>) => void;
     addSubscriptionLog: (log: Omit<SubscriptionLog, 'id' | 'date'>) => void;
     setCustomRoles: (roles: string[]) => void;
+    addToTrash: (item: any) => void;
 }
 
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
 export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [settings, setSettings] = useState<StudioSettings>(() => loadSettings());
+    const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
     const [isLoaded, setIsLoaded] = useState(false);
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
@@ -37,31 +39,27 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         async function bootstrap() {
             try {
-                // 1. Establish Cloud Anchor
                 const orgId = await ensureStudioExists(activeSlug, settings.studioName);
                 if (orgId) {
                     console.log('🛰️ [MasterSync] Cloud Anchor Established:', orgId);
                     localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
                     
-                        // 2. Fetch Latest Cloud State
-                        const state = await fetchFullStudioState(activeSlug, orgId);
-                        if (state) {
-                            console.log('✅ [MasterSync] Cloud state hydrated.');
-                            
-                            // 🚀 SYNC POINT: Persist OrgId and state updates to disk IMMEDIATELY
-                            const updates = {
-                                orgId,
-                                staff: state.staff?.length > 0 ? state.staff : settings.staff,
-                                branches: state.branches?.length > 0 ? state.branches : settings.branches
-                            };
-                            
-                            setSettings(prev => {
-                                const next = { ...prev, ...updates };
-                                saveSettings(updates, prev, activeSlug); // Sync persist
-                                return next;
-                            });
+                    const state = await fetchFullStudioState(activeSlug, orgId);
+                    if (state) {
+                        console.log('✅ [MasterSync] Cloud state hydrated.');
+                        
+                        const updates = {
+                            orgId,
+                            staff: state.staff?.length > 0 ? state.staff : settings.staff,
+                            branches: state.branches?.length > 0 ? state.branches : settings.branches
+                        };
+                        
+                        setSettings(prev => {
+                            const next = { ...prev, ...updates };
+                            saveSettings(updates, prev, activeSlug);
+                            return next;
+                        });
 
-                        // Force persist scoped collections
                         const mapping: any = {
                             cc_teachers: state.staff,
                             cc_branches: state.branches,
@@ -78,7 +76,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             }
                         });
 
-                        // Notify UI
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
                             .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
                     }
@@ -93,11 +90,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         bootstrap();
     }, [isLoaded, settings.studioSlug]);
 
-    // Initial hydration from local storage
     useEffect(() => {
         const defaultSlug = getActiveSlug();
         const local = loadSettings(defaultSlug || undefined);
         setSettings(local);
+        setTrash(local.trash || []);
         setIsLoaded(true);
     }, []);
 
@@ -107,6 +104,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return saveSettings(updates, prev, prev.studioSlug);
         });
     }, []);
+
+    const addToTrash = useCallback((item: any) => {
+        setTrash(prev => {
+            const next = [item, ...prev].slice(0, 50);
+            saveSettings({ trash: next } as any, settings, settings.studioSlug);
+            return next;
+        });
+    }, [settings]);
 
     const addSubscriptionLog = useCallback((log: Omit<SubscriptionLog, 'id' | 'date'>) => {
         setSettings(prev => {
@@ -137,7 +142,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setActiveBranchId,
             updateSettings, 
             addSubscriptionLog,
-            setCustomRoles
+            setCustomRoles,
+            addToTrash
         }}>
             {children}
         </StudioContext.Provider>
