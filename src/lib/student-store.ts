@@ -225,26 +225,38 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
         patches[studentId].full_name = `${f} ${l}`.trim();
     }
 
-    localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
-    markLocalUpdate();
-    
-    // 🔥 NEW ATOMIC SYNC: Push this student directly to the native table
-    const settings = loadSettings(activeSlug || '');
-    if (settings.orgId) {
-        const studentToSync = patches[studentId];
-        syncRecordToCloud('students', {
-            id: studentId,
-            org_id: settings.orgId,
-            first_name: studentToSync.first_name || '',
-            last_name: studentToSync.last_name || '',
-            full_name: studentToSync.full_name || '',
-            phone: studentToSync.phone || '',
-            email: studentToSync.email || '',
-            data: studentToSync
-        }, settings.orgId);
-    }
+    try {
+        localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
+        markLocalUpdate();
+        console.log('✅ [StudentStore] Local storage updated for:', studentId);
+        
+        // 🔥 NEW ATOMIC SYNC: Push this student directly to the native table
+        const settings = loadSettings(activeSlug || '');
+        if (settings.orgId) {
+            const studentToSync = patches[studentId];
+            console.log('📡 [StudentStore] Attempting Cloud Sync for Org:', settings.orgId);
+            
+            syncRecordToCloud('students', {
+                id: studentId,
+                org_id: settings.orgId,
+                first_name: studentToSync.first_name || '',
+                last_name: studentToSync.last_name || '',
+                full_name: studentToSync.full_name || '',
+                phone: studentToSync.phone || '',
+                email: studentToSync.email || '',
+                data: studentToSync
+            }, settings.orgId).then(success => {
+                if (success) console.log('🟢 [StudentStore] Cloud Sync SUCCESS');
+                else console.error('🔴 [StudentStore] Cloud Sync FAILED (Check network/permissions)');
+            });
+        } else {
+            console.warn('⚠️ [StudentStore] No OrgID found. Skipping Cloud Sync.');
+        }
 
-    triggerInstantSync();
+        triggerInstantSync();
+    } catch (e) {
+        console.error('❌ [StudentStore] Fatal error during update:', e);
+    }
 
 
     window.dispatchEvent(new Event('cc_student_update'));
