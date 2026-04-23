@@ -157,7 +157,7 @@ export default function LoginPage() {
             const rawError = err.message || err.error_description || JSON.stringify(err);
 
             if (isTimeout) {
-                setError(l('კავშირის დრო ამოიწურა. გთხოვთ შეამოწმოთ ინტერნეტი და სცადოთ თავიდან.', 'Время ожидания истекло. Проверьте интернет и попробуйте снова.', 'Connection timeout. Please check your internet and retry.'));
+                setError(l('[V2] კავშირის დრო ამოიწურა. გთხოვთ შეამოწმოთ ინტერნეტი და სცადოთ თავიდან.', 'Время ожидания истекло. Проверьте интернет и попробуйте снова.', 'Connection timeout. Please check your internet and retry.'));
             } else if (err.message === 'USER_NOT_FOUND' || err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
                 setError(l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.'));
             } else if (err.message === 'Email not confirmed') {
@@ -285,13 +285,13 @@ export default function LoginPage() {
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className="w-full h-12 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-slate-900/10 active:scale-[0.98] transition-all hover:bg-slate-800 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-50"
+                                        className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 active:scale-[0.98] transition-all hover:bg-indigo-700 flex items-center justify-center gap-2 relative group disabled:opacity-50"
                                     >
                                         {isSubmitting ? (
-                                            <div className="flex flex-col items-center gap-1">
+                                            <div className="flex items-center gap-3">
                                                 <Loader2 className="w-4 h-4 animate-spin" />
                                                 {loginStatus && (
-                                                    <span className="text-[8px] font-black opacity-50 absolute -bottom-4 left-0 w-full text-center truncate px-2">{loginStatus}</span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest animate-pulse">{loginStatus}</span>
                                                 )}
                                             </div>
                                         ) : (
