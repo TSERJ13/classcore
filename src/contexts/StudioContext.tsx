@@ -535,7 +535,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         const channel = supabase
             .channel(`studio_pulse_${settings.studioSlug}`)
             .on('postgres_changes', { 
-                event: 'UPDATE', 
+                event: '*', 
                 schema: 'public', 
                 table: 'studio_settings',
                 filter: `studio_slug=eq.${settings.studioSlug}`
