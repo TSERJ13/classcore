@@ -9,7 +9,7 @@ import { recordAuditAction } from '@/lib/audit-store';
 import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
 import { createClient } from '@/lib/supabase/client';
 import { consolidateStudioKeys } from '@/lib/utils';
-import { fetchFullStudioState, syncRecordToCloud, pushFullStudioMetadata } from '@/lib/master-sync';
+import { fetchFullStudioState, syncRecordToCloud, ensureStudioExists } from '@/lib/master-sync';
 
 interface StudioContextValue {
     settings: StudioSettings;
@@ -475,74 +475,68 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         console.log('🔄 [MasterSync] Hydrating from native tables for:', activeSlug);
         
         // 🛡️ BOOTSTRAP: Ensure studio row exists in cloud
-        import('@/lib/master-sync').then(async ({ ensureStudioExists, fetchFullStudioState, syncRecordToCloud }) => {
+        const initMasterSync = async () => {
             try {
                 const orgId = await ensureStudioExists(activeSlug, settings.studioName);
                 
                 if (orgId) {
                     console.log('🚀 [MasterSync] Cloud anchor verified. OrgID:', orgId);
                     
+                    // 🚨 CRITICAL: Persist OrgID immediately to local storage so other stores can see it
+                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
+
                     // IF NEW ANCHOR OR INITIAL LOAD: Push EVERYTHING local to cloud first
-                    // This prevents the empty cloud from wiping local data
                     const isNewAnchor = orgId !== settings.orgId;
                     if (isNewAnchor) {
                         console.log('📦 [MasterSync] Migrating full local state to new cloud anchor...');
-                        setSettings(prev => ({ ...prev, orgId }));
+                        setSettings(prev => {
+                            const next = { ...prev, orgId };
+                            const key = getScopedKey(STORAGE_KEY, activeSlug);
+                            localStorage.setItem(key, JSON.stringify(next));
+                            return next;
+                        });
                         
-                        // 1. Push Students
-                        const studentsRaw = localStorage.getItem(getScopedKey('cc_student_data', activeSlug));
-                        if (studentsRaw) {
-                            const students = JSON.parse(studentsRaw);
-                            Object.entries(students).forEach(([id, data]) => {
-                                syncRecordToCloud('students', { id, org_id: orgId, ...data as any }, orgId);
-                            });
-                        }
+                        // Push collections
+                        const collections = [
+                            { key: 'cc_student_data', table: 'students' },
+                            { key: 'cc_teachers', table: 'staff' },
+                            { key: 'cc_branches', table: 'branches' },
+                            { key: 'cc_groups', table: 'groups' }
+                        ];
 
-                        // 2. Push Staff
-                        const staffRaw = localStorage.getItem(getScopedKey('cc_teachers', activeSlug));
-                        if (staffRaw) {
-                            const staff = JSON.parse(staffRaw);
-                            staff.forEach((s: any) => syncRecordToCloud('staff', { id: s.id, org_id: orgId, ...s }, orgId));
-                        }
-
-                        // 3. Push Branches
-                        const branchesRaw = localStorage.getItem(getScopedKey('cc_branches', activeSlug));
-                        if (branchesRaw) {
-                            const branches = JSON.parse(branchesRaw);
-                            branches.forEach((b: any) => syncRecordToCloud('branches', { id: b.id, org_id: orgId, ...b }, orgId));
-                        }
-
-                        // 4. Push Groups
-                        const groupsRaw = localStorage.getItem(getScopedKey('cc_groups', activeSlug));
-                        if (groupsRaw) {
-                            const groups = JSON.parse(groupsRaw);
-                            groups.forEach((g: any) => syncRecordToCloud('groups', { id: g.id, org_id: orgId, ...g }, orgId));
-                        }
+                        collections.forEach(({ key, table }) => {
+                            const raw = localStorage.getItem(getScopedKey(key, activeSlug));
+                            if (raw) {
+                                const data = JSON.parse(raw);
+                                if (Array.isArray(data)) {
+                                    data.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
+                                } else if (typeof data === 'object') {
+                                    Object.entries(data).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
+                                }
+                            }
+                        });
                     }
 
                     const state = await fetchFullStudioState(activeSlug, orgId);
                     if (state) {
-                        // Merging logic: IF cloud has data, use it. IF NOT, keep local.
                         setSettings(prev => {
-                            const next = {
-                                ...prev,
-                                orgId: state.org_id,
-                                lastSync: Date.now()
-                            };
-                            
-                            // Only update collections if cloud actually HAS items
+                            const next = { ...prev, orgId: state.org_id, lastSync: Date.now() };
                             if (state.staff?.length > 0) next.staff = state.staff;
                             if (state.branches?.length > 0) next.branches = state.branches;
-                            
                             return next;
                         });
 
-                        // Update local storage ONLY if cloud version was fetched (and not empty)
-                        if (state.staff?.length > 0) localStorage.setItem(getScopedKey('cc_teachers', activeSlug), JSON.stringify(state.staff));
-                        if (state.branches?.length > 0) localStorage.setItem(getScopedKey('cc_branches', activeSlug), JSON.stringify(state.branches));
-                        if (state.halls?.length > 0) localStorage.setItem(getScopedKey('cc_halls', activeSlug), JSON.stringify(state.halls));
-                        if (state.groups?.length > 0) localStorage.setItem(getScopedKey('cc_groups', activeSlug), JSON.stringify(state.groups));
-                        if (state.students?.length > 0) localStorage.setItem(getScopedKey('cc_student_data', activeSlug), JSON.stringify(state.students));
+                        const storageMap: any = {
+                            cc_teachers: state.staff,
+                            cc_branches: state.branches,
+                            cc_halls: state.halls,
+                            cc_groups: state.groups,
+                            cc_student_data: state.students
+                        };
+
+                        Object.entries(storageMap).forEach(([key, val]) => {
+                            if ((val as any)?.length > 0) localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(val));
+                        });
 
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
                             .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
@@ -553,7 +547,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             } finally {
                 setFirstSyncDone(true);
             }
-        });
+        };
+
+        initMasterSync();
     }, [isLoaded, settings.studioSlug]);
 
     // Initial hydration from local storage
