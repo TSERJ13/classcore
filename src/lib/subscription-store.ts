@@ -29,7 +29,7 @@ type SubMap = Record<string, SubscriptionInfo[]>;
 
 import { getStaffSession, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
-import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';
@@ -282,18 +282,9 @@ export function deleteSubscription(studentId: string, subId: string): void {
     data[studentId] = data[studentId].filter(s => s.id !== subId);
     if (data[studentId].length === 0) delete data[studentId]; // Remove student entry if no subscriptions left
     
-    // Persist deletion for tombstone
-    const deletedKey = getDeletedSubsKey();
-    let deletedIds: string[] = [];
-    try {
-        const raw = localStorage.getItem(deletedKey);
-        if (raw) deletedIds = JSON.parse(raw);
-        if (!Array.isArray(deletedIds)) deletedIds = [];
-    } catch {}
-    
-    if (!deletedIds.includes(subId)) {
-        deletedIds.push(subId);
-        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (slug) {
+        recordGlobalDeletion(slug, 'cc_student_subscriptions', subId);
     }
 
     localStorage.setItem(getSubsKey(), JSON.stringify(data));

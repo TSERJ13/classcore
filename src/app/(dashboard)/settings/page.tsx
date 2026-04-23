@@ -141,6 +141,7 @@ export default function SettingsPage() {
     const [uploading, setUploading] = useState(false);
     const [sessionVal, setSessionVal] = useState(settings.security.sessionTimeout);
     const fileRef = useRef<HTMLInputElement>(null);
+    const staffFileRef = useRef<HTMLInputElement>(null);
     const importFileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -481,6 +482,38 @@ export default function SettingsPage() {
         } finally {
             setUploading(false);
             if (fileRef.current) fileRef.current.value = '';
+        }
+    }
+
+    async function handleStaffPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, staffId: string) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!validateImageSize(file)) {
+            addNotification({
+                type: 'error',
+                title: t.imageError || 'Error',
+                message: t.fileTooLarge,
+                duration: 4000
+            });
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const optimizedBase64 = await processProfileImage(file);
+            setEditingStaffData((prev: any) => ({ ...prev, photo_url: optimizedBase64 }));
+            addNotification(l('ფოტო წარმატებით განახლდა', 'Фото успешно обновлено', 'Photo successfully updated'), 'success');
+        } catch (err) {
+            addNotification({
+                type: 'error',
+                title: t.imageError || 'Error',
+                message: t.imageProcessingError,
+                duration: 4000
+            });
+        } finally {
+            setUploading(false);
+            if (staffFileRef.current) staffFileRef.current.value = '';
         }
     }
 
@@ -1190,8 +1223,37 @@ export default function SettingsPage() {
                                 <>
                                     <div className="px-8 py-6 border-b border-border-subtle/30 flex items-center justify-between bg-surface/30">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-black text-lg">
-                                                {getInitials(`${member.first_name} ${member.last_name}`)}
+                                            <div 
+                                                onClick={() => staffFileRef.current?.click()}
+                                                className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-dashed border-indigo-500/20 hover:border-indigo-500/50 flex items-center justify-center text-indigo-500 font-black text-lg overflow-hidden group/avatar cursor-pointer transition-all relative"
+                                            >
+                                                <input 
+                                                    type="file" 
+                                                    ref={staffFileRef} 
+                                                    onChange={(e) => handleStaffPhotoUpload(e, member.id)}
+                                                    accept="image/*"
+                                                    className="hidden" 
+                                                />
+                                                {member.photo_url ? (
+                                                    <>
+                                                        <img src={member.photo_url} alt="" className="w-full h-full object-cover transition-transform group-hover/avatar:scale-110" />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <Camera className="w-5 h-5 text-white" />
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="group-hover/avatar:scale-110 transition-transform">{getInitials(`${member.first_name} ${member.last_name}`)}</span>
+                                                        <div className="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <Camera className="w-5 h-5 text-indigo-500" />
+                                                        </div>
+                                                    </>
+                                                )}
+                                                {uploading && (
+                                                    <div className="absolute inset-0 bg-card/60 flex items-center justify-center">
+                                                        <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+                                                    </div>
+                                                )}
                                             </div>
                                             <div>
                                                 <h3 className="text-lg font-black text-primary tracking-tight">{member.first_name} {member.last_name}</h3>

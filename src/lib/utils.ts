@@ -140,6 +140,49 @@ export function getActiveSlug(): string | null {
 }
 
 /**
+ * DELETION REGISTRY: Unified way to track 'tombstones' for sync honesty.
+ */
+export function recordGlobalDeletion(slug: string, collection: string, id: string) {
+    if (typeof window === 'undefined' || !slug) return;
+    const key = `cc_deleted_registry_${slug}`;
+    try {
+        const current = JSON.parse(localStorage.getItem(key) || '{}');
+        if (!current[collection]) current[collection] = [];
+        if (!current[collection].includes(String(id))) {
+            current[collection].push(String(id));
+            localStorage.setItem(key, JSON.stringify(current));
+            console.log(`🗑️ [Registry] Recorded deletion: ${collection}/${id}`);
+        }
+    } catch (e) {
+        console.error('❌ [Registry] Failed to record deletion:', e);
+    }
+}
+
+export function clearGlobalDeletion(slug: string, collection: string, id: string) {
+    if (typeof window === 'undefined' || !slug) return;
+    const key = `cc_deleted_registry_${slug}`;
+    try {
+        const current = JSON.parse(localStorage.getItem(key) || '{}');
+        if (current[collection] && current[collection].includes(String(id))) {
+            current[collection] = current[collection].filter((i: string) => i !== String(id));
+            localStorage.setItem(key, JSON.stringify(current));
+            console.log(`✨ [Registry] Cleared tombstone: ${collection}/${id}`);
+        }
+    } catch (e) { }
+}
+
+export function isGloballyDeleted(slug: string, collection: string, id: string): boolean {
+    if (typeof window === 'undefined' || !slug) return false;
+    const key = `cc_deleted_registry_${slug}`;
+    try {
+        const current = JSON.parse(localStorage.getItem(key) || '{}');
+        return (current[collection] || []).includes(String(id));
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Helper to identify if a localStorage key belongs to a specific studio
  * for synchronization purposes. Supports both slug and orgId scoping.
  */

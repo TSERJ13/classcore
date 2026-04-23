@@ -1,4 +1,4 @@
-import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate, recordGlobalDeletion, clearGlobalDeletion } from './utils';
 import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-store';
 import { triggerInstantSync } from './sync-store';
 import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
@@ -239,19 +239,9 @@ export function deleteStudent(studentId: string): void {
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
     markLocalUpdate();
 
-    // Persist deletion for mock data
-    const deletedKey = getDeletedStudentsKey();
-    let deletedIds = [];
-    try {
-        const raw = localStorage.getItem(deletedKey);
-        if (raw) deletedIds = JSON.parse(raw);
-        if (!Array.isArray(deletedIds)) deletedIds = [];
-    } catch (e) {
-        deletedIds = [];
-    }
-    if (!deletedIds.includes(studentId)) {
-        deletedIds.push(studentId);
-        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    const slug = typeof window !== 'undefined' ? getActiveSlugLowLevel() : null;
+    if (slug) {
+        recordGlobalDeletion(slug, 'cc_student_data', studentId);
     }
 
     // also clear UID

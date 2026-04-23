@@ -13,7 +13,7 @@ export interface HallData {
     is_active: boolean;
 }
 
-import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion } from './utils';
 import { triggerInstantSync } from './sync-store';
 
 const BASE_HALLS_KEY = 'cc_halls';
@@ -90,18 +90,9 @@ export function deleteHall(id: string): void {
     const halls = getHalls();
     const updated = halls.filter(h => h.id !== id);
     
-    // Persist deletion for tombstone
-    const deletedKey = getDeletedHallsKey();
-    let deletedIds: string[] = [];
-    try {
-        const raw = localStorage.getItem(deletedKey);
-        if (raw) deletedIds = JSON.parse(raw);
-        if (!Array.isArray(deletedIds)) deletedIds = [];
-    } catch {}
-    
-    if (!deletedIds.includes(id)) {
-        deletedIds.push(id);
-        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (slug) {
+        recordGlobalDeletion(slug, 'cc_halls', id);
     }
 
     const key = getHallsKey();

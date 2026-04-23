@@ -45,16 +45,25 @@ export function scrubLocalStorage(_activeSlug: string, _orgId?: string) {
 /**
  * SMART MERGE: Intelligently merges two operational blobs.
  * Principle: Union arrays by ID (newest wins on collision), shallow-merge objects.
+ * 🛡️ DELETION AWARE: Respects 'cc_deleted_' registries to prevent resurrection.
  */
-function smartMergeCollections(existing: Record<string, any>, incoming: Record<string, any>): Record<string, any> {
+function smartMergeCollections(existing: Record<string, any>, incoming: Record<string, any>, deletedRegistry: Record<string, string[]> = {}): Record<string, any> {
     const result = { ...existing };
 
     Object.entries(incoming).forEach(([key, incomingVal]) => {
         const existingVal = result[key];
+        const deletedIds = deletedRegistry[key] || [];
 
         if (!existingVal) {
-            // New key entirely
-            result[key] = incomingVal;
+            // New key entirely - but don't bring back deleted items
+            if (Array.isArray(incomingVal)) {
+                result[key] = incomingVal.filter(item => {
+                    const id = item?.id || item?.student_id || JSON.stringify(item);
+                    return !deletedIds.includes(String(id));
+                });
+            } else {
+                result[key] = incomingVal;
+            }
             return;
         }
 
@@ -64,22 +73,35 @@ function smartMergeCollections(existing: Record<string, any>, incoming: Record<s
             // Load existing items
             existingVal.forEach(item => {
                 const id = item?.id || item?.student_id || JSON.stringify(item);
-                map.set(id, item);
+                map.set(String(id), item);
             });
             // Overwrite with incoming items (newer)
             incomingVal.forEach(item => {
                 const id = item?.id || item?.student_id || JSON.stringify(item);
-                map.set(id, { ...(map.get(id) || {}), ...item });
+                map.set(String(id), { ...(map.get(String(id)) || {}), ...item });
             });
-            result[key] = Array.from(map.values());
+
+            // 🛡️ PRUNE DELETED: Filter out anything in the deletion registry
+            result[key] = Array.from(map.values()).filter(item => {
+                const id = item?.id || item?.student_id || JSON.stringify(item);
+                return !deletedIds.includes(String(id));
+            });
         } 
         // 2. Object Merge (Settings/Config)
         else if (typeof incomingVal === 'object' && incomingVal !== null &&
                  typeof existingVal === 'object' && existingVal !== null) {
+            // Special case: don't let empty objects overwrite populated ones
+            if (Object.keys(incomingVal).length === 0 && Object.keys(existingVal).length > 0) {
+                return; 
+            }
             result[key] = { ...existingVal, ...incomingVal };
         } 
         // 3. Primitive Override
         else {
+            // Don't let null/undefined overwrite existing values unless explicitly allowed
+            if ((incomingVal === null || incomingVal === undefined) && existingVal !== null) {
+                return;
+            }
             result[key] = incomingVal;
         }
     });
@@ -115,7 +137,8 @@ export async function pushStudioStateToCloud(
 
         // 1. Strip slug/orgId suffixes from localStorage keys to get clean base keys
         // 🚨 OPTIMIZATION: Exclude heavy, standalone-synced data from the main blob
-        const EXCLUDED_FROM_BLOB = ['cc_global_trash', 'cc_global_history', 'cc_audit_log'];
+        // 🚨 NO EXCLUSIONS: The user wants EVERYTHING saved (including Trash and History)
+        const EXCLUDED_FROM_BLOB: string[] = [];
         
         const operations: Record<string, any> = {};
         Object.entries(studioData).forEach(([key, value]) => {
@@ -158,52 +181,66 @@ export async function pushStudioStateToCloud(
         // 🛡️ PROTECTION 2: If the local state is EMPTY (Default) and the cloud ALREADY HAS DATA,
         // DO NOT PUSH. This prevents a fresh browser session from wiping out the cloud.
         orgId = orgId || current?.org_id || '';
-        
-        // 🚨 CRITICAL PROTECTION: Pull absolute latest before merging to prevent race conditions
-        const { data: latest, error: pullError } = await supabase
-            .from(SETTINGS_TABLE)
-            .select('staff_data, org_id')
-            .eq('studio_slug', slug)
-            .maybeSingle();
-
-        if (pullError) {
-            console.error('❌ [Sync] Fetch latest failed before push. Aborting safety merge.');
-            return;
+        if (!orgId) {
+             console.warn('⚠️ [Sync] No Org ID found for slug:', slug, '. Aborting push.');
+             return;
         }
 
-        const cloudStaffData = latest?.staff_data || {};
-        const isLegacy = Array.isArray(cloudStaffData);
+        const cloudBlob = current?.staff_data || {};
+        const isLegacy = Array.isArray(cloudBlob);
         
         let cloudStaff: StaffMember[] = [];
-        let cloudOperations: Record<string, any> = {};
+        let cloudOps: Record<string, any> = {};
+        let cloudDeleted: Record<string, string[]> = {};
 
         if (isLegacy) {
-            cloudStaff = cloudStaffData.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
-            const configObj = cloudStaffData.find((s: any) => s.id === '__studio_config__');
+            cloudStaff = cloudBlob.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
+            const configObj = cloudBlob.find((s: any) => s.id === '__studio_config__');
             if (configObj?.studio_data) {
                 Object.entries(configObj.studio_data).forEach(([k, v]) => {
                     let base = k;
                     if (base.endsWith(`_${slug}`)) base = base.slice(0, -(slug.length + 1));
-                    if (!EXCLUDED_FROM_BLOB.includes(base)) cloudOperations[base] = v;
+                    if (!EXCLUDED_FROM_BLOB.includes(base)) cloudOps[base] = v;
                 });
             }
         } else {
-            cloudStaff = cloudStaffData._staff || [];
-            cloudOperations = cloudStaffData._operations || {};
+            cloudStaff = cloudBlob._staff || [];
+            cloudOps = cloudBlob._operations || {};
+            cloudDeleted = cloudBlob._deleted_registry || {};
         }
 
-        // --- RECORD-LEVEL SMART MERGE ---
-        const mergedOperations = smartMergeCollections(cloudOperations, operations);
-        
-        // Staff Merge: Combine staff lists by ID
-        const staffMap = new Map();
-        cloudStaff.forEach(s => staffMap.set(s.id, s));
-        staff.forEach(s => staffMap.set(s.id, { ...(staffMap.get(s.id) || {}), ...s }));
-        const mergedStaff = Array.from(staffMap.values());
+        // --- DELETION INTEGRITY ---
+        const localDeletedKey = `cc_deleted_registry_${slug}`;
+        const localDeleted: Record<string, string[]> = JSON.parse(localStorage.getItem(localDeletedKey) || '{}');
 
+        // Merge deletion registries (Cloud + Local)
+        const combinedDeleted: Record<string, string[]> = { ...cloudDeleted };
+        Object.entries(localDeleted).forEach(([k, ids]) => {
+            combinedDeleted[k] = Array.from(new Set([...(combinedDeleted[k] || []), ...ids]));
+        });
+
+        // --- ATOMIC MERGE ---
+        const staffMap = new Map();
+        // 1. Cloud (Truth)
+        cloudStaff.forEach(s => staffMap.set(String(s.id), s));
+        // 2. Local (Changes)
+        staff.forEach(s => staffMap.set(String(s.id), { ...(staffMap.get(String(s.id)) || {}), ...s }));
+        // 3. Prune Deleted
+        (combinedDeleted['_staff'] || []).forEach(id => staffMap.delete(String(id)));
+
+        const mergedStaff = Array.from(staffMap.values());
+        const mergedOps = smartMergeCollections(cloudOps, studioData, combinedDeleted);
+
+        // --- FINAL BUNDLE ---
         const blob = {
             _staff: mergedStaff,
-            _operations: mergedOperations
+            _operations: mergedOps,
+            _deleted_registry: combinedDeleted,
+            _sync_meta: {
+                pusher_id: staff[0]?.id || 'unknown',
+                ts: new Date().toISOString(),
+                device: typeof window !== 'undefined' ? window.navigator.userAgent : 'server'
+            }
         };
 
         // 3. Build staff_emails for quick lookups
@@ -327,21 +364,25 @@ export function transformCloudBlobToLocalState(blob: any, scope: string, orgId?:
     let staffArr = blob._staff || (Array.isArray(blob) ? blob : []);
     const operations = blob._operations || {};
 
-    // Standard normalization for all staff records
-    if (staffArr.length > 0 && staffArr[0].salary_rates) {
+    // Standard normalization for all staff records - Ensure photo_url and profile fields always map correctly
+    if (staffArr.length > 0) {
         staffArr = staffArr.map((s: any) => ({
             id: s.id,
-            full_name: s.full_name,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            full_name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
             email: s.email,
             phone: s.phone,
             role: s.role,
+            password: s.password,
             photo_url: s.photo_url,
             specialty: s.specialty,
-            rate_per_hour: s.salary_rates?.hourly,
-            rate_per_month: s.salary_rates?.monthly,
-            salary_percentage: s.salary_rates?.percentage,
+            rate_per_hour: s.salary_rates?.hourly ?? s.rate_per_hour,
+            rate_per_month: s.salary_rates?.monthly ?? s.rate_per_month,
+            salary_percentage: s.salary_rates?.percentage ?? s.salary_percentage,
             assigned_group_ids: s.assigned_group_ids,
-            allowedBranchIds: s.allowed_branch_ids,
+            allowedBranchIds: s.allowed_branch_ids || s.allowedBranchIds,
+            permissions: s.permissions,
             status: s.status,
             created_at: s.created_at
         }));
@@ -416,14 +457,18 @@ export async function pullStudioStateFromCloud(
         if (state && master) {
             const settingsKey = `cc_studio_settings_${scope}`;
             const settingsObj = state.studio_data[settingsKey] || {};
+            
+            // 🛡️ BLOB IS TRUTH: Prioritize values from the sync blob (settingsObj)
+            // Only use 'master' (standalone table) as a fallback if the blob is missing the field.
+            // This prevents an old/failed 'studios' table update from overwriting fresh local changes.
             state.studio_data[settingsKey] = {
                 ...settingsObj,
-                studioName: master.studio_name || settingsObj.studioName,
-                logoDataUrl: master.logo_url || settingsObj.logoDataUrl || null,
-                plan: master.plan || settingsObj.plan,
-                status: master.status || settingsObj.status,
-                owner_info: master.owner_info || settingsObj.owner_info,
-                orgId: master.org_id || settingsObj.orgId
+                studioName: settingsObj.studioName || master.studio_name,
+                logoDataUrl: settingsObj.logoDataUrl || master.logo_url || null,
+                plan: settingsObj.plan || master.plan,
+                status: settingsObj.status || master.status,
+                owner_info: settingsObj.owner_info || master.owner_info,
+                orgId: settingsObj.orgId || master.org_id
             };
         }
 

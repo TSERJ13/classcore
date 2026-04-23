@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings, getStaffSession, patchNotifications, patchSecurity, applyTheme, cleanupRegistry, DEFAULT_SETTINGS } from '@/lib/settings-store';
 import { scrubLocalStorage } from '@/lib/sync-store';
-import { getScopedKey, STORAGE_KEY, ACTIVE_SLUG_KEY } from '@/lib/utils';
+import { getScopedKey, STORAGE_KEY, ACTIVE_SLUG_KEY, recordGlobalDeletion, clearGlobalDeletion } from '@/lib/utils';
 import { type StudioSettings, type ThemeKey, type Branch, type StaffMember, type TrashItem, type SubscriptionLog } from '@/types';
 import { useUser } from '@/hooks/useUser';
 import { recordAuditAction } from '@/lib/audit-store';
@@ -299,10 +299,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     const addStaff = useCallback((member: Omit<StaffMember, 'id' | 'created_at'>) => {
         markLocalUpdate();
+        const newId = Math.random().toString(36).substring(2, 9);
+        if (settings.studioSlug) {
+            clearGlobalDeletion(settings.studioSlug, '_staff', newId);
+        }
         setSettings(prev => {
             const newMember: StaffMember = {
                 ...member,
-                id: Math.random().toString(36).substring(2, 9),
+                id: newId,
                 created_at: new Date().toISOString()
             };
             const nextStaff = [...(prev.staff || []), newMember];
@@ -310,10 +314,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             return saveSettings({ staff: nextStaff }, prev, prev.studioSlug);
         });
         window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, syncTeacherGroups]);
+    }, [markLocalUpdate, syncTeacherGroups, settings.studioSlug]);
 
     const removeStaff = useCallback((id: string) => {
         markLocalUpdate();
+        if (settings.studioSlug) {
+            recordGlobalDeletion(settings.studioSlug, '_staff', id);
+        }
         setSettings(prev => {
             const member = (prev.staff || []).find(s => s.id === id);
             if (member) {
@@ -324,7 +331,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             return saveSettings({ staff }, prev, prev.studioSlug);
         });
         window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [activeBranchId, markLocalUpdate, syncTeacherGroups]);
+    }, [activeBranchId, markLocalUpdate, syncTeacherGroups, settings.studioSlug]);
 
     const updateStaff = useCallback((id: string, patch: Partial<StaffMember>) => {
         markLocalUpdate();
@@ -436,9 +443,10 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             return;
         }
 
-        // --- OPTIMISTIC BACKGROUND HYDRATION ---
-        console.log('🔄 [StudioContext] Background sync started for:', activeSlug);
-        lastSyncedSlugRef.current = activeSlug; // 🚨 BRAKE: Prevent infinite loops
+        // --- PROACTIVE AGGRESSIVE HYDRATION ---
+        // Ensuring cloud data is pulled IMMEDIATELY on app start
+        console.log('🔄 [StudioContext] Proactive cloud sync started for:', activeSlug);
+        lastSyncedSlugRef.current = activeSlug;
         
         import('@/lib/sync-store').then(async ({ pullStudioStateFromCloud }) => {
             // CRITICAL: Use orgId as scope if available, otherwise fallback to slug

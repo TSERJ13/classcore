@@ -29,7 +29,7 @@ export interface Group {
     org_id?: string;
 }
 
-import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion } from './utils';
 import { triggerInstantSync } from './sync-store';
 
 const BASE_GROUPS_KEY = 'cc_groups';
@@ -238,18 +238,9 @@ export function deleteGroup(id: string): void {
     const groups = getGroups();
     const updated = groups.filter(g => g.id !== id);
     
-    // Persist deletion for mock data / tombstone
-    const deletedKey = getDeletedGroupsKey();
-    let deletedIds: string[] = [];
-    try {
-        const raw = localStorage.getItem(deletedKey);
-        if (raw) deletedIds = JSON.parse(raw);
-        if (!Array.isArray(deletedIds)) deletedIds = [];
-    } catch {}
-    
-    if (!deletedIds.includes(id)) {
-        deletedIds.push(id);
-        localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (slug) {
+        recordGlobalDeletion(slug, 'cc_groups', id);
     }
 
     const key = getGroupsKey();
