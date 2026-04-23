@@ -30,7 +30,9 @@ export interface Group {
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion } from './utils';
+import { loadSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
+import { syncRecordToCloud } from './master-sync';
 
 const BASE_GROUPS_KEY = 'cc_groups';
 const BASE_DELETED_GROUPS_KEY = 'cc_deleted_groups';
@@ -96,6 +98,20 @@ export function saveGroups(groups: Group[]): void {
     localStorage.setItem(key, JSON.stringify(groups));
     markLocalUpdate();
     
+    // 🔥 NEW ATOMIC SYNC: Push all groups to the native table
+    const activeSlug = getActiveSlug() || '';
+    const settings = loadSettings(activeSlug);
+    if (settings.orgId) {
+        groups.forEach(g => {
+            syncRecordToCloud('groups', {
+                id: g.id,
+                org_id: settings.orgId,
+                name: g.name,
+                data: g
+            }, settings.orgId);
+        });
+    }
+
     triggerInstantSync();
 
     window.dispatchEvent(new Event('cc_groups_update'));

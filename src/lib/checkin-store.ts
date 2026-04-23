@@ -3,6 +3,7 @@ import { pushStudioStateToCloud } from './sync-store';
 import { getScopedKey, markLocalUpdate } from './utils';
 import { getStaffSession, getActiveSlug, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
+import { syncRecordToCloud } from './master-sync';
 /**
  * checkin-store.ts
  * localStorage-based store for attendance records.
@@ -175,8 +176,21 @@ function _writeCheckin(
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
     
-    // Standardized Cloud Sync
+    // 🔥 NEW ATOMIC SYNC: Push this check-in to the native table
     const activeSlug = getActiveSlug();
+    const settings = loadSettings(activeSlug || '');
+    if (settings.orgId) {
+        syncRecordToCloud('attendance_records', {
+            org_id: settings.orgId,
+            student_id: studentId,
+            group_id: groupId || 'none',
+            date: today(),
+            status: 'present',
+            notes: `Via ${via.toUpperCase()}`
+        }, settings.orgId);
+    }
+
+    // Legacy sync trigger
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
         pushStudioStateToCloud(activeSlug, [], { [key]: updated });
     }

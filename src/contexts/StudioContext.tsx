@@ -10,6 +10,7 @@ import { recordAuditAction } from '@/lib/audit-store';
 import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
 import { createClient } from '@/lib/supabase/client';
 import { consolidateStudioKeys } from '@/lib/utils';
+import { fetchFullStudioState, syncRecordToCloud, pushFullStudioMetadata } from '@/lib/master-sync';
 
 interface StudioContextValue {
     settings: StudioSettings;
@@ -162,7 +163,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     }, []);
 
     const setStudioName = useCallback((n: string) => {
-        setSettings(prev => saveSettings({ studioName: n }, prev, prev.studioSlug));
+        setSettings(prev => {
+            const next = saveSettings({ studioName: n }, prev, prev.studioSlug);
+            // Sync to Master Studio table
+            if (prev.orgId) {
+                pushFullStudioMetadata(prev.studioSlug || '', n, next.settings || {});
+            }
+            return next;
+        });
         document.cookie = `cc_studio_name=${encodeURIComponent(n)}; path=/; max-age=31536000; SameSite=Lax`;
     }, []);
 
@@ -272,6 +280,17 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 is_active: true,
                 created_at: new Date().toISOString()
             };
+            
+            // Sync to Master Branch table
+            if (prev.orgId) {
+                syncRecordToCloud('branches', {
+                    id: newBranch.id,
+                    org_id: prev.orgId,
+                    name: newBranch.name,
+                    address: newBranch.address
+                }, prev.orgId);
+            }
+
             return saveSettings({ branches: [...prev.branches, newBranch] }, prev, prev.studioSlug);
         });
     }, []);
@@ -319,6 +338,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 created_at: new Date().toISOString()
             };
             const nextStaff = [...(prev.staff || []), newMember];
+            
+            // Sync to Master Table
+            if (prev.orgId) {
+                syncRecordToCloud('staff', newMember, prev.orgId);
+            }
+
             syncTeacherGroups(newMember.id, `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name, newMember.assigned_group_ids || []);
             return saveSettings({ staff: nextStaff }, prev, prev.studioSlug);
         });
@@ -438,7 +463,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     // 1. Reactive Sync Initiation: Trigger pull whenever the slug is identified/changed
     const lastSyncedSlugRef = useRef<string | null>(null);
 
-    // 1. Proactive Aggressive Hydration (Non-Blocking)
+    // 1. Proactive Aggressive Hydration (Normalized Mode)
     useEffect(() => {
         if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') {
             setFirstSyncDone(true);
@@ -446,44 +471,42 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         }
 
         const activeSlug = settings.studioSlug;
-
-        // Prevent redundant pulls
         if (lastSyncedSlugRef.current === activeSlug) return;
         lastSyncedSlugRef.current = activeSlug;
 
-        console.log('🔄 [StudioContext] Background cloud sync started for:', activeSlug);
+        console.log('🔄 [MasterSync] Hydrating from native tables for:', activeSlug);
         
-        // Use a timeout to ensure UI can render even if cloud is slow
-        const syncTimeout = setTimeout(() => {
-            if (!firstSyncDone) {
-                console.warn('⚠️ [Sync] Cloud pull taking too long. Proceeding with local data.');
-                setFirstSyncDone(true);
-            }
-        }, 3500);
-
-        import('@/lib/sync-store').then(async ({ pullStudioStateFromCloud }) => {
-            const local = loadSettings(activeSlug);
-            const scope = local.orgId || activeSlug;
-            
-            try {
-                const cloudState = await pullStudioStateFromCloud(activeSlug, scope);
+        fetchFullStudioState(activeSlug, settings.orgId).then(state => {
+            if (state) {
+                console.log('✅ [MasterSync] Atomic hydration complete.');
                 
-                if (cloudState && (cloudState.staff_data || cloudState.studio_data)) {
-                    console.log('✅ [Sync] Cloud data received in background. Updating UI...');
-                    applyCloudState(activeSlug, cloudState);
-                    
-                    // Force a context refresh by updating the settings state directly 
-                    // with at least one field to trigger listeners
-                    setSettings(prev => ({ ...prev, lastSync: Date.now() }));
-                }
-            } catch (err) {
-                console.error('❌ [Sync] Background pull failed:', err);
-            } finally {
-                clearTimeout(syncTimeout);
-                setFirstSyncDone(true);
+                // Merge into local React state
+                setSettings(prev => ({
+                    ...prev,
+                    orgId: state.org_id,
+                    staff: state.staff,
+                    branches: state.branches,
+                    studioName: state.studio.studio_name,
+                    lastSync: Date.now()
+                }));
+
+                // Update local storage for other stores that might be listening
+                localStorage.setItem(getScopedKey('cc_teachers', activeSlug), JSON.stringify(state.staff));
+                localStorage.setItem(getScopedKey('cc_branches', activeSlug), JSON.stringify(state.branches));
+                localStorage.setItem(getScopedKey('cc_halls', activeSlug), JSON.stringify(state.halls));
+                localStorage.setItem(getScopedKey('cc_groups', activeSlug), JSON.stringify(state.groups));
+                localStorage.setItem(getScopedKey('cc_student_data', activeSlug), JSON.stringify(state.students));
+
+                // Dispatch events to refresh other stores (Students, Groups, etc)
+                ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
+                    .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
             }
+            setFirstSyncDone(true);
+        }).catch(err => {
+            console.error('❌ [MasterSync] Hydration failed:', err);
+            setFirstSyncDone(true);
         });
-    }, [isLoaded, settings.studioSlug]); 
+    }, [isLoaded, settings.studioSlug]);
 
     // Initial hydration from local storage
     useEffect(() => {

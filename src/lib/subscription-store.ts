@@ -31,6 +31,7 @@ import { getStaffSession, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
+import { syncRecordToCloud } from './master-sync';
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';
 const BASE_DELETED_SUBS_KEY = 'cc_deleted_subscriptions';
@@ -173,8 +174,25 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
     
-    // Immediate Cloud Sync
+    // 🔥 NEW ATOMIC SYNC: Push this specific subscription to the native table
     const activeSlug = getActiveSlug();
+    const settings = loadSettings(activeSlug || '');
+    if (settings.orgId) {
+        syncRecordToCloud('student_subscriptions', {
+            id: info.id || `sub_${Date.now()}`,
+            org_id: settings.orgId,
+            student_id: studentId,
+            plan_id: info.plan, // Storing plan name/ID
+            sessions_total: info.sessions_total,
+            sessions_used: info.sessions_used,
+            expires_at: info.expires_at,
+            status: info.status,
+            amount_paid: info.amount_paid || 0,
+            paid: (info.amount_paid || 0) > 0
+        }, settings.orgId);
+    }
+
+    // Legacy sync trigger (keep for transition if needed, though native takes priority)
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
         pushStudioStateToCloud(activeSlug, [], { [getSubsKey()]: data });
     }

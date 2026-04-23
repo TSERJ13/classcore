@@ -3,6 +3,7 @@ import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-
 import { triggerInstantSync } from './sync-store';
 import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
 import { recordAuditAction } from './audit-store';
+import { syncRecordToCloud } from './master-sync';
 
 const BASE_UID_REGISTRY_KEY = 'cc_uid_registry';
 const BASE_STUDENT_DATA_KEY = 'cc_student_data';
@@ -227,6 +228,22 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
     markLocalUpdate();
     
+    // 🔥 NEW ATOMIC SYNC: Push this student directly to the native table
+    const settings = loadSettings(activeSlug || '');
+    if (settings.orgId) {
+        const studentToSync = patches[studentId];
+        syncRecordToCloud('students', {
+            id: studentId,
+            org_id: settings.orgId,
+            first_name: studentToSync.first_name || '',
+            last_name: studentToSync.last_name || '',
+            full_name: studentToSync.full_name || '',
+            phone: studentToSync.phone || '',
+            email: studentToSync.email || '',
+            data: studentToSync
+        }, settings.orgId);
+    }
+
     triggerInstantSync();
 
 

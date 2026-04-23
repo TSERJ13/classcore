@@ -19,8 +19,10 @@ export interface Plan {
     is_active: boolean;
 }
 
-import { getScopedKey, markLocalUpdate } from './utils';
+import { getScopedKey, markLocalUpdate, getActiveSlug } from './utils';
+import { loadSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
+import { syncRecordToCloud } from './master-sync';
 
 const BASE_PLANS_KEY = 'cc_subscription_plans';
 function getPlansKey() { return getScopedKey(BASE_PLANS_KEY); }
@@ -65,6 +67,22 @@ export async function savePlans(plans: Plan[]): Promise<void> {
     localStorage.setItem(key, JSON.stringify(plans));
     markLocalUpdate();
     
+    // 🔥 NEW ATOMIC SYNC: Push all plans to the native table
+    const activeSlug = getActiveSlug() || '';
+    const settings = loadSettings(activeSlug);
+    if (settings.orgId) {
+        plans.forEach(plan => {
+            syncRecordToCloud('subscription_plans', {
+                id: plan.id,
+                org_id: settings.orgId,
+                name: plan.name,
+                price: plan.price,
+                session_count: plan.session_count,
+                validity_days: plan.validity_days
+            }, settings.orgId);
+        });
+    }
+
     // Explicit signal for UI and StudioContext
     window.dispatchEvent(new Event('cc_subscription_plans_update'));
 
