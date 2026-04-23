@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/client';
 import { type StaffMember, type Branch, type StudioSettings } from '@/types';
 
 /**
- * MASTER SYNC BRIDGE v3.0
- * This library handles the transition from Blob-based sync to Normalized Table-based sync.
+ * MASTER SYNC BRIDGE v3.1
+ * Normalized Table-based sync with global hydration and identity consolidation.
  */
 
 export async function fetchFullStudioState(slug: string, orgId?: string) {
@@ -33,7 +33,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
         { data: halls },
         { data: settingsRecord },
         { data: subs },
-        { data: records }, 
+        { data: records },
         { data: salesHistory },
         { data: expenseLogs },
         { data: trashBin }
@@ -72,11 +72,7 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
     const supabase = createClient();
     if (!orgId) return false;
 
-    // Ensure org_id is present
     const payload = { ...record, org_id: orgId };
-    
-    // Some tables use 'id' as primary, others might vary.
-    // For our master schema, students/staff/groups all use 'id' as primary TEXT.
     const { error } = await supabase
         .from(table)
         .upsert(payload, { onConflict: 'id' });
@@ -108,56 +104,34 @@ export async function ensureStudioExists(slug: string, name: string) {
     const supabase = createClient();
     
     try {
-        // Check if exists
-        console.log('🛡️ [MasterSync] Checking existence...');
-        const { data: existing, error: checkError } = await supabase
+        // 1. Strict Cloud Anchor Lookup
+        const { data: existing } = await supabase
             .from('studios')
             .select('org_id')
             .eq('studio_slug', slug)
-            .single();
+            .maybeSingle();
         
-        if (checkError && checkError.code !== 'PGRST116') {
-            console.error('🛡️ [MasterSync] Check failed:', checkError.message);
-        }
-
         if (existing?.org_id) {
-            console.log('🛡️ [MasterSync] Anchor found:', existing.org_id);
+            console.log('🛡️ [MasterSync] Verified Cloud Anchor:', existing.org_id);
             return existing.org_id;
         }
 
-        // Create it
-        console.log('🛡️ [MasterSync] Creating new cloud anchor for studio...');
-        const newOrgId = uuidv4();
-        const { data: created, error } = await supabase
+        // 2. Create if missing
+        console.log('🛡️ [MasterSync] Creating new Cloud Anchor...');
+        const { data: created, error: createError } = await supabase
             .from('studios')
             .insert({
                 studio_slug: slug,
-                studio_name: name || slug,
-                org_id: newOrgId
+                studio_name: name || 'S_T Dance Studio'
             })
             .select('org_id')
             .single();
-
-        if (error) {
-            console.error('❌ [MasterSync] Failed to bootstrap studio:', error.message);
-            // If it failed because it already exists (race condition), try fetching again
-            if (error.code === '23505') {
-                const { data: retry } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).single();
-                return retry?.org_id;
-            }
-        }
         
-        console.log('🛡️ [MasterSync] Anchor created successfully:', created?.org_id || newOrgId);
-        return created?.org_id || newOrgId;
+        if (createError) throw createError;
+        return created.org_id;
+
     } catch (err) {
-        console.error('🛡️ [MasterSync] Critical anchor failure:', err);
+        console.error('❌ [MasterSync] Anchor resolution failed:', err);
         return null;
     }
-}
-
-function uuidv4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
 }
