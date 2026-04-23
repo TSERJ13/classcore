@@ -463,15 +463,45 @@ export default function StudentsPage() {
                             <div className="w-12 h-12 border-4 border-[#6d28d9] border-t-transparent rounded-full animate-spin mb-4" />
                             <p className="text-sm font-bold text-muted animate-pulse">სინქრონიზაცია ბაზასთან...</p>
                         </div>
-                    ) : filtered.length === 0 && (
-                        <div className="col-span-full flex flex-col items-center py-20 text-muted/30">
-                            <div className="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-4">
+                    ) : filtered.length === 0 ? (
+                        <div className="col-span-full flex flex-col items-center py-20">
+                            <div className="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-6">
                                 <Users className="w-10 h-10 opacity-20" />
                             </div>
-                            <p className="text-base font-bold">{t.noData}</p>
-                            <p className="text-xs font-medium mt-1">{t.tryAnotherSearch}</p>
+                            <p className="text-xl font-black text-primary mb-2 uppercase tracking-tighter">{t.noData}</p>
+                            <p className="text-sm font-medium text-muted mb-8">{t.tryAnotherSearch || 'მონაცემები ვერ მოიძებნა'}</p>
+                            
+                            {/* 🚨 EMERGENCY DIAGNOSTICS */}
+                            <div className="w-full max-w-md bg-rose-500/5 border border-rose-500/10 rounded-3xl p-6 text-left animate-fade-in">
+                                <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <ShieldAlert className="w-4 h-4" /> სინქრონიზაციის დიაგნოსტიკა
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center text-[11px] font-bold">
+                                        <span className="text-muted">აქტიური სლაგი:</span>
+                                        <span className="text-primary font-mono bg-white px-2 py-0.5 rounded border border-border-subtle">{settings.studioSlug || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[11px] font-bold">
+                                        <span className="text-muted">აქტიური ექაუნთი:</span>
+                                        <span className="text-primary font-mono truncate max-w-[180px] bg-white px-2 py-0.5 rounded border border-border-subtle">{user?.email || 'არაა შესული'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[11px] font-bold">
+                                        <span className="text-muted">ბაზის ID (OrgID):</span>
+                                        <span className="text-primary font-mono bg-white px-2 py-0.5 rounded border border-border-subtle">{settings.orgId?.slice(0, 8)}...</span>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        localStorage.clear();
+                                        window.location.href = '/';
+                                    }}
+                                    className="w-full mt-6 py-3 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-rose-500/20 active:scale-95"
+                                >
+                                    სრული გადატვირთვა (Hard Reset)
+                                </button>
+                            </div>
                         </div>
-                    )}
+                    ) : null}
                 </div>
             </div>
 
