@@ -21,6 +21,7 @@ export default function LoginPage() {
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isActivated, setIsActivated] = useState(false);
+    const [loginStatus, setLoginStatus] = useState<string | null>(null);
 
     const l = (ge: string, ru: string, en: string) => lang === 'ka' ? ge : lang === 'ru' ? ru : en;
 
@@ -87,11 +88,12 @@ export default function LoginPage() {
         const password = formData.get('password') as string;
 
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('TIMEOUT')), 20000)
+            setTimeout(() => reject(new Error('TIMEOUT')), 60000)
         );
 
         try {
             const loginTask = (async () => {
+                setLoginStatus(l('კავშირის დამყარება...', 'Установка соединения...', 'Establishing connection...'));
                 const { createClient } = await import('@/lib/supabase/client');
                 const supabase = createClient();
                 const { setStaffSession, validateStaffLogin } = await import('@/lib/settings-store');
@@ -102,12 +104,14 @@ export default function LoginPage() {
                 let signInError = null;
 
                 if (isEmail) {
+                    setLoginStatus(l('პროფილის გადამოწმება...', 'Проверка профиля...', 'Verifying profile...'));
                     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                     signedInUser = data.user;
                     signInError = error;
                 }
 
                 if (!signedInUser) {
+                    setLoginStatus(l('პერსონალის მონაცემების ძებნა...', 'Поиск данных персонала...', 'Searching staff records...'));
                     const staffResult = await validateStaffLogin(email, password);
                     if (staffResult) {
                         if ('error' in staffResult) throw new Error(staffResult.error);
@@ -283,7 +287,12 @@ export default function LoginPage() {
                                         className="w-full h-12 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-slate-900/10 active:scale-[0.98] transition-all hover:bg-slate-800 flex items-center justify-center gap-2 relative overflow-hidden group disabled:opacity-50"
                                     >
                                         {isSubmitting ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <div className="flex flex-col items-center gap-1">
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                {loginStatus && (
+                                                    <span className="text-[8px] font-black opacity-50 absolute -bottom-4 left-0 w-full text-center truncate px-2">{loginStatus}</span>
+                                                )}
+                                            </div>
                                         ) : (
                                             <>
                                                 {l('შესვლა', 'Войти', 'Authorization')}
