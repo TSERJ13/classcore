@@ -33,7 +33,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
         { data: halls },
         { data: settingsRecord },
         { data: subs },
-        { data: records }, -- attendance
+        { data: records }, 
         { data: salesHistory },
         { data: expenseLogs },
         { data: trashBin }
