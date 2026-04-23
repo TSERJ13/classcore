@@ -12,6 +12,7 @@ interface StudioContextType {
     settings: StudioSettings;
     isLoaded: boolean;
     firstSyncDone: boolean;
+    isSyncing: boolean;
     activeBranchId: string;
     setActiveBranchId: (id: string) => void;
     updateSettings: (updates: Partial<StudioSettings>) => void;
@@ -27,24 +28,29 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
     const [isLoaded, setIsLoaded] = useState(false);
     const [firstSyncDone, setFirstSyncDone] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
 
     useEffect(() => {
-        if (!isLoaded || !settings.studioSlug || ['superadmin'].includes(settings.studioSlug)) {
-            setFirstSyncDone(true);
-            return;
-        }
-
-        const activeSlug = settings.studioSlug;
-        
+        // We MUST run this even if settings.studioSlug is empty IF we are logged in
         async function bootstrap() {
+            if (!isLoaded) return;
+            
+            const { data: { user } } = await createClient().auth.getUser();
+            const activeSlug = settings.studioSlug || getActiveSlug();
+            
+            if (!activeSlug || ['superadmin'].includes(activeSlug)) {
+                setFirstSyncDone(true);
+                return;
+            }
+
+            setIsSyncing(true);
             try {
-                // 🚀 HARDCORE OVERRIDE: If user is stdancegroup@gmail.com, force the correct OrgID immediately
-                const { data: { user } } = await createClient().auth.getUser();
                 let targetOrgId = await ensureStudioExists(activeSlug, settings.studioName);
 
-                if (user?.email === 'stdancegroup@gmail.com') {
-                    console.log('🦾 [MasterSync] Hard-Linking stdancegroup to authoritative OrgID: db04');
+                // 🦾 FORCE OVERRIDE for stdancegroup@gmail.com
+                if (user?.email === 'stdancegroup@gmail.com' || (user as any)?.email_address === 'stdancegroup@gmail.com') {
+                    console.log('🦾 [MasterSync] Enforcing Authoritative OrgID for stdancegroup: db04');
                     targetOrgId = '04fcd615-255c-4f6d-9444-50308118db04';
                 }
 
@@ -53,18 +59,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     
                     const state = await fetchFullStudioState(activeSlug, targetOrgId);
                     if (state) {
-                        console.log('✅ [MasterSync] Hydrated state for:', state.org_id);
+                        console.log('✅ [MasterSync] Hydrated state for Org:', state.org_id);
                         
                         const updates = {
                             orgId: targetOrgId,
                             studioName: state.studio?.studio_name || settings.studioName,
-                            logo_url: state.studio?.settings?.logo_url || state.settingsRecord?.logo_url || settings.logo_url,
+                            logo_url: (state as any).settingsRecord?.logo_url || state.studio?.settings?.logo_url || settings.logo_url,
                             staff: state.staff?.length > 0 ? state.staff : settings.staff,
                             branches: state.branches?.length > 0 ? state.branches : settings.branches
                         };
                         
                         setSettings(prev => {
-                            const next = { ...prev, ...updates };
+                            const next = { ...prev, ...updates, studioSlug: activeSlug };
                             saveSettings(updates, prev, activeSlug);
                             return next;
                         });
@@ -100,6 +106,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             } catch (err) {
                 console.error('❌ [MasterSync] Bootstrap failed:', err);
             } finally {
+                setIsSyncing(false);
                 setFirstSyncDone(true);
             }
         }
@@ -175,6 +182,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             settings, 
             isLoaded, 
             firstSyncDone,
+            isSyncing,
             activeBranchId, 
             setActiveBranchId,
             updateSettings, 
