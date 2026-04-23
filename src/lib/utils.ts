@@ -126,7 +126,15 @@ export const SYNC_COLLECTIONS = [
 /** Helper to get active studio slug from URL or localStorage */
 export function getActiveSlug(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem(ACTIVE_SLUG_KEY) || (typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null);
+    
+    // 1. URL Path takes absolute priority
+    const path = window.location.pathname.split('/')[1];
+    if (path && !['dashboard', 'auth', 'admin', 'login', 'superadmin'].includes(path)) {
+        return path;
+    }
+
+    // 2. Fallback to localStorage
+    return localStorage.getItem(ACTIVE_SLUG_KEY);
 }
 
 /** 

@@ -99,6 +99,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         });
 
                         localStorage.setItem(`cc_last_sync_${activeSlug}`, Date.now().toString());
+                        localStorage.setItem('cc_active_studio_slug', activeSlug);
 
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                          'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update']
