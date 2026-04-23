@@ -82,5 +82,37 @@ export async function pushFullStudioMetadata(slug: string, name: string, setting
         .select('org_id')
         .single();
     
-    return data?.org_id;
+
+export async function ensureStudioExists(slug: string, name: string) {
+    const supabase = createClient();
+    
+    // Check if exists
+    const { data: existing } = await supabase
+        .from('studios')
+        .select('org_id')
+        .eq('studio_slug', slug)
+        .single();
+    
+    if (existing?.org_id) return existing.org_id;
+
+    // Create it
+    const { data: created, error } = await supabase
+        .from('studios')
+        .insert({
+            studio_slug: slug,
+            studio_name: name,
+            org_id: uuidv4() // We need a way to generate UUID, I'll use crypto.randomUUID()
+        })
+        .select('org_id')
+        .single();
+
+    if (error) console.error('❌ [MasterSync] Failed to bootstrap studio:', error.message);
+    return created?.org_id;
+}
+
+function uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 }

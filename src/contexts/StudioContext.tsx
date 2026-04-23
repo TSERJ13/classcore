@@ -473,38 +473,68 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         const activeSlug = settings.studioSlug;
         if (lastSyncedSlugRef.current === activeSlug) return;
         lastSyncedSlugRef.current = activeSlug;
-
         console.log('🔄 [MasterSync] Hydrating from native tables for:', activeSlug);
         
-        fetchFullStudioState(activeSlug, settings.orgId).then(state => {
-            if (state) {
-                console.log('✅ [MasterSync] Atomic hydration complete.');
+        // 🛡️ BOOTSTRAP: Ensure studio row exists in cloud
+        import('@/lib/master-sync').then(async ({ ensureStudioExists, fetchFullStudioState, syncRecordToCloud }) => {
+            try {
+                const orgId = await ensureStudioExists(activeSlug, settings.studioName);
                 
-                // Merge into local React state
-                setSettings(prev => ({
-                    ...prev,
-                    orgId: state.org_id,
-                    staff: state.staff,
-                    branches: state.branches,
-                    studioName: state.studio.studio_name,
-                    lastSync: Date.now()
-                }));
+                if (orgId) {
+                    console.log('🚀 [MasterSync] Cloud anchor verified. OrgID:', orgId);
+                    
+                    // If local orgId was different or missing, update it and push students
+                    if (orgId !== settings.orgId) {
+                        setSettings(prev => ({ ...prev, orgId }));
+                        
+                        // Push local student data to populate the empty DB
+                        const studentsKey = getScopedKey('cc_student_data', activeSlug);
+                        const studentsRaw = localStorage.getItem(studentsKey);
+                        if (studentsRaw) {
+                            try {
+                                const students = JSON.parse(studentsRaw);
+                                Object.entries(students).forEach(([id, data]) => {
+                                    syncRecordToCloud('students', { 
+                                        id, 
+                                        org_id: orgId, 
+                                        first_name: (data as any).first_name || '',
+                                        last_name: (data as any).last_name || '',
+                                        full_name: (data as any).full_name || '',
+                                        data: data 
+                                    }, orgId);
+                                });
+                            } catch (e) {}
+                        }
+                    }
 
-                // Update local storage for other stores that might be listening
-                localStorage.setItem(getScopedKey('cc_teachers', activeSlug), JSON.stringify(state.staff));
-                localStorage.setItem(getScopedKey('cc_branches', activeSlug), JSON.stringify(state.branches));
-                localStorage.setItem(getScopedKey('cc_halls', activeSlug), JSON.stringify(state.halls));
-                localStorage.setItem(getScopedKey('cc_groups', activeSlug), JSON.stringify(state.groups));
-                localStorage.setItem(getScopedKey('cc_student_data', activeSlug), JSON.stringify(state.students));
+                    const state = await fetchFullStudioState(activeSlug, orgId);
+                    if (state) {
+                        console.log('✅ [MasterSync] Atomic hydration complete.');
+                        
+                        setSettings(prev => ({
+                            ...prev,
+                            org_id: state.org_id,
+                            staff: state.staff,
+                            branches: state.branches,
+                            studioName: state.studio.studio_name,
+                            lastSync: Date.now()
+                        }));
 
-                // Dispatch events to refresh other stores (Students, Groups, etc)
-                ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
-                    .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
+                        localStorage.setItem(getScopedKey('cc_teachers', activeSlug), JSON.stringify(state.staff));
+                        localStorage.setItem(getScopedKey('cc_branches', activeSlug), JSON.stringify(state.branches));
+                        localStorage.setItem(getScopedKey('cc_halls', activeSlug), JSON.stringify(state.halls));
+                        localStorage.setItem(getScopedKey('cc_groups', activeSlug), JSON.stringify(state.groups));
+                        localStorage.setItem(getScopedKey('cc_student_data', activeSlug), JSON.stringify(state.students));
+
+                        ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
+                            .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
+                    }
+                }
+            } catch (err) {
+                console.error('❌ [MasterSync] Critical sync failure:', err);
+            } finally {
+                setFirstSyncDone(true);
             }
-            setFirstSyncDone(true);
-        }).catch(err => {
-            console.error('❌ [MasterSync] Hydration failed:', err);
-            setFirstSyncDone(true);
         });
     }, [isLoaded, settings.studioSlug]);
 
