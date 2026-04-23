@@ -154,6 +154,7 @@ export default function LoginPage() {
         } catch (err: any) {
             console.error('Login error:', err);
             const isTimeout = err.message === 'TIMEOUT' || err.message === 'QUERY_TIMEOUT';
+            const rawError = err.message || err.error_description || JSON.stringify(err);
 
             if (isTimeout) {
                 setError(l('კავშირის დრო ამოიწურა. გთხოვთ შეამოწმოთ ინტერნეტი და სცადოთ თავიდან.', 'Время ожидания истекло. Проверьте интернет и попробуйте снова.', 'Connection timeout. Please check your internet and retry.'));
@@ -162,9 +163,9 @@ export default function LoginPage() {
             } else if (err.message === 'Email not confirmed') {
                 setError(t.confirmEmail);
             } else if (err.message?.includes('Failed to fetch') || err.message?.includes('network')) {
-                setError(l('ინტერნეტის შეცდომა. გთხოვთ შეამოწმოთ კავშირი.', 'Ошибка сети. Проверьте соединение.', 'Network error. Please check your connection.'));
+                setError(l(`კავშირის შეცდომა: ${rawError}`, `Ошибка сети: ${rawError}`, `Network Error: ${rawError}`));
             } else {
-                setError(err.message || t.loginError);
+                setError(`${l('შეცდომა:', 'Ошибка:', 'Error:')} ${rawError}`);
             }
             setIsSubmitting(false);
         }
