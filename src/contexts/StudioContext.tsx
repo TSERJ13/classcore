@@ -43,18 +43,23 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     console.log('🛰️ [MasterSync] Cloud Anchor Established:', orgId);
                     localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
                     
-                    // 2. Fetch Latest Cloud State
-                    const state = await fetchFullStudioState(activeSlug, orgId);
-                    if (state) {
-                        console.log('✅ [MasterSync] Cloud state hydrated.');
-                        
-                        // Update local settings atom
-                        setSettings(prev => ({
-                            ...prev,
-                            orgId,
-                            staff: state.staff?.length > 0 ? state.staff : prev.staff,
-                            branches: state.branches?.length > 0 ? state.branches : prev.branches
-                        }));
+                        // 2. Fetch Latest Cloud State
+                        const state = await fetchFullStudioState(activeSlug, orgId);
+                        if (state) {
+                            console.log('✅ [MasterSync] Cloud state hydrated.');
+                            
+                            // 🚀 SYNC POINT: Persist OrgId and state updates to disk IMMEDIATELY
+                            const updates = {
+                                orgId,
+                                staff: state.staff?.length > 0 ? state.staff : settings.staff,
+                                branches: state.branches?.length > 0 ? state.branches : settings.branches
+                            };
+                            
+                            setSettings(prev => {
+                                const next = { ...prev, ...updates };
+                                saveSettings(updates, prev, activeSlug); // Sync persist
+                                return next;
+                            });
 
                         // Force persist scoped collections
                         const mapping: any = {
