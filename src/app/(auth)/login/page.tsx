@@ -101,40 +101,33 @@ export default function LoginPage() {
 
                 const isEmail = email.includes('@');
                 let signedInUser = null;
-                let signInError = null;
 
                 if (isEmail) {
-                    setLoginStatus(l('პროფილის გადამოწმება...', 'Проверка профиля...', 'Verifying profile...'));
+                    setLoginStatus(l('ავტორიზაცია...', 'Вход...', 'Authenticating...'));
                     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                    signedInUser = data.user;
-                    signInError = error;
-                }
-
-                if (!signedInUser) {
-                    setLoginStatus(l('პერსონალის მონაცემების ძებნა...', 'Поиск данных персонала...', 'Searching staff records...'));
-                    const staffResult = await validateStaffLogin(email, password);
-                    if (staffResult) {
-                        if ('error' in staffResult) throw new Error(staffResult.error);
-                        if ('staff' in staffResult) {
+                    
+                    if (error) {
+                        // If auth fails, try legacy staff check immediately without waiting
+                        setLoginStatus(l('პერსონალის შემოწმება...', 'Проверка персонала...', 'Checking staff...'));
+                        const staffResult = await validateStaffLogin(email, password);
+                        if (staffResult && 'staff' in staffResult) {
                             setStaffSession(staffResult);
                             setIsSuccess(true);
-                            setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
+                            setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
                             return;
                         }
+                        throw error;
                     }
-                    if (signInError) throw signInError;
-                    throw new Error('USER_NOT_FOUND');
+                    
+                    signedInUser = data.user;
                 }
 
-                if (signedInUser?.user_metadata?.is_activated === false) {
-                    await supabase.auth.signOut();
-                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще не активирован.', 'Account not activated.'));
-                    setIsSubmitting(false);
-                    return;
-                }
+                if (!signedInUser) throw new Error('USER_NOT_FOUND');
 
+                setLoginStatus(l('შესვლა...', 'Вход...', 'Logging in...'));
+                setIsSuccess(true);
                 const isSuperAdmin = signedInUser?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === signedInUser.email?.toLowerCase());
-
+                
                 // SECURITY: Enforce email activation
                 if (signedInUser && !signedInUser.email_confirmed_at && !isSuperAdmin) {
                     await supabase.auth.signOut();
