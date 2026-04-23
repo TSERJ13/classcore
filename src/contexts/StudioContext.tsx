@@ -513,7 +513,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         
                         setSettings(prev => ({
                             ...prev,
-                            org_id: state.org_id,
+                            orgId: state.org_id,
                             staff: state.staff,
                             branches: state.branches,
                             studioName: state.studio.studio_name,
