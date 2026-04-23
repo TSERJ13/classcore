@@ -1,4 +1,6 @@
 
+'use client';
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { StudioSettings, SubscriptionLog } from '@/types/studio';
