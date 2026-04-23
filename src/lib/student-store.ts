@@ -232,13 +232,16 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
         
         // 🔥 NEW ATOMIC SYNC: Push this student directly to the native table
         const settings = loadSettings(activeSlug || '');
-        if (settings.orgId) {
+        const overrideOrgId = typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) : null;
+        const finalOrgId = settings.orgId || overrideOrgId;
+
+        if (finalOrgId) {
             const studentToSync = patches[studentId];
-            console.log('📡 [StudentStore] Attempting Cloud Sync for Org:', settings.orgId);
+            console.log('📡 [StudentStore] Attempting Cloud Sync for Org:', finalOrgId);
             
             syncRecordToCloud('students', {
                 id: studentId,
-                org_id: settings.orgId,
+                org_id: finalOrgId,
                 first_name: studentToSync.first_name || '',
                 last_name: studentToSync.last_name || '',
                 full_name: studentToSync.full_name || '',
