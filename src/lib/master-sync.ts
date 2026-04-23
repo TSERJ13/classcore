@@ -86,30 +86,55 @@ export async function pushFullStudioMetadata(slug: string, name: string, setting
 }
 
 export async function ensureStudioExists(slug: string, name: string) {
+    console.log('🛡️ [MasterSync] Testing Cloud Anchor for:', slug);
     const supabase = createClient();
     
-    // Check if exists
-    const { data: existing } = await supabase
-        .from('studios')
-        .select('org_id')
-        .eq('studio_slug', slug)
-        .single();
-    
-    if (existing?.org_id) return existing.org_id;
+    try {
+        // Check if exists
+        console.log('🛡️ [MasterSync] Checking existence...');
+        const { data: existing, error: checkError } = await supabase
+            .from('studios')
+            .select('org_id')
+            .eq('studio_slug', slug)
+            .single();
+        
+        if (checkError && checkError.code !== 'PGRST116') {
+            console.error('🛡️ [MasterSync] Check failed:', checkError.message);
+        }
 
-    // Create it
-    const { data: created, error } = await supabase
-        .from('studios')
-        .insert({
-            studio_slug: slug,
-            studio_name: name,
-            org_id: uuidv4() // We need a way to generate UUID, I'll use crypto.randomUUID()
-        })
-        .select('org_id')
-        .single();
+        if (existing?.org_id) {
+            console.log('🛡️ [MasterSync] Anchor found:', existing.org_id);
+            return existing.org_id;
+        }
 
-    if (error) console.error('❌ [MasterSync] Failed to bootstrap studio:', error.message);
-    return created?.org_id;
+        // Create it
+        console.log('🛡️ [MasterSync] Creating new cloud anchor for studio...');
+        const newOrgId = uuidv4();
+        const { data: created, error } = await supabase
+            .from('studios')
+            .insert({
+                studio_slug: slug,
+                studio_name: name || slug,
+                org_id: newOrgId
+            })
+            .select('org_id')
+            .single();
+
+        if (error) {
+            console.error('❌ [MasterSync] Failed to bootstrap studio:', error.message);
+            // If it failed because it already exists (race condition), try fetching again
+            if (error.code === '23505') {
+                const { data: retry } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).single();
+                return retry?.org_id;
+            }
+        }
+        
+        console.log('🛡️ [MasterSync] Anchor created successfully:', created?.org_id || newOrgId);
+        return created?.org_id || newOrgId;
+    } catch (err) {
+        console.error('🛡️ [MasterSync] Critical anchor failure:', err);
+        return null;
+    }
 }
 
 function uuidv4() {
