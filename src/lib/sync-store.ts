@@ -194,18 +194,21 @@ export async function pushStudioStateToCloud(
         let cloudDeleted: Record<string, string[]> = {};
 
         if (isLegacy) {
-            cloudStaff = cloudBlob.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
-            const configObj = cloudBlob.find((s: any) => s.id === '__studio_config__');
-            if (configObj?.studio_data) {
-
-        const cloudBlob = cloudRec?.staff_data || {};
-        const cloudStaff = cloudBlob._staff || [];
-        const cloudOps = cloudBlob._operations || {};
-        const cloudDeleted = cloudBlob._deleted_registry || {};
+            cloudStaff = (cloudBlob as any[]).filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
+            const configObj = (cloudBlob as any[]).find((s: any) => s.id === '__studio_config__');
+            cloudOps = configObj?.studio_data || {};
+        } else {
+            cloudStaff = cloudBlob._staff || [];
+            cloudOps = cloudBlob._operations || {};
+            cloudDeleted = cloudBlob._deleted_registry || {};
+        }
 
         // Merge Staff logic
         const staffMap = new Map();
         cloudStaff.forEach((s: any) => staffMap.set(s.id, s));
+        const localStaffMap = new Map();
+        staff.forEach(s => localStaffMap.set(s.id, s));
+        
         localStaffMap.forEach((s, id) => {
             const existing = staffMap.get(id);
             if (!existing || (new Date(s.updated_at || 0) > new Date(existing.updated_at || 0))) {
