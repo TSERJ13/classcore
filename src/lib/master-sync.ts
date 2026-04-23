@@ -43,7 +43,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
         supabase.from('groups').select('*').eq('org_id', targetOrgId),
         supabase.from('branches').select('*').eq('org_id', targetOrgId),
         supabase.from('halls').select('*').eq('org_id', targetOrgId),
-        supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).single(),
+        supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle(),
         supabase.from('subscriptions').select('*').eq('org_id', targetOrgId),
         supabase.from('attendance').select('*').eq('org_id', targetOrgId),
         supabase.from('sales').select('*').eq('org_id', targetOrgId),
