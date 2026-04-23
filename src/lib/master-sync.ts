@@ -104,16 +104,15 @@ export async function ensureStudioExists(slug: string, name: string) {
     const supabase = createClient();
     
     try {
-        // 1. Strict Cloud Anchor Lookup
-        const { data: existing } = await supabase
+        // 1. Aggressive Cloud Anchor Lookup
+        const { data: studios } = await supabase
             .from('studios')
             .select('org_id')
-            .eq('studio_slug', slug)
-            .maybeSingle();
+            .eq('studio_slug', slug);
         
-        if (existing?.org_id) {
-            console.log('🛡️ [MasterSync] Verified Cloud Anchor:', existing.org_id);
-            return existing.org_id;
+        if (studios && studios.length > 0) {
+            console.log('🛡️ [MasterSync] Verified Cloud Anchor (Aggressive):', studios[0].org_id);
+            return studios[0].org_id;
         }
 
         // 2. Create if missing
