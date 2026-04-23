@@ -52,9 +52,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     console.log('🛰️ [MasterSync] Cloud Anchor Established:', orgId);
                     localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
                     
-                    const state = await fetchFullStudioState(activeSlug, orgId);
+                    let state = await fetchFullStudioState(activeSlug, orgId);
+                    
+                    // 🚀 SELF-HEALING: If empty but user is logged in, look for orphaned data
+                    const { user } = await createClient().auth.getUser();
+                    if ((!state || state.students.length === 0) && user?.email) {
+                        console.log('🔍 [MasterSync] Empty state detected. Attempting Self-Healing lookup...');
+                        const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
+                        const matches = await findAllStudiosByStaffEmail(user.email);
+                        const dataMatch = matches.find(m => m.slug === activeSlug && m.staff.org_id !== orgId);
+                        
+                        if (dataMatch?.staff.org_id) {
+                            console.log('💊 [MasterSync] Healing applied. Found correct OrgID:', dataMatch.staff.org_id);
+                            localStorage.setItem(`cc_org_id_override_${activeSlug}`, dataMatch.staff.org_id);
+                            state = await fetchFullStudioState(activeSlug, dataMatch.staff.org_id);
+                        }
+                    }
+
                     if (state) {
-                        console.log('✅ [MasterSync] Cloud state hydrated for Org:', orgId);
+                        console.log('✅ [MasterSync] Cloud state hydrated for Org:', state.org_id);
                         console.log('📊 [MasterSync] Hydrated Counts:', {
                             students: state.students?.length,
                             groups: state.groups?.length,
