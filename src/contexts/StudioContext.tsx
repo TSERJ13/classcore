@@ -489,14 +489,8 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     const isNewAnchor = orgId !== settings.orgId;
                     if (isNewAnchor) {
                         console.log('📦 [MasterSync] Migrating full local state to new cloud anchor...');
-                        setSettings(prev => {
-                            const next = { ...prev, orgId };
-                            const key = getScopedKey(STORAGE_KEY, activeSlug);
-                            localStorage.setItem(key, JSON.stringify(next));
-                            return next;
-                        });
                         
-                        // Push collections
+                        // 1. Find data in LEGACY keys (Slug-only, before override)
                         const collections = [
                             { key: 'cc_student_data', table: 'students' },
                             { key: 'cc_teachers', table: 'staff' },
@@ -505,15 +499,31 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         ];
 
                         collections.forEach(({ key, table }) => {
-                            const raw = localStorage.getItem(getScopedKey(key, activeSlug));
+                            // Raw slug-based key access
+                            const legacyKey = `${key}_${activeSlug}`;
+                            const raw = localStorage.getItem(legacyKey);
+                            
                             if (raw) {
+                                console.log(`📦 [MasterSync] Migrating collection: ${key}`);
                                 const data = JSON.parse(raw);
+                                
+                                // Push to cloud using the NEW orgId
                                 if (Array.isArray(data)) {
                                     data.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
                                 } else if (typeof data === 'object') {
                                     Object.entries(data).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
                                 }
+
+                                // Also copy to new OrgId-scoped key locally so it shows up instantly
+                                localStorage.setItem(getScopedKey(key, activeSlug), raw);
                             }
+                        });
+
+                        setSettings(prev => {
+                            const next = { ...prev, orgId };
+                            const key = getScopedKey(STORAGE_KEY, activeSlug);
+                            localStorage.setItem(key, JSON.stringify(next));
+                            return next;
                         });
                     }
 
