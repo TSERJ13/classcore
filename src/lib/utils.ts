@@ -234,7 +234,7 @@ export function consolidateStudioKeys(slug: string, activeOrgId?: string) {
         // 🚨 BRANCH PROTECTION: If the base collection is branch-scoped, skip unification
         // because we WANT multiple silos (one per branch).
         const globalCollections = [
-            'cc_student_data', 'cc_studio_settings', 'cc_staff', 
+            'cc_studio_settings', 'cc_staff', 
             'cc_subscription_plans', 'cc_student_subscriptions'
         ];
         if (!globalCollections.includes(base)) return;
