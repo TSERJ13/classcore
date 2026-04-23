@@ -239,8 +239,8 @@ export function deleteStudent(studentId: string): void {
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
     markLocalUpdate();
 
-    const slug = typeof window !== 'undefined' ? getActiveSlugLowLevel() : null;
-    if (slug) {
+    const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
+    if (slug !== 'demo') {
         recordGlobalDeletion(slug, 'cc_student_data', studentId);
     }
 
@@ -252,7 +252,6 @@ export function deleteStudent(studentId: string): void {
 
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
-    const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
     if (slug && studentId) {
         const settings = loadSettings(slug);
         const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
