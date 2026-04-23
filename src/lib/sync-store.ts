@@ -672,15 +672,15 @@ export async function findAllStudiosByStaffEmail(query: string): Promise<Array<{
     try {
         const supabase = createClient();
         
-        // 🚨 NUCLEAR SEARCH: Search for ALL possible identity variants (email and phone)
-        // This ensures that '+995...' and '995...' both find the relevant records.
+        // 1. Optimized Fast Path: Direct contains check for the principal term
+        // This is significantly faster than a complex multi-term .or query
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
             .select('studio_slug, staff_data, org_id')
-            .or(terms.map(t => `staff_emails.cs.{"${t}"}`).join(',')); 
+            .contains('staff_emails', [cleanQuery]);
 
         if (error) {
-            console.error('❌ [Sync] Global staff search failed! Table:', SETTINGS_TABLE, 'Error:', error.message, 'Code:', error.code);
+            console.error('❌ [Sync] Global staff search failed:', error.message);
             return [];
         }
 
