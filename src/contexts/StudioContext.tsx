@@ -469,8 +469,12 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 const cloudState = await pullStudioStateFromCloud(activeSlug, scope);
                 
                 if (cloudState && (cloudState.staff_data || cloudState.studio_data)) {
-                    console.log('✅ [Sync] Cloud data received in background.');
+                    console.log('✅ [Sync] Cloud data received in background. Updating UI...');
                     applyCloudState(activeSlug, cloudState);
+                    
+                    // Force a context refresh by updating the settings state directly 
+                    // with at least one field to trigger listeners
+                    setSettings(prev => ({ ...prev, lastSync: Date.now() }));
                 }
             } catch (err) {
                 console.error('❌ [Sync] Background pull failed:', err);
