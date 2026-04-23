@@ -50,6 +50,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         
                         const updates = {
                             orgId,
+                            studioName: state.studio?.studio_name || settings.studioName,
+                            logo_url: state.studio?.settings?.logo_url || state.settingsRecord?.logo_url || settings.logo_url,
                             staff: state.staff?.length > 0 ? state.staff : settings.staff,
                             branches: state.branches?.length > 0 ? state.branches : settings.branches
                         };
@@ -101,7 +103,29 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updateSettings = useCallback((updates: Partial<StudioSettings>) => {
         setSettings(prev => {
             const next = { ...prev, ...updates };
-            return saveSettings(updates, prev, prev.studioSlug);
+            const saved = saveSettings(updates, prev, prev.studioSlug);
+            
+            // 🔥 CLOUD SYNC: Broadcast branding changes
+            if (prev.studioSlug && prev.orgId) {
+                const name = updates.studioName || prev.studioName;
+                const metadata = { 
+                    logo_url: next.logo_url,
+                    theme: (next as any).theme,
+                    group_colors: (next as any).group_colors 
+                };
+                import('@/lib/master-sync').then(mod => {
+                    mod.pushFullStudioMetadata(prev.studioSlug, name, metadata);
+                    // Also update studio_settings table for logo
+                    if (updates.logo_url || updates.group_colors) {
+                        mod.syncRecordToCloud('studio_settings', { 
+                            org_id: prev.orgId, 
+                            logo_url: next.logo_url,
+                            group_colors: (next as any).group_colors
+                        }, prev.orgId);
+                    }
+                });
+            }
+            return saved;
         });
     }, []);
 

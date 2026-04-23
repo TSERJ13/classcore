@@ -24,23 +24,26 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
 
     const targetOrgId = studio.org_id;
 
-    // 2. Parallel Fetch of all collections
+    // 2. Parallel Fetch of all collections + settings
     const [
         { data: students },
         { data: staff },
         { data: groups },
         { data: branches },
-        { data: halls }
+        { data: halls },
+        { data: settingsRecord }
     ] = await Promise.all([
         supabase.from('students').select('*').eq('org_id', targetOrgId),
         supabase.from('staff').select('*').eq('org_id', targetOrgId),
         supabase.from('groups').select('*').eq('org_id', targetOrgId),
         supabase.from('branches').select('*').eq('org_id', targetOrgId),
-        supabase.from('halls').select('*').eq('org_id', targetOrgId)
+        supabase.from('halls').select('*').eq('org_id', targetOrgId),
+        supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).single()
     ]);
 
     return {
         studio,
+        settingsRecord: settingsRecord || null,
         students: students || [],
         staff: staff || [],
         groups: groups || [],
