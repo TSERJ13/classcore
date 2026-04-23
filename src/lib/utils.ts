@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -88,9 +89,6 @@ export function slugify(text: string): string {
         .replace(/-+$/, '');            // Trim - from end
 }
 
-/**
- * Compact version: no spaces, no dashes, just letters and numbers.
- */
 export function compactSlugify(text: string): string {
     const geoToLat: Record<string, string> = {
         'ა': 'a', 'ბ': 'b', 'გ': 'g', 'დ': 'd', 'ე': 'e', 'ვ': 'v', 'ზ': 'z', 'თ': 't', 'ი': 'i', 'კ': 'k', 'ლ': 'l', 'მ': 'm', 'ნ': 'n', 'ო': 'o', 'პ': 'p', 'ჟ': 'zh', 'რ': 'r', 'ს': 's', 'ტ': 't', 'უ': 'u', 'ფ': 'f', 'ქ': 'k', 'ღ': 'gh', 'ყ': 'q', 'შ': 'sh', 'ჩ': 'ch', 'ც': 'c', 'ძ': 'dz', 'წ': 'ts', 'ჭ': 'ch', 'ხ': 'kh', 'ჯ': 'j', 'ჰ': 'h'
@@ -116,7 +114,6 @@ export const ACTIVE_SLUG_KEY = 'cc_active_studio_slug';
 export const REGISTRY_KEY = 'cc_studios_list';
 
 // --- UNIVERSAL SYNC REGISTRY ---
-// All operational data collections (current and future) follow this registry.
 export const SYNC_COLLECTIONS = [
     'cc_student_data', 'cc_groups', 'cc_halls', 'cc_teachers',
     'cc_attendance_archive', 'cc_attendance_data', 'cc_checkins',
@@ -126,201 +123,38 @@ export const SYNC_COLLECTIONS = [
     'cc_global_trash', 'cc_studio_settings', 'cc_deleted_'
 ];
 
-// Keys that belong to the browser session, NOT a specific studio
-export const PROTECTED_GLOBAL_KEYS = [
-    STORAGE_KEY, REGISTRY_KEY, ACTIVE_SLUG_KEY, 
-    'cc_last_version', 'cc_onboarding_in_progress', 'cc_staff_session',
-    'cc_staff_auth'
-];
-
 /** Helper to get active studio slug from URL or localStorage */
 export function getActiveSlug(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(ACTIVE_SLUG_KEY) || (typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null);
 }
 
-/**
- * DELETION REGISTRY: Unified way to track 'tombstones' for sync honesty.
- */
-export function recordGlobalDeletion(slug: string, collection: string, id: string) {
-    if (typeof window === 'undefined' || !slug) return;
-    const key = `cc_deleted_registry_${slug}`;
-    try {
-        const current = JSON.parse(localStorage.getItem(key) || '{}');
-        if (!current[collection]) current[collection] = [];
-        if (!current[collection].includes(String(id))) {
-            current[collection].push(String(id));
-            localStorage.setItem(key, JSON.stringify(current));
-            console.log(`🗑️ [Registry] Recorded deletion: ${collection}/${id}`);
-        }
-    } catch (e) {
-        console.error('❌ [Registry] Failed to record deletion:', e);
-    }
-}
-
-export function clearGlobalDeletion(slug: string, collection: string, id: string) {
-    if (typeof window === 'undefined' || !slug) return;
-    const key = `cc_deleted_registry_${slug}`;
-    try {
-        const current = JSON.parse(localStorage.getItem(key) || '{}');
-        if (current[collection] && current[collection].includes(String(id))) {
-            current[collection] = current[collection].filter((i: string) => i !== String(id));
-            localStorage.setItem(key, JSON.stringify(current));
-            console.log(`✨ [Registry] Cleared tombstone: ${collection}/${id}`);
-        }
-    } catch (e) { }
-}
-
-export function isGloballyDeleted(slug: string, collection: string, id: string): boolean {
-    if (typeof window === 'undefined' || !slug) return false;
-    const key = `cc_deleted_registry_${slug}`;
-    try {
-        const current = JSON.parse(localStorage.getItem(key) || '{}');
-        return (current[collection] || []).includes(String(id));
-    } catch {
-        return false;
-    }
-}
-
-/**
- * Helper to identify if a localStorage key belongs to a specific studio
- * for synchronization purposes. Supports both slug and orgId scoping.
- */
-export function isKeyScopedToStudio(key: string, slug: string, orgId?: string): boolean {
-    const isSyncable = SYNC_COLLECTIONS.some(p => key.startsWith(p));
-    if (!isSyncable) return false;
-
-    // Direct match with slug suffix: cc_student_data_stdance
-    const slugMatch = key.endsWith(`_${slug}`) || key.includes(`_${slug}_`);
-    if (slugMatch) return true;
-
-    // Direct match with orgId suffix: cc_student_data_uuid-123
-    if (orgId) {
-        const orgMatch = key.endsWith(`_${orgId}`) || key.includes(`_${orgId}_`);
-        if (orgMatch) return true;
-    }
-
-    return false;
-}
-
 /** 
- * NUCLEAR CONSOLIDATOR:
- * Merges different scoped silos (Slug vs UUID) into a single authoritative silo locally.
- * This prevents stale legacy data from 'poisoning' the sync payload during the pulse.
+ * SCORCHED EARTH v3.0 Scope Resolution
+ * Priority: Override > Settings(OrgId) > Slug
  */
-export function consolidateStudioKeys(slug: string, activeOrgId?: string) {
-    if (typeof window === 'undefined' || !slug) return;
-    
-    console.log('🛡️ [Unification] Starting LocalStorage Consolidation for:', slug);
-    const keys = Object.keys(localStorage);
-    const authoritativeScopeId = activeOrgId || slug;
-    
-    // 1. Identify all syncable keys belonging to this studio
-    const studioKeys: Record<string, string[]> = {}; // Map base prefix to all found variants
-    
-    keys.forEach(k => {
-        const isSyncablePrefix = SYNC_COLLECTIONS.some(p => k.startsWith(p));
-        const belongsToStudio = k.includes(`_${slug}`) || (activeOrgId && k.includes(`_${activeOrgId}`));
-        
-        if (isSyncablePrefix && belongsToStudio) {
-            const basePrefix = SYNC_COLLECTIONS.find(p => k.startsWith(p))!;
-            if (!studioKeys[basePrefix]) studioKeys[basePrefix] = [];
-            studioKeys[basePrefix].push(k);
-        }
-    });
-
-    // 2. Merge and Purge
-    Object.keys(studioKeys).forEach(base => {
-        // 🚨 BRANCH PROTECTION: If the base collection is branch-scoped, skip unification
-        // because we WANT multiple silos (one per branch).
-        const globalCollections = [
-            'cc_studio_settings', 'cc_staff', 
-            'cc_subscription_plans', 'cc_student_subscriptions'
-        ];
-        if (!globalCollections.includes(base)) return;
-
-        const variants = studioKeys[base];
-        const targetKey = `${base}_${authoritativeScopeId}`;
-        
-        if (variants.length <= 1 && variants[0] === targetKey) return;
-
-        console.log(`🛡️ [Unification] Consolidating variants for ${base}:`, variants);
-        
-        let mergedData: any = null;
-        
-        // Merge strategy: Start with the most recent or most detailed (simplistic here: just accumulate)
-        variants.forEach(v => {
-            try {
-                const val = localStorage.getItem(v);
-                if (!val) return;
-                const parsed = JSON.parse(val);
-                
-                if (!mergedData) {
-                    mergedData = parsed;
-                } else {
-                    // Primitive merge (arrays = union, objects = shallow merge)
-                    if (Array.isArray(mergedData) && Array.isArray(parsed)) {
-                        const map = new Map<string, any>();
-                        [...mergedData, ...parsed].forEach(item => { if (item.id) map.set(item.id, { ...(map.get(item.id) || {}), ...item }); });
-                        mergedData = Array.from(map.values());
-                    } else if (typeof mergedData === 'object' && typeof parsed === 'object') {
-                        mergedData = { ...mergedData, ...parsed };
-                    }
-                }
-            } catch (e) {
-                console.error(`🛡️ [Unification] Failed to merge variant ${v}:`, e);
-            }
-        });
-
-        if (mergedData) {
-            // Write to authoritative key
-            localStorage.setItem(targetKey, JSON.stringify(mergedData));
-            
-            // DELETE all other variants to prevent ghost restoration
-            variants.forEach(v => {
-                if (v !== targetKey) {
-                    console.log(`🛡️ [Unification] Purging legacy silo: ${v}`);
-                    localStorage.removeItem(v);
-                }
-            });
-        }
-    });
-}
-
 export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;
 
-    // Stable scoping: If we have an orgId for this slug, use it for the key to survive slug changes
-    // CRITICAL: Read raw from localStorage to avoid circular dependency with settings-store.ts
     let scopeId = finalSlug;
     if (typeof window !== 'undefined') {
-        try {
-            // Check for explicit orgId override (set during login or hydration)
-            const override = localStorage.getItem(`cc_org_id_override_${finalSlug}`);
-            if (override) {
-                scopeId = override;
-            } else {
-                const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
-                if (raw) {
+        const override = localStorage.getItem(`cc_org_id_override_${finalSlug}`);
+        if (override) {
+            scopeId = override;
+        } else {
+            const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
+            if (raw) {
+                try {
                     const settings = JSON.parse(raw);
-                    // Ensure settings is a valid object before property access
-                    if (settings && typeof settings === 'object' && settings.orgId) {
-                        scopeId = settings.orgId;
-                        // Cache it for faster lookups and to bridge gaps during sync
-                        localStorage.setItem(`cc_org_id_override_${finalSlug}`, settings.orgId);
-                    }
-                }
+                    if (settings?.orgId) scopeId = settings.orgId;
+                } catch {}
             }
-        } catch { }
-
+        }
     }
 
-    // If branchId is explicitly provided or we should use the active one
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
-    // ─── Scoping Logic ───
-    // Unified Scoping: Always use the authoritative scopeId (OrgId if available, else Slug)
     if (bId && bId !== 'all') {
         return `${base}_${scopeId}_${bId}`;
     }
@@ -328,10 +162,12 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     return `${base}_${scopeId}`;
 }
 
-/** 
- * Signals that a local update has occurred.
- * Used by StudioContext to skip cloud-to-local merges for a short window.
- */
+export function consolidateStudioKeys(slug: string, activeOrgId?: string) {
+    // DEPRECATED DUE TO SABOTAGE: NOW A NO-OP
+    // MasterSync handles all migration safely.
+    return;
+}
+
 export function markLocalUpdate() {
     if (typeof window !== 'undefined') {
         localStorage.setItem('cc_last_local_update', Date.now().toString());
