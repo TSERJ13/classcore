@@ -178,13 +178,9 @@ export async function pushStudioStateToCloud(
             return;
         }
 
-        // 🛡️ PROTECTION 2: If the local state is EMPTY (Default) and the cloud ALREADY HAS DATA,
-        // DO NOT PUSH. This prevents a fresh browser session from wiping out the cloud.
+        // 🛡️ PROTECTION 2: Ensure we don't wipe out global data
+        // We no longer abort if orgId is missing; we use the slug as the master anchor.
         orgId = orgId || current?.org_id || '';
-        if (!orgId) {
-             console.warn('⚠️ [Sync] No Org ID found for slug:', slug, '. Aborting push.');
-             return;
-        }
 
         const cloudBlob = current?.staff_data || {};
         const isLegacy = Array.isArray(cloudBlob);
