@@ -519,11 +519,19 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
                         if (mergedData) {
                             console.log(`🚀 [MasterSync] Migrating scavenged ${key} data to cloud...`);
-                            // Push to cloud
-                            if (Array.isArray(mergedData)) {
-                                mergedData.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
-                            } else if (typeof mergedData === 'object') {
-                                Object.entries(mergedData).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
+                            // Push to cloud with type safety
+                            try {
+                                if (Array.isArray(mergedData)) {
+                                    mergedData.forEach((item: any) => {
+                                        if (item && item.id) syncRecordToCloud(table, { ...item, org_id: orgId }, orgId);
+                                    });
+                                } else if (mergedData && typeof mergedData === 'object') {
+                                    Object.entries(mergedData).forEach(([id, val]) => {
+                                        if (val) syncRecordToCloud(table, { id, org_id: orgId, ...(val as any) }, orgId);
+                                    });
+                                }
+                            } catch (syncErr) {
+                                console.warn(`⚠️ [MasterSync] Partial sync failure for ${key}:`, syncErr);
                             }
                             // Save to target key
                             localStorage.setItem(targetKey, JSON.stringify(mergedData));
