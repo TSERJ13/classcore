@@ -462,32 +462,23 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     // 1. Reactive Sync Initiation: Trigger pull whenever the slug is identified/changed
     const lastSyncedSlugRef = useRef<string | null>(null);
 
-    // 1. Proactive Aggressive Hydration (Normalized Mode)
+    // 🚀 MASTER SYNC: Authoritative Bootstrap Pulse
     useEffect(() => {
-        if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') {
-            setFirstSyncDone(true);
-            return;
-        }
-
-        const activeSlug = settings.studioSlug;
-        if (lastSyncedSlugRef.current === activeSlug) return;
-        lastSyncedSlugRef.current = activeSlug;
-        console.log('🔄 [MasterSync] Hydrating from native tables for:', activeSlug);
+        if (!isLoaded || !settings.studioSlug || ['demo.classcore.ge', 'superadmin'].includes(settings.studioSlug)) return;
         
-        // 🛡️ BOOTSTRAP: Ensure studio row exists in cloud
+        const activeSlug = settings.studioSlug;
+        console.log('🛰️ [MasterSync] Initiating Unified Cloud Bootstrap for:', activeSlug);
+
         const initMasterSync = async () => {
             try {
                 const orgId = await ensureStudioExists(activeSlug, settings.studioName);
-                
                 if (orgId) {
                     console.log('🚀 [MasterSync] Cloud anchor verified. OrgID:', orgId);
                     
                     // 🚨 CRITICAL: Persist OrgID immediately to local storage so other stores can see it
                     localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
 
-                    // 🛡️ AGGRESSIVE MIGRATION: Always check for legacy silos during bootstrap
-                    console.log('📦 [MasterSync] Checking for legacy data to migrate...');
-                    
+                    // 🛡️ AGGRESSIVE MIGRATION: Check for legacy silos (including branch-scoped ones)
                     const collections = [
                         { key: 'cc_student_data', table: 'students' },
                         { key: 'cc_teachers', table: 'staff' },
@@ -496,82 +487,30 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     ];
 
                     collections.forEach(({ key, table }) => {
-                        const legacyKey = `${key}_${activeSlug}`;
-                        const rawLegacy = localStorage.getItem(legacyKey);
+                        // Check both raw slug and branch-scoped legacy keys
+                        const legacyVariants = [`${key}_${activeSlug}`, `${key}_${activeSlug}_main`];
                         const targetKey = getScopedKey(key, activeSlug);
                         const rawTarget = localStorage.getItem(targetKey);
-                        
-                        // Migration trigger: If we have legacy data but target is either empty or likely obsolete
-                        if (rawLegacy && (!rawTarget || rawTarget === '[]' || rawTarget === '{}')) {
-                            console.log(`📦 [MasterSync] Migrating legacy collection: ${key}`);
-                            const data = JSON.parse(rawLegacy);
-                            
-                            if (Array.isArray(data)) {
-                                data.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
-                            } else if (typeof data === 'object') {
-                                Object.entries(data).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
-                            }
 
-                            localStorage.setItem(targetKey, rawLegacy);
-                            // [Safety] Don't delete legacy yet, just shadow it
+                        if (!rawTarget || rawTarget === '[]' || rawTarget === '{}') {
+                            for (const lKey of legacyVariants) {
+                                const rawLegacy = localStorage.getItem(lKey);
+                                if (rawLegacy && rawLegacy !== '[]' && rawLegacy !== '{}') {
+                                    console.log(`📦 [MasterSync] Migrating legacy collection [${key}] from ${lKey}`);
+                                    const data = JSON.parse(rawLegacy);
+                                    
+                                    if (Array.isArray(data)) {
+                                        data.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
+                                    } else if (typeof data === 'object') {
+                                        Object.entries(data).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
+                                    }
+
+                                    localStorage.setItem(targetKey, rawLegacy);
+                                    break; // Found and migrated
+                                }
+                            }
                         }
                     });
-
-                    setSettings(prev => {
-                        const next = { ...prev, orgId };
-                        const key = getScopedKey(STORAGE_KEY, activeSlug);
-                        localStorage.setItem(key, JSON.stringify(next));
-                        return next;
-                    });
-
-                    const state = await fetchFullStudioState(activeSlug, orgId);
-                    if (state) {
-                        setSettings(prev => {
-                            const next = { ...prev, orgId: state.org_id, lastSync: Date.now() };
-                            if (state.staff?.length > 0) next.staff = state.staff;
-                            if (state.branches?.length > 0) next.branches = state.branches;
-                            return next;
-                        });
-
-                        const storageMap: any = {
-                            cc_teachers: state.staff,
-                            cc_branches: state.branches,
-                            cc_halls: state.halls,
-                            cc_groups: state.groups,
-                            cc_student_data: state.students
-                        };
-
-                        Object.entries(storageMap).forEach(([key, val]) => {
-                            if ((val as any)?.length > 0) localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(val));
-                        });
-
-                        ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
-                            .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
-                    }
-                }
-            } catch (err) {
-                console.error('❌ [MasterSync] Critical sync failure:', err);
-            } finally {
-                setFirstSyncDone(true);
-            }
-        };
-
-        initMasterSync();
-    }, [isLoaded, settings.studioSlug]);
-
-    // 🚀 MASTER SYNC: Dedicated Bootstrap Pulse
-    useEffect(() => {
-        if (!isLoaded || !settings.studioSlug || ['demo.classcore.ge', 'superadmin'].includes(settings.studioSlug)) return;
-        
-        const activeSlug = settings.studioSlug;
-        console.log('🛰️ [MasterSync] Initiating Cloud Anchor Pulse for:', activeSlug);
-
-        const bootstrap = async () => {
-            try {
-                const orgId = await ensureStudioExists(activeSlug, settings.studioName);
-                if (orgId) {
-                    console.log('🚀 [MasterSync] Cloud anchor ESTABLISHED. OrgID:', orgId);
-                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
 
                     setSettings(prev => {
                         if (prev.orgId === orgId) return prev;
@@ -580,14 +519,14 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                         return next;
                     });
 
-                    // One-time hydration
+                    // Initial cloud-to-local hydration
                     const state = await fetchFullStudioState(activeSlug, orgId);
                     if (state) {
-                        console.log('✅ [MasterSync] Initial hydration complete.');
+                        console.log('✅ [MasterSync] Synchronized with cloud successfully.');
                         setSettings(prev => ({
                             ...prev,
-                            staff: state.staff?.length > 0 ? state.staff : prev.staff,
-                            branches: state.branches?.length > 0 ? state.branches : prev.branches
+                            staff: (state.staff?.length > 0) ? state.staff : prev.staff,
+                            branches: (state.branches?.length > 0) ? state.branches : prev.branches
                         }));
 
                         const storageMap: any = {
@@ -607,11 +546,13 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     }
                 }
             } catch (err) {
-                console.error('❌ [MasterSync] Bootstrap failed:', err);
+                console.error('❌ [MasterSync] Unified Bootstrap failed:', err);
+            } finally {
+                setFirstSyncDone(true);
             }
         };
 
-        bootstrap();
+        initMasterSync();
     }, [isLoaded, settings.studioSlug]);
 
     // Initial hydration from local storage
