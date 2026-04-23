@@ -62,6 +62,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             return next;
                         });
 
+                        // Force persist scoped collections (ABSOLUTELY EVERYTHING)
                         const mapping: any = {
                             cc_teachers: state.staff,
                             cc_branches: state.branches,
@@ -69,7 +70,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             cc_groups: state.groups,
                             cc_student_data: Array.isArray(state.students) 
                                 ? state.students.reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {})
-                                : state.students
+                                : state.students,
+                            cc_subscriptions: state.subscriptions,
+                            cc_checkins: state.attendance,
+                            cc_sales: state.sales,
+                            cc_expenses: state.expenses,
+                            cc_trash: state.trash
                         };
 
                         Object.entries(mapping).forEach(([key, data]) => {
@@ -78,7 +84,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             }
                         });
 
-                        ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
+                        // Notify UI
+                        ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
+                         'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update']
                             .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
                     }
                 }

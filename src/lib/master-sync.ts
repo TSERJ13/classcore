@@ -24,21 +24,31 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
 
     const targetOrgId = studio.org_id;
 
-    // 2. Parallel Fetch of all collections + settings
+    // 2. Parallel Fetch of ABSOLUTELY EVERYTHING
     const [
         { data: students },
         { data: staff },
         { data: groups },
         { data: branches },
         { data: halls },
-        { data: settingsRecord }
+        { data: settingsRecord },
+        { data: subs },
+        { data: records }, -- attendance
+        { data: salesHistory },
+        { data: expenseLogs },
+        { data: trashBin }
     ] = await Promise.all([
         supabase.from('students').select('*').eq('org_id', targetOrgId),
         supabase.from('staff').select('*').eq('org_id', targetOrgId),
         supabase.from('groups').select('*').eq('org_id', targetOrgId),
         supabase.from('branches').select('*').eq('org_id', targetOrgId),
         supabase.from('halls').select('*').eq('org_id', targetOrgId),
-        supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).single()
+        supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).single(),
+        supabase.from('subscriptions').select('*').eq('org_id', targetOrgId),
+        supabase.from('attendance').select('*').eq('org_id', targetOrgId),
+        supabase.from('sales').select('*').eq('org_id', targetOrgId),
+        supabase.from('expenses').select('*').eq('org_id', targetOrgId),
+        supabase.from('trash').select('*').eq('org_id', targetOrgId)
     ]);
 
     return {
@@ -49,6 +59,11 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
         groups: groups || [],
         branches: branches || [],
         halls: halls || [],
+        subscriptions: subs || [],
+        attendance: records || [],
+        sales: salesHistory || [],
+        expenses: expenseLogs || [],
+        trash: trashBin || [],
         org_id: targetOrgId
     };
 }
