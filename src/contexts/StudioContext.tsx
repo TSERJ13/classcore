@@ -67,11 +67,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             cc_branches: state.branches,
                             cc_halls: state.halls,
                             cc_groups: state.groups,
-                            cc_student_data: state.students
+                            cc_student_data: Array.isArray(state.students) 
+                                ? state.students.reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {})
+                                : state.students
                         };
 
                         Object.entries(mapping).forEach(([key, data]) => {
-                            if (Array.isArray(data) && data.length > 0) {
+                            if (data && (Array.isArray(data) ? data.length > 0 : Object.keys(data).length > 0)) {
                                 localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
                             }
                         });
