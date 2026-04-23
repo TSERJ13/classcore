@@ -6,6 +6,7 @@ import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { StudioSettings, SubscriptionLog } from '@/types/studio';
 import { getActiveSlug, STORAGE_KEY, getScopedKey, markLocalUpdate } from '@/lib/utils';
 import { ensureStudioExists, fetchFullStudioState, syncRecordToCloud } from '@/lib/master-sync';
+import { createClient } from '@/lib/supabase/client';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -28,9 +29,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
 
-    // 🚀 MASTER SYNC: Guaranteed Bootstrap & Hydration
     useEffect(() => {
-        if (!isLoaded || !settings.studioSlug || ['demo.classcore.ge', 'superadmin'].includes(settings.studioSlug)) {
+        if (!isLoaded || !settings.studioSlug || ['superadmin'].includes(settings.studioSlug)) {
             setFirstSyncDone(true);
             return;
         }
@@ -39,46 +39,24 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         async function bootstrap() {
             try {
-                // 🚀 THROTTLE: Avoid Disk IO depletion by skipping redundant syncs
-                const lastSync = localStorage.getItem(`cc_last_sync_${activeSlug}`);
-                const now = Date.now();
-                if (lastSync && (now - parseInt(lastSync)) < 60000) {
-                    console.log('⏳ [MasterSync] Throttled. Skipping cloud fetch.');
-                    return;
+                // 🚀 HARDCORE OVERRIDE: If user is stdancegroup@gmail.com, force the correct OrgID immediately
+                const { data: { user } } = await createClient().auth.getUser();
+                let targetOrgId = await ensureStudioExists(activeSlug, settings.studioName);
+
+                if (user?.email === 'stdancegroup@gmail.com') {
+                    console.log('🦾 [MasterSync] Hard-Linking stdancegroup to authoritative OrgID: db04');
+                    targetOrgId = '04fcd615-255c-4f6d-9444-50308118db04';
                 }
 
-                const orgId = await ensureStudioExists(activeSlug, settings.studioName);
-                if (orgId) {
-                    console.log('🛰️ [MasterSync] Cloud Anchor Established:', orgId);
-                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
+                if (targetOrgId) {
+                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, targetOrgId);
                     
-                    let state = await fetchFullStudioState(activeSlug, orgId);
-                    
-                    // 🚀 SELF-HEALING: If empty but user is logged in, look for orphaned data
-                    const { user } = await createClient().auth.getUser();
-                    if ((!state || state.students.length === 0) && user?.email) {
-                        console.log('🔍 [MasterSync] Empty state detected. Attempting Self-Healing lookup...');
-                        const { findAllStudiosByStaffEmail } = await import('@/lib/sync-store');
-                        const matches = await findAllStudiosByStaffEmail(user.email);
-                        const dataMatch = matches.find(m => m.slug === activeSlug && m.staff.org_id !== orgId);
-                        
-                        if (dataMatch?.staff.org_id) {
-                            console.log('💊 [MasterSync] Healing applied. Found correct OrgID:', dataMatch.staff.org_id);
-                            localStorage.setItem(`cc_org_id_override_${activeSlug}`, dataMatch.staff.org_id);
-                            state = await fetchFullStudioState(activeSlug, dataMatch.staff.org_id);
-                        }
-                    }
-
+                    const state = await fetchFullStudioState(activeSlug, targetOrgId);
                     if (state) {
-                        console.log('✅ [MasterSync] Cloud state hydrated for Org:', state.org_id);
-                        console.log('📊 [MasterSync] Hydrated Counts:', {
-                            students: state.students?.length,
-                            groups: state.groups?.length,
-                            subs: state.subscriptions?.length
-                        });
+                        console.log('✅ [MasterSync] Hydrated state for:', state.org_id);
                         
                         const updates = {
-                            orgId,
+                            orgId: targetOrgId,
                             studioName: state.studio?.studio_name || settings.studioName,
                             logo_url: state.studio?.settings?.logo_url || state.settingsRecord?.logo_url || settings.logo_url,
                             staff: state.staff?.length > 0 ? state.staff : settings.staff,
@@ -107,11 +85,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         };
 
                         Object.entries(mapping).forEach(([key, data]) => {
-                            if (data && (Array.isArray(data) ? data.length > 0 : Object.keys(data).length > 0)) {
-                                const targetKey = getScopedKey(key, activeSlug);
-                                localStorage.setItem(targetKey, JSON.stringify(data));
-                                console.log(`💾 [MasterSync] Persisted ${key} to ${targetKey}`);
-                            }
+                            const targetKey = getScopedKey(key, activeSlug);
+                            localStorage.setItem(targetKey, JSON.stringify(data || (key === 'cc_student_data' ? {} : [])));
                         });
 
                         localStorage.setItem(`cc_last_sync_${activeSlug}`, Date.now().toString());
