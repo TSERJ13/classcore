@@ -245,15 +245,21 @@ export async function pushStudioStateToCloud(
         ]));
 
         // 5. Upsert to database
+        const finalOrgId = (orgId && orgId.length > 5) ? orgId : null;
+        
         const payload: any = {
             studio_slug: slug,
-            org_id: orgId,
+            org_id: finalOrgId,
             staff_data: blob,
             staff_emails: staffEmails,
             updated_at: new Date().toISOString()
         };
 
-        console.log('📡 [Sync] Attempting cloud push...', { slug, payloadSize: JSON.stringify(payload).length });
+        console.log('📡 [Sync] Attempting cloud push...', { 
+            slug, 
+            orgId: finalOrgId, 
+            payloadSize: JSON.stringify(payload).length 
+        });
 
         const { data: pushData, error } = await supabase
             .from(SETTINGS_TABLE)
