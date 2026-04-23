@@ -483,48 +483,67 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                 if (orgId) {
                     console.log('🚀 [MasterSync] Cloud anchor verified. OrgID:', orgId);
                     
-                    // If local orgId was different or missing, update it and push students
-                    if (orgId !== settings.orgId) {
+                    // IF NEW ANCHOR OR INITIAL LOAD: Push EVERYTHING local to cloud first
+                    // This prevents the empty cloud from wiping local data
+                    const isNewAnchor = orgId !== settings.orgId;
+                    if (isNewAnchor) {
+                        console.log('📦 [MasterSync] Migrating full local state to new cloud anchor...');
                         setSettings(prev => ({ ...prev, orgId }));
                         
-                        // Push local student data to populate the empty DB
-                        const studentsKey = getScopedKey('cc_student_data', activeSlug);
-                        const studentsRaw = localStorage.getItem(studentsKey);
+                        // 1. Push Students
+                        const studentsRaw = localStorage.getItem(getScopedKey('cc_student_data', activeSlug));
                         if (studentsRaw) {
-                            try {
-                                const students = JSON.parse(studentsRaw);
-                                Object.entries(students).forEach(([id, data]) => {
-                                    syncRecordToCloud('students', { 
-                                        id, 
-                                        org_id: orgId, 
-                                        first_name: (data as any).first_name || '',
-                                        last_name: (data as any).last_name || '',
-                                        full_name: (data as any).full_name || '',
-                                        data: data 
-                                    }, orgId);
-                                });
-                            } catch (e) {}
+                            const students = JSON.parse(studentsRaw);
+                            Object.entries(students).forEach(([id, data]) => {
+                                syncRecordToCloud('students', { id, org_id: orgId, ...data as any }, orgId);
+                            });
+                        }
+
+                        // 2. Push Staff
+                        const staffRaw = localStorage.getItem(getScopedKey('cc_teachers', activeSlug));
+                        if (staffRaw) {
+                            const staff = JSON.parse(staffRaw);
+                            staff.forEach((s: any) => syncRecordToCloud('staff', { id: s.id, org_id: orgId, ...s }, orgId));
+                        }
+
+                        // 3. Push Branches
+                        const branchesRaw = localStorage.getItem(getScopedKey('cc_branches', activeSlug));
+                        if (branchesRaw) {
+                            const branches = JSON.parse(branchesRaw);
+                            branches.forEach((b: any) => syncRecordToCloud('branches', { id: b.id, org_id: orgId, ...b }, orgId));
+                        }
+
+                        // 4. Push Groups
+                        const groupsRaw = localStorage.getItem(getScopedKey('cc_groups', activeSlug));
+                        if (groupsRaw) {
+                            const groups = JSON.parse(groupsRaw);
+                            groups.forEach((g: any) => syncRecordToCloud('groups', { id: g.id, org_id: orgId, ...g }, orgId));
                         }
                     }
 
                     const state = await fetchFullStudioState(activeSlug, orgId);
                     if (state) {
-                        console.log('✅ [MasterSync] Atomic hydration complete.');
-                        
-                        setSettings(prev => ({
-                            ...prev,
-                            orgId: state.org_id,
-                            staff: state.staff,
-                            branches: state.branches,
-                            studioName: state.studio.studio_name,
-                            lastSync: Date.now()
-                        }));
+                        // Merging logic: IF cloud has data, use it. IF NOT, keep local.
+                        setSettings(prev => {
+                            const next = {
+                                ...prev,
+                                orgId: state.org_id,
+                                lastSync: Date.now()
+                            };
+                            
+                            // Only update collections if cloud actually HAS items
+                            if (state.staff?.length > 0) next.staff = state.staff;
+                            if (state.branches?.length > 0) next.branches = state.branches;
+                            
+                            return next;
+                        });
 
-                        localStorage.setItem(getScopedKey('cc_teachers', activeSlug), JSON.stringify(state.staff));
-                        localStorage.setItem(getScopedKey('cc_branches', activeSlug), JSON.stringify(state.branches));
-                        localStorage.setItem(getScopedKey('cc_halls', activeSlug), JSON.stringify(state.halls));
-                        localStorage.setItem(getScopedKey('cc_groups', activeSlug), JSON.stringify(state.groups));
-                        localStorage.setItem(getScopedKey('cc_student_data', activeSlug), JSON.stringify(state.students));
+                        // Update local storage ONLY if cloud version was fetched (and not empty)
+                        if (state.staff?.length > 0) localStorage.setItem(getScopedKey('cc_teachers', activeSlug), JSON.stringify(state.staff));
+                        if (state.branches?.length > 0) localStorage.setItem(getScopedKey('cc_branches', activeSlug), JSON.stringify(state.branches));
+                        if (state.halls?.length > 0) localStorage.setItem(getScopedKey('cc_halls', activeSlug), JSON.stringify(state.halls));
+                        if (state.groups?.length > 0) localStorage.setItem(getScopedKey('cc_groups', activeSlug), JSON.stringify(state.groups));
+                        if (state.students?.length > 0) localStorage.setItem(getScopedKey('cc_student_data', activeSlug), JSON.stringify(state.students));
 
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
                             .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
