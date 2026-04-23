@@ -82,10 +82,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         const cloudTimestamp = cloudState.updated_at ? new Date(cloudState.updated_at).getTime() : 0;
         const lastHandshake = parseInt(localStorage.getItem('cc_last_sync_handshake') || '0');
-        const now = Date.now();
 
-        // 🚨 NEW LOGIC: If cloud is newer than our last successful handshake, we MUST apply it.
-        // We only block if the cloud is strictly OLDER than our last handshake.
         if (cloudTimestamp <= lastHandshake && lastHandshake > 0) {
             console.log('🛡️ [Sync] Cloud state is already synced or older. Skipping.');
             return false;
@@ -93,7 +90,7 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
         console.log(`📡 [Sync] Pulsing cloud state (${new Date(cloudTimestamp).toLocaleTimeString()}) for: ${activeSlug}`);
 
-        // 1. Apply Staff from cloud → localStorage settings blob + React state
+        // 1. Apply Staff
         if (cloudState.staff_data) {
             const local = loadSettings(activeSlug);
             const nextSettings = { 
@@ -105,40 +102,51 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             localStorage.setItem(key, JSON.stringify(nextSettings));
             setSettings(nextSettings);
             changed = true;
-            console.log(`📡 [Sync] Staff updated: ${cloudState.staff_data.length} members`);
         }
 
-        // 2. Apply Operational Data from cloud → localStorage
+        // 2. Apply Operational Data with Merge
         if (cloudState.studio_data) {
             const settingsKey = getScopedKey(STORAGE_KEY, activeSlug);
-            Object.entries(cloudState.studio_data).forEach(([key, value]) => {
-                if (value !== null && value !== undefined) {
-                    localStorage.setItem(key, JSON.stringify(value));
-                    changed = true;
+            
+            Object.entries(cloudState.studio_data).forEach(([key, cloudValue]) => {
+                if (cloudValue === null || cloudValue === undefined) return;
 
-                    // 🚨 CRITICAL: If settings key is updated from cloud, sync React state immediately
-                    if (key === settingsKey) {
-                        setSettings(value as any);
-                        console.log('📡 [Sync] Studio settings refreshed from cloud');
-                    }
+                const localValueRaw = localStorage.getItem(key);
+                let finalValue = cloudValue;
+
+                // SMART MERGE: If local data exists and is an array/object, merge it instead of overwriting
+                if (localValueRaw) {
+                    try {
+                        const localValue = JSON.parse(localValueRaw);
+                        if (Array.isArray(cloudValue) && Array.isArray(localValue)) {
+                            // Merge arrays by ID, prioritizing cloud for existing but keeping new local ones
+                            const map = new Map(localValue.map((i: any) => [i.id || JSON.stringify(i), i]));
+                            cloudValue.forEach((i: any) => map.set(i.id || JSON.stringify(i), i));
+                            finalValue = Array.from(map.values());
+                        } else if (typeof cloudValue === 'object' && typeof localValue === 'object') {
+                            finalValue = { ...localValue, ...cloudValue };
+                        }
+                    } catch (e) { /* fallback to overwrite */ }
+                }
+
+                localStorage.setItem(key, JSON.stringify(finalValue));
+                changed = true;
+
+                if (key === settingsKey) {
+                    setSettings(finalValue as any);
                 }
             });
 
             if (changed) {
-                // Notify all UI components that data has changed
                 ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
                  'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
                  'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
                  'cc_salary_update', 'cc_trash_update', 'cc_history_update']
                     .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
-                console.log(`📡 [Sync] Operational data updated: ${Object.keys(cloudState.studio_data).length} keys`);
             }
         }
 
-        // Update handshake to prevent loops/re-pulls
         localStorage.setItem('cc_last_sync_handshake', cloudTimestamp.toString());
-        
-        // Notify UI of sync success
         window.dispatchEvent(new CustomEvent('cc_sync_status', { detail: { status: 'success', time: cloudTimestamp } }));
 
         return changed;
