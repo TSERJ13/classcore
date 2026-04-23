@@ -82,6 +82,8 @@ export async function pushFullStudioMetadata(slug: string, name: string, setting
         .select('org_id')
         .single();
     
+    return data?.org_id;
+}
 
 export async function ensureStudioExists(slug: string, name: string) {
     const supabase = createClient();
