@@ -485,47 +485,44 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     // 🚨 CRITICAL: Persist OrgID immediately to local storage so other stores can see it
                     localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
 
-                    // IF NEW ANCHOR OR INITIAL LOAD: Push EVERYTHING local to cloud first
-                    const isNewAnchor = orgId !== settings.orgId;
-                    if (isNewAnchor) {
-                        console.log('📦 [MasterSync] Migrating full local state to new cloud anchor...');
+                    // 🛡️ AGGRESSIVE MIGRATION: Always check for legacy silos during bootstrap
+                    console.log('📦 [MasterSync] Checking for legacy data to migrate...');
+                    
+                    const collections = [
+                        { key: 'cc_student_data', table: 'students' },
+                        { key: 'cc_teachers', table: 'staff' },
+                        { key: 'cc_branches', table: 'branches' },
+                        { key: 'cc_groups', table: 'groups' }
+                    ];
+
+                    collections.forEach(({ key, table }) => {
+                        const legacyKey = `${key}_${activeSlug}`;
+                        const rawLegacy = localStorage.getItem(legacyKey);
+                        const targetKey = getScopedKey(key, activeSlug);
+                        const rawTarget = localStorage.getItem(targetKey);
                         
-                        // 1. Find data in LEGACY keys (Slug-only, before override)
-                        const collections = [
-                            { key: 'cc_student_data', table: 'students' },
-                            { key: 'cc_teachers', table: 'staff' },
-                            { key: 'cc_branches', table: 'branches' },
-                            { key: 'cc_groups', table: 'groups' }
-                        ];
-
-                        collections.forEach(({ key, table }) => {
-                            // Raw slug-based key access
-                            const legacyKey = `${key}_${activeSlug}`;
-                            const raw = localStorage.getItem(legacyKey);
+                        // Migration trigger: If we have legacy data but target is either empty or likely obsolete
+                        if (rawLegacy && (!rawTarget || rawTarget === '[]' || rawTarget === '{}')) {
+                            console.log(`📦 [MasterSync] Migrating legacy collection: ${key}`);
+                            const data = JSON.parse(rawLegacy);
                             
-                            if (raw) {
-                                console.log(`📦 [MasterSync] Migrating collection: ${key}`);
-                                const data = JSON.parse(raw);
-                                
-                                // Push to cloud using the NEW orgId
-                                if (Array.isArray(data)) {
-                                    data.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
-                                } else if (typeof data === 'object') {
-                                    Object.entries(data).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
-                                }
-
-                                // Also copy to new OrgId-scoped key locally so it shows up instantly
-                                localStorage.setItem(getScopedKey(key, activeSlug), raw);
+                            if (Array.isArray(data)) {
+                                data.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
+                            } else if (typeof data === 'object') {
+                                Object.entries(data).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
                             }
-                        });
 
-                        setSettings(prev => {
-                            const next = { ...prev, orgId };
-                            const key = getScopedKey(STORAGE_KEY, activeSlug);
-                            localStorage.setItem(key, JSON.stringify(next));
-                            return next;
-                        });
-                    }
+                            localStorage.setItem(targetKey, rawLegacy);
+                            // [Safety] Don't delete legacy yet, just shadow it
+                        }
+                    });
+
+                    setSettings(prev => {
+                        const next = { ...prev, orgId };
+                        const key = getScopedKey(STORAGE_KEY, activeSlug);
+                        localStorage.setItem(key, JSON.stringify(next));
+                        return next;
+                    });
 
                     const state = await fetchFullStudioState(activeSlug, orgId);
                     if (state) {
