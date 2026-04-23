@@ -9,6 +9,7 @@ import { useUser } from '@/hooks/useUser';
 import { recordAuditAction } from '@/lib/audit-store';
 import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
 import { createClient } from '@/lib/supabase/client';
+import { consolidateStudioKeys } from '@/lib/utils';
 
 interface StudioContextValue {
     settings: StudioSettings;
