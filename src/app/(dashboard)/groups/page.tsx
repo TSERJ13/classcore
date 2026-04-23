@@ -294,21 +294,21 @@ export default function GroupsPage() {
             {/* Cross-page quick nav */}
             <div className="bg-card border border-border-subtle rounded-[2.5rem] px-3 py-8 sm:p-8 mt-20 shadow-sm">
                 <p className="text-[10px] font-black text-muted tracking-[0.3em] mb-6 opacity-40 text-center">{t.linkedPages}</p>
-                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-4">
                     {[
                         { href: '/teachers', label: t.teachers, icon: GraduationCap, color: '#6366f1', desc: t.academicStaff },
                         { href: '/calendar', label: t.calendar, icon: CalendarDays, color: '#8b5cf6', desc: t.fullSchedule },
                         { href: '/attendance', label: t.attendance, icon: BookOpen, color: '#10b981', desc: t.attendanceRecording },
                     ].map(l => (
                         <Link key={l.href} href={l.href}
-                            className="flex flex-col items-center text-center gap-2 sm:gap-3 px-1.5 py-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface/50 border border-border-subtle hover:border-indigo-500/30 hover:bg-card hover:shadow-2xl hover:shadow-black/5 transition-all duration-300 touch-manipulation group">
-                            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner"
+                            className="flex flex-col items-center text-center gap-1.5 sm:gap-3 px-1 py-3 sm:p-6 rounded-xl sm:rounded-3xl bg-surface/50 border border-border-subtle hover:border-indigo-500/30 hover:bg-card hover:shadow-2xl hover:shadow-black/5 transition-all duration-300 touch-manipulation group">
+                            <div className="w-9 h-9 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner"
                                 style={{ background: l.color + '10', border: `1px solid ${l.color}25` }}>
-                                <l.icon className="w-5 h-5 sm:w-7 sm:h-7" style={{ color: l.color }} />
+                                <l.icon className="w-4 h-4 sm:w-7 sm:h-7" style={{ color: l.color }} />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-[10px] sm:text-sm font-black text-primary leading-tight mb-0.5 sm:mb-1">{l.label}</p>
-                                <p className="text-[8px] sm:text-[10px] text-muted font-bold opacity-60 tracking-widest line-clamp-1 sm:line-clamp-none">{l.desc}</p>
+                                <p className="text-[9px] sm:text-sm font-black text-primary leading-tight mb-0.5 sm:mb-1">{l.label}</p>
+                                <p className="text-[7px] sm:text-[10px] text-muted font-bold opacity-60 tracking-widest line-clamp-1 sm:line-clamp-none">{l.desc}</p>
                             </div>
                         </Link>
                     ))}

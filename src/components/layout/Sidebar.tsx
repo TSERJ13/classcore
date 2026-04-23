@@ -277,7 +277,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                     )}>
                         <div className={cn(
                             "flex items-center justify-center transition-all duration-300 w-full overflow-hidden bg-white/[0.03] border border-white/5 rounded-xl p-1",
-                            exp ? (isMobile ? "gap-1 flex-row h-10" : "gap-1 flex-row h-12") : "flex-col gap-1 w-11 h-auto py-1"
+                            exp ? (isMobile ? "gap-1 flex-row h-10" : "gap-1 flex-row h-12") : "flex-col gap-2 w-full h-auto py-2"
                         )}>
                             <LanguageSwitcher 
                                 compact={!exp} 
@@ -286,7 +286,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                 className={cn(
                                     exp 
                                         ? "flex-1 hover:bg-white/5 rounded-xl h-10 px-2 transition-all" 
-                                        : "w-9 h-9 hover:bg-white/5 rounded-xl justify-center",
+                                        : "w-10 h-10 hover:bg-white/5 rounded-xl justify-center",
                                     isMobile && "scale-100"
                                 )} 
                             />
@@ -297,7 +297,7 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                                     "flex items-center justify-center transition-all duration-200 text-rose-500 hover:bg-rose-500/10 active:scale-95 group/logout shrink-0",
                                     exp 
                                         ? "w-10 h-10 rounded-xl flex-1" 
-                                        : "w-9 h-9 rounded-xl"
+                                        : "w-10 h-10 rounded-xl"
                                 )}
                                 title={l('გასვლა', 'Выйти', 'Logout')}
                             >
