@@ -478,37 +478,55 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                     // 🚨 CRITICAL: Persist OrgID immediately to local storage so other stores can see it
                     localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
 
-                    // 🛡️ AGGRESSIVE MIGRATION: Check for legacy silos (including branch-scoped ones)
-                    const collections = [
+                    // 🛡️ UNIVERSAL MIGRATION SCAVENGER: Search ALL keys for anything belonging to this studio
+                    console.log('📦 [MasterSync] Scavenging all local storage for studio data...');
+                    const allKeys = Object.keys(localStorage);
+                    const prefixes = [
                         { key: 'cc_student_data', table: 'students' },
                         { key: 'cc_teachers', table: 'staff' },
                         { key: 'cc_branches', table: 'branches' },
                         { key: 'cc_groups', table: 'groups' }
                     ];
 
-                    collections.forEach(({ key, table }) => {
-                        // Check both raw slug and branch-scoped legacy keys
-                        const legacyVariants = [`${key}_${activeSlug}`, `${key}_${activeSlug}_main`];
+                    prefixes.forEach(({ key, table }) => {
                         const targetKey = getScopedKey(key, activeSlug);
-                        const rawTarget = localStorage.getItem(targetKey);
-
-                        if (!rawTarget || rawTarget === '[]' || rawTarget === '{}') {
-                            for (const lKey of legacyVariants) {
-                                const rawLegacy = localStorage.getItem(lKey);
-                                if (rawLegacy && rawLegacy !== '[]' && rawLegacy !== '{}') {
-                                    console.log(`📦 [MasterSync] Migrating legacy collection [${key}] from ${lKey}`);
-                                    const data = JSON.parse(rawLegacy);
-                                    
-                                    if (Array.isArray(data)) {
-                                        data.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
-                                    } else if (typeof data === 'object') {
-                                        Object.entries(data).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
+                        const candidates = allKeys.filter(k => k.startsWith(key) && (k.includes(activeSlug) || k.includes(orgId.slice(0, 8))));
+                        
+                        let mergedData: any = null;
+                        candidates.forEach(cKey => {
+                            if (cKey === targetKey) return; // Skip target
+                            try {
+                                const raw = localStorage.getItem(cKey);
+                                if (!raw || raw === '[]' || raw === '{}') return;
+                                
+                                console.log(`📦 [MasterSync] Scavenged legacy silo: ${cKey}`);
+                                const parsed = JSON.parse(raw);
+                                
+                                if (!mergedData) {
+                                    mergedData = parsed;
+                                } else {
+                                    // Merge logic (Array union by ID)
+                                    if (Array.isArray(mergedData) && Array.isArray(parsed)) {
+                                        const map = new Map();
+                                        [...mergedData, ...parsed].forEach(item => { if (item.id) map.set(item.id, item); });
+                                        mergedData = Array.from(map.values());
+                                    } else if (typeof mergedData === 'object' && typeof parsed === 'object') {
+                                        mergedData = { ...mergedData, ...parsed };
                                     }
-
-                                    localStorage.setItem(targetKey, rawLegacy);
-                                    break; // Found and migrated
                                 }
+                            } catch (e) {}
+                        });
+
+                        if (mergedData) {
+                            console.log(`🚀 [MasterSync] Migrating scavenged ${key} data to cloud...`);
+                            // Push to cloud
+                            if (Array.isArray(mergedData)) {
+                                mergedData.forEach((item: any) => syncRecordToCloud(table, { id: item.id, org_id: orgId, ...item }, orgId));
+                            } else if (typeof mergedData === 'object') {
+                                Object.entries(mergedData).forEach(([id, val]) => syncRecordToCloud(table, { id, org_id: orgId, ...val as any }, orgId));
                             }
+                            // Save to target key
+                            localStorage.setItem(targetKey, JSON.stringify(mergedData));
                         }
                     });
 
