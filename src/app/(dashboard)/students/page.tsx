@@ -28,7 +28,7 @@ function StatusBadge({ status, t }: { status: string; t: ReturnType<typeof useT>
 export default function StudentsPage() {
     const { t, lang } = useT();
     const { user, profile } = useUser();
-    const { settings, addToTrash } = useStudio();
+    const { settings, addToTrash, firstSyncDone, isSyncing } = useStudio();
     const { confirm } = useConfirm();
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
@@ -458,7 +458,12 @@ export default function StudentsPage() {
                         );
                     })}
 
-                    {filtered.length === 0 && (
+                    {(!firstSyncDone || isSyncing) ? (
+                        <div className="col-span-full flex flex-col items-center py-20">
+                            <div className="w-12 h-12 border-4 border-[#6d28d9] border-t-transparent rounded-full animate-spin mb-4" />
+                            <p className="text-sm font-bold text-muted animate-pulse">სინქრონიზაცია ბაზასთან...</p>
+                        </div>
+                    ) : filtered.length === 0 && (
                         <div className="col-span-full flex flex-col items-center py-20 text-muted/30">
                             <div className="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-4">
                                 <Users className="w-10 h-10 opacity-20" />
