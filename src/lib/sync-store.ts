@@ -197,39 +197,34 @@ export async function pushStudioStateToCloud(
             cloudStaff = cloudBlob.filter((s: any) => s.role !== undefined && s.id !== '__studio_config__');
             const configObj = cloudBlob.find((s: any) => s.id === '__studio_config__');
             if (configObj?.studio_data) {
-                Object.entries(configObj.studio_data).forEach(([k, v]) => {
-                    let base = k;
-                    if (base.endsWith(`_${slug}`)) base = base.slice(0, -(slug.length + 1));
-                    if (!EXCLUDED_FROM_BLOB.includes(base)) cloudOps[base] = v;
-                });
+
+        const cloudBlob = cloudRec?.staff_data || {};
+        const cloudStaff = cloudBlob._staff || [];
+        const cloudOps = cloudBlob._operations || {};
+        const cloudDeleted = cloudBlob._deleted_registry || {};
+
+        // Merge Staff logic
+        const staffMap = new Map();
+        cloudStaff.forEach((s: any) => staffMap.set(s.id, s));
+        localStaffMap.forEach((s, id) => {
+            const existing = staffMap.get(id);
+            if (!existing || (new Date(s.updated_at || 0) > new Date(existing.updated_at || 0))) {
+                staffMap.set(id, s);
             }
-        } else {
-            cloudStaff = cloudBlob._staff || [];
-            cloudOps = cloudBlob._operations || {};
-            cloudDeleted = cloudBlob._deleted_registry || {};
-        }
-
-        // --- DELETION INTEGRITY ---
-        const localDeletedKey = `cc_deleted_registry_${slug}`;
-        const localDeleted: Record<string, string[]> = JSON.parse(localStorage.getItem(localDeletedKey) || '{}');
-
-        // Merge deletion registries (Cloud + Local)
-        const combinedDeleted: Record<string, string[]> = { ...cloudDeleted };
-        Object.entries(localDeleted).forEach(([k, ids]) => {
-            combinedDeleted[k] = Array.from(new Set([...(combinedDeleted[k] || []), ...ids]));
         });
 
-        // --- ATOMIC MERGE ---
-        const staffMap = new Map();
-        // 1. Cloud (Truth)
-        cloudStaff.forEach(s => staffMap.set(String(s.id), s));
-        // 2. Local (Changes)
-        staff.forEach(s => staffMap.set(String(s.id), { ...(staffMap.get(String(s.id)) || {}), ...s }));
-        // 3. Prune Deleted
-        (combinedDeleted['_staff'] || []).forEach(id => staffMap.delete(String(id)));
-
         const mergedStaff = Array.from(staffMap.values());
-        const mergedOps = smartMergeCollections(cloudOps, studioData, combinedDeleted);
+        
+        // --- DELETION REGISTRY MERGE ---
+        const localDeletedKey = `cc_deleted_registry_${slug}`;
+        const localDeleted = JSON.parse(localStorage.getItem(localDeletedKey) || '{}');
+        const combinedDeleted: Record<string, string[]> = { ...cloudDeleted };
+        Object.entries(localDeleted).forEach(([col, ids]) => {
+            const arr = Array.isArray(ids) ? ids : [];
+            combinedDeleted[col] = [...new Set([...(combinedDeleted[col] || []), ...arr])];
+        });
+
+        const mergedOps = smartMergeCollections(cloudOps, operations, combinedDeleted);
 
         // --- FINAL BUNDLE ---
         const blob = {
@@ -258,6 +253,8 @@ export async function pushStudioStateToCloud(
             updated_at: new Date().toISOString()
         };
 
+        console.log('📡 [Sync] Attempting cloud push...', { slug, payloadSize: JSON.stringify(payload).length });
+
         const { data: pushData, error } = await supabase
             .from(SETTINGS_TABLE)
             .upsert(payload, { onConflict: 'studio_slug' })
@@ -265,11 +262,12 @@ export async function pushStudioStateToCloud(
             .single();
 
         if (error) {
-            if (error.code === '42501') {
-                console.error('❌ [Sync] Permission Denied (42501). Staff cannot write to studio_settings. Ensure RLS policies allow "anon" role to UPDATE.');
-            } else {
-                console.error('❌ [Sync] Push failed:', error.message, error.code);
-            }
+            console.error('❌ [Sync] Upsert failed deeply:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
             throw error;
         }
 
