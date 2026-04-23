@@ -552,6 +552,61 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
         initMasterSync();
     }, [isLoaded, settings.studioSlug]);
 
+    // 🚀 MASTER SYNC: Dedicated Bootstrap Pulse
+    useEffect(() => {
+        if (!isLoaded || !settings.studioSlug || ['demo.classcore.ge', 'superadmin'].includes(settings.studioSlug)) return;
+        
+        const activeSlug = settings.studioSlug;
+        console.log('🛰️ [MasterSync] Initiating Cloud Anchor Pulse for:', activeSlug);
+
+        const bootstrap = async () => {
+            try {
+                const orgId = await ensureStudioExists(activeSlug, settings.studioName);
+                if (orgId) {
+                    console.log('🚀 [MasterSync] Cloud anchor ESTABLISHED. OrgID:', orgId);
+                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
+
+                    setSettings(prev => {
+                        if (prev.orgId === orgId) return prev;
+                        const next = { ...prev, orgId };
+                        localStorage.setItem(getScopedKey(STORAGE_KEY, activeSlug), JSON.stringify(next));
+                        return next;
+                    });
+
+                    // One-time hydration
+                    const state = await fetchFullStudioState(activeSlug, orgId);
+                    if (state) {
+                        console.log('✅ [MasterSync] Initial hydration complete.');
+                        setSettings(prev => ({
+                            ...prev,
+                            staff: state.staff?.length > 0 ? state.staff : prev.staff,
+                            branches: state.branches?.length > 0 ? state.branches : prev.branches
+                        }));
+
+                        const storageMap: any = {
+                            cc_teachers: state.staff,
+                            cc_branches: state.branches,
+                            cc_halls: state.halls,
+                            cc_groups: state.groups,
+                            cc_student_data: state.students
+                        };
+
+                        Object.entries(storageMap).forEach(([key, val]) => {
+                            if ((val as any)?.length > 0) localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(val));
+                        });
+
+                        ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
+                            .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
+                    }
+                }
+            } catch (err) {
+                console.error('❌ [MasterSync] Bootstrap failed:', err);
+            }
+        };
+
+        bootstrap();
+    }, [isLoaded, settings.studioSlug]);
+
     // Initial hydration from local storage
     useEffect(() => {
         const local = loadSettings(defaultSlug || undefined);
