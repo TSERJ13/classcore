@@ -39,6 +39,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         async function bootstrap() {
             try {
+                // 🚀 THROTTLE: Avoid Disk IO depletion by skipping redundant syncs
+                const lastSync = localStorage.getItem(`cc_last_sync_${activeSlug}`);
+                const now = Date.now();
+                if (lastSync && (now - parseInt(lastSync)) < 60000) { // 60s throttle
+                    console.log('⏳ [MasterSync] Skipping redundant sync (throttled)');
+                    return;
+                }
+
                 const orgId = await ensureStudioExists(activeSlug, settings.studioName);
                 if (orgId) {
                     console.log('🛰️ [MasterSync] Cloud Anchor Established:', orgId);
@@ -85,6 +93,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         });
 
                         // Notify UI
+                        localStorage.setItem(`cc_last_sync_${activeSlug}`, Date.now().toString());
+
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                          'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update']
                             .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
