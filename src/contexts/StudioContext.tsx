@@ -42,8 +42,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 // 🚀 THROTTLE: Avoid Disk IO depletion by skipping redundant syncs
                 const lastSync = localStorage.getItem(`cc_last_sync_${activeSlug}`);
                 const now = Date.now();
-                if (lastSync && (now - parseInt(lastSync)) < 60000) { // 60s throttle
-                    console.log('⏳ [MasterSync] Skipping redundant sync (throttled)');
+                if (lastSync && (now - parseInt(lastSync)) < 60000) {
+                    console.log('⏳ [MasterSync] Throttled. Skipping cloud fetch.');
                     return;
                 }
 
@@ -54,7 +54,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     
                     const state = await fetchFullStudioState(activeSlug, orgId);
                     if (state) {
-                        console.log('✅ [MasterSync] Cloud state hydrated.');
+                        console.log('✅ [MasterSync] Cloud state hydrated for Org:', orgId);
+                        console.log('📊 [MasterSync] Hydrated Counts:', {
+                            students: state.students?.length,
+                            groups: state.groups?.length,
+                            subs: state.subscriptions?.length
+                        });
                         
                         const updates = {
                             orgId,
@@ -70,7 +75,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             return next;
                         });
 
-                        // Force persist scoped collections (ABSOLUTELY EVERYTHING)
                         const mapping: any = {
                             cc_teachers: state.staff,
                             cc_branches: state.branches,
@@ -88,11 +92,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                         Object.entries(mapping).forEach(([key, data]) => {
                             if (data && (Array.isArray(data) ? data.length > 0 : Object.keys(data).length > 0)) {
-                                localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
+                                const targetKey = getScopedKey(key, activeSlug);
+                                localStorage.setItem(targetKey, JSON.stringify(data));
+                                console.log(`💾 [MasterSync] Persisted ${key} to ${targetKey}`);
                             }
                         });
 
-                        // Notify UI
                         localStorage.setItem(`cc_last_sync_${activeSlug}`, Date.now().toString());
 
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
@@ -123,7 +128,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const next = { ...prev, ...updates };
             const saved = saveSettings(updates, prev, prev.studioSlug);
             
-            // 🔥 CLOUD SYNC: Broadcast branding changes
             if (prev.studioSlug && prev.orgId) {
                 const name = updates.studioName || prev.studioName;
                 const metadata = { 
@@ -133,7 +137,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 };
                 import('@/lib/master-sync').then(mod => {
                     mod.pushFullStudioMetadata(prev.studioSlug, name, metadata);
-                    // Also update studio_settings table for logo
                     if (updates.logo_url || updates.group_colors) {
                         mod.syncRecordToCloud('studio_settings', { 
                             org_id: prev.orgId, 
