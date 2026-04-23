@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings, getStaffSession, patchNotifications, patchSecurity, applyTheme, cleanupRegistry, DEFAULT_SETTINGS } from '@/lib/settings-store';
-import { scrubLocalStorage } from '@/lib/sync-store';
 import { getScopedKey, STORAGE_KEY, ACTIVE_SLUG_KEY, recordGlobalDeletion, clearGlobalDeletion } from '@/lib/utils';
 import { type StudioSettings, type ThemeKey, type Branch, type StaffMember, type TrashItem, type SubscriptionLog } from '@/types';
 import { useUser } from '@/hooks/useUser';
@@ -761,7 +760,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
             // when switching to a new account, effectively preventing cross-account pollution universally.
             console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing nuclear storage isolation (Scorched Earth v2.1).');
             
-            scrubLocalStorage(profile.studio_slug!, profile.org_id);
+            if (profile.studio_slug) {
+                consolidateStudioKeys(profile.studio_slug, profile.org_id);
+            }
             setSettings(prev => {
                 if (prev.orgId === profile.org_id) return prev;
                 return { ...prev, orgId: profile.org_id };
@@ -788,10 +789,11 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
 
     useEffect(() => {
         if (isLoaded && settings.studioSlug) {
-            // Defer heavy integrity checks to background
+            // Background consolidation
             const timer = setTimeout(() => {
-                scrubLocalStorage(settings.studioSlug!, settings.orgId);
-                performUniversalIntegrityCheck(settings.studioSlug!, settings.orgId);
+                if (settings.studioSlug) {
+                    consolidateStudioKeys(settings.studioSlug!, settings.orgId);
+                }
             }, 3000); // 3 seconds delay
             return () => clearTimeout(timer);
         }
