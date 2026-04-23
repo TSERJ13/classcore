@@ -529,9 +529,9 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
                             localStorage.setItem(targetKey, JSON.stringify(mergedData));
                             
                             // Trigger UI update immediately
-                            const eventName = cKey.includes('student') ? 'cc_student_update' : 
-                                            cKey.includes('teacher') ? 'cc_teacher_update' :
-                                            cKey.includes('group') ? 'cc_groups_update' : null;
+                            const eventName = key.includes('student') ? 'cc_student_update' : 
+                                            key.includes('teacher') ? 'cc_teacher_update' :
+                                            key.includes('group') ? 'cc_groups_update' : null;
                             if (eventName) {
                                 console.log(`🔔 [MasterSync] Signaling UI update for: ${eventName}`);
                                 window.dispatchEvent(new CustomEvent(eventName, { detail: { isRemote: true } }));
