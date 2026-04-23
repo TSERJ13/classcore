@@ -1,452 +1,111 @@
-'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { loadSettings, saveSettings, getStaffSession, patchNotifications, patchSecurity, applyTheme, cleanupRegistry, DEFAULT_SETTINGS } from '@/lib/settings-store';
-import { getScopedKey, STORAGE_KEY, ACTIVE_SLUG_KEY, recordGlobalDeletion, clearGlobalDeletion } from '@/lib/utils';
-import { type StudioSettings, type ThemeKey, type Branch, type StaffMember, type TrashItem, type SubscriptionLog } from '@/types';
-import { useUser } from '@/hooks/useUser';
-import { recordAuditAction } from '@/lib/audit-store';
-import { moveToTrash as recordToGlobalTrash } from '@/lib/trash-store';
-import { createClient } from '@/lib/supabase/client';
-import { consolidateStudioKeys } from '@/lib/utils';
-import { fetchFullStudioState, syncRecordToCloud, ensureStudioExists } from '@/lib/master-sync';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { loadSettings, saveSettings } from '@/lib/settings-store';
+import { StudioSettings, SubscriptionLog } from '@/types/studio';
+import { getActiveSlug, STORAGE_KEY, getScopedKey, markLocalUpdate } from '@/lib/utils';
+import { ensureStudioExists, fetchFullStudioState, syncRecordToCloud } from '@/lib/master-sync';
 
-interface StudioContextValue {
+interface StudioContextType {
     settings: StudioSettings;
-    activeBranchId: string;
     isLoaded: boolean;
-    setTheme: (k: ThemeKey) => void;
-    setStudioName: (n: string) => void;
-    setStudioSlug: (s: string) => void;
-    setLogo: (dataUrl: string | null) => void;
-    setNotification: (key: keyof StudioSettings['notifications'], val: boolean) => void;
-    setSecurity: (key: keyof StudioSettings['security'], val: number | boolean) => void;
-    setLandingContent: (content: Partial<StudioSettings['landingContent']>) => void;
-    setSmsTemplates: (t: StudioSettings['sms_templates']) => void;
-    setCurrency: (c: 'GEL' | 'USD' | 'EUR') => void;
-    setLanguage: (l: 'ka' | 'ru' | 'en') => void;
-    setTimezone: (t: string) => void;
-    setGoogleCalendar: (v: boolean) => void;
-    setPausePrice: (days: '7' | '14' | '30' | '60', price: number) => void;
-    addBranch: (name: string, address?: string) => void;
-    removeBranch: (id: string) => void;
-    updateBranch: (id: string, patch: Partial<Branch>) => void;
-    setActiveBranch: (id: string) => void;
-    addStaff: (member: Omit<StaffMember, 'id' | 'created_at'>) => void;
-    removeStaff: (id: string) => void;
-    updateStaff: (id: string, patch: Partial<StaffMember>) => void;
-    markLocalUpdate: () => void;
-    addToTrash: (item: Omit<TrashItem, 'deletedAt' | 'deletedBy'>) => void;
-    restoreFromTrash: (id: string) => void;
-    clearOldTrash: () => void;
-    logSubscription: (log: Omit<SubscriptionLog, 'id' | 'date'>) => void;
+    firstSyncDone: boolean;
+    activeBranchId: string;
+    setActiveBranchId: (id: string) => void;
+    updateSettings: (updates: Partial<StudioSettings>) => void;
+    addSubscriptionLog: (log: Omit<SubscriptionLog, 'id' | 'date'>) => void;
     setCustomRoles: (roles: string[]) => void;
-    setSettings: (s: StudioSettings) => void;
-    setWizardCompleted: (completed: boolean) => void;
-    setOwnerInfo: (info: Partial<StudioSettings['owner_info']>) => void;
-    claimStudio: (newSlug: string, ownerEmail: string) => Promise<void>;
 }
 
-const StudioContext = createContext<StudioContextValue | null>(null);
+const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
-export function StudioProvider({ children, defaultSlug, defaultStudioName }: { children: React.ReactNode; defaultSlug?: string | null; defaultStudioName?: string }) {
-    const { user, profile, loading: authLoading } = useUser();
-    const isSuperAdmin = user?.email && ['adminclasscore@gmail.com', 'support@classcore.ge'].some(e => e.toLowerCase() === user.email?.toLowerCase());
-
-    const [settings, setSettings] = useState<StudioSettings>(() => {
-        if (defaultSlug) {
-            return { ...DEFAULT_SETTINGS, studioSlug: defaultSlug, studioName: defaultStudioName || DEFAULT_SETTINGS.studioName };
-        }
-        return DEFAULT_SETTINGS;
-    });
-    const [activeBranchId, setActiveBranchIdState] = useState<string>(() => {
-        if (typeof window !== 'undefined' && defaultSlug) {
-            return localStorage.getItem(`cc_active_branch_${defaultSlug}`) || 'main';
-        }
-        return 'main';
-    });
-    const [isLoaded, setIsLoaded] = useState(false); // Default to false until first sync/hydration
+export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [settings, setSettings] = useState<StudioSettings>(() => loadSettings());
+    const [isLoaded, setIsLoaded] = useState(false);
     const [firstSyncDone, setFirstSyncDone] = useState(false);
-    const [pushCounter, setPushCounter] = useState(0);
-    const triggerPush = useCallback(() => setPushCounter(prev => prev + 1), []);
-    const hasSyncedRef = useRef(false);
-    const lastLocalUpdateRef = useRef<number>(0);
+    const [activeBranchId, setActiveBranchId] = useState('main');
 
-    /**
-     * Cloud-First State Application:
-     * Cloud data overwrites local state. No protection windows, no merging.
-     * The cloud is the single source of truth.
-     */
-    const applyCloudState = useCallback((activeSlug: string, cloudState: { staff_data?: StaffMember[], studio_data?: any, org_id?: string, updated_at?: string }) => {
-        if (!cloudState || !activeSlug) return false;
-        let changed = false;
-
-        const cloudTimestamp = cloudState.updated_at ? new Date(cloudState.updated_at).getTime() : 0;
-        const lastHandshake = parseInt(localStorage.getItem('cc_last_sync_handshake') || '0');
-
-        if (cloudTimestamp <= lastHandshake && lastHandshake > 0) {
-            console.log('🛡️ [Sync] Cloud state is already synced or older. Skipping.');
-            return false;
+    // 🚀 MASTER SYNC: Guaranteed Bootstrap & Hydration
+    useEffect(() => {
+        if (!isLoaded || !settings.studioSlug || ['demo.classcore.ge', 'superadmin'].includes(settings.studioSlug)) {
+            setFirstSyncDone(true);
+            return;
         }
 
-        console.log(`📡 [Sync] Pulsing cloud state (${new Date(cloudTimestamp).toLocaleTimeString()}) for: ${activeSlug}`);
+        const activeSlug = settings.studioSlug;
+        
+        async function bootstrap() {
+            try {
+                // 1. Establish Cloud Anchor
+                const orgId = await ensureStudioExists(activeSlug, settings.studioName);
+                if (orgId) {
+                    console.log('🛰️ [MasterSync] Cloud Anchor Established:', orgId);
+                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
+                    
+                    // 2. Fetch Latest Cloud State
+                    const state = await fetchFullStudioState(activeSlug, orgId);
+                    if (state) {
+                        console.log('✅ [MasterSync] Cloud state hydrated.');
+                        
+                        // Update local settings atom
+                        setSettings(prev => ({
+                            ...prev,
+                            orgId,
+                            staff: state.staff?.length > 0 ? state.staff : prev.staff,
+                            branches: state.branches?.length > 0 ? state.branches : prev.branches
+                        }));
 
-        // 1. Apply Staff
-        if (cloudState.staff_data) {
-            const local = loadSettings(activeSlug);
-            const nextSettings = { 
-                ...local, 
-                staff: cloudState.staff_data,
-                orgId: cloudState.org_id || local.orgId
-            };
-            const key = getScopedKey(STORAGE_KEY, activeSlug);
-            localStorage.setItem(key, JSON.stringify(nextSettings));
-            setSettings(nextSettings);
-            changed = true;
-        }
+                        // Force persist scoped collections
+                        const mapping: any = {
+                            cc_teachers: state.staff,
+                            cc_branches: state.branches,
+                            cc_halls: state.halls,
+                            cc_groups: state.groups,
+                            cc_student_data: state.students
+                        };
 
-        // 2. Apply Operational Data with Merge
-        if (cloudState.studio_data) {
-            const settingsKey = getScopedKey(STORAGE_KEY, activeSlug);
-            
-            Object.entries(cloudState.studio_data).forEach(([key, cloudValue]) => {
-                if (cloudValue === null || cloudValue === undefined) return;
+                        Object.entries(mapping).forEach(([key, data]) => {
+                            if (Array.isArray(data) && data.length > 0) {
+                                localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
+                            }
+                        });
 
-                const localValueRaw = localStorage.getItem(key);
-                let finalValue = cloudValue;
-
-                // SMART MERGE: If local data exists and is an array/object, merge it instead of overwriting
-                if (localValueRaw) {
-                    try {
-                        const localValue = JSON.parse(localValueRaw);
-                        if (Array.isArray(cloudValue) && Array.isArray(localValue)) {
-                            // Merge arrays by ID, prioritizing cloud for existing but keeping new local ones
-                            const map = new Map(localValue.map((i: any) => [i.id || JSON.stringify(i), i]));
-                            cloudValue.forEach((i: any) => map.set(i.id || JSON.stringify(i), i));
-                            finalValue = Array.from(map.values());
-                        } else if (typeof cloudValue === 'object' && typeof localValue === 'object') {
-                            finalValue = { ...localValue, ...cloudValue };
-                        }
-                    } catch (e) { /* fallback to overwrite */ }
-                }
-
-                localStorage.setItem(key, JSON.stringify(finalValue));
-                changed = true;
-
-                if (key === settingsKey) {
-                    setSettings(finalValue as any);
-                }
-            });
-
-            if (changed) {
-                ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
-                 'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
-                 'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
-                 'cc_salary_update', 'cc_trash_update', 'cc_history_update']
-                    .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
-            }
-        }
-
-        localStorage.setItem('cc_last_sync_handshake', cloudTimestamp.toString());
-        window.dispatchEvent(new CustomEvent('cc_sync_status', { detail: { status: 'success', time: cloudTimestamp } }));
-
-        return changed;
-    }, []);
-
-    const markLocalUpdate = useCallback(() => {
-        const now = Date.now();
-        lastLocalUpdateRef.current = now;
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('cc_last_local_update', now.toString());
-        }
-    }, []);
-
-    const setStudioName = useCallback((n: string) => {
-        setSettings(prev => {
-            const next = saveSettings({ studioName: n }, prev, prev.studioSlug);
-            // Sync to Master Studio table
-            if (prev.orgId) {
-                pushFullStudioMetadata(prev.studioSlug || '', n, next.settings || {});
-            }
-            return next;
-        });
-        document.cookie = `cc_studio_name=${encodeURIComponent(n)}; path=/; max-age=31536000; SameSite=Lax`;
-    }, []);
-
-    const setStudioSlug = useCallback((s: string) => {
-        setSettings(prev => saveSettings({ studioSlug: s }, prev, s));
-        document.cookie = `cc_active_slug=${s}; path=/; max-age=31536000; SameSite=Lax`;
-    }, []);
-
-    const setTheme = useCallback((k: ThemeKey) => {
-        setSettings(saveSettings({ themeKey: k }));
-        applyTheme(k);
-        document.cookie = `cc_theme=${k}; path=/; max-age=31536000; SameSite=Lax`;
-    }, []);
-
-    const setLogo = useCallback((dataUrl: string | null) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ logoDataUrl: dataUrl }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setNotification = useCallback((key: keyof StudioSettings['notifications'], val: boolean) => {
-        markLocalUpdate();
-        setSettings(prev => patchNotifications({ [key]: val }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setSecurity = useCallback((key: keyof StudioSettings['security'], val: number | boolean) => {
-        markLocalUpdate();
-        setSettings(prev => patchSecurity({ [key]: val }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setLandingContent = useCallback((content: Partial<StudioSettings['landingContent']>) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ landingContent: { ...prev.landingContent, ...content } }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setSmsTemplates = useCallback((templates: StudioSettings['sms_templates']) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ sms_templates: templates }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setCurrency = useCallback((c: 'GEL' | 'USD' | 'EUR') => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ currency: c }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setLanguage = useCallback((l: 'ka' | 'ru' | 'en') => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ language: l }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setTimezone = useCallback((t: string) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ timezone: t }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setGoogleCalendar = useCallback((v: boolean) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ googleCalendarEnabled: v }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const setPausePrice = useCallback((days: '7' | '14' | '30' | '60', price: number) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({
-            pausePrices: { ...prev.pausePrices, [days]: price }
-        }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-    
-    const setWizardCompleted = useCallback((completed: boolean) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ isWizardCompleted: completed }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-        if (completed && typeof window !== 'undefined') {
-            localStorage.setItem('cc_onboarding_done', 'true');
-        }
-    }, [markLocalUpdate, triggerPush]);
-
-    const setOwnerInfo = useCallback((info: any) => {
-        markLocalUpdate();
-        setSettings(prev => saveSettings({ 
-            owner_info: {
-                first_name: prev.owner_info?.first_name || '',
-                last_name: prev.owner_info?.last_name || '',
-                email: prev.owner_info?.email || '',
-                phone: prev.owner_info?.phone || '',
-                client_id: prev.owner_info?.client_id || '',
-                ...info
-            }
-        }, prev, prev.studioSlug));
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, triggerPush]);
-
-    const addBranch = useCallback((name: string, address?: string) => {
-        setSettings(prev => {
-            const newBranch: Branch = {
-                id: Math.random().toString(36).substring(2, 9),
-                name,
-                address,
-                is_active: true,
-                created_at: new Date().toISOString()
-            };
-            
-            // Sync to Master Branch table
-            if (prev.orgId) {
-                syncRecordToCloud('branches', {
-                    id: newBranch.id,
-                    org_id: prev.orgId,
-                    name: newBranch.name,
-                    address: newBranch.address
-                }, prev.orgId);
-            }
-
-            return saveSettings({ branches: [...prev.branches, newBranch] }, prev, prev.studioSlug);
-        });
-    }, []);
-
-    const removeBranch = useCallback((id: string) => {
-        if (id === 'main') return;
-        setSettings(prev => {
-            const branches = prev.branches.filter(b => b.id !== id);
-            const activeBranchId = prev.activeBranchId === id ? 'main' : prev.activeBranchId;
-            return saveSettings({ branches, activeBranchId }, prev, prev.studioSlug);
-        });
-    }, []);
-
-    const updateBranch = useCallback((id: string, patch: Partial<Branch>) => {
-        setSettings(prev => {
-            const branches = prev.branches.map(b => b.id === id ? { ...b, ...patch } : b);
-            return saveSettings({ branches }, prev, prev.studioSlug);
-        });
-    }, []);
-
-    const setActiveBranch = useCallback((id: string) => {
-        if (typeof window !== 'undefined' && settings.studioSlug) {
-            localStorage.setItem(`cc_active_branch_${settings.studioSlug}`, id);
-            setActiveBranchIdState(id);
-            window.dispatchEvent(new Event('cc_active_branch_change'));
-        }
-    }, [settings.studioSlug]);
-
-    const syncTeacherGroups = useCallback((teacherId: string, fullName: string, assignedGroupIds: string[]) => {
-        import('@/lib/group-store').then(({ updateTeacherGroups }) => {
-            updateTeacherGroups(teacherId, fullName, assignedGroupIds);
-        });
-    }, []);
-
-    const addStaff = useCallback((member: Omit<StaffMember, 'id' | 'created_at'>) => {
-        markLocalUpdate();
-        const newId = Math.random().toString(36).substring(2, 9);
-        if (settings.studioSlug) {
-            clearGlobalDeletion(settings.studioSlug, '_staff', newId);
-        }
-        setSettings(prev => {
-            const newMember: StaffMember = {
-                ...member,
-                id: newId,
-                created_at: new Date().toISOString()
-            };
-            const nextStaff = [...(prev.staff || []), newMember];
-            
-            // Sync to Master Table
-            if (prev.orgId) {
-                syncRecordToCloud('staff', newMember, prev.orgId);
-            }
-
-            syncTeacherGroups(newMember.id, `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name, newMember.assigned_group_ids || []);
-            return saveSettings({ staff: nextStaff }, prev, prev.studioSlug);
-        });
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, syncTeacherGroups, settings.studioSlug]);
-
-    const removeStaff = useCallback((id: string) => {
-        markLocalUpdate();
-        if (settings.studioSlug) {
-            recordGlobalDeletion(settings.studioSlug, '_staff', id);
-        }
-        setSettings(prev => {
-            const member = (prev.staff || []).find(s => s.id === id);
-            if (member) {
-                recordToGlobalTrash('teacher' as any, member, activeBranchId);
-                syncTeacherGroups(id, '', []);
-            }
-            const staff = (prev.staff || []).filter(s => s.id !== id);
-            return saveSettings({ staff }, prev, prev.studioSlug);
-        });
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [activeBranchId, markLocalUpdate, syncTeacherGroups, settings.studioSlug]);
-
-    const updateStaff = useCallback((id: string, patch: Partial<StaffMember>) => {
-        markLocalUpdate();
-        setSettings(prev => {
-            const staff = (prev.staff || []).map(s => {
-                if (s.id === id) {
-                    const next = { ...s, ...patch };
-                    if (patch.assigned_group_ids || patch.first_name || patch.last_name || patch.full_name) {
-                        syncTeacherGroups(id, `${next.first_name || ''} ${next.last_name || ''}`.trim() || next.full_name, next.assigned_group_ids || []);
+                        // Notify UI
+                        ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
+                            .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
                     }
-                    return next;
                 }
-                return s;
-            });
-            return saveSettings({ staff }, prev, prev.studioSlug);
-        });
-        window.dispatchEvent(new Event('cc_instant_sync_request'));
-    }, [markLocalUpdate, syncTeacherGroups]);
-
-    const addToTrash = useCallback((item: Omit<TrashItem, 'deletedAt' | 'deletedBy'>) => {
-        setSettings(prev => {
-            const newItem: TrashItem = {
-                ...item,
-                deletedAt: new Date().toISOString(),
-                deletedBy: user?.email || 'System'
-            };
-            const trash = [newItem, ...(prev.trash || [])].slice(0, 100);
-            recordToGlobalTrash(item.type as any, item.data, activeBranchId);
-            return saveSettings({ trash }, prev, prev.studioSlug);
-        });
-    }, [user?.email, activeBranchId]);
-
-    const restoreFromTrash = useCallback((id: string) => {
-        setSettings(prev => {
-            const item = (prev.trash || []).find(t => t.id === id);
-            if (!item) return prev;
-            const trash = (prev.trash || []).filter(t => t.id !== id);
-
-            if (item.type === 'staff') {
-                markLocalUpdate();
-                const staff = [...(prev.staff || []), item.data];
-                const member = item.data as StaffMember;
-                syncTeacherGroups(member.id, `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.full_name, member.assigned_group_ids || []);
-                return saveSettings({ trash, staff }, prev, prev.studioSlug);
+            } catch (err) {
+                console.error('❌ [MasterSync] Bootstrap failed:', err);
+            } finally {
+                setFirstSyncDone(true);
             }
+        }
 
-            if (item.type === 'student' || item.type === 'subscription') {
-                if (typeof window !== 'undefined') {
-                    const prefix = item.type === 'student' ? 'cc_deleted_students' : 'cc_deleted_subscriptions';
-                    const key = getScopedKey(prefix, prev.studioSlug);
-                    const deletedIds = JSON.parse(localStorage.getItem(key) || '[]');
-                    const nextIds = deletedIds.filter((d: string) => d !== (item.data.id || item.id));
-                    localStorage.setItem(key, JSON.stringify(nextIds));
-                    window.dispatchEvent(new Event(item.type === 'student' ? 'cc_student_update' : 'cc_subscription_update'));
-                }
-            }
-            return saveSettings({ trash }, prev, prev.studioSlug);
-        });
-    }, [syncTeacherGroups, markLocalUpdate]);
+        bootstrap();
+    }, [isLoaded, settings.studioSlug]);
 
-    const clearOldTrash = useCallback(() => {
+    // Initial hydration from local storage
+    useEffect(() => {
+        const defaultSlug = getActiveSlug();
+        const local = loadSettings(defaultSlug || undefined);
+        setSettings(local);
+        setIsLoaded(true);
+    }, []);
+
+    const updateSettings = useCallback((updates: Partial<StudioSettings>) => {
         setSettings(prev => {
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const trash = (prev.trash || []).filter(t => new Date(t.deletedAt) > thirtyDaysAgo);
-            return saveSettings({ trash }, prev, prev.studioSlug);
+            const next = { ...prev, ...updates };
+            return saveSettings(updates, prev, prev.studioSlug);
         });
     }, []);
 
-    const logSubscription = useCallback((log: Omit<SubscriptionLog, 'id' | 'date'>) => {
+    const addSubscriptionLog = useCallback((log: Omit<SubscriptionLog, 'id' | 'date'>) => {
         setSettings(prev => {
-            const newLog: SubscriptionLog = {
+            const subscriptionLogs = [...(prev.subscriptionLogs || [])];
+            subscriptionLogs.unshift({
                 ...log,
-                id: Math.random().toString(36).substring(2, 9),
-                date: new Date().toISOString()
-            };
-            const subscriptionLogs = [newLog, ...(prev.subscriptionLogs || [])].slice(0, 500);
-            recordAuditAction({
-                action: 'subscription_issued',
-                details: `Plan: ${log.planName}${log.groupName ? ` (Group: ${log.groupName})` : ''}`,
-                amount: log.amount,
-                studentId: log.studentId,
+                id: crypto.randomUUID(),
+                date: new Date().toISOString(),
                 studentName: log.studentName,
                 branchId: (log.branchId || activeBranchId || 'main') as string,
                 branchName: (log.branchName || prev.branches.find(b => b.id === (log.branchId || activeBranchId))?.name || 'Main') as string,
@@ -459,565 +118,27 @@ export function StudioProvider({ children, defaultSlug, defaultStudioName }: { c
     const setCustomRoles = useCallback((roles: string[]) => {
         setSettings(prev => saveSettings({ customRoles: roles }, prev, prev.studioSlug));
     }, []);
-    // 1. Reactive Sync Initiation: Trigger pull whenever the slug is identified/changed
-    const lastSyncedSlugRef = useRef<string | null>(null);
-
-    // 🚀 MASTER SYNC: Authoritative Bootstrap Pulse
-    useEffect(() => {
-        if (!isLoaded || !settings.studioSlug || ['demo.classcore.ge', 'superadmin'].includes(settings.studioSlug)) return;
-        
-        const activeSlug = settings.studioSlug;
-        console.log('🛰️ [MasterSync] Initiating Unified Cloud Bootstrap for:', activeSlug);
-
-        const initMasterSync = async () => {
-            try {
-                const orgId = await ensureStudioExists(activeSlug, settings.studioName);
-                if (orgId) {
-                    console.log('🚀 [MasterSync] Cloud anchor verified. OrgID:', orgId);
-                    
-                    // 🚨 CRITICAL: Persist OrgID immediately to local storage so other stores can see it
-                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, orgId);
-
-                    // 🛡️ UNIVERSAL MIGRATION SCAVENGER: Search ALL keys for anything belonging to this studio
-                    console.log('📦 [MasterSync] Scavenging all local storage for studio data...');
-                    const allKeys = Object.keys(localStorage);
-                    const prefixes = [
-                        { key: 'cc_student_data', table: 'students' },
-                        { key: 'cc_teachers', table: 'staff' },
-                        { key: 'cc_branches', table: 'branches' },
-                        { key: 'cc_groups', table: 'groups' }
-                    ];
-
-                    prefixes.forEach(({ key, table }) => {
-                        const targetKey = getScopedKey(key, activeSlug);
-                        const candidates = allKeys.filter(k => k.startsWith(key) && (k.includes(activeSlug) || k.includes(orgId.slice(0, 8))));
-                        
-                        let mergedData: any = null;
-                        candidates.forEach(cKey => {
-                            if (cKey === targetKey) return; // Skip target
-                            try {
-                                const raw = localStorage.getItem(cKey);
-                                if (!raw || raw === '[]' || raw === '{}') return;
-                                
-                                console.log(`📦 [MasterSync] Scavenged legacy silo: ${cKey}`);
-                                const parsed = JSON.parse(raw);
-                                
-                                if (!mergedData) {
-                                    mergedData = parsed;
-                                } else {
-                                    // Merge logic (Array union by ID)
-                                    if (Array.isArray(mergedData) && Array.isArray(parsed)) {
-                                        const map = new Map();
-                                        [...mergedData, ...parsed].forEach(item => { if (item.id) map.set(item.id, item); });
-                                        mergedData = Array.from(map.values());
-                                    } else if (typeof mergedData === 'object' && typeof parsed === 'object') {
-                                        mergedData = { ...mergedData, ...parsed };
-                                    }
-                                }
-                            } catch (e) {}
-                        });
-
-                        if (mergedData) {
-                            console.log(`🚀 [MasterSync] Migrating scavenged ${key} data to cloud...`);
-                            // Push to cloud with type safety
-                            try {
-                                if (Array.isArray(mergedData)) {
-                                    mergedData.forEach((item: any) => {
-                                        if (item && item.id) syncRecordToCloud(table, { ...item, org_id: orgId }, orgId);
-                                    });
-                                } else if (mergedData && typeof mergedData === 'object') {
-                                    Object.entries(mergedData).forEach(([id, val]) => {
-                                        if (val) syncRecordToCloud(table, { id, org_id: orgId, ...(val as any) }, orgId);
-                                    });
-                                }
-                            } catch (syncErr) {
-                                console.warn(`⚠️ [MasterSync] Partial sync failure for ${key}:`, syncErr);
-                            }
-                            // Save to target key
-                            localStorage.setItem(targetKey, JSON.stringify(mergedData));
-                            
-                            // Trigger UI update immediately
-                            const eventName = key.includes('student') ? 'cc_student_update' : 
-                                            key.includes('teacher') ? 'cc_teacher_update' :
-                                            key.includes('group') ? 'cc_groups_update' : null;
-                            if (eventName) {
-                                console.log(`🔔 [MasterSync] Signaling UI update for: ${eventName}`);
-                                window.dispatchEvent(new CustomEvent(eventName, { detail: { isRemote: true } }));
-                            }
-                        }
-                    });
-
-                    setSettings(prev => {
-                        if (prev.orgId === orgId) return prev;
-                        const next = { ...prev, orgId };
-                        localStorage.setItem(getScopedKey(STORAGE_KEY, activeSlug), JSON.stringify(next));
-                        return next;
-                    });
-
-                    // Initial cloud-to-local hydration
-                    const state = await fetchFullStudioState(activeSlug, orgId);
-                    if (state) {
-                        console.log('✅ [MasterSync] Synchronized with cloud successfully.');
-                        setSettings(prev => ({
-                            ...prev,
-                            staff: (state.staff?.length > 0) ? state.staff : prev.staff,
-                            branches: (state.branches?.length > 0) ? state.branches : prev.branches
-                        }));
-
-                        const storageMap: any = {
-                            cc_teachers: state.staff,
-                            cc_branches: state.branches,
-                            cc_halls: state.halls,
-                            cc_groups: state.groups,
-                            cc_student_data: state.students
-                        };
-
-                        Object.entries(storageMap).forEach(([key, val]) => {
-                            if ((val as any)?.length > 0) localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(val));
-                        });
-
-                        ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update']
-                            .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
-                    }
-                }
-            } catch (err) {
-                console.error('❌ [MasterSync] Unified Bootstrap failed:', err);
-            } finally {
-                setFirstSyncDone(true);
-            }
-        };
-
-        initMasterSync();
-    }, [isLoaded, settings.studioSlug]);
-
-    // Initial hydration from local storage
-    useEffect(() => {
-        const local = loadSettings(defaultSlug || undefined);
-        
-        // 🛡️ DATA SHIELD (v4.4): Unify orphaned storage silos immediately!
-        if (local.studioSlug) {
-            import('@/lib/utils').then(({ consolidateStudioKeys }) => {
-                consolidateStudioKeys(local.studioSlug!, local.orgId);
-            });
-        }
-
-        setSettings(local);
-        setIsLoaded(true);
-
-        if (typeof window !== 'undefined' && local.studioSlug) {
-            const savedBranch = localStorage.getItem(`cc_active_branch_${local.studioSlug}`);
-            if (savedBranch) setActiveBranchIdState(savedBranch);
-            else if (local.activeBranchId) setActiveBranchIdState(local.activeBranchId);
-        }
-    }, [defaultSlug]);
-    // Automatic Cloud Sync Pulse — pushes local changes to cloud
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (!isLoaded || !firstSyncDone || !settings.studioSlug || 
-                settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
-
-            const activeSlug = settings.studioSlug!;
-            const { SYNC_COLLECTIONS } = await import('@/lib/utils');
-            
-            const { isKeyScopedToStudio } = await import('@/lib/utils');
-            
-            // Gather all syncable localStorage data for this studio
-            const studioData: Record<string, any> = {};
-            Object.keys(localStorage).forEach(k => {
-                if (isKeyScopedToStudio(k, activeSlug, settings.orgId)) {
-                    try {
-                        const val = localStorage.getItem(k);
-                        if (val) studioData[k] = JSON.parse(val);
-                    } catch {}
-                }
-            });
-
-            // Push to cloud
-            const { pushStudioStateToCloud } = await import('@/lib/sync-store');
-            const freshSettings = loadSettings(activeSlug);
-            await pushStudioStateToCloud(activeSlug, freshSettings.staff || [], studioData, 0, settings.orgId);
-            
-        }, 1500);
-
-        return () => clearTimeout(timer);
-    }, [isLoaded, firstSyncDone, settings.studioSlug, settings.orgId, pushCounter]);
-
-    // Realtime Pulse updates
-    useEffect(() => {
-        if (!isLoaded || !settings.studioSlug || settings.studioSlug === 'demo.classcore.ge' || settings.studioSlug === 'superadmin') return;
-
-        const supabase = createClient();
-        const channel = supabase
-            .channel(`studio_pulse_${settings.studioSlug}`)
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'studio_settings',
-                filter: `studio_slug=eq.${settings.studioSlug}`
-            }, (payload: any) => {
-                console.log('📡 [Sync] Realtime Pulse Payload received. Speed: Instant.');
-                const newData = payload.new;
-                if (!newData) return;
-
-                import('@/lib/sync-store').then(({ transformCloudBlobToLocalState }) => {
-                    const scope = settings.orgId || settings.studioSlug!;
-                    const state = transformCloudBlobToLocalState(newData.staff_data, scope, newData.org_id, newData.updated_at);
-                    if (state) applyCloudState(settings.studioSlug!, state);
-                });
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
-    }, [settings.studioSlug, isLoaded, applyCloudState]);
-
-    useEffect(() => {
-        const handleAutoMark = (e?: Event) => {
-            // 🚨 LOOP PROTECTION: If the event was triggered by a cloud update, 
-            // DO NOT trigger another push. This breaks the infinite sync loop.
-            if ((e as CustomEvent)?.detail?.isRemote) {
-                console.log('📡 [StudioContext] Ignoring remote update event to prevent loop:', e?.type);
-                return;
-            }
-
-            // CRITICAL: Refresh the local React state from localStorage immediately
-            // so that the SyncPulse effect uses the LATEST values in its next run.
-            if (settings.studioSlug) {
-                console.log('🔄 [StudioContext] Refreshing state for current studio:', settings.studioSlug);
-                const fresh = loadSettings(settings.studioSlug);
-                setSettings(fresh);
-            }
-            
-            markLocalUpdate();
-            window.dispatchEvent(new Event('cc_instant_sync_request'));
-        };
-
-        const handleInstantSyncRequest = async () => {
-            console.log('🚀 [StudioContext] Executing requested Instant Sync');
-            if (settings.studioSlug) {
-                const activeSlug = settings.studioSlug;
-                const fresh = loadSettings(activeSlug);
-                setSettings(fresh);
-                markLocalUpdate();
-                
-                // PUSH IMMEDIATELY (bypass the 1.5s timer)
-                const { isKeyScopedToStudio } = await import('@/lib/utils');
-                const studioData: Record<string, any> = {};
-                Object.keys(localStorage).forEach(k => {
-                    if (isKeyScopedToStudio(k, activeSlug, settings.orgId)) {
-                        try {
-                            const val = localStorage.getItem(k);
-                            if (val) studioData[k] = JSON.parse(val);
-                        } catch {}
-                    }
-                });
-
-                const { pushStudioStateToCloud } = await import('@/lib/sync-store');
-                await pushStudioStateToCloud(activeSlug, fresh.staff || [], studioData, 0, settings.orgId);
-                console.log('✅ [InstantSync] Immediate Push Over.');
-            }
-        };
-
-        window.addEventListener('cc_instant_sync_request', handleInstantSyncRequest);
-
-        const events = [
-            'cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update',
-            'cc_subscription_update', 'cc_subscription_plans_update', 'cc_calendar_events_update', 
-            'cc_checkins_update', 'cc_attendance_update', 'cc_shop_update', 'cc_settings_update',
-            'cc_salary_update', 'cc_active_branch_change', 'cc_trash_update', 'cc_history_update'
-        ];
-
-        events.forEach(e => window.addEventListener(e, handleAutoMark));
-        return () => events.forEach(e => window.removeEventListener(e, handleAutoMark));
-    }, [markLocalUpdate, triggerPush, settings.studioSlug]);
-
-    // Auto-sync from profile and First-Time Sync Protection
-    useEffect(() => {
-        if (!isLoaded || !profile) return;
-        
-        // Check if this is a brand new session/registration that needs cloud protection
-        const isNewReg = localStorage.getItem('cc_onboarding_in_progress') === 'true' || 
-                         localStorage.getItem(`cc_is_fresh_${profile.studio_slug}`) === 'true';
-
-        const isDefaultSlug = settings.studioSlug === 'demo.classcore.ge';
-        const isDefaultName = settings.studioName.toLowerCase().includes('demo') ||
-            settings.studioName === 'ჩემი სტუდია' || settings.studioName === '' || settings.studioName === 'Studio';
-
-        if (!isSuperAdmin && isDefaultSlug && profile.studio_slug && profile.studio_slug !== 'demo.classcore.ge') {
-            const hasCleansed = localStorage.getItem(`cc_cleansed_${profile.studio_slug}`);
-            if (!hasCleansed) {
-                const keys = Object.keys(localStorage);
-                keys.forEach(k => {
-                    if (k.includes(profile.studio_slug!) || k.includes('demo.classcore.ge')) {
-                        const dataPrefixes = [
-                            'cc_checkins', 'cc_shop_sales', 'cc_notifications', 
-                            'cc_calendar_events', 'cc_student_data', 'cc_student_subscriptions',
-                            'cc_groups', 'cc_halls', 'cc_attendance_data', 'cc_subscription_plans',
-                            'cc_shop_products', 'cc_teachers', 'cc_sales'
-                        ];
-                        if (dataPrefixes.some(p => k.includes(p))) localStorage.removeItem(k);
-                    }
-                });
-                localStorage.setItem(`cc_cleansed_${profile.studio_slug}`, 'true');
-            }
-
-            setStudioSlug(profile.studio_slug);
-            if (profile.studio_name && (isDefaultName || !settings.studioName)) {
-                setStudioName(profile.studio_name);
-            }
-            
-            // Mark as fresh to trigger a force-overwrite on the next sync pulse
-            localStorage.setItem(`cc_is_fresh_${profile.studio_slug}`, 'true');
-            cleanupRegistry(); // Wipe all local data to be safe
-            return;
-        }
-
-        if (isDefaultName && profile.studio_name && profile.studio_name !== settings.studioName) {
-            setStudioName(profile.studio_name || '');
-        }
-
-        if (profile.first_name || profile.phone) {
-            const hasMissingMetadata = !settings.owner_info?.first_name || !settings.owner_info?.phone;
-            if (hasMissingMetadata) {
-                console.log('📡 [StudioContext] Syncing missing owner metadata from profile');
-                setOwnerInfo({
-                    first_name: profile.first_name || settings.owner_info?.first_name || '',
-                    last_name: profile.last_name || settings.owner_info?.last_name || '',
-                    email: user?.email || profile.email || settings.owner_info?.email || '',
-                    phone: profile.phone || settings.owner_info?.phone || ''
-                });
-            }
-        }
-
-        if (!isSuperAdmin && profile.org_id && profile.org_id !== settings.orgId && !isDefaultName) {
-            // 🚨 NUCLEAR STORAGE ISOLATION GUARD: SCORCHED EARTH v2.1
-            // This ensures that NO data from any other studio remains in active memory
-            // when switching to a new account, effectively preventing cross-account pollution universally.
-            console.warn('🚨 [StudioContext] OrgId mismatch detected. Enforcing nuclear storage isolation (Scorched Earth v2.1).');
-            
-            if (profile.studio_slug) {
-                consolidateStudioKeys(profile.studio_slug, profile.org_id);
-            }
-            setSettings(prev => {
-                if (prev.orgId === profile.org_id) return prev;
-                return { ...prev, orgId: profile.org_id };
-            });
-            
-            // We use direct setState instead of saveSettings here to avoid immediate recursion
-            if (typeof window !== 'undefined' && profile.studio_slug) {
-                const key = getScopedKey(STORAGE_KEY, profile.studio_slug);
-                const raw = localStorage.getItem(key);
-                if (raw) {
-                    try {
-                        const data = JSON.parse(raw);
-                        if (data.orgId !== profile.org_id) {
-                            data.orgId = profile.org_id;
-                            localStorage.setItem(key, JSON.stringify(data));
-                        }
-                    } catch {}
-                }
-            }
-        }
-    }, [user?.email, profile?.id, profile?.org_id, profile?.studio_slug, settings.studioSlug, settings.orgId, settings.studioName, isLoaded]);
-
-    useEffect(() => { applyTheme(settings.themeKey); }, [settings.themeKey]);
-
-    useEffect(() => {
-        if (isLoaded && settings.studioSlug) {
-            // Background consolidation
-            const timer = setTimeout(() => {
-                if (settings.studioSlug) {
-                    consolidateStudioKeys(settings.studioSlug!, settings.orgId);
-                }
-            }, 3000); // 3 seconds delay
-            return () => clearTimeout(timer);
-        }
-    }, [isLoaded, settings.studioSlug, settings.orgId]);
 
     return (
-        <StudioContext.Provider value={{
-            settings, activeBranchId, isLoaded, setTheme, setStudioName, setStudioSlug,
-            setLogo, setNotification, setSecurity, setLandingContent, setSmsTemplates,
-            setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice,
-            addBranch, removeBranch, updateBranch, setActiveBranch, addStaff, removeStaff,
-            updateStaff, markLocalUpdate, addToTrash, restoreFromTrash, clearOldTrash,
-            logSubscription, setCustomRoles, setSettings: (s: StudioSettings) => setSettings(s),
-            setWizardCompleted, setOwnerInfo,
-            claimStudio: async (newSlug: string, ownerEmail: string) => {
-                if (typeof window === 'undefined') return;
-                const oldSlug = 'demo.classcore.ge';
-                const prefixes = [
-                    'cc_student_data', 'cc_student_subscriptions', 'cc_groups', 'cc_halls',
-                    'cc_calendar_events', 'cc_subscription_plans', 'cc_shop_sales',
-                    'cc_checkins', 'cc_studio_settings', 'cc_teachers', 'cc_notifications'
-                ];
-                const migratedData: Record<string, any> = {};
-                prefixes.forEach(prefix => {
-                    const val = localStorage.getItem(`${prefix}_${oldSlug}`);
-                    if (val) {
-                        localStorage.setItem(`${prefix}_${newSlug}`, val);
-                        migratedData[`${prefix}_${newSlug}`] = JSON.parse(val);
-                    }
-                });
-                const newSettingsKey = `${STORAGE_KEY}_${newSlug}`;
-                const rawSettings = localStorage.getItem(newSettingsKey);
-                let newSettings = rawSettings ? JSON.parse(rawSettings) : { ...settings, studioSlug: newSlug };
-                if (!newSettings.staff?.find((s: any) => s.role === 'owner')) {
-                    const owner: StaffMember = {
-                        id: Math.random().toString(36).substring(2, 9),
-                        org_id: newSettings.orgId || Math.random().toString(36).substring(2, 12),
-                        first_name: profile?.first_name || 'Owner',
-                        last_name: profile?.last_name || 'Studio',
-                        full_name: `${profile?.first_name || 'Owner'} ${profile?.last_name || 'Studio'}`.trim(),
-                        email: ownerEmail,
-                        phone: profile?.phone || '',
-                        status: 'active',
-                        role: 'owner',
-                        permissions: {
-                            canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
-                            canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
-                            canViewTeachers: true, canViewHalls: true, canViewShop: true,
-                            canViewAnalytics: true, canViewSMS: true
-                        },
-                        created_at: new Date().toISOString()
-                    };
-                    newSettings.staff = [owner, ...(newSettings.staff || [])];
-                }
-                localStorage.setItem(newSettingsKey, JSON.stringify(newSettings));
-                localStorage.setItem(ACTIVE_SLUG_KEY, newSlug);
-                const { pushStudioStateToCloud } = await import('@/lib/sync-store');
-                await pushStudioStateToCloud(newSlug, newSettings.staff, migratedData, 0, newSettings.orgId);
-                window.location.href = `/${newSlug}/settings`;
-            }
+        <StudioContext.Provider value={{ 
+            settings, 
+            isLoaded, 
+            firstSyncDone,
+            activeBranchId, 
+            setActiveBranchId,
+            updateSettings, 
+            addSubscriptionLog,
+            setCustomRoles
         }}>
             {children}
         </StudioContext.Provider>
     );
-}
+};
 
-export function useStudio() {
-    const ctx = useContext(StudioContext);
-    if (!ctx) throw new Error('useStudio must be used inside StudioProvider');
-    return ctx;
-}
-
-/**
- * Nuclear Platform Integrity Guard:
- * Automatically purges orphans and "ghost" records across all collections
- * when our sync engine detects deletions (via tombstones).
- */
-function performUniversalIntegrityCheck(slug: string, scopeId?: string) {
-    if (typeof window === 'undefined' || !slug) return;
-    
-    // Choose the authoritative scope ID (UUID or Slug)
-    const activeScopeId = scopeId || slug;
-    console.log(`🛡️ [IntegrityCheck] Running global self-healing sweep [Scope: ${activeScopeId}]...`);
-
-    // 1. Gather Deletion Tombstones
-    const getTombstone = (base: string) => {
-        const raw = localStorage.getItem(`${base}_${activeScopeId}`);
-        try { return new Set(raw ? JSON.parse(raw) : []); } catch { return new Set(); }
-    };
-
-    const deletedGroups = getTombstone('cc_deleted_groups');
-    const deletedStudents = getTombstone('cc_deleted_students');
-
-    if (deletedGroups.size === 0 && deletedStudents.size === 0) return;
-
-    // 2. Scan & Purge: Calendar Events
-    const eventsKey = `cc_calendar_events_${activeScopeId}`;
-    const rawEvents = localStorage.getItem(eventsKey);
-    if (rawEvents) {
-        try {
-            const events = JSON.parse(rawEvents);
-            if (Array.isArray(events)) {
-                const healthy = events.filter((e: any) => 
-                    (!e.group_id || !deletedGroups.has(e.group_id)) &&
-                    (!e.student_id || !deletedStudents.has(e.student_id))
-                );
-                if (healthy.length < events.length) {
-                    console.log(`🧹 [IntegrityCheck] Purged ${events.length - healthy.length} orphaned events from Calendar`);
-                    localStorage.setItem(eventsKey, JSON.stringify(healthy));
-                }
-            }
-        } catch {}
+export const useStudio = () => {
+    const context = useContext(StudioContext);
+    if (context === undefined) {
+        throw new Error('useStudio must be used within a StudioProvider');
     }
-
-    // 3. Scan & Purge: Attendance Archive
-    const archiveKey = `cc_attendance_archive_${activeScopeId}`;
-    const rawArchive = localStorage.getItem(archiveKey);
-    if (rawArchive) {
-        try {
-            const archive = JSON.parse(rawArchive);
-            let archiveChanged = false;
-            Object.keys(archive).forEach(date => {
-                if (!archive[date]) return;
-                Object.keys(archive[date]).forEach(eventId => {
-                    const isGroupEvent = eventId.startsWith('grp_');
-                    const groupId = isGroupEvent ? eventId.split('_')[1] : null;
-                    if (groupId && deletedGroups.has(groupId)) {
-                        delete archive[date][eventId];
-                        archiveChanged = true;
-                    } else {
-                        const studentRecords = archive[date][eventId] || {};
-                        Object.keys(studentRecords).forEach(studentId => {
-                            if (deletedStudents.has(studentId)) {
-                                delete archive[date][eventId][studentId];
-                                archiveChanged = true;
-                            }
-                        });
-                        if (Object.keys(archive[date][eventId] || {}).length === 0) {
-                            delete archive[date][eventId];
-                            archiveChanged = true;
-                        }
-                    }
-                });
-                if (Object.keys(archive[date] || {}).length === 0) {
-                    delete archive[date];
-                    archiveChanged = true;
-                }
-            });
-            if (archiveChanged) {
-                console.log(`🧹 [IntegrityCheck] Cleaned Attendance Archive`);
-                localStorage.setItem(archiveKey, JSON.stringify(archive));
-            }
-        } catch {}
-    }
-
-    // 4. Scan & Purge: Active Attendance, Checkins & Subscriptions
-    const operationalKeys = [
-        `cc_attendance_data_${activeScopeId}`,
-        `cc_checkins_data_${activeScopeId}`,
-        `cc_student_subscriptions_${activeScopeId}`
-    ];
-
-    operationalKeys.forEach(key => {
-        const raw = localStorage.getItem(key);
-        if (!raw) return;
-        try {
-            const data = JSON.parse(raw);
-            if (Array.isArray(data)) {
-                const healthy = data.filter((item: any) => 
-                    (!item.id || !deletedStudents.has(item.id)) &&
-                    (!item.studentId || !deletedStudents.has(item.studentId)) &&
-                    (!item.groupId || !deletedGroups.has(item.groupId))
-                );
-                if (healthy.length < data.length) {
-                    console.log(`🧹 [IntegrityCheck] Purged ${data.length - healthy.length} ghosts from ${key}`);
-                    localStorage.setItem(key, JSON.stringify(healthy));
-                }
-            } else if (typeof data === 'object' && data !== null) {
-                let changed = false;
-                Object.keys(data).forEach(id => {
-                    if (deletedStudents.has(id) || deletedGroups.has(id)) {
-                        delete data[id];
-                        changed = true;
-                    }
-                });
-                if (changed) {
-                    console.log(`🧹 [IntegrityCheck] Cleaned object-based collection: ${key}`);
-                    localStorage.setItem(key, JSON.stringify(data));
-                }
-            }
-        } catch {}
-    });
-}
+    return context;
+};
