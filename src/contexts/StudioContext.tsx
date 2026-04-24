@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings } from '@/lib/settings-store';
-import { StudioSettings, SubscriptionLog } from '@/types/studio';
+import { StudioSettings, SubscriptionLog, ThemeKey } from '@/types';
 import { getActiveSlug, STORAGE_KEY, getScopedKey, markLocalUpdate } from '@/lib/utils';
 import { ensureStudioExists, fetchFullStudioState, syncRecordToCloud } from '@/lib/master-sync';
 import { createClient } from '@/lib/supabase/client';
@@ -348,7 +348,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setLogo,
             setTheme,
             setStudioName,
-            setStudioSlug,
             setNotification,
             setSecurity,
             setCurrency,

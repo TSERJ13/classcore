@@ -357,6 +357,7 @@ export function migrateSlugData(oldSlug: string, newSlug: string) {
 
 /** Generates a deterministic 6-digit numeric Cabinet Code from a studio's slug */
 export function generateCabinetCode(slug: string): string {
+    if (!slug) return '000000';
     let hash = 0;
     const s = slug.toLowerCase().trim();
     for (let i = 0; i < s.length; i++) {
