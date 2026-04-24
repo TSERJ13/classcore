@@ -210,31 +210,29 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updateStaff = useCallback((id: string, updates: any) => {
         setSettings(prev => {
-            const list = [...(prev.staff || [])];
-            const idx = list.findIndex(s => s.id === id);
-            if (idx > -1) {
-                const updatedMember = { ...list[idx], ...updates };
-                list[idx] = updatedMember;
-                const next = { ...prev, staff: list };
+            const list = (prev.staff || []).map(s => s.id === id ? { ...s, ...updates } : s);
+            const next = { ...prev, staff: list };
+            
+            setTimeout(async () => {
+                const modStore = await import('@/lib/settings-store');
+                modStore.saveSettings({ staff: list }, prev, prev.studioSlug);
                 
-                // 1. Sync to local storage settings
-                import('@/lib/settings-store').then(mod => mod.saveSettings({ staff: list }, prev, prev.studioSlug));
-                
-                // 2. Sync teacher record to CLOUD table
                 if (prev.orgId) {
-                    import('@/lib/master-sync').then(mod => {
-                        mod.syncRecordToCloud('staff', {
-                            id,
+                    const modSync = await import('@/lib/master-sync');
+                    const member = list.find(s => s.id === id);
+                    if (member) {
+                        modSync.syncRecordToCloud('staff', {
+                            id: member.id,
                             org_id: prev.orgId,
-                            full_name: `${updatedMember.first_name || ''} ${updatedMember.last_name || ''}`.trim() || updatedMember.full_name,
-                            data: updatedMember
+                            full_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.full_name,
+                            phone: member.phone || '',
+                            data: member
                         }, prev.orgId);
-                    });
+                    }
                 }
-                
-                return next;
-            }
-            return prev;
+            }, 0);
+            
+            return next;
         });
     }, []);
 
@@ -269,6 +267,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         id: newId,
                         org_id: prev.orgId,
                         full_name: `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name,
+                        phone: newMember.phone || '',
                         data: newMember
                     }, prev.orgId);
                 }

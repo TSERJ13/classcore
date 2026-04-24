@@ -106,6 +106,7 @@ export default function SettingsPage() {
         first_name: '',
         last_name: '',
         role: 'teacher',
+        phone: '',
         email: '',
         password: '',
         permissions: {
@@ -1048,6 +1049,15 @@ export default function SettingsPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.phoneLabel || 'PHONE'}</label>
+                                    <input
+                                        value={newStaff.phone}
+                                        onChange={e => setNewStaff({ ...newStaff, phone: e.target.value })}
+                                        placeholder="+995 ..."
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.emailLabel}</label>
                                     <input
                                         value={newStaff.email}
@@ -1056,24 +1066,25 @@ export default function SettingsPage() {
                                         className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.password}</label>
-                                    <div className="relative">
-                                        <input
-                                            type={showStaffPwd ? "text" : "password"}
-                                            value={newStaff.password}
-                                            onChange={e => setNewStaff({ ...newStaff, password: e.target.value })}
-                                            placeholder="••••••••"
-                                            className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner pr-12"
-                                        />
-                                        <button 
-                                            type="button"
-                                            onClick={() => setShowStaffPwd(!showStaffPwd)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-indigo-500 transition-colors"
-                                        >
-                                            {showStaffPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
-                                        </button>
-                                    </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.password}</label>
+                                <div className="relative">
+                                    <input
+                                        type={showStaffPwd ? "text" : "password"}
+                                        value={newStaff.password}
+                                        onChange={e => setNewStaff({ ...newStaff, password: e.target.value })}
+                                        placeholder="••••••••"
+                                        className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner pr-12"
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowStaffPwd(!showStaffPwd)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-indigo-500 transition-colors"
+                                    >
+                                        {showStaffPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
+                                    </button>
                                 </div>
                             </div>
 
@@ -1127,7 +1138,6 @@ export default function SettingsPage() {
                                     addStaff({
                                         ...newStaff,
                                         full_name: `${newStaff.first_name} ${newStaff.last_name}`.trim(),
-                                        phone: '',
                                         status: 'active'
                                     } as any);
                                     setStaffModalOpen(false);
@@ -1135,6 +1145,7 @@ export default function SettingsPage() {
                                         first_name: '',
                                         last_name: '',
                                         role: 'teacher',
+                                        phone: '',
                                         email: '',
                                         password: '',
                                         permissions: {
@@ -1246,13 +1257,24 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.emailLabel}</label>
-                                            <input
-                                                value={member.email}
-                                                onChange={e => handleLocalUpdate({ email: e.target.value })}
-                                                className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
-                                            />
+                                         <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.phoneLabel || 'PHONE'}</label>
+                                                <input
+                                                    value={member.phone || ''}
+                                                    onChange={e => handleLocalUpdate({ phone: e.target.value })}
+                                                    placeholder="+995 ..."
+                                                    className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.emailLabel}</label>
+                                                <input
+                                                    value={member.email}
+                                                    onChange={e => handleLocalUpdate({ email: e.target.value })}
+                                                    className="w-full bg-surface border border-border-subtle rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                                                />
+                                            </div>
                                         </div>
 
                                         <div className="space-y-1.5">

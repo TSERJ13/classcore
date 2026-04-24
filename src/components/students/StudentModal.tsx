@@ -580,7 +580,7 @@ export function StudentModal({
     }, [t.nfcNotAvailable, t.nfcScanError]);
 
     async function handleSave() {
-        if (!form.first_name || !form.phone) return;
+        if (!form.first_name) return;
         setSaving(true);
         await new Promise(r => setTimeout(r, 400));
 
