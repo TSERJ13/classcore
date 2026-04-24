@@ -86,11 +86,15 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     if (state) {
                         console.log('✅ [MasterSync] Hydrated state for Org:', state.org_id);
                         
+                        // UNWRAP DATA FOR COLLECTIONS
+                        const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...(item.data || {}), ...item, data: undefined }));
+                        const unwrappedStaff = unwrap(state.staff);
+
                         const updates = {
                             orgId: targetOrgId,
                             studioName: state.studio?.studio_name || settings.studioName,
                             logoDataUrl: (state as any).settingsRecord?.logo_url || state.studio?.settings?.logo_url || settings.logoDataUrl,
-                            staff: state.staff?.length > 0 ? state.staff : settings.staff,
+                            staff: unwrappedStaff.length > 0 ? unwrappedStaff : settings.staff,
                             branches: state.branches?.length > 0 ? state.branches : settings.branches
                         };
                         
@@ -100,11 +104,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             return next;
                         });
 
-                        // UNWRAP DATA FOR COLLECTIONS
-                        const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...(item.data || {}), ...item, data: undefined }));
-
                         const mapping: any = {
-                            cc_teachers: state.staff,
+                            cc_teachers: unwrappedStaff,
                             cc_branches: state.branches,
                             cc_halls: unwrap(state.halls),
                             cc_groups: unwrap(state.groups),
