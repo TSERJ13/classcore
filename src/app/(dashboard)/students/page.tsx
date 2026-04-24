@@ -145,6 +145,10 @@ export default function StudentsPage() {
     async function handleDelete(id: string) {
         if (!await confirm(t.confirmDelete)) return;
 
+        // 1. Instant UI update
+        setStudents(prev => prev.filter(s => s.id !== id));
+
+        // 2. Trash bin logic
         const student = students.find(s => s.id === id);
         if (student) {
             addToTrash({
@@ -154,6 +158,8 @@ export default function StudentsPage() {
                 branchId: settings.activeBranchId || 'main'
             });
         }
+
+        // 3. Cloud & Local Store sync
         import('@/lib/student-store').then(mod => {
             mod.deleteStudent(id);
             if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_student_update'));
@@ -470,36 +476,6 @@ export default function StudentsPage() {
                             </div>
                             <p className="text-xl font-black text-primary mb-2 uppercase tracking-tighter">{t.noData}</p>
                             <p className="text-sm font-medium text-muted mb-8">{t.tryAnotherSearch || 'მონაცემები ვერ მოიძებნა'}</p>
-                            
-                            {/* 🚨 EMERGENCY DIAGNOSTICS */}
-                            <div className="w-full max-w-md bg-rose-500/5 border border-rose-500/10 rounded-3xl p-6 text-left animate-fade-in">
-                                <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <ShieldAlert className="w-4 h-4" /> სინქრონიზაციის დიაგნოსტიკა
-                                </h4>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center text-[11px] font-bold">
-                                        <span className="text-muted">აქტიური სლაგი:</span>
-                                        <span className="text-primary font-mono bg-white px-2 py-0.5 rounded border border-border-subtle">{settings.studioSlug || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-[11px] font-bold">
-                                        <span className="text-muted">აქტიური ექაუნთი:</span>
-                                        <span className="text-primary font-mono truncate max-w-[180px] bg-white px-2 py-0.5 rounded border border-border-subtle">{user?.email || 'არაა შესული'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-[11px] font-bold">
-                                        <span className="text-muted">ბაზის ID (OrgID):</span>
-                                        <span className="text-primary font-mono bg-white px-2 py-0.5 rounded border border-border-subtle">{settings.orgId?.slice(0, 8)}...</span>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => {
-                                        localStorage.clear();
-                                        window.location.href = '/';
-                                    }}
-                                    className="w-full mt-6 py-3 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-rose-500/20 active:scale-95"
-                                >
-                                    სრული გადატვირთვა (Hard Reset)
-                                </button>
-                            </div>
                         </div>
                     ) : null}
                 </div>
