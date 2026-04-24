@@ -21,7 +21,6 @@ interface StudioContextType {
     setLogo: (url: string | null) => void;
     setTheme: (theme: ThemeKey) => void;
     setStudioName: (name: string) => void;
-    setStudioSlug: (slug: string) => void;
     setNotification: (key: keyof StudioSettings['notifications'], val: boolean) => void;
     setSecurity: (key: keyof StudioSettings['security'], val: any) => void;
     setCurrency: (c: 'GEL' | 'USD' | 'EUR') => void;

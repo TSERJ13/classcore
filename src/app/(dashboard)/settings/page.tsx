@@ -86,7 +86,7 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 export default function SettingsPage() {
     const { t, lang, setLang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const { settings, isLoaded, setTheme, setStudioName, setStudioSlug, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings } = useStudio();
+    const { settings, isLoaded, setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
     const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin';
