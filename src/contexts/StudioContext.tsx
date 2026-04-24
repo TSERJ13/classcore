@@ -52,8 +52,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
 
+    const lastSyncedSlugRef = useRef<string | null>(null);
     useEffect(() => {
-        // We MUST run this even if settings.studioSlug is empty IF we are logged in
         async function bootstrap() {
             let activeSlug = getActiveSlug();
             
@@ -72,12 +72,19 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 return;
             }
 
+            // AVOID RE-FETCHING IF THIS SLUG WAS JUST SYNCED 
+            // This prevents the "flicker" where local updates are overwritten by stale cloud data during the sync bounce back
+            if (lastSyncedSlugRef.current === activeSlug && firstSyncDone) {
+                return;
+            }
+
             try {
                 const targetOrgId = await import("@/lib/master-sync").then(mod => mod.ensureStudioExists(activeSlug || "default", settings.studioName));
                 if (targetOrgId) {
                     const { fetchFullStudioState } = await import("@/lib/master-sync");
                     const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                     if (state) {
+                        lastSyncedSlugRef.current = activeSlug;
                         console.log('✅ [MasterSync] Hydrated state for Org:', state.org_id);
                         
                         // UNWRAP DATA FOR COLLECTIONS
@@ -135,7 +142,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         bootstrap();
-    }, [isLoaded, settings.studioSlug, user, profile]);
+    }, [isLoaded, user, profile]);
 
     useEffect(() => {
         const defaultSlug = getActiveSlug();
