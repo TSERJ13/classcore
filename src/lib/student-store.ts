@@ -3,7 +3,7 @@ import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-
 import { triggerInstantSync } from './sync-store';
 import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
 import { recordAuditAction } from './audit-store';
-import { syncRecordToCloud } from './master-sync';
+import { deleteRecordFromCloud, syncRecordToCloud } from './master-sync';
 
 const BASE_UID_REGISTRY_KEY = 'cc_uid_registry';
 const BASE_STUDENT_DATA_KEY = 'cc_student_data';
@@ -273,6 +273,10 @@ export function deleteStudent(studentId: string): void {
 
     const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
     if (slug !== 'demo') {
+        const settings = loadSettings(slug);
+        if (settings.orgId) {
+            deleteRecordFromCloud('students', studentId, settings.orgId);
+        }
         recordGlobalDeletion(slug, 'cc_student_data', studentId);
     }
 

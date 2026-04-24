@@ -32,7 +32,7 @@ export interface Group {
 import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion } from './utils';
 import { loadSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
-import { syncRecordToCloud } from './master-sync';
+import { deleteRecordFromCloud, syncRecordToCloud } from './master-sync';
 
 const BASE_GROUPS_KEY = 'cc_groups';
 const BASE_DELETED_GROUPS_KEY = 'cc_deleted_groups';
@@ -256,6 +256,10 @@ export function deleteGroup(id: string): void {
     
     const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
     if (slug) {
+        const settings = loadSettings(slug);
+        if (settings.orgId) {
+            deleteRecordFromCloud('groups', id, settings.orgId);
+        }
         recordGlobalDeletion(slug, 'cc_groups', id);
     }
 

@@ -159,3 +159,20 @@ export async function ensureStudioExists(slug: string, name: string) {
         return null;
     }
 }
+export async function deleteRecordFromCloud(table: string, id: string, orgId: string) {
+    const supabase = createClient();
+    if (!orgId || !id) return false;
+
+    console.log(`🗑️ [MasterSync] Permanent deletion from ${table}:`, id);
+    const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id)
+        .eq('org_id', orgId);
+
+    if (error) {
+        console.error(`❌ [MasterSync] Delete failed for ${table}:`, error.message);
+        return false;
+    }
+    return true;
+}
