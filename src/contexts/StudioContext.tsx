@@ -57,9 +57,19 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (!isLoaded) return;
             
             const { data: { user } } = await createClient().auth.getUser();
-            const activeSlug = settings.studioSlug || getActiveSlug();
+            let activeSlug = settings.studioSlug || getActiveSlug();
             
+            // EMERGENCY PWA RECOVERY: If slug is missing but user is logged in, use metadata
+            if (!activeSlug && user) {
+                const meta = user.user_metadata || {};
+                activeSlug = meta.studio_slug || null;
+                if (activeSlug) {
+                    console.log('🔄 [MasterSync] Standalone Recovery: Using metadata slug:', activeSlug);
+                }
+            }
+
             if (!activeSlug || ['superadmin'].includes(activeSlug)) {
+                console.warn('⚠️ [MasterSync] No active slug found. Stopping hydration.');
                 setFirstSyncDone(true);
                 return;
             }
