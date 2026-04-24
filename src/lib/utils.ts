@@ -129,7 +129,7 @@ export function getActiveSlug(): string | null {
     
     // 1. URL Path takes absolute priority
     const path = window.location.pathname.split('/')[1];
-    const excluded = ['dashboard', 'auth', 'admin', 'login', 'superadmin', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager'];
+    const excluded = ['dashboard', 'auth', 'admin', 'login', 'superadmin', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager', 'subscriptions'];
     if (path && !excluded.includes(path)) {
         return path;
     }
