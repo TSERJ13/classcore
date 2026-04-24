@@ -242,38 +242,37 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSettings(prev => {
             const list = (prev.staff || []).filter(s => s.id !== id);
             const next = { ...prev, staff: list };
-            import('@/lib/settings-store').then(mod => mod.saveSettings({ staff: list }, prev, prev.studioSlug));
-            
-            // Sync deletion to CLOUD
-            if (prev.orgId) {
-                import('@/lib/master-sync').then(mod => mod.deleteRecordFromCloud('staff', id, prev.orgId));
-            }
-            
+            setTimeout(async () => {
+                const modStore = await import('@/lib/settings-store');
+                modStore.saveSettings({ staff: list }, prev, prev.studioSlug);
+                if (prev.orgId) {
+                    const modSync = await import('@/lib/master-sync');
+                    modSync.deleteRecordFromCloud('staff', id, prev.orgId);
+                }
+            }, 0);
             return next;
         });
     }, []);
 
     const addStaff = useCallback((member: any) => {
+        const newId = member.id || `staff_${Math.random().toString(36).substr(2, 9)}`;
+        const newMember = { ...member, id: newId };
         setSettings(prev => {
-            const newId = member.id || `staff_${Math.random().toString(36).substr(2, 9)}`;
-            const newMember = { ...member, id: newId };
             const list = [...(prev.staff || []), newMember];
             const next = { ...prev, staff: list };
-            
-            import('@/lib/settings-store').then(mod => mod.saveSettings({ staff: list }, prev, prev.studioSlug));
-            
-            // Sync to CLOUD staff table
-            if (prev.orgId) {
-                import('@/lib/master-sync').then(mod => {
-                    mod.syncRecordToCloud('staff', {
+            setTimeout(async () => {
+                const modStore = await import('@/lib/settings-store');
+                modStore.saveSettings({ staff: list }, prev, prev.studioSlug);
+                if (prev.orgId) {
+                    const modSync = await import('@/lib/master-sync');
+                    modSync.syncRecordToCloud('staff', {
                         id: newId,
                         org_id: prev.orgId,
                         full_name: `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name,
                         data: newMember
                     }, prev.orgId);
-                });
-            }
-            
+                }
+            }, 0);
             return next;
         });
     }, []);
@@ -282,7 +281,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSettings(prev => {
             const list = [...(prev.branches || []), branch];
             const next = { ...prev, branches: list };
-            import('@/lib/settings-store').then(mod => mod.saveSettings({ branches: list }, prev, prev.studioSlug));
+            setTimeout(async () => {
+                const modStore = await import('@/lib/settings-store');
+                modStore.saveSettings({ branches: list }, prev, prev.studioSlug);
+            }, 0);
             return next;
         });
     }, []);
@@ -291,7 +293,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSettings(prev => {
             const list = (prev.branches || []).filter(b => b.id !== id);
             const next = { ...prev, branches: list };
-            import('@/lib/settings-store').then(mod => mod.saveSettings({ branches: list }, prev, prev.studioSlug));
+            setTimeout(async () => {
+                const modStore = await import('@/lib/settings-store');
+                modStore.saveSettings({ branches: list }, prev, prev.studioSlug);
+            }, 0);
             return next;
         });
     }, []);
@@ -303,7 +308,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (idx > -1) {
                 list[idx] = { ...list[idx], ...updates };
                 const next = { ...prev, branches: list };
-                import('@/lib/settings-store').then(mod => mod.saveSettings({ branches: list }, prev, prev.studioSlug));
+                setTimeout(async () => {
+                    const modStore = await import('@/lib/settings-store');
+                    modStore.saveSettings({ branches: list }, prev, prev.studioSlug);
+                }, 0);
                 return next;
             }
             return prev;
