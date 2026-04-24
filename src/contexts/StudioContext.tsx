@@ -152,6 +152,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, []);
 
     const updateSettings = useCallback((updates: Partial<StudioSettings>) => {
+        // PERMANENT PROTECTION: Never allow manual updates to studioSlug from the UI
+        if ('studioSlug' in updates) {
+            delete updates.studioSlug;
+        }
+        
+        if (Object.keys(updates).length === 0) return;
+
         setSettings(prev => {
             const next = { ...prev, ...updates };
             // Note: saveSettings in settings-store.ts expects (payload, current_state, slug)
@@ -185,7 +192,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const setLogo = (url: string | null) => updateSettings({ logoDataUrl: url });
     const setTheme = (key: ThemeKey) => updateSettings({ themeKey: key });
     const setStudioName = (name: string) => updateSettings({ studioName: name });
-    const setStudioSlug = (slug: string) => updateSettings({ studioSlug: slug });
     const setNotification = (key: keyof StudioSettings['notifications'], val: boolean) => {
         updateSettings({ notifications: { ...settings.notifications, [key]: val } });
     };

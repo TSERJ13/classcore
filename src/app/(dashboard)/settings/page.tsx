@@ -593,60 +593,20 @@ export default function SettingsPage() {
                                     value={nameVal} 
                                     onChange={e => setNameVal(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && saveName()} 
-                                    readOnly={!isAdmin}
-                                    className={cn(
-                                        "w-full max-w-md bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-bold text-primary outline-none transition-all",
-                                        !isAdmin && "opacity-60 grayscale cursor-not-allowed"
-                                    )}
+                                    className="w-full max-w-md bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-bold text-primary outline-none transition-all"
                                 />
-                                {isAdmin && (
-                                    <button onClick={saveName} className={cn('w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
-                                        {nameSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                                    </button>
-                                )}
+                                <button onClick={saveName} className={cn('w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all', nameSaved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface text-muted hover:bg-surface hover:text-primary border border-border-subtle')}>
+                                    {nameSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                                </button>
                             </div>
                         </Row>
 
                         <Row label={t.urlSlugLabel} sub={l('სტუდიის უნიკალური მისამართი', 'Уникальный адрес студии', 'Unique studio address')}>
                             <div className="flex flex-col gap-2 items-start w-full">
-                                <div className="flex items-center gap-2 w-full">
+                                <div className="flex items-center gap-2 w-full px-4 py-2.5 bg-surface/50 border border-border-subtle rounded-xl max-w-md cursor-not-allowed">
                                     <span className="text-muted/40 text-xs font-mono">/</span>
-                                    <div className="relative flex items-center gap-2 w-full max-w-md">
-                                        <input
-                                            value={slugVal}
-                                            onChange={e => setSlugVal(compactSlugify(e.target.value))}
-                                            onKeyDown={e => e.key === 'Enter' && saveSlug()}
-                                            placeholder="studio-slug"
-                                            readOnly={!isAdmin && settings.studioSlug !== 'demo.classcore.ge'}
-                                            className={cn(
-                                                "w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm font-mono text-muted outline-none transition-colors",
-                                                (!isAdmin && settings.studioSlug !== 'demo.classcore.ge') && "opacity-60 cursor-not-allowed"
-                                            )}
-                                        />
-                                        {(isAdmin || settings.studioSlug === 'demo.classcore.ge' || !settings.studioSlug) && (
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => setSlugVal(compactSlugify(nameVal || settings.studioName))}
-                                                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-surface text-muted hover:text-indigo-500 border border-border-subtle transition-all"
-                                                    title={l('სახელიდან გენერირება', 'Сгенерировать из названия', 'Generate from name')}
-                                                >
-                                                    <RefreshCcw className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={saveSlug}
-                                                    disabled={!slugVal || slugVal === settings.studioSlug}
-                                                    className={cn(
-                                                        'w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all',
-                                                        slugSaved ? 'bg-emerald-500 text-white' : 
-                                                        (!slugVal || slugVal === settings.studioSlug) ? 'bg-surface text-muted/20 border border-border-subtle/50' :
-                                                        'bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95'
-                                                    )}
-                                                >
-                                                    {slugSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <span className="text-sm font-mono text-muted/60">{slugVal}</span>
+                                    <Shield className="w-3.5 h-3.5 ml-auto text-muted/20" />
                                 </div>
                             </div>
                         </Row>
