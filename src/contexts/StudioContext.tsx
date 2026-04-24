@@ -46,13 +46,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
             setIsSyncing(true);
             try {
+                // OrgID resolution via MasterSync (resolves authoritative org for the slug)
                 let targetOrgId = await ensureStudioExists(activeSlug, settings.studioName);
-
-                // 🦾 FORCE OVERRIDE for stdancegroup@gmail.com
-                if (user?.email === 'stdancegroup@gmail.com' || (user as any)?.email_address === 'stdancegroup@gmail.com') {
-                    console.log('🦾 [MasterSync] Enforcing Authoritative OrgID for stdancegroup: db04');
-                    targetOrgId = '04fcd615-255c-4f6d-9444-50308118db04';
-                }
 
                 if (targetOrgId) {
                     localStorage.setItem(`cc_org_id_override_${activeSlug}`, targetOrgId);

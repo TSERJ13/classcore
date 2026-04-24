@@ -91,41 +91,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
-                // 🚀 FORCE REDIRECT: Ensure mobile/web users land on their scoped workspace
-                if (typeof window !== 'undefined' && currentSlug && !isSuperAdminRoute && !isSuperAdmin) {
-                    const currentPath = window.location.pathname;
-                    const segments = currentPath.split('/').filter(Boolean);
-                    
-                    // If at root or /dashboard without a slug, go to /[slug]/dashboard
-                    if (segments.length === 0 || (segments.length === 1 && segments[0] === 'dashboard')) {
-                        console.log(`🚀 [UserProvider] Redirecting to scoped workspace: /${currentSlug}/dashboard`);
-                        window.location.href = `/${currentSlug}/dashboard`;
-                        return; // Halt to avoid state flashing
-                    }
-                }
+                // Redirection removed to prevent shadowing by [studio]/[studentId] routes
 
-                if (currentUserIdentity && currentSlug && !isSuperAdminRoute && !isOwner) {
-                    try {
-                        const { verifyUserInStudio } = await import('@/lib/sync-store');
-                        const hasAccess = await verifyUserInStudio(currentSlug, currentUserIdentity);
-                        
-                        if (!hasAccess) {
-                            console.warn(`🚨 [UserProvider] Access verification failed for ${currentUserIdentity} in ${currentSlug}. Continuing with lenient session.`);
-                        } else {
-                            console.log(`✅ [UserProvider] Access GRANTED`);
-                        }
-                        setIsVerified(true);
-                    } catch (err) {
-                        console.error('⚠️ [UserProvider] DB logic failed:', err);
-                        setIsVerified(true); // Be lenient on local
-                    }
-                } else {
-                    const identityConfirmed = !!u?.email_confirmed_at || !!staffSess;
-                    const status = !!currentUserIdentity && identityConfirmed;
-                    setIsVerified(status);
-                }
+
+                // SCOPED RESOLUTION: Basic path-based verification is enough for UI routing
+                const identityConfirmed = !!u?.email_confirmed_at || !!staffSess;
+                setIsVerified(!!currentUserIdentity && identityConfirmed);
 
                 if (u) {
+
                     setUser(u);
                     const meta = u.user_metadata || {};
                     setProfile({

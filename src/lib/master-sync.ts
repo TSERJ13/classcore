@@ -139,14 +139,8 @@ export async function ensureStudioExists(slug: string, name: string) {
             return studios[0].org_id;
         }
 
-        // 2. Recovery Link for stdancegroup@gmail.com
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email === 'stdancegroup@gmail.com') {
-            console.log('🦾 [MasterSync] Identity identified. Enforcing OrgID: db04');
-            return '04fcd615-255c-4f6d-9444-50308118db04';
-        }
+        // 3. Create if missing (Only if we cannot find it anywhere else)
 
-        // 3. Create if missing
         console.log('🛡️ [MasterSync] Anchor missing. Creating new cloud silo...');
         const { data: created, error: createError } = await supabase
             .from('studios')

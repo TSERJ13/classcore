@@ -79,3 +79,99 @@ export async function fetchStaffFromCloud(slug: string) {
 
 export async function pullStudioStateFromCloud() { return null; }
 export async function pushStudioStateToCloud() { return true; }
+
+/**
+ * Targeted verification for session integrity.
+ * Used during login and provider initialization to ensure a session remains valid.
+ */
+export async function verifyUserInStudio(slug: string, email: string) {
+    const supabase = createClient();
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // 1. Resolve OrgID for this specific slug
+    const { data: studio, error: studioError } = await supabase
+        .from('studios')
+        .select('org_id')
+        .eq('studio_slug', slug)
+        .single();
+        
+    if (studioError || !studio) {
+        console.warn(`🚨 [Verify] Studio not found for slug: ${slug}`);
+        return false;
+    }
+    
+    // 2. Check staff table for direct matching
+    const { data: staff, error: staffError } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('org_id', studio.org_id)
+        .eq('email', cleanEmail)
+        .maybeSingle();
+        
+    if (staff) return true;
+    
+    // 3. Robust Fallback: Check studio_settings staff_emails array (normalized source of truth)
+    const { data: settings, error: settingsError } = await supabase
+        .from('studio_settings')
+        .select('org_id')
+        .eq('org_id', studio.org_id)
+        .contains('staff_emails', [cleanEmail])
+        .maybeSingle();
+
+    if (settings) return true;
+
+    console.warn(`🚨 [Verify] User ${cleanEmail} has no registered access to studio ${slug} (OrgID: ${studio.org_id})`);
+    return false;
+}
+
+/**
+ * Checks if the cloud backend (Supabase) is reachable.
+ */
+export async function checkCloudConnection(): Promise<boolean> {
+    try {
+        const supabase = createClient();
+        const { error } = await supabase.from('studios').select('count', { count: 'exact', head: true });
+        return !error;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Synchronizes staff data to the cloud for a given studio.
+ */
+export async function syncStaffToCloud(slug: string, staff: any[]) {
+    const supabase = createClient();
+    const { data: studio } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).single();
+    if (!studio?.org_id) return;
+
+    // Upsert staff members to the cloud
+    const staffWithOrg = staff.map(s => ({ ...s, org_id: studio.org_id }));
+    const { error } = await supabase
+        .from('staff')
+        .upsert(staffWithOrg, { onConflict: 'email,org_id' });
+
+    if (error) console.error('❌ [Sync] Staff sync failed:', error.message);
+}
+
+/**
+ * Performs a deep purge of all studio data from the cloud.
+ * Danger: This is a destructive operation.
+ */
+export async function masterStudioPurge(slug: string) {
+    const supabase = createClient();
+    const { data: studio } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).single();
+    if (!studio?.org_id) return;
+
+    const orgId = studio.org_id;
+    const tables = ['students', 'staff', 'groups', 'branches', 'halls', 'studio_settings', 'subscriptions', 'attendance', 'sales', 'expenses'];
+    
+    for (const table of tables) {
+        await supabase.from(table).delete().eq('org_id', orgId);
+    }
+    
+    // Finally delete the studio record itself
+    await supabase.from('studios').delete().eq('studio_slug', slug);
+}
+
+

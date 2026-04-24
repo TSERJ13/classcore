@@ -41,9 +41,18 @@ export default function StudentPortalPage() {
     const [status, setStatus] = useState<'idle' | 'paying' | 'success'>('idle');
     const [qrDataUrl, setQrDataUrl] = useState('');
     const [copied, setCopied] = useState(false);
-    const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+    const router = useRouter();
+    const pathname = usePathname();
     const [isLoading, setIsLoading] = useState(true);
     const [runtimeError, setRuntimeError] = useState<string | null>(null);
+
+    // 🛡️ SAFETY REDIRECT: Prevent [studio]/dashboard from clashing with real dashboard
+    useEffect(() => {
+        if (studentId === 'dashboard') {
+            console.log('🔄 [StudentPortal] Detected dashboard clash. Redirecting to real dashboard.');
+            router.replace('/dashboard');
+        }
+    }, [studentId, router]);
 
     useEffect(() => {
         const load = async () => {

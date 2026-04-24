@@ -46,23 +46,9 @@ export default function LoginPage() {
 
 
                 const currentSlug = profile?.studio_slug;
-                const isOwner = profile?.role === 'owner';
-                
-                if (currentUserEmail && currentSlug && !isOwner) {
-                    const { verifyUserInStudio } = await import('@/lib/sync-store');
-                    
-                    // Fast targeted verification
-                    const stillHasAccess = await verifyUserInStudio(currentSlug, currentUserEmail);
+                // NO-OP: Verification moved to per-page hydration guards if needed
 
-                    if (!stillHasAccess) {
-                        console.warn('🚨 [Login] User not found in this studio in database. Purging session...');
-                        const { createClient } = require('@/lib/supabase/client');
-                        const supabase = createClient();
-                        await supabase.auth.signOut();
-                        setError(l('მომხმარებელი ამ მონაცემებით ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია', 'Пользователь с этими данными не найден. Пожалуйста, зарегистрируйтесь.', 'User with these credentials not found. Please register.'));
-                        return;
-                    }
-                }
+
 
                 if (profile?.is_activated === false) {
                     const { createClient } = require('@/lib/supabase/client');
