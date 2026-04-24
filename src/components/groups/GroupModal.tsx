@@ -425,8 +425,18 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
                                 <Users className="w-3 h-3" /> {t.capacity}
                             </label>
-                            <input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })} 
-                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" />
+                            <input 
+                                type="number" 
+                                value={form.capacity} 
+                                onChange={e => {
+                                    const val = parseInt(e.target.value);
+                                    setForm({ ...form, capacity: isNaN(val) ? 0 : Math.max(0, val) });
+                                }} 
+                                onBlur={() => {
+                                    if (form.capacity < 1) setForm({ ...form, capacity: 1 });
+                                }}
+                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" 
+                            />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">

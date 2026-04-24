@@ -130,7 +130,7 @@ export default function GroupsPage() {
                 {/* Metrics Bar */}
                 {(() => {
                     const totalStudents = groups.reduce((s, g) => s + (g.enrolled || 0), 0);
-                    const avgFill = groups.length > 0 ? Math.round(groups.reduce((s, g) => s + ((g.enrolled / g.capacity) * 100), 0) / groups.length) : 0;
+                    const avgFill = groups.length > 0 ? Math.round(groups.reduce((s, g) => s + (((g.enrolled || 0) / (g.capacity || 1)) * 100), 0) / groups.length) : 0;
 
                     return (
                         <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 sm:flex-none py-1">
@@ -181,7 +181,8 @@ export default function GroupsPage() {
                     }
                     return true;
                 }).map(group => {
-                    const fillPct = Math.round((group.enrolled / group.capacity) * 100);
+                    const capacity = group.capacity || 1;
+                    const fillPct = Math.round((group.enrolled / capacity) * 100);
                     const teacher = teachers.find(tc => tc.id === group.teacherId);
                     const secondaryTeacher = group.secondaryTeacherId ? teachers.find(tc => tc.id === group.secondaryTeacherId) : null;
                     const gColor = group.color || '#6366f1';
