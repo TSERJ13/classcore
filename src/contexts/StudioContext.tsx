@@ -7,6 +7,7 @@ import { StudioSettings, SubscriptionLog } from '@/types/studio';
 import { getActiveSlug, STORAGE_KEY, getScopedKey, markLocalUpdate } from '@/lib/utils';
 import { ensureStudioExists, fetchFullStudioState, syncRecordToCloud } from '@/lib/master-sync';
 import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/useUser';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -44,6 +45,7 @@ interface StudioContextType {
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
 export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user, profile } = useUser();
     const [settings, setSettings] = useState<StudioSettings>(() => loadSettings());
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -134,7 +136,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         bootstrap();
-    }, [isLoaded, settings.studioSlug]);
+    }, [isLoaded, settings.studioSlug, user, profile]);
 
     useEffect(() => {
         const defaultSlug = getActiveSlug();
