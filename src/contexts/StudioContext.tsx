@@ -54,35 +54,28 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     useEffect(() => {
         // We MUST run this even if settings.studioSlug is empty IF we are logged in
         async function bootstrap() {
-            if (!isLoaded) return;
+            let activeSlug = getActiveSlug();
             
-            const { data: { user } } = await createClient().auth.getUser();
-            let activeSlug = settings.studioSlug || getActiveSlug();
-            
-            // EMERGENCY PWA RECOVERY: If slug is missing but user is logged in, use metadata
-            if (!activeSlug && user) {
-                const meta = user.user_metadata || {};
-                activeSlug = meta.studio_slug || null;
-                if (activeSlug) {
-                    console.log('🔄 [MasterSync] Standalone Recovery: Using metadata slug:', activeSlug);
+            // EMERGENCY RECOVERY FOR stdancestudio
+            if (activeSlug === "subscriptions" || activeSlug === "settings" || !activeSlug) {
+                const userEmail = profile?.email || (user as any)?.email;
+                if (userEmail === "stdancegroup@gmail.com") {
+                    console.log("🚨 [Emergency] Redirecting corrupted slug to stdancestudio");
+                    activeSlug = "stdancestudio";
+                    localStorage.setItem("cc_active_studio_slug", "stdancestudio");
                 }
             }
 
-            if (!activeSlug || ['superadmin'].includes(activeSlug)) {
-                console.warn('⚠️ [MasterSync] No active slug found. Stopping hydration.');
-                setFirstSyncDone(true);
+            if (!activeSlug || ["superadmin", "dashboard", "auth", "admin", "login", "settings", "billing", "analytics", "history", "attendance", "students", "teachers", "halls", "groups", "calendar", "shop", "sms-manager", "subscriptions"].includes(activeSlug)) {
+                setIsLoaded(true);
                 return;
             }
 
-            setIsSyncing(true);
             try {
-                // OrgID resolution via MasterSync (resolves authoritative org for the slug)
-                let targetOrgId = await ensureStudioExists(activeSlug, settings.studioName);
-
+                const targetOrgId = await import("@/lib/master-sync").then(mod => mod.ensureStudioExists(activeSlug || "default", settings.studioName));
                 if (targetOrgId) {
-                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, targetOrgId);
-                    
-                    const state = await fetchFullStudioState(activeSlug, targetOrgId);
+                    const { fetchFullStudioState } = await import("@/lib/master-sync");
+                    const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                     if (state) {
                         console.log('✅ [MasterSync] Hydrated state for Org:', state.org_id);
                         
