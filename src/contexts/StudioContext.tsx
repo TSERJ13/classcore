@@ -195,9 +195,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const list = [...(prev.staff || [])];
             const idx = list.findIndex(s => s.id === id);
             if (idx > -1) {
-                list[idx] = { ...list[idx], ...updates };
+                const updatedMember = { ...list[idx], ...updates };
+                list[idx] = updatedMember;
                 const next = { ...prev, staff: list };
+                
+                // 1. Sync to local storage settings
                 import('@/lib/settings-store').then(mod => mod.saveSettings({ staff: list }, prev, prev.studioSlug));
+                
+                // 2. Sync teacher record to CLOUD table
+                if (prev.orgId) {
+                    import('@/lib/master-sync').then(mod => {
+                        mod.syncRecordToCloud('staff', {
+                            id,
+                            org_id: prev.orgId,
+                            full_name: `${updatedMember.first_name || ''} ${updatedMember.last_name || ''}`.trim() || updatedMember.full_name,
+                            data: updatedMember
+                        }, prev.orgId);
+                    });
+                }
+                
                 return next;
             }
             return prev;
@@ -209,15 +225,37 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const list = (prev.staff || []).filter(s => s.id !== id);
             const next = { ...prev, staff: list };
             import('@/lib/settings-store').then(mod => mod.saveSettings({ staff: list }, prev, prev.studioSlug));
+            
+            // Sync deletion to CLOUD
+            if (prev.orgId) {
+                import('@/lib/master-sync').then(mod => mod.deleteRecordFromCloud('staff', id, prev.orgId));
+            }
+            
             return next;
         });
     }, []);
 
     const addStaff = useCallback((member: any) => {
         setSettings(prev => {
-            const list = [...(prev.staff || []), member];
+            const newId = member.id || `staff_${Math.random().toString(36).substr(2, 9)}`;
+            const newMember = { ...member, id: newId };
+            const list = [...(prev.staff || []), newMember];
             const next = { ...prev, staff: list };
+            
             import('@/lib/settings-store').then(mod => mod.saveSettings({ staff: list }, prev, prev.studioSlug));
+            
+            // Sync to CLOUD staff table
+            if (prev.orgId) {
+                import('@/lib/master-sync').then(mod => {
+                    mod.syncRecordToCloud('staff', {
+                        id: newId,
+                        org_id: prev.orgId,
+                        full_name: `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name,
+                        data: newMember
+                    }, prev.orgId);
+                });
+            }
+            
             return next;
         });
     }, []);
