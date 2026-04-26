@@ -893,19 +893,19 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                                 ]}
                                                 value={form.contact_person || ''}
                                                 onChange={val => set('contact_person', val as any)}
-                                                className="[&>div]:min-h-[42px]"
+                                                className="[&>div]:min-h-[42px] [&>div]:rounded-xl"
                                             />
                                         </div>
                                         
                                         <div className="space-y-1.5 flex flex-col">
                                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('შეღავათი', 'Льγοτα', 'Discount')}</label>
-                                            <div className="flex gap-1 items-center bg-surface border border-border-subtle rounded-xl px-1 h-[42px] shadow-sm focus-within:border-[#6d28d9]/60 transition-all">
+                                            <div className="flex gap-1 items-center bg-surface border border-border-subtle rounded-xl px-1 h-[42px] shadow-sm focus-within:border-indigo-500/40 hover:border-indigo-500/40 transition-all">
                                                 <input 
                                                     type="number"
                                                     value={form.discount_value || ''}
                                                     onChange={e => set('discount_value', parseInt(e.target.value) || 0)}
                                                     placeholder="0"
-                                                    className="flex-1 bg-transparent border-none px-3 py-0 h-full text-sm font-bold text-primary placeholder:text-muted/30 outline-none w-full"
+                                                    className="flex-1 bg-transparent border-none px-3 py-0 h-full text-xs font-bold text-primary placeholder:text-muted/30 outline-none w-full"
                                                 />
                                                 <div className="flex gap-1 bg-black/5 p-1 rounded-lg shrink-0">
                                                     {[

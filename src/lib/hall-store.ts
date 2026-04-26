@@ -63,14 +63,7 @@ export function getHalls(): HallData[] {
         }
         const parsed = JSON.parse(saved);
         if (!Array.isArray(parsed)) return INITIAL_HALLS;
-        let needsSave = false;
-        const migrated = parsed.map((h: any) => {
-            if (h.name === 'დარბაზი A') { h.name = 'hallA'; needsSave = true; }
-            if (h.name === 'დარბაზი B') { h.name = 'hallB'; needsSave = true; }
-            if (h.name === 'სტუდია') { h.name = 'hallStudio'; needsSave = true; }
-            return h;
-        });
-        if (needsSave) localStorage.setItem(getHallsKey(), JSON.stringify(migrated));
+        const migrated = parsed;
         return migrated.filter(h => !deletedIds.has(h.id));
     } catch {
         return INITIAL_HALLS;

@@ -119,7 +119,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                 capacity: group.capacity ?? 15,
                 type: group.type ?? 'Dance',
                 difficulty: group.difficulty ?? null,
-                hall_id: group.hall_id ?? 'h1',
+                hall_id: group.hall_id ?? (halls[0]?.id || ''),
                 color: (group as any).color ?? '#6366f1',
                 secondaryTeacherId: group.secondaryTeacherId ?? '',
                 secondaryTeacherName: group.secondaryTeacherName ?? '',
@@ -130,7 +130,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
             setShowDelete(false);
         } else if (open) {
             setForm({ 
-                id: '', name: '', coach: '', teacherId: '', capacity: 15, type: 'Dance', difficulty: '', hall_id: 'h1', color: '#6366f1',
+                id: '', name: '', coach: '', teacherId: '', capacity: 15, type: 'Dance', difficulty: '', hall_id: halls[0]?.id || '', color: '#6366f1',
                 secondaryTeacherId: '', secondaryTeacherName: '', primaryTeacherPercentage: 0, secondaryTeacherPercentage: 0 
             });
             setSlots([{ ...DEFAULT_SLOT }]);
