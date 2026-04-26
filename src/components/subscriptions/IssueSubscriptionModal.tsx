@@ -180,13 +180,15 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 setDays('');
                 setNeverExpires(true);
             }
-            if (plan.type === 'group' && groups.length > 0) {
+            if (plan.group_id && groups.find(g => g.id === plan.group_id)) {
+                setGroupId(plan.group_id);
+            } else if (plan.type === 'group' && groups.length > 0) {
                 setGroupId(groups[0].id);
             } else {
                 setGroupId('');
             }
         }
-    }, [planId]);
+    }, [planId, groups]);
 
     // Sync amountPaid default to remaining when totalDue changes
     useEffect(() => {
