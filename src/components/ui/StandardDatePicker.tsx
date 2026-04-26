@@ -39,7 +39,8 @@ export function StandardDatePicker({
                     className={cn(
                         "w-full bg-surface border border-border-subtle focus:border-[#6d28d9]/60 rounded-2xl pl-11 pr-4 py-2 text-[13px] sm:text-sm text-primary transition-all shadow-sm outline-none",
                         disabled && "opacity-50 cursor-not-allowed bg-muted/10",
-                        "[&::-webkit-inner-spin-button]:hidden [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-40 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 transition-opacity"
+                        // Hide the default icon on the right but keep it functional to open the picker
+                        "[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:left-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                     )}
                 />
             </div>

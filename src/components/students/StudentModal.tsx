@@ -901,13 +901,15 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete 
                                                     placeholder="0"
                                                     className="flex-1 bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2 text-sm text-primary placeholder:text-muted/30 outline-none transition-all h-[42px]"
                                                 />
-                                                <button 
-                                                    onClick={() => set('discount_type', form.discount_type === 'percent' ? 'fixed' : 'percent')}
-                                                    className="w-10 h-[42px] bg-surface border border-border-subtle rounded-xl flex items-center justify-center text-muted hover:text-indigo-500 hover:border-indigo-500/40 transition-all shrink-0"
-                                                    title={form.discount_type === 'percent' ? '%' : '₾'}
-                                                >
-                                                    {form.discount_type === 'percent' ? <Percent className="w-3.5 h-3.5" /> : <Banknote className="w-3.5 h-3.5" />}
-                                                </button>
+                                                <SearchSelect
+                                                    options={[
+                                                        { value: 'percent', label: '%' },
+                                                        { value: 'fixed', label: settings.currencySymbol || '₾' }
+                                                    ]}
+                                                    value={form.discount_type || 'percent'}
+                                                    onChange={val => set('discount_type', val as any)}
+                                                    className="w-20 [&>div]:min-h-[42px] shrink-0"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -1007,42 +1009,6 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete 
                                 </div>
                             </section>
 
-                            {/* Discount / Student Special Rate */}
-                            <section className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40 flex items-center gap-2 px-1">
-                                        <Tag className="w-3.5 h-3.5" /> {t.studentDiscount}
-                                    </label>
-                                    <div className="flex bg-surface border border-border-subtle rounded-2xl p-1.5 gap-2 shadow-sm overflow-hidden">
-                                        <input
-                                            type="number"
-                                            value={form.discount_value}
-                                            onFocus={(e) => e.target.select()}
-                                            onChange={(e) => set('discount_value', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                            placeholder="0"
-                                            className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm font-bold text-primary outline-none"
-                                        />
-                                        <div className="flex items-center gap-1 bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-1 shrink-0">
-                                            {[
-                                                { id: 'percent', label: '%' },
-                                                { id: 'fixed', label: settings.currencySymbol || '₾' }
-                                            ].map(type => (
-                                                <button
-                                                    key={type.id}
-                                                    type="button"
-                                                    onClick={(e) => { e.preventDefault(); set('discount_type', type.id); }}
-                                                    className={cn(
-                                                        "px-4 py-1.5 text-[11px] font-black rounded-lg transition-all",
-                                                        form.discount_type === type.id ? "bg-indigo-600 text-white shadow-md scale-[1.05]" : "text-muted/60 hover:text-indigo-500 hover:bg-white"
-                                                    )}
-                                                >
-                                                    {type.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
 
                             {/* QR Card */}
                             <section className="space-y-4">
