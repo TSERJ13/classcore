@@ -8,7 +8,7 @@ import {
     Download,
     X,
     FileSpreadsheet, FileText, CalendarDays, LayoutGrid, Calendar,
-    Clock, DoorOpen, UserCheck, BookOpen, Link,
+    Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw
 } from 'lucide-react';
 import { cn, getLocalISODate } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -1723,6 +1723,24 @@ export default function CalendarPage() {
         setGroups(getGroups());
     }
 
+    const syncAllGroups = async () => {
+        const allGroups = getGroups();
+        if (allGroups.length === 0) {
+            alert(lang === 'ka' ? 'ჯგუფები არ მოიძებნა' : 'No groups found');
+            return;
+        }
+        
+        let count = 0;
+        for (const g of allGroups) {
+            if (g.schedule_slots && g.schedule_slots.length > 0) {
+                syncGroupScheduleToCalendar(g.id, g.name, g.teacherId, g.hall_id || 'h1', g.schedule_slots, g.color || '#6366f1', g.secondaryTeacherId);
+                count++;
+            }
+        }
+        setEvents(getEvents());
+        alert(lang === 'ka' ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა!` : `Successfully synced ${count} group schedules!`);
+    };
+
     // Events on a specific date
     function dayEvents(dateStr: string) {
         return filtered
@@ -2010,6 +2028,15 @@ export default function CalendarPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Sync Action */}
+                    {canEdit && (
+                        <button onClick={syncAllGroups}
+                            title={lang === 'ka' ? 'ჯგუფების კალენდართან სინქრონიზაცია' : 'Sync all groups to calendar'}
+                            className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-muted hover:text-[#6d28d9] rounded-2xl transition-all shadow-sm group">
+                            <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                        </button>
+                    )}
+
                     {/* PDF Export */}
                     <button onClick={exportPDF}
                         className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-muted hover:text-[#6d28d9] rounded-2xl transition-all shadow-sm group">
