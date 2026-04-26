@@ -7,6 +7,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
 import { getTeachers } from '@/lib/teacher-store';
+import { getHalls, type HallData } from '@/lib/hall-store';
 import { syncGroupScheduleToCalendar } from '@/lib/event-store';
 import { type ScheduleSlot, slotsToDisplay } from '@/lib/group-store';
 import type { Teacher } from '@/types';
@@ -83,6 +84,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     const [saving, setSaving] = useState(false);
     const [showDelete, setShowDelete] = useState(false);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
+    const [halls, setHalls] = useState<HallData[]>([]);
 
     const teacherOptions: SearchSelectOption[] = teachers.map(tc => {
         const name = tc.full_name || `${tc.first_name || ''} ${tc.last_name || ''}`.trim() || tc.phone || tc.id;
@@ -96,8 +98,15 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
     const dayLabels = lang === 'ka' ? DAY_LABELS_KA : lang === 'ru' ? DAY_LABELS_RU : DAY_LABELS_EN;
     const timeOptions = generateTimeOptions(30);
 
+    const hallOptions: SearchSelectOption[] = halls.map(h => ({
+        value: h.id,
+        label: h.name,
+        color: h.color
+    }));
+
     useEffect(() => {
         setTeachers(getTeachers());
+        setHalls(getHalls());
     }, [open]);
 
     useEffect(() => {
@@ -456,7 +465,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
 
                     {/* Difficulty */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 uppercase">
                             {t.difficulty}
                         </label>
                         <SearchSelect
@@ -468,6 +477,20 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             ]}
                             value={form.difficulty || ''}
                             onChange={(val: string) => setForm({ ...form, difficulty: (val || null) as string | null })}
+                            className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
+                        />
+                    </div>
+
+                    {/* Hall */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                            <Palette className="w-3 h-3" /> {lang === 'ka' ? 'დარბაზი' : 'Hall'}
+                        </label>
+                        <SearchSelect
+                            options={hallOptions}
+                            value={form.hall_id || ''}
+                            onChange={val => setForm({ ...form, hall_id: val })}
+                            placeholder={lang === 'ka' ? 'აირჩიეთ დარბაზი' : 'Select Hall'}
                             className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
                         />
                     </div>

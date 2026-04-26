@@ -5,7 +5,8 @@ import { Search, UserPlus, Users, User, Calendar, Phone, ShieldAlert, Heart, Che
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { cn, getInitials, isExpiringSoon, calculateAge, formatDate } from '@/lib/utils';
+import { cn, getInitials, isExpiringSoon, calculateAge, formatDate, formatPhoneDisplay, cleanPhone } from '@/lib/utils';
+import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
 import { StudentModal } from '@/components/students/StudentModal';
 import { getStudents } from '@/lib/student-store';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -52,6 +53,8 @@ export default function StudentsPage() {
     const groupDropdownRef = useRef<HTMLDivElement>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Student | null>(null);
+
+    const [smsRecipient, setSmsRecipient] = useState<Student | null>(null);
 
     useEffect(() => {
         setGroups(getGroups());
@@ -312,7 +315,12 @@ export default function StudentsPage() {
                                         {student.photo_url ? (
                                             <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-[#6d28d9] to-[#4338ca] flex items-center justify-center text-sm font-black text-white">
+                                            <div className={cn(
+                                                "w-full h-full flex items-center justify-center text-sm font-black text-white transition-all duration-500",
+                                                student.gender === 'female' 
+                                                    ? 'bg-gradient-to-br from-pink-500 to-rose-600' 
+                                                    : 'bg-gradient-to-br from-[#6d28d9] to-[#4338ca]'
+                                            )}>
                                                 {getInitials(student.full_name)}
                                             </div>
                                         )}
@@ -326,15 +334,31 @@ export default function StudentsPage() {
                                         </div>
 
                                         <div className="space-y-1">
-                                            <div className="flex items-center gap-1.5 text-[11px] text-muted font-bold opacity-70">
-                                                <Phone className="w-3 h-3 opacity-50" />
-                                                <span>{student.phone}</span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                                                    <Phone className={cn("w-3 h-3", student.gender === 'female' ? "text-pink-500" : "text-indigo-500")} />
+                                                    <a href={`tel:${student.phone}`} onClick={e => e.stopPropagation()} className="text-muted hover:text-primary transition-colors">
+                                                        {formatPhoneDisplay(student.phone)}
+                                                    </a>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setSmsRecipient(student); }}
+                                                    className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90"
+                                                    title={t.sendSms}
+                                                >
+                                                    <MessageCircle className="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
                                             
                                             {(student.gender || student.birth_date) && (
-                                                <div className="flex items-center gap-3 pt-0.5 opacity-60">
+                                                <div className="flex items-center gap-3 pt-0.5">
                                                     {student.gender && (
-                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
+                                                        <div className={cn(
+                                                            "flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-md border shadow-sm",
+                                                            student.gender === 'female' 
+                                                                ? "text-pink-600 bg-pink-50 border-pink-100 dark:bg-pink-900/10 dark:border-pink-900/20" 
+                                                                : "text-indigo-600 bg-indigo-50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-900/20"
+                                                        )}>
                                                             <User className="w-2.5 h-2.5" />
                                                             <span className="sm:inline hidden">
                                                                 {student.gender === 'male' ? t.male : t.female}
@@ -499,6 +523,15 @@ export default function StudentsPage() {
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
+
+            {smsRecipient && (
+                <ManualSmsModal
+                    open={!!smsRecipient}
+                    onClose={() => setSmsRecipient(null)}
+                    studentName={smsRecipient.full_name}
+                    studentPhone={smsRecipient.phone}
+                />
+            )}
         </>
     );
 }

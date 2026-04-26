@@ -961,9 +961,12 @@ export default function AttendancePage() {
                                                             <p className={cn('text-xs md:text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>
                                                                 {st.full_name}
                                                             </p>
-                                                            <p className="text-[9px] font-bold text-muted opacity-60 truncate lg:hidden">
+                                                            <p className={cn(
+                                                                "text-[9px] font-black opacity-60 truncate lg:hidden",
+                                                                st.gender === 'female' ? "text-pink-500" : "text-indigo-500"
+                                                            )}>
                                                                 {st.gender === 'male' ? t.maleShort : st.gender === 'female' ? t.femaleShort : ''} 
-                                                                {st.birth_date ? ` ${calculateAge(st.birth_date)} ${t.yearsShort}` : ''}
+                                                                <span className="text-muted">{st.birth_date ? ` ${calculateAge(st.birth_date)} ${t.yearsShort}` : ''}</span>
                                                             </p>
                                                         </div>
                                                         {(() => {

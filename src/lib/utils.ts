@@ -45,7 +45,7 @@ export function formatDate(dateStr: string): string {
         'ივლ', 'აგვ', 'სექ', 'ოქტ', 'ნოე', 'დეკ'
     ];
 
-    return `${day}. ${geoMonthsShort[monthIndex]}. ${year}`;
+    return `${day} ${geoMonthsShort[monthIndex]}. ${year}`;
 }
 
 export function getCurrencySymbol(currency: string = 'GEL'): string {
@@ -60,8 +60,19 @@ export function getCurrencySymbol(currency: string = 'GEL'): string {
 export function formatCurrency(amount: number, currency: string = 'GEL'): string {
     const symbol = getCurrencySymbol(currency);
     const formatted = amount.toLocaleString('ka-GE', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-
     return currency === 'GEL' ? `${formatted}${symbol}` : `${symbol}${formatted}`;
+}
+
+export function cleanPhone(phone: string): string {
+    return phone.replace(/[^0-9]/g, '');
+}
+
+export function formatPhoneDisplay(phone: string): string {
+    const cleaned = cleanPhone(phone || '');
+    if (cleaned.length === 9) {
+        return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 5)}-${cleaned.slice(5, 7)}-${cleaned.slice(7, 9)}`;
+    }
+    return phone || '';
 }
 
 export function getInitials(name: string): string {
