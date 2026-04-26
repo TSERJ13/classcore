@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, UserPlus, Users, User, Calendar, Phone, ShieldAlert, Heart, ChevronRight, AlertTriangle, SortAsc, BookOpen, X, ChevronDown, Link2, Check, Edit2, Trash2, Zap, AlertCircle, Filter, MessageCircle } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -25,6 +25,15 @@ function StatusBadge({ status, t }: { status: string; t: ReturnType<typeof useT>
     const lbl: Record<string, string> = { active: t.active, expired: t.expired, paused: t.paused };
     return <span className={`${cls[status] ?? ''} px-2 py-0.5 rounded-full text-[10px] font-bold`}>{lbl[status] ?? status}</span>;
 }
+
+const WomanIcon = (props: any) => (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+        <path d="M12 15c-3.5 0-6 2-6 3.5V20h12v-1.5c0-1.5-2.5-3.5-6-3.5Z" />
+        <path d="M8 8c0-2 2-3 4-3s4 1 4 3" />
+        <path d="M7 11c0-2 1-4 1-4s1-1 4-1 4 1 4 1 1 2 1 4" />
+    </svg>
+);
 
 export default function StudentsPage() {
     const { t, lang } = useT();
@@ -125,7 +134,7 @@ export default function StudentsPage() {
 
             // Duplicate check for new students
             if (!editing) {
-                const dup = mod.checkDuplicateStudent(data.full_name || '', data.phone || '');
+                const dup = mod.checkDuplicateStudent(data.full_name || '', data.phone || '', data.birth_date);
                 if (dup) {
                     if (!confirm(`სტუდენტი ამ სახელით ან ნომრით უკვე არსებობს (${dup.full_name}). მაინც გსურთ დამატება?`)) {
                         return;
@@ -380,15 +389,15 @@ export default function StudentsPage() {
                                             </div>
                                             
                                             {(student.gender || student.birth_date) && (
-                                                <div className="flex flex-col gap-1.5 pt-1">
+                                                <div className="flex flex-col gap-2 pt-2">
                                                     {student.gender && (
                                                         <div className={cn(
-                                                            "w-fit flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg border shadow-sm",
+                                                            "w-fit flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1.5 rounded-lg border shadow-sm",
                                                             student.gender === 'female' 
                                                                 ? "text-pink-600 bg-pink-50 border-pink-100 dark:bg-pink-900/10 dark:border-pink-900/20" 
                                                                 : "text-indigo-600 bg-indigo-50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-900/20"
                                                         )}>
-                                                            <UserRound className={cn("w-3 h-3", student.gender === 'female' ? "text-pink-500" : "text-indigo-500")} />
+                                                            {student.gender === 'female' ? <WomanIcon className="w-3 h-3 text-pink-500" /> : <User className="w-3 h-3 text-indigo-500" />}
                                                             <span className="sm:inline hidden">
                                                                 {student.gender === 'male' ? t.male : t.female}
                                                             </span>
@@ -403,13 +412,11 @@ export default function StudentsPage() {
                                                             {formatDate(student.birth_date)} 
                                                             {calculateAge(student.birth_date) !== null && (
                                                                 <span className="ml-0.5">
-                                                                    ({calculateAge(student.birth_date)} 
-                                                                    <span className="sm:inline-block hidden ml-1">{t.years}</span>
-                                                                    <span className="sm:hidden inline-block ml-0.5">{t.yearsShort}</span>)
+                                                                    ({calculateAge(student.birth_date)} {t.years})
                                                                 </span>
                                                             )}
-                                                            );
-                                                    })}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                             {student.dance_style && (

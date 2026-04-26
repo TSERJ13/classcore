@@ -228,8 +228,8 @@ export const ru: Translations = {
     femaleShort: 'Жен.',
     boy: 'Мужской',
     girl: 'Женский',
-    years: 'лет',
-    yearsShort: 'л.',
+    years: 'г.',
+    yearsShort: 'г.',
     // Misc
     language: 'Язык',
     todayDate: 'Сегодняшняя дата',

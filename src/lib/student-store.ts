@@ -305,7 +305,7 @@ export function deleteStudent(studentId: string): void {
     window.dispatchEvent(new Event('cc_student_update'));
 }
 
-export function checkDuplicateStudent(name: string, phone: string, excludeId?: string): Student | null {
+export function checkDuplicateStudent(name: string, phone: string, birthDate?: string, excludeId?: string): Student | null {
     const all = getStudents();
     const normalizedPhone = phone.replace(/\D/g, '');
 
@@ -314,8 +314,18 @@ export function checkDuplicateStudent(name: string, phone: string, excludeId?: s
 
         const nameMatch = name && s.full_name?.toLowerCase() === name.toLowerCase();
         const phoneMatch = phone && s.phone?.replace(/\D/g, '') === normalizedPhone;
+        const birthDateMatch = birthDate && s.birth_date === birthDate;
 
-        return nameMatch || phoneMatch;
+        // A duplicate must at least have a matching name.
+        // Then we check if it's the SAME person via birth date or phone.
+        if (nameMatch) {
+            if (birthDate && s.birth_date) {
+                return birthDateMatch;
+            }
+            return phoneMatch;
+        }
+
+        return false;
     }) || null;
 }
 

@@ -228,7 +228,7 @@ export const ka: Translations = {
     femaleShort: 'მდედრ.',
     boy: 'მამრობითი',
     girl: 'მდედრობითი',
-    years: 'წელი',
+    years: 'წ.',
     yearsShort: 'წ.',
     // Misc
     language: 'ენა',

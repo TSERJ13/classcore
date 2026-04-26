@@ -228,7 +228,7 @@ export const en: Translations = {
     femaleShort: 'F',
     boy: 'Male',
     girl: 'Female',
-    years: 'years',
+    years: 'y.',
     yearsShort: 'y.',
     // Misc
     language: 'Language',
