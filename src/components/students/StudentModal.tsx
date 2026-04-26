@@ -898,8 +898,8 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                         </div>
                                         
                                         <div className="space-y-1.5 flex flex-col">
-                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('შეღავათი', 'Льგოტა', 'Discount')}</label>
-                                            <div className="flex gap-1 items-center bg-surface border border-border-subtle rounded-xl px-1 h-[42px] shadow-sm">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('შეღავათი', 'Льгоტა', 'Discount')}</label>
+                                            <div className="flex gap-1 items-center bg-surface border border-border-subtle rounded-2xl px-1 h-[42px] shadow-sm focus-within:border-[#6d28d9]/60 transition-all">
                                                 <input 
                                                     type="number"
                                                     value={form.discount_value || ''}
@@ -907,7 +907,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                                     placeholder="0"
                                                     className="flex-1 bg-transparent border-none px-3 py-1 text-sm font-bold text-primary placeholder:text-muted/30 outline-none w-full"
                                                 />
-                                                <div className="flex gap-0.5 bg-black/5 p-0.5 rounded-lg border border-black/5 shrink-0">
+                                                <div className="flex gap-1 bg-black/5 p-1 rounded-xl shrink-0">
                                                     {[
                                                         { value: 'percent', label: '%' },
                                                         { value: 'fixed', label: settings.currencySymbol || '₾' }
@@ -917,10 +917,10 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                                             type="button"
                                                             onClick={() => set('discount_type', opt.value as any)}
                                                             className={cn(
-                                                                "h-7 px-2.5 rounded-md text-[10px] font-black transition-all",
+                                                                "h-7 px-3 rounded-[10px] text-[10px] font-black transition-all",
                                                                 form.discount_type === opt.value 
-                                                                    ? "bg-white text-[#6d28d9] shadow-sm" 
-                                                                    : "text-muted hover:text-primary"
+                                                                    ? "bg-[#6d28d9] text-white shadow-md shadow-indigo-500/20" 
+                                                                    : "text-muted/60 hover:text-primary hover:bg-black/5"
                                                             )}
                                                         >
                                                             {opt.label}
