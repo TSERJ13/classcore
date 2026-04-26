@@ -16,7 +16,7 @@ import { getStudents, getStudentPatches, updateStudent } from '@/lib/student-sto
 import { getTeacherName } from '@/lib/teacher-store';
 import { addNotification } from '@/lib/notification-store';
 import type { Student } from '@/types';
-import { StudentModal } from '@/components/students/StudentModal';
+import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';

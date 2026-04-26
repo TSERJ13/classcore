@@ -20,7 +20,7 @@ import { getTeacherName } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
 import { loadSettings, getScopedKey } from '@/lib/settings-store';
 import type { Student, CalendarEvent } from '@/types';
-import { StudentModal } from '@/components/students/StudentModal';
+import StudentModal from '@/components/students/StudentModal';
 import { ArrowLeftRight } from 'lucide-react';
 import { getPlans } from '@/lib/plan-store';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';

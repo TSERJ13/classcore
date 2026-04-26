@@ -4,11 +4,10 @@
  */
 import type { CalendarEvent, EventType } from '@/types';
 import { pushStudioStateToCloud } from './sync-store';
+import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate } from './utils';
 
 const BASE_EVENTS_KEY = 'cc_calendar_events';
 function getEventsKey() { return getScopedKey(BASE_EVENTS_KEY); }
-
-import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate } from './utils';
 
 function toDateStr(d: Date) {
     return getLocalISODate(d);
