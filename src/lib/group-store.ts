@@ -30,7 +30,7 @@ export interface Group {
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion } from './utils';
-import { loadSettings } from './settings-store';
+import { loadSettings, saveSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
 import { deleteRecordFromCloud, syncRecordToCloud } from './master-sync';
 
@@ -266,6 +266,31 @@ export function deleteGroup(id: string): void {
     const key = getGroupsKey();
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
+
+    // CLEANUP STAFF: Remove deleted group ID from all staff mappings
+    if (slug) {
+        const studioSettings = loadSettings(slug);
+        if (studioSettings && studioSettings.staff) {
+            let staffChanged = false;
+            const updatedStaff = studioSettings.staff.map((member: any) => {
+                const assigned = member.assigned_group_ids || [];
+                if (assigned.includes(id)) {
+                    staffChanged = true;
+                    return {
+                        ...member,
+                        assigned_group_ids: assigned.filter((gid: string) => gid !== id)
+                    };
+                }
+                return member;
+            });
+
+            if (staffChanged) {
+                console.log(`🧹 [GroupStore] Cleaned up deleted group ${id} from staff assignments`);
+                const fullSettings = { ...studioSettings, staff: updatedStaff };
+                saveSettings(fullSettings, studioSettings, slug);
+            }
+        }
+    }
 
     triggerInstantSync();
 

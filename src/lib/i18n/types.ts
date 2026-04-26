@@ -226,9 +226,13 @@ export interface Translations {
     fitness: string;
     gender: string;
     male: string;
+    maleShort: string;
     female: string;
+    femaleShort: string;
     boy: string;
     girl: string;
+    years: string;
+    yearsShort: string;
     // Misc
     language: string;
     todayDate: string;
@@ -1007,7 +1011,6 @@ export interface Translations {
     studentDiscount: string;
     fixedAmount: string;
     percentage: string;
-    years: string;
     // SuperAdmin Dashboard & Global Layout
     sa_accessDenied: string;
     sa_accessDeniedDesc: string;

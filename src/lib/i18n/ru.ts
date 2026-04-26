@@ -223,9 +223,13 @@ export const ru: Translations = {
     fitness: 'Фитнес',
     gender: 'Пол',
     male: 'Мужской',
+    maleShort: 'Муж.',
     female: 'Женский',
+    femaleShort: 'Жен.',
     boy: 'Мужской',
     girl: 'Женский',
+    years: 'лет',
+    yearsShort: 'л.',
     // Misc
     language: 'Язык',
     todayDate: 'Сегодняшняя дата',
@@ -1006,7 +1010,6 @@ export const ru: Translations = {
     self: 'Лично',
     fixedAmount: 'Лар',
     percentage: 'Процент',
-    years: 'лет',
     // SuperAdmin Dashboard & Global Layout
     sa_accessDenied: 'Доступ запрещен',
     sa_accessDeniedDesc: 'Эта страница доступна только супер-администраторам ClassCore.',

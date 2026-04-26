@@ -19,6 +19,18 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+export function smartCapitalize(str: string): string {
+    if (!str) return '';
+    // If it's Georgian, don't touch it (Georgian has no upper case)
+    if (/[\u10D0-\u10FF]/.test(str)) return str;
+    
+    // Capitalize each word (useful for Russian/English names)
+    return str.split(' ').map(word => {
+        if (!word) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+}
+
 export function formatDate(dateStr: string): string {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -181,5 +193,68 @@ export function consolidateStudioKeys(slug: string, activeOrgId?: string) {
 export function markLocalUpdate() {
     if (typeof window !== 'undefined') {
         localStorage.setItem('cc_last_local_update', Date.now().toString());
+    }
+}
+
+/** 
+ * SCORCHED EARTH v3.1: Global Deletion Tracking
+ * Records a record of deletion for the history/trash system.
+ */
+export function recordGlobalDeletion(slug: string, collection: string, id: string, data?: any) {
+    if (typeof window === 'undefined') return;
+    try {
+        const historyKey = getScopedKey('cc_global_history', slug);
+        const historyRaw = localStorage.getItem(historyKey);
+        const history = historyRaw ? JSON.parse(historyRaw) : [];
+        
+        const entry = {
+            id: `del_${Date.now()}_${id}`,
+            entity_id: id,
+            entity_type: collection,
+            action: 'delete',
+            timestamp: new Date().toISOString(),
+            data: data || { id }
+        };
+
+        const updated = [entry, ...history].slice(0, 200);
+        localStorage.setItem(historyKey, JSON.stringify(updated));
+
+        // Trigger Sync for history
+        markLocalUpdate();
+
+        // Bridge to trash-store (Dynamic import to avoid circular dependency)
+        const typeMap: Record<string, string> = {
+            'cc_student_data': 'student',
+            'cc_teachers': 'teacher',
+            'cc_student_subscriptions': 'subscription',
+            'cc_groups': 'group'
+        };
+        
+        const trashType = typeMap[collection];
+        if (trashType) {
+            import('./trash-store').then(mod => {
+                const bId = localStorage.getItem(`cc_active_branch_${slug}`) || 'main';
+                mod.moveToTrash(trashType as any, data || { id }, bId);
+            });
+        }
+    } catch (e) {
+        console.error('❌ [Utils] Failed to record deletion:', e);
+    }
+}
+
+export function clearGlobalDeletion(slug: string, collection: string, id: string) {
+    if (typeof window === 'undefined') return;
+    try {
+        const historyKey = getScopedKey('cc_global_history', slug);
+        const historyRaw = localStorage.getItem(historyKey);
+        if (!historyRaw) return;
+        
+        let history = JSON.parse(historyRaw);
+        history = history.filter((item: any) => !(item.entity_id === id && item.entity_type === collection));
+        
+        localStorage.setItem(historyKey, JSON.stringify(history));
+        markLocalUpdate();
+    } catch (e) {
+        console.error('❌ [Utils] Failed to clear deletion:', e);
     }
 }

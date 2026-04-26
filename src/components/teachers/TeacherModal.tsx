@@ -56,11 +56,14 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const [showPassword, setShowPassword] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
+    const [hasAccess, setHasAccess] = useState(false);
     const isEdit = !!teacher;
 
     useEffect(() => {
         if (open) {
-            setForm(teacher ? { ...teacher } : { ...EMPTY, role: 'teacher', email: '', password: '' });
+            const initialForm = teacher ? { ...teacher } : { ...EMPTY, role: 'teacher', email: '', password: '' };
+            setForm(initialForm);
+            setHasAccess(!!initialForm.email || !!initialForm.password);
             setShowPassword(false);
             if (teacher) {
                 if (teacher.salary_percentage) setActiveRateType('percentage');
@@ -92,6 +95,16 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 ...form,
                 full_name: `${form.first_name.trim()} ${form.last_name.trim()}`
             };
+
+            // Only include email/password if access is explicitly enabled
+            if (!hasAccess) {
+                delete finalForm.email;
+                delete (finalForm as any).password;
+            } else {
+                if (!finalForm.email?.trim()) delete finalForm.email;
+                if (!(finalForm as any).password?.trim()) delete (finalForm as any).password;
+            }
+
             onSave(finalForm);
             onClose();
         } finally {
@@ -231,36 +244,80 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.email}</label>
-                            <div className="relative group/input">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
-                                <input value={form.email ?? ''} onChange={e => setF('email', e.target.value)}
-                                    placeholder={t.emailPlaceholder}
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('პაროლი', 'Пароль', 'Password')}</label>
-                            <div className="relative group/input">
-                                <Layout className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
-                                <input 
-                                    type={showPassword ? "text" : "password"} 
-                                    value={form.password ?? ''} 
-                                    onChange={e => setF('password', e.target.value)}
-                                    placeholder="••••••••"
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-12 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" 
-                                />
+                        <div className="pt-2 space-y-4">
+                            <div className="flex items-center justify-between p-4 rounded-2xl bg-surface border border-border-subtle group hover:border-indigo-500/30 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all", hasAccess ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-muted/10 text-muted")}>
+                                        <Globe className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-primary uppercase tracking-widest">{l('წვდომა სისტემაზე', 'Доступ к системе', 'System Access')}</p>
+                                        <p className="text-[9px] text-muted font-medium opacity-60 uppercase tracking-tighter mt-0.5">{l('მასწავლებლის პირადი პანელი', 'Личная панель учителя', 'Teacher personal panel')}</p>
+                                    </div>
+                                </div>
                                 <button
                                     type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-surface text-muted hover:text-primary transition-all"
+                                    onClick={() => {
+                                        const next = !hasAccess;
+                                        setHasAccess(next);
+                                        if (!next) {
+                                            setF('email', '');
+                                            setF('password', '');
+                                        }
+                                    }}
+                                    className={cn(
+                                        "w-12 h-6 rounded-full relative transition-all duration-500",
+                                        hasAccess ? "bg-indigo-500 shadow-inner" : "bg-muted/20"
+                                    )}
                                 >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
+                                    <div className={cn(
+                                        "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm",
+                                        hasAccess ? "left-7" : "left-1"
+                                    )} />
                                 </button>
                             </div>
-                            <p className="px-1 text-[9px] text-muted opacity-50 italic">{l('მიუთითეთ თუ გსურთ მასწავლებელს ჰქონდეს პირადი წვდომა სისტემაზე', 'Укажите, თუ хотите, чтобы у учителя был личный доступ к системе', 'Set this if you want the teacher to have personal access to the system')}</p>
+
+                            {hasAccess && (
+                                <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.email}</label>
+                                        <div className="relative group/input">
+                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                            <input 
+                                                value={form.email ?? ''} 
+                                                onChange={e => setF('email', e.target.value)}
+                                                placeholder={t.emailPlaceholder}
+                                                autoComplete="off"
+                                                name={`teacher-email-${teacher?.id || 'new'}`}
+                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('პაროლი', 'Пароль', 'Password')}</label>
+                                        <div className="relative group/input">
+                                            <Layout className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                            <input 
+                                                type={showPassword ? "text" : "password"} 
+                                                value={form.password ?? ''} 
+                                                onChange={e => setF('password', e.target.value)}
+                                                placeholder="••••••••"
+                                                autoComplete="new-password"
+                                                name={`teacher-pass-${teacher?.id || 'new'}`}
+                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-12 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all" 
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-surface text-muted hover:text-primary transition-all"
+                                            >
+                                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                     </section>

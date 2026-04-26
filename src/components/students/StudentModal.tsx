@@ -7,9 +7,9 @@ import {
     Check, Plus, AlertTriangle, FileText, Facebook, Instagram, Send, Tag, Image as ImageIcon, Search, Save
 } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
-import { useT } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
-import { cn, getInitials, isExpiringSoon, formatCurrency } from '@/lib/utils';
+import { cn, getInitials, isExpiringSoon, formatCurrency, smartCapitalize } from '@/lib/utils';
 import { addNotification } from '@/lib/notification-store';
 import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 import { generateStudentCode, generateQRDataUrl } from '@/lib/qr';
@@ -257,7 +257,7 @@ interface StudentModalProps {
 export function StudentModal({
     open, student, onClose, onSave, onDelete, centered = false
 }: StudentModalProps) {
-    const { t } = useT();
+    const { t, l } = useLanguage();
     const { user, profile } = useUser();
     const { settings } = useStudio();
     const { confirm } = useConfirm();
@@ -405,10 +405,10 @@ export function StudentModal({
 
     // Auto-generate ID when names are filled and ID is empty (Debounced)
     useEffect(() => {
-        if (!form.id && (form.first_name || form.last_name)) {
+        if (!form.id && form.first_name?.length >= 2 && form.last_name?.length >= 2) {
             const timer = setTimeout(() => {
                 handleIdGeneration();
-            }, 1000);
+            }, 2000);
             return () => clearTimeout(timer);
         }
     }, [form.first_name, form.last_name, form.id]);
@@ -791,7 +791,8 @@ export function StudentModal({
                                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.firstName} *</label>
                                             <div className="relative group/input">
                                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
-                                                <input value={form.first_name ?? ''} onChange={e => set('first_name', e.target.value)}
+                                                <input value={form.first_name ?? ''} 
+                                                    onChange={e => set('first_name', smartCapitalize(e.target.value))}
                                                     placeholder={t.firstName}
                                                     className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                             </div>
@@ -800,7 +801,8 @@ export function StudentModal({
                                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.lastName} *</label>
                                             <div className="relative group/input">
                                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
-                                                <input value={form.last_name ?? ''} onChange={e => set('last_name', e.target.value)}
+                                                <input value={form.last_name ?? ''} 
+                                                    onChange={e => set('last_name', smartCapitalize(e.target.value))}
                                                     placeholder={t.lastName}
                                                     className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                             </div>
@@ -808,19 +810,13 @@ export function StudentModal({
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <StandardDatePicker
-                                        label={t.birthDate}
-                                        value={form.birth_date}
-                                        onChange={v => set('birth_date', v)}
-                                    />
-
+                                <div className="space-y-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-2 gap-4">
                                             {[
-                                                { id: 'male', label: t.boy, color: 'text-indigo-600', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-                                                { id: 'female', label: t.girl, color: 'text-pink-600', bg: 'bg-pink-500/10', border: 'border-pink-500/20' }
+                                                { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+                                                { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20' }
                                             ].map((g) => {
                                                 const isSelected = form.gender === g.id;
                                                 return (
@@ -829,17 +825,30 @@ export function StudentModal({
                                                         type="button"
                                                         onClick={() => set('gender', g.id as any)}
                                                         className={cn(
-                                                            "flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300",
-                                                            isSelected ? cn(g.border, g.bg, "shadow-sm scale-[1.02]") : "border-border-subtle bg-surface hover:border-indigo-500/20"
+                                                            "flex items-center gap-4 p-3 rounded-2xl border transition-all duration-300 h-11 relative",
+                                                            isSelected 
+                                                                ? cn(g.border, g.activeBg, "shadow-sm scale-[1.02] ring-1 ring-offset-1", g.id === 'male' ? "ring-indigo-500/20" : "ring-pink-500/20") 
+                                                                : "border-border-subtle bg-surface hover:border-indigo-500/20"
                                                         )}
                                                     >
+                                                        <div className={cn(
+                                                            "w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-500 shrink-0",
+                                                            isSelected ? g.bg : "bg-muted/5",
+                                                            isSelected && "scale-110"
+                                                        )}>
+                                                            <User className={cn("w-5 h-5", isSelected ? g.iconColor : "text-muted/40")} strokeWidth={2.5} />
+                                                        </div>
                                                         <span className={cn(
-                                                            "text-[10px] font-black uppercase tracking-widest",
-                                                            isSelected ? g.color : "text-muted"
+                                                            "text-[10px] font-black uppercase tracking-widest leading-none",
+                                                            isSelected ? g.color : "text-muted/60"
                                                         )}>
                                                             {g.label}
                                                         </span>
-                                                        {isSelected && <Check className={cn("w-3.5 h-3.5 ml-auto", g.color)} strokeWidth={4} />}
+                                                        {isSelected && (
+                                                            <div className={cn("absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center border border-white shadow-sm", g.id === 'male' ? "bg-indigo-500" : "bg-pink-500")}>
+                                                                <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />
+                                                            </div>
+                                                        )}
                                                     </button>
                                                 )
                                             })}
@@ -847,7 +856,12 @@ export function StudentModal({
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
+                                    <StandardDatePicker
+                                        label={t.birthDate}
+                                        value={form.birth_date}
+                                        onChange={v => set('birth_date', v)}
+                                    />
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.preferredLanguage}</label>
                                         <SearchSelect
@@ -858,9 +872,56 @@ export function StudentModal({
                                             ]}
                                             value={form.preferred_language || 'ka'}
                                             onChange={val => set('preferred_language', val)}
-                                            className="h-11"
+                                            className="[&>div]:min-h-[42px]"
                                         />
                                     </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {[
+                                                { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+                                                { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20' }
+                                            ].map((g) => {
+                                                const isSelected = form.gender === g.id;
+                                                return (
+                                                    <button
+                                                        key={g.id}
+                                                        type="button"
+                                                        onClick={() => set('gender', g.id as any)}
+                                                        className={cn(
+                                                            "flex items-center gap-4 p-3 rounded-2xl border transition-all duration-300 h-16 relative",
+                                                            isSelected 
+                                                                ? cn(g.border, g.activeBg, "shadow-sm scale-[1.02] ring-1 ring-offset-1", g.id === 'male' ? "ring-indigo-500/20" : "ring-pink-500/20") 
+                                                                : "border-border-subtle bg-surface hover:border-indigo-500/20"
+                                                        )}
+                                                    >
+                                                        <div className={cn(
+                                                            "w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-500 shrink-0",
+                                                            isSelected ? g.bg : "bg-muted/5",
+                                                            isSelected && "scale-110"
+                                                        )}>
+                                                            <User className={cn("w-5 h-5", isSelected ? g.iconColor : "text-muted/40")} strokeWidth={2.5} />
+                                                        </div>
+                                                        <span className={cn(
+                                                            "text-[10px] font-black uppercase tracking-widest leading-none",
+                                                            isSelected ? g.color : "text-muted/60"
+                                                        )}>
+                                                            {g.label}
+                                                        </span>
+                                                        {isSelected && (
+                                                            <div className={cn("absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center border border-white shadow-sm", g.id === 'male' ? "bg-indigo-500" : "bg-pink-500")}>
+                                                                <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.contactPerson}</label>
                                         <SearchSelect
@@ -875,6 +936,19 @@ export function StudentModal({
                                     </div>
                                 </div>
 
+                                {form.contact_person === 'parent' && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('მშობლის სახელი და გვარი', 'Имя и фамилия родителя', 'Parent full name')}</label>
+                                        <div className="relative group/input">
+                                            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                        <input value={form.parent_name ?? ''} 
+                                            onChange={e => set('parent_name', smartCapitalize(e.target.value))}
+                                            placeholder={l('სახელი და გვარი', 'Имя и фамилия', 'First and last name')}
+                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.phone || 'Phone'} (SMS) *</label>
                                     <div className="relative group/input">
@@ -884,18 +958,6 @@ export function StudentModal({
                                             className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                     </div>
                                 </div>
-
-                                {form.contact_person === 'parent' && (
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.parentName || "Parent Name"}</label>
-                                        <div className="relative group/input">
-                                            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
-                                            <input value={form.parent_name ?? ''} onChange={e => set('parent_name', e.target.value)}
-                                                placeholder={t.parentNamePlaceholder}
-                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
-                                        </div>
-                                    </div>
-                                )}
 
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.email}</label>

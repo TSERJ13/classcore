@@ -261,10 +261,11 @@ function GridLines({ onClick }: { onClick: (e: React.MouseEvent<HTMLDivElement>)
 
 /* ─── EventChip component ────────────────────────────────────── */
 
-function EventChip({ ev, onClick, onMouseDown, teachers, halls, groups = [], compact = false, style, className, canEdit }: {
+function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, groups = [], compact = false, style, className, canEdit }: {
     ev: CalendarEvent;
     onClick: () => void;
     onMouseDown?: (e: React.MouseEvent) => void;
+    onTouchStart?: (e: React.TouchEvent) => void;
     teachers: any[];
     halls: any[];
     groups?: Group[];
@@ -1412,11 +1413,13 @@ export default function CalendarPage() {
     }, [view]);
 
     // ── Drag & Drop Handlers ──────────────────────────────────
-    const handleDragStart = useCallback((e: React.MouseEvent, ev: CalendarEvent) => {
+    const touchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+    const startDrag = (clientX: number, clientY: number, currentTarget: HTMLElement, ev: CalendarEvent) => {
         if (!canEdit) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const startX = e.clientX;
-        const startY = e.clientY;
+        const rect = currentTarget.getBoundingClientRect();
+        const startX = clientX;
+        const startY = clientY;
         let hasMoved = false;
 
         dragInfo.current = {
@@ -1428,12 +1431,11 @@ export default function CalendarPage() {
             chipWidth: rect.width
         };
 
-        const handleMouseMove = (em: MouseEvent) => {
+        const onMove = (moveX: number, moveY: number) => {
             if (!dragInfo.current) return;
-            const dx = em.clientX - startX;
-            const dy = em.clientY - startY;
+            const dx = moveX - startX;
+            const dy = moveY - startY;
 
-            // Start showing ghost and dragging only after 5px movement
             if (!hasMoved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
                 hasMoved = true;
             }
@@ -1441,8 +1443,8 @@ export default function CalendarPage() {
             if (hasMoved) {
                 setGhostStyle({
                     visible: true,
-                    x: em.clientX - (startX - rect.left),
-                    y: em.clientY - (startY - rect.top),
+                    x: moveX - (startX - rect.left),
+                    y: moveY - (startY - rect.top),
                     width: rect.width,
                     height: rect.height,
                     ev
@@ -1450,65 +1452,44 @@ export default function CalendarPage() {
             }
         };
 
-        const handleMouseUp = (eu: MouseEvent) => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-
+        const onEnd = (endX: number, endY: number) => {
             if (!dragInfo.current) return;
-            const currentDragInfo = dragInfo.current;
             dragInfo.current = null;
             setGhostStyle(p => ({ ...p, visible: false }));
 
-            if (!hasMoved) {
-                // If it didn't move enough, it's a click.
-                // The Button's onClick handled it.
-                return;
-            }
+            if (!hasMoved) return;
 
-            // Determine target grid and columns
-            const currentView = view;
-            const targetRef = currentView === 'day' ? dayGridRef : weekGridRef;
+            const targetRef = view === 'day' ? dayGridRef : weekGridRef;
             if (!targetRef.current) return;
 
             const gridRect = targetRef.current.getBoundingClientRect();
-            const mouseX = eu.clientX;
-            const mouseY = eu.clientY;
+            if (endX < gridRect.left || endX > gridRect.right || endY < gridRect.top || endY > gridRect.bottom) return;
 
-            // Check if within grid bounds
-            if (mouseX < gridRect.left || mouseX > gridRect.right || mouseY < gridRect.top || mouseY > gridRect.bottom) {
-                return;
-            }
-
-            // Calculate new time (accounting for scroll)
-            const relY = (mouseY - gridRect.top) + targetRef.current.scrollTop;
+            const relY = (endY - gridRect.top) + targetRef.current.scrollTop;
             const totalMins = (relY / 72) * 60;
             const snappedMins = Math.floor(totalMins / 15) * 15;
             const newH = START_HOUR + Math.floor(snappedMins / 60);
             const newM = snappedMins % 60;
             const newStartTime = `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
 
-            // Calculate duration
             const duration = timeToMins(ev.end_time) - timeToMins(ev.start_time);
             const newEndTimeMins = timeToMins(newStartTime) + duration;
             const newEndH = Math.floor(newEndTimeMins / 60);
             const newEndM = newEndTimeMins % 60;
             const newEndTime = `${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`;
 
-            // Calculate new date based on column
             let newDate = ev.date;
-            if (currentView === 'week') {
+            if (view === 'week') {
                 const colWidth = gridRect.width / 7;
-                const colIdx = Math.floor((mouseX - gridRect.left) / colWidth);
+                const colIdx = Math.floor((endX - gridRect.left) / colWidth);
                 newDate = toDateStr(weekDates[colIdx]);
             } else {
                 newDate = toDateStr(anchor);
             }
 
-            const isChanged = newDate !== ev.date || newStartTime !== ev.start_time;
-            if (!isChanged) return;
+            if (newDate === ev.date && newStartTime === ev.start_time) return;
 
             const updatedEv = { ...ev, date: newDate, start_time: newStartTime, end_time: newEndTime };
-
             if (ev.recurring === 'weekly' || ev.group_id) {
                 setDragConfirm({ ev, newDate, newStart: newStartTime, newEnd: newEndTime });
             } else {
@@ -1516,9 +1497,62 @@ export default function CalendarPage() {
             }
         };
 
+        return { onMove, onEnd };
+    };
+
+    const handleDragStart = useCallback((e: React.MouseEvent, ev: CalendarEvent) => {
+        const target = e.currentTarget as HTMLElement;
+        const drag = startDrag(e.clientX, e.clientY, target, ev);
+        if (!drag) return;
+
+        const handleMouseMove = (em: MouseEvent) => drag.onMove(em.clientX, em.clientY);
+        const handleMouseUp = (eu: MouseEvent) => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            drag.onEnd(eu.clientX, eu.clientY);
+        };
+
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
-    }, [view, weekDates, anchor]);
+    }, [view, weekDates, anchor, canEdit]);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent, ev: CalendarEvent) => {
+        if (!canEdit) return;
+        const touch = e.touches[0];
+        const target = e.currentTarget as HTMLElement;
+        
+        if (touchTimeout.current) clearTimeout(touchTimeout.current);
+        
+        touchTimeout.current = setTimeout(() => {
+            const drag = startDrag(touch.clientX, touch.clientY, target, ev);
+            if (!drag) return;
+
+            const handleTouchMove = (em: TouchEvent) => {
+                if (em.cancelable) em.preventDefault();
+                drag.onMove(em.touches[0].clientX, em.touches[0].clientY);
+            };
+
+            const handleTouchEnd = (eu: TouchEvent) => {
+                window.removeEventListener('touchmove', handleTouchMove);
+                window.removeEventListener('touchend', handleTouchEnd);
+                const endTouch = eu.changedTouches[0];
+                drag.onEnd(endTouch.clientX, endTouch.clientY);
+            };
+
+            window.addEventListener('touchmove', handleTouchMove, { passive: false });
+            window.addEventListener('touchend', handleTouchEnd);
+        }, 200); // 200ms long press to start drag
+
+        const cancelTouch = () => {
+            if (touchTimeout.current) {
+                clearTimeout(touchTimeout.current);
+                touchTimeout.current = null;
+            }
+        };
+
+        target.addEventListener('touchmove', cancelTouch, { once: true });
+        target.addEventListener('touchend', cancelTouch, { once: true });
+    }, [view, weekDates, anchor, canEdit]);
 
     // Sync to localStorage so Header can display the date range
     useEffect(() => {
@@ -2062,6 +2096,7 @@ export default function CalendarPage() {
                                                     ev={ev}
                                                     onClick={() => setSelectedEv(ev)}
                                                     onMouseDown={(e) => handleDragStart(e, ev)}
+                                                    onTouchStart={(e) => handleTouchStart(e, ev)}
                                                     canEdit={canEdit}
                                                     teachers={teachers}
                                                     halls={halls}
@@ -2163,6 +2198,7 @@ export default function CalendarPage() {
                                                             ev={ev}
                                                             onClick={() => setSelectedEv(ev)}
                                                             onMouseDown={(e) => handleDragStart(e, ev)}
+                                                            onTouchStart={(e) => handleTouchStart(e, ev)}
                                                             canEdit={canEdit}
                                                             teachers={teachers}
                                                             halls={halls}
@@ -2210,7 +2246,7 @@ export default function CalendarPage() {
                                         col === 6 ? 'border-r-0' : '',
                                         (isToday && hasMounted) ? 'bg-[#6d28d9]/5' : '')}
                                     onClick={() => { setAddDate(dateStr); setAddTime(null); }}>
-                                    <span className={cn('inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black mb-1 shadow-sm',
+                                    <span className={cn('inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-black mb-1 shadow-sm',
                                         isToday ? 'bg-[#6d28d9] text-white' : 'text-primary/70 bg-surface/50')}>
                                         {d.getDate()}
                                     </span>

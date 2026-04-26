@@ -36,7 +36,9 @@ export function LanguageSwitcher({
     };
 
     const handleLeave = () => {
-        timeoutRef.current = setTimeout(() => setOpen(false), 150);
+        timeoutRef.current = setTimeout(() => {
+            setOpen(false);
+        }, 500); // Increased timeout for easier interaction
     };
 
     useEffect(() => {
@@ -76,7 +78,7 @@ export function LanguageSwitcher({
                 title={compact ? current.label : undefined}
             >
                 {!noFlags && (
-                    <span className={cn("shrink-0", variant === 'landing' ? "text-lg md:text-xl" : "text-sm")}>
+                    <span className={cn("shrink-0 transition-transform group-hover:scale-110", variant === 'landing' ? "text-xl md:text-xl" : "text-xl md:text-xl")}>
                         {current.flag}
                     </span>
                 )}
@@ -125,7 +127,7 @@ export function LanguageSwitcher({
                             )}
                         >
                             {!noFlags && (
-                                <span className={cn("text-base transition-transform group-hover/item:scale-110", (compact || hideLabel) && variant === 'sidebar' ? "text-xl" : "mr-1")}>
+                                <span className={cn("text-xl transition-transform group-hover/item:scale-110", (compact || hideLabel) && variant === 'sidebar' ? "text-xl" : "mr-1")}>
                                     {meta.flag}
                                 </span>
                             )}

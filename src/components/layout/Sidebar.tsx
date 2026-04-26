@@ -276,8 +276,8 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             : (isMobile ? "py-5" : "py-6")
                     )}>
                         <div className={cn(
-                            "flex items-center justify-center transition-all duration-300 w-full overflow-hidden bg-white/[0.03] border border-white/5 rounded-xl p-1",
-                            exp ? (isMobile ? "gap-1 flex-row h-10" : "gap-1 flex-row h-12") : "flex-col gap-2 w-full h-auto py-2"
+                            "flex items-center justify-center transition-all duration-300 w-full bg-white/[0.03] border border-white/5 rounded-xl p-1",
+                            exp ? (isMobile ? "gap-1 flex-row h-10" : "gap-1 flex-row h-12") : "flex-col gap-1 w-full h-auto py-2"
                         )}>
                             <LanguageSwitcher 
                                 compact={!exp} 

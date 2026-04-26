@@ -32,13 +32,26 @@ export default function HallsPage() {
     function openEdit(h: Hall) { setEditing(h); setModalOpen(true); }
 
     function handleSave(data: Partial<Hall>) {
+        const activeSlug = settings?.studioSlug || '';
+        const resolvedOrgId = settings?.orgId || 
+                             (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) : null) || 
+                             (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_${activeSlug}`) : null) || 
+                             'demo';
+
         let updated: Hall[];
         if (editing) {
             updated = halls.map(h => h.id === editing.id ? { ...h, ...data } : h);
         } else {
             updated = [...halls, {
-                id: String(Date.now()), org_id: settings.orgId || 'demo', created_at: new Date().toISOString(),
-                name: '', color: '#6366f1', is_active: true, ...data,
+                id: String(Date.now()), 
+                org_id: resolvedOrgId, 
+                created_at: new Date().toISOString(),
+                name: '', 
+                color: '#6366f1', 
+                is_active: true, 
+                capacity: 0,
+                sq_meters: 0,
+                ...data,
             }];
         }
         setHalls(updated);

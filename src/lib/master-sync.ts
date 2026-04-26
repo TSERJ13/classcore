@@ -65,6 +65,9 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
 
     // Check for major failures
     if (e1) console.error('❌ [MasterSync] Students fetch failed:', e1.message);
+    if (e3) console.error('❌ [MasterSync] Groups fetch failed:', e3.message);
+    if (e4) console.error('❌ [MasterSync] Branches fetch failed:', e4.message);
+    if (e5) console.error('❌ [MasterSync] Halls fetch failed:', e5.message);
     
     console.log('📊 [MasterSync] Cloud Extraction Complete:', {
         students: students?.length || 0,

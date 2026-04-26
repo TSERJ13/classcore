@@ -158,9 +158,9 @@ function MiniCalendar({ t, selectedDate, rangeStart, rangeEnd, onSelect, onRange
                             )}>
                             <span className={cn('text-xs font-medium leading-none transition-colors z-10',
                                 isToday
-                                    ? 'w-6 h-6 flex items-center justify-center bg-indigo-500 text-white rounded-full font-bold'
+                                    ? 'w-7 h-7 flex items-center justify-center bg-indigo-500 text-white rounded-full font-black text-[11px] shadow-sm'
                                     : (isSelected || isStart || isEnd)
-                                        ? 'text-indigo-400 font-bold'
+                                        ? 'text-indigo-500 font-black text-[11px]'
                                         : 'text-primary/60 group-hover:text-primary',
                                 inRange && !isStart && !isEnd && 'text-indigo-400/80'
                             )}>

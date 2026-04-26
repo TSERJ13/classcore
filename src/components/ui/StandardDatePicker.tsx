@@ -37,10 +37,9 @@ export function StandardDatePicker({
                     onChange={(e) => onChange(e.target.value)}
                     disabled={disabled}
                     className={cn(
-                        "w-full bg-surface border border-border-subtle focus:border-[#6d28d9]/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary transition-all shadow-sm outline-none cursor-pointer",
-                        "appearance-none", // Remove default arrows
-                        "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer", // Hidden indicator covering entire input
-                        disabled && "opacity-50 cursor-not-allowed bg-muted/10"
+                        "w-full bg-surface border border-border-subtle focus:border-[#6d28d9]/60 rounded-2xl pl-11 pr-4 py-2 text-[13px] sm:text-sm text-primary transition-all shadow-sm outline-none",
+                        disabled && "opacity-50 cursor-not-allowed bg-muted/10",
+                        "[&::-webkit-inner-spin-button]:hidden [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-40 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 transition-opacity"
                     )}
                 />
             </div>

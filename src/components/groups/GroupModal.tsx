@@ -178,12 +178,10 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
             });
 
             // Sync recurring events to calendar
-            if (slots.length > 0) {
-                try {
-                    await syncGroupScheduleToCalendar(groupId, form.name, form.teacherId, form.hall_id, slots, form.color, form.secondaryTeacherId);
-                } catch (syncErr) {
-                    console.error('[GroupModal] Calendar sync failed, but group saved locally:', syncErr);
-                }
+            try {
+                await syncGroupScheduleToCalendar(groupId, form.name, form.teacherId, form.hall_id, slots, form.color, form.secondaryTeacherId);
+            } catch (syncErr) {
+                console.error('[GroupModal] Calendar sync failed, but group saved locally:', syncErr);
             }
 
             onClose();

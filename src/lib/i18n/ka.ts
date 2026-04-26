@@ -223,9 +223,13 @@ export const ka: Translations = {
     fitness: 'ფიტნესი',
     gender: 'სქესი',
     male: 'მამრობითი',
+    maleShort: 'მამრ.',
     female: 'მდედრობითი',
+    femaleShort: 'მდედრ.',
     boy: 'მამრობითი',
     girl: 'მდედრობითი',
+    years: 'წელი',
+    yearsShort: 'წ.',
     // Misc
     language: 'ენა',
     todayDate: 'დღევანდელი თარიღი',
@@ -1007,7 +1011,6 @@ export const ka: Translations = {
     self: 'საკუთარი',
     fixedAmount: 'ლარი',
     percentage: 'პროცენტი',
-    years: 'წლის',
     // SuperAdmin Dashboard & Global Layout
     sa_accessDenied: 'წვდომა უარყოფილია',
     sa_accessDeniedDesc: 'ეს გვერდი ხელმისაწვდომია მხოლოდ ClassCore სუპერ ადმინებისთვის.',

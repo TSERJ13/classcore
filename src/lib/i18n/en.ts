@@ -223,9 +223,13 @@ export const en: Translations = {
     fitness: 'Fitness Studio',
     gender: 'Gender',
     male: 'Male',
+    maleShort: 'M',
     female: 'Female',
+    femaleShort: 'F',
     boy: 'Male',
     girl: 'Female',
+    years: 'years',
+    yearsShort: 'y.',
     // Misc
     language: 'Language',
     todayDate: "Today's Date",
@@ -1005,7 +1009,6 @@ export const en: Translations = {
     self: 'Self',
     fixedAmount: 'Fixed',
     percentage: 'Percentage',
-    years: 'Years',
     // SuperAdmin Dashboard & Global Layout
     sa_accessDenied: 'Access Denied',
     sa_accessDeniedDesc: 'This page is only accessible to ClassCore SuperAdmins.',

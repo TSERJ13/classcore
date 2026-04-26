@@ -90,7 +90,9 @@ export default function StudentsPage() {
         return matchesSearch && matchesStatus && matchesGroup && matchesGender;
     }).sort((a, b) => {
         if (sortBy === 'none') {
-            return new Date(b.created_at || parseInt(b.id)).getTime() - new Date(a.created_at || parseInt(a.id)).getTime();
+            const nameA = a.full_name || '';
+            const nameB = b.full_name || '';
+            return nameA.localeCompare(nameB, 'ka');
         }
         if (sortBy === 'gender') {
             return (a.gender || '').localeCompare(b.gender || '');
@@ -221,7 +223,7 @@ export default function StudentsPage() {
 
                             {/* Dropdown Menu */}
                             {groupDropdownOpen && (
-                                <div className="absolute left-0 lg:left-auto lg:right-0 top-[calc(100%+6px)] z-50 w-[240px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden animate-fade-up">
+                                <div className="absolute left-0 lg:left-0 top-[calc(100%+6px)] z-50 w-[240px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden animate-fade-up">
                                     <div className="p-1 space-y-1">
                                         {/* Sort Section */}
                                         <div className="px-3 pt-2 pb-1 text-[10px] font-black text-muted tracking-widest">{'დახარისხება'}</div>
@@ -236,10 +238,6 @@ export default function StudentsPage() {
                                         <button onClick={() => { setSortBy('last_name'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'last_name' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
                                             <span>{t.byLastName}</span>
                                             {sortBy === 'last_name' && <Check className="w-4 h-4" />}
-                                        </button>
-                                        <button onClick={() => { setSortBy('gender'); setGroupDropdownOpen(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between", sortBy === 'gender' ? "bg-indigo-50 text-[#5b21b6] dark:bg-[#6d28d9]/10" : "text-muted hover:bg-surface-hover")}>
-                                            <span>{t.gender}</span>
-                                            {sortBy === 'gender' && <Check className="w-4 h-4" />}
                                         </button>
 
                                         <div className="h-px bg-border-subtle my-1 mx-2" />
@@ -338,13 +336,25 @@ export default function StudentsPage() {
                                                     {student.gender && (
                                                         <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase tracking-tighter">
                                                             <User className="w-2.5 h-2.5" />
-                                                            {student.gender === 'male' ? t.male : t.female}
+                                                            <span className="sm:inline hidden">
+                                                                {student.gender === 'male' ? t.male : t.female}
+                                                            </span>
+                                                            <span className="sm:hidden inline">
+                                                                {student.gender === 'male' ? t.maleShort : t.femaleShort}
+                                                            </span>
                                                         </div>
                                                     )}
                                                     {student.birth_date && (
                                                         <div className="flex items-center gap-1 text-[10px] font-bold text-muted uppercase">
                                                             <Calendar className="w-2.5 h-2.5" />
-                                                            {formatDate(student.birth_date)} {calculateAge(student.birth_date) !== null && `(${calculateAge(student.birth_date)} ${t.years})`}
+                                                            {formatDate(student.birth_date)} 
+                                                            {calculateAge(student.birth_date) !== null && (
+                                                                <span className="ml-1">
+                                                                    ({calculateAge(student.birth_date)} 
+                                                                    <span className="sm:inline-block hidden ml-1">{t.years}</span>
+                                                                    <span className="sm:hidden inline-block ml-0.5">{t.yearsShort}</span>)
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>

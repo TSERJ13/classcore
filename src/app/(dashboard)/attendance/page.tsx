@@ -7,8 +7,8 @@ import {
     Instagram, Facebook, Send, MessageCircle, Phone, MessageSquare, Info, ShieldAlert,
     ShoppingCart, PlusCircle, Package, ArrowRight, TrendingUp, Trash2
 } from 'lucide-react';
-import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency } from '@/lib/utils';
-import { useT } from '@/contexts/LanguageContext';
+import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge } from '@/lib/utils';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, refundCheckin, deleteCheckin, getSessionsRemaining } from '@/lib/checkin-store';
 import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
@@ -17,6 +17,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import { getSubscriptions, getSubscription, saveSubscription, pauseActiveSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getEventsByDate, getEvents } from '@/lib/event-store';
 import { getTeacherName } from '@/lib/teacher-store';
+import { getGroups } from '@/lib/group-store';
 import { loadSettings, getScopedKey } from '@/lib/settings-store';
 import type { Student, CalendarEvent } from '@/types';
 import { StudentModal } from '@/components/students/StudentModal';
@@ -187,13 +188,21 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
-    const { t } = useT();
+    const { t, l } = useLanguage();
     const confirm = useConfirm();
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
     const { user, profile } = useUser();
     const { settings } = useStudio();
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+
+    const [groups, setGroups] = useState(getGroups());
+    const GROUP_MAP = useMemo(() => Object.fromEntries(groups.map(g => [g.id, g.name])), [groups]);
+    useEffect(() => {
+        const load = () => setGroups(getGroups());
+        window.addEventListener('cc_groups_update', load);
+        return () => window.removeEventListener('cc_groups_update', load);
+    }, []);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
     const dateKey = getLocalISODate(selectedDate);
@@ -789,13 +798,15 @@ export default function AttendancePage() {
                                             className={cn(
                                                 'w-full text-left p-4 rounded-2xl transition-all group border relative overflow-hidden',
                                                 isActive
-                                                    ? 'bg-#6d28d9 border-#5b21b6 scale-[1.02] z-10 text-white'
+                                                    ? 'bg-[#6d28d9] border-[#6d28d9] scale-[1.02] z-10 text-white shadow-xl shadow-indigo-500/10'
                                                     : 'bg-card border-border-subtle hover:bg-surface hover:border-border-subtle/50'
                                             )}>
                                             <h3 className={cn(
                                                 'text-sm font-black truncate leading-tight transition-colors',
                                                 isActive ? 'text-white' : 'text-primary'
-                                            )}>{s.title}</h3>
+                                            )}>
+                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
+                                            </h3>
                                             <div className="flex items-center gap-2 mt-2">
                                                 <Clock className={cn(
                                                     'w-3 h-3 transition-colors',
@@ -829,7 +840,9 @@ export default function AttendancePage() {
                             <div className="p-3 md:p-6 border-b border-border-subtle/50 flex flex-col gap-3 md:gap-4 flex-shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h2 className="text-lg md:text-xl font-black text-primary tracking-tight">{cls.title}</h2>
+                                        <h2 className="text-lg md:text-xl font-black text-primary tracking-tight">
+                                            {cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : (cls.type === 'individual' ? t.indSession : t.untitledClass))}
+                                        </h2>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
                                             <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {getTeacherName(cls.teacher_id)}</p>
                                             {cls.notes && (
@@ -886,7 +899,7 @@ export default function AttendancePage() {
                                                 'px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[10px] md:text-xs font-black whitespace-nowrap transition-colors border',
                                                 selectedClass === s.id ? 'bg-#5b21b6 text-white border-indigo-700' : 'bg-surface text-muted border-border-subtle'
                                             )}>
-                                            {s.title}
+                                            {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </button>
                                     ))}
                                 </div>
@@ -944,7 +957,15 @@ export default function AttendancePage() {
 
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center justify-between gap-2 mb-1">
-                                                        <p className={cn('text-xs md:text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>{st.full_name}</p>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <p className={cn('text-xs md:text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>
+                                                                {st.full_name}
+                                                            </p>
+                                                            <p className="text-[9px] font-bold text-muted opacity-60 truncate lg:hidden">
+                                                                {st.gender === 'male' ? t.maleShort : st.gender === 'female' ? t.femaleShort : ''} 
+                                                                {st.birth_date ? ` ${calculateAge(st.birth_date)} ${t.yearsShort}` : ''}
+                                                            </p>
+                                                        </div>
                                                         {(() => {
                                                             if (!mounted) return <div className="h-3 md:h-4 w-10 bg-surface animate-pulse rounded" />;
 
@@ -1150,7 +1171,7 @@ export default function AttendancePage() {
 
                                                     <div className="flex items-center gap-4">
                                                         <div className={cn(
-                                                            "w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-xl ring-4 ring-white/50 overflow-hidden",
+                                                            "w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-black shadow-xl ring-4 ring-white/50 overflow-hidden shrink-0",
                                                             isExpired ? "bg-red-500" : "bg-emerald-500"
                                                         )}>
                                                             {selStudent.photo_url ? (

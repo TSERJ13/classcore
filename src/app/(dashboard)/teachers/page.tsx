@@ -55,6 +55,10 @@ export default function TeachersPage() {
     const filtered = teachers.filter(t => {
         const fullName = `${t.first_name || ''} ${t.last_name || t.full_name || ''}`.trim().toLowerCase();
         return fullName.includes(search.toLowerCase());
+    }).sort((a, b) => {
+        const nameA = `${a.first_name || ''} ${a.last_name || a.full_name || ''}`.trim();
+        const nameB = `${b.first_name || ''} ${b.last_name || b.full_name || ''}`.trim();
+        return nameA.localeCompare(nameB, lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US');
     });
 
     function openAdd() { setEditing(null); setModalOpen(true); }
@@ -179,9 +183,9 @@ export default function TeachersPage() {
                                     {/* Assigned groups - even smaller font */}
                                     {(teacher.assigned_group_ids || []).length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-2.5 pt-2.5 border-t border-border-subtle/30">
-                                            {teacher.assigned_group_ids.map(gid => (
+                                            {teacher.assigned_group_ids.filter(gid => GROUP_MAP[gid]).map(gid => (
                                                 <span key={gid} className="px-2 py-0.5 bg-surface text-muted/50 text-[8px] font-black tracking-wider rounded-md flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                    <BookOpen className="w-2.5 h-2.5 text-violet-500/50" />{GROUP_MAP[gid] ?? gid}
+                                                    <BookOpen className="w-2.5 h-2.5 text-violet-500/50" />{GROUP_MAP[gid]}
                                                 </span>
                                             ))}
                                             {teacher.assigned_individual && (
