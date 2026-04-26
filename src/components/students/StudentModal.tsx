@@ -264,7 +264,7 @@ const WomanIcon = (props: any) => (
     </svg>
 );
 
-export default function StudentModal({ open, student, onClose, onSave, onDelete }: StudentModalProps) {
+export default function StudentModal({ open, student, onClose, onSave, onDelete, centered }: StudentModalProps) {
     const { t, l } = useLanguage();
     const { user, profile } = useUser();
     const { settings } = useStudio();
