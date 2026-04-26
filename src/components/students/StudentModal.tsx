@@ -818,41 +818,48 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                     </div>
                                 </div>
 
+                                <div className="space-y-4">
+                                     <div className="space-y-1.5">
+                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
+                                         <div className="grid grid-cols-2 gap-4">
+                                             {[
+                                                 { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: User },
+                                                 { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20', icon: WomanIcon }
+                                             ].map((g) => {
+                                                 const isSelected = form.gender === g.id;
+                                                 const Icon = g.icon;
+                                                 return (
+                                                     <button
+                                                         key={g.id}
+                                                         type="button"
+                                                         onClick={() => set('gender', g.id as any)}
+                                                         className={cn(
+                                                             "flex items-center justify-center gap-3 px-6 rounded-2xl border transition-all duration-300 h-14 relative overflow-hidden",
+                                                             isSelected 
+                                                                 ? cn(g.border, g.activeBg, "shadow-md scale-[1.02] ring-2 ring-offset-2", g.id === 'male' ? "ring-indigo-500/20" : "ring-pink-500/20") 
+                                                                 : "border-border-subtle bg-surface hover:border-indigo-500/20"
+                                                         )}
+                                                     >
+                                                         <Icon className={cn("w-6 h-6 shrink-0", isSelected ? g.iconColor : "text-muted/40")} />
+                                                         <span className={cn(
+                                                             "text-[10px] font-black uppercase tracking-widest leading-none",
+                                                             isSelected ? g.color : "text-muted/60"
+                                                         )}>
+                                                             {g.label}
+                                                         </span>
+                                                     </button>
+                                                 )
+                                             })}
+                                         </div>
+                                     </div>
+                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {[
-                                                { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: User },
-                                                { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20', icon: WomanIcon }
-                                            ].map((g) => {
-                                                const isSelected = form.gender === g.id;
-                                                const Icon = g.icon;
-                                                return (
-                                                    <button
-                                                        key={g.id}
-                                                        type="button"
-                                                        onClick={() => set('gender', g.id as any)}
-                                                        className={cn(
-                                                            "flex items-center gap-2 px-3 rounded-xl border transition-all duration-300 h-10 relative overflow-hidden",
-                                                            isSelected 
-                                                                ? cn(g.border, g.activeBg, "shadow-sm scale-[1.02] ring-1 ring-offset-1", g.id === 'male' ? "ring-indigo-500/20" : "ring-pink-500/20") 
-                                                                : "border-border-subtle bg-surface hover:border-indigo-500/20"
-                                                        )}
-                                                    >
-                                                        <Icon className={cn("w-3.5 h-3.5 shrink-0", isSelected ? g.iconColor : "text-muted/40")} />
-                                                        <span className={cn(
-                                                            "text-[8px] font-black uppercase tracking-widest leading-none truncate",
-                                                            isSelected ? g.color : "text-muted/60"
-                                                        )}>
-                                                            {g.label}
-                                                        </span>
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
+                                    <StandardDatePicker
+                                        label={t.birthDate}
+                                        value={form.birth_date}
+                                        onChange={v => set('birth_date', v)}
+                                    />
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.preferredLanguage}</label>
                                         <SearchSelect
@@ -863,20 +870,12 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                             ]}
                                             value={form.preferred_language || 'ka'}
                                             onChange={val => set('preferred_language', val)}
-                                            className="[&>div]:min-h-[40px]"
+                                            className="[&>div]:min-h-[48px]"
                                         />
                                     </div>
                                 </div>
 
-                                <StandardDatePicker
-                                    label={t.birthDate}
-                                    value={form.birth_date}
-                                    onChange={v => set('birth_date', v)}
-                                />
-
                                 <div className="space-y-4 pt-2">
-                                    {/* Gender selection removed from here and moved above */}
-
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.contactPerson}</label>
@@ -891,25 +890,36 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                             />
                                         </div>
                                         
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1.5 flex flex-col">
                                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('შეღავათი', 'Льгота', 'Discount')}</label>
-                                            <div className="flex gap-1.5">
+                                            <div className="flex gap-2 items-center bg-surface border border-border-subtle rounded-2xl p-1.5 shadow-sm">
                                                 <input 
                                                     type="number"
                                                     value={form.discount_value || ''}
                                                     onChange={e => set('discount_value', parseInt(e.target.value) || 0)}
                                                     placeholder="0"
-                                                    className="flex-1 bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2 text-sm text-primary placeholder:text-muted/30 outline-none transition-all h-[42px]"
+                                                    className="flex-1 bg-transparent border-none px-3 py-2 text-sm font-bold text-primary placeholder:text-muted/30 outline-none h-[40px]"
                                                 />
-                                                <SearchSelect
-                                                    options={[
+                                                <div className="flex gap-1 bg-card/50 p-1 rounded-xl border border-border-subtle">
+                                                    {[
                                                         { value: 'percent', label: '%' },
                                                         { value: 'fixed', label: settings.currencySymbol || '₾' }
-                                                    ]}
-                                                    value={form.discount_type || 'percent'}
-                                                    onChange={val => set('discount_type', val as any)}
-                                                    className="w-20 [&>div]:min-h-[42px] shrink-0"
-                                                />
+                                                    ].map(opt => (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => set('discount_type', opt.value as any)}
+                                                            className={cn(
+                                                                "h-8 px-3 rounded-lg text-[11px] font-black transition-all",
+                                                                form.discount_type === opt.value 
+                                                                    ? "bg-[#6d28d9] text-white shadow-md shadow-indigo-500/20" 
+                                                                    : "text-muted hover:text-primary hover:bg-surface"
+                                                            )}
+                                                        >
+                                                            {opt.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
