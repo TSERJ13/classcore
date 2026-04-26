@@ -255,12 +255,19 @@ interface StudentModalProps {
     centered?: boolean;
 }
 
-const WomanIcon = (props: any) => (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-        <path d="M12 15c-3.5 0-6 2-6 3.5V20h12v-1.5c0-1.5-2.5-3.5-6-3.5Z" />
-        <path d="M8 8c0-2 2-3 4-3s4 1 4 3" />
-        <path d="M7 11c0-2 1-4 1-4s1-1 4-1 4 1 4 1 1 2 1 4" />
+const MaleIcon = (props: any) => (
+    <svg {...props} viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="4" r="3" />
+        <path d="M8 8h8a2 2 0 0 1 2 2v7h-2.5v5h-7v-5H6v-7a2 2 0 0 1 2-2z" />
+    </svg>
+);
+
+const FemaleIcon = (props: any) => (
+    <svg {...props} viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="4" r="3" />
+        <path d="M12 1a4 4 0 0 0-4 4h8a4 4 0 0 0-4-4z" />
+        <path d="M7 9h10l2 11H5l2-11z" />
+        <path d="M9 20h6v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-3z" />
     </svg>
 );
 
@@ -823,8 +830,8 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                          <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
                                          <div className="grid grid-cols-2 gap-4">
                                              {[
-                                                 { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: User },
-                                                 { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20', icon: WomanIcon }
+                                                 { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: MaleIcon },
+                                                 { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20', icon: FemaleIcon }
                                              ].map((g) => {
                                                  const isSelected = form.gender === g.id;
                                                  const Icon = g.icon;
