@@ -493,7 +493,7 @@ export default function AttendancePage() {
             }
 
             const checkinCount = getCheckinCountToday(studentId);
-            const result = recordCheckin(studentId, studentName, 'manual', selectedClass, selClass?.group_id, choiceSubId);
+            const result = recordCheckin(studentId, studentName, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
             const newAtt = { ...att, [studentId!]: 'present' as State };
             saveAttendance(newAtt);
             setScanError('');
@@ -582,7 +582,7 @@ export default function AttendancePage() {
             }
 
             // Mark present: deduct session
-            recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId);
+            recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
             next = 'present';
 
             const usedSub = choiceSubId ? (subs[id] || []).find(s => s.id === choiceSubId) : activeSub;
@@ -863,7 +863,7 @@ export default function AttendancePage() {
                                                         students.forEach(s => {
                                                             const { isExpired } = getSubStatus(s.id);
                                                             if (n[s.id] !== 'present' && !isExpired) {
-                                                                recordCheckin(s.id, s.full_name, 'manual', selectedClass, selClass?.group_id);
+                                                                recordCheckin(s.id, s.full_name, 'manual', selectedClass, selClass?.group_id, undefined, dateKey);
                                                                 n[s.id] = 'present';
                                                             }
                                                         });
@@ -897,7 +897,7 @@ export default function AttendancePage() {
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
                                                 'px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[10px] md:text-xs font-black whitespace-nowrap transition-colors border',
-                                                selectedClass === s.id ? 'bg-#5b21b6 text-white border-indigo-700' : 'bg-surface text-muted border-border-subtle'
+                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9]' : 'bg-surface text-muted border-border-subtle'
                                             )}>
                                             {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </button>
@@ -1038,7 +1038,7 @@ export default function AttendancePage() {
                                                                                         remaining <= 5 ? "bg-gradient-to-r from-amber-500 to-orange-500" :
                                                                                             "bg-gradient-to-r from-#6d28d9 to-violet-500"
                                                                             )}
-                                                                            style={{ width: `${isExpired ? 100 : Math.max(0, Math.min(100, (remaining / (activeSub.sessions_total ?? 1)) * 100))}%` }}
+                                                                            style={{ width: `${Math.max(0, Math.min(100, (remaining / (activeSub.sessions_total || (activeSub.type === "monthly" ? 30 : 12) || 1)) * 100))}%` }}
                                                                         />
                                                                     </div>
                                                                     <div className="flex flex-col items-end gap-1 min-w-[80px]">

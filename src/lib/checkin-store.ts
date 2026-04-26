@@ -91,19 +91,10 @@ export function recordCheckin(
     via: 'nfc' | 'qr' | 'manual',
     classId?: string,
     groupId?: string,
-    subId?: string
+    subId?: string,
+    customDate?: string
 ): CheckinResult {
-    const todayRecs = getTodayCheckins();
-    const already = todayRecs.some(r => r.studentId === studentId);
-
-    if (already && via !== 'manual') {
-        return {
-            success: false,
-            alreadyCheckedIn: true,
-            sessionsRemaining: getSessionsRemaining(studentId, groupId),
-        };
-    }
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
 }
 
 /**
@@ -116,9 +107,10 @@ export function forceCheckin(
     via: 'nfc' | 'qr' | 'manual',
     classId?: string,
     groupId?: string,
-    subId?: string
+    subId?: string,
+    customDate?: string
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
 }
 
 /** Refund a checkin: increments sessions back */
@@ -154,24 +146,26 @@ function _writeCheckin(
     via: 'nfc' | 'qr' | 'manual',
     classId?: string,
     groupId?: string,
-    subId?: string
+    subId?: string,
+    customDate?: string
 ): CheckinResult {
     // Increment sessions used in the main subscription store
     incrementSessionsUsed(studentId, subId);
 
     const next = getSessionsRemaining(studentId, groupId);
+    const dateToUse = customDate || today();
     const record: CheckinRecord = {
         studentId,
         studentName,
-        date: today(),
+        date: dateToUse,
         time: nowTime(),
         via,
         sessionsRemaining: next,
         classId,
         groupId,
     };
-    const existing = getTodayCheckins();
-    const key = dayKey();
+    const existing = JSON.parse(localStorage.getItem(dayKey(dateToUse)) ?? '[]');
+    const key = dayKey(dateToUse);
     const updated = [...existing, record];
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
@@ -184,7 +178,7 @@ function _writeCheckin(
             org_id: settings.orgId,
             student_id: studentId,
             group_id: groupId || 'none',
-            date: today(),
+            date: dateToUse,
             status: 'present',
             notes: `Via ${via.toUpperCase()}`
         }, settings.orgId);
