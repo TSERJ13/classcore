@@ -396,15 +396,15 @@ export default function StudentsPage() {
                                             </div>
                                             
                                             {(student.gender || student.birth_date) && (
-                                                <div className="flex flex-col gap-2 pt-2">
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2">
                                                     {student.gender && (
                                                         <div className={cn(
-                                                            "w-fit flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1.5 rounded-lg border shadow-sm",
+                                                            "w-fit flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-lg border shadow-sm",
                                                             student.gender === 'female' 
                                                                 ? "text-pink-600 bg-pink-50 border-pink-100 dark:bg-pink-900/10 dark:border-pink-900/20" 
                                                                 : "text-indigo-600 bg-indigo-50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-900/20"
                                                         )}>
-                                                            {student.gender === 'female' ? <FemaleIcon className="w-3.5 h-3.5 text-pink-500" /> : <MaleIcon className="w-3.5 h-3.5 text-indigo-500" />}
+                                                            {student.gender === 'female' ? <FemaleIcon className="w-3 h-3 text-pink-500" /> : <MaleIcon className="w-3 h-3 text-indigo-500" />}
                                                             <span className="sm:inline hidden">
                                                                 {student.gender === 'male' ? t.male : t.female}
                                                             </span>
@@ -414,11 +414,11 @@ export default function StudentsPage() {
                                                         </div>
                                                     )}
                                                     {student.birth_date && (
-                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted uppercase pl-1 opacity-70">
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted uppercase opacity-70">
                                                             <Calendar className="w-2.5 h-2.5" />
-                                                            {formatDate(student.birth_date)} 
+                                                            <span className="tabular-nums">{formatDate(student.birth_date)}</span>
                                                             {calculateAge(student.birth_date) !== null && (
-                                                                <span className="ml-0.5">
+                                                                <span className="text-[10px]">
                                                                     ({calculateAge(student.birth_date)} {t.years})
                                                                 </span>
                                                             )}
