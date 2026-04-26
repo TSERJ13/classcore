@@ -7,7 +7,7 @@ import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, getInitials, isExpiringSoon, calculateAge, formatDate, formatPhoneDisplay, cleanPhone } from '@/lib/utils';
 import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
-import { StudentModal } from '@/components/students/StudentModal';
+import StudentModal from '@/components/students/StudentModal';
 import { getStudents } from '@/lib/student-store';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import type { Student } from '@/types';
