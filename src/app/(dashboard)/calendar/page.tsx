@@ -1723,10 +1723,10 @@ export default function CalendarPage() {
         setGroups(getGroups());
     }
 
-    const syncAllGroups = async () => {
+    const syncAllGroups = async (silent: boolean = false) => {
         const allGroups = getGroups();
         if (allGroups.length === 0) {
-            alert(lang === 'ka' ? 'ჯგუფები არ მოიძებნა' : 'No groups found');
+            if (!silent) alert(lang === 'ka' ? 'ჯგუფები არ მოიძებნა' : 'No groups found');
             return;
         }
         
@@ -1738,8 +1738,20 @@ export default function CalendarPage() {
             }
         }
         setEvents(getEvents());
-        alert(lang === 'ka' ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა!` : `Successfully synced ${count} group schedules!`);
+        if (!silent) alert(lang === 'ka' ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა!` : `Successfully synced ${count} group schedules!`);
     };
+
+    // Auto-sync on mount if calendar is empty but groups exist
+    useEffect(() => {
+        if (hasMounted && events.length === 0 && groups.length > 0) {
+            const lastAutoSync = localStorage.getItem(`cc_auto_sync_ran_${settings.activeBranchId || 'main'}`);
+            if (!lastAutoSync) {
+                syncAllGroups(true).then(() => {
+                    localStorage.setItem(`cc_auto_sync_ran_${settings.activeBranchId || 'main'}`, Date.now().toString());
+                });
+            }
+        }
+    }, [hasMounted, events.length, groups.length, settings.activeBranchId]);
 
     // Events on a specific date
     function dayEvents(dateStr: string) {
