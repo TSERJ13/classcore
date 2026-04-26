@@ -46,20 +46,27 @@ export function getHalls(): HallData[] {
             }
         } catch {}
 
-        // Migration: If new scoped key is empty, check old unscoped key
-        if (!saved && isMainBranch) {
-            const oldKey = `cc_halls_${activeSlug}`;
-            saved = localStorage.getItem(oldKey);
-            if (saved) {
-                console.log('🚚 [HallStore] Migrating legacy main branch data');
-                localStorage.setItem(key, saved);
-            }
-        }
-
         if (!saved) {
-            const data = isMainBranch ? INITIAL_HALLS : [];
-            if (isMainBranch) localStorage.setItem(key, JSON.stringify(data));
-            return data;
+            // SCORCHED EARTH v3.2: Aggressive Key Discovery
+            // 1. Try Slug-scoped key (Legacy fallback)
+            const slugKey = `cc_halls_${activeSlug}_${activeBranch}`;
+            const slugData = localStorage.getItem(slugKey);
+            
+            // 2. Try ancient unscoped slug key
+            const oldKey = `cc_halls_${activeSlug}`;
+            const legacyData = localStorage.getItem(oldKey);
+
+            if (slugData) {
+                console.log('🚚 [HallStore] Recovered halls from slug-scoped key');
+                localStorage.setItem(key, slugData);
+                saved = slugData;
+            } else if (legacyData && isMainBranch) {
+                console.log('🚚 [HallStore] Migrated halls from ancient legacy key');
+                localStorage.setItem(key, legacyData);
+                saved = legacyData;
+            } else {
+                return INITIAL_HALLS;
+            }
         }
         const parsed = JSON.parse(saved);
         if (!Array.isArray(parsed)) return INITIAL_HALLS;

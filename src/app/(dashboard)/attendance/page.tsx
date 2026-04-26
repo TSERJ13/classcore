@@ -209,13 +209,25 @@ export default function AttendancePage() {
     const rawSchedule = getEventsByDate(dateKey);
     
     const filteredSchedule = useMemo(() => {
+        if (rawSchedule.length === 0) {
+            // Fallback for days with no calendar events: Show all groups
+            return groups.map(g => ({
+                id: `virtual-${g.id}`,
+                group_id: g.id,
+                title: g.name,
+                type: 'group',
+                color: (g as any).color || '#6d28d9',
+                start_time: '00:00',
+                end_time: '23:59'
+            } as any));
+        }
         return rawSchedule.filter(ev => {
             if (profile?.role === 'teacher' || profile?.role === 'coach') {
                 return profile.assigned_group_ids?.includes(ev.group_id || '');
             }
             return true;
         });
-    }, [rawSchedule, profile]);
+    }, [rawSchedule, profile, groups]);
 
     const [selectedClass, setSelectedClass] = useState(filteredSchedule[0]?.id || '');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
