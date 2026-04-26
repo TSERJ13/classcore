@@ -255,9 +255,16 @@ interface StudentModalProps {
     centered?: boolean;
 }
 
-export function StudentModal({
-    open, student, onClose, onSave, onDelete, centered = false
-}: StudentModalProps) {
+const WomanIcon = (props: any) => (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+        <path d="M12 15c-3.5 0-6 2-6 3.5V20h12v-1.5c0-1.5-2.5-3.5-6-3.5Z" />
+        <path d="M8 8c0-2 2-3 4-3s4 1 4 3" />
+        <path d="M7 11c0-2 1-4 1-4s1-1 4-1 4 1 4 1 1 2 1 4" />
+    </svg>
+);
+
+export default function StudentModal({ open, student, onClose, onSave, onDelete }: StudentModalProps) {
     const { t, l } = useLanguage();
     const { user, profile } = useUser();
     const { settings } = useStudio();
@@ -812,12 +819,40 @@ export function StudentModal({
                                 </div>
 
 
-                                <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
-                                    <StandardDatePicker
-                                        label={t.birthDate}
-                                        value={form.birth_date}
-                                        onChange={v => set('birth_date', v)}
-                                    />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: User },
+                                                { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20', icon: WomanIcon }
+                                            ].map((g) => {
+                                                const isSelected = form.gender === g.id;
+                                                const Icon = g.icon;
+                                                return (
+                                                    <button
+                                                        key={g.id}
+                                                        type="button"
+                                                        onClick={() => set('gender', g.id as any)}
+                                                        className={cn(
+                                                            "flex items-center gap-2 px-3 rounded-xl border transition-all duration-300 h-10 relative overflow-hidden",
+                                                            isSelected 
+                                                                ? cn(g.border, g.activeBg, "shadow-sm scale-[1.02] ring-1 ring-offset-1", g.id === 'male' ? "ring-indigo-500/20" : "ring-pink-500/20") 
+                                                                : "border-border-subtle bg-surface hover:border-indigo-500/20"
+                                                        )}
+                                                    >
+                                                        <Icon className={cn("w-3.5 h-3.5 shrink-0", isSelected ? g.iconColor : "text-muted/40")} />
+                                                        <span className={cn(
+                                                            "text-[8px] font-black uppercase tracking-widest leading-none truncate",
+                                                            isSelected ? g.color : "text-muted/60"
+                                                        )}>
+                                                            {g.label}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.preferredLanguage}</label>
                                         <SearchSelect
@@ -828,56 +863,19 @@ export function StudentModal({
                                             ]}
                                             value={form.preferred_language || 'ka'}
                                             onChange={val => set('preferred_language', val)}
-                                            className="[&>div]:min-h-[42px]"
+                                            className="[&>div]:min-h-[40px]"
                                         />
                                     </div>
                                 </div>
 
+                                <StandardDatePicker
+                                    label={t.birthDate}
+                                    value={form.birth_date}
+                                    onChange={v => set('birth_date', v)}
+                                />
+
                                 <div className="space-y-4 pt-2">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {[
-                                                { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: User },
-                                                { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20', icon: UserRound }
-                                            ].map((g) => {
-                                                const isSelected = form.gender === g.id;
-                                                const Icon = g.icon;
-                                                return (
-                                                    <button
-                                                        key={g.id}
-                                                        type="button"
-                                                        onClick={() => set('gender', g.id as any)}
-                                                        className={cn(
-                                                            "flex items-center gap-4 p-3 rounded-2xl border transition-all duration-300 h-11 relative",
-                                                            isSelected 
-                                                                ? cn(g.border, g.activeBg, "shadow-sm scale-[1.02] ring-1 ring-offset-1", g.id === 'male' ? "ring-indigo-500/20" : "ring-pink-500/20") 
-                                                                : "border-border-subtle bg-surface hover:border-indigo-500/20"
-                                                        )}
-                                                    >
-                                                        <div className={cn(
-                                                            "w-7 h-7 rounded-lg flex items-center justify-center transition-transform duration-500 shrink-0",
-                                                            isSelected ? g.bg : "bg-muted/5",
-                                                            isSelected && "scale-110"
-                                                        )}>
-                                                            <Icon className={cn("w-4 h-4", isSelected ? g.iconColor : "text-muted/40")} strokeWidth={2.5} />
-                                                        </div>
-                                                        <span className={cn(
-                                                            "text-[9px] font-black uppercase tracking-widest leading-none",
-                                                            isSelected ? g.color : "text-muted/60"
-                                                        )}>
-                                                            {g.label}
-                                                        </span>
-                                                        {isSelected && (
-                                                            <div className={cn("absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center border border-white shadow-sm", g.id === 'male' ? "bg-indigo-500" : "bg-pink-500")}>
-                                                                <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />
-                                                            </div>
-                                                        )}
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
+                                    {/* Gender selection removed from here and moved above */}
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
