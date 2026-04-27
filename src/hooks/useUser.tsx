@@ -166,6 +166,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
             if (profile.studio_name) {
                 document.cookie = `cc_studio_name=${encodeURIComponent(profile.studio_name)}; path=/; max-age=31536000; SameSite=Lax`;
             }
+            if (profile.studio_slug) {
+                document.cookie = `cc_active_slug=${profile.studio_slug}; path=/; max-age=31536000; SameSite=Lax`;
+            }
         }
     }, [profile]);
 
