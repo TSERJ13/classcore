@@ -961,6 +961,7 @@ export default function AttendancePage() {
                                 ) : filtered.length > 0 ? filtered.map(st => {
                                     const state = att[st.id] ?? 'none';
                                     const isSel = selectedStudent === st.id;
+                                    const isFl = flash === st.id;
                                     const getStudentDisplay = () => {
                                         const todayStr = getLocalISODate();
                                         const active = getSubscription(st.id, cls?.group_id, (cls?.type as any) === 'individual' ? 'individual' : 'group');
