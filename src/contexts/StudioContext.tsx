@@ -124,14 +124,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             return next;
                         });
 
+                        // 🚨 HYBRID STUDENT RECOVERY: Try atomic table first, fallback to settings blob if empty
+                        let finalStudentsRaw = state.students || [];
+                        if (finalStudentsRaw.length === 0 && (state as any).settingsRecord?.data?.students) {
+                            console.log('🚚 [MasterSync] Recovering students from legacy settings blob');
+                            const legacyStudents = (state as any).settingsRecord.data.students;
+                            finalStudentsRaw = Array.isArray(legacyStudents) ? legacyStudents : Object.values(legacyStudents);
+                        }
+
                         const mapping: any = {
                             cc_teachers: unwrappedStaff,
                             cc_branches: state.branches,
                             cc_halls: unwrap(state.halls),
                             cc_groups: unwrap(state.groups),
-                            cc_student_data: Array.isArray(state.students) 
-                                ? state.students.reduce((acc: any, s: any) => ({ ...acc, [s.id]: { ...(s.data || {}), ...s, data: undefined } }), {})
-                                : state.students,
+                            cc_student_data: Array.isArray(finalStudentsRaw) 
+                                ? finalStudentsRaw.reduce((acc: any, s: any) => {
+                                    const student = { ...(s.data || {}), ...s, data: undefined };
+                                    return { ...acc, [student.id]: student };
+                                }, {})
+                                : finalStudentsRaw,
                             cc_student_subscriptions: unwrap(state.subscriptions),
                             cc_calendar_events: unwrap(state.calendar_events),
                             cc_shop_sales: unwrap(state.sales),
