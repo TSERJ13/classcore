@@ -188,7 +188,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
-    const { t, l } = useLanguage();
+    const { t, lang, l } = useLanguage();
     const confirm = useConfirm();
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
@@ -805,7 +805,7 @@ export default function AttendancePage() {
                             
                              <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
                                 <span className="absolute inset-x-0 inset-y-0 flex items-center justify-center text-[13px] font-black uppercase text-primary pointer-events-none tracking-tight">
-                                    {selectedDate.toLocaleDateString(l === 'ka' ? 'ka-GE' : l === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                                 </span>
                                 <StandardDatePicker
                                     hideIcon={true}
@@ -1043,7 +1043,7 @@ export default function AttendancePage() {
                                                         </p>
                                                         {label && (
                                                             <span className={cn(
-                                                                "shrink-0 text-[8px] md:text-[9px] font-black tracking-tighter px-1.5 md:px-2 py-0.5 rounded-md border uppercase inline-flex",
+                                                                "shrink-0 text-[7px] md:text-[9px] font-black tracking-tighter px-1 md:px-2 py-0.5 rounded-md border uppercase inline-flex",
                                                                 color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : 
                                                                 color === 'yellow' ? "text-amber-600 border-amber-500/20 bg-amber-500/5" :
                                                                 "text-red-500 border-red-500/20 bg-red-500/5"
