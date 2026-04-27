@@ -71,7 +71,7 @@ export default function SubscriptionsPage() {
             st?.last_name?.toLowerCase().includes(searchLower);
         const idMatch = s.student_id?.toLowerCase().includes(searchLower);
 
-        const matchesSearch = !search || nameMatch || idMatch;
+        const matchesSearch = !search || nameMatch || idMatch || s.plan?.toLowerCase().includes(searchLower);
         return matchesTab && matchesCategory && matchesSearch;
     });
 

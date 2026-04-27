@@ -88,10 +88,21 @@ export function getSubscriptions(): SubMap {
             data = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
         }
 
-        // Filter out deleted IDs (including mock subs)
+        // Filter out deleted IDs and Normalize data
         Object.keys(data).forEach(studentId => {
-            data[studentId] = data[studentId].filter(sub => !deletedSubIds.has(sub.id));
-            if (data[studentId].length === 0) {
+            if (Array.isArray(data[studentId])) {
+                data[studentId] = data[studentId]
+                    .filter(sub => !deletedSubIds.has(sub.id))
+                    .map(sub => ({
+                        ...sub,
+                        // Ensure required fields for UI
+                        plan_type: sub.plan_type || (sub.plan?.toLowerCase().includes('ინდ') || sub.plan?.toLowerCase().includes('indiv') ? 'individual' : 'group'),
+                        type: sub.type || (sub.sessions_total === null ? 'monthly' : 'sessions')
+                    }));
+            } else {
+                delete data[studentId];
+            }
+            if (data[studentId]?.length === 0) {
                 delete data[studentId];
             }
         });

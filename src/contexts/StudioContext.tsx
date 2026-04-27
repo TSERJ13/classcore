@@ -160,9 +160,27 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     return { ...acc, [student.id]: student };
                                 }, {})
                                 : finalStudentsRaw,
-                            cc_student_subscriptions: unwrap(state.subscriptions),
+                            cc_student_subscriptions: Array.isArray(state.subscriptions)
+                                ? state.subscriptions.reduce((acc: any, sub: any) => {
+                                    const sId = sub.student_id || (sub.data as any)?.student_id;
+                                    if (sId) {
+                                        if (!acc[sId]) acc[sId] = [];
+                                        acc[sId].push({ ...(sub.data || {}), ...sub, data: undefined });
+                                    }
+                                    return acc;
+                                }, {})
+                                : state.subscriptions,
                             cc_calendar_events: unwrap(state.calendar_events),
-                            cc_shop_sales: unwrap(state.sales),
+                            cc_shop_sales: Array.isArray(state.sales)
+                                ? state.sales.reduce((acc: any, sale: any) => {
+                                    const sId = sale.student_id;
+                                    if (sId) {
+                                        if (!acc[sId]) acc[sId] = [];
+                                        acc[sId].push({ ...(sale.data || {}), ...sale, data: undefined });
+                                    }
+                                    return acc;
+                                }, {})
+                                : state.sales,
                             cc_expenses: unwrap(state.expenses),
                             cc_global_trash: unwrap(state.trash)
                         };
