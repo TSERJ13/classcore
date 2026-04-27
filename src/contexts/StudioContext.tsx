@@ -102,16 +102,41 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const targetOrgId = await ensureStudioExists(activeSlug || "default", settings.studioName);
                 
                 if (targetOrgId) {
+                    // 🛡️ UNLOCK RLS: Ensure current user profile is linked to this studio's OrgID
+                    const { createClient } = await import("@/lib/supabase/client");
+                    const sb = createClient();
+                    const { data: { user } } = await sb.auth.getUser();
+                    if (user) {
+                        console.log('🛡️ [StudioProvider] Anchoring Identity to Org:', targetOrgId);
+                        await sb.from('profiles').update({ org_id: targetOrgId }).eq('id', user.id);
+                        // Also update user metadata for redundancy
+                        await sb.auth.updateUser({ data: { org_id: targetOrgId } });
+                    }
+
                     const { getStudents } = await import("@/lib/student-store");
                     const localStudents = getStudents();
 
                     const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                     
                     if (state) {
-                        // 🚨 CLOUD RESCUE: If local has more students than cloud (e.g. from a non-syncing mobile), PUSH THEM UP
-                        if (localStudents.length > state.students.length && localStudents.length > 0) {
-                            console.log(`🔼 [MasterSync] Rescuing ${localStudents.length} local students to Cloud...`);
-                            await pushCollectionToCloud('students', localStudents, targetOrgId);
+                        // 🚨 UNIVERSAL CLOUD RESCUE: If local has more data than cloud (e.g. from mobile), PUSH IT UP
+                        const collectionsToRescue = [
+                            { table: 'students', local: localStudents, cloud: state.students },
+                            { table: 'staff', local: (await import("@/lib/teacher-store")).getTeachers(), cloud: state.staff },
+                            { table: 'groups', local: (await import("@/lib/group-store")).getGroups(), cloud: state.groups },
+                            { table: 'halls', local: (await import("@/lib/hall-store")).getHalls(), cloud: state.halls },
+                            { table: 'subscriptions', local: Object.values((await import("@/lib/subscription-store")).getSubscriptions()).flat(), cloud: state.subscriptions },
+                            { table: 'sales', local: Object.values((await import("@/lib/sales-store")).getStudentSales("all") || {}).flat(), cloud: state.sales },
+                            { table: 'calendar_events', local: (await import("@/lib/event-store")).getEvents(), cloud: state.calendar_events },
+                            { table: 'attendance', local: Object.values((await import("@/lib/checkin-store")).getStudentCheckins("all")).flat(), cloud: state.attendance },
+                            { table: 'subscription_plans', local: (await import("@/lib/plan-store")).getPlans(), cloud: state.subscription_plans }
+                        ];
+
+                        for (const col of collectionsToRescue) {
+                            if (col.local.length > (col.cloud?.length || 0) && col.local.length > 0) {
+                                console.log(`🔼 [MasterSync] Rescuing ${col.local.length} ${col.table} to Cloud...`);
+                                await pushCollectionToCloud(col.table, col.local, targetOrgId);
+                            }
                         }
 
                         console.log('📦 [MasterSync] Hydrating collections...');
@@ -181,9 +206,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     return acc;
                                 }, {})
                                 : state.sales,
-                            cc_expenses: unwrap(state.expenses),
-                            cc_global_trash: unwrap(state.trash)
+                            cc_expenses: (state.expenses?.length > 0) ? unwrap(state.expenses) : [],
+                            cc_global_trash: (state.trash?.length > 0) ? unwrap(state.trash) : [],
+                            cc_subscription_plans: (state.subscription_plans?.length > 0) ? unwrap(state.subscription_plans) : []
                         };
+
+                        // 🚨 ATTENDANCE RECONSTRUCTION: Cluster cloud logs by date
+                        if (Array.isArray(state.attendance) && state.attendance.length > 0) {
+                            const attendanceByDate: Record<string, any> = {};
+                            state.attendance.forEach((record: any) => {
+                                // Extract date from either ISO string or date field
+                                const dateStr = record.date || (record.data as any)?.date || new Date().toISOString().split('T')[0];
+                                if (!attendanceByDate[dateStr]) attendanceByDate[dateStr] = {};
+                                attendanceByDate[dateStr][record.student_id] = record.status || (record.data as any)?.status || 'present';
+                            });
+
+                            Object.keys(attendanceByDate).forEach(date => {
+                                localStorage.setItem(`cc_checkins_${date}_${activeSlug}`, JSON.stringify(attendanceByDate[date]));
+                            });
+                        }
 
                         Object.entries(mapping).forEach(([key, data]) => {
                             const targetKey = getScopedKey(key, activeSlug);

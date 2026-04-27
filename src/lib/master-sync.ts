@@ -51,12 +51,13 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
             supabase.from('sales').select('*').eq('org_id', targetOrgId),
             supabase.from('expenses').select('*').eq('org_id', targetOrgId),
             supabase.from('trash').select('*').eq('org_id', targetOrgId),
-            supabase.from('calendar_events').select('*').eq('org_id', targetOrgId)
+            supabase.from('calendar_events').select('*').eq('org_id', targetOrgId),
+            supabase.from('subscription_plans').select('*').eq('org_id', targetOrgId)
         ]);
     } catch (e) {
         console.error('❌ [MasterSync] Collective fetch failed:', e);
         // Fallback to empty responses to allow partial hydration
-        responses = Array(12).fill({ data: [], error: { message: 'Timeout/Network Error' } });
+        responses = Array(13).fill({ data: [], error: { message: 'Timeout/Network Error' } });
     }
 
     const data = responses.map(r => r?.data || []);
@@ -87,6 +88,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
         expenses: data[9] || [],
         trash: data[10] || [],
         calendar_events: data[11] || [],
+        subscription_plans: data[12] || [],
         org_id: targetOrgId
     };
 }
