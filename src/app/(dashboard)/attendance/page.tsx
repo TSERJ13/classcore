@@ -392,17 +392,42 @@ export default function AttendancePage() {
 
     const getSubStatus = useCallback((studentId: string) => {
         const todayStr = getLocalISODate();
-        const activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
         
-        let isExpired = !activeSub;
+        // 1. Check for specific group sub
+        let activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+        
+        // 2. If nothing found, check for a general sub (group_id: undefined)
+        if (!activeSub) {
+            activeSub = getSubscription(studentId, undefined, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+        }
+        
         if (activeSub) {
             const hasExpiredByDate = activeSub.expires_at < todayStr;
             const hasUsedAllSessions = activeSub.type === 'sessions' && activeSub.sessions_total !== null && activeSub.sessions_used >= activeSub.sessions_total;
-            isExpired = hasExpiredByDate || hasUsedAllSessions;
+            
+            if (hasExpiredByDate || hasUsedAllSessions) {
+                const expiryDate = new Date(activeSub.expires_at);
+                const now = new Date();
+                const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
+                
+                if (diff > 7) return { activeSub, isExpired: true, status: 'suspended', score: 2, label: null };
+                return { activeSub, isExpired: true, status: 'expired', score: 1, label: 'ამოიწურა' };
+            }
+            return { activeSub, isExpired: false, status: 'active', score: 0, label: t.active };
         }
-        
-        return { activeSub, isExpired };
-    }, [selClass]);
+
+        // 3. Check for any previous sub within last 7 days (grace period)
+        const all = subs[studentId] || [];
+        if (all.length > 0) {
+            const last = [...all].sort((a,b) => b.expires_at.localeCompare(a.expires_at))[0];
+            const expiryDate = new Date(last.expires_at);
+            const now = new Date();
+            const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
+            if (diff <= 7) return { activeSub: null, isExpired: true, status: 'expired', score: 1, label: 'ამოიწურა' };
+        }
+
+        return { activeSub: null, isExpired: true, status: 'suspended', score: 2, label: null };
+    }, [selClass, subs, t.active]);
 
     const cls = filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0] || ({} as CalendarEvent);
 
@@ -419,7 +444,7 @@ export default function AttendancePage() {
 
     // 2. Pre-calculate statuses for ALL visible students once
     const studentStatuses = useMemo(() => {
-        const statuses: Record<string, { activeSub: any; isExpired: boolean }> = {};
+        const statuses: Record<string, { activeSub: any; isExpired: boolean; score: number; label: string | null }> = {};
         students.forEach(s => {
             statuses[s.id] = getSubStatus(s.id);
         });
@@ -431,10 +456,9 @@ export default function AttendancePage() {
         return students
             .filter(s => !search || s.full_name.toLowerCase().includes(search.toLowerCase()))
             .sort((a, b) => {
-                const expiredA = studentStatuses[a.id]?.isExpired;
-                const expiredB = studentStatuses[b.id]?.isExpired;
-                if (!expiredA && expiredB) return -1;
-                if (expiredA && !expiredB) return 1;
+                const sA = studentStatuses[a.id]?.score ?? 2;
+                const sB = studentStatuses[b.id]?.score ?? 2;
+                if (sA !== sB) return sA - sB;
                 return (a.full_name || '').localeCompare(b.full_name || '');
             });
     }, [students, search, studentStatuses]);
@@ -759,11 +783,12 @@ export default function AttendancePage() {
                         'flex lg:hidden flex-col gap-3 pt-5 pb-4 px-3 border-b transition-colors duration-300 relative w-full',
                         scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : 'bg-card'
                     )}>
+                        <div className="md:hidden pt-4" />
+
                         {/* Status Line */}
                         <div className="flex items-center justify-center h-4 relative">
                             {scanError && <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full animate-bounce">{scanError}</span>}
                             {flash && <span className="text-[10px] font-black text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full">{t.success}</span>}
-                            {!scanError && !flash && <span className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 uppercase">{t.attendance}</span>}
                         </div>
 
                         {/* Stretched TALL Date Picker (Mobile) */}
@@ -937,12 +962,12 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="lg:hidden w-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar gap-2 pb-1.5 flex-shrink-0 -mx-3 px-3 scroll-smooth touch-pan-x relative z-30">
+                                <div className="lg:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 -mx-3 px-3 touch-pan-x relative z-30">
                                     {mounted && filteredSchedule.map(s => (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
-                                                'px-5 py-2.5 rounded-2xl text-[12px] font-black whitespace-nowrap transition-all border-[3px] flex-shrink-0 snap-start active:scale-95 duration-200',
-                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9] shadow-lg shadow-indigo-500/30' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
+                                                'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
+                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9]' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
                                             )}>
                                             {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </button>
@@ -962,37 +987,10 @@ export default function AttendancePage() {
                                     const state = att[st.id] ?? 'none';
                                     const isSel = selectedStudent === st.id;
                                     const isFl = flash === st.id;
-                                    const getStudentDisplay = () => {
-                                        const todayStr = getLocalISODate();
-                                        const active = getSubscription(st.id, cls?.group_id, (cls?.type as any) === 'individual' ? 'individual' : 'group');
-                                        
-                                        if (active) {
-                                            const hasExpiredByDate = active.expires_at < todayStr;
-                                            const hasUsedAllSessions = active.type === 'sessions' && active.sessions_total !== null && active.sessions_used >= active.sessions_total;
-                                            
-                                            if (hasExpiredByDate || hasUsedAllSessions) {
-                                                const expiryDate = new Date(active.expires_at);
-                                                const now = new Date();
-                                                const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
-                                                if (diff > 7) return { color: 'red', label: null, isExpired: true };
-                                                return { color: 'yellow', label: 'ამოიწურა', isExpired: true };
-                                            }
-                                            return { color: 'emerald', label: t.active, isExpired: false, activeSub: active };
-                                        }
 
-                                        // No active sub at all for this group/type - check if they EVER had one
-                                        const all = subs[st.id] || [];
-                                        if (all.length === 0) return { color: 'red', label: null, isExpired: true };
-                                        
-                                        const last = [...all].sort((a,b) => b.expires_at.localeCompare(a.expires_at))[0];
-                                        const expiryDate = new Date(last.expires_at);
-                                        const now = new Date();
-                                        const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
-                                        if (diff > 7) return { color: 'red', label: null, isExpired: true };
-                                        return { color: 'yellow', label: 'ამოიწურა', isExpired: true };
-                                    };
-
-                                    const { color, label, isExpired, activeSub } = getStudentDisplay();
+                                    const sInf = studentStatuses[st.id] || { score: 2, label: null, isExpired: true, activeSub: null };
+                                    const color = sInf.score === 0 ? 'emerald' : sInf.score === 1 ? 'yellow' : 'red';
+                                    const { label, isExpired, activeSub } = sInf;
 
                                     return (
                                         <div key={st.id}
@@ -1039,10 +1037,10 @@ export default function AttendancePage() {
                                                         </p>
                                                         {label && (
                                                             <span className={cn(
-                                                                "shrink-0 text-[8px] font-black tracking-widest px-2 py-0.5 rounded-md border uppercase",
+                                                                "shrink-0 text-[9px] font-black tracking-tighter px-2 py-0.5 rounded-md border uppercase hidden md:inline-flex",
                                                                 color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : "text-amber-600 border-amber-500/20 bg-amber-500/5"
                                                             )}>
-                                                                {label}
+                                                                {color === 'yellow' ? (lang === 'ka' ? 'შეჩერებული' : 'Suspended') : label}
                                                             </span>
                                                         )}
                                                     </div>

@@ -175,13 +175,13 @@ export default function SubscriptionsPage() {
                         {/* Status Tabs */}
                         <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 w-fit">
                             {[
-                                { id: 'active', label: lang === 'ka' ? 'აქტ.' : (t.statsActive || 'Active'), icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
-                                { id: 'paused', label: lang === 'ka' ? 'შეჩ.' : (t.paused || 'Paused'), icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
-                                { id: 'expired', label: lang === 'ka' ? 'ვად.' : (t.expired || 'Expired'), icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
+                                { id: 'active', label: 'აქტ.', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'paused', label: 'შეჩ.', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
+                                { id: 'expired', label: 'ვად.', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
-                                        'flex items-center justify-center gap-1.5 px-3 sm:px-4 h-full rounded-xl text-[9px] sm:text-[10px] font-black tracking-widest transition-all min-w-fit sm:min-w-[120px]',
+                                        'flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-4 h-full rounded-xl text-[8px] sm:text-[10px] font-black tracking-widest transition-all min-w-fit sm:min-w-[100px]',
                                         tab === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-white/50', v.hoverColor)
                                     )}>
                                     <v.icon className="w-3.5 h-3.5 flex-shrink-0" />
