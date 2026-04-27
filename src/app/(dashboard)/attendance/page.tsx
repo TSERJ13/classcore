@@ -242,7 +242,7 @@ export default function AttendancePage() {
             let targetId = '';
             if (isToday) {
                 const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                // Find class that is currently active or next upcoming (within a 2-hour window)
+                // Find class that is currently active or next upcoming (within a 1-hour window)
                 const currentOrNext = filteredSchedule.find(s => {
                     const [startH, startM] = (s.start_time || '00:00').split(':').map(Number);
                     const classStartMins = startH * 60 + startM;
@@ -253,12 +253,19 @@ export default function AttendancePage() {
                 targetId = filteredSchedule[0].id;
             }
 
-            if (targetId && (!selectedClass || !filteredSchedule.find(s => s.id === selectedClass) || isToday)) {
+            // ONLY auto-select if:
+            // 1. Current selectedClass is empty
+            // 2. Current selectedClass is not in the new filteredSchedule list (e.g. date changed)
+            // 3. OR the current selectedClass is a "virtual" fallback that was just replaced by real events
+            const currentIsValid = filteredSchedule.find(s => s.id === selectedClass);
+            const currentIsVirtual = selectedClass.startsWith('virtual-');
+            const hasRealEvents = filteredSchedule.some(s => !s.id.startsWith('virtual-'));
+
+            if (!selectedClass || !currentIsValid || (currentIsVirtual && hasRealEvents)) {
                 setSelectedClass(targetId);
             }
         }
     }, [selectedDate, filteredSchedule]);
-
 
     // ── Persistence ──
 
@@ -1045,9 +1052,9 @@ export default function AttendancePage() {
                                                             if (isExpired || !activeSub) {
                                                                 return (
                                                                     <>
-                                                                        <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner"></div>
-                                                                        <div className="flex flex-col items-end gap-1 min-w-[80px]">
-                                                                            <span className="text-[8px] font-black tracking-tighter text-red-500/60 flex items-center gap-1.5">
+                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner"></div>
+                                                                    <div className="flex flex-col items-end gap-1 min-w-[50px] sm:min-w-[80px]">
+                                                                        <span className="text-[8px] font-black tracking-tighter text-red-500/60 flex items-center gap-1.5 whitespace-nowrap">
                                                                                 {t.noSubscription}
                                                                                 {isSent && <span title={t.smsSent}><MessageSquare className="w-3 h-3 text-emerald-500 opacity-80" /></span>}
                                                                                 {isFailed && <span title={t.smsFailed}><X className="w-3 h-3 text-red-500 opacity-80" /></span>}
@@ -1066,17 +1073,17 @@ export default function AttendancePage() {
                                                                             className={cn(
                                                                                 "h-full transition-all duration-500",
                                                                                 remaining <= 0 || isExpired ? "bg-red-500" :
-                                                                                    remaining <= 3 ? "bg-gradient-to-r from-red-500 to-rose-600" :
-                                                                                        remaining <= 5 ? "bg-gradient-to-r from-amber-500 to-orange-500" :
-                                                                                            "bg-gradient-to-r from-#6d28d9 to-violet-500"
+                                                                                    remaining <= 3 ? "bg-red-500" :
+                                                                                        remaining <= 5 ? "bg-amber-500" :
+                                                                                            "bg-[#6d28d9]"
                                                                             )}
                                                                             style={{ width: `${Math.max(0, Math.min(100, (remaining / (activeSub.sessions_total || (activeSub.type === "monthly" ? 30 : 12) || 1)) * 100))}%` }}
                                                                         />
                                                                     </div>
-                                                                    <div className="flex flex-col items-end gap-1 min-w-[80px]">
+                                                                    <div className="flex flex-col items-end gap-1 min-w-[60px] sm:min-w-[80px]">
                                                                         <span className={cn(
-                                                                            "text-[9px] font-black tracking-tighter flex items-center gap-1.5",
-                                                                            remaining <= 1 ? "text-red-500" : "text-muted opacity-60"
+                                                                            "text-[9px] font-black tracking-tighter flex items-center gap-1.5 whitespace-nowrap",
+                                                                            remaining <= 3 ? "text-red-500" : "text-muted opacity-60"
                                                                         )}>
                                                                             {remaining <= 0 || isExpired ? `0 ${t.visit}` : `${remaining} ${t.visits}`}
                                                                             {isSent && <span title={t.smsSent}><MessageSquare className="w-3 h-3 text-emerald-500 opacity-80" /></span>}
