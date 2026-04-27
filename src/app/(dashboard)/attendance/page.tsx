@@ -1213,31 +1213,21 @@ export default function AttendancePage() {
                                                             <span>{t.callShort || 'CALL'}</span>
                                                         </a>
                                                         <button onClick={() => setManualSmsOpen(true)}
-                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl bg-surface border border-border-subtle text-muted font-black text-[10px] tracking-widest uppercase hover:bg-card active:scale-95 transition-all">
+                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 font-black text-[10px] tracking-widest uppercase hover:bg-blue-500/20 active:scale-95 transition-all">
                                                             <MessageSquare className="w-3.5 h-3.5" />
                                                             <span>SMS</span>
                                                         </button>
                                                     </div>
 
                                                     <div className="grid grid-cols-2 gap-3 mt-4">
-                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50 relative group">
-                                                            <div className="flex justify-between items-start mb-1">
-                                                                <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase">{t.remaining}</p>
-                                                                <button onClick={() => setIssueModalOpen(true)} className="p-1 rounded-full bg-#6d28d9/10 text-#6d28d9 active:scale-90 transition-all">
-                                                                    <PlusCircle className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </div>
+                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                                            <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.remaining}</p>
                                                             <p className="text-lg font-black text-primary tabular-nums tracking-tighter">
                                                                 {visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visit}</span>
                                                             </p>
                                                         </div>
-                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50 relative group">
-                                                            <div className="flex justify-between items-start mb-1">
-                                                                <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase">{t.expiryDate}</p>
-                                                                <button onClick={() => setIssueModalOpen(true)} className="p-1 rounded-full bg-#6d28d9/10 text-#6d28d9 active:scale-90 transition-all">
-                                                                    <PlusCircle className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </div>
+                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                                            <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.expiryDate}</p>
                                                             <p className="text-lg font-black text-primary tabular-nums tracking-tighter">
                                                                 {daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span>
                                                             </p>
@@ -1247,18 +1237,18 @@ export default function AttendancePage() {
 
                                                 <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20 flex-shrink-0">
                                                     {[
-                                                        { id: 'recent', label: t.visits, icon: CalendarCheck },
-                                                        { id: 'subs', label: t.subscriptions, icon: Package },
-                                                        { id: 'products', label: t.purchases, icon: ShoppingCart }
+                                                        { id: 'recent', label: t.visits, icon: CalendarCheck, color: 'indigo' },
+                                                        { id: 'subs', label: t.subscriptions, icon: Package, color: 'emerald' },
+                                                        { id: 'products', label: t.purchases, icon: ShoppingCart, color: 'rose' }
                                                     ].map(tab => (
                                                         <button key={tab.id} onClick={() => setTab(tab.id as any)}
                                                             className={cn(
                                                                 "flex-1 py-4 flex items-center justify-center gap-2 text-[10px] font-black tracking-widest transition-all relative overflow-hidden",
-                                                                activeTab === tab.id ? "text-#5b21b6" : "text-muted opacity-50 hover:opacity-100"
+                                                                activeTab === tab.id ? `text-${tab.color}-600` : "text-muted opacity-50 hover:opacity-100"
                                                             )}>
                                                             <tab.icon className="w-3.5 h-3.5" />
                                                             <span>{tab.label}</span>
-                                                            {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-#6d28d9" />}
+                                                            {activeTab === tab.id && <div className={cn("absolute bottom-0 left-0 right-0 h-0.5", `bg-${tab.color}-600`)} />}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -1317,7 +1307,13 @@ export default function AttendancePage() {
                                                     )}
                                                 </div>
 
-                                                <div className="flex-shrink-0 min-h-[40px]" />
+                                                <div className="p-6 bg-card border-t border-border-subtle/50 flex flex-col gap-3 mt-auto flex-shrink-0">
+                                                    <button onClick={() => setIssueModalOpen(true)}
+                                                        className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl bg-[#6d28d9] text-white font-black text-[11px] tracking-widest uppercase shadow-lg shadow-violet-500/20 active:scale-95 transition-all">
+                                                        <PlusCircle className="w-4 h-4" />
+                                                        <span>{t.issueSubscription || t.issuePlan}</span>
+                                                    </button>
+                                                </div>
                                             </>
                                         );
                                     })()}
