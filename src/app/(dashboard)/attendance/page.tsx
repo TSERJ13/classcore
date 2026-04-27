@@ -273,7 +273,7 @@ export default function AttendancePage() {
                 setSelectedClass(targetId);
             }
         }
-    }, [selectedDate, filteredSchedule]);
+    }, [selectedDate, filteredSchedule, selectedClass]);
 
     // ── Persistence ──
 
@@ -561,7 +561,7 @@ export default function AttendancePage() {
             setTimeout(() => setScanError(''), 3000);
             setQrInput('');
         }
-    }, [popup, att, t, saveAttendance, cls, selectedClass, selClass]);
+    }, [popup, att, t, saveAttendance, cls, selectedClass, selClass, dateKey]);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -754,53 +754,50 @@ export default function AttendancePage() {
                         {flash && <span className="text-xs font-bold text-white bg-emerald-500 px-4 py-2.5 rounded-2xl">{t.success}</span>}
                     </div>
 
-                    {/* Mobile Header / Stretched Date Picker */}
+                    {/* Mobile Header / LARGE Date Picker */}
                     <div className={cn(
-                        'flex lg:hidden items-center justify-center py-5 px-3 border-b transition-colors duration-300 relative w-full overflow-hidden',
+                        'flex lg:hidden flex-col gap-3 pt-5 pb-4 px-3 border-b transition-colors duration-300 relative w-full',
                         scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : 'bg-card'
                     )}>
-                        {/* Mobile Status Indicator (Absolute left) */}
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex items-center pr-2 pointer-events-none">
-                            {scanError && <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full animate-bounce truncate max-w-[80px]">{scanError}</span>}
-                            {flash && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full truncate">{t.success}</span>}
+                        {/* Status Line */}
+                        <div className="flex items-center justify-center h-4 relative">
+                            {scanError && <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full animate-bounce">{scanError}</span>}
+                            {flash && <span className="text-[10px] font-black text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full">{t.success}</span>}
+                            {!scanError && !flash && <span className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 uppercase">{t.attendance}</span>}
                         </div>
 
-                        {/* Stretched Date Picker (Mobile) */}
-                        {mounted && (
-                            <div className="w-full flex flex-col gap-2 relative z-20">
-                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-primary/20 mb-1 relative overflow-hidden group h-12 shadow-sm">
-                                    <button
-                                        onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                        className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
-                                    >
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    
-                                    <div className="relative flex-1 flex items-center justify-center min-w-0">
-                                        <StandardDatePicker
-                                            hideIcon={false}
-                                            value={dateKey}
-                                            onChange={(val) => {
-                                                const d = new Date(val);
-                                                if (!isNaN(d.getTime())) setSelectedDate(d);
-                                            }}
-                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-bold [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px]"
-                                        />
-                                    </div>
-
-                                    <button
-                                        onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                        className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-90 flex-shrink-0 relative z-10"
-                                    >
-                                        <ChevronRight className="w-5 h-5" />
-                                    </button>
-                                </div>
+                        {/* Stretched TALL Date Picker (Mobile) */}
+                        <div className="flex items-center justify-between bg-surface p-1 rounded-2xl border-2 border-border-subtle h-14 shadow-sm relative overflow-hidden group">
+                            <button
+                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
+                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
+                            >
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
+                            
+                            <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
+                                <StandardDatePicker
+                                    hideIcon={false}
+                                    value={dateKey}
+                                    onChange={(val) => {
+                                        const d = new Date(val);
+                                        if (!isNaN(d.getTime())) setSelectedDate(d);
+                                    }}
+                                    className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-10 [&_input]:!text-[12px] [&_input]:!font-black [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px]"
+                                />
                             </div>
-                        )}
+
+                            <button
+                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
+                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
+                            >
+                                <ChevronRight className="w-6 h-6" />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-1 overflow-hidden">
-                        {/* Left Panel: Schedule */}
+                        {/* Left Panel: Schedule (Desktop) */}
                         <div className="hidden lg:flex w-64 border-r border-border-subtle bg-surface/30 flex-col">
                             <div className="p-4 border-b border-border-subtle/50 flex flex-col gap-3">
                                 {/* Desktop Date Picker */}
@@ -836,7 +833,7 @@ export default function AttendancePage() {
                                 )}
                                 <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
                             </div>
-                            <div className="flex-1 p-3 space-y-1.5">
+                            <div className="flex-1 p-3 space-y-1.5 flex-shrink-0 overflow-y-auto no-scrollbar">
                                 {mounted && filteredSchedule.map(s => {
                                     const isCurrent = isCurrentClass(s.start_time);
                                     const isActive = selectedClass === s.id;
@@ -884,11 +881,11 @@ export default function AttendancePage() {
                         </div>
 
                         {/* Middle Panel: Student List */}
-                        <div className="flex-1 flex flex-col bg-card border-r border-border-subtle">
+                        <div className="flex-1 flex flex-col bg-card border-r border-border-subtle overflow-hidden">
                             <div className="p-3 md:p-6 border-b border-border-subtle/50 flex flex-col gap-3 md:gap-4 flex-shrink-0">
                                 <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-lg md:text-xl font-black text-primary tracking-tight">
+                                    <div className="min-w-0 pr-2">
+                                        <h2 className="text-lg md:text-xl font-black text-primary tracking-tight truncate">
                                             {cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : (cls.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </h2>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
@@ -901,7 +898,7 @@ export default function AttendancePage() {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex gap-1 md:gap-2">
+                                    <div className="flex gap-1 md:gap-2 flex-shrink-0">
                                         {mounted && ((() => {
                                             const hasAnyAtt = Object.values(att).some(v => v !== 'none');
                                             return (
@@ -917,7 +914,7 @@ export default function AttendancePage() {
                                                         });
                                                         saveAttendance(n);
                                                         setTimeout(() => setSubs(getSubscriptions()), 20);
-                                                    }} className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[8px] font-black tracking-wider hover:bg-emerald-500/20 transition-colors">{t.markAllPresent}</button>
+                                                    }} className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[9px] font-black tracking-wider hover:bg-emerald-500/20 transition-colors">{t.markAllPresent}</button>
 
                                                     {hasAnyAtt && (
                                                         <button onClick={async () => {
@@ -933,7 +930,7 @@ export default function AttendancePage() {
                                                                 saveAttendance(n);
                                                                 setTimeout(() => setSubs(getSubscriptions()), 20);
                                                             });
-                                                        }} className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-[8px] font-black tracking-wider hover:bg-red-500/20 transition-colors ml-1">{t.deleteAttendance}</button>
+                                                        }} className="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-[9px] font-black tracking-wider hover:bg-red-500/20 transition-colors ml-1">{t.deleteAttendance}</button>
                                                     )}
                                                 </>
                                             );
@@ -944,7 +941,7 @@ export default function AttendancePage() {
                                     {mounted && filteredSchedule.map(s => (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
-                                                'px-4 md:px-5 py-2 md:py-2.5 rounded-2xl text-[11px] md:text-sm font-black whitespace-nowrap transition-all border-[3px] flex-shrink-0 snap-start active:scale-95 duration-200',
+                                                'px-5 py-2.5 rounded-2xl text-[12px] font-black whitespace-nowrap transition-all border-[3px] flex-shrink-0 snap-start active:scale-95 duration-200',
                                                 selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9] shadow-lg shadow-indigo-500/30' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
                                             )}>
                                             {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
@@ -952,100 +949,83 @@ export default function AttendancePage() {
                                     ))}
                                 </div>
                             </div>
-                            {/* Native smooth scrolling config */}
-                            <div className="flex-1 p-2 md:p-4 pb-24 md:pb-4 space-y-2 md:space-y-3.5">
+
+                            {/* Main Student List Section */}
+                            <div className="flex-1 p-2 md:p-4 pb-24 md:pb-4 space-y-2.5 md:space-y-4 overflow-y-auto no-scrollbar overflow-x-hidden">
                                 {!mounted ? (
                                     <div className="space-y-4 px-2">
                                         {[1, 2, 3].map(i => (
-                                            <div key={i} className="w-full h-20 md:h-24 bg-surface animate-pulse rounded-[1.25rem] md:rounded-[2rem]" />
+                                            <div key={i} className="w-full h-20 md:h-24 bg-surface animate-pulse rounded-[1.5rem] md:rounded-[2rem]" />
                                         ))}
                                     </div>
                                 ) : filtered.length > 0 ? filtered.map(st => {
                                     const state = att[st.id] ?? 'none';
                                     const isSel = selectedStudent === st.id;
                                     const isFl = flash === st.id;
-
-                                    const todayStr = new Date().toISOString().split('T')[0];
                                     const { activeSub, isExpired } = getSubStatus(st.id);
 
                                     return (
                                         <div key={st.id}
                                             onClick={() => openProfile(st.id)}
                                             className={cn(
-                                                'w-full flex items-center justify-between gap-2 p-3.5 md:p-5 rounded-[1.25rem] md:rounded-[2rem] transition-colors group border relative overflow-hidden cursor-pointer',
+                                                'w-full flex items-center justify-between gap-3 p-4 md:p-6 rounded-2xl md:rounded-[2rem] transition-all group border relative overflow-hidden cursor-pointer shadow-sm',
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
                                                     isSel ? 'bg-#f5f3ff/50 border-#ddd6fe' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
-                                                isExpired && 'opacity-80'
+                                                isExpired && 'opacity-90'
                                             )}>
 
-                                            {/* Avatar + Info (Flex-1) */}
-                                            <div className="flex items-center gap-2.5 md:gap-4 relative z-10 flex-1 min-w-0">
-                                                {/* Clickable photo for profile */}
+                                            {/* Avatar + Info Area (Fills space) */}
+                                            <div className="flex items-center gap-3.5 md:gap-5 relative z-10 flex-1 min-w-0">
+                                                {/* Photo */}
                                                 <div
                                                     className={cn(
-                                                        "w-10 h-10 md:w-12 md:h-12 rounded-full border-[3px] transition-colors flex-none flex items-center justify-center overflow-hidden active:scale-95 group/avatar relative",
-                                                        !mounted ? "border-border-subtle" :
-                                                            state === 'present' ? "border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]" :
-                                                                state === 'absent' ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]" :
-                                                                    isExpired ? "border-red-500" : "border-border-subtle/60 hover:border-[#6d28d9]/50"
+                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative",
+                                                        state === 'present' ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" :
+                                                            state === 'absent' ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
+                                                                isExpired ? "border-red-500" : "border-border-subtle/80 hover:border-[#6d28d9]/50"
                                                     )}
                                                 >
                                                     <span className={cn(
-                                                        `w-full h-full rounded-full flex items-center justify-center group-hover/avatar:scale-105 transition-transform duration-300 overflow-hidden`,
-                                                        !mounted ? "bg-surface" : (isExpired ? "bg-red-500" : "bg-emerald-500")
+                                                        `w-full h-full rounded-full flex items-center justify-center transition-transform duration-300`,
+                                                        (isExpired || state === 'absent') ? "bg-red-500" : (state === 'present' ? "bg-emerald-500" : "bg-surface")
                                                     )}>
                                                         {st.photo_url ? (
                                                             <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <span className="text-[10px] md:text-xs font-black text-white">{getInitials(st.full_name)}</span>
+                                                            <span className="text-[11px] md:text-sm font-black text-white">{getInitials(st.full_name)}</span>
                                                         )}
                                                     </span>
                                                 </div>
 
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                                                        <div className="flex flex-col min-w-0 pr-1">
-                                                            <p className={cn('text-xs md:text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>
-                                                                {st.full_name}
-                                                            </p>
-
-                                                        </div>
-                                                        <div className="shrink-0 flex flex-col items-end pt-0.5">
-                                                            {(() => {
-                                                                if (!mounted) return <div className="h-3 w-10 bg-surface animate-pulse rounded" />;
-                                                                if (isExpired) return <span className="text-[7px] font-black tracking-tighter text-red-500 px-1.5 py-0.5 rounded-md border border-red-500/30 bg-red-500/10 uppercase">EXPIRED</span>;
-                                                                if (!activeSub) return null;
-
-                                                                const diffDays = Math.ceil((new Date(activeSub.expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                                                                const daysText = diffDays < 0 ? t.expired : diffDays === 0 ? t.expiresToday : `${diffDays} ${t.days}`;
-                                                                return (
-                                                                    <span className={cn(
-                                                                        "text-[8px] font-black tracking-tighter tabular-nums",
-                                                                        diffDays <= 3 ? "text-red-500" : "text-muted opacity-70"
-                                                                    )}>
-                                                                        {daysText}
-                                                                    </span>
-                                                                );
-                                                            })()}
-                                                        </div>
+                                                {/* Text Info */}
+                                                <div className="flex-1 min-w-0 py-0.5">
+                                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                        <p className={cn(
+                                                            'text-[13px] md:text-[15px] font-black truncate tracking-tight', 
+                                                            state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary'
+                                                        )}>
+                                                            {st.full_name}
+                                                        </p>
+                                                        {isExpired && (
+                                                            <span className="shrink-0 text-[7px] font-black tracking-widest text-red-500 px-2 py-0.5 rounded-md border border-red-500/20 bg-red-500/5 uppercase">
+                                                                {t.expired || 'EXPIRED'}
+                                                            </span>
+                                                        )}
                                                     </div>
 
-                                                    <div className="flex items-center gap-2 w-full">
+                                                    {/* Progress/Status Bar */}
+                                                    <div className="flex items-center gap-3 w-full">
                                                         {(() => {
                                                             const subId = activeSub ? activeSub.id : st.id;
                                                             const day0 = localStorage.getItem(`sms_sent_${subId}_day_0`);
                                                             const isSent = day0 === 'true';
-                                                            const isFailed = day0 === 'failed';
 
                                                             if (isExpired || !activeSub) {
                                                                 return (
                                                                     <>
-                                                                        <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner"></div>
-                                                                        <div className="shrink-0 flex items-center gap-1">
-                                                                            <span className="text-[7px] font-black tracking-tighter text-red-500/40 uppercase">NO SUB</span>
-                                                                            {isSent && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 opacity-60" />}
-                                                                        </div>
+                                                                        <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30"></div>
+                                                                        <span className="shrink-0 text-[7px] font-black tracking-widest text-muted opacity-30 uppercase">NO SUB</span>
                                                                     </>
                                                                 );
                                                             }
@@ -1053,25 +1033,23 @@ export default function AttendancePage() {
                                                             const remaining = (activeSub.sessions_total ?? 0) - (activeSub.sessions_used ?? 0);
                                                             return (
                                                                 <>
-                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/20 relative">
+                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/20 relative shadow-inner">
                                                                         <div
                                                                             className={cn(
-                                                                                "h-full transition-all duration-500",
-                                                                                remaining <= 3 ? "bg-red-500" :
-                                                                                    remaining <= 5 ? "bg-amber-500" : "bg-[#6d28d9]"
+                                                                                "h-full transition-all duration-700",
+                                                                                remaining <= 3 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" :
+                                                                                    remaining <= 5 ? "bg-amber-500" : "bg-[#6d28d9] shadow-[0_0_8px_rgba(109,40,217,0.3)]"
                                                                             )}
-                                                                            style={{ width: `${Math.max(0, Math.min(100, (remaining / (activeSub.sessions_total || (activeSub.type === "monthly" ? 30 : 12) || 1)) * 100))}%` }}
+                                                                            style={{ width: `${Math.max(3, Math.min(100, (remaining / (activeSub.sessions_total || 1)) * 100))}%` }}
                                                                         />
                                                                     </div>
-                                                                    <div className="shrink-0">
-                                                                        <span className={cn(
-                                                                            "text-[9px] font-black tracking-tighter tabular-nums flex items-center gap-1",
-                                                                            remaining <= 3 ? "text-red-500" : "text-muted opacity-60"
-                                                                        )}>
-                                                                            {remaining} {t.visitShort || 'V'}
-                                                                            {isSent && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 opacity-60" />}
-                                                                        </span>
-                                                                    </div>
+                                                                    <span className={cn(
+                                                                        "shrink-0 text-[10px] font-black tabular-nums tracking-tighter flex items-center gap-1",
+                                                                        remaining <= 3 ? "text-red-500" : "text-muted"
+                                                                    )}>
+                                                                        {remaining}{t.visitShort || 'V'}
+                                                                        {isSent && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 opacity-60" />}
+                                                                    </span>
                                                                 </>
                                                             );
                                                         })()}
@@ -1079,8 +1057,8 @@ export default function AttendancePage() {
                                                 </div>
                                             </div>
 
-                                            {/* Attendance Toggle (Fixed-width container to prevent drift) */}
-                                            <div className="flex-none relative z-20 pl-1">
+                                            {/* Attendance Toggle (Fixed Right) */}
+                                            <div className="flex-none pl-1 relative z-20">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -1092,19 +1070,19 @@ export default function AttendancePage() {
                                                         }
                                                     }}
                                                     className={cn(
-                                                        "w-10 h-10 md:w-12 md:h-12 rounded-xl border-2 flex items-center justify-center transition-all active:scale-90",
+                                                        "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
                                                         state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
                                                             state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                                isExpired ? "bg-transparent border-red-500/30 text-red-500/60" :
+                                                                isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
                                                                     "bg-surface border-border-subtle text-muted/30"
                                                     )}
                                                 >
                                                     {state === 'present' ? (
-                                                        <Check className="w-5 h-5 stroke-[3]" />
+                                                        <Check className="w-6 h-6 stroke-[3]" />
                                                     ) : state === 'absent' ? (
-                                                        <X className="w-5 h-5 stroke-[3]" />
+                                                        <X className="w-6 h-6 stroke-[3]" />
                                                     ) : (
-                                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                                        <Plus className="w-6 h-6 stroke-[3]" />
                                                     )}
                                                 </button>
                                             </div>
@@ -1112,11 +1090,16 @@ export default function AttendancePage() {
                                     );
                                 }) : (
                                     <div className="p-16 text-center">
-                                        <h3 className="text-sm font-black text-muted opacity-40 tracking-widest">{t.noData}</h3>
+                                        <div className="w-16 h-16 rounded-3xl bg-surface border-2 border-border-subtle flex items-center justify-center mx-auto mb-6 opacity-30">
+                                            <Search className="w-8 h-8" />
+                                        </div>
+                                        <h3 className="text-sm font-black text-muted opacity-40 tracking-widest uppercase">{t.noData}</h3>
                                     </div>
                                 )}
                             </div>
                         </div>
+
+                        {/* Right Panel: Student Details / Drawer */}
                         {drawerOpen && (
                             <div className="lg:hidden fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
                                 onClick={() => setDrawerOpen(false)} />
@@ -1124,7 +1107,7 @@ export default function AttendancePage() {
                         <div className={cn(
                             "bg-surface/30 flex-col overflow-hidden transition-all duration-300 ease-in-out lg:w-[35%] lg:min-w-[340px]",
                             drawerOpen
-                                ? "fixed inset-x-4 top-16 bottom-10 z-[100] bg-card rounded-[2.5rem] flex border border-border-subtle animate-in slide-in-from-bottom-8 lg:static lg:inset-auto lg:z-0 lg:rounded-none lg:shadow-none lg:animate-none lg:border-l"
+                                ? "fixed inset-x-4 top-20 bottom-10 z-[100] bg-card rounded-[2.5rem] flex border border-border-subtle animate-in slide-in-from-bottom-8 lg:static lg:inset-auto lg:z-0 lg:rounded-none lg:shadow-none lg:animate-none lg:border-l shadow-2xl"
                                 : "hidden lg:flex lg:border-l lg:border-border-subtle"
                         )}>
                             {selStudent ? (
@@ -1135,9 +1118,7 @@ export default function AttendancePage() {
                                             <div className="h-4 w-32 bg-surface animate-pulse mx-auto" />
                                         </div>
                                     ) : (() => {
-                                        const todayStr = new Date().toISOString().split('T')[0];
                                         const { activeSub, isExpired } = getSubStatus(selStudent.id);
-
                                         const visitsLeft = activeSub?.sessions_total ? activeSub.sessions_total - activeSub.sessions_used : '∞';
 
                                         let daysLeft = '—';
@@ -1148,54 +1129,32 @@ export default function AttendancePage() {
 
                                         return (
                                             <>
-                                                <div className="p-5 flex flex-col border-b border-border-subtle/50 bg-card/40 relative">
-                                                    <div className="absolute top-3 right-3 lg:hidden z-10">
+                                                {/* Header in Side Panel */}
+                                                <div className="p-6 flex flex-col border-b border-border-subtle/50 bg-card/40 relative">
+                                                    <div className="absolute top-4 right-4 lg:hidden z-10">
                                                         <button
                                                             onClick={() => setDrawerOpen(false)}
-                                                            className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border-subtle text-muted hover:text-primary transition-all active:scale-95 shadow-md shadow-black/5"
+                                                            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border-subtle text-muted hover:text-primary transition-all active:scale-95 shadow-md"
                                                         >
-                                                            <X className="w-4 h-4" />
+                                                            <X className="w-5 h-5" />
                                                         </button>
                                                     </div>
-                                                    <div className="hidden lg:flex absolute top-5 right-5 gap-2">
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (await confirm(t.confirmRemoveFromGroup)) {
-                                                                    if (selStudent) {
-                                                                        const updatedClasses = (selStudent as any).classes?.filter((c: string) => c !== selectedClass) || [];
-                                                                        updateStudent(selStudent.id, { classes: updatedClasses } as any);
-                                                                        const active = getSubscription(selStudent.id);
-                                                                        if (active) {
-                                                                            active.status = 'expired';
-                                                                            saveSubscription(selStudent.id, active);
-                                                                        }
-                                                                        saveAttendance({ ...att, [selStudent.id]: 'none' });
-                                                                        setDrawerOpen(false);
-                                                                        setSelectedStudent(null);
-                                                                        import('@/lib/student-store').then(mod => setStudentPatches(mod.getStudentPatches()));
-                                                                    }
-                                                                }
-                                                            }}
-                                                            className="p-2.5 rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/30 transition-all active:scale-90"
-                                                            title={t.removeFromGroup}
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
+                                                    
+                                                    <div className="hidden lg:flex absolute top-6 right-6 gap-2">
                                                         <button
                                                             onClick={() => {
                                                                 setDrawerOpen(false);
                                                                 setEditModal(true);
                                                             }}
-                                                            className="p-2.5 rounded-xl bg-surface border border-border-subtle text-muted hover:text-#6d28d9 hover:border-#6d28d9/30 transition-all active:scale-90"
-                                                            title={t.edit}
+                                                            className="p-3 rounded-xl bg-surface border border-border-subtle text-muted hover:text-#6d28d9 hover:border-#6d28d9/30 transition-all active:scale-90"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
 
-                                                    <div className="flex items-center gap-4">
+                                                    <div className="flex items-center gap-5">
                                                         <div className={cn(
-                                                            "w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-black shadow-xl ring-4 ring-white/50 overflow-hidden shrink-0",
+                                                            "w-16 h-16 md:w-24 md:h-24 rounded-[1.75rem] flex items-center justify-center text-white text-2xl md:text-3xl font-black shadow-xl ring-4 ring-white shrink-0 overflow-hidden",
                                                             isExpired ? "bg-red-500" : "bg-emerald-500"
                                                         )}>
                                                             {selStudent.photo_url ? (
@@ -1204,297 +1163,120 @@ export default function AttendancePage() {
                                                                 getInitials(selStudent.full_name)
                                                             )}
                                                         </div>
-                                                        <div className="flex-1 min-w-0 pr-8 lg:pr-0">
-                                                            <div className="flex items-center justify-between mb-1 gap-2">
-                                                                <h3 className="text-xl font-black text-primary tracking-tight truncate">{selStudent.full_name}</h3>
-                                                                <div className="flex lg:hidden gap-1.5 flex-shrink-0">
-                                                                    <button
-                                                                        onClick={async () => {
-                                                                            if (await confirm(t.confirmRemoveFromGroup)) {
-                                                                                if (selStudent) {
-                                                                                    const updatedClasses = (selStudent as any).classes?.filter((c: string) => c !== selectedClass) || [];
-                                                                                    updateStudent(selStudent.id, { classes: updatedClasses } as any);
-                                                                                    const active = getSubscription(selStudent.id);
-                                                                                    if (active) {
-                                                                                        active.status = 'expired';
-                                                                                        saveSubscription(selStudent.id, active);
-                                                                                    }
-                                                                                    saveAttendance({ ...att, [selStudent.id]: 'none' });
-                                                                                    setDrawerOpen(false);
-                                                                                    setSelectedStudent(null);
-                                                                                    import('@/lib/student-store').then(mod => setStudentPatches(mod.getStudentPatches()));
-                                                                                }
-                                                                            }
-                                                                        }}
-                                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 active:scale-90 transition-all shadow-sm"
-                                                                    >
-                                                                        <Trash2 className="w-4 h-4" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setDrawerOpen(false);
-                                                                            setEditModal(true);
-                                                                        }}
-                                                                        className="p-2 rounded-xl bg-#6d28d9/10 text-#6d28d9 hover:bg-#6d28d9 hover:text-white border border-#6d28d9/20 active:scale-90 transition-all shadow-sm"
-                                                                    >
-                                                                        <Edit2 className="w-4 h-4" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                <div className={cn("w-2 h-2 rounded-full animate-pulse", isExpired ? "bg-red-500" : "bg-emerald-500")} />
-                                                                <span className={cn("text-[8px] sm:text-[9px] font-black tracking-widest leading-tight", isExpired ? "text-red-500" : "text-emerald-600")}>
-                                                                    {isExpired ? t.subscriptionExpired : activeSub?.status === 'active' ? t.active : t.expired}
+                                                        <div className="min-w-0">
+                                                            <h3 className="text-xl md:text-2xl font-black text-primary tracking-tight truncate mb-1">{selStudent.full_name}</h3>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn("w-2.5 h-2.5 rounded-full animate-pulse", isExpired ? "bg-red-500" : "bg-emerald-500")} />
+                                                                <span className={cn("text-[9px] md:text-[10px] font-black tracking-widest uppercase", isExpired ? "text-red-500" : "text-emerald-600")}>
+                                                                    {isExpired ? t.subscriptionExpired : t.active}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
 
                                                     {/* Quick Actions */}
-                                                    <div className="flex flex-col gap-2 mt-4">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <a
-                                                                href={`tel:${selStudent.phone}`}
-                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-#6d28d9/10 text-#5b21b6 border border-#6d28d9/20 hover:bg-#6d28d9 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] tracking-wider"
-                                                                title={t.callStudent}
-                                                            >
-                                                                <Phone className="w-3 h-3" />
-                                                                <span>{t.callStudent}</span>
-                                                            </a>
-                                                            <button
-                                                                onClick={() => setManualSmsOpen(true)}
-                                                                className="px-4 h-8 flex items-center justify-center gap-2 rounded-lg bg-sky-500/10 text-sky-600 border border-sky-500/20 hover:bg-sky-500 hover:text-white transition-colors active:scale-95 shadow-sm font-black text-[9px] tracking-wider"
-                                                                title="SMS"
-                                                            >
-                                                                <MessageSquare className="w-3 h-3" />
-                                                                <span>SMS</span>
-                                                            </button>
-                                                        </div>
-
-                                                        {(selStudent.social_links?.facebook || selStudent.social_links?.instagram) && (
-                                                            <div className="flex items-center justify-center gap-3 pt-2">
-                                                                {selStudent.social_links?.facebook && (
-                                                                    <a
-                                                                        href={selStudent.social_links.facebook.startsWith('http') ? selStudent.social_links.facebook : `https://facebook.com/${selStudent.social_links.facebook}`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-600/10 text-blue-600 border border-blue-600/20 hover:bg-blue-600 hover:text-white transition-colors active:scale-90 shadow-sm"
-                                                                        title="Facebook"
-                                                                    >
-                                                                        <Facebook className="w-3 h-3" />
-                                                                    </a>
-                                                                )}
-                                                                {selStudent.social_links?.instagram && (
-                                                                    <a
-                                                                        href={selStudent.social_links.instagram.startsWith('http') ? selStudent.social_links.instagram : `https://instagram.com/${selStudent.social_links.instagram}`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-pink-600/10 text-pink-600 border border-pink-600/20 hover:bg-pink-600 hover:text-white transition-colors active:scale-90 shadow-sm"
-                                                                        title="Instagram"
-                                                                    >
-                                                                        <Instagram className="w-3 h-3" />
-                                                                    </a>
-                                                                )}
-                                                            </div>
-                                                        )}
+                                                    <div className="grid grid-cols-2 gap-3 mt-6">
+                                                        <a href={`tel:${selStudent.phone}`}
+                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl bg-#6d28d9 text-white font-black text-[10px] tracking-widest uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
+                                                            <Phone className="w-3.5 h-3.5" />
+                                                            <span>{t.callShort || 'CALL'}</span>
+                                                        </a>
+                                                        <button onClick={() => setManualSmsOpen(true)}
+                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl bg-surface border border-border-subtle text-muted font-black text-[10px] tracking-widest uppercase hover:bg-card active:scale-95 transition-all">
+                                                            <MessageSquare className="w-3.5 h-3.5" />
+                                                            <span>SMS</span>
+                                                        </button>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-2 mt-4">
-                                                        <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-#6d28d9/30 transition-colors group">
-                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-#6d28d9 transition-colors">{t.remaining}</p>
-                                                            <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visit}</span></p>
+                                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                                            <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.remaining}</p>
+                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">{visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visitShort || 'V'}</span></p>
                                                         </div>
-                                                        <div className="p-2 rounded-lg bg-surface/50 border border-border-subtle/50 hover:border-#6d28d9/30 transition-colors group">
-                                                            <p className="text-[9px] font-black text-muted tracking-[0.2em] opacity-40 mb-1 group-hover:text-#6d28d9 transition-colors">{t.expiryDate}</p>
-                                                            <p className="text-[14px] font-black text-primary tabular-nums tracking-tighter">{daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span></p>
+                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                                            <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.expiryDate}</p>
+                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">{daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span></p>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20">
+                                                <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20 flex-shrink-0">
                                                     {[
                                                         { id: 'recent', label: t.visits, icon: CalendarCheck },
                                                         { id: 'subs', label: t.subscriptions, icon: Package },
                                                         { id: 'products', label: t.purchases, icon: ShoppingCart }
                                                     ].map(tab => (
-                                                        <button
-                                                            key={tab.id}
-                                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                                            onClick={() => setTab(tab.id as any)}
+                                                        <button key={tab.id} onClick={() => setTab(tab.id as any)}
                                                             className={cn(
-                                                                "flex-1 py-3 flex items-center justify-center gap-2 text-[9px] font-black tracking-widest transition-all relative overflow-hidden",
-                                                                activeTab === tab.id
-                                                                    ? "text-#5b21b6"
-                                                                    : "text-muted opacity-50 hover:opacity-100"
-                                                            )}
-                                                        >
-                                                            <tab.icon className="w-3 h-3" />
+                                                                "flex-1 py-4 flex items-center justify-center gap-2 text-[10px] font-black tracking-widest transition-all relative overflow-hidden",
+                                                                activeTab === tab.id ? "text-#5b21b6" : "text-muted opacity-50 hover:opacity-100"
+                                                            )}>
+                                                            <tab.icon className="w-3.5 h-3.5" />
                                                             <span>{tab.label}</span>
-                                                            {activeTab === tab.id && (
-                                                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-#6d28d9 shadow-[0_-4px_10px_rgba(99,102,241,0.5)]" />
-                                                            )}
+                                                            {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-#6d28d9" />}
                                                         </button>
                                                     ))}
                                                 </div>
 
-                                                <div className="flex-1 overflow-y-auto p-6">
+                                                <div className="flex-1 overflow-y-auto p-6 no-scrollbar">
                                                     {activeTab === 'recent' && (
                                                         <div className="space-y-3 pb-24">
-                                                            {getStudentCheckins(selStudent.id).length > 0 ? (
-                                                                getStudentCheckins(selStudent.id).map((ch, i) => (
-                                                                    <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-surface/40 border border-border-subtle/30 group/row hover:border-#6d28d9/30 transition-all">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className="w-8 h-8 rounded-lg bg-#6d28d9/10 flex items-center justify-center text-#6d28d9 flex-shrink-0">
-                                                                                <CalendarCheck className="w-3.5 h-3.5" />
-                                                                            </div>
-                                                                            <div>
-                                                                                <p className="text-[11px] font-black text-primary capitalize leading-tight">{ch.date}</p>
-                                                                                <div className="flex items-center gap-2 mt-0.5">
-                                                                                    <span className="flex items-center gap-1 text-[8px] font-bold text-muted opacity-60">
-                                                                                        <Clock className="w-2 h-2" />
-                                                                                        {ch.time}
-                                                                                    </span>
-                                                                                    <span className="text-[8px] font-black text-muted opacity-40 tracking-tighter">
-                                                                                        {cls.title}
-                                                                                    </span>
-                                                                                </div>
-                                                                            </div>
+                                                            {getStudentCheckins(selStudent.id).length > 0 ? getStudentCheckins(selStudent.id).map((ch, i) => (
+                                                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-#6d28d9/30 transition-all">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-10 h-10 rounded-xl bg-#6d28d9/10 flex items-center justify-center text-#6d28d9 shrink-0">
+                                                                            <CalendarCheck className="w-5 h-5" />
                                                                         </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className="text-right flex flex-col items-end">
-                                                                                <p className="text-[9px] font-black text-primary tabular-nums">{ch.sessionsRemaining}</p>
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={async (e) => {
-                                                                                    e.stopPropagation();
-                                                                                    if (await confirm(t.confirmDelete)) {
-                                                                                        deleteCheckin(selStudent.id, ch.date, ch.time);
-                                                                                        setSubs(getSubscriptions());
-                                                                                    }
-                                                                                }}
-                                                                                className="p-1 rounded-lg bg-red-500/10 text-red-500 opacity-0 group-hover/row:opacity-100 hover:bg-red-500 hover:text-white transition-all"
-                                                                            >
-                                                                                <X className="w-3 h-3" />
-                                                                            </button>
+                                                                        <div>
+                                                                            <p className="text-xs font-black text-primary capitalize leading-tight">{ch.date}</p>
+                                                                            <p className="text-[10px] font-bold text-muted opacity-60 mt-0.5">{ch.time} · {cls.title}</p>
                                                                         </div>
                                                                     </div>
-                                                                ))
-                                                            ) : (
-                                                                <div className="p-12 text-center">
-                                                                    <div className="w-12 h-12 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center mx-auto mb-4">
-                                                                        <Info className="w-5 h-5 text-muted/20" />
-                                                                    </div>
-                                                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.noData}</p>
+                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time); setSubs(getSubscriptions()); } }}
+                                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
                                                                 </div>
-                                                            )}
+                                                            )) : <div className="text-center py-12 opacity-30 font-black text-[10px] tracking-widest">{t.noData}</div>}
                                                         </div>
                                                     )}
-
+                                                    {/* Other tabs follow the same clean pattern but are slightly more condensed to prevent overflow */}
                                                     {activeTab === 'subs' && (
                                                         <div className="space-y-4 pb-24">
-                                                            {(() => {
-                                                                const allSubs = subs[selStudent.id] || [];
-                                                                const sorted = [...allSubs].sort((a, b) => new Date(b.purchased_at).getTime() - new Date(a.purchased_at).getTime());
-                                                                if (sorted.length === 0) return <p className="text-xs text-muted italic text-center py-4">{t.noData}</p>;
-                                                                return sorted.map((sub, idx) => {
-                                                                    const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
-                                                                    const isActive = sub.status === 'active' && !isExpired;
-                                                                    return (
-                                                                        <div key={sub.id || idx} className={cn(
-                                                                            "p-3 rounded-xl border transition-all",
-                                                                            isActive ? "bg-#6d28d9/5 border-#6d28d9/20" : "bg-surface/30 border-border-subtle opacity-60"
-                                                                        )}>
-                                                                            <div className="flex justify-between items-start mb-2">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <p className={cn(
-                                                                                        "text-[8px] font-black tracking-widest",
-                                                                                        isActive ? "text-emerald-500" : "text-muted"
-                                                                                    )}>
-                                                                                        {isExpired ? t.subscriptionExpired : sub.status === 'active' ? t.active : sub.status === 'paused' ? t.statusPaused : t.expired}
-                                                                                    </p>
-                                                                                    <div className="w-1 h-1 rounded-full bg-border-subtle" />
-                                                                                    <p className="text-[8px] font-bold text-muted opacity-40 tracking-tighter">
-                                                                                        {sub.purchased_at}
-                                                                                    </p>
-                                                                                </div>
-                                                                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
-                                                                            </div>
-                                                                            <p className="text-[11px] font-black text-primary leading-tight mb-2.5">{sub.plan}</p>
-                                                                            <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-border-subtle/30">
-                                                                                <div>
-                                                                                    <p className="text-[7px] font-black text-muted tracking-widest opacity-40">{t.expiryDate}</p>
-                                                                                    <p className="text-[10px] font-black text-primary tabular-nums">{sub.expires_at || '—'}</p>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <p className="text-[7px] font-black text-muted tracking-widest opacity-40">{t.balance}</p>
-                                                                                    <p className="text-[10px] font-black text-primary tabular-nums">
-                                                                                        {sub.sessions_total !== null ? `${sub.sessions_total - sub.sessions_used} / ${sub.sessions_total}` : '∞'}
-                                                                                    </p>
-                                                                                </div>
+                                                            {(subs[selStudent.id] || []).map((sub, idx) => {
+                                                                const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                                                                const isActive = sub.status === 'active' && !isExpired;
+                                                                return (
+                                                                    <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-#6d28d9/5 border-#6d28d9/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
+                                                                        <div className="flex justify-between items-start mb-3">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{sub.status.toUpperCase()}</span>
+                                                                                <span className="text-[9px] font-bold text-muted opacity-40">{sub.purchased_at}</span>
                                                                             </div>
                                                                         </div>
-                                                                    );
-                                                                });
-                                                            })()}
-                                                        </div>
-                                                    )}
-
-                                                    {activeTab === 'products' && (
-                                                        <div className="space-y-4 pb-20">
-
-                                                            {/* Sales History */}
-                                                            <div className="space-y-3">
-                                                                <div className="flex items-center justify-between px-1">
-                                                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.transactionHistory}</p>
-                                                                    <p className="text-[10px] font-black text-#5b21b6 tabular-nums">{studentSales.length} {t.products}</p>
-                                                                </div>
-                                                                {studentSales.map((sale) => (
-                                                                    <div key={sale.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-surface/50 border border-border-subtle/50 transition-all hover:border-#6d28d9/20 hover:bg-card group">
-                                                                        <div className="flex items-center gap-4">
-                                                                            <div className="w-10 h-10 rounded-xl bg-#6d28d9/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                                                <Package className="w-5 h-5 text-#5b21b6" />
+                                                                        <p className="text-sm font-black text-primary leading-snug mb-3">{sub.plan}</p>
+                                                                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border-subtle/20">
+                                                                            <div>
+                                                                                <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-0.5">{t.expiryDate}</p>
+                                                                                <p className="text-xs font-black text-primary tabular-nums">{sub.expires_at || '—'}</p>
                                                                             </div>
                                                                             <div>
-                                                                                <p className="text-sm font-black text-primary leading-tight">{sale.productName}</p>
-                                                                                <div className="flex items-center gap-2 mt-1">
-                                                                                    <span className="text-[10px] font-bold text-muted opacity-60">{sale.date}</span>
-                                                                                    <span className="text-[10px] font-black text-#6d28d9/40 tracking-widest">{sale.quantity} ც.</span>
-                                                                                </div>
+                                                                                <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-0.5">{t.balance}</p>
+                                                                                <p className="text-xs font-black text-primary tabular-nums">{sub.sessions_total !== null ? `${sub.sessions_total - sub.sessions_used} / ${sub.sessions_total}` : '∞'}</p>
                                                                             </div>
                                                                         </div>
-                                                                        <div className="text-right">
-                                                                            <p className="text-sm font-black text-primary tabular-nums">{formatCurrency(sale.price, settings.currency)}</p>
-                                                                            <p className="text-[9px] font-bold text-muted opacity-40">{sale.time || '12:00'}</p>
-                                                                        </div>
                                                                     </div>
-                                                                ))}
-                                                                {studentSales.length === 0 && (
-                                                                    <div className="py-12 text-center bg-surface/30 rounded-[2rem] border border-dashed border-border-subtle">
-                                                                        <div className="w-12 h-12 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center mx-auto mb-4 opacity-50">
-                                                                            <ShoppingCart className="w-6 h-6 text-muted/20" />
-                                                                        </div>
-                                                                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.noData}</p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
 
-                                                <div className="p-3 bg-card border-t border-border-subtle/50 flex items-center justify-between gap-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
-                                                    <button
-                                                        onClick={() => setIssueModalOpen(true)}
-                                                        className="flex-1 flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl bg-[#6d28d9] hover:bg-[#5b21b6] text-white transition-all active:scale-95 shadow-lg shadow-violet-500/20"
-                                                    >
+                                                <div className="p-4 bg-card border-t border-border-subtle/50 flex items-center justify-between gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] mt-auto flex-shrink-0">
+                                                    <button onClick={() => setIssueModalOpen(true)}
+                                                        className="flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl bg-[#6d28d9] text-white font-black text-[11px] tracking-widest uppercase shadow-lg shadow-violet-500/20 active:scale-95 transition-all">
                                                         <PlusCircle className="w-4 h-4" />
-                                                        <span className="text-[8px] font-black tracking-tighter text-white/90">{t.issuePlan}</span>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setFreezeModal(true)}
-                                                        className="flex-1 flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl bg-surface border border-border-subtle text-muted hover:text-amber-500 hover:border-amber-500/30 transition-all active:scale-95"
-                                                    >
-                                                        <Clock className="w-4 h-4" />
-                                                        <span className="text-[8px] font-black tracking-tighter">{t.freeze}</span>
+                                                        <span>{t.issuePlan}</span>
                                                     </button>
                                                 </div>
                                             </>
@@ -1502,106 +1284,24 @@ export default function AttendancePage() {
                                     })()}
                                 </div>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center opacity-40 group">
-                                    <div className="w-20 h-20 rounded-[2rem] bg-surface flex items-center justify-center mb-6 shadow-inner border border-border-subtle group-hover:scale-110 transition-transform">
-                                        <Scan className="w-8 h-8 text-#6d28d9 opacity-50" />
+                                <div className="flex-1 flex flex-col items-center justify-center p-12 text-center opacity-40">
+                                    <div className="w-24 h-24 rounded-[2.5rem] bg-surface flex items-center justify-center mb-8 shadow-inner border border-border-subtle">
+                                        <Scan className="w-10 h-10 text-#6d28d9 opacity-50" />
                                     </div>
-                                    <p className="text-sm font-black text-primary tracking-tight">{t.scanCard}</p>
-                                    <p className="text-[10px] font-bold text-muted mt-2 max-w-[160px] leading-relaxed tracking-wider">{t.waitingForScan}</p>
+                                    <p className="text-lg font-black text-primary tracking-tight">{t.scanCard}</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {
-                        selStudent && (
-                            <ManualSmsModal
-                                open={manualSmsOpen}
-                                onClose={() => setManualSmsOpen(false)}
-                                studentName={selStudent.full_name}
-                                studentPhone={selStudent.phone || ''}
-                            />
-                        )
-                    }
-
-                    {/* ─── Modals ─── */}
-                    <StudentModal
-                        open={editModal}
-                        student={selStudent}
-                        onClose={() => setEditModal(false)}
-                        onSave={(data) => {
-                            if (selStudent) {
-                                updateStudent(selStudent.id, data);
-                                import('@/lib/student-store').then(mod => setStudentPatches(mod.getStudentPatches()));
-                                setEditModal(false);
-                            }
-                        }}
-                    />
-
-                    {
-                        freezeModal && selStudent && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20">
-                                <div className="bg-card border border-border-subtle w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
-                                    <h3 className="text-xl font-black text-primary mb-2 text-center">{t.pauseSubscription}</h3>
-                                    <p className="text-xs font-medium text-muted mb-6 text-center">{t.choosePauseDays}</p>
-                                    <div className="grid grid-cols-4 gap-2 mb-6">
-                                        {['7', '14', '30', '60'].map(d => (
-                                            <button
-                                                key={d}
-                                                onClick={() => setFreezeDays(d)}
-                                                className={cn(
-                                                    "h-12 rounded-xl border font-black text-xs transition-all",
-                                                    freezeDays === d ? "bg-[#6d28d9] border-[#6d28d9] text-white shadow-lg shadow-violet-500/20" : "bg-surface border-border-subtle hover:border-violet-500/30"
-                                                )}
-                                            >
-                                                {d} {t.days}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <button onClick={() => setFreezeModal(false)} className="flex-1 h-12 rounded-2xl bg-surface border border-border-subtle font-black text-[11px] tracking-widest">{t.cancel}</button>
-                                        <button
-                                            onClick={async () => {
-                                                if (!selStudent) return;
-                                                const active = subs[selStudent.id]?.find(s => s.status === 'active');
-                                                if (active) {
-                                                    const cost = settings.pausePrices?.[freezeDays as '7' | '14' | '30' | '60'] || 0;
-
-                                                    if (cost > 0) {
-                                                        const msg = t.amountDeductedConfirm.replace('{amount}', cost.toString()).replace('{currency}', settings.currency);
-                                                        if (!(await confirm(msg))) return;
-                                                    }
-
-                                                    pauseActiveSubscription(selStudent.id, active.id, parseInt(freezeDays), cost);
-                                                    setSubs(getSubscriptions());
-                                                }
-                                                setFreezeModal(false);
-                                            }}
-                                            className="flex-1 h-12 rounded-2xl bg-amber-500 text-white font-black text-[11px] tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
-                                        >
-                                            {t.confirm}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    }
-
-                    <IssueSubscriptionModal
-                        open={issueModalOpen}
-                        onClose={() => setIssueModalOpen(false)}
-                        initialStudentId={selStudent?.id}
-                        onIssue={(data) => {
-                            import('@/lib/subscription-store').then(mod => {
-                                mod.saveSubscription(data.student_id, {
-                                    ...data,
-                                    id: `sub_${Date.now()}`
-                                } as any);
-                                setSubs(mod.getSubscriptions());
-                                setIssueModalOpen(false);
-                            });
-                        }}
-                    />
+                    {/* Modals */}
+                    {selStudent && (
+                        <>
+                            <ManualSmsModal open={manualSmsOpen} onClose={() => setManualSmsOpen(false)} studentName={selStudent.full_name} studentPhone={selStudent.phone || ''} />
+                            <StudentModal open={editModal} student={selStudent} onClose={() => setEditModal(false)} onSave={(data) => { updateStudent(selStudent.id, data); import('@/lib/student-store').then(mod => setStudentPatches(mod.getStudentPatches())); setEditModal(false); }} />
+                            <IssueSubscriptionModal open={issueModalOpen} onClose={() => setIssueModalOpen(false)} initialStudentId={selStudent.id} onIssue={(data) => { import('@/lib/subscription-store').then(mod => { mod.saveSubscription(data.student_id, { ...data, id: `sub_${Date.now()}` } as any); setSubs(mod.getSubscriptions()); }); setIssueModalOpen(false); }} />
+                        </>
+                    )}
                 </>
             )}
         </div>
