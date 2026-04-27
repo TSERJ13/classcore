@@ -139,7 +139,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         // 🚨 HYBRID STUDENT RECOVERY: Deep search across all possible storage paths
                         let finalStudentsRaw = state.students || [];
                         if (finalStudentsRaw.length === 0) {
-                            const backup = (state as any).settingsRecord?.data?.students || (state as any).settingsRecord?.settings?.students;
+                            const backup = (state as any).settingsRecord?.data?.students || 
+                                           (state as any).settingsRecord?.settings?.students ||
+                                           (state as any).settingsRecord?.metadata?.students ||
+                                           (state as any).studio?.settings?.students;
                             if (backup) {
                                 console.log('🚚 [MasterSync] Recovering students from backup blob');
                                 finalStudentsRaw = Array.isArray(backup) ? backup : Object.values(backup);

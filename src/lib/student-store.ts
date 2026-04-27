@@ -127,10 +127,19 @@ export function getStudents(): Student[] {
         // OR students marked as 'all' (Shared students)
         if (activeBranch === 'all') return nonDeleted;
         
-        return nonDeleted.filter(s => {
+        const filtered = nonDeleted.filter(s => {
             const bId = s.branch_id || 'main'; // Fallback for legacy data
             return bId === activeBranch || bId === 'all';
         });
+
+        // 🚨 RESILIENCE: If branch filtering results in zero students, but we have students available,
+        // show everyone as a safety measure.
+        if (filtered.length === 0 && nonDeleted.length > 0) {
+            console.warn('⚠️ [StudentStore] Branch filter returned 0. Bypassing filter to prevent empty state.');
+            return nonDeleted;
+        }
+
+        return filtered;
     } catch {
         return INITIAL_STUDENTS;
     }
