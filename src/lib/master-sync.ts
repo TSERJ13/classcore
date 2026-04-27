@@ -109,7 +109,6 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
     }
     return true;
 }
-
 export async function pushFullStudioMetadata(slug: string, name: string, settings: any) {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -123,6 +122,34 @@ export async function pushFullStudioMetadata(slug: string, name: string, setting
         .single();
     
     return data?.org_id;
+}
+
+export async function pushCollectionToCloud(table: string, items: any[], orgId: string) {
+    const supabase = createClient();
+    if (!orgId || !items || items.length === 0) return false;
+
+    console.log(`📡 [MasterSync] Bulk Pushing ${items.length} records to ${table}...`);
+    
+    // Chunking to avoid large payload errors
+    const chunkSize = 50;
+    for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize).map(item => ({
+            ...item,
+            org_id: orgId,
+            data: item // Parity with unwrap
+        }));
+
+        const { error } = await supabase
+            .from(table)
+            .upsert(chunk, { onConflict: 'id' });
+
+        if (error) {
+            console.error(`❌ [MasterSync] Bulk push failed for ${table} chunk:`, error.message);
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 export async function ensureStudioExists(slug: string, name: string) {

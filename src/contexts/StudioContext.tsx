@@ -98,11 +98,23 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             }
 
             try {
-                const targetOrgId = await import("@/lib/master-sync").then(mod => mod.ensureStudioExists(activeSlug || "default", settings.studioName));
+                const { fetchFullStudioState, ensureStudioExists, pushCollectionToCloud } = await import("@/lib/master-sync");
+                const targetOrgId = await ensureStudioExists(activeSlug || "default", settings.studioName);
+                
                 if (targetOrgId) {
-                    const { fetchFullStudioState } = await import("@/lib/master-sync");
+                    const { getStudents } = await import("@/lib/student-store");
+                    const localStudents = getStudents();
+
                     const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
+                    
                     if (state) {
+                        // 🚨 CLOUD RESCUE: If local has more students than cloud (e.g. from a non-syncing mobile), PUSH THEM UP
+                        if (localStudents.length > state.students.length && localStudents.length > 0) {
+                            console.log(`🔼 [MasterSync] Rescuing ${localStudents.length} local students to Cloud...`);
+                            await pushCollectionToCloud('students', localStudents, targetOrgId);
+                        }
+
+                        console.log('📦 [MasterSync] Hydrating collections...');
                         lastSyncedSlugRef.current = activeSlug;
                         console.log('✅ [MasterSync] Hydrated state for Org:', state.org_id);
                         
