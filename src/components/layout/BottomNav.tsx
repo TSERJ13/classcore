@@ -44,12 +44,15 @@ export function BottomNav() {
                             key={href}
                             href={href}
                             className={cn(
-                                'flex-1 flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl transition-all duration-150 touch-manipulation',
+                                'flex-1 flex flex-col items-center justify-center gap-1 px-1 py-1 transition-all duration-150 touch-manipulation relative',
                                 active ? 'text-[#c084fc]' : 'text-white/65'
                             )}
                         >
-                            <div className={cn('relative w-8 h-8 flex items-center justify-center')}>
-                                <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-90")} strokeWidth={active ? 2.5 : 2} />
+                            <div className={cn(
+                                'relative w-11 h-7 flex items-center justify-center rounded-xl transition-all duration-300',
+                                active ? 'bg-[#c084fc]/10' : ''
+                            )}>
+                                <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-90")} strokeWidth={active ? 3 : 2} />
                             </div>
                             <span className={cn("text-[8px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-65")}>
                                 {t[labelKey]}

@@ -226,7 +226,7 @@ export default function AttendancePage() {
                 return profile.assigned_group_ids?.includes(ev.group_id || '');
             }
             return true;
-        });
+        }).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
     }, [rawSchedule, profile, groups]);
 
     const [selectedClass, setSelectedClass] = useState(filteredSchedule[0]?.id || '');
@@ -683,7 +683,7 @@ export default function AttendancePage() {
     }
 
     return (
-        <div className="flex flex-col flex-1 min-h-screen -m-4 md:-m-8 bg-card animate-fade-up overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-screen bg-card animate-fade-up overflow-hidden">
             {!mounted ? (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="w-12 h-12 rounded-2xl border-4 border-#6d28d9/20 border-t-#6d28d9 animate-spin" />
@@ -741,8 +741,9 @@ export default function AttendancePage() {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
-                                    <div className="relative flex-1 flex items-center justify-center transition-transform">
+                                    <div className="relative flex-1 flex items-center justify-center">
                                         <StandardDatePicker
+                                            hideIcon={false}
                                             value={dateKey}
                                             onChange={(val) => {
                                                 const d = new Date(val);
@@ -785,7 +786,7 @@ export default function AttendancePage() {
                                                         const d = new Date(val);
                                                         if (!isNaN(d.getTime())) setSelectedDate(d);
                                                     }}
-                                                    className="flex-1 flex items-center [&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1 [&_input]:!h-auto [&_input]:!pl-9 [&_input]:!text-[10px] [&_input]:!font-black [&_input]:!tracking-[0.05em] [&_input]:text-center [&_input]:!bg-transparent"
+                                                    className="flex-1 flex items-center [&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1 [&_input]:!h-auto [&_input]:!pl-10 [&_input]:!text-[10px] [&_input]:!font-black [&_input]:!tracking-[0.05em] [&_input]:text-center [&_input]:!bg-transparent"
                                                 />
                                             </div>
 
@@ -904,12 +905,12 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="lg:hidden flex overflow-x-auto no-scrollbar gap-2 pb-1 md:pb-2 flex-shrink-0">
+                                <div className="lg:hidden flex overflow-x-auto snap-x snap-mandatory no-scrollbar gap-2 pb-1 md:pb-2 flex-shrink-0 -mx-1 px-1">
                                     {mounted && filteredSchedule.map(s => (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
-                                                'px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[10px] md:text-xs font-black whitespace-nowrap transition-colors border',
-                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9]' : 'bg-surface text-muted border-border-subtle'
+                                                'px-3 md:px-5 py-1.5 md:py-2.5 rounded-xl text-[10px] md:text-sm font-black whitespace-nowrap transition-all border-2 flex-shrink-0 snap-start active:scale-95',
+                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9] shadow-lg shadow-indigo-500/20' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
                                             )}>
                                             {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </button>
@@ -948,11 +949,11 @@ export default function AttendancePage() {
                                                 {/* Clickable photo for profile */}
                                                 <div
                                                     className={cn(
-                                                        "w-10 h-10 md:w-12 md:h-12 rounded-full border-2 transition-colors flex-none flex items-center justify-center overflow-hidden active:scale-95 group/avatar relative",
+                                                        "w-10 h-10 md:w-12 md:h-12 rounded-full border-[3px] transition-colors flex-none flex items-center justify-center overflow-hidden active:scale-95 group/avatar relative",
                                                         !mounted ? "border-border-subtle" :
-                                                            state === 'present' ? "border-emerald-500" :
-                                                                state === 'absent' ? "border-red-500" :
-                                                                    isExpired ? "border-red-500" : "border-border-subtle hover:border-#6d28d9/50"
+                                                            state === 'present' ? "border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]" :
+                                                                state === 'absent' ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]" :
+                                                                    isExpired ? "border-red-500" : "border-border-subtle/60 hover:border-[#6d28d9]/50"
                                                     )}
                                                 >
                                                     <span className={cn(
