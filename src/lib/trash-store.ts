@@ -4,6 +4,8 @@
  */
 import { getScopedKey, getActiveSlug } from './utils';
 import { triggerInstantSync } from './sync-store';
+import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
+import { loadSettings } from './settings-store';
 
 export interface TrashItem {
     id: string;
@@ -46,6 +48,22 @@ export function moveToTrash(type: TrashItem['type'], data: any, branchId: string
         const updated = [newItem, ...trash];
         localStorage.setItem(getScopedKey(TRASH_KEY), JSON.stringify(updated));
         
+        // Cloud sync
+        const activeSlug = getActiveSlug() || '';
+        const settings = loadSettings(activeSlug);
+        const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+        if (orgId && orgId !== 'demo') {
+            syncRecordToCloud('trash', {
+                id: newItem.id,
+                org_id: orgId,
+                type: newItem.type,
+                data: newItem.data,
+                branch_id: newItem.branchId,
+                deleted_at: newItem.deletedAt,
+                expires_at: newItem.expiresAt
+            }, orgId);
+        }
+
         triggerInstantSync();
         window.dispatchEvent(new Event('cc_trash_update'));
     } catch (e) {
@@ -58,6 +76,14 @@ export function removeFromTrash(id: string) {
     const trash = getTrash().filter(item => item.id !== id);
     localStorage.setItem(getScopedKey(TRASH_KEY), JSON.stringify(trash));
     
+    // Cloud delete
+    const activeSlug = getActiveSlug() || '';
+    const settings = loadSettings(activeSlug);
+    const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+    if (orgId && orgId !== 'demo') {
+        deleteRecordFromCloud('trash', id, orgId);
+    }
+
     triggerInstantSync();
     window.dispatchEvent(new Event('cc_trash_update'));
 }
