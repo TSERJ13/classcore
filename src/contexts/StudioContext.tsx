@@ -124,18 +124,20 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             return next;
                         });
 
-                        // 🚨 HYBRID STUDENT RECOVERY: Try atomic table first, fallback to settings blob if empty
+                        // 🚨 HYBRID STUDENT RECOVERY: Deep search across all possible storage paths
                         let finalStudentsRaw = state.students || [];
-                        if (finalStudentsRaw.length === 0 && (state as any).settingsRecord?.data?.students) {
-                            console.log('🚚 [MasterSync] Recovering students from legacy settings blob');
-                            const legacyStudents = (state as any).settingsRecord.data.students;
-                            finalStudentsRaw = Array.isArray(legacyStudents) ? legacyStudents : Object.values(legacyStudents);
+                        if (finalStudentsRaw.length === 0) {
+                            const backup = (state as any).settingsRecord?.data?.students || (state as any).settingsRecord?.settings?.students;
+                            if (backup) {
+                                console.log('🚚 [MasterSync] Recovering students from backup blob');
+                                finalStudentsRaw = Array.isArray(backup) ? backup : Object.values(backup);
+                            }
                         }
 
                         const mapping: any = {
                             cc_teachers: unwrappedStaff,
                             cc_branches: state.branches,
-                            cc_halls: unwrap(state.halls),
+                            cc_halls: (unwrap(state.halls)?.length > 0) ? unwrap(state.halls) : JSON.parse(localStorage.getItem(getScopedKey('cc_halls', activeSlug)) || '[]'),
                             cc_groups: unwrap(state.groups),
                             cc_student_data: Array.isArray(finalStudentsRaw) 
                                 ? finalStudentsRaw.reduce((acc: any, s: any) => {
