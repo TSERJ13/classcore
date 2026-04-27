@@ -1233,6 +1233,12 @@ export default function AttendancePage() {
                                                             </p>
                                                         </div>
                                                     </div>
+
+                                                    <button onClick={() => setIssueModalOpen(true)}
+                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl bg-[#6d28d9] text-white font-black text-[10px] tracking-widest uppercase shadow-lg shadow-violet-500/20 active:scale-95 transition-all">
+                                                        <PlusCircle className="w-4 h-4" />
+                                                        <span>{t.issueSubscription || t.issuePlan}</span>
+                                                    </button>
                                                 </div>
 
                                                 <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20 flex-shrink-0">
@@ -1307,13 +1313,7 @@ export default function AttendancePage() {
                                                     )}
                                                 </div>
 
-                                                <div className="p-6 bg-card border-t border-border-subtle/50 flex flex-col gap-3 mt-auto flex-shrink-0">
-                                                    <button onClick={() => setIssueModalOpen(true)}
-                                                        className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl bg-[#6d28d9] text-white font-black text-[11px] tracking-widest uppercase shadow-lg shadow-violet-500/20 active:scale-95 transition-all">
-                                                        <PlusCircle className="w-4 h-4" />
-                                                        <span>{t.issueSubscription || t.issuePlan}</span>
-                                                    </button>
-                                                </div>
+                                                <div className="flex-shrink-0 min-h-[40px]" />
                                             </>
                                         );
                                     })()}
