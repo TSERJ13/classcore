@@ -60,10 +60,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
     }
 
     const data = responses.map(r => r?.data || []);
-    const errors = responses.map(r => r?.error);
-
-    const data = responses.map(r => r.data);
-    const errors = responses.map(r => r.error);
+    const errors = responses.map(r => r?.error || null);
 
     if (errors[0]) console.error('❌ [MasterSync] Students fetch failed:', errors[0].message);
     if (errors[2]) console.error('❌ [MasterSync] Groups fetch failed:', errors[2].message);
