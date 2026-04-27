@@ -173,15 +173,18 @@ function _writeCheckin(
     // 🔥 NEW ATOMIC SYNC: Push this check-in to the native table
     const activeSlug = getActiveSlug();
     const settings = loadSettings(activeSlug || '');
-    if (settings.orgId) {
-        syncRecordToCloud('attendance_records', {
-            org_id: settings.orgId,
+    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    if (orgId && orgId !== 'demo') {
+        syncRecordToCloud('attendance', {
+            id: `att_${studentId}_${dateToUse}_${Date.now()}`,
+            org_id: orgId,
             student_id: studentId,
             group_id: groupId || 'none',
             date: dateToUse,
             status: 'present',
-            notes: `Via ${via.toUpperCase()}`
-        }, settings.orgId);
+            notes: `Via ${via.toUpperCase()}`,
+            data: record
+        }, orgId);
     }
 
     // Legacy sync trigger

@@ -197,7 +197,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         const mapping: any = {
                             cc_teachers: unwrappedStaff,
                             cc_branches: state.branches,
-                            cc_halls: (finalHallsRaw.length > 0) ? unwrap(finalHallsRaw) : JSON.parse(localHallsRaw || '[]'),
+                            cc_halls: (finalHallsRaw.length > 0) ? finalHallsRaw : JSON.parse(localHallsRaw || '[]'),
                             cc_groups: unwrap(state.groups),
                             cc_student_data: Array.isArray(finalStudentsRaw) 
                                 ? finalStudentsRaw.reduce((acc: any, s: any) => {
@@ -216,7 +216,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 }, {})
                                 : finalSubsRaw,
                             cc_calendar_events: unwrap(state.calendar_events),
-                            cc_subscription_plans: unwrap(finalPlansRaw),
+                            cc_subscription_plans: finalPlansRaw,
                             cc_shop_sales: Array.isArray(state.sales)
                                 ? state.sales.reduce((acc: any, sale: any) => {
                                     const sId = sale.student_id;
