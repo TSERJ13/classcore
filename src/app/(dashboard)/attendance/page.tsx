@@ -701,6 +701,7 @@ export default function AttendancePage() {
     const day = days[selectedDate.getDay()];
     const month = months[selectedDate.getMonth()];
     const dateStr = `${day}, ${selectedDate.getDate()} ${month}`;
+
     function isCurrentClass(start?: string) {
         if (!start) return false;
         const h = parseInt(start.split(':')[0]);
@@ -709,7 +710,7 @@ export default function AttendancePage() {
     }
 
     return (
-        <div className="flex flex-col flex-1 min-h-screen bg-card animate-fade-up overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-[100dvh] bg-card animate-fade-up overflow-x-hidden relative max-w-full">
             {!mounted ? (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="w-12 h-12 rounded-2xl border-4 border-#6d28d9/20 border-t-#6d28d9 animate-spin" />
@@ -918,7 +919,6 @@ export default function AttendancePage() {
                                                                 students.forEach(s => {
                                                                     if (n[s.id] === 'present') {
                                                                         mod.refundCheckin(s.id);
-                                                                    }
                                                                     n[s.id] = 'none';
                                                                 });
                                                                 saveAttendance(n);
@@ -931,7 +931,7 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="lg:hidden flex overflow-x-auto snap-x snap-mandatory no-scrollbar gap-2 pb-2 md:pb-2 flex-shrink-0 -mx-3 px-3 scroll-smooth touch-pan-x">
+                                <div className="lg:hidden w-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar gap-2 pb-1.5 flex-shrink-0 -mx-3 px-3 scroll-smooth touch-pan-x relative z-30">
                                     {mounted && filteredSchedule.map(s => (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
@@ -995,54 +995,40 @@ export default function AttendancePage() {
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                                        <div className="flex flex-col min-w-0">
+                                                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                                                        <div className="flex flex-col min-w-0 pr-1">
                                                             <p className={cn('text-xs md:text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>
                                                                 {st.full_name}
                                                             </p>
                                                             <p className={cn(
-                                                                "text-[9px] font-black opacity-60 truncate lg:hidden",
+                                                                "text-[9px] font-black opacity-60 truncate lg:hidden mt-0.5",
                                                                 st.gender === 'female' ? "text-pink-500" : "text-indigo-500"
                                                             )}>
                                                                 {st.gender === 'male' ? t.maleShort : st.gender === 'female' ? t.femaleShort : ''} 
                                                                 <span className="text-muted">{st.birth_date ? ` ${calculateAge(st.birth_date)} ${t.yearsShort}` : ''}</span>
                                                             </p>
                                                         </div>
-                                                        {(() => {
-                                                            if (!mounted) return <div className="h-3 md:h-4 w-10 bg-surface animate-pulse rounded" />;
+                                                        <div className="shrink-0 flex flex-col items-end pt-0.5">
+                                                            {(() => {
+                                                                if (!mounted) return <div className="h-3 w-10 bg-surface animate-pulse rounded" />;
+                                                                if (isExpired) return <span className="text-[7px] font-black tracking-tighter text-red-500 px-1.5 py-0.5 rounded-md border border-red-500/30 bg-red-500/10 uppercase">EXPIRED</span>;
+                                                                if (!activeSub) return null;
 
-                                                            let remaining = null;
-                                                            if (activeSub && activeSub.type === 'sessions' && activeSub.sessions_total) {
-                                                                remaining = activeSub.sessions_total - activeSub.sessions_used;
-                                                            }
-
-                                                            if (isExpired || (remaining !== null && remaining <= 0)) {
+                                                                const diffDays = Math.ceil((new Date(activeSub.expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                                                                const daysText = diffDays < 0 ? t.expired : diffDays === 0 ? t.expiresToday : `${diffDays} ${t.days}`;
                                                                 return (
-                                                                    <div className="flex flex-col items-end gap-1">
-                                                                        <span className="text-[7px] md:text-[8px] font-black tracking-tighter text-red-500 px-1.5 py-0.5 rounded-md border border-red-500/30 bg-red-500/10">
-                                                                            {t.subscriptionExpired}
-                                                                        </span>
-                                                                    </div>
-                                                                );
-                                                            }
-
-                                                            if (!activeSub) return null;
-                                                            const diffDays = Math.ceil((new Date(activeSub.expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                                                            const daysText = diffDays < 0 ? t.expired : diffDays === 0 ? t.expiresToday : `${diffDays} ${t.days}`;
-
-                                                            return (
-                                                                <div className="flex flex-col items-end">
                                                                     <span className={cn(
-                                                                        "text-[9px] font-black tracking-tighter opacity-70",
-                                                                        diffDays <= 3 ? "text-red-500 opacity-100" : "text-muted"
+                                                                        "text-[8px] font-black tracking-tighter tabular-nums",
+                                                                        diffDays <= 3 ? "text-red-500" : "text-muted opacity-70"
                                                                     )}>
                                                                         {daysText}
                                                                     </span>
-                                                                </div>
-                                                            );
-                                                        })()}
+                                                                );
+                                                            })()}
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-3 w-full">
+
+                                                    <div className="flex items-center gap-2 w-full">
                                                         {(() => {
                                                             const subId = activeSub ? activeSub.id : st.id;
                                                             const day0 = localStorage.getItem(`sms_sent_${subId}_day_0`);
@@ -1052,42 +1038,35 @@ export default function AttendancePage() {
                                                             if (isExpired || !activeSub) {
                                                                 return (
                                                                     <>
-                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner"></div>
-                                                                    <div className="flex flex-col items-end gap-1 min-w-[50px] sm:min-w-[80px]">
-                                                                        <span className="text-[8px] font-black tracking-tighter text-red-500/60 flex items-center gap-1.5 whitespace-nowrap">
-                                                                                {t.noSubscription}
-                                                                                {isSent && <span title={t.smsSent}><MessageSquare className="w-3 h-3 text-emerald-500 opacity-80" /></span>}
-                                                                                {isFailed && <span title={t.smsFailed}><X className="w-3 h-3 text-red-500 opacity-80" /></span>}
-                                                                            </span>
+                                                                        <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30 shadow-inner"></div>
+                                                                        <div className="shrink-0 flex items-center gap-1">
+                                                                            <span className="text-[7px] font-black tracking-tighter text-red-500/40 uppercase">NO SUB</span>
+                                                                            {isSent && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 opacity-60" />}
                                                                         </div>
                                                                     </>
                                                                 );
                                                             }
 
                                                             const remaining = (activeSub.sessions_total ?? 0) - (activeSub.sessions_used ?? 0);
-
                                                             return (
                                                                 <>
-                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/30">
+                                                                    <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/20 relative">
                                                                         <div
                                                                             className={cn(
                                                                                 "h-full transition-all duration-500",
-                                                                                remaining <= 0 || isExpired ? "bg-red-500" :
-                                                                                    remaining <= 3 ? "bg-red-500" :
-                                                                                        remaining <= 5 ? "bg-amber-500" :
-                                                                                            "bg-[#6d28d9]"
+                                                                                remaining <= 3 ? "bg-red-500" :
+                                                                                    remaining <= 5 ? "bg-amber-500" : "bg-[#6d28d9]"
                                                                             )}
                                                                             style={{ width: `${Math.max(0, Math.min(100, (remaining / (activeSub.sessions_total || (activeSub.type === "monthly" ? 30 : 12) || 1)) * 100))}%` }}
                                                                         />
                                                                     </div>
-                                                                    <div className="flex flex-col items-end gap-1 min-w-[60px] sm:min-w-[80px]">
+                                                                    <div className="shrink-0">
                                                                         <span className={cn(
-                                                                            "text-[9px] font-black tracking-tighter flex items-center gap-1.5 whitespace-nowrap",
+                                                                            "text-[9px] font-black tracking-tighter tabular-nums flex items-center gap-1",
                                                                             remaining <= 3 ? "text-red-500" : "text-muted opacity-60"
                                                                         )}>
-                                                                            {remaining <= 0 || isExpired ? `0 ${t.visit}` : `${remaining} ${t.visits}`}
-                                                                            {isSent && <span title={t.smsSent}><MessageSquare className="w-3 h-3 text-emerald-500 opacity-80" /></span>}
-                                                                            {isFailed && <span title={t.smsFailed}><X className="w-3 h-3 text-red-500 opacity-80" /></span>}
+                                                                            {remaining} {t.visitShort || 'V'}
+                                                                            {isSent && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 opacity-60" />}
                                                                         </span>
                                                                     </div>
                                                                 </>
@@ -1097,7 +1076,7 @@ export default function AttendancePage() {
                                                 </div>
                                             </div>
 
-                                            {/* Attendance Toggle at the end */}
+                                            {/* Attendance Toggle */}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -1109,11 +1088,11 @@ export default function AttendancePage() {
                                                     }
                                                 }}
                                                 className={cn(
-                                                    "group/btn relative z-10 w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all active:scale-90 ml-auto flex-none",
-                                                    state === 'present' ? "bg-emerald-500 border-emerald-500 text-white" :
-                                                        state === 'absent' ? "bg-red-500 border-red-500 text-white" :
-                                                            isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/10" :
-                                                                `bg-transparent border-solid ${THEME_CLASSES[settings.themeKey] || THEME_CLASSES.indigo}`
+                                                    "shrink-0 relative z-30 w-9 h-9 rounded-xl border-2 flex items-center justify-center transition-all active:scale-90 ml-1.5",
+                                                    state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                        state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                            isExpired ? "bg-transparent border-red-500/30 text-red-500/60" :
+                                                                "bg-surface border-border-subtle text-muted/30"
                                                 )}
                                             >
                                                 {state === 'present' ? (

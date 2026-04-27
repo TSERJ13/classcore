@@ -64,12 +64,12 @@ export function BottomNav() {
                 {/* "More" opens the full sidebar drawer */}
                 <button
                     onClick={open}
-                    className="flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl text-white/65 hover:text-white min-w-[64px] touch-manipulation transition-colors"
+                    className="flex-1 flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-xl text-white/65 hover:text-white touch-manipulation transition-colors"
                 >
-                    <div className="w-8 h-8 flex items-center justify-center">
+                    <div className="w-11 h-7 flex items-center justify-center">
                         <Menu className="w-5 h-5 opacity-90" strokeWidth={2} />
                     </div>
-                    <span className="text-[9px] font-black uppercase tracking-widest opacity-65">{t.more}</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest opacity-65">{t.more}</span>
                 </button>
             </div>
         </nav>
