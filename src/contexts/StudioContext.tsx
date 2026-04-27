@@ -191,6 +191,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                            (state as any).settingsRecord?.settings?.plans;
                             if (backup) finalPlansRaw = Array.isArray(backup) ? backup : Object.values(backup);
                         }
+                        // Normalize plans: fill missing fields with defaults
+                        finalPlansRaw = finalPlansRaw.map((p: any) => {
+                            const plan = p.data && typeof p.data === 'object' ? { ...p.data, ...p, data: undefined } : p;
+                            return {
+                                ...plan,
+                                type: plan.type || 'group',
+                                period: plan.period || (plan.session_count ? 'sessions' : 'monthly'),
+                                is_active: plan.is_active !== undefined ? plan.is_active : true,
+                            };
+                        });
 
                         let finalSubsRaw = state.subscriptions || [];
                         if (finalSubsRaw.length === 0) {

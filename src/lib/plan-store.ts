@@ -67,19 +67,26 @@ export async function savePlans(plans: Plan[]): Promise<void> {
     localStorage.setItem(key, JSON.stringify(plans));
     markLocalUpdate();
     
-    // 🔥 NEW ATOMIC SYNC: Push all plans to the native table
+    // 🔥 ATOMIC SYNC: Push ALL plan fields to the cloud
     const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
-    if (settings.orgId) {
+    const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+    if (orgId && orgId !== 'demo') {
         plans.forEach(plan => {
             syncRecordToCloud('subscription_plans', {
                 id: plan.id,
-                org_id: settings.orgId,
+                org_id: orgId,
                 name: plan.name,
+                type: plan.type,
+                period: plan.period,
                 price: plan.price,
                 session_count: plan.session_count,
-                validity_days: plan.validity_days
-            }, settings.orgId);
+                validity_days: plan.validity_days,
+                coach: plan.coach,
+                group_id: plan.group_id,
+                is_active: plan.is_active,
+                data: plan  // Full blob for recovery
+            }, orgId);
         });
     }
 
