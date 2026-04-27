@@ -769,12 +769,12 @@ export default function AttendancePage() {
                         {/* Stretched Date Picker (Mobile) */}
                         {mounted && (
                             <div className="w-full flex flex-col gap-2 relative z-20">
-                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
+                                <div className="flex items-center justify-between bg-surface p-1.5 rounded-2xl border-2 border-border-subtle/60 mb-1 relative overflow-hidden group shadow-sm">
                                     <button
                                         onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                        className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-90 flex-shrink-0 relative z-10"
                                     >
-                                        <ChevronLeft className="w-4 h-4" />
+                                        <ChevronLeft className="w-5 h-5" />
                                     </button>
                                     
                                     <div className="relative flex-1 flex items-center justify-center min-w-0 px-2">
@@ -785,15 +785,15 @@ export default function AttendancePage() {
                                                 const d = new Date(val);
                                                 if (!isNaN(d.getTime())) setSelectedDate(d);
                                             }}
-                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-12 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-full"
+                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-12 [&_input]:!text-[12px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-full"
                                         />
                                     </div>
 
                                     <button
                                         onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                        className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-90 flex-shrink-0 relative z-10"
                                     >
-                                        <ChevronRight className="w-4 h-4" />
+                                        <ChevronRight className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
