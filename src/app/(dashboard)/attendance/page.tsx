@@ -1138,7 +1138,7 @@ export default function AttendancePage() {
                         <div className={cn(
                             "bg-surface/30 flex-col overflow-hidden transition-all duration-300 ease-in-out lg:w-[35%] lg:min-w-[340px]",
                             drawerOpen
-                                ? "fixed inset-x-4 top-20 bottom-10 z-[100] bg-card rounded-[2.5rem] flex border border-border-subtle animate-in slide-in-from-bottom-8 lg:static lg:inset-auto lg:z-0 lg:rounded-none lg:shadow-none lg:animate-none lg:border-l shadow-2xl"
+                                ? "fixed inset-0 z-[100] bg-card flex animate-in slide-in-from-bottom-8 lg:static lg:inset-auto lg:z-0 lg:rounded-none lg:shadow-none lg:animate-none lg:border-l shadow-2xl"
                                 : "hidden lg:flex lg:border-l lg:border-border-subtle"
                         )}>
                             {selStudent ? (
