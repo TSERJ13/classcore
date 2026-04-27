@@ -37,19 +37,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
 
     // 2. Parallel Fetch of ABSOLUTELY EVERYTHING
     // Note: We use maybeSingle() for settings to avoid 406
-    const [
-        { data: students, error: e1 },
-        { data: staff, error: e2 },
-        { data: groups, error: e3 },
-        { data: branches, error: e4 },
-        { data: halls, error: e5 },
-        { data: settingsRecord, error: e6 },
-        { data: subs, error: e7 },
-        { data: records, error: e8 },
-        { data: salesHistory, error: e9 },
-        { data: expenseLogs, error: e10 },
-        { data: trashBin, error: e11 }
-    ] = await Promise.all([
+    const responses = await Promise.all([
         supabase.from('students').select('*').eq('org_id', targetOrgId),
         supabase.from('staff').select('*').eq('org_id', targetOrgId),
         supabase.from('groups').select('*').eq('org_id', targetOrgId),
@@ -60,35 +48,38 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
         supabase.from('attendance').select('*').eq('org_id', targetOrgId),
         supabase.from('sales').select('*').eq('org_id', targetOrgId),
         supabase.from('expenses').select('*').eq('org_id', targetOrgId),
-        supabase.from('trash').select('*').eq('org_id', targetOrgId)
+        supabase.from('trash').select('*').eq('org_id', targetOrgId),
+        supabase.from('calendar_events').select('*').eq('org_id', targetOrgId)
     ]);
 
-    // Check for major failures
-    if (e1) console.error('❌ [MasterSync] Students fetch failed:', e1.message);
-    if (e3) console.error('❌ [MasterSync] Groups fetch failed:', e3.message);
-    if (e4) console.error('❌ [MasterSync] Branches fetch failed:', e4.message);
-    if (e5) console.error('❌ [MasterSync] Halls fetch failed:', e5.message);
-    
+    const data = responses.map(r => r.data);
+    const errors = responses.map(r => r.error);
+
+    if (errors[0]) console.error('❌ [MasterSync] Students fetch failed:', errors[0].message);
+    if (errors[2]) console.error('❌ [MasterSync] Groups fetch failed:', errors[2].message);
+
     console.log('📊 [MasterSync] Cloud Extraction Complete:', {
-        students: students?.length || 0,
-        staff: staff?.length || 0,
-        groups: groups?.length || 0,
-        settingsFound: !!settingsRecord
+        students: data[0]?.length || 0,
+        staff: data[1]?.length || 0,
+        groups: data[2]?.length || 0,
+        events: data[11]?.length || 0,
+        settingsFound: !!data[5]
     });
 
     return {
         studio: studio || { studio_slug: slug, studio_name: 'Recovered Studio', org_id: targetOrgId },
-        settingsRecord: settingsRecord || null,
-        students: students || [],
-        staff: staff || [],
-        groups: groups || [],
-        branches: branches || [],
-        halls: halls || [],
-        subscriptions: subs || [],
-        attendance: records || [],
-        sales: salesHistory || [],
-        expenses: expenseLogs || [],
-        trash: trashBin || [],
+        settingsRecord: data[5] || null,
+        students: data[0] || [],
+        staff: data[1] || [],
+        groups: data[2] || [],
+        branches: data[3] || [],
+        halls: data[4] || [],
+        subscriptions: data[6] || [],
+        attendance: data[7] || [],
+        sales: data[8] || [],
+        expenses: data[9] || [],
+        trash: data[10] || [],
+        calendar_events: data[11] || [],
         org_id: targetOrgId
     };
 }

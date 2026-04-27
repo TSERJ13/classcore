@@ -131,16 +131,29 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             cc_student_data: Array.isArray(state.students) 
                                 ? state.students.reduce((acc: any, s: any) => ({ ...acc, [s.id]: { ...(s.data || {}), ...s, data: undefined } }), {})
                                 : state.students,
-                            cc_subscriptions: unwrap(state.subscriptions),
-                            cc_checkins: unwrap(state.attendance),
-                            cc_sales: unwrap(state.sales),
+                            cc_student_subscriptions: unwrap(state.subscriptions),
+                            cc_calendar_events: unwrap(state.calendar_events),
+                            cc_shop_sales: unwrap(state.sales),
                             cc_expenses: unwrap(state.expenses),
-                            cc_trash: unwrap(state.trash)
+                            cc_global_trash: unwrap(state.trash)
                         };
 
                         Object.entries(mapping).forEach(([key, data]) => {
                             const targetKey = getScopedKey(key, activeSlug);
                             localStorage.setItem(targetKey, JSON.stringify(data || (key === 'cc_student_data' ? {} : [])));
+                        });
+
+                        // Special handling for legacy checkins: Group by date
+                        const attendance = unwrap(state.attendance);
+                        const groupedAtt: Record<string, any[]> = {};
+                        attendance.forEach(rec => {
+                            if (!rec.date) return;
+                            if (!groupedAtt[rec.date]) groupedAtt[rec.date] = [];
+                            groupedAtt[rec.date].push(rec);
+                        });
+                        Object.entries(groupedAtt).forEach(([date, list]) => {
+                            const attKey = getScopedKey(`cc_checkins_${date}`, activeSlug);
+                            localStorage.setItem(attKey, JSON.stringify(list));
                         });
 
                         localStorage.setItem(`cc_last_sync_${activeSlug}`, Date.now().toString());
