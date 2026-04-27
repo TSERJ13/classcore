@@ -43,9 +43,20 @@ interface StudioContextType {
 
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
-export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?: string | null; defaultStudioName?: string | null }> = ({ children, defaultSlug, defaultStudioName }) => {
     const { user, profile } = useUser();
-    const [settings, setSettings] = useState<StudioSettings>(() => loadSettings());
+    
+    // Initialize settings, preferring props for new devices
+    const [settings, setSettings] = useState<StudioSettings>(() => {
+        const base = loadSettings(defaultSlug || undefined);
+        if (defaultStudioName && !base.studioName) {
+            base.studioName = defaultStudioName;
+        }
+        if (defaultSlug && !base.studioSlug) {
+            base.studioSlug = defaultSlug;
+        }
+        return base;
+    });
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
     const [isLoaded, setIsLoaded] = useState(false);
     const [firstSyncDone, setFirstSyncDone] = useState(false);
@@ -67,10 +78,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 }
             }
 
-            if (!activeSlug || ["superadmin", "dashboard", "auth", "admin", "login", "settings", "billing", "analytics", "history", "attendance", "students", "teachers", "halls", "groups", "calendar", "shop", "sms-manager", "subscriptions"].includes(activeSlug)) {
-                setIsLoaded(true);
-                return;
+            if (!activeSlug || ["superadmin", "dashboard", "auth", "admin", "login"].includes(activeSlug)) {
+                // If we have a defaultSlug from props, use it
+                if (defaultSlug && !["superadmin", "dashboard", "auth", "admin", "login"].includes(defaultSlug)) {
+                    activeSlug = defaultSlug;
+                } else {
+                    setIsLoaded(true);
+                    return;
+                }
             }
+
+            console.log('🚀 [MasterSync] Bootstrapping for slug:', activeSlug);
 
             // AVOID RE-FETCHING IF THIS SLUG WAS JUST SYNCED 
             // This prevents the "flicker" where local updates are overwritten by stale cloud data during the sync bounce back
