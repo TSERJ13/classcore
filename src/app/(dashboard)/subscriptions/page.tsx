@@ -181,11 +181,11 @@ export default function SubscriptionsPage() {
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
-                                        'flex items-center justify-center gap-1.5 px-4 h-full rounded-xl text-[10px] font-black tracking-widest transition-all min-w-fit sm:min-w-[120px]',
+                                        'flex items-center justify-center gap-1.5 px-3 sm:px-4 h-full rounded-xl text-[9px] sm:text-[10px] font-black tracking-widest transition-all min-w-fit sm:min-w-[120px]',
                                         tab === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-white/50', v.hoverColor)
                                     )}>
-                                    <v.icon className="w-4 h-4 flex-shrink-0" />
-                                    <span className="hidden sm:inline whitespace-nowrap">{v.label}</span>
+                                    <v.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <span className="whitespace-nowrap">{v.label}</span>
                                 </button>
                             ))}
                         </div>

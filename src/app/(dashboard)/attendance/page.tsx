@@ -210,8 +210,8 @@ export default function AttendancePage() {
     
     const filteredSchedule = useMemo(() => {
         if (rawSchedule.length === 0) {
-            // Fallback for days with no calendar events: Show all groups
-            return groups.map(g => ({
+            // Fallback for days with no calendar events: Show all groups sorted alphabetically
+            return [...groups].sort((a, b) => a.name.localeCompare(b.name)).map(g => ({
                 id: `virtual-${g.id}`,
                 group_id: g.id,
                 title: g.name,
@@ -229,16 +229,35 @@ export default function AttendancePage() {
         }).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
     }, [rawSchedule, profile, groups]);
 
-    const [selectedClass, setSelectedClass] = useState(filteredSchedule[0]?.id || '');
+    const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
     const [att, setAtt] = useState<Record<string, State>>({});
 
-    // Auto-select first class of the day if current selection is not available
+    // Smart Auto-Selection based on current time for TODAY, or first class for OTHER days
     useEffect(() => {
-        if (filteredSchedule.length > 0 && !filteredSchedule.find(s => s.id === selectedClass)) {
-            setSelectedClass(filteredSchedule[0].id);
+        if (filteredSchedule.length > 0) {
+            const now = new Date();
+            const isToday = selectedDate.toDateString() === now.toDateString();
+            
+            let targetId = '';
+            if (isToday) {
+                const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                // Find class that is currently active or next upcoming (within a 2-hour window)
+                const currentOrNext = filteredSchedule.find(s => {
+                    const [startH, startM] = (s.start_time || '00:00').split(':').map(Number);
+                    const classStartMins = startH * 60 + startM;
+                    return classStartMins >= currentMinutes - 60; // Up to 1 hour ago or future
+                }) || filteredSchedule[0];
+                targetId = currentOrNext.id;
+            } else {
+                targetId = filteredSchedule[0].id;
+            }
+
+            if (targetId && (!selectedClass || !filteredSchedule.find(s => s.id === selectedClass) || isToday)) {
+                setSelectedClass(targetId);
+            }
         }
-    }, [selectedDate, filteredSchedule, selectedClass]); // Added filteredSchedule and selectedClass
+    }, [selectedDate, filteredSchedule]);
 
 
     // ── Persistence ──
@@ -721,7 +740,7 @@ export default function AttendancePage() {
 
                     {/* Mobile Header / Stretched Date Picker */}
                     <div className={cn(
-                        'flex lg:hidden items-center justify-center p-3 border-b transition-colors duration-300 relative',
+                        'flex lg:hidden items-center justify-center py-5 px-3 border-b transition-colors duration-300 relative w-full overflow-hidden',
                         scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : 'bg-card'
                     )}>
                         {/* Mobile Status Indicator (Absolute left) */}
@@ -905,12 +924,12 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="lg:hidden flex overflow-x-auto snap-x snap-mandatory no-scrollbar gap-2 pb-1 md:pb-2 flex-shrink-0 -mx-1 px-1">
+                                <div className="lg:hidden flex overflow-x-auto snap-x snap-mandatory no-scrollbar gap-2 pb-2 md:pb-2 flex-shrink-0 -mx-3 px-3 scroll-smooth touch-pan-x">
                                     {mounted && filteredSchedule.map(s => (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
-                                                'px-3 md:px-5 py-1.5 md:py-2.5 rounded-xl text-[10px] md:text-sm font-black whitespace-nowrap transition-all border-2 flex-shrink-0 snap-start active:scale-95',
-                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9] shadow-lg shadow-indigo-500/20' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
+                                                'px-4 md:px-5 py-2 md:py-2.5 rounded-2xl text-[11px] md:text-sm font-black whitespace-nowrap transition-all border-[3px] flex-shrink-0 snap-start active:scale-95 duration-200',
+                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9] shadow-lg shadow-indigo-500/30' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
                                             )}>
                                             {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </button>
