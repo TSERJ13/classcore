@@ -1220,13 +1220,23 @@ export default function AttendancePage() {
                                                     </div>
 
                                                     <div className="grid grid-cols-2 gap-3 mt-4">
-                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50 relative overflow-hidden group">
                                                             <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.remaining}</p>
-                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">{visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visitShort || 'V'}</span></p>
+                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">
+                                                                {visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visit}</span>
+                                                            </p>
+                                                            <button onClick={() => setIssueModalOpen(true)} className="absolute inset-0 bg-[#6d28d9]/5 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                                <PlusCircle className="w-5 h-5 text-#6d28d9" />
+                                                            </button>
                                                         </div>
-                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
+                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50 relative overflow-hidden group">
                                                             <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.expiryDate}</p>
-                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">{daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span></p>
+                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">
+                                                                {daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span>
+                                                            </p>
+                                                            <button onClick={() => setIssueModalOpen(true)} className="absolute inset-0 bg-[#6d28d9]/5 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                                <PlusCircle className="w-5 h-5 text-#6d28d9" />
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1303,9 +1313,9 @@ export default function AttendancePage() {
                                                     )}
                                                 </div>
 
-                                                <div className="p-4 bg-card border-t border-border-subtle/50 flex items-center justify-between gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] mt-auto flex-shrink-0">
+                                                <div className="p-6 bg-card border-t border-border-subtle/50 flex flex-col gap-3 mt-auto flex-shrink-0">
                                                     <button onClick={() => setIssueModalOpen(true)}
-                                                        className="flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl bg-[#6d28d9] text-white font-black text-[11px] tracking-widest uppercase shadow-lg shadow-violet-500/20 active:scale-95 transition-all">
+                                                        className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl bg-[#6d28d9] text-white font-black text-[11px] tracking-widest uppercase shadow-lg shadow-violet-500/20 active:scale-95 transition-all">
                                                         <PlusCircle className="w-4 h-4" />
                                                         <span>{t.issuePlan}</span>
                                                     </button>
