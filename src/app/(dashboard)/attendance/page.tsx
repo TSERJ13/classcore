@@ -434,14 +434,24 @@ export default function AttendancePage() {
 
     // 1. Get base students list
     const students = useMemo(() => {
-        return getStudents()
+        const base = getStudents();
+        return base
             .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
             .filter(s => {
                 if (cls?.type === 'individual' || cls?.type === 'rental') return true;
-                if (cls?.group_id && s.enrolled_group_ids?.includes(cls.group_id)) return true;
+                if (cls?.group_id && (s.enrolled_group_ids || []).includes(cls.group_id)) return true;
+                
+                // Allow students with active subscriptions for this group
+                const studentSubs = subs[s.id] || [];
+                const hasActiveSub = studentSubs.some(sub => 
+                    sub.status === 'active' && 
+                    (!sub.group_id || sub.group_id === cls?.group_id)
+                );
+                if (hasActiveSub) return true;
+
                 return (s as any).classes?.includes(selectedClass);
             });
-    }, [studentPatches, cls, selectedClass]);
+    }, [studentPatches, cls, selectedClass, subs]);
 
     // 2. Pre-calculate statuses for ALL visible students once
     const studentStatuses = useMemo(() => {
@@ -804,7 +814,7 @@ export default function AttendancePage() {
                             </button>
                             
                              <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
-                                <span className="absolute inset-x-0 inset-y-0 flex items-center justify-center text-[13px] font-black uppercase text-primary pointer-events-none tracking-tight">
+                                <span className="absolute inset-x-0 inset-y-0 flex items-center justify-center text-[13px] font-bold uppercase text-primary pointer-events-none tracking-widest font-sans">
                                     {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                                 </span>
                                 <StandardDatePicker
@@ -1043,7 +1053,7 @@ export default function AttendancePage() {
                                                         </p>
                                                         {label && (
                                                             <span className={cn(
-                                                                "shrink-0 text-[7px] md:text-[9px] font-black tracking-tighter px-1 md:px-2 py-0.5 rounded-md border uppercase inline-flex",
+                                                                "shrink-0 text-[6px] md:text-[9px] font-black tracking-tighter px-1 md:px-2 py-0.5 rounded-md border uppercase inline-flex",
                                                                 color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : 
                                                                 color === 'yellow' ? "text-amber-600 border-amber-500/20 bg-amber-500/5" :
                                                                 "text-red-500 border-red-500/20 bg-red-500/5"

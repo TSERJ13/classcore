@@ -51,7 +51,17 @@ export default function SubscriptionsPage() {
 
     const filtered = sortedSubs.filter(s => {
         if (!s) return false;
-        const matchesTab = s.status === tab;
+        
+        // Robust Status Matching: If status is 'active' or if it looks active by date/sessions
+        const todayStr = new Date().toISOString().split('T')[0];
+        const isActuallyExpired = s.expires_at < todayStr || (s.type === 'sessions' && s.sessions_total !== null && s.sessions_used >= s.sessions_total);
+        const isActuallyPaused = s.status === 'paused';
+        
+        let effectiveStatus: 'active' | 'paused' | 'expired' = 'active';
+        if (isActuallyPaused) effectiveStatus = 'paused';
+        else if (isActuallyExpired) effectiveStatus = 'expired';
+
+        const matchesTab = effectiveStatus === tab;
         const matchesCategory = category === 'group' ? s.plan_type !== 'individual' : s.plan_type === 'individual';
         const st = Array.isArray(students) ? students.find(x => x && x.id === s.student_id) : null;
 
