@@ -37,21 +37,30 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
 
     // 2. Parallel Fetch of ABSOLUTELY EVERYTHING
     // Note: We use maybeSingle() for settings to avoid 406
-    const responses = await Promise.all([
-    const responses = await Promise.all([
-        supabase.from('students').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('staff').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('groups').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('branches').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('halls').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle(),
-        supabase.from('subscriptions').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('attendance').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('sales').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('expenses').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('trash').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`),
-        supabase.from('calendar_events').select('*').or(`org_id.eq.${targetOrgId},studio_slug.eq.${slug}`)
-    ]);
+    let responses: any[] = [];
+    try {
+        responses = await Promise.all([
+            supabase.from('students').select('*').eq('org_id', targetOrgId),
+            supabase.from('staff').select('*').eq('org_id', targetOrgId),
+            supabase.from('groups').select('*').eq('org_id', targetOrgId),
+            supabase.from('branches').select('*').eq('org_id', targetOrgId),
+            supabase.from('halls').select('*').eq('org_id', targetOrgId),
+            supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle(),
+            supabase.from('subscriptions').select('*').eq('org_id', targetOrgId),
+            supabase.from('attendance').select('*').eq('org_id', targetOrgId),
+            supabase.from('sales').select('*').eq('org_id', targetOrgId),
+            supabase.from('expenses').select('*').eq('org_id', targetOrgId),
+            supabase.from('trash').select('*').eq('org_id', targetOrgId),
+            supabase.from('calendar_events').select('*').eq('org_id', targetOrgId)
+        ]);
+    } catch (e) {
+        console.error('❌ [MasterSync] Collective fetch failed:', e);
+        // Fallback to empty responses to allow partial hydration
+        responses = Array(12).fill({ data: [], error: { message: 'Timeout/Network Error' } });
+    }
+
+    const data = responses.map(r => r?.data || []);
+    const errors = responses.map(r => r?.error);
 
     const data = responses.map(r => r.data);
     const errors = responses.map(r => r.error);

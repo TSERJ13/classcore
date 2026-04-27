@@ -60,14 +60,21 @@ export function getStudents(): Student[] {
         if (!stored) return isMainBranch ? INITIAL_STUDENTS : [];
         let patches: any = {};
         try {
-            patches = JSON.parse(stored) || {};
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+                // If it's an array (from direct sync or legacy), convert to map
+                patches = parsed.reduce((acc: any, s: any) => {
+                    const id = s.id || s.studentId;
+                    if (id) acc[id] = s;
+                    return acc;
+                }, {});
+            } else {
+                patches = parsed || {};
+            }
         } catch (e) {
             console.error('❌ [StudentStore] Fatal: Corrupt student patches. Returning base data.', e);
             return isMainBranch ? INITIAL_STUDENTS : [];
         }
-
-        // If saved data is an array (old version) or unexpected format, return initial
-        if (Array.isArray(patches)) return isMainBranch ? INITIAL_STUDENTS : [];
 
         // Base students for this branch
         const baseStudents = isMainBranch ? INITIAL_STUDENTS : [];

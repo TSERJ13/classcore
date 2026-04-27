@@ -10,6 +10,12 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
     const [mounted, setMounted] = useState(false);
     const { settings, firstSyncDone } = useStudio();
     const { loading: authLoading, isVerified } = useUser();
+    const [syncTimedOut, setSyncTimedOut] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setSyncTimedOut(true), 8000); // 8s fail-safe
+        return () => clearTimeout(timer);
+    }, []);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -41,7 +47,7 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
     // Block only the initial hydration to prevent server/client mismatch
     if (!mounted) return null;
 
-    const isLoading = authLoading || isVerified === null || (!firstSyncDone && settings.studioSlug);
+    const isLoading = authLoading || isVerified === null || (!firstSyncDone && settings.studioSlug && !syncTimedOut);
 
     return (
         <>
