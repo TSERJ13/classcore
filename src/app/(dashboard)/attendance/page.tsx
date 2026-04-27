@@ -410,8 +410,8 @@ export default function AttendancePage() {
                 const now = new Date();
                 const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
                 
-                if (diff > 7) return { activeSub, isExpired: true, status: 'suspended', score: 2, label: null };
-                return { activeSub, isExpired: true, status: 'expired', score: 1, label: 'ამოიწურა' };
+                if (diff > 7) return { activeSub, isExpired: true, status: 'suspended', score: 2, label: t.expired, color: 'red' };
+                return { activeSub, isExpired: true, status: 'expired', score: 1, label: t.expiredRecently, color: 'yellow' };
             }
             return { activeSub, isExpired: false, status: 'active', score: 0, label: t.active };
         }
@@ -423,10 +423,11 @@ export default function AttendancePage() {
             const expiryDate = new Date(last.expires_at);
             const now = new Date();
             const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
-            if (diff <= 7) return { activeSub: null, isExpired: true, status: 'expired', score: 1, label: 'ამოიწურა' };
+            if (diff <= 7) return { activeSub: null, isExpired: true, status: 'expired', score: 1, label: t.expiredRecently, color: 'yellow' };
+            return { activeSub: null, isExpired: true, status: 'suspended', score: 2, label: t.expired, color: 'red' };
         }
 
-        return { activeSub: null, isExpired: true, status: 'suspended', score: 2, label: null };
+        return { activeSub: null, isExpired: true, status: 'suspended', score: 2, label: t.expired, color: 'red' };
     }, [selClass, subs, t.active]);
 
     const cls = filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0] || ({} as CalendarEvent);
@@ -802,7 +803,10 @@ export default function AttendancePage() {
                                 <ChevronLeft className="w-6 h-6" />
                             </button>
                             
-                            <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
+                             <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
+                                <span className="absolute inset-x-0 inset-y-0 flex items-center justify-center text-[13px] font-black uppercase text-primary pointer-events-none tracking-tight">
+                                    {selectedDate.toLocaleDateString(l === 'ka' ? 'ka-GE' : l === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
                                 <StandardDatePicker
                                     hideIcon={true}
                                     value={dateKey}
@@ -810,7 +814,7 @@ export default function AttendancePage() {
                                         const d = new Date(val);
                                         if (!isNaN(d.getTime())) setSelectedDate(d);
                                     }}
-                                    className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-0 [&_input]:!text-[14px] [&_input]:!font-black [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px] flex items-center justify-center"
+                                    className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-0 [&_input]:!text-transparent [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px] flex items-center justify-center"
                                 />
                             </div>
 
@@ -1040,9 +1044,11 @@ export default function AttendancePage() {
                                                         {label && (
                                                             <span className={cn(
                                                                 "shrink-0 text-[8px] md:text-[9px] font-black tracking-tighter px-1.5 md:px-2 py-0.5 rounded-md border uppercase inline-flex",
-                                                                color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : "text-amber-600 border-amber-500/20 bg-amber-500/5"
+                                                                color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : 
+                                                                color === 'yellow' ? "text-amber-600 border-amber-500/20 bg-amber-500/5" :
+                                                                "text-red-500 border-red-500/20 bg-red-500/5"
                                                             )}>
-                                                                {color === 'yellow' ? (lang === 'ka' ? 'შეჩ.' : 'Susp.') : label}
+                                                                {color === 'yellow' ? label : (color === 'red' ? t.expired : label)}
                                                             </span>
                                                         )}
                                                     </div>
@@ -1058,8 +1064,7 @@ export default function AttendancePage() {
                                                                 return (
                                                                     <>
                                                                         <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30"></div>
-                                                                     <span className="shrink-0 text-[8px] md:text-[9px] font-black tracking-widest text-[#94a3b8]/40 uppercase inline-flex md:hidden">NO SUB</span>
-                                                                        <span className="shrink-0 text-[7px] font-black tracking-widest text-muted opacity-30 uppercase">NO SUB</span>
+                                                                     <span className="shrink-0 text-[8px] md:text-[9px] font-black tracking-widest text-[#94a3b8]/40 uppercase hidden md:inline-flex">NO SUB</span>
                                                                     </>
                                                                 );
                                                             }

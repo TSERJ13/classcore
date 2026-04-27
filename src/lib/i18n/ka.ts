@@ -101,6 +101,7 @@ export const ka: Translations = {
     clear: 'გასუფთავება',
     // Statuses
     expired: 'ვადაგასული',
+    expiredRecently: 'ამოიწურა',
     paused: 'შეჩერებული',
     inactive: 'არააქტიური',
     onLeave: 'შვებულება',

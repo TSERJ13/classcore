@@ -100,7 +100,8 @@ export const ru: Translations = {
     notes: 'Примечание',
     clear: 'Очистить',
     // Statuses
-    expired: 'Истёк',
+    expired: 'Просрочен',
+    expiredRecently: 'Истек',
     paused: 'Пауза',
     inactive: 'Неакт.',
     onLeave: 'Отпуск',

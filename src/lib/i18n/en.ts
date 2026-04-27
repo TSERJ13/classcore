@@ -101,6 +101,7 @@ export const en: Translations = {
     clear: 'Clear',
     // Statuses
     expired: 'Expired',
+    expiredRecently: 'Expired',
     paused: 'Paused',
     inactive: 'Inactive',
     onLeave: 'On Leave',
