@@ -767,7 +767,7 @@ export default function AttendancePage() {
                         </div>
 
                         {/* Stretched TALL Date Picker (Mobile) */}
-                        <div className="flex items-center justify-between bg-surface p-1 rounded-2xl border-2 border-border-subtle h-14 shadow-sm relative overflow-hidden group">
+                        <div className="flex items-center justify-between bg-surface p-1 rounded-2xl h-14 shadow-sm relative overflow-hidden group">
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
                                 className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
@@ -803,7 +803,7 @@ export default function AttendancePage() {
                                 {/* Desktop Date Picker */}
                                 {mounted && (
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group">
+                                        <div className="flex items-center justify-between bg-surface p-1 rounded-xl mb-1 relative overflow-hidden group">
                                             <button
                                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
                                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
@@ -1047,7 +1047,7 @@ export default function AttendancePage() {
                                                                         "shrink-0 text-[10px] font-black tabular-nums tracking-tighter flex items-center gap-1",
                                                                         remaining <= 3 ? "text-red-500" : "text-muted"
                                                                     )}>
-                                                                        {remaining}{t.visitShort || 'V'}
+                                                                        {remaining} {t.visit}
                                                                         {isSent && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 opacity-60" />}
                                                                     </span>
                                                                 </>
