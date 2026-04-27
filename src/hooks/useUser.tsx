@@ -57,7 +57,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 const { data: { user: u }, error: authError } = await supabase.auth.getUser();
                 const staffSess = getStaffSession();
                 const urlSlug = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null;
-
+                const excluded = ['dashboard', 'auth', 'admin', 'login', 'superadmin', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager', 'subscriptions', 'trash'];
+                
                 // 🚨 RESILIENCE: Use the statically imported getActiveSlug from settings-store
                 const fallbackSlug = getActiveSlug();
 
@@ -72,7 +73,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
                 
                 const currentUserIdentity = u?.email || staffSess?.staff?.email || staffSess?.staff?.phone || (staffSess as any)?.staff?.phone_number;
-                let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug || (urlSlug && urlSlug !== 'dashboard' && urlSlug !== 'login' ? urlSlug : null) || fallbackSlug;
+                let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug || (urlSlug && !excluded.includes(urlSlug) ? urlSlug : null) || fallbackSlug;
                 const isOwner = u?.user_metadata?.role === 'owner' || isSuperAdmin;
                 const isSuperAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/superadmin');
 
