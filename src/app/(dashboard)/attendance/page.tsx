@@ -777,13 +777,13 @@ export default function AttendancePage() {
                             
                             <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
                                 <StandardDatePicker
-                                    hideIcon={false}
+                                    hideIcon={true}
                                     value={dateKey}
                                     onChange={(val) => {
                                         const d = new Date(val);
                                         if (!isNaN(d.getTime())) setSelectedDate(d);
                                     }}
-                                    className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-10 [&_input]:!text-[12px] [&_input]:!font-black [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px]"
+                                    className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-0 [&_input]:!text-[14px] [&_input]:!font-black [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px] flex items-center justify-center"
                                 />
                             </div>
 
@@ -961,8 +961,37 @@ export default function AttendancePage() {
                                 ) : filtered.length > 0 ? filtered.map(st => {
                                     const state = att[st.id] ?? 'none';
                                     const isSel = selectedStudent === st.id;
-                                    const isFl = flash === st.id;
-                                    const { activeSub, isExpired } = getSubStatus(st.id);
+                                    const getStudentDisplay = () => {
+                                        const todayStr = getLocalISODate();
+                                        const active = getSubscription(st.id, cls?.group_id, (cls?.type as any) === 'individual' ? 'individual' : 'group');
+                                        
+                                        if (active) {
+                                            const hasExpiredByDate = active.expires_at < todayStr;
+                                            const hasUsedAllSessions = active.type === 'sessions' && active.sessions_total !== null && active.sessions_used >= active.sessions_total;
+                                            
+                                            if (hasExpiredByDate || hasUsedAllSessions) {
+                                                const expiryDate = new Date(active.expires_at);
+                                                const now = new Date();
+                                                const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
+                                                if (diff > 7) return { color: 'red', label: null, isExpired: true };
+                                                return { color: 'yellow', label: 'ამოიწურა', isExpired: true };
+                                            }
+                                            return { color: 'emerald', label: t.active, isExpired: false, activeSub: active };
+                                        }
+
+                                        // No active sub at all for this group/type - check if they EVER had one
+                                        const all = subs[st.id] || [];
+                                        if (all.length === 0) return { color: 'red', label: null, isExpired: true };
+                                        
+                                        const last = [...all].sort((a,b) => b.expires_at.localeCompare(a.expires_at))[0];
+                                        const expiryDate = new Date(last.expires_at);
+                                        const now = new Date();
+                                        const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
+                                        if (diff > 7) return { color: 'red', label: null, isExpired: true };
+                                        return { color: 'yellow', label: 'ამოიწურა', isExpired: true };
+                                    };
+
+                                    const { color, label, isExpired, activeSub } = getStudentDisplay();
 
                                     return (
                                         <div key={st.id}
@@ -981,14 +1010,14 @@ export default function AttendancePage() {
                                                 <div
                                                     className={cn(
                                                         "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative",
-                                                        state === 'present' ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" :
-                                                            state === 'absent' ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
-                                                                isExpired ? "border-red-500" : "border-border-subtle/80 hover:border-[#6d28d9]/50"
+                                                        color === 'emerald' ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" :
+                                                            color === 'yellow' ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
+                                                                "border-red-500 hover:border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.2)]"
                                                     )}
                                                 >
                                                     <span className={cn(
                                                         `w-full h-full rounded-full flex items-center justify-center transition-transform duration-300`,
-                                                        (isExpired || state === 'absent') ? "bg-red-500" : (state === 'present' ? "bg-emerald-500" : "bg-surface")
+                                                        !mounted ? "bg-surface" : (color === 'emerald' ? "bg-emerald-500" : (color === 'yellow' ? "bg-amber-500" : "bg-red-500"))
                                                     )}>
                                                         {st.photo_url ? (
                                                             <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
@@ -1007,9 +1036,12 @@ export default function AttendancePage() {
                                                         )}>
                                                             {st.full_name}
                                                         </p>
-                                                        {isExpired && (
-                                                            <span className="shrink-0 text-[7px] font-black tracking-widest text-red-500 px-2 py-0.5 rounded-md border border-red-500/20 bg-red-500/5 uppercase">
-                                                                {t.expired || 'EXPIRED'}
+                                                        {label && (
+                                                            <span className={cn(
+                                                                "shrink-0 text-[8px] font-black tracking-widest px-2 py-0.5 rounded-md border uppercase",
+                                                                color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : "text-amber-600 border-amber-500/20 bg-amber-500/5"
+                                                            )}>
+                                                                {label}
                                                             </span>
                                                         )}
                                                     </div>
