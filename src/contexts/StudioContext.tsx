@@ -161,23 +161,43 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             return next;
                         });
 
-                        // 🚨 HYBRID STUDENT RECOVERY: Deep search across all possible storage paths
+                        // 🚨 HYBRID RECOVERY: Deep search across all possible storage paths
                         let finalStudentsRaw = state.students || [];
                         if (finalStudentsRaw.length === 0) {
                             const backup = (state as any).settingsRecord?.data?.students || 
                                            (state as any).settingsRecord?.settings?.students ||
                                            (state as any).settingsRecord?.metadata?.students ||
                                            (state as any).studio?.settings?.students;
-                            if (backup) {
-                                console.log('🚚 [MasterSync] Recovering students from backup blob');
-                                finalStudentsRaw = Array.isArray(backup) ? backup : Object.values(backup);
-                            }
+                            if (backup) finalStudentsRaw = Array.isArray(backup) ? backup : Object.values(backup);
+                        }
+
+                        let finalPlansRaw = state.subscription_plans || [];
+                        if (finalPlansRaw.length === 0) {
+                            const backup = (state as any).settingsRecord?.data?.subscription_plans || 
+                                           (state as any).settingsRecord?.settings?.subscription_plans ||
+                                           (state as any).settingsRecord?.data?.plans ||
+                                           (state as any).settingsRecord?.settings?.plans;
+                            if (backup) finalPlansRaw = Array.isArray(backup) ? backup : Object.values(backup);
+                        }
+
+                        let finalSubsRaw = state.subscriptions || [];
+                        if (finalSubsRaw.length === 0) {
+                            const backup = (state as any).settingsRecord?.data?.subscriptions || 
+                                           (state as any).settingsRecord?.settings?.subscriptions;
+                            if (backup) finalSubsRaw = Array.isArray(backup) ? backup : Object.values(backup);
+                        }
+
+                        let finalHallsRaw = state.halls || [];
+                        if (finalHallsRaw.length === 0) {
+                            const backup = (state as any).settingsRecord?.data?.halls || 
+                                           (state as any).settingsRecord?.settings?.halls;
+                            if (backup) finalHallsRaw = Array.isArray(backup) ? backup : Object.values(backup);
                         }
 
                         const mapping: any = {
                             cc_teachers: unwrappedStaff,
                             cc_branches: state.branches,
-                            cc_halls: (unwrap(state.halls)?.length > 0) ? unwrap(state.halls) : JSON.parse(localStorage.getItem(getScopedKey('cc_halls', activeSlug)) || '[]'),
+                            cc_halls: (finalHallsRaw.length > 0) ? unwrap(finalHallsRaw) : JSON.parse(localHallsRaw || '[]'),
                             cc_groups: unwrap(state.groups),
                             cc_student_data: Array.isArray(finalStudentsRaw) 
                                 ? finalStudentsRaw.reduce((acc: any, s: any) => {
@@ -185,8 +205,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     return { ...acc, [student.id]: student };
                                 }, {})
                                 : finalStudentsRaw,
-                            cc_student_subscriptions: Array.isArray(state.subscriptions)
-                                ? state.subscriptions.reduce((acc: any, sub: any) => {
+                            cc_student_subscriptions: Array.isArray(finalSubsRaw)
+                                ? finalSubsRaw.reduce((acc: any, sub: any) => {
                                     const sId = sub.student_id || (sub.data as any)?.student_id;
                                     if (sId) {
                                         if (!acc[sId]) acc[sId] = [];
@@ -194,8 +214,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     }
                                     return acc;
                                 }, {})
-                                : state.subscriptions,
+                                : finalSubsRaw,
                             cc_calendar_events: unwrap(state.calendar_events),
+                            cc_subscription_plans: unwrap(finalPlansRaw),
                             cc_shop_sales: Array.isArray(state.sales)
                                 ? state.sales.reduce((acc: any, sale: any) => {
                                     const sId = sale.student_id;
