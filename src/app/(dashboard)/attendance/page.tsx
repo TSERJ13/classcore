@@ -903,7 +903,7 @@ export default function AttendancePage() {
                                                         students.forEach(s => {
                                                             const { isExpired } = getSubStatus(s.id);
                                                             if (n[s.id] !== 'present' && !isExpired) {
-                                                                recordCheckin(s.id, s.full_name, 'manual', selectedClass, selClass?.group_id, undefined, dateKey);
+                                                                recordCheckin(s.id, s.full_name, 'manual', selectedClass, cls?.group_id, undefined, dateKey);
                                                                 n[s.id] = 'present';
                                                             }
                                                         });
@@ -919,6 +919,7 @@ export default function AttendancePage() {
                                                                 students.forEach(s => {
                                                                     if (n[s.id] === 'present') {
                                                                         mod.refundCheckin(s.id);
+                                                                    }
                                                                     n[s.id] = 'none';
                                                                 });
                                                                 saveAttendance(n);
