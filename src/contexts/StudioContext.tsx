@@ -103,6 +103,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 
                 if (targetOrgId) {
                     // 🛡️ UNLOCK RLS: Ensure current user profile is linked to this studio's OrgID
+                    // This MUST happen BEFORE fetchFullStudioState to avoid empty results due to RLS
                     const { createClient } = await import("@/lib/supabase/client");
                     const sb = createClient();
                     const { data: { user } } = await sb.auth.getUser();
@@ -113,15 +114,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         await sb.auth.updateUser({ data: { org_id: targetOrgId } });
                     }
 
-                    const { getStudents } = await import("@/lib/student-store");
-                    const localStudents = getStudents();
-
+                    // 🔽 Now fetch the state with the unlocked identity
                     const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                     
                     if (state) {
                         // 🚨 UNIVERSAL CLOUD RESCUE: If local has more data than cloud (e.g. from mobile), PUSH IT UP
                         const collectionsToRescue = [
-                            { table: 'students', local: localStudents, cloud: state.students },
+                            { table: 'students', local: (await import("@/lib/student-store")).getStudents(), cloud: state.students },
                             { table: 'staff', local: (await import("@/lib/teacher-store")).getTeachers(), cloud: state.staff },
                             { table: 'groups', local: (await import("@/lib/group-store")).getGroups(), cloud: state.groups },
                             { table: 'halls', local: (await import("@/lib/hall-store")).getHalls(), cloud: state.halls },
