@@ -213,7 +213,6 @@ export default function AttendancePage() {
         
         let targetSchedule = rawSchedule;
         if (targetSchedule.length === 0) {
-            // Fallback: only show groups that have a defined slot for THIS day of the week
             targetSchedule = groups
                 .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
                 .map(g => {
@@ -769,15 +768,15 @@ export default function AttendancePage() {
                         {/* Stretched Date Picker (Mobile) */}
                         {mounted && (
                             <div className="w-full flex flex-col gap-2 relative z-20">
-                                <div className="flex items-center justify-between bg-surface p-1.5 rounded-2xl border-2 border-border-subtle/60 mb-1 relative overflow-hidden group shadow-sm">
+                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group h-12 shadow-sm">
                                     <button
                                         onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                        className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-90 flex-shrink-0 relative z-10"
+                                        className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
                                     >
-                                        <ChevronLeft className="w-5 h-5" />
+                                        <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
-                                    <div className="relative flex-1 flex items-center justify-center min-w-0 px-2">
+                                    <div className="relative flex-1 flex items-center justify-center min-w-0">
                                         <StandardDatePicker
                                             hideIcon={false}
                                             value={dateKey}
@@ -785,7 +784,7 @@ export default function AttendancePage() {
                                                 const d = new Date(val);
                                                 if (!isNaN(d.getTime())) setSelectedDate(d);
                                             }}
-                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-12 [&_input]:!text-[12px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-full"
+                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-bold [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px]"
                                         />
                                     </div>
 
@@ -973,15 +972,15 @@ export default function AttendancePage() {
                                         <div key={st.id}
                                             onClick={() => openProfile(st.id)}
                                             className={cn(
-                                                'w-full flex items-center gap-3 md:gap-4 p-3.5 md:p-5 rounded-[1.25rem] md:rounded-[2rem] transition-colors group border relative overflow-hidden cursor-pointer',
+                                                'w-full flex items-center justify-between gap-2 p-3.5 md:p-5 rounded-[1.25rem] md:rounded-[2rem] transition-colors group border relative overflow-hidden cursor-pointer',
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
                                                     isSel ? 'bg-#f5f3ff/50 border-#ddd6fe' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
                                                 isExpired && 'opacity-80'
                                             )}>
 
-                                            {/* Avatar/Toggle area */}
-                                            <div className="flex items-center gap-3 md:gap-4 relative z-10 flex-1 min-w-0">
+                                            {/* Avatar + Info (Flex-1) */}
+                                            <div className="flex items-center gap-2.5 md:gap-4 relative z-10 flex-1 min-w-0">
                                                 {/* Clickable photo for profile */}
                                                 <div
                                                     className={cn(
@@ -1086,35 +1085,35 @@ export default function AttendancePage() {
                                                 </div>
                                             </div>
 
-                                            {/* Attendance Toggle */}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (isExpired && state === 'none') {
-                                                        setSelectedStudent(st.id);
-                                                        setIssueModalOpen(true);
-                                                    } else {
-                                                        toggle(st.id);
-                                                    }
-                                                }}
-                                                className={cn(
-                                                    "shrink-0 relative z-30 w-9 h-9 rounded-xl border-2 flex items-center justify-center transition-all active:scale-90 ml-1.5",
-                                                    state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                        state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                            isExpired ? "bg-transparent border-red-500/30 text-red-500/60" :
-                                                                "bg-surface border-border-subtle text-muted/30"
-                                                )}
-                                            >
-                                                {state === 'present' ? (
-                                                    <Check className="w-5 h-5 stroke-[3]" />
-                                                ) : state === 'absent' ? (
-                                                    <X className="w-5 h-5 stroke-[3]" />
-                                                ) : isExpired ? (
-                                                    <Plus className="w-5 h-5 stroke-[3]" />
-                                                ) : (
-                                                    <Check className="w-5 h-5 stroke-[3] opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                                                )}
-                                            </button>
+                                            {/* Attendance Toggle (Fixed-width container to prevent drift) */}
+                                            <div className="flex-none relative z-20 pl-1">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (isExpired && state === 'none') {
+                                                            setSelectedStudent(st.id);
+                                                            setIssueModalOpen(true);
+                                                        } else {
+                                                            toggle(st.id);
+                                                        }
+                                                    }}
+                                                    className={cn(
+                                                        "w-10 h-10 md:w-12 md:h-12 rounded-xl border-2 flex items-center justify-center transition-all active:scale-90",
+                                                        state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                            state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                                isExpired ? "bg-transparent border-red-500/30 text-red-500/60" :
+                                                                    "bg-surface border-border-subtle text-muted/30"
+                                                    )}
+                                                >
+                                                    {state === 'present' ? (
+                                                        <Check className="w-5 h-5 stroke-[3]" />
+                                                    ) : state === 'absent' ? (
+                                                        <X className="w-5 h-5 stroke-[3]" />
+                                                    ) : (
+                                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                     );
                                 }) : (
