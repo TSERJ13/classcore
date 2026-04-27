@@ -768,7 +768,7 @@ export default function AttendancePage() {
                         {/* Stretched Date Picker (Mobile) */}
                         {mounted && (
                             <div className="w-full flex flex-col gap-2 relative z-20">
-                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-border-subtle mb-1 relative overflow-hidden group h-12 shadow-sm">
+                                <div className="flex items-center justify-between bg-surface p-1 rounded-xl border border-primary/20 mb-1 relative overflow-hidden group h-12 shadow-sm">
                                     <button
                                         onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
                                         className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
@@ -1009,13 +1009,7 @@ export default function AttendancePage() {
                                                             <p className={cn('text-xs md:text-sm font-black truncate leading-tight', state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary')}>
                                                                 {st.full_name}
                                                             </p>
-                                                            <p className={cn(
-                                                                "text-[9px] font-black opacity-60 truncate lg:hidden mt-0.5",
-                                                                st.gender === 'female' ? "text-pink-500" : "text-indigo-500"
-                                                            )}>
-                                                                {st.gender === 'male' ? t.maleShort : st.gender === 'female' ? t.femaleShort : ''} 
-                                                                <span className="text-muted">{st.birth_date ? ` ${calculateAge(st.birth_date)} ${t.yearsShort}` : ''}</span>
-                                                            </p>
+
                                                         </div>
                                                         <div className="shrink-0 flex flex-col items-end pt-0.5">
                                                             {(() => {
