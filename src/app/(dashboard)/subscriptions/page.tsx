@@ -175,9 +175,9 @@ export default function SubscriptionsPage() {
                         {/* Status Tabs */}
                         <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 w-fit">
                             {[
-                                { id: 'active', label: 'აქტ.', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
-                                { id: 'paused', label: 'შეჩ.', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
-                                { id: 'expired', label: 'ვად.', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
+                                { id: 'active', label: { ka: 'აქტ.', en: 'Act.', ru: 'Акт.' }[lang] || 'Act.', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'paused', label: { ka: 'შეჩ.', en: 'Susp.', ru: 'Приоз.' }[lang] || 'Susp.', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
+                                { id: 'expired', label: { ka: 'ვად.', en: 'Exp.', ru: 'Ист.' }[lang] || 'Exp.', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
