@@ -779,8 +779,9 @@ export default function AttendancePage() {
                     </div>
 
                     {/* Mobile Header / LARGE Date Picker */}
+                    {/* Mobile Header / LARGE Date Picker */}
                     <div className={cn(
-                        'flex lg:hidden flex-col gap-2 pt-2.5 pb-4 px-3 border-b transition-colors duration-300 relative w-full',
+                        'flex lg:hidden flex-col gap-2 pt-2.5 pb-4 transition-colors duration-300 relative w-full',
                         scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : 'bg-card'
                     )}>
 
@@ -791,7 +792,7 @@ export default function AttendancePage() {
                         </div>
 
                         {/* Stretched TALL Date Picker (Mobile) */}
-                        <div className="flex items-center justify-between bg-surface p-1 rounded-2xl h-14 shadow-sm relative overflow-hidden group">
+                        <div className="flex items-center justify-between bg-surface p-1 h-14 relative overflow-hidden group border-y border-border-subtle/50">
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
                                 className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
@@ -961,7 +962,7 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="lg:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 -mx-3 px-3 touch-pan-x relative z-30">
+                                <div className="lg:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 px-3 touch-pan-x relative z-30">
                                     {mounted && filteredSchedule.map(s => (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
@@ -975,7 +976,7 @@ export default function AttendancePage() {
                             </div>
 
                             {/* Main Student List Section */}
-                            <div className="flex-1 p-2 md:p-4 pb-24 md:pb-4 space-y-2.5 md:space-y-4 overflow-y-auto no-scrollbar overflow-x-hidden">
+                            <div className="flex-1 p-0 md:p-4 pb-24 md:pb-4 space-y-0.5 md:space-y-4 overflow-y-auto no-scrollbar overflow-x-hidden">
                                 {!mounted ? (
                                     <div className="space-y-4 px-2">
                                         {[1, 2, 3].map(i => (
@@ -995,7 +996,7 @@ export default function AttendancePage() {
                                         <div key={st.id}
                                             onClick={() => openProfile(st.id)}
                                             className={cn(
-                                                'w-full flex items-center justify-between gap-3 p-4 md:p-6 rounded-2xl md:rounded-[2rem] transition-all group border relative overflow-hidden cursor-pointer shadow-sm',
+                                                'w-full flex items-center justify-between gap-3 p-4 md:p-6 rounded-none md:rounded-[2rem] transition-all group border-b md:border md:relative overflow-hidden cursor-pointer',
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
                                                     isSel ? 'bg-#f5f3ff/50 border-#ddd6fe' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
