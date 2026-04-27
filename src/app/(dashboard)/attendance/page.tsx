@@ -209,25 +209,34 @@ export default function AttendancePage() {
     const rawSchedule = getEventsByDate(dateKey);
     
     const filteredSchedule = useMemo(() => {
-        if (rawSchedule.length === 0) {
-            // Fallback for days with no calendar events: Show all groups sorted alphabetically
-            return [...groups].sort((a, b) => a.name.localeCompare(b.name)).map(g => ({
-                id: `virtual-${g.id}`,
-                group_id: g.id,
-                title: g.name,
-                type: 'group',
-                color: (g as any).color || '#6d28d9',
-                start_time: '00:00',
-                end_time: '23:59'
-            } as any));
+        const dayOfWeek = (selectedDate.getDay() + 6) % 7;
+        
+        let targetSchedule = rawSchedule;
+        if (targetSchedule.length === 0) {
+            // Fallback: only show groups that have a defined slot for THIS day of the week
+            targetSchedule = groups
+                .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
+                .map(g => {
+                    const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
+                    return {
+                        id: `virtual-${g.id}`,
+                        group_id: g.id,
+                        title: g.name,
+                        type: 'group',
+                        color: g.color || '#6d28d9',
+                        start_time: slot?.startTime || '00:00',
+                        end_time: slot?.endTime || '23:59'
+                    };
+                }) as any;
         }
-        return rawSchedule.filter(ev => {
+
+        return targetSchedule.filter(ev => {
             if (profile?.role === 'teacher' || profile?.role === 'coach') {
                 return profile.assigned_group_ids?.includes(ev.group_id || '');
             }
             return true;
         }).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
-    }, [rawSchedule, profile, groups]);
+    }, [rawSchedule, profile, groups, selectedDate]);
 
     const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
@@ -768,7 +777,7 @@ export default function AttendancePage() {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
-                                    <div className="relative flex-1 flex items-center justify-center">
+                                    <div className="relative flex-1 flex items-center justify-center min-w-0 px-2">
                                         <StandardDatePicker
                                             hideIcon={false}
                                             value={dateKey}
@@ -776,7 +785,7 @@ export default function AttendancePage() {
                                                 const d = new Date(val);
                                                 if (!isNaN(d.getTime())) setSelectedDate(d);
                                             }}
-                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-10 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-full"
+                                            className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-12 [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!tracking-wider [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-full"
                                         />
                                     </div>
 

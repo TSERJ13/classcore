@@ -54,7 +54,7 @@ export function BottomNav() {
                             )}>
                                 <Icon className={cn("relative w-5 h-5", active ? "opacity-100" : "opacity-90")} strokeWidth={active ? 3 : 2} />
                             </div>
-                            <span className={cn("text-[8px] font-black uppercase tracking-widest truncate mt-0.5", active ? "opacity-100" : "opacity-65")}>
+                            <span className={cn("text-[7.5px] font-black uppercase tracking-tight truncate mt-0.5", active ? "opacity-100" : "opacity-65")}>
                                 {t[labelKey]}
                             </span>
                         </Link>
@@ -69,7 +69,7 @@ export function BottomNav() {
                     <div className="w-11 h-7 flex items-center justify-center">
                         <Menu className="w-5 h-5 opacity-90" strokeWidth={2} />
                     </div>
-                    <span className="text-[8px] font-black uppercase tracking-widest opacity-65">{t.more}</span>
+                    <span className="text-[7.5px] font-black uppercase tracking-tight opacity-65">{t.more}</span>
                 </button>
             </div>
         </nav>
