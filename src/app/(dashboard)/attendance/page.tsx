@@ -1039,10 +1039,10 @@ export default function AttendancePage() {
                                                         </p>
                                                         {label && (
                                                             <span className={cn(
-                                                                "shrink-0 text-[9px] font-black tracking-tighter px-2 py-0.5 rounded-md border uppercase hidden md:inline-flex",
+                                                                "shrink-0 text-[8px] md:text-[9px] font-black tracking-tighter px-1.5 md:px-2 py-0.5 rounded-md border uppercase inline-flex",
                                                                 color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : "text-amber-600 border-amber-500/20 bg-amber-500/5"
                                                             )}>
-                                                                {color === 'yellow' ? (lang === 'ka' ? 'შეჩერებული' : 'Suspended') : label}
+                                                                {color === 'yellow' ? (lang === 'ka' ? 'შეჩ.' : 'Susp.') : label}
                                                             </span>
                                                         )}
                                                     </div>
@@ -1058,6 +1058,7 @@ export default function AttendancePage() {
                                                                 return (
                                                                     <>
                                                                         <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30"></div>
+                                                                     <span className="shrink-0 text-[8px] md:text-[9px] font-black tracking-widest text-[#94a3b8]/40 uppercase inline-flex md:hidden">NO SUB</span>
                                                                         <span className="shrink-0 text-[7px] font-black tracking-widest text-muted opacity-30 uppercase">NO SUB</span>
                                                                     </>
                                                                 );
