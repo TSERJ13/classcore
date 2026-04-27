@@ -100,6 +100,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             try {
                 const { fetchFullStudioState, ensureStudioExists, pushCollectionToCloud } = await import("@/lib/master-sync");
                 const targetOrgId = await ensureStudioExists(activeSlug || "default", settings.studioName);
+                const localHallsRaw = localStorage.getItem(getScopedKey('cc_halls', activeSlug));
                 
                 if (targetOrgId) {
                     // 🛡️ UNLOCK RLS: Ensure current user profile is linked to this studio's OrgID
@@ -153,6 +154,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             staff: unwrappedStaff.length > 0 ? unwrappedStaff : settings.staff,
                             branches: state.branches?.length > 0 ? state.branches : settings.branches
                         };
+                        
+                        // 🔑 CRITICAL: Save orgId to localStorage FIRST so getScopedKey resolves correctly
+                        const settingsKey = `cc_studio_settings_${activeSlug}`;
+                        const existingRaw = localStorage.getItem(settingsKey);
+                        let existing: any = {};
+                        try { existing = existingRaw ? JSON.parse(existingRaw) : {}; } catch {}
+                        existing.orgId = targetOrgId;
+                        existing.studioSlug = activeSlug;
+                        localStorage.setItem(settingsKey, JSON.stringify({ ...existing, ...updates }));
+                        // Also set the override key for immediate resolution
+                        localStorage.setItem(`cc_org_id_override_${activeSlug}`, targetOrgId);
+                        localStorage.setItem(`cc_org_id_${activeSlug}`, targetOrgId);
                         
                         setSettings(prev => {
                             const next = { ...prev, ...updates, studioSlug: activeSlug };
@@ -227,8 +240,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 }, {})
                                 : state.sales,
                             cc_expenses: (state.expenses?.length > 0) ? unwrap(state.expenses) : [],
-                            cc_global_trash: (state.trash?.length > 0) ? unwrap(state.trash) : [],
-                            cc_subscription_plans: (state.subscription_plans?.length > 0) ? unwrap(state.subscription_plans) : []
+                            cc_global_trash: (state.trash?.length > 0) ? unwrap(state.trash) : []
                         };
 
                         // 🚨 ATTENDANCE RECONSTRUCTION: Cluster cloud logs by date
@@ -268,7 +280,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         localStorage.setItem('cc_active_studio_slug', activeSlug);
 
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
-                         'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update']
+                         'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
+                         'cc_subscription_plans_update']
                             .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
                     }
                 }
