@@ -63,13 +63,19 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
 
+    useEffect(() => {
+        if (defaultSlug) {
+            localStorage.setItem('cc_active_studio_slug', defaultSlug);
+        }
+    }, [defaultSlug]);
+
     const lastSyncedSlugRef = useRef<string | null>(null);
     useEffect(() => {
         async function bootstrap() {
-            let activeSlug = getActiveSlug();
+            let activeSlug = getActiveSlug() || defaultSlug;
             
             // EMERGENCY RECOVERY FOR stdancestudio
-            if (activeSlug === "subscriptions" || activeSlug === "settings" || !activeSlug) {
+            if (!activeSlug || activeSlug === "subscriptions" || activeSlug === "settings") {
                 const userEmail = profile?.email || (user as any)?.email;
                 if (userEmail === "stdancegroup@gmail.com") {
                     console.log("🚨 [Emergency] Redirecting corrupted slug to stdancestudio");
@@ -78,14 +84,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 }
             }
 
-            if (!activeSlug || ["superadmin", "dashboard", "auth", "admin", "login"].includes(activeSlug)) {
-                // If we have a defaultSlug from props, use it
-                if (defaultSlug && !["superadmin", "dashboard", "auth", "admin", "login"].includes(defaultSlug)) {
-                    activeSlug = defaultSlug;
-                } else {
-                    setIsLoaded(true);
-                    return;
-                }
+            if (!activeSlug || ["auth", "login", "superadmin"].includes(activeSlug)) {
+                setIsLoaded(true);
+                return;
             }
 
             console.log('🚀 [MasterSync] Bootstrapping for slug:', activeSlug);

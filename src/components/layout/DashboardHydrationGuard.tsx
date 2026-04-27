@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 export function DashboardHydrationGuard({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
-    const { settings } = useStudio();
+    const { settings, firstSyncDone } = useStudio();
     const { loading: authLoading, isVerified } = useUser();
     const router = useRouter();
     const pathname = usePathname();
@@ -41,7 +41,7 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
     // Block only the initial hydration to prevent server/client mismatch
     if (!mounted) return null;
 
-    const isLoading = authLoading || isVerified === null;
+    const isLoading = authLoading || isVerified === null || (!firstSyncDone && settings.studioSlug);
 
     return (
         <>
