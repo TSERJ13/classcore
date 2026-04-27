@@ -780,13 +780,12 @@ export default function AttendancePage() {
 
                     {/* Mobile Header / LARGE Date Picker */}
                     <div className={cn(
-                        'flex lg:hidden flex-col gap-3 pt-5 pb-4 px-3 border-b transition-colors duration-300 relative w-full',
+                        'flex lg:hidden flex-col gap-2 pt-2.5 pb-4 px-3 border-b transition-colors duration-300 relative w-full',
                         scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : 'bg-card'
                     )}>
-                        <div className="md:hidden pt-4" />
 
                         {/* Status Line */}
-                        <div className="flex items-center justify-center h-4 relative">
+                        <div className="flex items-center justify-center h-2 relative">
                             {scanError && <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full animate-bounce">{scanError}</span>}
                             {flash && <span className="text-[10px] font-black text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full">{t.success}</span>}
                         </div>
