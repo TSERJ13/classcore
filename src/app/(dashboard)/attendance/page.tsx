@@ -781,18 +781,18 @@ export default function AttendancePage() {
                     {/* Mobile Header / LARGE Date Picker */}
                     {/* Mobile Header / LARGE Date Picker */}
                     <div className={cn(
-                        'flex lg:hidden flex-col gap-2 pt-2.5 pb-4 transition-colors duration-300 relative w-full',
+                        'flex lg:hidden flex-col gap-1.5 pt-1.5 pb-2 transition-colors duration-300 relative w-full',
                         scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : 'bg-card'
                     )}>
 
                         {/* Status Line */}
-                        <div className="flex items-center justify-center h-2 relative">
+                        <div className="flex items-center justify-center h-1.5 relative">
                             {scanError && <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full animate-bounce">{scanError}</span>}
                             {flash && <span className="text-[10px] font-black text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full">{t.success}</span>}
                         </div>
 
                         {/* Stretched TALL Date Picker (Mobile) */}
-                        <div className="flex items-center justify-between bg-surface p-1 h-14 relative overflow-hidden group border-y border-border-subtle/50">
+                        <div className="flex items-center justify-between bg-surface p-1 h-12 relative overflow-hidden group border-y border-border-subtle/30">
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
                                 className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
