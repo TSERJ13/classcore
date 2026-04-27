@@ -168,7 +168,24 @@ export function getActiveSlug(): string | null {
 
 
     // 2. Fallback to localStorage
-    return localStorage.getItem(ACTIVE_SLUG_KEY);
+    const local = localStorage.getItem(ACTIVE_SLUG_KEY);
+    if (local) return local;
+
+    // 3. Last resort: Cookies
+    try {
+        const cookieSlug = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('cc_active_slug='))
+            ?.split('=')[1];
+        if (cookieSlug) {
+            localStorage.setItem(ACTIVE_SLUG_KEY, cookieSlug);
+            return cookieSlug;
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return null;
 }
 
 /** 
