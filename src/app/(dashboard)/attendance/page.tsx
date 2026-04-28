@@ -853,30 +853,33 @@ export default function AttendancePage() {
                                 {/* Desktop Date Picker */}
                                 {mounted && (
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between bg-surface p-1 rounded-xl mb-1 relative overflow-hidden group">
+                                        <div className="flex items-center gap-1 bg-surface border border-border-subtle/50 p-1 rounded-xl mb-1 relative overflow-hidden group shadow-sm hover:border-border-subtle transition-all">
                                             <button
                                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-colors active:scale-95 flex-shrink-0"
                                             >
-                                                <ChevronLeft className="w-4 h-4" />
+                                                <ChevronLeft className="w-3.5 h-3.5" />
                                             </button>
                                             
-                                            <div className="flex-1 flex items-center cursor-pointer active:scale-95 transition-transform">
+                                            <div className="flex-1 min-w-0">
                                                 <StandardDatePicker
                                                     value={dateKey}
+                                                    hideIcon={true}
                                                     onChange={(val) => {
                                                         const d = new Date(val);
                                                         if (!isNaN(d.getTime())) setSelectedDate(d);
                                                     }}
-                                                    className="flex-1 flex items-center [&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!py-1 [&_input]:!h-auto [&_input]:!pl-10 [&_input]:!text-[10px] [&_input]:!font-black [&_input]:!tracking-[0.05em] [&_input]:text-center [&_input]:!bg-transparent"
+                                                    className="w-full [&>div]:mt-0"
+                                                    style={{ margin: 0 }}
+                                                    inputClassName="!bg-transparent !border-none !shadow-none !p-0 !h-7 !pl-0 !text-[11px] !font-black !tracking-tight text-center !rounded-none"
                                                 />
                                             </div>
 
                                             <button
                                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-#5b21b6 transition-colors active:scale-95 flex-shrink-0 relative z-10"
+                                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-colors active:scale-95 flex-shrink-0"
                                             >
-                                                <ChevronRight className="w-4 h-4" />
+                                                <ChevronRight className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
                                     </div>
