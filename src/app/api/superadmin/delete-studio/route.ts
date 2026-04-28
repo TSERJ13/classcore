@@ -70,21 +70,31 @@ export async function POST(req: Request) {
         }
 
         // 4. Delete from BOTH tables to prevent "ghost" reappearances
-        const { error: deleteError1 } = await supabase
+        const { error: deleteError1, count: count1 } = await supabase
             .from('studio_settings')
-            .delete()
+            .delete({ count: 'exact' })
             .eq('studio_slug', targetSlug);
 
-        const { error: deleteError2 } = await supabase
+        const { error: deleteError2, count: count2 } = await supabase
             .from('studios')
-            .delete()
+            .delete({ count: 'exact' })
             .eq('studio_slug', targetSlug);
+
+        console.log(`🗑️ [DeleteAPI] Purged ${targetSlug}: Settings(${count1}), Master(${count2})`);
 
         if (deleteError1 || deleteError2) {
             console.error('❌ Deletion Error:', { e1: deleteError1, e2: deleteError2 });
+            return NextResponse.json({ 
+                error: 'Database deletion failed', 
+                details: { e1: deleteError1, e2: deleteError2 } 
+            }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true, message: `Studio "${targetSlug}" purged from all systems.` });
+        return NextResponse.json({ 
+            success: true, 
+            message: `Studio "${targetSlug}" purged. Rows: Settings(${count1}), Master(${count2})`,
+            deletedCount: { settings: count1, master: count2 }
+        });
     } catch (err: any) {
         console.error('❌ Delete Studio API Critical Error:', err);
         return NextResponse.json({ error: err.message }, { status: 500 });
