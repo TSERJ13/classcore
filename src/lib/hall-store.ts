@@ -112,6 +112,14 @@ export function saveHalls(halls: HallData[]): void {
                 const settings = loadSettings(activeSlug);
                 (settings as any).halls = halls;
                 saveSettings(settings, settings, activeSlug);
+                
+                // CRITICAL: Explicitly push this fallback to the cloud because saveSettings only saves locally!
+                import('./master-sync').then(({ syncRecordToCloud }) => {
+                    syncRecordToCloud('studio_settings', {
+                        org_id: orgId,
+                        settings: settings
+                    }, orgId);
+                });
             });
         } else {
             console.warn('⚠️ [HallStore] Local save only. Skip cloud sync: Missing valid OrgID');

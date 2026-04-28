@@ -85,6 +85,13 @@ export async function savePlans(plans: Plan[]): Promise<void> {
             const settings = loadSettings(activeSlug);
             (settings as any).subscription_plans = plans;
             saveSettings(settings, settings, activeSlug);
+            
+            import('./master-sync').then(({ syncRecordToCloud }) => {
+                syncRecordToCloud('studio_settings', {
+                    org_id: orgId,
+                    settings: settings
+                }, orgId);
+            });
         });
     }
 

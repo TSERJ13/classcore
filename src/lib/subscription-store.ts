@@ -201,6 +201,13 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             const settings = loadSettings(activeSlug);
             (settings as any).subscriptions = Object.values(updatedSubs).flat();
             saveSettings(settings, settings, activeSlug);
+            
+            import('./master-sync').then(({ syncRecordToCloud }) => {
+                syncRecordToCloud('studio_settings', {
+                    org_id: orgId,
+                    settings: settings
+                }, orgId);
+            });
         });
     }
 
