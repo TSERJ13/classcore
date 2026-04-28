@@ -407,19 +407,21 @@ export default function StudiosPage() {
             setOpenMenu(null);
             console.log(`✅ Plan updated to ${plan} for ${slug}`);
 
-            // If switching FROM trial TO a paid plan, also trigger a manual activation/payment record
             if (oldPlan === 'trial' && plan !== 'trial') {
-            setModal({
-                type: 'confirm',
-                title: t.sa_studios_colPlan,
-                message: `${t.sa_studios_colStudio} "${slug}" -> ${plan.toUpperCase()}. ${t.sa_studios_successTitle}?`,
-                onConfirm: () => {
-                    recordPayment(slug, 'cash', 49, 1);
-                    syncStudio(slug);
-                    loadData();
-                    setModal({ type: null, title: '', message: '' });
-                }
-            });
+                setModal({
+                    type: 'confirm',
+                    title: t.sa_studios_colPlan,
+                    message: `${t.sa_studios_colStudio} "${slug}" -> ${plan.toUpperCase()}. ${t.sa_studios_successTitle}?`,
+                    onConfirm: () => {
+                        recordPayment(slug, 'cash', 49, 1);
+                        syncStudio(slug);
+                        loadData();
+                        setModal({ type: null, title: '', message: '' });
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('❌ Plan update failed:', err);
         }
     };
 

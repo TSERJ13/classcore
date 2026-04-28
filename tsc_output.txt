@@ -1,0 +1,8 @@
+src/app/(superadmin)/superadmin/studios/page.tsx(4,22): error TS2307: Cannot find module '@/contexts/LanguageContext' or its corresponding type declarations.
+src/app/(superadmin)/superadmin/studios/page.tsx(6,114): error TS2307: Cannot find module '@/lib/saas-billing' or its corresponding type declarations.
+src/app/(superadmin)/superadmin/studios/page.tsx(7,27): error TS2307: Cannot find module '@/lib/analytics' or its corresponding type declarations.
+src/app/(superadmin)/superadmin/studios/page.tsx(8,159): error TS2307: Cannot find module '@/lib/settings-store' or its corresponding type declarations.
+src/app/(superadmin)/superadmin/studios/page.tsx(9,50): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+src/app/(superadmin)/superadmin/studios/page.tsx(11,59): error TS2307: Cannot find module '@/lib/sync-store' or its corresponding type declarations.
+src/app/(superadmin)/superadmin/studios/page.tsx(12,41): error TS2307: Cannot find module '@/lib/admin-sync' or its corresponding type declarations.
+src/app/(superadmin)/superadmin/studios/page.tsx(687,76): error TS2802: Type 'Set<unknown>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
