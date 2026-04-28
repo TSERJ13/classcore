@@ -1082,8 +1082,7 @@ export default function AttendancePage() {
                                                                 return (
                                                                     <>
                                                                         <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30"></div>
-                                                                     <span className="shrink-0 text-[8px] md:text-[9px] font-black tracking-widest text-[#94a3b8]/40 uppercase hidden md:inline-flex">NO SUB</span>
-                                                                    </>
+                                                                     </>
                                                                 );
                                                             }
 

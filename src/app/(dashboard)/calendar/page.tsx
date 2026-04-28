@@ -295,11 +295,8 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
             )}
             style={style}>
 
-            {/* Opaque neutral background to hide gridlines */}
-            <div className="absolute inset-0 bg-card pointer-events-none" />
-
-            {/* 25% opacity tint of the selected color for the background */}
-            <div className="absolute inset-0 pointer-events-none mix-blend-multiply opacity-[0.25]" style={{ backgroundColor: color }} />
+            {/* Pure Solid background */}
+            <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: color }} />
 
             {/* Dark/Pure solid left border */}
             <div className="absolute left-0 top-0 bottom-0 w-1 pointer-events-none" style={{ backgroundColor: color }} />
@@ -307,11 +304,11 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
             {/* Content properly positioned above backgrounds */}
             <div className="relative z-10 flex h-full w-full items-center gap-1.5 overflow-hidden px-2 py-1">
                 <div className="flex flex-col flex-1 min-w-0 h-full justify-center overflow-hidden">
-                    <span className={cn("truncate font-black leading-tight text-primary/90", compact ? "text-[8px]" : "text-[11px] sm:text-[12px] opacity-80")}>
+                    <span className={cn("truncate font-black leading-tight text-white", compact ? "text-[8px]" : "text-[11px] sm:text-[12px]")}>
                         {ev.title}
                     </span>
                     {teacher && !compact && (
-                        <span className="text-[10px] font-bold text-primary/40 truncate leading-none mt-1">
+                        <span className="text-[10px] font-bold text-white/70 truncate leading-none mt-1">
                             {teacher.full_name}
                         </span>
                     )}
@@ -1733,13 +1730,20 @@ export default function CalendarPage() {
             if (!silent) alert(lang === 'ka' ? 'ჯგუფები არ მოიძებნა' : 'No groups found');
             return;
         }
+
+        // AGGRESSIVE CLEANUP: Remove all recurring events first to avoid duplicates or fragmented hall IDs
+        const existingEvents = getEvents();
+        const manualEvents = existingEvents.filter(e => !e.group_id);
+        saveEvents(manualEvents);
         
         let count = 0;
         for (const g of allGroups) {
             if (g.schedule_slots && g.schedule_slots.length > 0) {
-                // Find hall to get its color and ensure valid ID
+                // Determine the correct hall ID - use the one assigned to group, or the first available
                 let hall = halls.find((h: any) => h.id === g.hall_id);
-                if (!hall && halls.length > 0) hall = halls[0]; // Fallback to first available hall
+                if (!hall && halls.length > 0) {
+                    hall = halls[0]; // Auto-assign to first hall if none specified
+                }
                 
                 const hallId = hall?.id || 'h1';
                 const hallColor = hall?.color || '#6366f1';
@@ -1757,7 +1761,9 @@ export default function CalendarPage() {
             }
         }
         setEvents(getEvents());
-        if (!silent) alert(lang === 'ka' ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა!` : `Successfully synced ${count} group schedules!`);
+        if (!silent) alert(lang === 'ka' 
+            ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა! თუ კალენდარი მაინც ცარიელია, დარწმუნდით რომ ჯგუფებს მიენიჭა შესაბამისი დარბაზი.` 
+            : `Successfully synced ${count} group schedules! If the calendar is still empty, make sure groups are assigned to the correct hall.`);
     };
 
     // Aggressive Auto-sync on mount to ensure Groups always appear in Calendar automatically
@@ -2039,10 +2045,10 @@ export default function CalendarPage() {
                         <button key={h.id}
                             onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
                             className={cn('flex items-center gap-2 px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
-                                filterHall === h.id ? 'opacity-100 shadow-md ring-2 ring-offset-1' : 'opacity-60 hover:opacity-100')}
+                                filterHall === h.id ? 'opacity-100 shadow-md ring-2 ring-offset-1 scale-105' : 'opacity-60 hover:opacity-100')}
                             style={{ 
-                                backgroundColor: filterHall === h.id ? h.color : h.color + '10', 
-                                borderColor: h.color + '40', 
+                                backgroundColor: filterHall === h.id ? h.color : 'transparent', 
+                                borderColor: h.color + '60', 
                                 color: filterHall === h.id ? 'white' : h.color,
                                 boxShadow: filterHall === h.id ? `0 4px 12px ${h.color}40` : '',
                                 '--ring-color': h.color
