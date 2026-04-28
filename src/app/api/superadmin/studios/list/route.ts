@@ -26,28 +26,31 @@ export async function GET() {
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        const { data, error } = await supabase
+        // 🚨 Base selection from the master 'studios' table
+        const { data: stdData, error: stdError } = await supabase
+            .from('studios')
+            .select('studio_slug, owner_info, studio_name, logo_url, created_at')
+            .order('created_at', { ascending: false });
+
+        if (stdError) throw stdError;
+
+        // Fetch rich data from 'studio_settings' for those that have synced
+        const { data: settingsData } = await supabase
             .from('studio_settings')
-            .select('studio_slug, staff_data, updated_at')
-            .order('updated_at', { ascending: false })
-            .limit(500);
-
-        if (error) throw error;
-
-        // Fetch fallback data from 'studios' table because operations can sometimes be wiped/empty
-        const { data: stdData } = await supabase.from('studios').select('studio_slug, owner_info, studio_name, logo_url');
-        const stdMap = new Map();
-        if (stdData) {
-            stdData.forEach(s => stdMap.set(s.studio_slug, s));
+            .select('studio_slug, staff_data, updated_at');
+        
+        const settingsMap = new Map();
+        if (settingsData) {
+            settingsData.forEach(s => settingsMap.set(s.studio_slug, s));
         }
 
-        // Process data to extract owner info
-        const studios = data.map(row => {
+        // Process data using 'studios' as the base
+        const studios = stdData.map(row => {
             const targetSlug = row.studio_slug;
-            const masterStudio = stdMap.get(targetSlug) || {};
-            const fallbackOwner = masterStudio.owner_info || {};
+            const settingsRow = settingsMap.get(targetSlug) || {};
+            const fallbackOwner = row.owner_info || {};
 
-            const staffDataObj = row.staff_data || {};
+            const staffDataObj = settingsRow.staff_data || {};
             const isUnified = staffDataObj && !Array.isArray(staffDataObj) && (staffDataObj._staff || staffDataObj._operations);
             
             const allStaff = isUnified 
@@ -127,12 +130,12 @@ export async function GET() {
 
             return {
                 slug: row.studio_slug,
-                name: settingsObj.studioName || studioConfig.studioName || masterStudio.studio_name || row.studio_slug,
+                name: settingsObj.studioName || studioConfig.studioName || row.studio_name || row.studio_slug,
                 ownerName,
                 ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || fallbackOwner.email || 'N/A',
                 ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || fallbackOwner.phone || 'N/A',
-                updatedAt: row.updated_at,
-                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || settingsObj.logo_url || studioConfig.logo_url || settingsObj.logo || studioConfig.logo || masterStudio.logo_url || null,
+                updatedAt: settingsRow.updated_at || row.created_at,
+                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || settingsObj.logo_url || studioConfig.logo_url || settingsObj.logo || studioConfig.logo || row.logo_url || null,
                 studentCount,
                 groupCount,
                 hallCount,

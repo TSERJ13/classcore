@@ -76,8 +76,8 @@ export default function RegistrationPage() {
             const studioSlug = compactSlugify(studioName);
             console.log('📝 [Registration] Generated slug:', studioSlug, 'for studio:', studioName);
 
-            if (!studioSlug) {
-                throw new Error(l('გთხოვთ შეიყვანოთ ვალიდური სტუდიის სახელი', 'Пожалуйста, введите корректное название студии', 'Please enter a valid studio name'));
+            if (!studioSlug || studioSlug.length < 2) {
+                throw new Error(l('გთხოვთ შეიყვანოთ ვალიდური სტუდიის სახელი (მინ. 2 სიმბოლო)', 'Пожалуйста, введите корректное название студии (мин. 2 символа)', 'Please enter a valid studio name (min. 2 chars)'));
             }
             
             const { error: authError } = await supabase.auth.signUp({
@@ -104,10 +104,8 @@ export default function RegistrationPage() {
             if (typeof window !== 'undefined') {
                 Object.keys(localStorage).forEach(key => {
                     // We remove everything that could contain data (students, calendar, checkins etc.)
-                    // but keep the language preference and the active slug we just worked with.
-                    if (key.startsWith('cc_') && 
-                        !key.includes('lang') && 
-                        !key.includes('active_studio_slug')) {
+                    // CRITICAL FIX: We MUST also remove the active slug and branch data!
+                    if (key.startsWith('cc_') && !key.includes('lang')) {
                         localStorage.removeItem(key);
                     }
                 });
