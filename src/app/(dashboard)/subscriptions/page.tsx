@@ -25,7 +25,11 @@ export default function SubscriptionsPage() {
         function load() { setSubsData(getSubscriptions() || {}); }
         load();
         window.addEventListener('cc_subscription_update', load);
-        return () => window.removeEventListener('cc_subscription_update', load);
+        window.addEventListener('cc_student_update', load);
+        return () => {
+            window.removeEventListener('cc_subscription_update', load);
+            window.removeEventListener('cc_student_update', load);
+        };
     }, []);
 
     // Flatten and sort subscriptions (newest first)
@@ -182,6 +186,16 @@ export default function SubscriptionsPage() {
     };
     const handleDelete = async (studentId: string, id: string) => {
         if (await confirm(t.deleteSubConfirm || 'ნამდვილად გსურთ წაშლა?')) {
+            // Optimistic Update: Hide immediately in UI
+            setSubsData(prev => {
+                const next = { ...prev };
+                if (next[studentId]) {
+                    next[studentId] = next[studentId].filter(s => s.id !== id);
+                    if (next[studentId].length === 0) delete next[studentId];
+                }
+                return next;
+            });
+            
             deleteSubscription(studentId, id);
             setEditing(null);
         }

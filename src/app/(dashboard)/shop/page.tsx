@@ -379,7 +379,7 @@ export default function ShopPage() {
 
                             {/* Actions - faint by default, prominent on hover */}
                             <div className="absolute top-4 right-4 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
-                                <button
+                                   <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setEditingProduct(product);
@@ -389,6 +389,17 @@ export default function ShopPage() {
                                     className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-amber-600 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all"
                                 >
                                     <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (await confirm(t.confirmDelete)) {
+                                            saveProducts(products.filter(p => p.id !== product.id));
+                                        }
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                             </div>
                         </div>

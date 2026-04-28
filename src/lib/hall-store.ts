@@ -144,16 +144,22 @@ export function deleteHall(id: string): void {
 
     // CLOUD SYNC: Remove from Supabase
     if (typeof window !== 'undefined') {
-        const activeSlug = getActiveSlug();
+        const activeSlug = getActiveSlug() || '';
         const settings = loadSettings(activeSlug);
-        const orgId = settings.orgId || 
-                     localStorage.getItem(`cc_org_id_override_${activeSlug}`) || 
-                     localStorage.getItem(`cc_org_id_${activeSlug}`);
-                     
-        if (activeSlug) recordGlobalDeletion(activeSlug, BASE_HALLS_KEY, id);
-        
+        const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+
         if (orgId && orgId !== 'demo') {
-            deleteRecordFromCloud('halls', id, orgId);
+            deleteRecordFromCloud('halls', id, orgId).catch(() => {});
+
+            // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Update the settings blob too
+            const updatedSettings = { ...settings, halls: updated };
+            import('./settings-store').then(({ saveSettings }) => {
+                saveSettings({ halls: updated } as any, settings, activeSlug);
+                const studioName = (settings as any).studioName || 'S_T Dance Studio';
+                import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                    pushFullStudioMetadata(activeSlug, studioName, updatedSettings);
+                });
+            });
         }
     }
 

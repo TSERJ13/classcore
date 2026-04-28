@@ -754,7 +754,7 @@ export const ka: Translations = {
     enrolledGroups: 'ჩარიცხულია ჯგუფებში',
     noGroupsFound: 'ჯგუფები არ არის მოძიებული',
     download: 'გადმოწერა',
-    confirmDelete: 'ნამდვილად გსურთ წაშლა?',
+    confirmDelete: 'ნამდვილად გსურთ ამოშლა?',
     purchases: 'შესყიდვები',
     lessonsUnits: 'გაკვეთილი',
     totalStaff: 'სულ თანამშრომელი',

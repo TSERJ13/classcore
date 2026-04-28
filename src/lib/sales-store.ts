@@ -16,7 +16,8 @@ export interface ShopSale {
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
-import { pushStudioStateToCloud } from './sync-store';
+import { loadSettings, saveSettings } from './settings-store';
+import { syncRecordToCloud, deleteRecordFromCloud, pushFullStudioMetadata } from './master-sync';
 
 const BASE_SALES_KEY = 'cc_shop_sales';
 function getSalesKey() { return getScopedKey(BASE_SALES_KEY); }
@@ -56,8 +57,23 @@ export function recordSale(sale: Omit<ShopSale, 'id' | 'date' | 'time'>) {
     markLocalUpdate();
     
     const activeSlug = getActiveSlug();
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { [getSalesKey()]: [newSale, ...existing] });
+    const settings = loadSettings(activeSlug || '');
+    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    
+    if (orgId && orgId !== 'demo') {
+        const fullList = [newSale, ...existing];
+        syncRecordToCloud('sales', {
+            id: newSale.id,
+            org_id: orgId,
+            student_id: sale.studentId,
+            data: newSale
+        }, orgId).catch(() => {});
+
+        // Sync backup blob
+        const updatedSettings = { ...settings, sales: fullList };
+        saveSettings({ sales: fullList } as any, settings, activeSlug || '');
+        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_shop_update'));
     return newSale;
@@ -70,8 +86,17 @@ export function deleteSale(id: string) {
     markLocalUpdate();
     
     const activeSlug = getActiveSlug();
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { [getSalesKey()]: updated });
+    const settings = loadSettings(activeSlug || '');
+    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    
+    if (orgId && orgId !== 'demo') {
+        deleteRecordFromCloud('sales', id, orgId).catch(() => {});
+
+        // Sync backup blob
+        const updatedSettings = { ...settings, sales: updated };
+        saveSettings({ sales: updated } as any, settings, activeSlug || '');
+        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_shop_update'));
 }

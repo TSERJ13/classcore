@@ -11,6 +11,7 @@ import { syncRecordToCloud } from './master-sync';
  */
 
 export interface CheckinRecord {
+    id: string; // Atomic record ID
     studentId: string;
     studentName: string;
     date: string;        // YYYY-MM-DD
@@ -125,16 +126,21 @@ export function refundCheckin(studentId: string): void {
         // Remove only the latest checkin from today
         const updated = [...existing];
         const idx = updated.findLastIndex(r => r.studentId === studentId);
-        if (idx > -1) updated.splice(idx, 1);
-        localStorage.setItem(dayKey(), JSON.stringify(updated));
-        markLocalUpdate();
+        if (idx > -1) {
+            const rToDelete = updated[idx];
+            updated.splice(idx, 1);
+            localStorage.setItem(dayKey(), JSON.stringify(updated));
+            markLocalUpdate();
 
-        // Standardized Cloud Sync
-        const activeSlug = getActiveSlug();
-        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            pushStudioStateToCloud(activeSlug, [], { [dayKey()]: updated });
+            const activeSlug = getActiveSlug();
+            const settings = loadSettings(activeSlug || '');
+            const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+            if (orgId && orgId !== 'demo' && rToDelete.id) {
+                import('./master-sync').then(({ deleteRecordFromCloud }) => {
+                    deleteRecordFromCloud('attendance', rToDelete.id, orgId);
+                });
+            }
         }
-
 
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
@@ -155,7 +161,10 @@ function _writeCheckin(
 
     const next = hasSubscription ? getSessionsRemaining(studentId, groupId) : -1;
     const dateToUse = customDate || today();
+    const checkinId = `att_${studentId}_${dateToUse}_${Date.now()}`;
+    
     const record: CheckinRecord = {
+        id: checkinId,
         studentId,
         studentName,
         date: dateToUse,
@@ -177,7 +186,7 @@ function _writeCheckin(
     const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
     if (orgId && orgId !== 'demo') {
         syncRecordToCloud('attendance', {
-            id: `att_${studentId}_${dateToUse}_${Date.now()}`,
+            id: checkinId,
             org_id: orgId,
             student_id: studentId,
             group_id: groupId || 'none',
@@ -188,11 +197,7 @@ function _writeCheckin(
         }, orgId);
     }
 
-    // Legacy sync trigger
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { [key]: updated });
-    }
-
+    // Legacy sync trigger removed (Native SYNC prioritized)
 
     // GLOBAL AUDIT LOG
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
@@ -289,6 +294,7 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
     const idx = existing.findIndex(r => r.studentId === studentId && (r.time === time || !time));
 
     if (idx > -1) {
+        const rToDelete = existing[idx];
         // Refund session
         refundSessionsUsed(studentId);
 
@@ -304,10 +310,13 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
 
         // Standardized Cloud Sync
         const activeSlug = getActiveSlug();
-        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            pushStudioStateToCloud(activeSlug, [], { [key]: updated });
+        const settings = loadSettings(activeSlug || '');
+        const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+        if (orgId && orgId !== 'demo' && rToDelete.id) {
+            import('./master-sync').then(({ deleteRecordFromCloud }) => {
+                deleteRecordFromCloud('attendance', rToDelete.id, orgId);
+            });
         }
-
 
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }

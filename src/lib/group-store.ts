@@ -255,11 +255,23 @@ export function deleteGroup(id: string): void {
     const updated = groups.filter(g => g.id !== id);
     
     const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    const activeSlug = getActiveSlug();
+    const settings = loadSettings(activeSlug || '');
+    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+
+    if (orgId && orgId !== 'demo') {
+        // 1. Native table delete
+        deleteRecordFromCloud('groups', id, orgId).catch(() => {});
+
+        // 2. Backup blob update
+        const updatedSettings = { ...settings, groups: updated };
+        saveSettings({ groups: updated } as any, settings, activeSlug || '');
+        
+        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
+    }
+
     if (slug) {
-        const settings = loadSettings(slug);
-        if (settings.orgId) {
-            deleteRecordFromCloud('groups', id, settings.orgId);
-        }
         recordGlobalDeletion(slug, 'cc_groups', id);
     }
 

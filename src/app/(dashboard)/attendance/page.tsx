@@ -14,7 +14,7 @@ import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, 
 import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { getSubscriptions, getSubscription, saveSubscription, pauseActiveSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getSubscriptions, getSubscription, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getEventsByDate, getEvents } from '@/lib/event-store';
 import { getTeacherName } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
@@ -25,7 +25,7 @@ import { ArrowLeftRight } from 'lucide-react';
 import { getPlans } from '@/lib/plan-store';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
-import { getStudentSales, recordSale, type ShopSale } from '@/lib/sales-store';
+import { getStudentSales, recordSale, deleteSale, type ShopSale } from '@/lib/sales-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
@@ -1336,7 +1336,6 @@ export default function AttendancePage() {
                                                             )) : <div className="text-center py-12 opacity-30 font-black text-[10px] tracking-widest">{t.noData}</div>}
                                                         </div>
                                                     )}
-                                                    {/* Other tabs follow the same clean pattern but are slightly more condensed to prevent overflow */}
                                                     {activeTab === 'subs' && (
                                                         <div className="space-y-4 pb-24">
                                                             {(subs[selStudent.id] || []).map((sub, idx) => {
@@ -1346,9 +1345,26 @@ export default function AttendancePage() {
                                                                     <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-#6d28d9/5 border-#6d28d9/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
                                                                         <div className="flex justify-between items-start mb-3">
                                                                             <div className="flex items-center gap-2">
-                                                                                <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{sub.status.toUpperCase()}</span>
+                                                                                <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{ (sub.status || "active").toUpperCase()}</span>
                                                                                 <span className="text-[9px] font-bold text-muted opacity-40">{sub.purchased_at}</span>
                                                                             </div>
+                                                                            <button onClick={async (e) => { 
+                                                                                e.stopPropagation(); 
+                                                                                if (await confirm(t.confirmDelete)) { 
+                                                                                    // Optimistic Update
+                                                                                    setSubs(prev => {
+                                                                                        const next = { ...prev };
+                                                                                        if (next[selStudent.id]) {
+                                                                                            next[selStudent.id] = next[selStudent.id].filter(s => s.id !== sub.id);
+                                                                                        }
+                                                                                        return next;
+                                                                                    });
+                                                                                    deleteSubscription(selStudent.id, sub.id); 
+                                                                                } 
+                                                                            }}
+                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted/40 hover:text-red-500 transition-all">
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </button>
                                                                         </div>
                                                                         <p className="text-sm font-black text-primary leading-snug mb-3">{sub.plan}</p>
                                                                         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border-subtle/20">
@@ -1364,6 +1380,27 @@ export default function AttendancePage() {
                                                                     </div>
                                                                 );
                                                             })}
+                                                        </div>
+                                                    )}
+                                                    {activeTab === 'products' && (
+                                                        <div className="space-y-3 pb-24">
+                                                            {getStudentSales(selStudent.id).length > 0 ? getStudentSales(selStudent.id).map((sale, i) => (
+                                                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-rose-500/30 transition-all">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shrink-0">
+                                                                            <ShoppingCart className="w-5 h-5" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="text-xs font-black text-primary leading-tight">{sale.productName}</p>
+                                                                            <p className="text-[10px] font-bold text-muted opacity-60 mt-0.5">{sale.date} · {sale.price}₾</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteSale(sale.id); setSubs(getSubscriptions()); } }}
+                                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            )) : <div className="text-center py-12 opacity-30 font-black text-[10px] tracking-widest">{t.noData}</div>}
                                                         </div>
                                                     )}
                                                 </div>

@@ -27,11 +27,11 @@ export interface SubscriptionInfo {
 
 type SubMap = Record<string, SubscriptionInfo[]>;
 
-import { getStaffSession, loadSettings } from './settings-store';
+import { getStaffSession, loadSettings, saveSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
-import { syncRecordToCloud } from './master-sync';
+import { syncRecordToCloud, deleteRecordFromCloud, pushFullStudioMetadata } from './master-sync';
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';
 const BASE_DELETED_SUBS_KEY = 'cc_deleted_subscriptions';
@@ -68,6 +68,39 @@ export function getSubscriptions(): SubMap {
             }
         }
 
+        // 🔥 NEW: Cleanup orphaned subscriptions for deleted students
+        const studentDataRaw = typeof window !== 'undefined' ? localStorage.getItem(getScopedKey('cc_student_data')) : null;
+        let studentIds = new Set<string>();
+        let studentsLoaded = false;
+        
+        if (studentDataRaw) {
+            try {
+                const parsed = JSON.parse(studentDataRaw);
+                const students = Array.isArray(parsed) ? parsed : Object.values(parsed);
+                if (students.length > 0) {
+                    studentIds = new Set(students.map((s: any) => s.id));
+                    studentsLoaded = true;
+                }
+            } catch (e) {
+                console.warn('⚠️ [SubscriptionStore] Failed to parse student data for cleanup:', e);
+            }
+        }
+
+        if (studentsLoaded) {
+            let cleaned = false;
+            const data = saved ? JSON.parse(saved) : INITIAL_SUBS;
+            Object.keys(data).forEach(sid => {
+                if (!studentIds.has(sid)) {
+                    delete data[sid];
+                    cleaned = true;
+                }
+            });
+            if (cleaned) {
+                localStorage.setItem(getSubsKey(), JSON.stringify(data));
+                cachedSubs = data;
+            }
+        }
+
         const deletedKey = getDeletedSubsKey();
         let deletedSubIds = new Set<string>();
         try {
@@ -88,8 +121,19 @@ export function getSubscriptions(): SubMap {
             data = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
         }
 
-        // Filter out deleted IDs and Normalize data
+        // Filter and Normalize data
+        const allStudents = getStudents();
+        const studentIdSet = new Set(allStudents.map(s => s.id));
+        let dataChanged = false;
+
         Object.keys(data).forEach(studentId => {
+            // Safety: Only delete from local if we have a robust list of students
+            // and we are CERTAIN this student is missing (not just a sync delay)
+            if (studentsLoaded && !studentIds.has(studentId)) {
+                delete data[studentId];
+                dataChanged = true;
+                return;
+            }
             if (Array.isArray(data[studentId])) {
                 data[studentId] = data[studentId]
                     .filter(sub => !deletedSubIds.has(sub.id))
@@ -101,11 +145,17 @@ export function getSubscriptions(): SubMap {
                     }));
             } else {
                 delete data[studentId];
+                dataChanged = true;
             }
             if (data[studentId]?.length === 0) {
                 delete data[studentId];
+                dataChanged = true;
             }
         });
+
+        if (dataChanged) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
 
         // Migration: Old format was Record<string, SubscriptionInfo>
         // and keys were '1', '2' instead of 'S-2051' etc.
@@ -189,29 +239,25 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     const activeSlug = getActiveSlug();
     const settings = loadSettings(activeSlug || '');
     const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    
     if (orgId && orgId !== 'demo') {
-        syncRecordToCloud('subscriptions', {
+        const payload = {
             id: info.id || `sub_${Date.now()}`,
             org_id: orgId,
-            student_id: studentId
-        }, orgId).catch(() => {});
-
-    // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
-    import('./settings-store').then(({ loadSettings, saveSettings }) => {
-        const settings = loadSettings(activeSlug);
-        (settings as any).subscriptions = Object.values(data).flat();
-        saveSettings(settings, settings, activeSlug);
+            student_id: studentId,
+            data: info
+        };
         
-        import('./master-sync').then(({ pushFullStudioMetadata }) => {
-            const studioName = (settings as any).studioName || 'S_T Dance Studio';
-            pushFullStudioMetadata(activeSlug, studioName, settings);
-        });
-    });
-    }
+        syncRecordToCloud('subscriptions', payload, orgId).catch(() => {});
 
-    // Legacy sync trigger (keep for transition if needed, though native takes priority)
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { [getSubsKey()]: data });
+        // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Also update the settings blob
+        // This is shared across all devices and used for 'rescue' recovery
+        const updatedSubs = Object.values(data).flat();
+        const updatedSettings = { ...settings, subscriptions: updatedSubs };
+        saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
+        
+        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
 
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_subscription_update'));
@@ -319,19 +365,43 @@ export function deleteSubscription(studentId: string, subId: string): void {
     
     const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
     if (slug) {
-        recordGlobalDeletion(slug, 'cc_student_subscriptions', subId);
+        recordGlobalDeletion(slug, 'cc_student_subscriptions', subId, sub);
     }
 
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
 
-    // Immediate Cloud Sync
+    // 🔥 PREVENT RESURRECTION: Add to local deleted IDs list
+    // This ensures that even if cloud sync pulls the old state before cloud delete finishes,
+    // the UI will still filter it out locally.
+    try {
+        const deletedKey = getDeletedSubsKey();
+        const raw = localStorage.getItem(deletedKey);
+        const deletedList = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(deletedList) && !deletedList.includes(subId)) {
+            deletedList.push(subId);
+            localStorage.setItem(deletedKey, JSON.stringify(deletedList));
+        }
+    } catch (e) {
+        console.error('Failed to update deleted IDs:', e);
+    }
+
+    // 🔥 ATOMIC DELETION: Pull from both native and backup sources
     const activeSlug = getActiveSlug();
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        pushStudioStateToCloud(activeSlug, [], { 
-            [getSubsKey()]: data,
-            [getDeletedSubsKey()]: deletedIds
-        });
+    const settings = loadSettings(activeSlug || '');
+    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+
+    if (orgId && orgId !== 'demo') {
+        // 1. Native table delete
+        deleteRecordFromCloud('subscriptions', subId, orgId).catch(() => {});
+
+        // 2. Backup blob update
+        const updatedSubs = Object.values(data).flat();
+        const updatedSettings = { ...settings, subscriptions: updatedSubs };
+        saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
+        
+        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
 
 
