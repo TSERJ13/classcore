@@ -632,25 +632,14 @@ export default function StudiosPage() {
                         body: JSON.stringify({ email: owner?.email, userId: owner?.id, slug: slug })
                     });
                     
-                    const data = await res.json();
-                    
                     if (!res.ok) {
+                        const data = await res.json();
                         throw new Error(data.error || 'API deletion failed');
                     }
 
-                    // 1. Clear local data first
                     clearAllStudioData(slug);
-                    
-                    // 2. Remove from registry immediately to prevent re-addition
                     removeFromRegistry(slug);
-
-                    // 4. Add to Blacklist to prevent re-addition during cloud-sync latency
-                    const blacklist = JSON.parse(localStorage.getItem('cc_sa_purge_blacklist') || '[]');
-                    blacklist.push({ slug, timestamp: Date.now() });
-                    localStorage.setItem('cc_sa_purge_blacklist', JSON.stringify(blacklist));
-
-                    // 5. Update cloud state
-                    await syncFromCloud();
+                    loadData();
                     
                     setModal({ 
                         type: 'alert', 
