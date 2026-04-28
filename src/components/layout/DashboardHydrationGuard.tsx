@@ -13,7 +13,7 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
     const [syncTimedOut, setSyncTimedOut] = useState(false);
 
     useEffect(() => {
-        const timer = setTimeout(() => setSyncTimedOut(true), 8000); // 8s fail-safe
+        const timer = setTimeout(() => setSyncTimedOut(true), 12000); // 12s fail-safe
         return () => clearTimeout(timer);
     }, []);
     const router = useRouter();

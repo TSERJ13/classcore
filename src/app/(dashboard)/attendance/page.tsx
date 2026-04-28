@@ -155,17 +155,25 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                     })}
                                 </div>
                             </div>
-                        ) : (
-                            <div className={cn('rounded-2xl p-4 mb-8 mt-2 flex items-center justify-between', data.sessionsRemaining <= 2 ? 'bg-red-500/5 border border-red-500/20' : 'bg-surface border border-border-subtle')}>
-                                <span className="text-xs font-bold text-muted opacity-60">{t.remaining} {data.isMonthly ? t.days : t.visits}</span>
-                                <div className="flex items-center gap-2">
-                                    {(data.phase === 'success' || data.phase === 'double-success') && <span className="text-[10px] text-amber-600 font-black">-1</span>}
-                                    <span className={cn('text-xl font-black tabular-nums', (data.sessionsRemaining <= 2 && !data.isMonthly) ? 'text-red-500' : 'text-emerald-500')}>
-                                        {data.isMonthly ? '∞' : data.sessionsRemaining}
+                        ) : (() => {
+                            const rem = data.sessionsRemaining;
+                            const noSub = rem < 0;
+                            const sessionColor = noSub ? 'text-amber-500' : rem <= 2 ? 'text-red-500' : rem === 3 ? 'text-amber-500' : 'text-emerald-500';
+                            const boxBg = noSub ? 'bg-amber-500/5 border border-amber-500/20' : rem <= 2 ? 'bg-red-500/5 border border-red-500/20' : rem === 3 ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-emerald-500/5 border border-emerald-500/20';
+                            return (
+                                <div className={cn('rounded-2xl p-4 mb-8 mt-2 flex items-center justify-between', boxBg)}>
+                                    <span className="text-xs font-bold text-muted opacity-60">
+                                        {noSub ? (t.noSubscription || 'აბონიმენტი არ არის') : `${t.remaining} ${data.isMonthly ? t.days : t.visits}`}
                                     </span>
+                                    <div className="flex items-center gap-2">
+                                        {!noSub && (data.phase === 'success' || data.phase === 'double-success') && <span className="text-[10px] text-amber-600 font-black">-1</span>}
+                                        <span className={cn('text-xl font-black tabular-nums', sessionColor)}>
+                                            {data.isMonthly ? '∞' : noSub ? '—' : rem}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         {data.phase === 'confirm' ? (
                             <div className="space-y-3">

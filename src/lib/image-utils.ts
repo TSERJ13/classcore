@@ -6,6 +6,26 @@
 export const MAX_UPLOAD_SIZE = 2 * 1024 * 1024; // 2MB
 export const TARGET_SIZE_KB = 80;
 export const MAX_DIMENSION = 1024;
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
+
+/**
+ * Validates both file size and format.
+ * Returns { valid, error } for UI feedback.
+ */
+export function validateImage(file: File): { valid: boolean; error?: string } {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (!ext || !ALLOWED_EXTENSIONS.includes(`.${ext}`)) {
+            return { valid: false, error: `მხოლოდ JPEG, PNG, WebP ფორმატი. (${file.type || file.name})` };
+        }
+    }
+    if (file.size > MAX_UPLOAD_SIZE) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        return { valid: false, error: `ფაილი ძალიან დიდია (${sizeMB}MB). მაქსიმუმი: 2MB` };
+    }
+    return { valid: true };
+}
 
 /**
  * Checks if a file is within the maximum allowed size.

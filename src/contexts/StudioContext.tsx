@@ -111,32 +111,35 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     if (user) {
                         console.log('🛡️ [StudioProvider] Anchoring Identity to Org:', targetOrgId);
                         await sb.from('profiles').update({ org_id: targetOrgId }).eq('id', user.id);
-                        // Also update user metadata for redundancy
-                        await sb.auth.updateUser({ data: { org_id: targetOrgId } });
                     }
 
                     // 🔽 Now fetch the state with the unlocked identity
                     const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                     
                     if (state) {
-                        // 🚨 UNIVERSAL CLOUD RESCUE: If local has more data than cloud (e.g. from mobile), PUSH IT UP
-                        const collectionsToRescue = [
-                            { table: 'students', local: (await import("@/lib/student-store")).getStudents(), cloud: state.students },
-                            { table: 'staff', local: (await import("@/lib/teacher-store")).getTeachers(), cloud: state.staff },
-                            { table: 'groups', local: (await import("@/lib/group-store")).getGroups(), cloud: state.groups },
-                            { table: 'halls', local: (await import("@/lib/hall-store")).getHalls(), cloud: state.halls },
-                            { table: 'subscriptions', local: Object.values((await import("@/lib/subscription-store")).getSubscriptions()).flat(), cloud: state.subscriptions },
-                            { table: 'sales', local: Object.values((await import("@/lib/sales-store")).getStudentSales("all") || {}).flat(), cloud: state.sales },
-                            { table: 'calendar_events', local: (await import("@/lib/event-store")).getEvents(), cloud: state.calendar_events },
-                            { table: 'attendance', local: Object.values((await import("@/lib/checkin-store")).getStudentCheckins("all")).flat(), cloud: state.attendance },
-                            { table: 'subscription_plans', local: (await import("@/lib/plan-store")).getPlans(), cloud: state.subscription_plans }
-                        ];
+                        // 🚨 UNIVERSAL CLOUD RESCUE: Only run once per slug per session
+                        const rescueFlag = `cc_rescue_done_${activeSlug}`;
+                        const rescueDone = localStorage.getItem(rescueFlag);
+                        if (!rescueDone) {
+                            const collectionsToRescue = [
+                                { table: 'students', local: (await import("@/lib/student-store")).getStudents(), cloud: state.students },
+                                { table: 'staff', local: (await import("@/lib/teacher-store")).getTeachers(), cloud: state.staff },
+                                { table: 'groups', local: (await import("@/lib/group-store")).getGroups(), cloud: state.groups },
+                                { table: 'halls', local: (await import("@/lib/hall-store")).getHalls(), cloud: state.halls },
+                                { table: 'subscriptions', local: Object.values((await import("@/lib/subscription-store")).getSubscriptions()).flat(), cloud: state.subscriptions },
+                                { table: 'sales', local: Object.values((await import("@/lib/sales-store")).getStudentSales("all") || {}).flat(), cloud: state.sales },
+                                { table: 'calendar_events', local: (await import("@/lib/event-store")).getEvents(), cloud: state.calendar_events },
+                                { table: 'attendance', local: Object.values((await import("@/lib/checkin-store")).getStudentCheckins("all")).flat(), cloud: state.attendance },
+                                { table: 'subscription_plans', local: (await import("@/lib/plan-store")).getPlans(), cloud: state.subscription_plans }
+                            ];
 
-                        for (const col of collectionsToRescue) {
-                            if (col.local.length > (col.cloud?.length || 0) && col.local.length > 0) {
-                                console.log(`🔼 [MasterSync] Rescuing ${col.local.length} ${col.table} to Cloud...`);
-                                await pushCollectionToCloud(col.table, col.local, targetOrgId);
+                            for (const col of collectionsToRescue) {
+                                if (col.local.length > (col.cloud?.length || 0) && col.local.length > 0) {
+                                    console.log(`🔼 [MasterSync] Rescuing ${col.local.length} ${col.table} to Cloud...`);
+                                    await pushCollectionToCloud(col.table, col.local, targetOrgId);
+                                }
                             }
+                            localStorage.setItem(rescueFlag, Date.now().toString());
                         }
 
                         console.log('📦 [MasterSync] Hydrating collections...');

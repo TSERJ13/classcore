@@ -434,6 +434,12 @@ export default function DashboardPage() {
             window.removeEventListener('cc_sync_error', handleSyncError);
         };
     }, []);
+    const [activityTick, setActivityTick] = useState(0);
+    useEffect(() => {
+        const onAttendanceChange = () => setActivityTick(t => t + 1);
+        window.addEventListener('cc_attendance_update', onAttendanceChange);
+        return () => window.removeEventListener('cc_attendance_update', onAttendanceChange);
+    }, []);
 
     useEffect(() => {
         let checkins = getTodayCheckins();
@@ -711,7 +717,7 @@ export default function DashboardPage() {
                 });
             }
         });
-    }, [selectedDate, settings, t]);
+    }, [selectedDate, settings, t, activityTick]);
 
     // No longer using isDemo hardcoded overrides
     const isDemo = false;

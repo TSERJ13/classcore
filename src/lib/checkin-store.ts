@@ -149,10 +149,11 @@ function _writeCheckin(
     subId?: string,
     customDate?: string
 ): CheckinResult {
-    // Increment sessions used in the main subscription store
-    incrementSessionsUsed(studentId, subId);
+    // Only deduct sessions if the student has an active subscription
+    const subResult = incrementSessionsUsed(studentId, subId);
+    const hasSubscription = subResult !== null;
 
-    const next = getSessionsRemaining(studentId, groupId);
+    const next = hasSubscription ? getSessionsRemaining(studentId, groupId) : -1;
     const dateToUse = customDate || today();
     const record: CheckinRecord = {
         studentId,
