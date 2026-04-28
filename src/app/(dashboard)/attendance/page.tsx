@@ -412,14 +412,18 @@ export default function AttendancePage() {
         
         if (activeSub) {
             const hasExpiredByDate = activeSub.expires_at < todayStr;
-            const remaining = (activeSub.sessions_total ?? 0) - (activeSub.sessions_used ?? 0);
-            const hasUsedAllSessions = activeSub.type === 'sessions' && activeSub.sessions_total !== null && remaining <= 0;
+            const isUnlimited = activeSub.sessions_total === null;
+            const remaining = isUnlimited ? Infinity : (activeSub.sessions_total - (activeSub.sessions_used ?? 0));
+            const hasUsedAllSessions = !isUnlimited && activeSub.sessions_total !== null && remaining <= 0;
             
             if (hasExpiredByDate || hasUsedAllSessions) {
                 return { activeSub, isExpired: true, status: 'expired', score: 2, label: t.expired, color: 'red', remaining };
             }
 
             // Granular scoring for active subs
+            if (isUnlimited) {
+                return { activeSub, isExpired: false, status: 'active', score: 0, label: t.active, color: 'emerald', remaining: Infinity };
+            }
             if (remaining === 1) {
                 return { activeSub, isExpired: false, status: 'warning', score: 1, label: t.active, color: 'yellow', remaining };
             }
@@ -1096,7 +1100,8 @@ export default function AttendancePage() {
                                                             const subToDisplay = activeSub || (activeSub === null ? (subs[st.id]?.[0] || null) : null);
                                                             const isActuallyNone = !subToDisplay;
                                                             const isReallyExpired = isExpired || (subToDisplay && subToDisplay.expires_at < getLocalISODate());
-                                                            const remaining = subToDisplay ? (subToDisplay.sessions_total ?? 0) - (subToDisplay.sessions_used ?? 0) : 0;
+                                                            const isInf = subToDisplay && subToDisplay.sessions_total === null;
+                                                            const remaining = subToDisplay ? (isInf ? Infinity : (subToDisplay.sessions_total - (subToDisplay.sessions_used ?? 0))) : 0;
                                                             
                                                             if (isActuallyNone) {
                                                                 return (
@@ -1111,21 +1116,23 @@ export default function AttendancePage() {
                                                                             className={cn(
                                                                                 "h-full transition-all duration-700",
                                                                                 isReallyExpired ? "bg-red-500 opacity-20" :
+                                                                                remaining === Infinity ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" :
                                                                                 remaining === 1 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" :
                                                                                 remaining <= 3 ? "bg-amber-500" : 
                                                                                 "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
                                                                             )}
-                                                                            style={{ width: subToDisplay.sessions_total ? `${Math.max(5, Math.min(100, (remaining / subToDisplay.sessions_total) * 100))}%` : '100%' }}
+                                                                            style={{ width: remaining === Infinity ? '100%' : (subToDisplay.sessions_total ? `${Math.max(5, Math.min(100, (remaining / subToDisplay.sessions_total) * 100))}%` : '100%') }}
                                                                         />
                                                                     </div>
                                                                     <span className={cn(
                                                                         "shrink-0 text-[10px] font-black tabular-nums tracking-tighter flex items-center gap-1",
                                                                         isReallyExpired ? "text-red-500" :
+                                                                        remaining === Infinity ? "text-emerald-600" :
                                                                         remaining === 1 ? "text-red-500" :
                                                                         remaining <= 3 ? "text-amber-600" : 
                                                                         "text-emerald-600"
                                                                     )}>
-                                                                        {remaining} {t.visit}
+                                                                        {remaining === Infinity ? '∞' : remaining} {t.visit}
                                                                     </span>
                                                                 </>
                                                             );
@@ -1200,8 +1207,10 @@ export default function AttendancePage() {
 
                                         let daysLeft = '—';
                                         if (activeSub?.expires_at) {
-                                            const diff = new Date(activeSub.expires_at).getTime() - new Date().getTime();
-                                            daysLeft = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24))).toString();
+                                            const exp = new Date(activeSub.expires_at);
+                                            const diff = exp.getTime() - new Date().getTime();
+                                            const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                                            daysLeft = exp.getFullYear() > 2050 || days > 365 ? '∞' : days.toString();
                                         }
 
                                         return (
