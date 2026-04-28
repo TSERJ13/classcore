@@ -294,7 +294,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                         ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                          'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
-                         'cc_subscription_plans_update']
+                         'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
                             .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
                     }
                 }

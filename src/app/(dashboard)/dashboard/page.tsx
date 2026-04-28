@@ -558,13 +558,17 @@ export default function DashboardPage() {
         const realTodayStr = new Date().toISOString().slice(5, 10); // MM-DD
         studentsList.forEach((s: Student) => {
             if (s.birth_date && s.birth_date.slice(5, 10) === realTodayStr) {
-                // UI Notification
-                addNotification({
-                    title: t.birthdayNotification,
-                    message: t.congratulateThem.replace('{name}', s.full_name),
-                    type: 'info',
-                    time: t.now
-                });
+                // UI Notification (with dedup to avoid repeating on every page load)
+                const notifKey = `cc_bday_notif_${s.id}_${new Date().getFullYear()}`;
+                if (!localStorage.getItem(notifKey)) {
+                    addNotification({
+                        title: t.birthdayNotification,
+                        message: t.congratulateThem.replace('{name}', s.full_name),
+                        type: 'info',
+                        time: t.now
+                    });
+                    localStorage.setItem(notifKey, 'true');
+                }
 
                 const bdayKey = `sms_bday_${s.id}_${new Date().getFullYear()}`;
                 const currentHour = new Date().getHours();
