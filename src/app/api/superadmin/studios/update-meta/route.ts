@@ -28,12 +28,23 @@ export async function POST(req: Request) {
             .maybeSingle(); // Use maybeSingle to handle missing records gracefully
 
         if (error) throw error;
-        if (!data) {
-            return NextResponse.json({ error: `Studio settings for "${slug}" not found in database.` }, { status: 404 });
-        }
+        
+        let currentData: any = {};
+        let isNewSettings = false;
 
-        // 2. Safely merge it
-        const currentData = data.staff_data || {};
+        if (!data) {
+            console.log(`⚠️ [UpdateMeta] Studio settings for "${slug}" missing. Creating new entry.`);
+            currentData = {
+                _staff: [],
+                _operations: {
+                    cc_studio_settings: { studioName: slug, studioSlug: slug },
+                    cc_sa_meta: {}
+                }
+            };
+            isNewSettings = true;
+        } else {
+            currentData = data.staff_data || {};
+        }
         
         // Ensure structure is v3
         if (!currentData._operations) {
@@ -99,11 +110,14 @@ export async function POST(req: Request) {
             }
         }
 
-        // 3. Save back to operational blob
+        // 3. Save back to operational blob (Using upsert to handle missing records)
         const { error: updateError } = await supabase
             .from('studio_settings')
-            .update({ staff_data: currentData })
-            .eq('studio_slug', slug);
+            .upsert({ 
+                studio_slug: slug,
+                staff_data: currentData,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'studio_slug' });
 
         if (updateError) throw updateError;
 
