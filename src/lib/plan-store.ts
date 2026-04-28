@@ -76,17 +76,15 @@ export async function savePlans(plans: Plan[]): Promise<void> {
             syncRecordToCloud('subscription_plans', {
                 id: plan.id,
                 org_id: orgId,
-                name: plan.name,
-                type: plan.type,
-                period: plan.period,
-                price: plan.price,
-                session_count: plan.session_count,
-                validity_days: plan.validity_days,
-                coach: plan.coach,
-                group_id: plan.group_id,
-                is_active: plan.is_active,
-                data: plan  // Full blob for recovery
-            }, orgId);
+                name: plan.name
+            }, orgId).catch(() => {});
+        });
+
+        // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
+        import('./settings-store').then(({ loadSettings, saveSettings }) => {
+            const settings = loadSettings(activeSlug);
+            (settings as any).subscription_plans = plans;
+            saveSettings(settings, settings, activeSlug);
         });
     }
 

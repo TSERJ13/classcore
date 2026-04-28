@@ -189,11 +189,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         let finalPlansRaw = state.subscription_plans || [];
                         if (finalPlansRaw.length === 0) {
                             const backup = (state as any).settingsRecord?.data?.subscription_plans || 
-                                           (state as any).settingsRecord?.settings?.subscription_plans ||
-                                           (state as any).settingsRecord?.data?.plans ||
-                                           (state as any).settingsRecord?.settings?.plans;
+                                           (state as any).settingsRecord?.settings?.subscription_plans;
                             if (backup) finalPlansRaw = Array.isArray(backup) ? backup : Object.values(backup);
                         }
+                        
                         // Normalize plans: fill missing fields with defaults
                         finalPlansRaw = finalPlansRaw.map((p: any) => {
                             const plan = p.data && typeof p.data === 'object' ? { ...p.data, ...p, data: undefined } : p;
