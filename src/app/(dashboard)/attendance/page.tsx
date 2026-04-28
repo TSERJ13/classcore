@@ -206,6 +206,7 @@ export default function AttendancePage() {
 
     const [groups, setGroups] = useState(getGroups());
     const GROUP_MAP = useMemo(() => Object.fromEntries(groups.map(g => [g.id, g.name])), [groups]);
+    const GROUP_COLOR_MAP = useMemo(() => Object.fromEntries(groups.map(g => [g.id, g.color])), [groups]);
     useEffect(() => {
         const load = () => setGroups(getGroups());
         window.addEventListener('cc_groups_update', load);
@@ -847,7 +848,7 @@ export default function AttendancePage() {
 
                     <div className="flex flex-1 overflow-hidden">
                         {/* Left Panel: Schedule (Desktop) */}
-                        <div className="hidden lg:flex w-64 border-r border-border-subtle bg-surface/30 flex-col">
+                        <div className="hidden lg:flex w-52 border-r border-border-subtle bg-surface/30 flex-col">
                             <div className="p-4 border-b border-border-subtle/50 flex flex-col gap-3">
                                 {/* Desktop Date Picker */}
                                 {mounted && (
@@ -887,38 +888,45 @@ export default function AttendancePage() {
                                     const isCurrent = isCurrentClass(s.start_time);
                                     const isActive = selectedClass === s.id;
                                     const timeStr = `${s.start_time}–${s.end_time}`;
+                                    const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                    
                                     return (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
-                                                'w-full text-left p-4 rounded-2xl transition-all group border relative overflow-hidden',
+                                                'w-full text-left p-3.5 rounded-2xl transition-all group border relative overflow-hidden',
                                                 isActive
-                                                    ? 'bg-[#6d28d9] border-[#6d28d9] scale-[1.02] z-10 text-white shadow-xl shadow-indigo-500/10'
+                                                    ? 'z-10 text-white shadow-xl'
                                                     : 'bg-card border-border-subtle hover:bg-surface hover:border-border-subtle/50'
-                                            )}>
+                                            )}
+                                            style={isActive ? { 
+                                                backgroundColor: classColor, 
+                                                borderColor: classColor,
+                                                boxShadow: `0 10px 25px -5px ${classColor}40`
+                                            } : {}}>
                                             <h3 className={cn(
-                                                'text-sm font-black truncate leading-tight transition-colors',
+                                                'text-[12.5px] font-black truncate leading-tight transition-colors',
                                                 isActive ? 'text-white' : 'text-primary'
                                             )}>
                                                 {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
                                             </h3>
-                                            <div className="flex items-center gap-2 mt-2">
+                                            <div className="flex items-center gap-2 mt-1.5">
                                                 <Clock className={cn(
-                                                    'w-3 h-3 transition-colors',
+                                                    'w-2.5 h-2.5 transition-colors',
                                                     isActive ? 'text-white/60' : isCurrent ? 'text-emerald-500' : 'text-muted opacity-40'
                                                 )} />
                                                 <span className={cn(
-                                                    'text-[10px] font-black tabular-nums transition-colors',
+                                                    'text-[9px] font-black tabular-nums transition-colors',
                                                     isActive ? 'text-white/80' : isCurrent ? 'text-emerald-600' : 'text-muted'
                                                 )}>{timeStr}</span>
                                             </div>
-                                            <div className="flex items-center justify-between mt-3">
+                                            <div className="flex items-center justify-between mt-2.5">
                                                 <span className={cn(
-                                                    'text-[9px] font-bold tracking-tight truncate max-w-[100px] transition-colors',
+                                                    'text-[8px] font-bold tracking-tight truncate max-w-[100px] transition-colors',
                                                     isActive ? 'text-white/60' : 'text-muted opacity-50'
                                                 )}>{getTeacherName(s.teacher_id)}</span>
                                                 {isCurrent && (
                                                     <span className={cn(
-                                                        'w-2 h-2 rounded-full animate-pulse',
+                                                        'w-1.5 h-1.5 rounded-full animate-pulse',
                                                         isActive ? 'bg-white' : 'bg-emerald-500'
                                                     )} />
                                                 )}
