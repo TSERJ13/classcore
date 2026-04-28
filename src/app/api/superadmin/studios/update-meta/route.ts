@@ -3,8 +3,11 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
     try {
-        const { slug, patch, billingPatch } = await req.json();
+        const { slug: rawSlug, patch, billingPatch } = await req.json();
+        const slug = rawSlug?.toLowerCase().trim();
         
+        if (!slug) return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
+
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
                                  process.env.SERVICE_ROLE_KEY || 
@@ -22,9 +25,12 @@ export async function POST(req: Request) {
             .from('studio_settings')
             .select('staff_data')
             .eq('studio_slug', slug)
-            .single();
+            .maybeSingle(); // Use maybeSingle to handle missing records gracefully
 
         if (error) throw error;
+        if (!data) {
+            return NextResponse.json({ error: `Studio settings for "${slug}" not found in database.` }, { status: 404 });
+        }
 
         // 2. Safely merge it
         const currentData = data.staff_data || {};
