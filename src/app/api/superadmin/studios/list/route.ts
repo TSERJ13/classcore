@@ -173,7 +173,19 @@ export async function GET() {
             };
         });
 
-        return NextResponse.json({ studios, debug: { isUsingServiceRole } }, { headers: responseHeaders });
+        const stdCount = (stdData || []).length;
+        const settingsCount = (settingsData || []).length;
+
+        return NextResponse.json({ 
+            studios, 
+            debug: { 
+                isUsingServiceRole,
+                stdCount,
+                settingsCount,
+                stdError: stdError?.message || null,
+                settingsError: settingsError?.message || null
+            } 
+        }, { headers: responseHeaders });
     } catch (err: any) {
         console.error('❌ SuperAdmin Studio List API Error:', err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });

@@ -21,7 +21,12 @@ export async function syncGlobalAdminRegistry(force = false) {
         const data = await res.json();
         
         if (data && data.studios && Array.isArray(data.studios)) {
-            if (data.debug) console.log('📡 [AdminSync] API Diagnostics:', data.debug);
+            if (data.debug) {
+                console.log('📡 [AdminSync] API Diagnostics:', data.debug);
+                if (data.debug.stdError || data.debug.settingsError) {
+                    console.error('❌ [AdminSync] Sync Errors Detected:', { std: data.debug.stdError, settings: data.debug.settingsError });
+                }
+            }
             const studios: any[] = data.studios;
             const cloudSlugs: string[] = studios.map(s => s.slug).filter(Boolean);
             const localRegistry = getStudioRegistry();
