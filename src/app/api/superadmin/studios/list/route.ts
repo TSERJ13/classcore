@@ -55,10 +55,20 @@ export async function GET() {
         const stdList = stdData || [];
         const settingsList = settingsData || [];
         
+        const debugSlugs = ['debug-test-studio'];
+        if (!isUsingServiceRole) {
+            debugSlugs.push('ERROR-KEY-MISSING');
+        } else {
+            debugSlugs.push('KEY-OK-SERVICE-ROLE-ACTIVE');
+            if (stdList.length === 0 && settingsList.length === 0) {
+                debugSlugs.push('KEY-FOUND-BUT-DB-EMPTY');
+            }
+        }
+
         const allSlugs = new Set([
             ...stdList.map(s => s.studio_slug),
             ...settingsList.map(s => s.studio_slug),
-            'debug-test-studio' // 🚨 DEBUG: Force at least one item to verify API reach
+            ...debugSlugs
         ].filter(Boolean));
 
         if (allSlugs.size === 0) {
