@@ -1037,7 +1037,11 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                         <SearchSelect
                             options={halls.map((h: any) => ({ value: h.id, label: h.name }))}
                             value={form.hall_id}
-                            onChange={val => setF('hall_id', val)}
+                            onChange={val => {
+                                setF('hall_id', val);
+                                const hall = halls.find((h: any) => h.id === val);
+                                if (hall) setSelectedColor(hall.color);
+                            }}
                             className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
                         />
                     </div>
@@ -1733,7 +1737,22 @@ export default function CalendarPage() {
         let count = 0;
         for (const g of allGroups) {
             if (g.schedule_slots && g.schedule_slots.length > 0) {
-                syncGroupScheduleToCalendar(g.id, g.name, g.teacherId, g.hall_id || 'h1', g.schedule_slots, g.color || '#6366f1', g.secondaryTeacherId);
+                // Find hall to get its color and ensure valid ID
+                let hall = halls.find((h: any) => h.id === g.hall_id);
+                if (!hall && halls.length > 0) hall = halls[0]; // Fallback to first available hall
+                
+                const hallId = hall?.id || 'h1';
+                const hallColor = hall?.color || '#6366f1';
+
+                syncGroupScheduleToCalendar(
+                    g.id, 
+                    g.name, 
+                    g.teacherId, 
+                    hallId, 
+                    g.schedule_slots, 
+                    hallColor, 
+                    g.secondaryTeacherId
+                );
                 count++;
             }
         }
