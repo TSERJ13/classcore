@@ -95,8 +95,12 @@ export async function POST(req: Request) {
 
         // 🚀 4. Propagate to Master Record (studios table) for performant listing & fallbacks
         if (patch) {
-            console.log(`📡 [UpdateMeta] Propagating master metadata for: ${slug}`);
-            await supabase
+            console.log(`📡 [UpdateMeta] Propagating master metadata for: ${slug}`, {
+                name: patch.studioName,
+                owner: patch.owner_info?.email
+            });
+            
+            const { error: masterError } = await supabase
                 .from('studios')
                 .update({
                     studio_name: patch.studioName || undefined,
@@ -106,6 +110,10 @@ export async function POST(req: Request) {
                     is_deleted: patch.is_deleted !== undefined ? patch.is_deleted : undefined
                 })
                 .eq('studio_slug', slug);
+
+            if (masterError) {
+                console.error(`❌ [UpdateMeta] Master update failed for ${slug}:`, masterError);
+            }
         }
 
         return NextResponse.json({ success: true });
