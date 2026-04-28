@@ -4,7 +4,7 @@
  * to ensure no legacy mock data persists in users' browsers.
  */
 
-const CURRENT_CACHE_VERSION = 'v2.3.2-nuclear-fix';
+const CURRENT_CACHE_VERSION = 'v2.4.0-stable';
 const VERSION_KEY = 'cc_system_version';
 
 export function checkCacheVersion(): void {
@@ -21,12 +21,19 @@ export function checkCacheVersion(): void {
                 const key = localStorage.key(i);
                 if (key && (key.startsWith('cc_') || key === 'sb-token' || key === 'supabase.auth.token')) {
                     // NEVER purge the version key itself (prevents infinite purge loop)
-                    // NEVER purge SuperAdmin data (cc_sa_*) — it's fetched from API, not stale cache
-                    // NEVER purge rescue/sync flags
                     if (key === VERSION_KEY) continue;
+                    // NEVER purge SuperAdmin data (fetched from API, not stale cache)
                     if (key.startsWith('cc_sa_')) continue;
+                    // NEVER purge identity anchoring keys (needed for getScopedKey to resolve correctly)
+                    if (key === 'cc_active_studio_slug') continue;
+                    if (key.startsWith('cc_org_id_override_')) continue;
+                    if (key.startsWith('cc_org_id_')) continue;
+                    if (key.startsWith('cc_studio_settings_')) continue;
+                    if (key.startsWith('cc_active_branch_')) continue;
+                    // NEVER purge session flags
                     if (key.startsWith('cc_rescue_done_')) continue;
                     if (key.startsWith('cc_bday_notif_')) continue;
+                    if (key.startsWith('cc_last_sync_')) continue;
                     keysToRemove.push(key);
                 }
             }
