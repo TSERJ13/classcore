@@ -115,6 +115,7 @@ export async function POST(req: Request) {
                     logo_url: patch.logoDataUrl || undefined,
                     owner_info: patch.owner_info || undefined,
                     plan: patch.plan || undefined,
+                    suspended: patch.suspended !== undefined ? patch.suspended : undefined,
                     is_deleted: patch.is_deleted !== undefined ? patch.is_deleted : undefined
                 })
                 .eq('studio_slug', slug);
