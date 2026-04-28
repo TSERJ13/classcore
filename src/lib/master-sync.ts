@@ -98,9 +98,10 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
     if (!orgId) return false;
 
     const payload = { ...record, org_id: orgId };
+    const conflictCol = table === 'studio_settings' ? 'org_id' : 'id';
     const { error } = await supabase
         .from(table)
-        .upsert(payload, { onConflict: 'id' });
+        .upsert(payload, { onConflict: conflictCol });
 
     if (error) {
         console.error(`❌ [MasterSync] Upsert failed for ${table}:`, error.message);
