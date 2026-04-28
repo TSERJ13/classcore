@@ -176,21 +176,49 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             return next;
                         });
 
-                        // 🚨 HYBRID RECOVERY: Deep search across all possible storage paths
+                        // 1. Resolve Halls
+                        let finalHallsRaw = state.halls || [];
+                        const backupHalls = (state as any).settingsRecord?.data?.halls || (state as any).settingsRecord?.settings?.halls;
+                        if (backupHalls) {
+                            const backupArr = Array.isArray(backupHalls) ? backupHalls : Object.values(backupHalls);
+                            if (finalHallsRaw.length === 0) {
+                                finalHallsRaw = backupArr;
+                            } else {
+                                // Merge: Backup is richer because native DB lacks columns
+                                finalHallsRaw = finalHallsRaw.map((dbHall: any) => {
+                                    const rich = backupArr.find((b: any) => b.id === dbHall.id);
+                                    return rich ? { ...dbHall, ...rich } : dbHall;
+                                });
+                                // Also include any halls that might have failed native insert completely
+                                backupArr.forEach((rich: any) => {
+                                    if (!finalHallsRaw.find((h: any) => h.id === rich.id)) finalHallsRaw.push(rich);
+                                });
+                            }
+                        }
+
+                        // 2. Resolve Students
                         let finalStudentsRaw = state.students || [];
                         if (finalStudentsRaw.length === 0) {
-                            const backup = (state as any).settingsRecord?.data?.students || 
-                                           (state as any).settingsRecord?.settings?.students ||
-                                           (state as any).settingsRecord?.metadata?.students ||
-                                           (state as any).studio?.settings?.students;
+                            const backup = (state as any).settingsRecord?.data?.students || (state as any).settingsRecord?.settings?.students;
                             if (backup) finalStudentsRaw = Array.isArray(backup) ? backup : Object.values(backup);
                         }
 
+                        // 3. Resolve Plans
                         let finalPlansRaw = state.subscription_plans || [];
-                        if (finalPlansRaw.length === 0) {
-                            const backup = (state as any).settingsRecord?.data?.subscription_plans || 
-                                           (state as any).settingsRecord?.settings?.subscription_plans;
-                            if (backup) finalPlansRaw = Array.isArray(backup) ? backup : Object.values(backup);
+                        const backupPlans = (state as any).settingsRecord?.data?.subscription_plans || (state as any).settingsRecord?.settings?.subscription_plans;
+                        if (backupPlans) {
+                            const backupArr = Array.isArray(backupPlans) ? backupPlans : Object.values(backupPlans);
+                            if (finalPlansRaw.length === 0) {
+                                finalPlansRaw = backupArr;
+                            } else {
+                                finalPlansRaw = finalPlansRaw.map((dbPlan: any) => {
+                                    const rich = backupArr.find((b: any) => b.id === dbPlan.id);
+                                    return rich ? { ...dbPlan, ...rich } : dbPlan;
+                                });
+                                backupArr.forEach((rich: any) => {
+                                    if (!finalPlansRaw.find((p: any) => p.id === rich.id)) finalPlansRaw.push(rich);
+                                });
+                            }
                         }
                         
                         // Normalize plans: fill missing fields with defaults
@@ -203,19 +231,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 is_active: plan.is_active !== undefined ? plan.is_active : true,
                             };
                         });
-
+                        // 4. Resolve Subscriptions
                         let finalSubsRaw = state.subscriptions || [];
-                        if (finalSubsRaw.length === 0) {
-                            const backup = (state as any).settingsRecord?.data?.subscriptions || 
-                                           (state as any).settingsRecord?.settings?.subscriptions;
-                            if (backup) finalSubsRaw = Array.isArray(backup) ? backup : Object.values(backup);
-                        }
-
-                        let finalHallsRaw = state.halls || [];
-                        if (finalHallsRaw.length === 0) {
-                            const backup = (state as any).settingsRecord?.data?.halls || 
-                                           (state as any).settingsRecord?.settings?.halls;
-                            if (backup) finalHallsRaw = Array.isArray(backup) ? backup : Object.values(backup);
+                        const backupSubs = (state as any).settingsRecord?.data?.subscriptions || (state as any).settingsRecord?.settings?.subscriptions;
+                        if (backupSubs) {
+                            const backupArr = Array.isArray(backupSubs) ? backupSubs : Object.values(backupSubs);
+                            if (finalSubsRaw.length === 0) {
+                                finalSubsRaw = backupArr;
+                            } else {
+                                finalSubsRaw = finalSubsRaw.map((dbSub: any) => {
+                                    const rich = backupArr.find((b: any) => b.id === dbSub.id);
+                                    return rich ? { ...dbSub, ...rich } : dbSub;
+                                });
+                                backupArr.forEach((rich: any) => {
+                                    if (!finalSubsRaw.find((s: any) => s.id === rich.id)) finalSubsRaw.push(rich);
+                                });
+                            }
                         }
 
                         const mapping: any = {
