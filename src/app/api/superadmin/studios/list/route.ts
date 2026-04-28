@@ -51,7 +51,8 @@ export async function GET() {
         
         const allSlugs = new Set([
             ...stdList.map(s => s.studio_slug),
-            ...settingsList.map(s => s.studio_slug)
+            ...settingsList.map(s => s.studio_slug),
+            'debug-test-studio' // 🚨 DEBUG: Force at least one item to verify API reach
         ].filter(Boolean));
 
         if (allSlugs.size === 0) {
