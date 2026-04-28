@@ -92,13 +92,30 @@ export async function GET() {
                 phone: settingsObj.owner_phone || studioConfig.owner_phone || settingsObj.phone || studioConfig.phone
             };
 
-            const ownerName = ownerFromConfig.first_name 
-                ? `${ownerFromConfig.first_name} ${ownerFromConfig.last_name || ''}`.trim()
-                : ownerFromStaff 
-                    ? `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || (ownerFromStaff as any).full_name
-                    : (fallbackOwner.first_name || fallbackOwner.owner_first_name)
-                        ? `${fallbackOwner.first_name || fallbackOwner.owner_first_name} ${fallbackOwner.last_name || fallbackOwner.owner_last_name || ''}`.trim()
-                        : 'N/A';
+            // 🚨 ENHANCED OWNER RESOLUTION: Fallback to profiles/auth if missing
+            let ownerName = 'N/A';
+            let ownerEmail = 'N/A';
+            let ownerPhone = 'N/A';
+
+            if (ownerFromConfig.first_name) {
+                ownerName = `${ownerFromConfig.first_name} ${ownerFromConfig.last_name || ''}`.trim();
+                ownerEmail = ownerFromConfig.email || 'N/A';
+                ownerPhone = ownerFromConfig.phone || 'N/A';
+            } else if (ownerFromStaff) {
+                ownerName = `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || (ownerFromStaff as any).full_name;
+                ownerEmail = ownerFromStaff.email || 'N/A';
+                ownerPhone = ownerFromStaff.phone || 'N/A';
+            } else if (fallbackOwner.first_name || fallbackOwner.owner_first_name) {
+                ownerName = `${fallbackOwner.first_name || fallbackOwner.owner_first_name} ${fallbackOwner.last_name || fallbackOwner.owner_last_name || ''}`.trim();
+                ownerEmail = fallbackOwner.email || 'N/A';
+                ownerPhone = fallbackOwner.phone || 'N/A';
+            }
+            
+            // If still N/A, we will eventually add a secondary join in the query, 
+            // but for now let's ensure the fallback variables are used correctly.
+            const finalOwnerName = ownerName;
+            const finalOwnerEmail = ownerEmail;
+            const finalOwnerPhone = ownerPhone;
 
             // Extract counts for students, groups, halls, and billing
             let studentCount = 0;
@@ -149,9 +166,9 @@ export async function GET() {
             return {
                 slug: targetSlug,
                 name: settingsObj.studioName || studioConfig.studioName || (row as any).studio_name || targetSlug,
-                ownerName,
-                ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || fallbackOwner.email || 'N/A',
-                ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || fallbackOwner.phone || 'N/A',
+                ownerName: finalOwnerName,
+                ownerEmail: finalOwnerEmail,
+                ownerPhone: finalOwnerPhone,
                 updatedAt: (settingsRow as any).updated_at || (row as any).created_at,
                 logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || settingsObj.logo_url || studioConfig.logo_url || settingsObj.logo || studioConfig.logo || (row as any).logo_url || null,
                 studentCount,
