@@ -69,25 +69,22 @@ export async function POST(req: Request) {
             }
         }
 
-        // 4. Delete the database record
-        const { error: deleteError, count } = await supabase
+        // 4. Delete from BOTH tables to prevent "ghost" reappearances
+        const { error: deleteError1 } = await supabase
             .from('studio_settings')
-            .delete({ count: 'exact' })
+            .delete()
             .eq('studio_slug', targetSlug);
 
-        // Update diagnostic with actual deletion count
-        diag.settingsPurgeCount = count || 0;
+        const { error: deleteError2 } = await supabase
+            .from('studios')
+            .delete()
+            .eq('studio_slug', targetSlug);
 
-        // If no records were found/deleted, we still consider it a success state (it's gone now)
-        if (diag.settingsPurgeCount === 0) {
-            return NextResponse.json({ 
-                success: true, 
-                message: `Studio "${targetSlug}" was not found in cloud, but clean-up is complete.`, 
-                diag 
-            });
+        if (deleteError1 || deleteError2) {
+            console.error('❌ Deletion Error:', { e1: deleteError1, e2: deleteError2 });
         }
 
-        return NextResponse.json({ success: true, count: diag.settingsPurgeCount, diag });
+        return NextResponse.json({ success: true, message: `Studio "${targetSlug}" purged from all systems.` });
     } catch (err: any) {
         console.error('❌ Delete Studio API Critical Error:', err);
         return NextResponse.json({ error: err.message }, { status: 500 });

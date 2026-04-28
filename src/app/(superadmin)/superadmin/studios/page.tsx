@@ -548,21 +548,50 @@ export default function StudiosPage() {
             type: 'confirm',
             title: t.sa_studios_tabTrash,
             message: `${t.sa_studios_tabTrash} "${slug}"?`,
-            onConfirm: () => {
-                saveMeta(slug, { deleted: true });
-                loadData();
-                setModal({ type: null, title: '', message: '' });
+            onConfirm: async () => {
+                try {
+                    // 🚨 PERSIST TO CLOUD
+                    await fetch('/api/superadmin/studios/update-meta', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ slug, patch: { is_deleted: true } })
+                    });
+                    
+                    saveMeta(slug, { deleted: true });
+                    loadData();
+                    setModal({ type: null, title: '', message: '' });
+                } catch (err) {
+                    console.error('❌ Failed to move to trash:', err);
+                }
             }
         });
     };
 
     const restoreFromTrash = (slug: string) => {
-        saveMeta(slug, { deleted: false });
-        loadData();
-        setModal({ 
-            type: 'alert', 
-            title: t.sa_studios_restore, 
-            message: t.sa_studios_successTitle 
+        setModal({
+            type: 'confirm',
+            title: t.sa_studios_restore,
+            message: `${t.sa_studios_restore} "${slug}"?`,
+            onConfirm: async () => {
+                try {
+                    // 🚨 PERSIST TO CLOUD
+                    await fetch('/api/superadmin/studios/update-meta', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ slug, patch: { is_deleted: false } })
+                    });
+
+                    saveMeta(slug, { deleted: false });
+                    loadData();
+                    setModal({ 
+                        type: 'alert', 
+                        title: t.sa_studios_restore, 
+                        message: t.sa_studios_successTitle 
+                    });
+                } catch (err) {
+                    console.error('❌ Failed to restore:', err);
+                }
+            }
         });
     };
 

@@ -162,7 +162,8 @@ export async function GET() {
                 plan: settingsObj.plan || studioConfig.plan || 'trial',
                 suspended: settingsObj.suspended === true || studioConfig.suspended === true,
                 billingStatus: billingObj.status || 'active',
-                daysLeft: billingObj.daysLeftInTrial ?? 30
+                daysLeft: billingObj.daysLeftInTrial ?? 30,
+                deleted: settingsObj.deleted === true || studioConfig.deleted === true || (row as any).is_deleted === true
             };
         });
 
