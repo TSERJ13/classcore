@@ -20,6 +20,13 @@ export function checkCacheVersion(): void {
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key && (key.startsWith('cc_') || key === 'sb-token' || key === 'supabase.auth.token')) {
+                    // NEVER purge the version key itself (prevents infinite purge loop)
+                    // NEVER purge SuperAdmin data (cc_sa_*) — it's fetched from API, not stale cache
+                    // NEVER purge rescue/sync flags
+                    if (key === VERSION_KEY) continue;
+                    if (key.startsWith('cc_sa_')) continue;
+                    if (key.startsWith('cc_rescue_done_')) continue;
+                    if (key.startsWith('cc_bday_notif_')) continue;
                     keysToRemove.push(key);
                 }
             }
