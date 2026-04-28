@@ -393,12 +393,22 @@ export default function StudiosPage() {
         if (!studio) return;
         const oldPlan = studio.plan;
         
-        setStudios(prev => prev.map(s => s.slug === slug ? { ...s, plan: plan as StudioRecord['plan'] } : s));
-        await pushMetaToCloud(slug, { plan });
-        setOpenMenu(null);
+        try {
+            // 🚨 PRIVILEGED UPDATE: SuperAdmin must use a specific API to bypass RLS
+            const res = await fetch('/api/superadmin/studios/update-meta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug, patch: { plan } })
+            });
 
-        // If switching FROM trial TO a paid plan, also trigger a manual activation/payment record
-        if (oldPlan === 'trial' && plan !== 'trial') {
+            if (!res.ok) throw new Error('Failed to update plan');
+
+            setStudios(prev => prev.map(s => s.slug === slug ? { ...s, plan: plan as StudioRecord['plan'] } : s));
+            setOpenMenu(null);
+            console.log(`✅ Plan updated to ${plan} for ${slug}`);
+
+            // If switching FROM trial TO a paid plan, also trigger a manual activation/payment record
+            if (oldPlan === 'trial' && plan !== 'trial') {
             setModal({
                 type: 'confirm',
                 title: t.sa_studios_colPlan,

@@ -55,27 +55,10 @@ export async function GET() {
         const stdList = stdData || [];
         const settingsList = settingsData || [];
         
-        const debugSlugs = ['debug-test-studio'];
-        if (!isUsingServiceRole) {
-            debugSlugs.push('ERROR-KEY-MISSING');
-        } else {
-            debugSlugs.push('KEY-OK-SERVICE-ROLE-ACTIVE');
-            if (stdList.length === 0 && settingsList.length === 0) {
-                debugSlugs.push('KEY-FOUND-BUT-DB-EMPTY');
-            }
-        }
-
         const allSlugs = new Set([
             ...stdList.map(s => s.studio_slug),
-            ...settingsList.map(s => s.studio_slug),
-            ...debugSlugs
+            ...settingsList.map(s => s.studio_slug)
         ].filter(Boolean));
-
-        if (allSlugs.size === 0) {
-            console.warn('⚠️ [SuperAdmin API] No studios found in either table.');
-        } else {
-            console.log(`✅ [SuperAdmin API] Found ${allSlugs.size} total studios.`);
-        }
 
         const stdMap = new Map(stdList.map(s => [s.studio_slug, s]));
         const settingsMap = new Map(settingsList.map(s => [s.studio_slug, s]));
@@ -183,19 +166,7 @@ export async function GET() {
             };
         });
 
-        const stdCount = (stdData || []).length;
-        const settingsCount = (settingsData || []).length;
-
-        return NextResponse.json({ 
-            studios, 
-            debug: { 
-                isUsingServiceRole,
-                stdCount,
-                settingsCount,
-                stdError: stdError?.message || null,
-                settingsError: settingsError?.message || null
-            } 
-        }, { headers: responseHeaders });
+        return NextResponse.json({ studios }, { headers: responseHeaders });
     } catch (err: any) {
         console.error('❌ SuperAdmin Studio List API Error:', err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });
