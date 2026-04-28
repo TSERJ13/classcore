@@ -31,7 +31,7 @@ const PERIODS: { value: Period; label: any }[] = [
 
 export default function PlansManagementPage() {
     const { t } = useT();
-    const { settings } = useStudio();
+    const { settings, updateSettings } = useStudio();
     const confirm = useConfirm();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [tab, setTab] = useState<PlanType>('group');
@@ -46,6 +46,13 @@ export default function PlansManagementPage() {
     const [showForm, setShowForm] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const [form, setForm] = useState(EMPTY_PLAN);
+    const [localPausePrices, setLocalPausePrices] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+        if (settings.pausePrices) {
+            setLocalPausePrices(settings.pausePrices);
+        }
+    }, [settings.pausePrices]);
 
     const filtered = plans.filter(p => p.type === tab);
 
@@ -284,10 +291,10 @@ export default function PlansManagementPage() {
                                     <input
                                         type="number"
                                         min="0"
-                                        value={settings.pausePrices?.[days] || ''}
+                                        value={localPausePrices[days] || ''}
                                         onChange={(e) => {
                                             const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                            saveSettings({ pausePrices: { ...settings.pausePrices, [days]: val } });
+                                            setLocalPausePrices(prev => ({ ...prev, [days]: val }));
                                         }}
                                         className="w-full bg-card border border-border-subtle rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-colors"
                                     />
@@ -297,6 +304,16 @@ export default function PlansManagementPage() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    <div className="mt-8 flex justify-end">
+                        <button 
+                            onClick={() => updateSettings({ pausePrices: localPausePrices })}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-[#6d28d9] hover:bg-[#5b21b6] text-white text-[11px] font-black tracking-widest rounded-xl shadow-lg shadow-[#6d28d9]/20 transition-all active:scale-95 uppercase"
+                        >
+                            <Check className="w-4 h-4" />
+                            {t.saveChanges || 'შენახვა'}
+                        </button>
                     </div>
                 </div>
             </div>

@@ -374,7 +374,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     logo_url: next.logoDataUrl,
                     theme: next.themeKey,
                     currency: next.currency,
-                    language: next.language
+                    language: next.language,
+                    pausePrices: next.pausePrices
                 };
                 import('@/lib/master-sync').then(mod => {
                     mod.pushFullStudioMetadata(prev.studioSlug, name, metadata);
