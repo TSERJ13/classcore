@@ -195,6 +195,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 });
                             }
                         }
+                        
+                        // Normalize halls: ensure is_active is true if missing
+                        finalHallsRaw = finalHallsRaw.map((h: any) => ({
+                            ...h,
+                            is_active: h.is_active !== undefined ? h.is_active : true
+                        }));
 
                         // 2. Resolve Students
                         let finalStudentsRaw = state.students || [];

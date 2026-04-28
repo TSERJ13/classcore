@@ -1304,7 +1304,7 @@ export default function CalendarPage() {
         const refresh = () => {
             setEvents(getEvents());
             setTeachers(getTeachers());
-            setHalls(getHalls().filter(h => h.is_active));
+            setHalls(getHalls().filter(h => h.is_active !== false));
             setGroups(getGroups());
         };
 
