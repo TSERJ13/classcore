@@ -2,13 +2,13 @@ import { getStudioRegistry } from './settings-store';
 
 export async function syncGlobalAdminRegistry(force = false) {
     try {
-        // 🛡️ CACHE LAYER: 5-minute stale-while-revalidate
+        // 🛡️ CACHE LAYER: 10-second stale-while-revalidate (Reduced from 5m for debugging)
         const lastSync = parseInt(localStorage.getItem('cc_sa_last_sync') || '0');
         const now = Date.now();
         const studiosData = localStorage.getItem('cc_sa_studios_data');
         
-        if (!force && lastSync && (now - lastSync < 5 * 60 * 1000) && studiosData) {
-            console.log('⚡ [AdminSync] Using fresh cache (v4.5)');
+        if (!force && lastSync && (now - lastSync < 10 * 1000) && studiosData) {
+            console.log('⚡ [AdminSync] Using fresh cache (v4.7)');
             try {
                 return JSON.parse(studiosData);
             } catch { /* fallback to fetch */ }
