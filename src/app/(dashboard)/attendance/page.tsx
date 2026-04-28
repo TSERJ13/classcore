@@ -412,32 +412,34 @@ export default function AttendancePage() {
         
         if (activeSub) {
             const hasExpiredByDate = activeSub.expires_at < todayStr;
-            const hasUsedAllSessions = activeSub.type === 'sessions' && activeSub.sessions_total !== null && activeSub.sessions_used >= activeSub.sessions_total;
+            const remaining = (activeSub.sessions_total ?? 0) - (activeSub.sessions_used ?? 0);
+            const hasUsedAllSessions = activeSub.type === 'sessions' && activeSub.sessions_total !== null && remaining <= 0;
             
             if (hasExpiredByDate || hasUsedAllSessions) {
-                const expiryDate = new Date(activeSub.expires_at);
-                const now = new Date();
-                const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
-                
-                if (diff > 7) return { activeSub, isExpired: true, status: 'suspended', score: 2, label: t.expired, color: 'red' };
-                return { activeSub, isExpired: true, status: 'expired', score: 1, label: t.expiredRecently, color: 'yellow' };
+                return { activeSub, isExpired: true, status: 'expired', score: 2, label: t.expired, color: 'red', remaining };
             }
-            return { activeSub, isExpired: false, status: 'active', score: 0, label: t.active };
+
+            // Granular scoring for active subs
+            if (remaining === 1) {
+                return { activeSub, isExpired: false, status: 'warning', score: 1, label: t.active, color: 'yellow', remaining };
+            }
+            if (remaining <= 3) {
+                return { activeSub, isExpired: false, status: 'warning', score: 0.5, label: t.active, color: 'amber', remaining };
+            }
+            
+            return { activeSub, isExpired: false, status: 'active', score: 0, label: t.active, color: 'emerald', remaining };
         }
 
-        // 3. Check for any previous sub within last 7 days (grace period)
+        // 3. Check for any previous sub for grace period or just mark as none
         const all = subs[studentId] || [];
         if (all.length > 0) {
             const last = [...all].sort((a,b) => b.expires_at.localeCompare(a.expires_at))[0];
-            const expiryDate = new Date(last.expires_at);
-            const now = new Date();
-            const diff = (now.getTime() - expiryDate.getTime()) / (1000 * 86400);
-            if (diff <= 7) return { activeSub: null, isExpired: true, status: 'expired', score: 1, label: t.expiredRecently, color: 'yellow' };
-            return { activeSub: null, isExpired: true, status: 'suspended', score: 2, label: t.expired, color: 'red' };
+            const remaining = (last.sessions_total ?? 0) - (last.sessions_used ?? 0);
+            return { activeSub: null, isExpired: true, status: 'expired', score: 2, label: t.expired, color: 'red', remaining };
         }
 
-        return { activeSub: null, isExpired: true, status: 'suspended', score: 2, label: t.expired, color: 'red' };
-    }, [selClass, subs, t.active]);
+        return { activeSub: null, isExpired: true, status: 'suspended', score: 3, label: t.noSubscription, color: 'red', remaining: 0 };
+    }, [selClass, subs, t.active, t.expired, t.noSubscription]);
 
     const cls = filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0] || ({} as CalendarEvent);
 
@@ -1023,9 +1025,8 @@ export default function AttendancePage() {
                                     const isSel = selectedStudent === st.id;
                                     const isFl = flash === st.id;
 
-                                    const sInf = studentStatuses[st.id] || { score: 2, label: null, isExpired: true, activeSub: null };
-                                    const color = sInf.score === 0 ? 'emerald' : sInf.score === 1 ? 'yellow' : 'red';
-                                    const { label, isExpired, activeSub } = sInf;
+                                    const sInf = studentStatuses[st.id] || { score: 3, label: null, isExpired: true, activeSub: null, color: 'red' };
+                                    const { label, isExpired, activeSub, color: statusColor, remaining } = sInf;
 
                                     return (
                                         <div key={st.id}
@@ -1044,14 +1045,20 @@ export default function AttendancePage() {
                                                 <div
                                                     className={cn(
                                                         "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative",
-                                                        color === 'emerald' ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" :
-                                                            color === 'yellow' ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
-                                                                "border-red-500 hover:border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.2)]"
+                                                        isExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
+                                                        remaining === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
+                                                        remaining <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
+                                                        "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
                                                     )}
                                                 >
                                                     <span className={cn(
                                                         `w-full h-full rounded-full flex items-center justify-center transition-transform duration-300`,
-                                                        !mounted ? "bg-surface" : (color === 'emerald' ? "bg-emerald-500" : (color === 'yellow' ? "bg-amber-500" : "bg-red-500"))
+                                                        !mounted ? "bg-surface" : (
+                                                            isExpired ? "bg-red-500" :
+                                                            remaining === 1 ? "bg-yellow-400" :
+                                                            remaining <= 3 ? "bg-amber-500" :
+                                                            "bg-emerald-500"
+                                                        )
                                                     )}>
                                                         {st.photo_url ? (
                                                             <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
@@ -1072,12 +1079,13 @@ export default function AttendancePage() {
                                                         </p>
                                                         {label && (
                                                             <span className={cn(
-                                                                "shrink-0 text-[6px] md:text-[9px] font-black tracking-tighter px-1 md:px-2 py-0.5 rounded-md border uppercase inline-flex",
-                                                                color === 'emerald' ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : 
-                                                                color === 'yellow' ? "text-amber-600 border-amber-500/20 bg-amber-500/5" :
-                                                                "text-red-500 border-red-500/20 bg-red-500/5"
+                                                                "shrink-0 text-[6px] md:text-[8px] font-black tracking-tighter px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-md border uppercase inline-flex transition-colors",
+                                                                isExpired ? "text-red-500 border-red-500/20 bg-red-500/5" : 
+                                                                remaining === 1 ? "text-yellow-600 border-yellow-500/20 bg-yellow-500/5" :
+                                                                remaining <= 3 ? "text-amber-600 border-amber-500/20 bg-amber-500/5" :
+                                                                "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
                                                             )}>
-                                                                {color === 'yellow' ? label : (color === 'red' ? t.expired : label)}
+                                                                {isExpired ? t.expired : label}
                                                             </span>
                                                         )}
                                                     </div>
@@ -1085,37 +1093,39 @@ export default function AttendancePage() {
                                                     {/* Progress/Status Bar */}
                                                     <div className="flex items-center gap-3 w-full">
                                                         {(() => {
-                                                            const subId = activeSub ? activeSub.id : st.id;
-                                                            const day0 = localStorage.getItem(`sms_sent_${subId}_day_0`);
-                                                            const isSent = day0 === 'true';
-
-                                                            if (isExpired || !activeSub) {
+                                                            const subToDisplay = activeSub || (activeSub === null ? (subs[st.id]?.[0] || null) : null);
+                                                            const isActuallyNone = !subToDisplay;
+                                                            const isReallyExpired = isExpired || (subToDisplay && subToDisplay.expires_at < getLocalISODate());
+                                                            const remaining = subToDisplay ? (subToDisplay.sessions_total ?? 0) - (subToDisplay.sessions_used ?? 0) : 0;
+                                                            
+                                                            if (isActuallyNone) {
                                                                 return (
-                                                                    <>
-                                                                        <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30"></div>
-                                                                     </>
+                                                                    <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30"></div>
                                                                 );
                                                             }
 
-                                                            const remaining = (activeSub.sessions_total ?? 0) - (activeSub.sessions_used ?? 0);
                                                             return (
                                                                 <>
                                                                     <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/20 relative shadow-inner">
                                                                         <div
                                                                             className={cn(
                                                                                 "h-full transition-all duration-700",
-                                                                                remaining <= 3 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" :
-                                                                                    remaining <= 5 ? "bg-amber-500" : "bg-[#6d28d9] shadow-[0_0_8px_rgba(109,40,217,0.3)]"
+                                                                                isReallyExpired ? "bg-red-500 opacity-20" :
+                                                                                remaining === 1 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" :
+                                                                                remaining <= 3 ? "bg-amber-500" : 
+                                                                                "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
                                                                             )}
-                                                                            style={{ width: `${Math.max(3, Math.min(100, (remaining / (activeSub.sessions_total || 1)) * 100))}%` }}
+                                                                            style={{ width: subToDisplay.sessions_total ? `${Math.max(5, Math.min(100, (remaining / subToDisplay.sessions_total) * 100))}%` : '100%' }}
                                                                         />
                                                                     </div>
                                                                     <span className={cn(
                                                                         "shrink-0 text-[10px] font-black tabular-nums tracking-tighter flex items-center gap-1",
-                                                                        remaining <= 3 ? "text-red-500" : "text-muted"
+                                                                        isReallyExpired ? "text-red-500" :
+                                                                        remaining === 1 ? "text-red-500" :
+                                                                        remaining <= 3 ? "text-amber-600" : 
+                                                                        "text-emerald-600"
                                                                     )}>
                                                                         {remaining} {t.visit}
-                                                                        {isSent && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 opacity-60" />}
                                                                     </span>
                                                                 </>
                                                             );
