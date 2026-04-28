@@ -44,17 +44,37 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
         window.location.href = '/';
     };
 
+    const [hasLocalData, setHasLocalData] = useState(false);
+
+    useEffect(() => {
+        // Quick check if we have enough local data to show the UI instantly
+        if (typeof window !== 'undefined') {
+            const hasSettings = localStorage.getItem(`cc_studio_settings_${settings.studioSlug}`);
+            const sessionSynced = sessionStorage.getItem(`cc_session_synced_${settings.studioSlug}`);
+            if (hasSettings || sessionSynced) {
+                setHasLocalData(true);
+            }
+        }
+    }, [settings.studioSlug]);
+
+    useEffect(() => {
+        if (firstSyncDone && settings.studioSlug) {
+            sessionStorage.setItem(`cc_session_synced_${settings.studioSlug}`, 'true');
+        }
+    }, [firstSyncDone, settings.studioSlug]);
+
     // Block only the initial hydration to prevent server/client mismatch
     if (!mounted) return null;
 
-    const isLoading = authLoading || isVerified === null || (!firstSyncDone && settings.studioSlug && !syncTimedOut);
+    // Show loading overlay only if we are truly waiting for initial critical data
+    const isLoading = authLoading || isVerified === null || (!firstSyncDone && !hasLocalData && settings.studioSlug && !syncTimedOut);
 
     return (
         <>
             {/* Loading Overlay with Smooth Fade-out */}
             <div className={cn(
                 "fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8 transition-all duration-700 pointer-events-none",
-                isLoading ? "opacity-100 scale-100" : "opacity-0 invisible scale-100"
+                isLoading ? "opacity-100 scale-100" : "opacity-0 invisible scale-100 delay-100"
             )}>
                 <div className="flex flex-col items-center justify-center gap-6">
                     <div className="w-[60px] h-[60px] flex items-center justify-center">
