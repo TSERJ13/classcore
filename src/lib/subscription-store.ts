@@ -196,17 +196,17 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             student_id: studentId
         }, orgId).catch(() => {});
 
-        // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
-        import('./settings-store').then(({ loadSettings, saveSettings }) => {
-            const settings = loadSettings(activeSlug);
-            (settings as any).subscriptions = Object.values(updatedSubs).flat();
-            saveSettings(settings, settings, activeSlug);
-            
-            import('./master-sync').then(({ pushFullStudioMetadata }) => {
-                const studioName = (settings as any).studioName || 'S_T Dance Studio';
-                pushFullStudioMetadata(activeSlug, studioName, settings);
-            });
+    // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
+    import('./settings-store').then(({ loadSettings, saveSettings }) => {
+        const settings = loadSettings(activeSlug);
+        (settings as any).subscriptions = Object.values(data).flat();
+        saveSettings(settings, settings, activeSlug);
+        
+        import('./master-sync').then(({ pushFullStudioMetadata }) => {
+            const studioName = (settings as any).studioName || 'S_T Dance Studio';
+            pushFullStudioMetadata(activeSlug, studioName, settings);
         });
+    });
     }
 
     // Legacy sync trigger (keep for transition if needed, though native takes priority)

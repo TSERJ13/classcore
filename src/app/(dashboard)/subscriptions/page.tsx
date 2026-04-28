@@ -120,24 +120,43 @@ export default function SubscriptionsPage() {
                                 {(s.plan || 'სტანდარტული')}
                             </span>
                         </div>
-                        <div className="flex flex-row flex-wrap items-center gap-x-3 lg:gap-x-4 gap-y-1 mt-0.5 lg:mt-1 border-t lg:border-none border-border-subtle/30 pt-1 lg:pt-0">
-                            <div className="flex items-center gap-1 text-[9px] lg:text-xs text-muted font-bold opacity-70">
-                                <Clock className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
-                                <span>{s.expires_at}</span>
+                        <div className="flex flex-row flex-wrap items-center gap-x-4 lg:gap-x-6 gap-y-1.5 mt-1 lg:mt-2 border-t lg:border-none border-border-subtle/30 pt-1.5 lg:pt-0">
+                            <div className="flex items-center gap-1.5 text-[9px] lg:text-xs text-muted font-bold">
+                                <Clock className="w-3.5 h-3.5 text-indigo-500 opacity-50" />
+                                <span className="opacity-70">{s.purchased_at || '—'}</span>
+                                <span className="mx-1 opacity-20">→</span>
+                                <span className={cn(
+                                    "px-1.5 py-0.5 rounded-md",
+                                    (s.expires_at < new Date().toISOString().split('T')[0]) ? "bg-red-500/10 text-red-600" : "bg-indigo-500/5 text-primary"
+                                )}>
+                                    {(() => {
+                                        if (!s.expires_at) return '—';
+                                        const exp = new Date(s.expires_at);
+                                        const diff = exp.getTime() - new Date().getTime();
+                                        const days = Math.max(0, Math.ceil(diff / (1000 * 86400)));
+                                        return exp.getFullYear() > 2050 || days > 365 ? '∞' : s.expires_at;
+                                    })()}
+                                </span>
                             </div>
-                            <div className="flex items-center gap-1 text-[9px] lg:text-xs text-muted font-bold opacity-70">
-                                {s.type === 'sessions' ? (
+                            <div className="flex items-center gap-1.5 text-[9px] lg:text-xs text-muted font-bold">
+                                {s.sessions_total === null ? (
                                     <>
-                                        <Users className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
-                                        <span>{s.sessions_used}/{s.sessions_total}</span>
+                                        <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                        <span className="text-amber-600 font-black">∞ {t.visit}</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Clock className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
-                                        <span>{s.sessions_used} (M)</span>
+                                        <Users className="w-3.5 h-3.5 text-indigo-500 opacity-50" />
+                                        <span className="opacity-70">{s.sessions_used}/{s.sessions_total}</span>
                                     </>
                                 )}
                             </div>
+                            {s.amount_paid !== undefined && (
+                                <div className="flex items-center gap-1 text-[9px] lg:text-xs text-emerald-600 font-black bg-emerald-500/5 px-2 py-0.5 rounded-lg border border-emerald-500/10">
+                                    <DollarSign className="w-3 h-3" />
+                                    <span>{s.amount_paid}₾</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
