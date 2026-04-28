@@ -2010,10 +2010,11 @@ export default function CalendarPage() {
                 <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
                     <button
                         onClick={() => setFilterHall('all')}
-                        className={cn('px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                        className={cn('flex items-center gap-2 px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
                             filterHall === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60')}
                     >
-                        {t.allHalls}
+                        <LayoutGrid className="w-3 h-3" />
+                        {lang === 'ka' ? 'ყველა' : t.allHalls}
                     </button>
                     {halls.map((h: any) => (
                         <button key={h.id}

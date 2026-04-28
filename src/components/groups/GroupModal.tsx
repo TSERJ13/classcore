@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Fragment } from 'react';
-import { X, Users, Trash2, AlertTriangle, Check, Palette, Clock, Calendar, Save, ArrowRight, User, BookOpen, GraduationCap, Plus } from 'lucide-react';
+import { X, Users, Trash2, AlertTriangle, Check, Palette, Clock, Calendar, Save, ArrowRight, User, BookOpen, GraduationCap, Plus, DoorOpen } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -426,6 +426,20 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                         )}
                     </div>
 
+                    {/* Hall */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                            <DoorOpen className="w-3 h-3" /> {lang === 'ka' ? 'დარბაზი' : 'Hall'}
+                        </label>
+                        <SearchSelect
+                            options={hallOptions}
+                            value={form.hall_id || ''}
+                            onChange={val => setForm({ ...form, hall_id: val })}
+                            placeholder={lang === 'ka' ? 'აირჩიეთ დარბაზი' : 'Select Hall'}
+                            className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
+                        />
+                    </div>
+
                     {/* Capacity & Type */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -481,19 +495,6 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                         />
                     </div>
 
-                    {/* Hall */}
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                            <Palette className="w-3 h-3" /> {lang === 'ka' ? 'დარბაზი' : 'Hall'}
-                        </label>
-                        <SearchSelect
-                            options={hallOptions}
-                            value={form.hall_id || ''}
-                            onChange={val => setForm({ ...form, hall_id: val })}
-                            placeholder={lang === 'ka' ? 'აირჩიეთ დარბაზი' : 'Select Hall'}
-                            className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
-                        />
-                    </div>
                 </div>
 
                 {/* Footer */}
