@@ -10,7 +10,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
-import { getPlans, savePlans, type Plan } from '@/lib/plan-store';
+import { getPlans, savePlans, deletePlan as deletePlanInStore, type Plan } from '@/lib/plan-store';
 
 type PlanType = 'group' | 'individual';
 type Period = 'sessions' | 'monthly' | 'unlimited';
@@ -83,9 +83,8 @@ export default function PlansManagementPage() {
 
     async function deletePlan(id: string) {
         if (!await confirm(t.deleteConfirm)) return;
-        const next = plans.filter(p => p.id !== id);
-        setPlans(next);
-        savePlans(next);
+        await deletePlanInStore(id);
+        // The UI will refresh via the cc_subscription_plans_update event listener already in place
     }
 
     function toggleActive(id: string) {

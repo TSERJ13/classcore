@@ -1360,7 +1360,19 @@ export default function AttendancePage() {
                         <>
                             <ManualSmsModal open={manualSmsOpen} onClose={() => setManualSmsOpen(false)} studentName={selStudent.full_name} studentPhone={selStudent.phone || ''} />
                             <StudentModal open={editModal} student={selStudent} onClose={() => setEditModal(false)} onSave={(data) => { updateStudent(selStudent.id, data); import('@/lib/student-store').then(mod => setStudentPatches(mod.getStudentPatches())); setEditModal(false); }} />
-                            <IssueSubscriptionModal open={issueModalOpen} onClose={() => setIssueModalOpen(false)} initialStudentId={selStudent.id} onIssue={(data) => { import('@/lib/subscription-store').then(mod => { mod.saveSubscription(data.student_id, { ...data, id: `sub_${Date.now()}` } as any); setSubs(mod.getSubscriptions()); }); setIssueModalOpen(false); }} />
+                            <IssueSubscriptionModal 
+                                open={issueModalOpen} 
+                                onClose={() => setIssueModalOpen(false)} 
+                                initialStudentId={selStudent.id} 
+                                defaultType={cls.type === 'individual' ? 'individual' : 'group'}
+                                onIssue={(data) => { 
+                                    import('@/lib/subscription-store').then(mod => { 
+                                        mod.saveSubscription(data.student_id, { ...data, id: `sub_${Date.now()}` } as any); 
+                                        setSubs(mod.getSubscriptions()); 
+                                    }); 
+                                    setIssueModalOpen(false); 
+                                }} 
+                            />
                         </>
                     )}
                 </>

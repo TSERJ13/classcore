@@ -18,12 +18,13 @@ interface IssueSubscriptionModalProps {
     onClose: () => void;
     onIssue: (data: Omit<SubscriptionInfo, 'id'>) => void;
     initialStudentId?: string;
+    defaultType?: 'group' | 'individual' | 'rental';
     centered?: boolean;
 }
 
 type PayMethod = 'cash' | 'card' | 'transfer';
 
-export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, centered = false }: IssueSubscriptionModalProps) {
+export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, defaultType, centered = false }: IssueSubscriptionModalProps) {
     const { t, lang } = useT();
     const { settings, logSubscription } = useStudio();
     const { user, profile } = useUser();
@@ -111,7 +112,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     // Reset when opened
     useEffect(() => {
         if (open) {
-            setStep('type_selection');
+            setStep(defaultType ? 'form' : 'type_selection');
+            setSelectedType(defaultType || 'group');
             const currentStudents = getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
             setStudentId(initialStudentId || currentStudents[0]?.id || '');
             setStartDate(getLocalISODate());

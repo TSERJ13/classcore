@@ -98,3 +98,36 @@ export async function savePlans(plans: Plan[]): Promise<void> {
 
     triggerInstantSync();
 }
+
+export async function deletePlan(id: string): Promise<void> {
+    const plans = getPlans();
+    const next = plans.filter(p => p.id !== id);
+    const key = getPlansKey();
+    localStorage.setItem(key, JSON.stringify(next));
+    markLocalUpdate();
+
+    const activeSlug = getActiveSlug() || '';
+    const settings = loadSettings(activeSlug);
+    const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+    
+    if (orgId && orgId !== 'demo') {
+        import('./master-sync').then(({ deleteRecordFromCloud }) => {
+            deleteRecordFromCloud('subscription_plans', id, orgId);
+        });
+
+        // Update fallback blob
+        import('./settings-store').then(({ loadSettings, saveSettings }) => {
+            const settings = loadSettings(activeSlug);
+            (settings as any).subscription_plans = next;
+            saveSettings(settings, settings, activeSlug);
+            
+            import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                const studioName = (settings as any).studioName || 'S_T Dance Studio';
+                pushFullStudioMetadata(activeSlug, studioName, settings);
+            });
+        });
+    }
+
+    window.dispatchEvent(new Event('cc_subscription_plans_update'));
+    triggerInstantSync();
+}
