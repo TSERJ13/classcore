@@ -13,15 +13,21 @@ export async function GET() {
     };
     try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        // Try all possible service role key names
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                                 process.env.SERVICE_ROLE_KEY || 
+                                 process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+                                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        const isUsingServiceRole = !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY);
 
         if (!supabaseUrl || !supabaseServiceKey) {
             console.error('❌ Supabase configuration missing');
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
-        if (supabaseServiceKey === process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-            console.warn('⚠️ [SuperAdmin API] Using ANON_KEY instead of SERVICE_ROLE_KEY. Data may be restricted by RLS.');
+        if (!isUsingServiceRole) {
+            console.warn('⚠️ [SuperAdmin API] CRITICAL: No SERVICE_ROLE_KEY found. Using ANON_KEY. Data will be blocked by RLS.');
         }
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -167,7 +173,7 @@ export async function GET() {
             };
         });
 
-        return NextResponse.json({ studios }, { headers: responseHeaders });
+        return NextResponse.json({ studios, debug: { isUsingServiceRole } }, { headers: responseHeaders });
     } catch (err: any) {
         console.error('❌ SuperAdmin Studio List API Error:', err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });
