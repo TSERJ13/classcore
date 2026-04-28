@@ -256,7 +256,7 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
         const updatedSettings = { ...settings, subscriptions: updatedSubs };
         saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
         
-        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        const studioName = (settings as any).studioName || 'Studio';
         pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
 
@@ -400,7 +400,7 @@ export function deleteSubscription(studentId: string, subId: string): void {
         const updatedSettings = { ...settings, subscriptions: updatedSubs };
         saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
         
-        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        const studioName = (settings as any).studioName || 'Studio';
         pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
 

@@ -267,7 +267,7 @@ export function deleteGroup(id: string): void {
         const updatedSettings = { ...settings, groups: updated };
         saveSettings({ groups: updated } as any, settings, activeSlug || '');
         
-        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        const studioName = (settings as any).studioName || 'Studio';
         pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
 

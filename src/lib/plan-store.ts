@@ -87,7 +87,7 @@ export async function savePlans(plans: Plan[]): Promise<void> {
             saveSettings(settings, settings, activeSlug);
             
             import('./master-sync').then(({ pushFullStudioMetadata }) => {
-                const studioName = (settings as any).studioName || 'S_T Dance Studio';
+                const studioName = (settings as any).studioName || 'Studio';
                 pushFullStudioMetadata(activeSlug, studioName, settings);
             });
         });
@@ -122,7 +122,7 @@ export async function deletePlan(id: string): Promise<void> {
             saveSettings(settings, settings, activeSlug);
             
             import('./master-sync').then(({ pushFullStudioMetadata }) => {
-                const studioName = (settings as any).studioName || 'S_T Dance Studio';
+                const studioName = (settings as any).studioName || 'Studio';
                 pushFullStudioMetadata(activeSlug, studioName, settings);
             });
         });

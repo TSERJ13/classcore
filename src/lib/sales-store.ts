@@ -72,7 +72,7 @@ export function recordSale(sale: Omit<ShopSale, 'id' | 'date' | 'time'>) {
         // Sync backup blob
         const updatedSettings = { ...settings, sales: fullList };
         saveSettings({ sales: fullList } as any, settings, activeSlug || '');
-        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        const studioName = (settings as any).studioName || 'Studio';
         pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_shop_update'));
@@ -95,7 +95,7 @@ export function deleteSale(id: string) {
         // Sync backup blob
         const updatedSettings = { ...settings, sales: updated };
         saveSettings({ sales: updated } as any, settings, activeSlug || '');
-        const studioName = (settings as any).studioName || 'S_T Dance Studio';
+        const studioName = (settings as any).studioName || 'Studio';
         pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_shop_update'));

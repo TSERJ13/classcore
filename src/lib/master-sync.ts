@@ -177,7 +177,7 @@ export async function ensureStudioExists(slug: string, name: string) {
             .from('studios')
             .insert({
                 studio_slug: slug,
-                studio_name: name || 'S_T Dance Studio'
+                studio_name: name || 'Studio'
             })
             .select('org_id')
             .single();
