@@ -392,12 +392,21 @@ export function deleteSubscription(studentId: string, subId: string): void {
     const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
 
     if (orgId && orgId !== 'demo') {
-        // 1. Native table delete
-        deleteRecordFromCloud('subscriptions', subId, orgId).catch(() => {});
+        // 1. Native table delete (primary)
+        deleteRecordFromCloud('subscriptions', subId, orgId).catch(err => {
+            console.warn('⚠️ Native deletion failed, relying on metadata blob:', err);
+        });
 
-        // 2. Backup blob update
+        // 2. Backup blob update (secondary)
         const updatedSubs = Object.values(data).flat();
         const updatedSettings = { ...settings, subscriptions: updatedSubs };
+        
+        // 3. Mark as deleted in metadata too (triple safety)
+        if (!updatedSettings._deleted_ids) updatedSettings._deleted_ids = [];
+        if (!updatedSettings._deleted_ids.includes(subId)) {
+            updatedSettings._deleted_ids.push(subId);
+        }
+
         saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
         
         const studioName = (settings as any).studioName || 'Studio';
