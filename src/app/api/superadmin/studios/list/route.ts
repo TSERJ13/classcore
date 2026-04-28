@@ -32,23 +32,36 @@ export async function GET() {
             .select('studio_slug, owner_info, studio_name, logo_url, created_at')
             .order('created_at', { ascending: false });
 
-        if (stdError) throw stdError;
+        if (stdError) {
+            console.error('⚠️ [SuperAdmin API] Studios table fetch error:', stdError.message);
+        }
 
         // 🚨 2. Fetch from 'studio_settings' table (Legacy base)
         const { data: settingsData, error: settingsError } = await supabase
             .from('studio_settings')
             .select('studio_slug, staff_data, updated_at');
         
-        if (settingsError) throw settingsError;
+        if (settingsError) {
+            console.error('⚠️ [SuperAdmin API] Studio Settings table fetch error:', settingsError.message);
+        }
 
         // 🚨 3. UNIFY: Combine all unique slugs from both sources
+        const stdList = stdData || [];
+        const settingsList = settingsData || [];
+        
         const allSlugs = new Set([
-            ...(stdData || []).map(s => s.studio_slug),
-            ...(settingsData || []).map(s => s.studio_slug)
-        ]);
+            ...stdList.map(s => s.studio_slug),
+            ...settingsList.map(s => s.studio_slug)
+        ].filter(Boolean));
 
-        const stdMap = new Map((stdData || []).map(s => [s.studio_slug, s]));
-        const settingsMap = new Map((settingsData || []).map(s => [s.studio_slug, s]));
+        if (allSlugs.size === 0) {
+            console.warn('⚠️ [SuperAdmin API] No studios found in either table.');
+        } else {
+            console.log(`✅ [SuperAdmin API] Found ${allSlugs.size} total studios.`);
+        }
+
+        const stdMap = new Map(stdList.map(s => [s.studio_slug, s]));
+        const settingsMap = new Map(settingsList.map(s => [s.studio_slug, s]));
 
         // Process unified list
         const studios = Array.from(allSlugs).map(targetSlug => {
