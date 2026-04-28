@@ -114,11 +114,9 @@ export function saveHalls(halls: HallData[]): void {
                 saveSettings(settings, settings, activeSlug);
                 
                 // CRITICAL: Explicitly push this fallback to the cloud because saveSettings only saves locally!
-                import('./master-sync').then(({ syncRecordToCloud }) => {
-                    syncRecordToCloud('studio_settings', {
-                        org_id: orgId,
-                        settings: settings
-                    }, orgId);
+                import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                    const studioName = (settings as any).studioName || 'S_T Dance Studio';
+                    pushFullStudioMetadata(activeSlug, studioName, settings);
                 });
             });
         } else {

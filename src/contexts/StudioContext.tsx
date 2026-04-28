@@ -178,7 +178,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                         // 1. Resolve Halls
                         let finalHallsRaw = state.halls || [];
-                        const backupHalls = (state as any).settingsRecord?.data?.halls || (state as any).settingsRecord?.settings?.halls;
+                        const backupHalls = state.studio?.settings?.halls || (state as any).settingsRecord?.data?.halls || (state as any).settingsRecord?.settings?.halls;
                         if (backupHalls) {
                             const backupArr = Array.isArray(backupHalls) ? backupHalls : Object.values(backupHalls);
                             if (finalHallsRaw.length === 0) {
@@ -199,13 +199,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         // 2. Resolve Students
                         let finalStudentsRaw = state.students || [];
                         if (finalStudentsRaw.length === 0) {
-                            const backup = (state as any).settingsRecord?.data?.students || (state as any).settingsRecord?.settings?.students;
+                            const backup = state.studio?.settings?.students || (state as any).settingsRecord?.data?.students || (state as any).settingsRecord?.settings?.students;
                             if (backup) finalStudentsRaw = Array.isArray(backup) ? backup : Object.values(backup);
                         }
 
                         // 3. Resolve Plans
                         let finalPlansRaw = state.subscription_plans || [];
-                        const backupPlans = (state as any).settingsRecord?.data?.subscription_plans || (state as any).settingsRecord?.settings?.subscription_plans;
+                        const backupPlans = state.studio?.settings?.subscription_plans || state.studio?.settings?.plans || (state as any).settingsRecord?.data?.subscription_plans || (state as any).settingsRecord?.settings?.subscription_plans;
                         if (backupPlans) {
                             const backupArr = Array.isArray(backupPlans) ? backupPlans : Object.values(backupPlans);
                             if (finalPlansRaw.length === 0) {
@@ -233,7 +233,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         });
                         // 4. Resolve Subscriptions
                         let finalSubsRaw = state.subscriptions || [];
-                        const backupSubs = (state as any).settingsRecord?.data?.subscriptions || (state as any).settingsRecord?.settings?.subscriptions;
+                        const backupSubs = state.studio?.settings?.subscriptions || (state as any).settingsRecord?.data?.subscriptions || (state as any).settingsRecord?.settings?.subscriptions;
                         if (backupSubs) {
                             const backupArr = Array.isArray(backupSubs) ? backupSubs : Object.values(backupSubs);
                             if (finalSubsRaw.length === 0) {

@@ -202,11 +202,9 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             (settings as any).subscriptions = Object.values(updatedSubs).flat();
             saveSettings(settings, settings, activeSlug);
             
-            import('./master-sync').then(({ syncRecordToCloud }) => {
-                syncRecordToCloud('studio_settings', {
-                    org_id: orgId,
-                    settings: settings
-                }, orgId);
+            import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                const studioName = (settings as any).studioName || 'S_T Dance Studio';
+                pushFullStudioMetadata(activeSlug, studioName, settings);
             });
         });
     }

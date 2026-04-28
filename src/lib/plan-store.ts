@@ -86,11 +86,9 @@ export async function savePlans(plans: Plan[]): Promise<void> {
             (settings as any).subscription_plans = plans;
             saveSettings(settings, settings, activeSlug);
             
-            import('./master-sync').then(({ syncRecordToCloud }) => {
-                syncRecordToCloud('studio_settings', {
-                    org_id: orgId,
-                    settings: settings
-                }, orgId);
+            import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                const studioName = (settings as any).studioName || 'S_T Dance Studio';
+                pushFullStudioMetadata(activeSlug, studioName, settings);
             });
         });
     }
