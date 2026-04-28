@@ -109,8 +109,7 @@ export function saveHalls(halls: HallData[]): void {
                     sq_meters: hall.sq_meters,
                     description: hall.description,
                     photo_url: hall.photo_url || '',
-                    is_active: hall.is_active,
-                    data: hall // Add full data blob for MasterSync unwrap parity
+                    is_active: hall.is_active
                 }, orgId);
             });
         } else {

@@ -1741,17 +1741,12 @@ export default function CalendarPage() {
         if (!silent) alert(lang === 'ka' ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა!` : `Successfully synced ${count} group schedules!`);
     };
 
-    // Auto-sync on mount if calendar is empty but groups exist
+    // Aggressive Auto-sync on mount to ensure Groups always appear in Calendar automatically
     useEffect(() => {
-        if (hasMounted && events.length === 0 && groups.length > 0) {
-            const lastAutoSync = localStorage.getItem(`cc_auto_sync_ran_${settings.activeBranchId || 'main'}`);
-            if (!lastAutoSync) {
-                syncAllGroups(true).then(() => {
-                    localStorage.setItem(`cc_auto_sync_ran_${settings.activeBranchId || 'main'}`, Date.now().toString());
-                });
-            }
+        if (hasMounted && groups.length > 0) {
+            syncAllGroups(true);
         }
-    }, [hasMounted, events.length, groups.length, settings.activeBranchId]);
+    }, [hasMounted, groups.length]);
 
     // Events on a specific date
     function dayEvents(dateStr: string) {

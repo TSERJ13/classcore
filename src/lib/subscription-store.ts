@@ -199,8 +199,7 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             sessions_used: info.sessions_used,
             expires_at: info.expires_at,
             status: info.status,
-            amount_paid: info.amount_paid || 0,
-            data: info 
+            amount_paid: info.amount_paid || 0
         }, orgId);
     }
 
