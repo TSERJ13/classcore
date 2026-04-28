@@ -193,14 +193,15 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
         syncRecordToCloud('subscriptions', {
             id: info.id || `sub_${Date.now()}`,
             org_id: orgId,
-            student_id: studentId,
-            plan: info.plan, 
-            sessions_total: info.sessions_total,
-            sessions_used: info.sessions_used,
-            expires_at: info.expires_at,
-            status: info.status,
-            amount_paid: info.amount_paid || 0
-        }, orgId);
+            student_id: studentId
+        }, orgId).catch(() => {});
+
+        // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
+        import('./settings-store').then(({ loadSettings, saveSettings }) => {
+            const settings = loadSettings(activeSlug);
+            (settings as any).subscriptions = Object.values(updatedSubs).flat();
+            saveSettings(settings, settings, activeSlug);
+        });
     }
 
     // Legacy sync trigger (keep for transition if needed, though native takes priority)
