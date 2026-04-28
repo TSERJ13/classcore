@@ -26,7 +26,7 @@ export async function GET() {
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // 🚨 Base selection from the master 'studios' table
+        // 🚨 1. Fetch from 'studios' table (New base)
         const { data: stdData, error: stdError } = await supabase
             .from('studios')
             .select('studio_slug, owner_info, studio_name, logo_url, created_at')
@@ -34,23 +34,28 @@ export async function GET() {
 
         if (stdError) throw stdError;
 
-        // Fetch rich data from 'studio_settings' for those that have synced
-        const { data: settingsData } = await supabase
+        // 🚨 2. Fetch from 'studio_settings' table (Legacy base)
+        const { data: settingsData, error: settingsError } = await supabase
             .from('studio_settings')
             .select('studio_slug, staff_data, updated_at');
         
-        const settingsMap = new Map();
-        if (settingsData) {
-            settingsData.forEach(s => settingsMap.set(s.studio_slug, s));
-        }
+        if (settingsError) throw settingsError;
 
-        // Process data using 'studios' as the base
-        const studios = stdData.map(row => {
-            const targetSlug = row.studio_slug;
+        // 🚨 3. UNIFY: Combine all unique slugs from both sources
+        const allSlugs = new Set([
+            ...(stdData || []).map(s => s.studio_slug),
+            ...(settingsData || []).map(s => s.studio_slug)
+        ]);
+
+        const stdMap = new Map((stdData || []).map(s => [s.studio_slug, s]));
+        const settingsMap = new Map((settingsData || []).map(s => [s.studio_slug, s]));
+
+        // Process unified list
+        const studios = Array.from(allSlugs).map(targetSlug => {
+            const row = stdMap.get(targetSlug) || {};
             const settingsRow = settingsMap.get(targetSlug) || {};
-            const fallbackOwner = row.owner_info || {};
-
-            const staffDataObj = settingsRow.staff_data || {};
+            const fallbackOwner = (row as any).owner_info || {};
+            const staffDataObj = (settingsRow as any).staff_data || {};
             const isUnified = staffDataObj && !Array.isArray(staffDataObj) && (staffDataObj._staff || staffDataObj._operations);
             
             const allStaff = isUnified 
@@ -129,13 +134,13 @@ export async function GET() {
             const billingObj = (studioConfig as any)[billingKey] || {};
 
             return {
-                slug: row.studio_slug,
-                name: settingsObj.studioName || studioConfig.studioName || row.studio_name || row.studio_slug,
+                slug: targetSlug,
+                name: settingsObj.studioName || studioConfig.studioName || (row as any).studio_name || targetSlug,
                 ownerName,
                 ownerEmail: ownerFromConfig.email || ownerFromStaff?.email || fallbackOwner.email || 'N/A',
                 ownerPhone: ownerFromConfig.phone || ownerFromStaff?.phone || fallbackOwner.phone || 'N/A',
-                updatedAt: settingsRow.updated_at || row.created_at,
-                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || settingsObj.logo_url || studioConfig.logo_url || settingsObj.logo || studioConfig.logo || row.logo_url || null,
+                updatedAt: (settingsRow as any).updated_at || (row as any).created_at,
+                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || settingsObj.logo_url || studioConfig.logo_url || settingsObj.logo || studioConfig.logo || (row as any).logo_url || null,
                 studentCount,
                 groupCount,
                 hallCount,
