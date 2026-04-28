@@ -391,37 +391,38 @@ export default function StudiosPage() {
     const setPlan = async (slug: string, plan: string) => {
         const studio = studios.find(s => s.slug === slug);
         if (!studio) return;
-        const oldPlan = studio.plan;
         
+        setModal(m => ({ ...m, loading: true }));
         try {
-            // 🚨 PRIVILEGED UPDATE: SuperAdmin must use a specific API to bypass RLS
             const res = await fetch('/api/superadmin/studios/update-meta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ slug, patch: { plan } })
             });
 
-            if (!res.ok) throw new Error('Failed to update plan');
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to update plan');
+            }
 
             setStudios(prev => prev.map(s => s.slug === slug ? { ...s, plan: plan as StudioRecord['plan'] } : s));
             setOpenMenu(null);
             console.log(`✅ Plan updated to ${plan} for ${slug}`);
-
-            if (oldPlan === 'trial' && plan !== 'trial') {
-                setModal({
-                    type: 'confirm',
-                    title: t.sa_studios_colPlan,
-                    message: `${t.sa_studios_colStudio} "${slug}" -> ${plan.toUpperCase()}. ${t.sa_studios_successTitle}?`,
-                    onConfirm: () => {
-                        recordPayment(slug, 'cash', 49, 1);
-                        syncStudio(slug);
-                        loadData();
-                        setModal({ type: null, title: '', message: '' });
-                    }
-                });
-            }
-        } catch (err) {
+            
+            setModal({
+                type: 'alert',
+                title: t.sa_studios_successTitle,
+                message: `${t.sa_studios_colPlan}: ${plan.toUpperCase()} ✅`
+            });
+            
+            loadData();
+        } catch (err: any) {
             console.error('❌ Plan update failed:', err);
+            setModal({
+                type: 'alert',
+                title: 'Error',
+                message: `Failed to update plan: ${err.message}. Make sure the SQL command is run in Supabase.`
+            });
         }
     };
 
