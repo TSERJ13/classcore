@@ -1002,40 +1002,26 @@ export default function StudiosPage() {
                                             </div>
                                         </div>
 
-                                        <div className="relative text-center z-[50]">
+                                        <div className="text-center">
                                             <button 
                                                 onClick={() => {
-                                                    console.log('🔘 Plan button clicked for:', studio.slug);
-                                                    setOpenMenu(openMenu === studio.slug + '_plan' ? null : studio.slug + '_plan');
+                                                    setModal({
+                                                        type: 'confirm',
+                                                        title: t.sa_studios_colPlan,
+                                                        message: '',
+                                                        onConfirm: (p) => {
+                                                            if (p) setPlan(studio.slug, p as any);
+                                                        }
+                                                    });
                                                 }} 
                                                 className={cn(
-                                                    'px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 mx-auto border transition-all hover:scale-105 active:scale-95 relative z-[60]', 
+                                                    'px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 mx-auto border transition-all hover:scale-110 active:scale-90', 
                                                     PLAN_COLORS[studio.plan], 
-                                                    openMenu === studio.slug + '_plan' ? 'border-indigo-500 shadow-lg shadow-indigo-500/20' : 'border-black/5'
+                                                    'border-black/5'
                                                 )}
                                             >
                                                 {(t as any)[PLAN_LABELS_KEYS[studio.plan]]}<ChevronDown className="w-2.5 h-2.5 opacity-50" />
                                             </button>
-                                            {openMenu === studio.slug + '_plan' && (
-                                                <div className="absolute z-[9999] top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-black/10 dark:border-border-subtle rounded-2xl overflow-hidden shadow-2xl min-w-[150px] animate-in slide-in-from-top-2 duration-200">
-                                                    {PLAN_OPTIONS.map(p => (
-                                                        <button 
-                                                            key={p} 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                console.log('✅ Selecting plan:', p, 'for', studio.slug);
-                                                                setPlan(studio.slug, p);
-                                                            }} 
-                                                            className={cn(
-                                                                'w-full px-4 py-2.5 text-left text-[9px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-zinc-500/10 transition-colors border-l-2', 
-                                                                studio.plan === p ? 'text-indigo-500 border-indigo-500 bg-indigo-500/5' : 'text-muted border-transparent'
-                                                            )}
-                                                        >
-                                                            {(t as any)[PLAN_LABELS_KEYS[p]]}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
 
                                         <div className="text-center">
@@ -1432,6 +1418,26 @@ export default function StudiosPage() {
                                     onChange={e => setModal(m => ({ ...m, inputVal: e.target.value }))}
                                     className="w-full bg-black/5 dark:bg-surface border border-black/10 dark:border-border-subtle rounded-2xl px-6 py-4 text-center text-xl font-black text-primary outline-none focus:border-indigo-500/50 shadow-inner"
                                 />
+                            </div>
+                        ) : modal.title === t.sa_studios_colPlan ? (
+                            <div className="space-y-3 mb-6">
+                                {PLAN_OPTIONS.map(p => (
+                                    <button 
+                                        key={p} 
+                                        onClick={() => {
+                                            if (modal.onConfirm) modal.onConfirm(p);
+                                            setModal({ type: null, title: '', message: '' });
+                                        }}
+                                        className={cn(
+                                            "w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border",
+                                            p === 'pro' ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30" :
+                                            p === 'custom' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30" :
+                                            "bg-zinc-100 text-zinc-500 border-zinc-200"
+                                        )}
+                                    >
+                                        {(t as any)[PLAN_LABELS_KEYS[p]]}
+                                    </button>
+                                ))}
                             </div>
                         ) : (
                             <p className="text-sm text-zinc-500 font-medium mb-8 leading-relaxed px-4">{modal.message}</p>
