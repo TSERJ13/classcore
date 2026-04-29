@@ -85,8 +85,24 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             }
 
             if (!activeSlug || ["auth", "login", "superadmin"].includes(activeSlug)) {
-                setIsLoaded(true);
-                return;
+                // 🚨 AUTO-RESOLVE SLUG FROM PROFILE: If we have a user but no slug, find it!
+                if (user && profile?.org_id) {
+                    console.log('🔍 [StudioProvider] No active slug, but found OrgID in profile:', profile.org_id);
+                    const { createClient } = await import("@/lib/supabase/client");
+                    const sb = createClient();
+                    const { data: studioRow } = await sb.from('studios').select('studio_slug').eq('org_id', profile.org_id).maybeSingle();
+                    if (studioRow?.studio_slug) {
+                        console.log('✅ [StudioProvider] Resolved missing slug to:', studioRow.studio_slug);
+                        activeSlug = studioRow.studio_slug;
+                        localStorage.setItem('cc_active_studio_slug', activeSlug);
+                    } else {
+                        setIsLoaded(true);
+                        return;
+                    }
+                } else {
+                    setIsLoaded(true);
+                    return;
+                }
             }
 
             console.log('🚀 [MasterSync] Bootstrapping for slug:', activeSlug);
@@ -100,6 +116,41 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             try {
                 const { fetchFullStudioState, ensureStudioExists, pushCollectionToCloud } = await import("@/lib/master-sync");
                 const targetOrgId = await ensureStudioExists(activeSlug || "default", settings.studioName);
+                
+                // 🚨 0. CHECK FOR FRESH REGISTRATION (IMPORTANT: PUSH INSTEAD OF PULL)
+                const isFresh = localStorage.getItem(`cc_is_fresh_${activeSlug}`) === 'true';
+                if (isFresh && targetOrgId) {
+                    console.log('🚀 [MasterSync] Fresh registration detected. Performing INITIAL PUSH.');
+                    const localSettings = loadSettings(activeSlug);
+                    
+                    // 1. Push settings to studio_settings table
+                    const { syncRecordToCloud, pushFullStudioMetadata } = await import('@/lib/master-sync');
+                    await syncRecordToCloud('studio_settings', {
+                        studio_slug: activeSlug,
+                        org_id: targetOrgId,
+                        staff_data: {
+                            _staff: localSettings.staff || [],
+                            _operations: {
+                                cc_studio_settings: localSettings,
+                                cc_sa_meta: {
+                                    owner_info: localSettings.owner_info,
+                                    plan: 'trial'
+                                }
+                            }
+                        }
+                    }, targetOrgId);
+
+                    // 2. Push master metadata to studios table
+                    await pushFullStudioMetadata(activeSlug, localSettings.studioName, {
+                        owner_info: localSettings.owner_info,
+                        plan: 'trial',
+                        language: localSettings.language,
+                        theme: localSettings.themeKey
+                    });
+
+                    localStorage.removeItem(`cc_is_fresh_${activeSlug}`);
+                    console.log('✅ [MasterSync] Initial push completed successfully.');
+                }
                 const localHallsRaw = localStorage.getItem(getScopedKey('cc_halls', activeSlug));
                 
                 if (targetOrgId) {
@@ -239,7 +290,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         });
                         // 4. Resolve Subscriptions
                         let finalSubsRaw = state.subscriptions || [];
-                        const backupSubs = state.studio?.settings?.subscriptions || (state as any).settingsRecord?.data?.subscriptions || (state as any).settingsRecord?.settings?.subscriptions;
+                        const settingsRecord = (state as any).settingsRecord || state.studio?.settings;
+                        const backupSubs = settingsRecord?.data?.subscriptions || settingsRecord?.settings?.subscriptions || state.studio?.settings?.subscriptions;
+                        const deletedIds = settingsRecord?.data?._deleted_ids || settingsRecord?.settings?._deleted_ids || state.studio?.settings?._deleted_ids || [];
+
                         if (backupSubs) {
                             const backupArr = Array.isArray(backupSubs) ? backupSubs : Object.values(backupSubs);
                             if (finalSubsRaw.length === 0) {
@@ -253,6 +307,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     if (!finalSubsRaw.find((s: any) => s.id === rich.id)) finalSubsRaw.push(rich);
                                 });
                             }
+                        }
+
+                        // 🔥 RECONCILIATION: Filter out deleted IDs
+                        if (deletedIds.length > 0) {
+                            finalSubsRaw = finalSubsRaw.filter((s: any) => !deletedIds.includes(s.id));
                         }
 
                         const mapping: any = {
@@ -371,11 +430,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             if (prev.studioSlug && prev.orgId) {
                 const name = updates.studioName || prev.studioName;
                 const metadata = { 
-                    logo_url: next.logoDataUrl,
-                    theme: next.themeKey,
-                    currency: next.currency,
-                    language: next.language,
-                    pausePrices: next.pausePrices
+                    logo_url: next.logoDataUrl || prev.logoDataUrl,
+                    theme: next.themeKey || prev.themeKey,
+                    currency: next.currency || prev.currency,
+                    language: next.language || prev.language,
+                    owner_info: next.owner_info || prev.owner_info,
+                    plan: next.plan || prev.plan,
+                    suspended: next.suspended !== undefined ? next.suspended : prev.suspended,
+                    is_deleted: next.is_deleted !== undefined ? next.is_deleted : prev.is_deleted,
+                    pausePrices: next.pausePrices || prev.pausePrices,
+                    settings: next.settings || prev.settings
                 };
                 import('@/lib/master-sync').then(mod => {
                     mod.pushFullStudioMetadata(prev.studioSlug, name, metadata);

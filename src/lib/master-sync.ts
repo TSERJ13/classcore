@@ -109,17 +109,31 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
     }
     return true;
 }
-export async function pushFullStudioMetadata(slug: string, name: string, settings: any) {
+export async function pushFullStudioMetadata(slug: string, name: string, metadata: any) {
     const supabase = createClient();
+    console.log('📡 [MasterSync] Pushing Full Metadata for:', slug, metadata);
+    
     const { data, error } = await supabase
         .from('studios')
         .upsert({
             studio_slug: slug,
             studio_name: name,
-            settings: settings
+            logo_url: metadata.logo_url,
+            theme_key: metadata.theme,
+            currency: metadata.currency,
+            language: metadata.language,
+            owner_info: metadata.owner_info,
+            plan: metadata.plan,
+            suspended: metadata.suspended,
+            is_deleted: metadata.is_deleted,
+            settings: metadata.settings
         }, { onConflict: 'studio_slug' })
         .select('org_id')
         .single();
+    
+    if (error) {
+        console.error('❌ [MasterSync] Metadata push failed:', error.message);
+    }
     
     return data?.org_id;
 }

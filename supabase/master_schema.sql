@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS public.studios (
     timezone TEXT DEFAULT 'Asia/Tbilisi',
     theme_key TEXT DEFAULT 'indigo',
     is_wizard_completed BOOLEAN DEFAULT false,
+    plan TEXT DEFAULT 'trial',
+    suspended BOOLEAN DEFAULT false,
+    is_deleted BOOLEAN DEFAULT false,
     owner_info JSONB, -- { first_name, last_name, email, phone }
     settings JSONB,   -- { notifications, security, sms_templates, etc }
     created_at TIMESTAMPTZ DEFAULT now(),

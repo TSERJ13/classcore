@@ -82,7 +82,20 @@ export async function middleware(request: NextRequest) {
             }
         }
 
-        // 5. Access Control (Redirect to login ONLY if we are sure there is no user)
+        // 5. Portal Enforcement (Redirect generic /dashboard to specific /[slug]/dashboard)
+        if (user || hasStaffCookie) {
+            const activeSlug = request.cookies.get('cc_active_slug')?.value || user?.user_metadata?.studio_slug;
+            const genericDashboardPaths = ['/dashboard', '/settings', '/billing', '/analytics', '/history', '/attendance', '/students', '/teachers', '/halls', '/groups', '/calendar', '/shop', '/sms-manager', '/subscriptions', '/trash'];
+            
+            if (activeSlug && genericDashboardPaths.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+                const targetPath = pathname === '/dashboard' ? `/${activeSlug}/dashboard` : `/${activeSlug}${pathname}`;
+                const url = request.nextUrl.clone();
+                url.pathname = targetPath;
+                return NextResponse.redirect(url);
+            }
+        }
+
+        // 6. Access Control (Redirect to login ONLY if we are sure there is no user)
         if (!user && !hasStaffCookie) {
             const url = request.nextUrl.clone();
             if (pathname.startsWith('/superadmin')) {

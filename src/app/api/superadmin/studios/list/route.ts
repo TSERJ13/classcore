@@ -32,17 +32,22 @@ export async function GET() {
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // 🚨 1. Fetch from 'studios' table (New base)
+        // 🚨 1. Fetch from 'studios' table (Master Truth)
         const { data: stdData, error: stdError } = await supabase
             .from('studios')
-            .select('studio_slug, owner_info, studio_name, logo_url, created_at')
+            .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, plan, suspended, is_deleted')
             .order('created_at', { ascending: false });
 
         if (stdError) {
             console.error('⚠️ [SuperAdmin API] Studios table fetch error:', stdError.message);
         }
 
-        // 🚨 2. Fetch from 'studio_settings' table (Legacy base)
+        // 🚨 2. Fetch all profiles to resolve owners (Backup Truth)
+        const { data: profileData } = await supabase
+            .from('profiles')
+            .select('org_id, email, role, full_name');
+
+        // 🚨 3. Fetch from 'studio_settings' table (Operational Blob)
         const { data: settingsData, error: settingsError } = await supabase
             .from('studio_settings')
             .select('studio_slug, staff_data, updated_at');
@@ -67,7 +72,7 @@ export async function GET() {
         const studios = Array.from(allSlugs).map(targetSlug => {
             const row = stdMap.get(targetSlug) || {};
             const settingsRow = settingsMap.get(targetSlug) || {};
-            const fallbackOwner = (row as any).owner_info || {};
+            const masterOwner = (row as any).owner_info || {};
             const staffDataObj = (settingsRow as any).staff_data || {};
             const isUnified = staffDataObj && !Array.isArray(staffDataObj) && (staffDataObj._staff || staffDataObj._operations);
             
@@ -84,103 +89,82 @@ export async function GET() {
             const settingsKey = isUnified ? 'cc_studio_settings' : `cc_studio_settings_${targetSlug}`;
             const settingsObj = studioConfig[settingsKey] || {};
 
-            // In legacy, owner_info might be at the root of studioConfig or as individual columns
-            const ownerFromConfig = settingsObj.owner_info || studioConfig.owner_info || {
-                first_name: settingsObj.owner_first_name || studioConfig.owner_first_name || settingsObj.first_name || studioConfig.first_name,
-                last_name: settingsObj.owner_last_name || studioConfig.owner_last_name || settingsObj.last_name || studioConfig.last_name,
-                email: settingsObj.owner_email || studioConfig.owner_email || settingsObj.email || studioConfig.email,
-                phone: settingsObj.owner_phone || studioConfig.owner_phone || settingsObj.phone || studioConfig.phone
-            };
+            const ownerFromConfig = settingsObj.owner_info || studioConfig.owner_info || {};
 
-            // 🚨 ENHANCED OWNER RESOLUTION: Fallback to profiles/auth if missing
+            // 🚨 ENHANCED OWNER RESOLUTION
             let ownerName = 'N/A';
             let ownerEmail = 'N/A';
             let ownerPhone = 'N/A';
 
-            if (ownerFromConfig.first_name) {
-                ownerName = `${ownerFromConfig.first_name} ${ownerFromConfig.last_name || ''}`.trim();
-                ownerEmail = ownerFromConfig.email || 'N/A';
+            // 1. Prioritize Master Table (if it has actual data)
+            if (masterOwner.email && masterOwner.email !== 'N/A') {
+                ownerName = `${masterOwner.first_name || ''} ${masterOwner.last_name || ''}`.trim() || masterOwner.full_name || 'N/A';
+                ownerEmail = masterOwner.email;
+                ownerPhone = masterOwner.phone || 'N/A';
+            } 
+            // 2. Fallback to Settings Blob
+            else if (ownerFromConfig.email && ownerFromConfig.email !== 'N/A') {
+                ownerName = `${ownerFromConfig.first_name || ''} ${ownerFromConfig.last_name || ''}`.trim() || ownerFromConfig.full_name || 'N/A';
+                ownerEmail = ownerFromConfig.email;
                 ownerPhone = ownerFromConfig.phone || 'N/A';
-            } else if (ownerFromStaff) {
-                ownerName = `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || (ownerFromStaff as any).full_name;
+            }
+            // 3. Fallback to Staff List
+            else if (ownerFromStaff) {
+                ownerName = `${ownerFromStaff.first_name || ''} ${ownerFromStaff.last_name || ''}`.trim() || (ownerFromStaff as any).full_name || 'N/A';
                 ownerEmail = ownerFromStaff.email || 'N/A';
                 ownerPhone = ownerFromStaff.phone || 'N/A';
-            } else if (fallbackOwner.first_name || fallbackOwner.owner_first_name) {
-                ownerName = `${fallbackOwner.first_name || fallbackOwner.owner_first_name} ${fallbackOwner.last_name || fallbackOwner.owner_last_name || ''}`.trim();
-                ownerEmail = fallbackOwner.email || 'N/A';
-                ownerPhone = fallbackOwner.phone || 'N/A';
             }
-            
-            // If still N/A, we will eventually add a secondary join in the query, 
-            // but for now let's ensure the fallback variables are used correctly.
-            const finalOwnerName = ownerName;
-            const finalOwnerEmail = ownerEmail;
-            const finalOwnerPhone = ownerPhone;
+            // 4. Ultimate Fallback to Profiles
+            else {
+                const orgProfiles = (profileData || []).filter(p => p.org_id === (row as any)?.org_id);
+                const ownerProfile = orgProfiles.find(p => p.role === 'owner') || orgProfiles[0];
+                if (ownerProfile) {
+                    ownerName = ownerProfile.full_name || 'N/A';
+                    ownerEmail = ownerProfile.email || 'N/A';
+                }
+            }
 
-            // Extract counts for students, groups, halls, and billing
-            let studentCount = 0;
-            let groupCount = 0;
-            let hallCount = 0;
-            let revenue = 0;
-            let activeSubsCount = 0;
+            // Metrics Extraction
+            let studentCount = 0, groupCount = 0, hallCount = 0, revenue = 0, activeSubsCount = 0;
 
-            const studentKey = isUnified ? 'cc_student_data' : `cc_student_data_${targetSlug}`.toLowerCase();
-            const groupKey = isUnified ? 'cc_groups' : `cc_groups_${targetSlug}`.toLowerCase();
-            const hallKey = isUnified ? 'cc_halls' : `cc_halls_${targetSlug}`.toLowerCase();
-            const billingKey = isUnified ? 'cc_saas_billing' : `cc_saas_billing_${targetSlug}`.toLowerCase();
-            const subsKey = isUnified ? 'cc_student_subscriptions' : `cc_student_subscriptions_${targetSlug}`.toLowerCase();
-            const shopKey = isUnified ? 'cc_shop_sales' : `cc_shop_sales_${targetSlug}`.toLowerCase();
+            const mappingKeys = {
+                students: isUnified ? 'cc_student_data' : `cc_student_data_${targetSlug}`.toLowerCase(),
+                groups: isUnified ? 'cc_groups' : `cc_groups_${targetSlug}`.toLowerCase(),
+                halls: isUnified ? 'cc_halls' : `cc_halls_${targetSlug}`.toLowerCase(),
+                subs: isUnified ? 'cc_student_subscriptions' : `cc_student_subscriptions_${targetSlug}`.toLowerCase(),
+                shop: isUnified ? 'cc_shop_sales' : `cc_shop_sales_${targetSlug}`.toLowerCase()
+            };
 
             Object.entries(studioConfig || {}).forEach(([key, value]) => {
                 const lowerKey = key.toLowerCase();
-                
-                if (lowerKey === studentKey) {
-                    studentCount += Object.keys(value as any || {}).length;
-                } else if (lowerKey === groupKey) {
-                    groupCount += (value as any[] || []).length;
-                } else if (lowerKey === hallKey) {
-                    hallCount += (value as any[] || []).length;
-                } else if (lowerKey === subsKey) {
-                    // Calculate revenue from active subscriptions
+                if (lowerKey === mappingKeys.students) studentCount += Object.keys(value as any || {}).length;
+                else if (lowerKey === mappingKeys.groups) groupCount += (value as any[] || []).length;
+                else if (lowerKey === mappingKeys.halls) hallCount += (value as any[] || []).length;
+                else if (lowerKey === mappingKeys.subs) {
                     Object.values(value as any || {}).forEach((subs: any) => {
-                        if (Array.isArray(subs)) {
-                            subs.forEach(s => {
-                                if (s.status === 'active') {
-                                    activeSubsCount++;
-                                    revenue += Number(s.amount_paid || 0);
-                                }
-                            });
-                        }
+                        if (Array.isArray(subs)) subs.forEach(s => {
+                            if (s.status === 'active') { activeSubsCount++; revenue += Number(s.amount_paid || 0); }
+                        });
                     });
-                } else if (lowerKey === shopKey) {
-                    // Add shop sales
-                    if (Array.isArray(value)) {
-                        value.forEach(v => revenue += Number(v.total_amount || 0));
-                    }
                 }
+                else if (lowerKey === mappingKeys.shop && Array.isArray(value)) value.forEach(v => revenue += Number(v.total_amount || 0));
             });
 
-            // Extract billing status
+            const billingKey = isUnified ? 'cc_saas_billing' : `cc_saas_billing_${targetSlug}`.toLowerCase();
             const billingObj = (studioConfig as any)[billingKey] || {};
 
             return {
                 slug: targetSlug,
                 name: settingsObj.studioName || studioConfig.studioName || (row as any).studio_name || targetSlug,
-                ownerName: finalOwnerName,
-                ownerEmail: finalOwnerEmail,
-                ownerPhone: finalOwnerPhone,
+                ownerName, ownerEmail, ownerPhone,
                 updatedAt: (settingsRow as any).updated_at || (row as any).created_at,
-                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || settingsObj.logo_url || studioConfig.logo_url || settingsObj.logo || studioConfig.logo || (row as any).logo_url || null,
-                studentCount,
-                groupCount,
-                hallCount,
-                activeSubsCount,
-                revenue,
-                plan: settingsObj.plan || studioConfig.plan || 'trial',
-                suspended: settingsObj.suspended === true || studioConfig.suspended === true,
+                logoUrl: settingsObj.logoDataUrl || studioConfig.logoDataUrl || (row as any).logo_url || null,
+                studentCount, groupCount, hallCount, activeSubsCount, revenue,
+                plan: (row as any).plan || settingsObj.plan || studioConfig.plan || 'trial',
+                suspended: (row as any).suspended === true || settingsObj.suspended === true || studioConfig.suspended === true,
                 billingStatus: billingObj.status || 'active',
                 daysLeft: billingObj.daysLeftInTrial ?? 30,
-                deleted: settingsObj.deleted === true || studioConfig.deleted === true || (row as any).is_deleted === true
+                deleted: (row as any).is_deleted === true || settingsObj.deleted === true || studioConfig.deleted === true
             };
         });
 

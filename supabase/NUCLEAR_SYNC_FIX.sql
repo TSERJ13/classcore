@@ -23,6 +23,11 @@ ALTER TABLE public.studio_settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.studios DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff DISABLE ROW LEVEL SECURITY;
 
+-- 3.5. Ensure Master 'studios' table has all necessary columns
+ALTER TABLE public.studios ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'trial';
+ALTER TABLE public.studios ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT false;
+ALTER TABLE public.studios ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;
+
 -- 4. GRANT ALL TO ANON (Required for Client-Side JS with Anon Key)
 GRANT ALL ON public.studio_settings TO anon, authenticated;
 GRANT ALL ON public.studios TO anon, authenticated;

@@ -854,7 +854,7 @@ export default function AttendancePage() {
 
                     <div className="flex flex-1 overflow-hidden">
                         {/* Left Panel: Schedule (Desktop) */}
-                        <div className="hidden lg:flex w-52 border-r border-border-subtle bg-surface/30 flex-col">
+                        <div className="hidden xl:flex w-52 border-r border-border-subtle bg-surface/30 flex-col">
                             <div className="p-4 border-b border-border-subtle/50 flex flex-col gap-3">
                                 {/* Desktop Date Picker */}
                                 {mounted && (
@@ -1003,7 +1003,7 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="lg:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 px-3 touch-pan-x relative z-30">
+                                <div className="xl:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 px-3 touch-pan-x relative z-30">
                                     {mounted && filteredSchedule.map(s => (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
@@ -1185,14 +1185,14 @@ export default function AttendancePage() {
 
                         {/* Right Panel: Student Details / Drawer */}
                         {drawerOpen && (
-                            <div className="lg:hidden fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
+                            <div className="xl:hidden fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
                                 onClick={() => setDrawerOpen(false)} />
                         )}
                         <div className={cn(
-                            "bg-surface/30 flex-col overflow-hidden transition-all duration-300 ease-in-out lg:w-[35%] lg:min-w-[340px]",
+                            "bg-surface/30 flex-col overflow-hidden transition-all duration-300 ease-in-out xl:w-[35%] xl:min-w-[340px]",
                             drawerOpen
-                                ? "fixed inset-0 z-[100] bg-card flex animate-in slide-in-from-bottom-8 lg:static lg:inset-auto lg:z-0 lg:rounded-none lg:shadow-none lg:animate-none lg:border-l shadow-2xl"
-                                : "hidden lg:flex lg:border-l lg:border-border-subtle"
+                                ? "fixed inset-0 z-[100] bg-card flex animate-in slide-in-from-bottom-8 xl:static xl:inset-auto xl:z-0 xl:rounded-none xl:shadow-none xl:animate-none xl:border-l shadow-2xl"
+                                : "hidden xl:flex xl:border-l xl:border-border-subtle"
                         )}>
                             {selStudent ? (
                                 <div className="flex flex-col h-full animate-in slide-in-from-right duration-300">

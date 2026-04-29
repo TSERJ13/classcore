@@ -415,6 +415,7 @@ export default function StudiosPage() {
                 message: `${t.sa_studios_colPlan}: ${plan.toUpperCase()} ✅`
             });
             
+            await syncFromCloud(); // Refresh list to ensure parity
             loadData();
         } catch (err: any) {
             console.error('❌ Plan update failed:', err);
@@ -1010,6 +1011,7 @@ export default function StudiosPage() {
                                                         type: 'confirm',
                                                         title: t.sa_studios_colPlan,
                                                         message: '',
+                                                        inputVal: studio.plan,
                                                         onConfirm: (p) => {
                                                             if (p) setPlan(studio.slug, p as any);
                                                         }
@@ -1426,17 +1428,19 @@ export default function StudiosPage() {
                                     <button 
                                         key={p} 
                                         onClick={() => {
-                                            if (modal.onConfirm) modal.onConfirm(p);
-                                            setModal({ type: null, title: '', message: '' });
+                                            setModal(m => ({ ...m, inputVal: p }));
                                         }}
                                         className={cn(
-                                            "w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border",
-                                            p === 'pro' ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30" :
-                                            p === 'custom' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30" :
-                                            "bg-zinc-100 text-zinc-500 border-zinc-200"
+                                            "w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border flex items-center justify-between px-6",
+                                            modal.inputVal === p ? (
+                                                p === 'pro' ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30" :
+                                                p === 'custom' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30" :
+                                                "bg-zinc-900 text-white border-zinc-900"
+                                            ) : "bg-black/5 border-transparent text-muted hover:bg-black/10"
                                         )}
                                     >
-                                        {(t as any)[PLAN_LABELS_KEYS[p]]}
+                                        <span>{(t as any)[PLAN_LABELS_KEYS[p]]}</span>
+                                        {modal.inputVal === p && <ShieldCheck className="w-4 h-4" />}
                                     </button>
                                 ))}
                             </div>

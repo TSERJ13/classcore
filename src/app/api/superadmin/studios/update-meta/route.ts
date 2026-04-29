@@ -34,12 +34,25 @@ export async function POST(req: Request) {
 
         if (!data) {
             console.log(`⚠️ [UpdateMeta] Studio settings for "${slug}" missing. Creating new entry.`);
+            
+            // Try to fetch OrgID from master table
+            const { data: masterRow } = await supabase
+                .from('studios')
+                .select('org_id, studio_name')
+                .eq('studio_slug', slug)
+                .maybeSingle();
+
             currentData = {
                 _staff: [],
                 _operations: {
-                    cc_studio_settings: { studioName: slug, studioSlug: slug },
+                    cc_studio_settings: { 
+                        studioName: masterRow?.studio_name || slug, 
+                        studioSlug: slug,
+                        orgId: masterRow?.org_id
+                    },
                     cc_sa_meta: {}
-                }
+                },
+                org_id: masterRow?.org_id // For root level parity
             };
             isNewSettings = true;
         } else {
@@ -147,7 +160,13 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true });
     } catch (err: any) {
-        console.error('Meta Update error:', err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        console.error('❌ [UpdateMeta] CRITICAL ERROR:', {
+            slug,
+            message: err.message,
+            stack: err.stack,
+            patch: JSON.stringify(patch),
+            billingPatch: JSON.stringify(billingPatch)
+        });
+        return NextResponse.json({ error: err.message || 'Unknown server error' }, { status: 500 });
     }
 }
