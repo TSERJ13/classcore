@@ -8,89 +8,40 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
  */
 
 export async function fetchFullStudioState(slug: string, orgId?: string) {
-    const supabase = createClient();
     console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId });
     
-    // 1. Get Studio metadata with explicit error logging
-    const { data: studio, error: studioError } = await supabase
-        .from('studios')
-        .select('*')
-        .eq('studio_slug', slug)
-        .maybeSingle();
-
-    if (studioError) {
-        console.error('❌ [MasterSync] Studio lookup error:', studioError.message);
-    }
-
-    if (!studio) {
-        console.warn('⚠️ [MasterSync] No studio row in Cloud for slug:', slug);
-        // If we have an orgId, we might still be able to fetch data
-    }
-
-    const targetOrgId = orgId || studio?.org_id;
-    if (!targetOrgId) {
-        console.error('❌ [MasterSync] Could not resolve OrgID. Aborting fetch.');
-        return null;
-    }
-
-    console.log('📡 [MasterSync] Fetching collection for OrgID:', targetOrgId);
-
-    // 2. Parallel Fetch of ABSOLUTELY EVERYTHING
-    // Note: We use maybeSingle() for settings to avoid 406
-    let responses: any[] = [];
     try {
-        responses = await Promise.all([
-            supabase.from('students').select('*').eq('org_id', targetOrgId),
-            supabase.from('staff').select('*').eq('org_id', targetOrgId),
-            supabase.from('groups').select('*').eq('org_id', targetOrgId),
-            supabase.from('branches').select('*').eq('org_id', targetOrgId),
-            supabase.from('halls').select('*').eq('org_id', targetOrgId),
-            supabase.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle(),
-            supabase.from('subscriptions').select('*').eq('org_id', targetOrgId),
-            supabase.from('attendance').select('*').eq('org_id', targetOrgId),
-            supabase.from('sales').select('*').eq('org_id', targetOrgId),
-            supabase.from('expenses').select('*').eq('org_id', targetOrgId),
-            supabase.from('trash').select('*').eq('org_id', targetOrgId),
-            supabase.from('calendar_events').select('*').eq('org_id', targetOrgId),
-            supabase.from('subscription_plans').select('*').eq('org_id', targetOrgId)
-        ]);
+        const response = await fetch('/api/sync/state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug, orgId })
+        });
+        
+        if (!response.ok) {
+            console.error('❌ [MasterSync] API fetch failed:', response.statusText);
+            return null;
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('❌ [MasterSync] API returned error:', data.error);
+            return null;
+        }
+        
+        console.log('📊 [MasterSync] Cloud Extraction Complete (Admin Bypass):', {
+            students: data.students?.length || 0,
+            staff: data.staff?.length || 0,
+            groups: data.groups?.length || 0,
+            events: data.calendar_events?.length || 0,
+            settingsFound: !!data.settingsRecord
+        });
+
+        return data;
     } catch (e) {
         console.error('❌ [MasterSync] Collective fetch failed:', e);
-        // Fallback to empty responses to allow partial hydration
-        responses = Array(13).fill({ data: [], error: { message: 'Timeout/Network Error' } });
+        return null;
     }
-
-    const data = responses.map(r => r?.data || []);
-    const errors = responses.map(r => r?.error || null);
-
-    if (errors[0]) console.error('❌ [MasterSync] Students fetch failed:', errors[0].message);
-    if (errors[2]) console.error('❌ [MasterSync] Groups fetch failed:', errors[2].message);
-
-    console.log('📊 [MasterSync] Cloud Extraction Complete:', {
-        students: data[0]?.length || 0,
-        staff: data[1]?.length || 0,
-        groups: data[2]?.length || 0,
-        events: data[11]?.length || 0,
-        settingsFound: !!data[5]
-    });
-
-    return {
-        studio: studio || { studio_slug: slug, studio_name: (data[5] as any)?.studio_name || (data[5] as any)?.data?.studio_name || 'Studio', org_id: targetOrgId },
-        settingsRecord: data[5] || null,
-        students: data[0] || [],
-        staff: data[1] || [],
-        groups: data[2] || [],
-        branches: data[3] || [],
-        halls: data[4] || [],
-        subscriptions: data[6] || [],
-        attendance: data[7] || [],
-        sales: data[8] || [],
-        expenses: data[9] || [],
-        trash: data[10] || [],
-        calendar_events: data[11] || [],
-        subscription_plans: data[12] || [],
-        org_id: targetOrgId
-    };
 }
 
 export async function syncRecordToCloud(table: string, record: any, orgId: string) {
