@@ -28,6 +28,7 @@ export function getStudents(): Student[] {
     try {
         const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
         const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
+        const isMainBranch = activeBranch === 'main';
 
         const key = getStudentDataKey();
         let stored = localStorage.getItem(key);
@@ -55,8 +56,6 @@ export function getStudents(): Student[] {
         } catch (e) {
             console.warn('⚠️ [StudentStore] Failed to parse deleted IDs:', e);
         }
-
-        const isMainBranch = activeBranch === 'main';
 
         if (!stored) return isMainBranch ? INITIAL_STUDENTS : [];
         let patches: any = {};
