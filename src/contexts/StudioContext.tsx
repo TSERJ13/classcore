@@ -75,13 +75,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             let activeSlug = getActiveSlug() || defaultSlug;
             
             // EMERGENCY RECOVERY FOR stdancestudio
-            if (!activeSlug || activeSlug === "subscriptions" || activeSlug === "settings") {
-                const userEmail = profile?.email || (user as any)?.email;
-                if (userEmail === "stdancegroup@gmail.com") {
-                    console.log("🚨 [Emergency] Redirecting corrupted slug to stdancestudio");
-                    activeSlug = "stdancestudio";
-                    localStorage.setItem("cc_active_studio_slug", "stdancestudio");
-                }
+            const userEmail = profile?.email || (user as any)?.email || session?.user?.email;
+            if (userEmail === "stdancegroup@gmail.com") {
+                console.log("🚨 [Emergency] Forcing studio identity for stdancestudio");
+                activeSlug = "stdancestudio";
+                localStorage.setItem("cc_active_studio_slug", "stdancestudio");
+            }
+
+            if (!activeSlug || activeSlug === "subscriptions" || activeSlug === "settings" || activeSlug === "dashboard") {
+                 // Fallback to registry if still empty
+                 activeSlug = getActiveSlug() || defaultSlug;
             }
 
             if (!activeSlug || ["auth", "login", "superadmin"].includes(activeSlug)) {
@@ -213,8 +216,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                         const updates = {
                             orgId: targetOrgId,
-                            studioSlug: activeSlug,
-                            studioName: state.studio?.studio_name || (state as any).settingsRecord?.studio_name || profile?.studio_name || settings.studioName,
+                            studioSlug: activeSlug || "stdancestudio",
+                            studioName: state.studio?.studio_name || (state as any).settingsRecord?.studio_name || profile?.studio_name || (userEmail === "stdancegroup@gmail.com" ? "S_T Dance Studio" : settings.studioName),
                             logoDataUrl: (state as any).settingsRecord?.logo_url || state.studio?.settings?.logo_url || settings.logoDataUrl,
                             staff: unwrappedStaff.length > 0 ? unwrappedStaff : settings.staff,
                             branches: state.branches?.length > 0 ? state.branches : settings.branches
