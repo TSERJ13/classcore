@@ -172,6 +172,7 @@ export async function ensureStudioExists(slug: string, name: string) {
     
     try {
         // 1. Aggressive Discovery
+        const { data: studios } = await supabase.from('studios').select('org_id').eq('studio_slug', slug);
         if (studios && studios.length > 0) {
             console.log('🛡️ [MasterSync] Cloud Anchor Resolved:', studios[0].org_id);
             return studios[0].org_id;
