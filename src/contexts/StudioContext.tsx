@@ -172,9 +172,15 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                     Object.entries(mapping).forEach(([key, data]) => {
                         const targetKey = getScopedKey(key, activeSlug);
-                        if (data && (!Array.isArray(data) || data.length > 0)) {
-                            localStorage.setItem(targetKey, JSON.stringify(data));
+                        const isDataEmpty = !data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0);
+                        const existingRaw = localStorage.getItem(targetKey);
+                        
+                        if (isDataEmpty && existingRaw && existingRaw !== '[]' && existingRaw !== '{}') {
+                            console.warn(`⚠️ [StudioContext] Cloud is empty for ${key} but local has data. Skipping hydration to prevent data loss.`);
+                            return; // Do not wipe local storage if cloud fetch returned empty arrays
                         }
+                        
+                        localStorage.setItem(targetKey, JSON.stringify(data || (Array.isArray(data) ? [] : {})));
                     });
                     
                     setFirstSyncDone(true);
