@@ -146,19 +146,21 @@ export default function SettingsPage() {
     const importFileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (settings.studioName && !nameVal) {
+        // Sync name if current local is empty or default
+        if (settings.studioName && (!nameVal || nameVal === 'Studio')) {
             setNameVal(settings.studioName);
         }
         
-        // Auto-fill slug if empty
-        if (!slugVal && !settings.studioSlug) {
+        // Sync slug if current local is empty
+        if (settings.studioSlug && !slugVal) {
+            setSlugVal(settings.studioSlug);
+        } else if (!slugVal && !settings.studioSlug) {
+            // Auto-fill slug from name if both are missing (fallback logic)
             if (nameVal && nameVal.toLowerCase() !== 'studio') {
                 setSlugVal(compactSlugify(nameVal));
             } else if (settings.studioName && settings.studioName.toLowerCase() !== 'studio') {
                 setSlugVal(compactSlugify(settings.studioName));
             }
-        } else if (settings.studioSlug && !slugVal) {
-            setSlugVal(settings.studioSlug);
         }
     }, [settings.studioName, settings.studioSlug, nameVal]);
 

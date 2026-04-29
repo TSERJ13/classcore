@@ -172,16 +172,16 @@ export async function ensureStudioExists(slug: string, name: string) {
     
     try {
         // 1. Aggressive Discovery
-        const { data: studios, error: findError } = await supabase
-            .from('studios')
-            .select('org_id')
-            .eq('studio_slug', slug);
-        
-        if (findError) console.warn('⚠️ [MasterSync] Discovery error:', findError.message);
-
         if (studios && studios.length > 0) {
             console.log('🛡️ [MasterSync] Cloud Anchor Resolved:', studios[0].org_id);
             return studios[0].org_id;
+        }
+
+        // 2. Try to fetch again after a short delay if we're authenticated
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+             const { data: retry } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
+             if (retry) return retry.org_id;
         }
 
         // 3. Create if missing (Only if we cannot find it anywhere else)
@@ -189,15 +189,20 @@ export async function ensureStudioExists(slug: string, name: string) {
         console.log('🛡️ [MasterSync] Anchor missing. Creating new cloud silo...');
         const { data: created, error: createError } = await supabase
             .from('studios')
-            .insert({
+            .upsert({
                 studio_slug: slug,
                 studio_name: name || 'Studio'
-            })
+            }, { onConflict: 'studio_slug' })
             .select('org_id')
-            .single();
+            .maybeSingle();
         
-        if (createError) throw createError;
-        return created.org_id;
+        if (createError) {
+            // If it failed due to uniqueness, try one last lookup
+            const { data: final } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
+            if (final) return final.org_id;
+            throw createError;
+        }
+        return created?.org_id;
 
     } catch (err) {
         console.error('❌ [MasterSync] Anchor failed:', err);
