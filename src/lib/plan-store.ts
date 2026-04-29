@@ -76,7 +76,13 @@ export async function savePlans(plans: Plan[]): Promise<void> {
             syncRecordToCloud('subscription_plans', {
                 id: plan.id,
                 org_id: orgId,
-                name: plan.name
+                name: plan.name,
+                type: plan.type,
+                price: plan.price,
+                period: plan.period,
+                session_count: plan.session_count,
+                validity_days: plan.validity_days,
+                is_active: plan.is_active
             }, orgId).catch(() => {});
         });
 

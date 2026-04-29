@@ -172,8 +172,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         const rescueFlag = `cc_rescue_done_${activeSlug}`;
                         const rescueDone = localStorage.getItem(rescueFlag);
                         if (!rescueDone) {
+                            const studentStore = await import("@/lib/student-store");
                             const collectionsToRescue = [
-                                { table: 'students', local: (await import("@/lib/student-store")).getStudents(), cloud: state.students },
+                                { table: 'students', local: studentStore.getStudentsAllBranches(), cloud: state.students },
                                 { table: 'staff', local: (await import("@/lib/teacher-store")).getTeachers(), cloud: state.staff },
                                 { table: 'groups', local: (await import("@/lib/group-store")).getGroups(), cloud: state.groups },
                                 { table: 'halls', local: (await import("@/lib/hall-store")).getHalls(), cloud: state.halls },
@@ -184,12 +185,21 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 { table: 'subscription_plans', local: (await import("@/lib/plan-store")).getPlans(), cloud: state.subscription_plans }
                             ];
 
+                            let rescueHappened = false;
                             for (const col of collectionsToRescue) {
                                 if (col.local.length > (col.cloud?.length || 0) && col.local.length > 0) {
                                     console.log(`🔼 [MasterSync] Rescuing ${col.local.length} ${col.table} to Cloud...`);
                                     await pushCollectionToCloud(col.table, col.local, targetOrgId);
+                                    rescueHappened = true;
                                 }
                             }
+                            
+                            if (rescueHappened) {
+                                console.log('🔄 [MasterSync] Rescue complete. Refreshing state...');
+                                const refreshed = await fetchFullStudioState(activeSlug || "default", targetOrgId);
+                                if (refreshed) Object.assign(state, refreshed);
+                            }
+                            
                             localStorage.setItem(rescueFlag, Date.now().toString());
                         }
 
@@ -351,34 +361,31 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             cc_global_trash: (state.trash?.length > 0) ? unwrap(state.trash) : []
                         };
 
-                        // 🚨 ATTENDANCE RECONSTRUCTION: Cluster cloud logs by date
-                        if (Array.isArray(state.attendance) && state.attendance.length > 0) {
-                            const attendanceByDate: Record<string, any> = {};
-                            state.attendance.forEach((record: any) => {
-                                // Extract date from either ISO string or date field
-                                const dateStr = record.date || (record.data as any)?.date || new Date().toISOString().split('T')[0];
-                                if (!attendanceByDate[dateStr]) attendanceByDate[dateStr] = {};
-                                attendanceByDate[dateStr][record.student_id] = record.status || (record.data as any)?.status || 'present';
-                            });
-
-                            Object.keys(attendanceByDate).forEach(date => {
-                                localStorage.setItem(`cc_checkins_${date}_${activeSlug}`, JSON.stringify(attendanceByDate[date]));
-                            });
-                        }
-
                         Object.entries(mapping).forEach(([key, data]) => {
                             const targetKey = getScopedKey(key, activeSlug);
-                            localStorage.setItem(targetKey, JSON.stringify(data || (key === 'cc_student_data' ? {} : [])));
+                            const existingRaw = localStorage.getItem(targetKey);
+                            const isDataEmpty = !data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0);
+                            
+                            // 🛑 DATA LOSS PROTECTION: If cloud is empty but local is NOT, don't overwrite yet
+                            // unless we are absolutely sure the cloud is the authority (handled by rescue Done flag)
+                            if (isDataEmpty && existingRaw && existingRaw !== '[]' && existingRaw !== '{}') {
+                                console.warn(`⚠️ [MasterSync] Cloud is empty for ${key} but local has data. Skipping hydration to prevent data loss.`);
+                                return;
+                            }
+
+                            localStorage.setItem(targetKey, JSON.stringify(data || (key === 'cc_student_data' || key === 'cc_student_subscriptions' ? {} : [])));
                         });
 
-                        // Special handling for legacy checkins: Group by date
+                        // 🚨 ATTENDANCE HYDRATION: Group cloud logs by date
                         const attendance = unwrap(state.attendance);
                         const groupedAtt: Record<string, any[]> = {};
                         attendance.forEach(rec => {
-                            if (!rec.date) return;
-                            if (!groupedAtt[rec.date]) groupedAtt[rec.date] = [];
-                            groupedAtt[rec.date].push(rec);
+                            // Support both 'date' field and legacy 'data.date'
+                            const dateStr = rec.date || (rec as any).data?.date || new Date().toISOString().split('T')[0];
+                            if (!groupedAtt[dateStr]) groupedAtt[dateStr] = [];
+                            groupedAtt[dateStr].push(rec);
                         });
+
                         Object.entries(groupedAtt).forEach(([date, list]) => {
                             const attKey = getScopedKey(`cc_checkins_${date}`, activeSlug);
                             localStorage.setItem(attKey, JSON.stringify(list));

@@ -49,21 +49,14 @@ export function getHalls(): HallData[] {
         if (!saved) {
             // SCORCHED EARTH v3.2: Aggressive Key Discovery
             // 1. Try Slug-scoped key (Legacy fallback)
-            const slugKey = `cc_halls_${activeSlug}_${activeBranch}`;
-            const slugData = localStorage.getItem(slugKey);
+            const slugKey = `cc_halls_${activeSlug}`;
+            const slugKeyMain = `cc_halls_${activeSlug}_main`;
+            const slugData = localStorage.getItem(slugKey) || localStorage.getItem(slugKeyMain);
             
-            // 2. Try ancient unscoped slug key
-            const oldKey = `cc_halls_${activeSlug}`;
-            const legacyData = localStorage.getItem(oldKey);
-
             if (slugData) {
                 console.log('🚚 [HallStore] Recovered halls from slug-scoped key');
                 localStorage.setItem(key, slugData);
                 saved = slugData;
-            } else if (legacyData && isMainBranch) {
-                console.log('🚚 [HallStore] Migrated halls from ancient legacy key');
-                localStorage.setItem(key, legacyData);
-                saved = legacyData;
             } else {
                 return INITIAL_HALLS;
             }

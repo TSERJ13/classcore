@@ -33,13 +33,14 @@ export function getStudents(): Student[] {
         let stored = localStorage.getItem(key);
 
         // Migration: If new scoped key is empty, check old unscoped key
-        if (!stored && activeBranch === 'main') {
+        if (!stored && isMainBranch) {
             const oldKey = `cc_student_data_${activeSlug}`;
-            stored = localStorage.getItem(oldKey);
+            const oldKeyMain = `cc_student_data_${activeSlug}_main`;
+            stored = localStorage.getItem(oldKey) || localStorage.getItem(oldKeyMain);
+            
             if (stored) {
                 console.log('🚚 [StudentStore] Migrating legacy main branch data');
                 localStorage.setItem(key, stored);
-                // Optionally remove oldKey? safer to keep for now
             }
         }
 
@@ -153,62 +154,29 @@ export function getStudentsAllBranches(): Student[] {
     if (typeof window === 'undefined') return INITIAL_STUDENTS;
     try {
         const activeSlug = localStorage.getItem('cc_active_studio_slug') || 'demo.classcore.ge';
-        const branchesKey = `cc_branches_${activeSlug}`;
-        const branchesRaw = localStorage.getItem(branchesKey);
-        const branches = branchesRaw ? JSON.parse(branchesRaw) : [{ id: 'main', name: 'Main' }];
-
-        let allStudents: Student[] = [];
-        const seenIds = new Set<string>();
-
-        // We need to temporarily override the active branch in memory or 
-        // access each branch's data key directly
-        for (const branch of branches) {
-            const branchId = branch.id;
-            const dataKey = `cc_student_data_${activeSlug}_${branchId}`;
-            const stored = localStorage.getItem(dataKey);
-            
-            const deletedKey = `cc_deleted_students_${activeSlug}_${branchId}`;
-            const deletedRaw = localStorage.getItem(deletedKey);
-            const parsedDeleted = deletedRaw ? JSON.parse(deletedRaw) : [];
-            const deletedIds = new Set(Array.isArray(parsedDeleted) ? parsedDeleted : []);
-
-            let branchStudents: Student[] = [];
-            const isMainBranch = branchId === 'main';
-
-            if (stored) {
-                const patches = JSON.parse(stored) || {};
-                if (!Array.isArray(patches)) {
-                    const baseStudents = isMainBranch ? INITIAL_STUDENTS : [];
-                    const merged = baseStudents.map(s => ({ ...s, ...(patches[s.id] || {}) }));
-                    
-                    const baseIds = new Set(baseStudents.map(s => s.id));
-                    const newOnes = Object.entries(patches)
-                        .map(([id, p]: [string, any]) => ({ ...(p as Student), id: p.id || id }))
-                        .filter(student => !baseIds.has(student.id))
-                        .map(student => student as Student);
-                    
-                    branchStudents = [...merged, ...newOnes];
-                }
-            } else if (isMainBranch) {
-                branchStudents = INITIAL_STUDENTS;
-            }
-
-            // Apply branch info and filter
-            branchStudents.forEach(s => {
-                if (!deletedIds.has(s.id) && !seenIds.has(s.id)) {
-                    allStudents.push({
-                        ...s,
-                        branch_id: branchId // Ensure branch info is attached
-                    });
-                    seenIds.add(s.id);
-                }
-            });
+        const key = getScopedKey(BASE_STUDENT_DATA_KEY, activeSlug, 'all');
+        const stored = localStorage.getItem(key);
+        if (!stored) return INITIAL_STUDENTS;
+        
+        const parsed = JSON.parse(stored);
+        let patches = {};
+        if (Array.isArray(parsed)) {
+            patches = parsed.reduce((acc: any, s: any) => {
+                const id = s.id || s.studentId;
+                if (id) acc[id] = s;
+                return acc;
+            }, {});
+        } else {
+            patches = parsed || {};
         }
 
-        return allStudents;
+        return Object.entries(patches).map(([id, p]: [string, any]) => ({
+            ...(p as Student),
+            id: p.id || id
+        }));
     } catch (e) {
         console.error('Failed to get students from all branches', e);
-        return getStudents();
+        return [];
     }
 }
 

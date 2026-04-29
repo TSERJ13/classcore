@@ -196,7 +196,14 @@ export default function GroupsPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-2">
                                         <h3 className="text-[14px] sm:text-[16px] font-black text-primary leading-tight line-clamp-1 uppercase tracking-tight group-hover:text-indigo-600 transition-colors uppercase">{group.name}</h3>
-                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border tracking-widest shrink-0 ${typeColor[group.type] || typeColor.Dance}`}>{group.type}</span>
+                                        <span className="px-2 py-0.5 rounded-full text-[8px] font-black border tracking-widest shrink-0"
+                                              style={{ 
+                                                  backgroundColor: `${gColor}15`, 
+                                                  color: gColor, 
+                                                  borderColor: `${gColor}30` 
+                                              }}>
+                                            {group.type}
+                                        </span>
                                     </div>
                                                                   <div className="flex items-center gap-2">
                                         <div className="flex -space-x-3 overflow-hidden">
@@ -251,9 +258,10 @@ export default function GroupsPage() {
                                                     <div key={d} className={cn(
                                                         "w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black border transition-all shrink-0",
                                                         isActive 
-                                                            ? "bg-indigo-500 border-indigo-500/20 text-white shadow-sm" 
+                                                            ? "text-white shadow-sm" 
                                                             : "bg-surface border-border-subtle/30 text-muted opacity-30"
-                                                    )}>
+                                                    )}
+                                                    style={isActive ? { backgroundColor: gColor, borderColor: `${gColor}40` } : {}}>
                                                         {labels[d]}
                                                     </div>
                                                 );
@@ -263,10 +271,14 @@ export default function GroupsPage() {
                                                 {group.schedule_slots?.[0]?.startTime}
                                             </span>
                                         </div>
-                                        <div className="shrink-0 flex items-center gap-1.5 bg-indigo-500/5 px-2 py-1.5 rounded-xl border border-indigo-500/10 h-8">
-                                            <span className="text-[9px] font-black text-indigo-600 tracking-tight">{group.enrolled}/{group.capacity}</span>
-                                            <div className="w-px h-3 bg-indigo-500/20" />
-                                            <span className="text-[9px] font-black text-indigo-500/60">{fillPct}%</span>
+                                        <div className="shrink-0 flex items-center gap-1.5 px-2 py-1.5 rounded-xl border h-8"
+                                            style={{ 
+                                                backgroundColor: `${gColor}08`, 
+                                                borderColor: `${gColor}20` 
+                                            }}>
+                                            <span className="text-[9px] font-black tracking-tight" style={{ color: gColor }}>{group.enrolled}/{group.capacity}</span>
+                                            <div className="w-px h-3" style={{ backgroundColor: `${gColor}30` }} />
+                                            <span className="text-[9px] font-black opacity-60" style={{ color: gColor }}>{fillPct}%</span>
                                         </div>
                                     </div>
 

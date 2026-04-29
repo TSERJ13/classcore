@@ -47,6 +47,8 @@ export default function PlansManagementPage() {
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const [form, setForm] = useState(EMPTY_PLAN);
     const [localPausePrices, setLocalPausePrices] = useState<Record<string, number>>({});
+    const [savingPause, setSavingPause] = useState(false);
+    const [savedPause, setSavedPause] = useState(false);
 
     useEffect(() => {
         if (settings.pausePrices) {
@@ -307,11 +309,31 @@ export default function PlansManagementPage() {
 
                     <div className="mt-8 flex justify-end">
                         <button 
-                            onClick={() => updateSettings({ pausePrices: localPausePrices })}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-[#6d28d9] hover:bg-[#5b21b6] text-white text-[11px] font-black tracking-widest rounded-xl shadow-lg shadow-[#6d28d9]/20 transition-all active:scale-95 uppercase"
+                            onClick={async () => {
+                                setSavingPause(true);
+                                updateSettings({ pausePrices: localPausePrices });
+                                setTimeout(() => {
+                                    setSavingPause(false);
+                                    setSavedPause(true);
+                                    setTimeout(() => setSavedPause(false), 2000);
+                                }, 600);
+                            }}
+                            disabled={savingPause}
+                            className={cn(
+                                "flex items-center gap-2 px-6 py-2.5 text-[11px] font-black tracking-widest rounded-xl shadow-lg transition-all active:scale-95 uppercase",
+                                savedPause 
+                                    ? "bg-emerald-500 text-white shadow-emerald-500/20" 
+                                    : "bg-[#6d28d9] hover:bg-[#5b21b6] text-white shadow-[#6d28d9]/20"
+                            )}
                         >
-                            <Check className="w-4 h-4" />
-                            {t.saveChanges || 'შენახვა'}
+                            {savingPause ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : savedPause ? (
+                                <Check className="w-4 h-4" />
+                            ) : (
+                                <Check className="w-4 h-4" />
+                            )}
+                            {savingPause ? t.saving || 'ინახება...' : savedPause ? t.saved || 'შენახულია' : t.saveChanges || 'შენახვა'}
                         </button>
                     </div>
                 </div>

@@ -189,8 +189,9 @@ export function getActiveSlug(): string | null {
 }
 
 /** 
- * SCORCHED EARTH v3.0 Scope Resolution
+ * SCORCHED EARTH v3.2 Scope Resolution
  * Priority: Override > Settings(OrgId) > Slug
+ * Note: Only branch-specific collections append the branch ID.
  */
 export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
@@ -214,7 +215,22 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
 
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
-    if (bId && bId !== 'all') {
+    // COLLECTIONS THAT ARE SHARED ACROSS BRANCHES (Global for Org)
+    const GLOBAL_COLLECTIONS = [
+        'cc_student_data', 
+        'cc_teachers', 
+        'cc_branches', 
+        'cc_subscription_plans', 
+        'cc_student_subscriptions', 
+        'cc_studio_settings', 
+        'cc_global_history', 
+        'cc_global_trash',
+        'cc_uid_registry'
+    ];
+
+    const isGlobal = GLOBAL_COLLECTIONS.some(c => base.startsWith(c));
+
+    if (!isGlobal && bId && bId !== 'all') {
         return `${base}_${scopeId}_${bId}`;
     }
 

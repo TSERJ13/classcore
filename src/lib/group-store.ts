@@ -55,7 +55,9 @@ export function getGroups(): Group[] {
         // Migration: If new scoped key is empty, check old unscoped key
         if (!saved && isMainBranch) {
             const oldKey = `cc_groups_${activeSlug}`;
-            saved = localStorage.getItem(oldKey);
+            const oldKeyMain = `cc_groups_${activeSlug}_main`;
+            saved = localStorage.getItem(oldKey) || localStorage.getItem(oldKeyMain);
+            
             if (saved) {
                 console.log('🚚 [GroupStore] Migrating legacy main branch data');
                 localStorage.setItem(key, saved);

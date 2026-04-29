@@ -1004,15 +1004,23 @@ export default function AttendancePage() {
                                     </div>
                                 </div>
                                 <div className="xl:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 px-3 touch-pan-x relative z-30">
-                                    {mounted && filteredSchedule.map(s => (
-                                        <button key={s.id} onClick={() => setSelectedClass(s.id)}
-                                            className={cn(
-                                                'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
-                                                selectedClass === s.id ? 'bg-[#6d28d9] text-white border-[#6d28d9]' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
-                                            )}>
-                                            {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
-                                        </button>
-                                    ))}
+                                    {mounted && filteredSchedule.map(s => {
+                                        const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                        return (
+                                            <button key={s.id} onClick={() => setSelectedClass(s.id)}
+                                                className={cn(
+                                                    'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
+                                                    selectedClass === s.id ? 'text-white shadow-lg' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
+                                                )}
+                                                style={selectedClass === s.id ? { 
+                                                    backgroundColor: classColor, 
+                                                    borderColor: classColor,
+                                                    boxShadow: `0 4px 12px ${classColor}30`
+                                                } : {}}>
+                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -1290,7 +1298,11 @@ export default function AttendancePage() {
                                                     </div>
 
                                                     <button onClick={() => setIssueModalOpen(true)}
-                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl bg-[#6d28d9] text-white font-black text-[10px] tracking-widest uppercase shadow-lg shadow-violet-500/20 active:scale-95 transition-all">
+                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all"
+                                                        style={{ 
+                                                            backgroundColor: selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9',
+                                                            boxShadow: `0 8px 20px -4px ${(selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9')}40`
+                                                        }}>
                                                         <PlusCircle className="w-4 h-4" />
                                                         <span>{t.issueSubscription || t.issuePlan}</span>
                                                     </button>
@@ -1320,7 +1332,11 @@ export default function AttendancePage() {
                                                             {getStudentCheckins(selStudent.id).length > 0 ? getStudentCheckins(selStudent.id).map((ch, i) => (
                                                                 <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-#6d28d9/30 transition-all">
                                                                     <div className="flex items-center gap-3">
-                                                                        <div className="w-10 h-10 rounded-xl bg-#6d28d9/10 flex items-center justify-center text-#6d28d9 shrink-0">
+                                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                                                            style={{ 
+                                                                                backgroundColor: `${selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9'}15`,
+                                                                                color: selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9'
+                                                                            }}>
                                                                             <CalendarCheck className="w-5 h-5" />
                                                                         </div>
                                                                         <div>

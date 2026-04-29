@@ -36,7 +36,9 @@ export function getEvents(): CalendarEvent[] {
         // Migration: If new scoped key is empty, check old unscoped key
         if (!saved && isMainBranch) {
             const oldKey = `cc_calendar_events_${activeSlug}`;
-            saved = localStorage.getItem(oldKey);
+            const oldKeyMain = `cc_calendar_events_${activeSlug}_main`;
+            saved = localStorage.getItem(oldKey) || localStorage.getItem(oldKeyMain);
+            
             if (saved) {
                 console.log('🚚 [EventStore] Migrating legacy main branch data');
                 localStorage.setItem(key, saved);
