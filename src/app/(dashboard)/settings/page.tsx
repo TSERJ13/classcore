@@ -147,22 +147,24 @@ export default function SettingsPage() {
 
     useEffect(() => {
         // Sync name if current local is empty or default
-        if (settings.studioName && (!nameVal || nameVal === 'Studio')) {
-            setNameVal(settings.studioName);
+        const contextName = settings.studioName || profile?.studio_name;
+        if (contextName && (!nameVal || nameVal === 'Studio')) {
+            setNameVal(contextName);
         }
         
         // Sync slug if current local is empty
-        if (settings.studioSlug && !slugVal) {
-            setSlugVal(settings.studioSlug);
+        const contextSlug = settings.studioSlug || profile?.studio_slug;
+        if (contextSlug && !slugVal) {
+            setSlugVal(contextSlug);
         } else if (!slugVal && !settings.studioSlug) {
             // Auto-fill slug from name if both are missing (fallback logic)
             if (nameVal && nameVal.toLowerCase() !== 'studio') {
                 setSlugVal(compactSlugify(nameVal));
-            } else if (settings.studioName && settings.studioName.toLowerCase() !== 'studio') {
-                setSlugVal(compactSlugify(settings.studioName));
+            } else if (contextName && contextName.toLowerCase() !== 'studio') {
+                setSlugVal(compactSlugify(contextName));
             }
         }
-    }, [settings.studioName, settings.studioSlug, nameVal]);
+    }, [settings.studioName, settings.studioSlug, profile?.studio_name, profile?.studio_slug, nameVal]);
 
 
 
@@ -539,7 +541,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
+        <div key={settings.studioSlug || 'loading'} className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
             {isAdmin && (
                 <>
                     <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
