@@ -75,7 +75,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string) {
     });
 
     return {
-        studio: studio || { studio_slug: slug, studio_name: 'Recovered Studio', org_id: targetOrgId },
+        studio: studio || { studio_slug: slug, studio_name: (data[5] as any)?.studio_name || (data[5] as any)?.data?.studio_name || 'Studio', org_id: targetOrgId },
         settingsRecord: data[5] || null,
         students: data[0] || [],
         staff: data[1] || [],

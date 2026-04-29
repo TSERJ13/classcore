@@ -213,7 +213,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                         const updates = {
                             orgId: targetOrgId,
-                            studioName: state.studio?.studio_name || settings.studioName,
+                            studioSlug: activeSlug,
+                            studioName: state.studio?.studio_name || (state as any).settingsRecord?.studio_name || settings.studioName,
                             logoDataUrl: (state as any).settingsRecord?.logo_url || state.studio?.settings?.logo_url || settings.logoDataUrl,
                             staff: unwrappedStaff.length > 0 ? unwrappedStaff : settings.staff,
                             branches: state.branches?.length > 0 ? state.branches : settings.branches
@@ -232,7 +233,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         localStorage.setItem(`cc_org_id_${activeSlug}`, targetOrgId);
                         
                         setSettings(prev => {
-                            const next = { ...prev, ...updates, studioSlug: activeSlug };
+                            const next = { ...prev, ...updates };
                             saveSettings(updates, prev, activeSlug);
                             return next;
                         });
