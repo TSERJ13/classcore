@@ -363,21 +363,25 @@ export function deleteSubscription(studentId: string, subId: string): void {
     data[studentId] = data[studentId].filter(s => s.id !== subId);
     if (data[studentId].length === 0) delete data[studentId]; // Remove student entry if no subscriptions left
     
-    const slug = typeof window !== 'undefined' ? getActiveSlug() : null;
-    if (slug && sub) {
+        const session = typeof window !== 'undefined' ? getStaffSession() : null;
+        const performedBy = session?.staff.full_name || 'System';
         const settings = loadSettings(slug || '');
         const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
-        const session = typeof window !== 'undefined' ? getStaffSession() : null;
+        
+        // Fetch student name for the log
+        const student = getStudents().find(s => s.id === studentId);
+        const studentName = student?.full_name || studentId;
 
         recordGlobalDeletion(slug || '', 'cc_student_subscriptions', subId, {
             ...sub,
             details: sub.plan || sub.id,
-            performedBy: session?.staff.full_name || 'System',
+            performedBy,
             branchName,
             branchId: settings.activeBranchId || 'main',
-            studentId
+            studentId,
+            studentName,
+            amount: sub.price
         });
-    }
 
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();

@@ -265,13 +265,16 @@ export function deleteStudent(studentId: string): void {
         }
         
         const student = getStudents().find(s => s.id === studentId);
+        const studentName = student?.full_name || studentId;
+
         recordGlobalDeletion(slug, 'cc_student_data', studentId, {
             ...student,
-            details: student?.full_name || studentId,
+            details: studentName,
             performedBy: session?.staff.full_name || 'System',
             branchName,
             branchId: settings.activeBranchId || 'main',
-            studentId
+            studentId,
+            studentName
         });
     }
 

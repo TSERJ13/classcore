@@ -9,7 +9,7 @@
         background-color: #000000;
         width: 100%;
         overflow-x: hidden !important;
-        overscroll-behavior-y: none;
+        overscroll-behavior-x: none;
     }
     
     :root {
@@ -71,9 +71,8 @@
         color: var(--text-primary, #111827);
         font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
         position: relative;
-        width: 100%;
         overflow-x: hidden !important;
-        overscroll-behavior-y: none;
+        overscroll-behavior-x: none;
         transition: background-color 0.3s ease, color 0.3s ease;
     }
 }
