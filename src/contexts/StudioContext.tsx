@@ -72,13 +72,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const { createClient } = await import("@/lib/supabase/client");
             const sb = createClient();
             
-            // 🔑 STEP 1: FAST METADATA SYNC (Logo, Name, Plan)
+            // 🔑 PHASE 1: FAST METADATA (Logo/Name)
             const { data: studioRecord } = await sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
             if (studioRecord) {
                 setSettings(prev => {
                     const next = { 
                         ...prev, 
-                        studioName: studioRecord.studio_name,
+                        studioName: studioRecord.studio_name || prev.studioName,
                         logoDataUrl: studioRecord.logo_url || (studioRecord.settings as any)?.logoDataUrl || prev.logoDataUrl,
                         plan: studioRecord.plan || prev.plan,
                         orgId: studioRecord.org_id,
@@ -93,14 +93,19 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const targetOrgId = studioRecord?.org_id || profile?.org_id || await ensureStudioExists(activeSlug || "default", settings.studioName);
             if (!targetOrgId) return;
 
-            // 🔑 STEP 2: FULL STATE FETCH
+            // 🔑 PHASE 2: FULL STATE FETCH
             const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
             if (state) {
                 lastSyncedSlugRef.current = activeSlug;
                 const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...item, ...(item.data || {}), data: undefined }));
                 const cloudSettings = state.studio?.settings || state.settingsRecord?.settings || {};
                 
-                // Resolve Collections
+                // 🛡️ DELETION PROTECTION: Get list of globally deleted IDs
+                const deletedIds = cloudSettings._deleted_ids || [];
+                const localDeletedRaw = localStorage.getItem(getScopedKey('cc_deleted_subscriptions', activeSlug));
+                const localDeleted = localDeletedRaw ? JSON.parse(localDeletedRaw) : [];
+                const allDeleted = new Set([...deletedIds, ...localDeleted]);
+
                 const resolveRicher = (db: any[], backup: any) => {
                     const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
                     if (db.length === 0) return backupArr;
@@ -128,7 +133,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                 const mergedSettings = { ...loadSettings(activeSlug), ...cloudSettings, ...updates };
                 localStorage.setItem(`cc_studio_settings_${activeSlug}`, JSON.stringify(mergedSettings));
-                localStorage.setItem(`cc_org_id_${activeSlug}`, targetOrgId);
 
                 setSettings(prev => {
                     const next = { ...prev, ...mergedSettings, studioSlug: activeSlug };
@@ -136,18 +140,20 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     return next;
                 });
 
-                // Parallel Collection Injection
+                // Collection Injection with Deletion Filtering
                 const mapping: any = {
                     cc_teachers: unwrap(state.staff),
                     cc_branches: state.branches,
                     cc_halls: finalHalls,
                     cc_groups: unwrap(state.groups),
                     cc_student_data: (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
-                    cc_student_subscriptions: (unwrap(state.subscriptions)).reduce((acc: any, sub: any) => {
-                        const sId = sub.student_id;
-                        if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
-                        return acc;
-                    }, {}),
+                    cc_student_subscriptions: (unwrap(state.subscriptions))
+                        .filter(sub => !allDeleted.has(sub.id)) // 🔥 GHOST PREVENTION
+                        .reduce((acc: any, sub: any) => {
+                            const sId = sub.student_id;
+                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                            return acc;
+                        }, {}),
                     cc_calendar_events: unwrap(state.calendar_events),
                     cc_subscription_plans: finalPlans,
                     cc_shop_sales: (unwrap(state.sales)).reduce((acc: any, sale: any) => {
