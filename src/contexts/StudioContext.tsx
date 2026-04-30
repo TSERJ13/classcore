@@ -367,14 +367,32 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             const existingRaw = localStorage.getItem(targetKey);
                             const isDataEmpty = !data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0);
                             
-                            // 🛑 DATA LOSS PROTECTION: If cloud is empty but local is NOT, don't overwrite yet
-                            // unless we are absolutely sure the cloud is the authority (handled by rescue Done flag)
+                            // 🛑 DATA LOSS PROTECTION: If cloud is empty but local is NOT, don't overwrite
                             if (isDataEmpty && existingRaw && existingRaw !== '[]' && existingRaw !== '{}') {
-                                console.warn(`⚠️ [MasterSync] Cloud is empty for ${key} but local has data. Skipping hydration to prevent data loss.`);
+                                console.warn(`⚠️ [MasterSync] Cloud is empty for ${key} but local has data. Skipping hydration.`);
                                 return;
                             }
 
-                            localStorage.setItem(targetKey, JSON.stringify(data || (key === 'cc_student_data' || key === 'cc_student_subscriptions' ? {} : [])));
+                            // 🔄 SMART MERGE for Arrays (Plans, Halls, Staff, etc)
+                            // If local has items not yet in cloud, preserve them!
+                            let finalData = data;
+                            if (Array.isArray(data) && existingRaw) {
+                                try {
+                                    const local = JSON.parse(existingRaw);
+                                    if (Array.isArray(local) && local.length > 0) {
+                                        const cloudIds = new Set(data.map((item: any) => item.id));
+                                        const localOnly = local.filter((item: any) => item.id && !cloudIds.has(item.id));
+                                        if (localOnly.length > 0) {
+                                            console.log(`🎁 [MasterSync] Preserving ${localOnly.length} local-only records for ${key}`);
+                                            finalData = [...data, ...localOnly];
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error(`❌ [MasterSync] Merge failed for ${key}:`, e);
+                                }
+                            }
+
+                            localStorage.setItem(targetKey, JSON.stringify(finalData || (key === 'cc_student_data' || key === 'cc_student_subscriptions' ? {} : [])));
                         });
 
                         // 🚨 ATTENDANCE HYDRATION: Group cloud logs by date

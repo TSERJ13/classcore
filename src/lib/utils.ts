@@ -260,16 +260,29 @@ export function recordGlobalDeletion(slug: string, collection: string, id: strin
         const historyRaw = localStorage.getItem(historyKey);
         const history = historyRaw ? JSON.parse(historyRaw) : [];
         
+        // Map collection to action for Audit UI
+        const actionMap: Record<string, string> = {
+            'cc_student_data': 'student_deleted',
+            'cc_student_subscriptions': 'subscription_deleted',
+            'cc_teachers': 'staff_deleted',
+            'cc_groups': 'group_deleted'
+        };
+
         const entry = {
             id: `del_${Date.now()}_${id}`,
             entity_id: id,
             entity_type: collection,
-            action: 'delete',
+            action: actionMap[collection] || 'delete',
             timestamp: new Date().toISOString(),
+            details: data?.details || (data?.name || data?.full_name || id),
+            performedBy: data?.performedBy || 'System',
+            branchName: data?.branchName || 'Main',
+            branchId: data?.branchId || 'main',
+            studentName: data?.studentName || data?.full_name || data?.first_name || '',
             data: data || { id }
         };
 
-        const updated = [entry, ...history].slice(0, 200);
+        const updated = [entry, ...history].slice(0, 1000);
         localStorage.setItem(historyKey, JSON.stringify(updated));
 
         // Trigger Sync for history

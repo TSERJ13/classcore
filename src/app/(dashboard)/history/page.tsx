@@ -12,14 +12,16 @@ import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 
 function getActionMeta(action: string, lang: string) {
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const meta: Record<string, { icon: any, color: string, label: string }> = {
-        payment: { icon: CreditCard, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', label: lang === 'ka' ? 'გადახდა' : 'Payment' },
-        subscription_issued: { icon: Zap, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20', label: lang === 'ka' ? 'აბონემენტის გააქტიურება' : 'Subscription Issued' },
-        subscription_extended: { icon: RefreshCw, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20', label: lang === 'ka' ? 'აბონემენტის გაგრძელება' : 'Subscription Extended' },
-        subscription_deleted: { icon: ShieldAlert, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', label: lang === 'ka' ? 'აბონემენტის წაშლა' : 'Subscription Deleted' },
-        lesson_checkin: { icon: CheckCircle2, color: 'text-blue-500 bg-blue-500/10 border-blue-500/20', label: lang === 'ka' ? 'დასწრება' : 'Lesson Check-in' },
-        student_deleted: { icon: UserMinus, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', label: lang === 'ka' ? 'სტუდენტის წაშლა' : 'Student Deleted' },
-        staff_deleted: { icon: ShieldAlert, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', label: lang === 'ka' ? 'თანამშრომლის წაშლა' : 'Staff Deleted' },
+        payment: { icon: CreditCard, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', label: l('გადახდა', 'Оплата', 'Payment') },
+        subscription_issued: { icon: Zap, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20', label: l('აბონემენტის გააქტიურება', 'Активация подписки', 'Subscription Issued') },
+        subscription_extended: { icon: RefreshCw, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20', label: l('აბონემენტის გაგრძელება', 'Продление подписки', 'Subscription Extended') },
+        subscription_deleted: { icon: ShieldAlert, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', label: l('აბონემენტის წაშლა', 'Удаление подписки', 'Subscription Deleted') },
+        lesson_checkin: { icon: CalendarDays, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20', label: l('გაკვეთილზე დასწრება', 'Отметка на уроке', 'Lesson Check-in') },
+        student_deleted: { icon: Trash2, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', label: l('სტუდენტის წაშლა', 'Удаление студента', 'Student Deleted') },
+        staff_deleted: { icon: ShieldAlert, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', label: l('თანამშრომლის წაშლა', 'Удаление сотрудника', 'Staff Deleted') },
+        group_deleted: { icon: Trash2, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', label: l('ჯგუფის წაშლა', 'Удаление группы', 'Group Deleted') },
     };
 
     return meta[action] || { icon: Receipt, color: 'text-muted bg-surface border-border-subtle', label: action };
@@ -33,6 +35,8 @@ export default function UnifiedHistoryPage() {
     const [auditHistory, setAuditHistory] = useState<AuditEntry[]>([]);
     const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
     const [search, setSearch] = useState('');
+
+    const formatDate = (date: any) => new Date(date).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { day: '2-digit', month: 'short' });
 
     useEffect(() => {
         setAuditHistory(getHistory());
@@ -137,7 +141,6 @@ export default function UnifiedHistoryPage() {
     return (
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-8">
                     <div className="flex items-center justify-between gap-2 w-full px-1 sm:px-0">
-                        {/* Tab Navigation */}
                         <div className="flex-1 h-12 flex gap-1 p-1 bg-card border border-border-subtle rounded-[1.25rem] overflow-hidden sm:flex-none sm:w-fit shadow-sm">
                             <button
                                 onClick={() => setActiveTab('audit')}
@@ -180,7 +183,6 @@ export default function UnifiedHistoryPage() {
                             </button>
                         )}
                     </div>
-                    {/* Alert for Trash */}
                     {activeTab === 'trash' && (
                         <div className="bg-amber-500/10 border-l-[6px] border-l-amber-500 border-amber-500/20 rounded-2xl p-5 flex items-center gap-5 animate-in fade-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
                             <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
@@ -188,20 +190,15 @@ export default function UnifiedHistoryPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-black text-primary tracking-tight leading-tight">
-                                    {lang === 'ka'
-                                        ? 'მონაცემების ავტომატური წაშლა'
-                                        : 'Automated Data Cleanup'}
+                                    {lang === 'ka' ? 'მონაცემების ავტომატური წაშლა' : 'Automated Data Cleanup'}
                                 </p>
                                 <p className="text-xs font-bold text-muted/80 mt-1">
-                                    {lang === 'ka'
-                                        ? 'ყურადღება: მონაცემები ავტომატურად წაიშლება 30 დღის შემდეგ.'
-                                        : 'Note: Information in the trash will be permanently deleted after 30 days.'}
+                                    {lang === 'ka' ? 'ყურადღება: მონაცემები ავტომატურად წაიშლება 30 დღის შემდეგ.' : 'Note: Information in the trash will be permanently deleted after 30 days.'}
                                 </p>
                             </div>
                         </div>
                     )}
 
-                    {/* Content Section */}
                     <Card className="rounded-[1.5rem] md:rounded-[2rem] border-border-subtle shadow-2xl overflow-hidden min-h-[400px]">
                         <div className="p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 border-b border-border-subtle/50">
                             <div className="relative flex-1">
@@ -217,7 +214,6 @@ export default function UnifiedHistoryPage() {
 
                         {activeTab === 'audit' ? (
                             <div className="overflow-x-auto overflow-hidden">
-                                {/* Desktop Table */}
                                 <table className="w-full text-left hidden md:table">
                                     <thead>
                                         <tr className="border-b border-border-subtle/50">
@@ -249,14 +245,10 @@ export default function UnifiedHistoryPage() {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className="text-sm font-black text-primary">
-                                                            {item.studentName || '-'}
-                                                        </span>
+                                                        <span className="text-sm font-black text-primary">{item.studentName || '-'}</span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className="text-sm font-black text-indigo-500">
-                                                            {item.amount ? `${item.amount} ₾` : '-'}
-                                                        </span>
+                                                        <span className="text-sm font-black text-indigo-500">{item.amount ? `${item.amount} ₾` : '-'}</span>
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
@@ -269,7 +261,6 @@ export default function UnifiedHistoryPage() {
                                                                 </span>
                                                                 <span className="text-[10px] font-bold text-muted mt-0.5 opacity-60">
                                                                     By: {item.performedBy}
-                                                                    {item.paymentMethod && ` • ${item.paymentMethod.toUpperCase()}`}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -280,7 +271,6 @@ export default function UnifiedHistoryPage() {
                                     </tbody>
                                 </table>
 
-                                {/* Mobile Card List */}
                                 <div className="flex flex-col md:hidden divide-y divide-border-subtle/10 overflow-hidden">
                                     {filteredAudit.map(item => {
                                         const { icon: Icon, color, label } = getActionMeta(item.action, lang);
@@ -291,69 +281,38 @@ export default function UnifiedHistoryPage() {
                                                         <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border shadow-sm shrink-0", color)}>
                                                             <Icon className="w-4 h-4" />
                                                         </div>
-                                                        <div className="flex flex-col min-w-0">
-                                                            <span className="text-[11px] font-black text-primary tracking-tight leading-none truncate">{label}</span>
-                                                            <span className="text-[9px] font-bold text-muted mt-1 uppercase tracking-widest truncate">
-                                                                {item.branchName === 'მთავარი ფილიალი' ? (lang === 'ka' ? 'მთავარი' : 'Main') : item.branchName}
-                                                            </span>
+                                                        <div className="min-w-0 flex-1 py-0.5">
+                                                            <p className="text-[11px] md:text-[13px] font-black text-primary leading-tight">
+                                                                {label}: <span className="text-indigo-500/80 font-bold">{item.details}</span>
+                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-1.5 opacity-40">
+                                                                <p className="text-[8px] md:text-[9px] font-black tracking-[0.15em] uppercase">
+                                                                    By: {item.performedBy || 'System'}
+                                                                </p>
+                                                                {item.branchName && (
+                                                                    <>
+                                                                        <span className="w-1 h-1 rounded-full bg-current opacity-20" />
+                                                                        <p className="text-[8px] md:text-[9px] font-black tracking-[0.15em] uppercase">
+                                                                            {item.branchName}
+                                                                        </p>
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div className="text-right shrink-0">
                                                         <p className="text-[11px] font-black text-primary leading-none">
                                                             {new Date(item.timestamp).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { day: '2-digit', month: 'short' })}
                                                         </p>
-                                                        <p className="text-[9px] font-bold text-muted/60 mt-1">
-                                                            {new Date(item.timestamp).toLocaleTimeString(lang === 'ka' ? 'ka-GE' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="pl-0">
-                                                    <p className="text-xs font-bold text-primary leading-snug">
-                                                        {item.details}
-                                                    </p>
-                                                    
-                                                    {item.studentName && (
-                                                        <div className="mt-1.5 flex items-center gap-1.5 opacity-80">
-                                                            <div className="w-1 h-1 rounded-full bg-indigo-500" />
-                                                            <span className="text-[10px] font-black text-primary">{item.studentName}</span>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="mt-3 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2 overflow-hidden">
-                                                            <span className="text-[9px] font-bold text-muted/80 italic shrink-0">
-                                                                By {item.performedBy}
-                                                            </span>
-                                                            {item.paymentMethod && (
-                                                                <span className="px-1.5 py-0.5 rounded bg-surface border border-border-subtle text-[8px] font-black uppercase tracking-tighter text-muted shrink-0">
-                                                                    {lang === 'ka' ? (item.paymentMethod === 'cash' ? 'ნაღდი' : item.paymentMethod === 'card' ? 'ბარათი' : 'გადმორიცხვა') : item.paymentMethod}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        {item.amount && (
-                                                            <span className="bg-emerald-500/10 text-emerald-500 px-2.5 py-0.5 rounded-full text-[10px] font-black border border-emerald-500/10 whitespace-nowrap shrink-0">
-                                                                {item.amount} ₾
-                                                            </span>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
-
-                                {filteredAudit.length === 0 && (
-                                    <div className="px-6 py-20 text-center">
-                                        <div className="flex flex-col items-center gap-3 opacity-20">
-                                            <Receipt className="w-16 h-16" />
-                                            <p className="text-sm font-black tracking-widest uppercase">{t.noData}</p>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         ) : (
-                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 flex flex-col gap-4">
                                 {filteredTrash.map(item => (
                                     <div key={item.id} className="p-3 md:p-4 bg-surface/50 rounded-[1.25rem] md:rounded-[1.5rem] border border-border-subtle hover:border-rose-500/30 transition-all group relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-2 md:p-3">

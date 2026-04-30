@@ -257,33 +257,27 @@ export function deleteStudent(studentId: string): void {
     const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
     if (slug !== 'demo') {
         const settings = loadSettings(slug);
+        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
+        const session = typeof window !== 'undefined' ? getStaffSession() : null;
+
         if (settings.orgId) {
             deleteRecordFromCloud('students', studentId, settings.orgId);
         }
-        recordGlobalDeletion(slug, 'cc_student_data', studentId);
+        
+        const student = getStudents().find(s => s.id === studentId);
+        recordGlobalDeletion(slug, 'cc_student_data', studentId, {
+            ...student,
+            details: student?.full_name || studentId,
+            performedBy: session?.staff.full_name || 'System',
+            branchName,
+            branchId: settings.activeBranchId || 'main',
+            studentId
+        });
     }
 
     // also clear UID
     unregisterStudentUid(studentId);
-
     triggerInstantSync();
-
-
-    // GLOBAL AUDIT LOG
-    const session = typeof window !== 'undefined' ? getStaffSession() : null;
-    if (slug && studentId) {
-        const settings = loadSettings(slug);
-        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
-
-        recordAuditAction({
-            action: 'student_deleted',
-            details: `Student Deleted: ${studentId}`,
-            studentId,
-            branchId: settings.activeBranchId || 'main',
-            branchName,
-            performedBy: session?.staff.full_name || 'System'
-        });
-    }
 
     window.dispatchEvent(new Event('cc_student_update'));
 }

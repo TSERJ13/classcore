@@ -363,17 +363,26 @@ export function deleteSubscription(studentId: string, subId: string): void {
     data[studentId] = data[studentId].filter(s => s.id !== subId);
     if (data[studentId].length === 0) delete data[studentId]; // Remove student entry if no subscriptions left
     
-    const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
-    if (slug) {
-        recordGlobalDeletion(slug, 'cc_student_subscriptions', subId, sub);
+    const slug = typeof window !== 'undefined' ? getActiveSlug() : null;
+    if (slug && sub) {
+        const settings = loadSettings(slug || '');
+        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
+        const session = typeof window !== 'undefined' ? getStaffSession() : null;
+
+        recordGlobalDeletion(slug || '', 'cc_student_subscriptions', subId, {
+            ...sub,
+            details: sub.plan || sub.id,
+            performedBy: session?.staff.full_name || 'System',
+            branchName,
+            branchId: settings.activeBranchId || 'main',
+            studentId
+        });
     }
 
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
 
     // 🔥 PREVENT RESURRECTION: Add to local deleted IDs list
-    // This ensures that even if cloud sync pulls the old state before cloud delete finishes,
-    // the UI will still filter it out locally.
     try {
         const deletedKey = getDeletedSubsKey();
         const raw = localStorage.getItem(deletedKey);
@@ -386,22 +395,17 @@ export function deleteSubscription(studentId: string, subId: string): void {
         console.error('Failed to update deleted IDs:', e);
     }
 
-    // 🔥 ATOMIC DELETION: Pull from both native and backup sources
+    // 🔥 ATOMIC DELETION
     const activeSlug = getActiveSlug();
     const settings = loadSettings(activeSlug || '');
     const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
 
     if (orgId && orgId !== 'demo') {
-        // 1. Native table delete (primary)
-        deleteRecordFromCloud('subscriptions', subId, orgId).catch(err => {
-            console.warn('⚠️ Native deletion failed, relying on metadata blob:', err);
-        });
+        deleteRecordFromCloud('subscriptions', subId, orgId).catch(() => {});
 
-        // 2. Backup blob update (secondary)
         const updatedSubs = Object.values(data).flat();
         const updatedSettings = { ...settings, subscriptions: updatedSubs };
         
-        // 3. Mark as deleted in metadata too (triple safety)
         if (!updatedSettings._deleted_ids) updatedSettings._deleted_ids = [];
         if (!updatedSettings._deleted_ids.includes(subId)) {
             updatedSettings._deleted_ids.push(subId);
@@ -411,24 +415,6 @@ export function deleteSubscription(studentId: string, subId: string): void {
         
         const studioName = (settings as any).studioName || 'Studio';
         pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
-    }
-
-
-    // GLOBAL AUDIT LOG
-    const session = typeof window !== 'undefined' ? getStaffSession() : null;
-    const currentSlug = typeof window !== 'undefined' ? getActiveSlug() : '';
-    if (currentSlug && sub) {
-        const settings = loadSettings(currentSlug);
-        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
-
-        recordAuditAction({
-            action: 'subscription_deleted',
-            details: `Subscription Deleted: ${sub.plan} (${sub.id})`, // Changed plan_name to plan
-            studentId,
-            branchId: settings.activeBranchId || 'main',
-            branchName,
-            performedBy: session?.staff.full_name || 'System'
-        });
     }
 
     if (typeof window !== 'undefined') {
