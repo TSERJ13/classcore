@@ -52,6 +52,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         return base;
     });
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
+    // ⚡️ ALWAYS LOADED: Dashboard will render with local data instantly
     const [isLoaded, setIsLoaded] = useState(true);
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -62,131 +63,139 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const hydrate = useCallback(async (isAuto = false) => {
         let activeSlug = getActiveSlug() || defaultSlug;
         
+        // Skip system/auth routes
         if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) return;
-        if (lastSyncedSlugRef.current === activeSlug && firstSyncDone && !isAuto) return;
 
-        console.log('🚀 [MasterSync] Turbo Hydration Start...', { slug: activeSlug });
-
+        // 🚀 ATOMIC BOOT: Parallel resolution
         try {
-            const { fetchFullStudioState, ensureStudioExists } = await import("@/lib/master-sync");
             const { createClient } = await import("@/lib/supabase/client");
             const sb = createClient();
             
-            // 🔑 PHASE 1: FAST METADATA (Logo/Name)
-            const { data: studioRecord } = await sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
-            if (studioRecord) {
-                setSettings(prev => {
-                    const next = { 
-                        ...prev, 
-                        studioName: studioRecord.studio_name || prev.studioName,
-                        logoDataUrl: studioRecord.logo_url || (studioRecord.settings as any)?.logoDataUrl || prev.logoDataUrl,
-                        plan: studioRecord.plan || prev.plan,
-                        orgId: studioRecord.org_id,
-                        language: studioRecord.language || prev.language,
-                        currency: studioRecord.currency || prev.currency
-                    };
-                    saveSettings(next, prev, activeSlug);
-                    return next;
-                });
-            }
+            // 🔑 HIGH-PRIORITY LOGO/NAME (Phase 1)
+            // We use a separate promise for metadata to unlock the UI logo ASAP
+            const metadataPromise = sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
+            
+            metadataPromise.then(({ data: studioRecord }) => {
+                if (studioRecord) {
+                    console.log('✅ [MasterSync] Phase 1: Metadata Resolved (Logo/Name)');
+                    setSettings(prev => {
+                        const next = { 
+                            ...prev, 
+                            studioName: studioRecord.studio_name || prev.studioName,
+                            logoDataUrl: studioRecord.logo_url || (studioRecord.settings as any)?.logoDataUrl || prev.logoDataUrl,
+                            plan: studioRecord.plan || prev.plan,
+                            orgId: studioRecord.org_id,
+                            language: studioRecord.language || prev.language,
+                            currency: studioRecord.currency || prev.currency
+                        };
+                        saveSettings(next, prev, activeSlug);
+                        return next;
+                    });
+                }
+            });
 
-            const targetOrgId = studioRecord?.org_id || profile?.org_id || await ensureStudioExists(activeSlug || "default", settings.studioName);
-            if (!targetOrgId) return;
+            // Wait for metadata to resolve OrgID for Phase 2
+            const { data: studioRecord } = await metadataPromise;
+            const targetOrgId = studioRecord?.org_id || profile?.org_id;
 
-            // 🔑 PHASE 2: FULL STATE FETCH
-            const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
-            if (state) {
-                lastSyncedSlugRef.current = activeSlug;
-                const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...item, ...(item.data || {}), data: undefined }));
-                const cloudSettings = state.studio?.settings || state.settingsRecord?.settings || {};
+            if (targetOrgId) {
+                // PHASE 2: BACKGROUND COLLECTION SYNC
+                const { fetchFullStudioState } = await import("@/lib/master-sync");
+                const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                 
-                // 🛡️ DELETION PROTECTION: Get list of globally deleted IDs
-                const deletedIds = cloudSettings._deleted_ids || [];
-                const localDeletedRaw = localStorage.getItem(getScopedKey('cc_deleted_subscriptions', activeSlug));
-                const localDeleted = localDeletedRaw ? JSON.parse(localDeletedRaw) : [];
-                const allDeleted = new Set([...deletedIds, ...localDeleted]);
+                if (state) {
+                    console.log('✅ [MasterSync] Phase 2: Collections Resolved (Students/Staff)');
+                    lastSyncedSlugRef.current = activeSlug;
+                    const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...item, ...(item.data || {}), data: undefined }));
+                    const cloudSettings = state.studio?.settings || state.settingsRecord?.settings || {};
+                    
+                    const deletedIds = cloudSettings._deleted_ids || [];
+                    const allDeleted = new Set([...deletedIds]);
 
-                const resolveRicher = (db: any[], backup: any) => {
-                    const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
-                    if (db.length === 0) return backupArr;
-                    const merged = db.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
-                    backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
-                    return merged;
-                };
+                    const resolveRicher = (db: any[], backup: any) => {
+                        const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
+                        if (db.length === 0) return backupArr;
+                        const merged = db.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
+                        backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
+                        return merged;
+                    };
 
-                const finalHalls = resolveRicher(state.halls || [], cloudSettings.halls || cloudSettings.data?.halls);
-                const finalPlans = resolveRicher(state.subscription_plans || [], cloudSettings.subscription_plans || cloudSettings.plans);
+                    const finalHalls = resolveRicher(state.halls || [], cloudSettings.halls || cloudSettings.data?.halls);
+                    const finalPlans = resolveRicher(state.subscription_plans || [], cloudSettings.subscription_plans || cloudSettings.plans);
 
-                const updates = {
-                    orgId: targetOrgId,
-                    studioName: state.studio?.studio_name || cloudSettings.studioName || settings.studioName,
-                    logoDataUrl: state.studio?.logo_url || cloudSettings.logoDataUrl || settings.logoDataUrl,
-                    staff: state.staff?.length > 0 ? unwrap(state.staff) : (cloudSettings.staff || settings.staff),
-                    branches: state.branches?.length > 0 ? state.branches : (cloudSettings.branches || settings.branches),
-                    plan: state.studio?.plan || cloudSettings.plan || settings.plan,
-                    subscription_plans: finalPlans,
-                    pausePrices: cloudSettings.pausePrices || settings.pausePrices,
-                    currency: cloudSettings.currency || settings.currency,
-                    language: cloudSettings.language || settings.language,
-                    sms_templates: cloudSettings.sms_templates || settings.sms_templates,
-                };
+                    // Final Settings update with all cloud data
+                    setSettings(prev => {
+                        const updates = {
+                            orgId: targetOrgId,
+                            studioName: state.studio?.studio_name || cloudSettings.studioName || prev.studioName,
+                            logoDataUrl: state.studio?.logo_url || cloudSettings.logoDataUrl || prev.logoDataUrl,
+                            staff: state.staff?.length > 0 ? unwrap(state.staff) : (cloudSettings.staff || prev.staff),
+                            branches: state.branches?.length > 0 ? state.branches : (cloudSettings.branches || prev.branches),
+                            plan: state.studio?.plan || cloudSettings.plan || prev.plan,
+                            subscription_plans: finalPlans,
+                            pausePrices: cloudSettings.pausePrices || prev.pausePrices,
+                            currency: cloudSettings.currency || prev.currency,
+                            language: cloudSettings.language || prev.language,
+                        };
+                        const next = { ...prev, ...cloudSettings, ...updates, studioSlug: activeSlug };
+                        saveSettings(next, prev, activeSlug);
+                        localStorage.setItem(`cc_studio_settings_${activeSlug}`, JSON.stringify(next));
+                        return next;
+                    });
 
-                const mergedSettings = { ...loadSettings(activeSlug), ...cloudSettings, ...updates };
-                localStorage.setItem(`cc_studio_settings_${activeSlug}`, JSON.stringify(mergedSettings));
-
-                setSettings(prev => {
-                    const next = { ...prev, ...mergedSettings, studioSlug: activeSlug };
-                    saveSettings(mergedSettings, prev, activeSlug);
-                    return next;
-                });
-
-                // Collection Injection with Deletion Filtering
-                const mapping: any = {
-                    cc_teachers: unwrap(state.staff),
-                    cc_branches: state.branches,
-                    cc_halls: finalHalls,
-                    cc_groups: unwrap(state.groups),
-                    cc_student_data: (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
-                    cc_student_subscriptions: (unwrap(state.subscriptions))
-                        .filter(sub => !allDeleted.has(sub.id)) // 🔥 GHOST PREVENTION
-                        .reduce((acc: any, sub: any) => {
-                            const sId = sub.student_id;
-                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                    // Fast Collection Storage
+                    const mapping: any = {
+                        cc_teachers: unwrap(state.staff),
+                        cc_branches: state.branches,
+                        cc_halls: finalHalls,
+                        cc_groups: unwrap(state.groups),
+                        cc_student_data: (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                        cc_student_subscriptions: (unwrap(state.subscriptions))
+                            .filter(sub => !allDeleted.has(sub.id))
+                            .reduce((acc: any, sub: any) => {
+                                const sId = sub.student_id;
+                                if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                                return acc;
+                            }, {}),
+                        cc_calendar_events: unwrap(state.calendar_events),
+                        cc_subscription_plans: finalPlans,
+                        cc_shop_sales: (unwrap(state.sales)).reduce((acc: any, sale: any) => {
+                            const sId = sale.student_id;
+                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
                             return acc;
                         }, {}),
-                    cc_calendar_events: unwrap(state.calendar_events),
-                    cc_subscription_plans: finalPlans,
-                    cc_shop_sales: (unwrap(state.sales)).reduce((acc: any, sale: any) => {
-                        const sId = sale.student_id;
-                        if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
-                        return acc;
-                    }, {}),
-                    cc_expenses: unwrap(state.expenses),
-                    cc_global_trash: unwrap(state.trash)
-                };
+                        cc_expenses: unwrap(state.expenses),
+                        cc_global_trash: unwrap(state.trash)
+                    };
 
-                Object.entries(mapping).forEach(([key, data]) => {
-                    localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
-                });
+                    Object.entries(mapping).forEach(([key, data]) => {
+                        localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
+                    });
 
-                // Attendance
-                const groupedAtt: Record<string, any[]> = {};
-                (unwrap(state.attendance)).forEach(rec => {
-                    const dateStr = rec.date || new Date().toISOString().split('T')[0];
-                    if (!groupedAtt[dateStr]) groupedAtt[dateStr] = [];
-                    groupedAtt[dateStr].push(rec);
-                });
-                Object.entries(groupedAtt).forEach(([date, list]) => {
-                    localStorage.setItem(getScopedKey(`cc_checkins_${date}`, activeSlug), JSON.stringify(list));
-                });
+                    // Attendance
+                    const groupedAtt: Record<string, any[]> = {};
+                    (unwrap(state.attendance)).forEach(rec => {
+                        const dateStr = rec.date || new Date().toISOString().split('T')[0];
+                        if (!groupedAtt[dateStr]) groupedAtt[dateStr] = [];
+                        groupedAtt[dateStr].push(rec);
+                    });
+                    Object.entries(groupedAtt).forEach(([date, list]) => {
+                        localStorage.setItem(getScopedKey(`cc_checkins_${date}`, activeSlug), JSON.stringify(list));
+                    });
 
-                ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
-                 'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
-                 'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
-                    .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
+                    // Trigger UI updates
+                    ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
+                     'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
+                     'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
+                        .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
+                }
+            } else {
+                // If no OrgId, try to ensure it
+                const { ensureStudioExists } = await import("@/lib/master-sync");
+                await ensureStudioExists(activeSlug || "default", settings.studioName);
             }
         } catch (err) {
-            console.error('❌ [MasterSync] Hydration failed:', err);
+            console.error('❌ [MasterSync] Extreme Hydration failed:', err);
         } finally {
             setIsSyncing(false);
             setFirstSyncDone(true);
