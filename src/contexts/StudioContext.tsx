@@ -244,25 +244,52 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         cc_branches: state.branches,
                         cc_halls: finalHallsRaw,
                         cc_groups: unwrap(state.groups),
-                        cc_student_data: (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
-                        cc_student_subscriptions: (unwrap(state.subscriptions)).reduce((acc: any, sub: any) => {
+                        cc_student_data: Array.isArray(state.students) ? (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}) : null,
+                        cc_student_subscriptions: Array.isArray(state.subscriptions) ? (unwrap(state.subscriptions)).reduce((acc: any, sub: any) => {
                             const sId = sub.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
                             return acc;
-                        }, {}),
+                        }, {}) : null,
                         cc_calendar_events: unwrap(state.calendar_events),
                         cc_subscription_plans: finalPlansRaw,
-                        cc_shop_sales: (unwrap(state.sales)).reduce((acc: any, sale: any) => {
+                        cc_shop_sales: Array.isArray(state.sales) ? (unwrap(state.sales)).reduce((acc: any, sale: any) => {
                             const sId = sale.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
                             return acc;
-                        }, {}),
+                        }, {}) : null,
                         cc_expenses: unwrap(state.expenses),
                         cc_global_trash: unwrap(state.trash)
                     };
 
                     Object.entries(mapping).forEach(([key, data]) => {
-                        localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
+                        if (data === null) return; // Skip if no data from cloud and we want to preserve local
+
+                        const targetKey = getScopedKey(key, activeSlug);
+                        const existingRaw = localStorage.getItem(targetKey);
+                        const isDataEmpty = !data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0);
+                        
+                        // 🛑 DATA LOSS PROTECTION: If cloud is empty but local is NOT, don't overwrite
+                        if (isDataEmpty && existingRaw && existingRaw !== '[]' && existingRaw !== '{}') {
+                            console.warn(`⚠️ [MasterSync] Cloud is empty for ${key} but local has data. Skipping hydration.`);
+                            return;
+                        }
+
+                        // 🔄 SMART MERGE for Arrays
+                        let finalData = data;
+                        if (Array.isArray(data) && existingRaw) {
+                            try {
+                                const local = JSON.parse(existingRaw);
+                                if (Array.isArray(local) && local.length > 0) {
+                                    const cloudIds = new Set(data.map((item: any) => item.id));
+                                    const localOnly = local.filter((item: any) => item.id && !cloudIds.has(item.id));
+                                    if (localOnly.length > 0) {
+                                        finalData = [...data, ...localOnly];
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+
+                        localStorage.setItem(targetKey, JSON.stringify(finalData));
                     });
 
                     // Attendance
@@ -343,7 +370,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
         setSettings(prev => {
             const next = { ...prev, ...updates };
-            // Note: saveSettings in settings-store.ts expects (payload, current_state, slug)
             import('@/lib/settings-store').then(mod => {
                 mod.saveSettings(updates, prev, prev.studioSlug);
             });
@@ -404,11 +430,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         setSettings(prev => {
             const list = (prev.staff || []).map(s => s.id === id ? { ...s, ...updates } : s);
             const next = { ...prev, staff: list };
-            
             setTimeout(async () => {
                 const modStore = await import('@/lib/settings-store');
                 modStore.saveSettings({ staff: list }, prev, prev.studioSlug);
-                
                 if (prev.orgId) {
                     const modSync = await import('@/lib/master-sync');
                     const member = list.find(s => s.id === id);
@@ -423,7 +447,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     }
                 }
             }, 0);
-            
             return next;
         });
     }, []);
