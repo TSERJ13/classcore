@@ -279,6 +279,7 @@ export function recordGlobalDeletion(slug: string, collection: string, id: strin
             branchName: data?.branchName || 'Main',
             branchId: data?.branchId || 'main',
             studentName: data?.studentName || data?.full_name || data?.first_name || '',
+            amount: data?.amount || data?.price || 0,
             data: data || { id }
         };
 

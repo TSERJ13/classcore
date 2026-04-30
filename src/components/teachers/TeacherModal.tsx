@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { 
     X, User, Users, Phone, Mail, Camera, Trash2, AlertTriangle, Check, 
     Plus, Upload, Globe, Search, ArrowRight, Save, Image as ImageIcon, AlertCircle,
-    BookOpen, Eye, EyeOff, Layout, Percent, Calendar
+    BookOpen, Eye, EyeOff, Layout, Percent, Calendar,
+    CreditCard, CalendarDays, Edit2, GraduationCap, DoorOpen, ShoppingBag, BarChart2, MessageSquare, Zap
 } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
@@ -42,6 +43,20 @@ const EMPTY: Partial<Teacher> = {
     bio: '', rate_per_hour: undefined, rate_per_month: undefined,
     assigned_group_ids: [], assigned_individual: false, status: 'active',
     photo_url: '', salary_percentage: undefined,
+    permissions: {
+        canViewAttendance: true,
+        canViewSubscriptions: true,
+        canViewStudents: true,
+        canViewCalendar: true,
+        canEditCalendar: true,
+        canViewGroups: true,
+        canViewTeachers: false,
+        canViewHalls: true,
+        canViewShop: true,
+        canViewAnalytics: false,
+        canViewSMS: false,
+        canViewBilling: false
+    }
 };
 
 export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete }: TeacherModalProps) {
@@ -314,6 +329,60 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                             >
                                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                             </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Permissions Grid */}
+                                    <div className="pt-4 space-y-3">
+                                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2 uppercase">
+                                            <Eye className="w-3 h-3" /> {l('წვდომის უფლებები', 'Права доступа', 'Access Permissions')}
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {[
+                                                { key: 'canViewAttendance', label: t.attendance, icon: Calendar },
+                                                { key: 'canViewSubscriptions', label: t.subscriptions, icon: CreditCard },
+                                                { key: 'canViewStudents', label: t.students, icon: Users },
+                                                { key: 'canViewCalendar', label: t.calendar, icon: CalendarDays },
+                                                { key: 'canEditCalendar', label: l('კალენდრის რედაქტირება', 'Редактирование календаря', 'Edit Calendar'), icon: Edit2 },
+                                                { key: 'canViewGroups', label: t.groups, icon: BookOpen },
+                                                { key: 'canViewTeachers', label: t.teachers, icon: GraduationCap },
+                                                { key: 'canViewHalls', label: t.halls, icon: DoorOpen },
+                                                { key: 'canViewShop', label: t.shop, icon: ShoppingBag },
+                                                { key: 'canViewAnalytics', label: t.analytics, icon: BarChart2 },
+                                                { key: 'canViewSMS', label: t.sms_manager, icon: MessageSquare },
+                                                { key: 'canViewBilling', label: t.billing, icon: Zap },
+                                            ].map((perm: any) => {
+                                                const val = !!(form.permissions as any)?.[perm.key];
+                                                return (
+                                                    <button
+                                                        key={perm.key}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const next = { ...(form.permissions || {}) };
+                                                            (next as any)[perm.key] = !val;
+                                                            setF('permissions', next);
+                                                        }}
+                                                        className={cn(
+                                                            "flex items-center gap-3 p-2.5 rounded-xl border transition-all text-left",
+                                                            val ? "bg-indigo-500/5 border-indigo-500/20 text-primary" : "bg-surface border-border-subtle opacity-60 text-muted"
+                                                        )}
+                                                    >
+                                                        <div className={cn(
+                                                            "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
+                                                            val ? "bg-indigo-500 text-white" : "bg-muted/10 text-muted"
+                                                        )}>
+                                                            <perm.icon className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold truncate">{perm.label}</span>
+                                                        <div className={cn(
+                                                            "ml-auto w-4 h-4 rounded-md border flex items-center justify-center transition-all",
+                                                            val ? "bg-indigo-500 border-indigo-500" : "border-border-subtle bg-white"
+                                                        )}>
+                                                            {val && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>

@@ -64,20 +64,25 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
     const supabase = createClient();
     console.log('📡 [MasterSync] Pushing Full Metadata for:', slug, metadata);
     
+    // RESOLVE FIELDS FROM EITHER metadata WRAPPER OR metadata AS SETTINGS
+    const settingsObj = metadata.settings || metadata;
+    const logoUrl = metadata.logo_url || settingsObj.logoDataUrl;
+    const themeKey = metadata.theme || settingsObj.themeKey || settingsObj.theme_key;
+
     const { data, error } = await supabase
         .from('studios')
         .upsert({
             studio_slug: slug,
             studio_name: name,
-            logo_url: metadata.logo_url,
-            theme_key: metadata.theme,
-            currency: metadata.currency,
-            language: metadata.language,
-            owner_info: metadata.owner_info,
-            plan: metadata.plan,
-            suspended: metadata.suspended,
-            is_deleted: metadata.is_deleted,
-            settings: metadata.settings
+            logo_url: logoUrl,
+            theme_key: themeKey,
+            currency: settingsObj.currency,
+            language: settingsObj.language,
+            owner_info: settingsObj.owner_info,
+            plan: settingsObj.plan,
+            suspended: settingsObj.suspended,
+            is_deleted: settingsObj.is_deleted,
+            settings: settingsObj
         }, { onConflict: 'studio_slug' })
         .select('org_id')
         .single();

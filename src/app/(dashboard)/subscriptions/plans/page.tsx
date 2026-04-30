@@ -11,6 +11,7 @@ import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings
 import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { getPlans, savePlans, deletePlan as deletePlanInStore, type Plan } from '@/lib/plan-store';
+import { getGroups, type Group } from '@/lib/group-store';
 
 type PlanType = 'group' | 'individual' | 'rental';
 type Period = 'sessions' | 'monthly' | 'unlimited';
@@ -34,10 +35,14 @@ export default function PlansManagementPage() {
     const { settings, updateSettings } = useStudio();
     const confirm = useConfirm();
     const [plans, setPlans] = useState<Plan[]>([]);
+    const [groups, setGroups] = useState<Group[]>([]);
     const [tab, setTab] = useState<PlanType>('group');
 
     useEffect(() => {
-        const load = () => setPlans(getPlans());
+        const load = () => {
+            setPlans(getPlans());
+            setGroups(getGroups());
+        };
         load();
         window.addEventListener('cc_subscription_plans_update', load);
         return () => window.removeEventListener('cc_subscription_plans_update', load);
@@ -66,7 +71,17 @@ export default function PlansManagementPage() {
 
     function openEdit(p: Plan) {
         setEditingPlan(p);
-        setForm({ name: p.name, type: p.type, period: p.period, session_count: p.session_count, validity_days: p.validity_days, price: p.price, coach: p.coach, is_active: p.is_active });
+        setForm({ 
+            name: p.name, 
+            type: p.type, 
+            period: p.period, 
+            session_count: p.session_count, 
+            validity_days: p.validity_days, 
+            price: p.price, 
+            coach: p.coach, 
+            group_id: p.group_id,
+            is_active: p.is_active 
+        });
         setShowForm(true);
     }
 
@@ -262,6 +277,38 @@ export default function PlansManagementPage() {
                                             className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                     </div>
                                 </div>
+                                
+                                {form.type === 'individual' && (
+                                    <div>
+                                        <label className="text-xs text-muted mb-1.5 block">{t.teacher || 'მასწავლებელი'}</label>
+                                        <select 
+                                            value={form.coach || ''} 
+                                            onChange={e => setForm(p => ({ ...p, coach: e.target.value }))}
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm text-primary outline-none"
+                                        >
+                                            <option value="">{t.all || 'ყველა'}</option>
+                                            {settings.staff.filter(s => s.role === 'teacher' || s.role === 'coach' || (s.permissions as any)?.isTeacher).map(s => (
+                                                <option key={s.id} value={s.full_name}>{s.full_name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {form.type === 'group' && (
+                                    <div>
+                                        <label className="text-xs text-muted mb-1.5 block">{t.group || 'ჯგუფი'}</label>
+                                        <select 
+                                            value={form.group_id || ''} 
+                                            onChange={e => setForm(p => ({ ...p, group_id: e.target.value }))}
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm text-primary outline-none"
+                                        >
+                                            <option value="">{t.allGroups || 'ყველა ჯგუფი'}</option>
+                                            {groups.map(g => (
+                                                <option key={g.id} value={g.id}>{g.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex gap-3 px-6 pb-5">

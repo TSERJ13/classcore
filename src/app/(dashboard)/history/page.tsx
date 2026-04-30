@@ -257,10 +257,15 @@ export default function UnifiedHistoryPage() {
                                                             </div>
                                                             <div className="flex flex-col">
                                                                 <span className="text-xs font-black text-primary group-hover:text-indigo-400 transition-colors">
-                                                                    {label}: {item.details}
+                                                                    {label}
                                                                 </span>
-                                                                <span className="text-[10px] font-bold text-muted mt-0.5 opacity-60">
-                                                                    By: {item.performedBy}
+                                                                {item.details && item.details !== item.studentName && (
+                                                                    <span className="text-[10px] font-bold text-muted mt-0.5 opacity-60">
+                                                                        {item.details}
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-[9px] font-black text-indigo-500/40 uppercase tracking-widest mt-1">
+                                                                    By: {item.performedBy || 'System'}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -327,16 +332,16 @@ export default function UnifiedHistoryPage() {
                                             <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-card border border-border-subtle flex items-center justify-center text-muted group-hover:text-rose-500 group-hover:bg-rose-500/5 transition-all shrink-0">
                                                 <Building2 className="w-4 h-4 md:w-5 md:h-5" />
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-sm font-black text-primary truncate tracking-tight">
-                                                    {item.data.name || item.data.fullName || item.data.first_name || 'Unnamed Item'}
+                                            <div className="flex-1 min-w-0 pr-12 sm:pr-0">
+                                                <h3 className="text-[13px] sm:text-sm font-black text-primary truncate tracking-tight">
+                                                    {item.data.name || item.data.fullName || item.data.first_name || item.data.full_name || 'Unnamed Item'}
                                                 </h3>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 mt-0.5">
-                                                    <span className="w-fit text-[9px] font-black text-indigo-400 bg-indigo-500/5 px-1.5 py-0.5 rounded border border-indigo-500/10">
+                                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                    <span className="text-[9px] font-black text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/10 uppercase tracking-tighter">
                                                         {item.type}
                                                     </span>
-                                                    <span className="text-[9px] font-bold text-muted">
-                                                        Deleted {new Date(item.deletedAt).toLocaleDateString()}
+                                                    <span className="text-[9px] font-bold text-muted/60">
+                                                        {lang === 'ka' ? 'წაიშალა' : 'Deleted'} {new Date(item.deletedAt).toLocaleDateString()}
                                                     </span>
                                                 </div>
                                             </div>

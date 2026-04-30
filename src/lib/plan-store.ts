@@ -82,7 +82,10 @@ export async function savePlans(plans: Plan[]): Promise<void> {
                 period: plan.period,
                 session_count: plan.session_count,
                 validity_days: plan.validity_days,
-                is_active: plan.is_active
+                is_active: plan.is_active,
+                coach_name: plan.coach, // Map local 'coach' to DB 'coach_name'
+                group_id: plan.group_id,
+                data: plan // Store the full object in JSONB just in case
             }, orgId).catch(() => {});
         });
 

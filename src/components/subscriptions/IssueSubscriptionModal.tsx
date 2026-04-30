@@ -53,10 +53,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             refresh();
             window.addEventListener('cc_subscription_update', refresh);
             window.addEventListener('cc_attendance_update', refresh);
+            window.addEventListener('cc_subscription_plans_update', refresh);
         }
         return () => {
             window.removeEventListener('cc_subscription_update', refresh);
             window.removeEventListener('cc_attendance_update', refresh);
+            window.removeEventListener('cc_subscription_plans_update', refresh);
         };
     }, [open]);
 

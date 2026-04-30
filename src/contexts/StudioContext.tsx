@@ -217,7 +217,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             studioName: state.studio?.studio_name || settings.studioName,
                             logoDataUrl: (state as any).settingsRecord?.logo_url || state.studio?.settings?.logo_url || settings.logoDataUrl,
                             staff: unwrappedStaff.length > 0 ? unwrappedStaff : settings.staff,
-                            branches: state.branches?.length > 0 ? state.branches : settings.branches
+                            branches: state.branches?.length > 0 ? state.branches : settings.branches,
+                            plan: state.studio?.plan || settings.plan
                         };
                         
                         // 🔑 CRITICAL: Save orgId to localStorage FIRST so getScopedKey resolves correctly
@@ -235,6 +236,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         setSettings(prev => {
                             const next = { ...prev, ...updates, studioSlug: activeSlug };
                             saveSettings(updates, prev, activeSlug);
+                            
+                            // Also update billing meta for immediate UI consistency
+                            if (typeof window !== 'undefined') {
+                                const metaKey = `cc_sa_meta_${activeSlug}`;
+                                const existingMeta = JSON.parse(localStorage.getItem(metaKey) || '{}');
+                                localStorage.setItem(metaKey, JSON.stringify({ 
+                                    ...existingMeta, 
+                                    plan: state.studio?.plan || updates.plan || 'trial',
+                                    manualBlock: !!state.studio?.suspended
+                                }));
+                            }
+                            
                             return next;
                         });
 
