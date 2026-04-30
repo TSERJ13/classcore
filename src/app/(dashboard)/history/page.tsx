@@ -51,19 +51,20 @@ export default function UnifiedHistoryPage() {
     }, []);
 
     const filteredAudit = auditHistory.filter(item => {
-        const { label } = getActionMeta(item.action, lang);
+        const { label } = getActionMeta(item.action || '', lang);
         const searchLower = search.toLowerCase();
         return (
-            item.details.toLowerCase().includes(searchLower) ||
-            item.studentName?.toLowerCase().includes(searchLower) ||
-            item.branchName.toLowerCase().includes(searchLower) ||
-            item.performedBy.toLowerCase().includes(searchLower) ||
-            label.toLowerCase().includes(searchLower)
+            (item.details || "").toLowerCase().includes(searchLower) ||
+            (item.studentName || "").toLowerCase().includes(searchLower) ||
+            (item.branchName || "").toLowerCase().includes(searchLower) ||
+            (item.performedBy || "").toLowerCase().includes(searchLower) ||
+            (label || "").toLowerCase().includes(searchLower)
         );
     });
 
     const filteredTrash = trashItems.filter(item => {
-        const name = (item.data.name || item.data.fullName || item.data.first_name || item.type).toLowerCase();
+        const data = item.data || {};
+        const name = (data.name || data.fullName || data.first_name || item.type || "").toLowerCase();
         return name.includes(search.toLowerCase());
     });
 

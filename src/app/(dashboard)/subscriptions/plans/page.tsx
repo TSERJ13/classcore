@@ -12,7 +12,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { getPlans, savePlans, deletePlan as deletePlanInStore, type Plan } from '@/lib/plan-store';
 
-type PlanType = 'group' | 'individual';
+type PlanType = 'group' | 'individual' | 'rental';
 type Period = 'sessions' | 'monthly' | 'unlimited';
 
 
