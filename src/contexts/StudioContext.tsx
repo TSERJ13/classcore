@@ -53,7 +53,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         return base;
     });
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
-    const [isLoaded, setIsLoaded] = useState(false);
+    // ⚡️ INSTANT LOAD: Set isLoaded to true if we have local data/slug, don't wait for cloud
+    const [isLoaded, setIsLoaded] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return !!getActiveSlug() || !!defaultSlug;
+    });
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
@@ -63,6 +67,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const hydrate = useCallback(async (isAuto = false) => {
         let activeSlug = getActiveSlug() || defaultSlug;
         
+        // Skip hydration on system routes
         if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) {
             if (user && profile?.org_id) {
                 const { createClient } = await import("@/lib/supabase/client");
@@ -81,16 +86,31 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             }
         }
 
+        // Throttle background syncs
         if (lastSyncedSlugRef.current === activeSlug && firstSyncDone && !isAuto) return;
 
-        if (!isAuto) setIsSyncing(true);
-        console.log('📡 [CloudTruth] Hydrating authoritative state from DB...', { slug: activeSlug });
+        // ⚡️ SILENT HYDRATION: Don't show loaders for auto-syncs
+        if (!isAuto && !isLoaded) setIsSyncing(true);
+        console.log('🚀 [MasterSync] Hydrating Studio State (Speed Optimized)...', { slug: activeSlug });
 
         try {
-            const { fetchFullStudioState, ensureStudioExists, pushCollectionToCloud } = await import("@/lib/master-sync");
-            const targetOrgId = profile?.org_id || await ensureStudioExists(activeSlug || "default", settings.studioName);
+            const { fetchFullStudioState, ensureStudioExists } = await import("@/lib/master-sync");
+            
+            // 🔑 PRIORITY 1: Resolve OrgID from slug (The most authoritative way)
+            const { createClient } = await import("@/lib/supabase/client");
+            const sb = createClient();
+            const { data: studioRecord } = await sb.from('studios').select('org_id').eq('studio_slug', activeSlug).maybeSingle();
+            
+            const targetOrgId = studioRecord?.org_id || profile?.org_id || await ensureStudioExists(activeSlug || "default", settings.studioName);
             
             if (targetOrgId) {
+                // Ensure profile is anchored to the correct OrgID for RLS
+                const { data: { user: authUser } } = await sb.auth.getUser();
+                if (authUser && profile?.org_id !== targetOrgId) {
+                    console.log('🛡️ [MasterSync] Anchoring Profile to Org:', targetOrgId);
+                    await sb.from('profiles').update({ org_id: targetOrgId }).eq('id', authUser.id);
+                }
+
                 const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                 if (state) {
                     lastSyncedSlugRef.current = activeSlug;
@@ -98,7 +118,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     
                     const cloudSettings = state.studio?.settings || state.settingsRecord?.settings || {};
                     
-                    // Unified resolve logic for Plans & Halls
+                    // Faster merge for Plans & Halls
                     const resolveRicher = (db: any[], backup: any) => {
                         const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
                         if (db.length === 0) return backupArr;
@@ -126,6 +146,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                     const settingsKey = `cc_studio_settings_${activeSlug}`;
                     const mergedSettings = { ...loadSettings(activeSlug), ...cloudSettings, ...updates };
+                    
+                    // ⚡️ BATCHED UPDATES: Minimize renders
                     localStorage.setItem(settingsKey, JSON.stringify(mergedSettings));
                     localStorage.setItem(`cc_org_id_${activeSlug}`, targetOrgId);
 
@@ -135,7 +157,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         return next;
                     });
 
-                    // 🚨 UNCONDITIONAL COLLECTION UPDATE: Database is the only truth
+                    // Update Collections
                     const mapping: any = {
                         cc_teachers: unwrap(state.staff),
                         cc_branches: state.branches,
@@ -173,7 +195,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         localStorage.setItem(getScopedKey(`cc_checkins_${date}`, activeSlug), JSON.stringify(list));
                     });
 
-                    // Broadcast the update event
+                    // 🔥 DISPATCH ALL EVENTS MIGHTILY
                     ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                      'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
                      'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
@@ -181,13 +203,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 }
             }
         } catch (err) {
-            console.error('❌ [CloudTruth] Hydration failed:', err);
+            console.error('❌ [MasterSync] Hydration failed:', err);
         } finally {
             setIsSyncing(false);
             setFirstSyncDone(true);
             setIsLoaded(true);
         }
-    }, [profile?.org_id, firstSyncDone, settings.studioName, user, defaultSlug]);
+    }, [profile?.org_id, firstSyncDone, settings.studioName, user, defaultSlug, isLoaded]);
 
     useEffect(() => {
         hydrate();
@@ -200,7 +222,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         const handleFocus = () => {
             const activeSlug = getActiveSlug();
             const lastSync = parseInt(localStorage.getItem(`cc_last_focus_sync_${activeSlug}`) || '0');
-            if (Date.now() - lastSync > 15000) {
+            // Auto-sync every 30 seconds on focus
+            if (Date.now() - lastSync > 30000) {
                 localStorage.setItem(`cc_last_focus_sync_${activeSlug}`, Date.now().toString());
                 hydrate(true);
             }
@@ -209,13 +232,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         return () => { if (bc) bc.close(); window.removeEventListener('focus', handleFocus); };
     }, [hydrate]);
 
+    // Secondary load to ensure local state is synced if slug changed
     useEffect(() => {
         const currentSlug = getActiveSlug();
-        const local = loadSettings(currentSlug || undefined);
-        setSettings(local);
-        setTrash(local.trash || []);
-        setIsLoaded(true);
-    }, []);
+        if (currentSlug && currentSlug !== settings.studioSlug) {
+            const local = loadSettings(currentSlug);
+            setSettings(local);
+            setTrash(local.trash || []);
+            setIsLoaded(true);
+        }
+    }, [settings.studioSlug]);
 
     const updateSettings = useCallback((updates: Partial<StudioSettings>) => {
         if ('studioSlug' in updates) delete updates.studioSlug;
