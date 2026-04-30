@@ -6,7 +6,7 @@ import { getHistory, AuditEntry } from '@/lib/audit-store';
 import { getTrash, removeFromTrash, clearTrash, TrashItem } from '@/lib/trash-store';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
-import { Receipt, Search, Download, Trash2, RotateCcw, AlertCircle, Building2, History as HistoryIcon, Clock, CheckCircle2, CreditCard, UserMinus, ShieldAlert, Zap, RefreshCw } from 'lucide-react';
+import { Receipt, Search, Download, Trash2, RotateCcw, AlertCircle, Building2, History as HistoryIcon, Clock, CheckCircle2, CreditCard, UserMinus, ShieldAlert, Zap, RefreshCw, CalendarDays, User, Users, RefreshCcw } from 'lucide-react';
 import { cn, getScopedKey } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
