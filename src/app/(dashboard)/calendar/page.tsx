@@ -1762,7 +1762,7 @@ export default function CalendarPage() {
                     g.teacherId, 
                     hallId, 
                     g.schedule_slots, 
-                    hallColor, 
+                    g.color || hallColor, 
                     g.secondaryTeacherId
                 );
                 count++;
@@ -2053,13 +2053,12 @@ export default function CalendarPage() {
                         <button key={h.id}
                             onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
                             className={cn('flex items-center gap-2 px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
-                                filterHall === h.id ? 'opacity-100 shadow-md ring-2 ring-offset-1 scale-105' : 'opacity-60 hover:opacity-100')}
+                                filterHall === h.id ? 'text-white' : 'hover:bg-white/5')}
                             style={{ 
-                                backgroundColor: filterHall === h.id ? h.color : 'transparent', 
-                                borderColor: h.color + '60', 
+                                backgroundColor: filterHall === h.id ? h.color : `${h.color}15`, 
+                                borderColor: h.color + '40', 
                                 color: filterHall === h.id ? 'white' : h.color,
                                 boxShadow: filterHall === h.id ? `0 4px 12px ${h.color}40` : '',
-                                '--ring-color': h.color
                             } as any}>
                             <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", filterHall === h.id ? "bg-white" : "")} 
                                  style={{ backgroundColor: filterHall === h.id ? 'white' : h.color }} />
