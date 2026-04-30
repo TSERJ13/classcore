@@ -362,26 +362,26 @@ export function deleteSubscription(studentId: string, subId: string): void {
 
     data[studentId] = data[studentId].filter(s => s.id !== subId);
     if (data[studentId].length === 0) delete data[studentId]; // Remove student entry if no subscriptions left
+    const activeSlug = getActiveSlug();
+    const session = typeof window !== 'undefined' ? getStaffSession() : null;
+    const performedBy = session?.staff.full_name || 'System';
+    const auditSettings = loadSettings(activeSlug || '');
+    const branchName = auditSettings.branches.find(b => b.id === (auditSettings.activeBranchId || 'main'))?.name || 'Main';
     
-        const session = typeof window !== 'undefined' ? getStaffSession() : null;
-        const performedBy = session?.staff.full_name || 'System';
-        const settings = loadSettings(slug || '');
-        const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
-        
-        // Fetch student name for the log
-        const student = getStudents().find(s => s.id === studentId);
-        const studentName = student?.full_name || studentId;
+    // Fetch student name for the log
+    const student = getStudents().find(s => s.id === studentId);
+    const studentName = student?.full_name || studentId;
 
-        recordGlobalDeletion(slug || '', 'cc_student_subscriptions', subId, {
-            ...sub,
-            details: sub.plan || sub.id,
-            performedBy,
-            branchName,
-            branchId: settings.activeBranchId || 'main',
-            studentId,
-            studentName,
-            amount: sub.price
-        });
+    recordGlobalDeletion(activeSlug || '', 'cc_student_subscriptions', subId, {
+        ...sub,
+        details: sub.plan || sub.id,
+        performedBy,
+        branchName,
+        branchId: auditSettings.activeBranchId || 'main',
+        studentId,
+        studentName,
+        amount: sub.price
+    });
 
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
@@ -400,8 +400,7 @@ export function deleteSubscription(studentId: string, subId: string): void {
     }
 
     // 🔥 ATOMIC DELETION
-    const activeSlug = getActiveSlug();
-    const settings = loadSettings(activeSlug || '');
+    const settings = auditSettings; // Reuse settings
     const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
 
     if (orgId && orgId !== 'demo') {
