@@ -212,13 +212,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...item, ...(item.data || {}), data: undefined }));
                         const unwrappedStaff = unwrap(state.staff);
 
+                        // 🔑 EXTRACT FULL CLOUD SETTINGS
+                        const cloudSettings = state.studio?.settings || (state as any).settingsRecord?.settings || {};
+                        
                         const updates = {
                             orgId: targetOrgId,
-                            studioName: state.studio?.studio_name || settings.studioName,
-                            logoDataUrl: (state as any).settingsRecord?.logo_url || state.studio?.settings?.logo_url || settings.logoDataUrl,
-                            staff: unwrappedStaff.length > 0 ? unwrappedStaff : settings.staff,
-                            branches: state.branches?.length > 0 ? state.branches : settings.branches,
-                            plan: state.studio?.plan || settings.plan
+                            studioName: state.studio?.studio_name || cloudSettings.studioName || settings.studioName,
+                            logoDataUrl: cloudSettings.logoDataUrl || state.studio?.logo_url || (state as any).settingsRecord?.logo_url || settings.logoDataUrl,
+                            staff: unwrappedStaff.length > 0 ? unwrappedStaff : (cloudSettings.staff || settings.staff),
+                            branches: state.branches?.length > 0 ? state.branches : (cloudSettings.branches || settings.branches),
+                            plan: state.studio?.plan || cloudSettings.plan || settings.plan,
+                            // Ensure critical collection-like settings are merged
+                            subscription_plans: finalPlansRaw.length > 0 ? finalPlansRaw : cloudSettings.subscription_plans,
+                            pausePrices: cloudSettings.pausePrices || settings.pausePrices,
+                            currency: cloudSettings.currency || settings.currency,
+                            language: cloudSettings.language || settings.language,
+                            sms_templates: cloudSettings.sms_templates || settings.sms_templates,
                         };
                         
                         // 🔑 CRITICAL: Save orgId to localStorage FIRST so getScopedKey resolves correctly
@@ -226,16 +235,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         const existingRaw = localStorage.getItem(settingsKey);
                         let existing: any = {};
                         try { existing = existingRaw ? JSON.parse(existingRaw) : {}; } catch {}
-                        existing.orgId = targetOrgId;
-                        existing.studioSlug = activeSlug;
-                        localStorage.setItem(settingsKey, JSON.stringify({ ...existing, ...updates }));
+                        
+                        // Merge Cloud Truth into Local Storage
+                        const mergedSettings = { ...existing, ...cloudSettings, ...updates };
+                        localStorage.setItem(settingsKey, JSON.stringify(mergedSettings));
+                        
                         // Also set the override key for immediate resolution
                         localStorage.setItem(`cc_org_id_override_${activeSlug}`, targetOrgId);
                         localStorage.setItem(`cc_org_id_${activeSlug}`, targetOrgId);
                         
                         setSettings(prev => {
-                            const next = { ...prev, ...updates, studioSlug: activeSlug };
-                            saveSettings(updates, prev, activeSlug);
+                            const next = { ...prev, ...mergedSettings, studioSlug: activeSlug };
+                            saveSettings(mergedSettings, prev, activeSlug);
                             
                             // Also update billing meta for immediate UI consistency
                             if (typeof window !== 'undefined') {
