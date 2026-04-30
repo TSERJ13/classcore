@@ -46,15 +46,10 @@ const StudioContext = createContext<StudioContextType | undefined>(undefined);
 export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?: string | null; defaultStudioName?: string | null }> = ({ children, defaultSlug, defaultStudioName }) => {
     const { user, profile } = useUser();
     
-    // Initialize settings, preferring props for new devices
     const [settings, setSettings] = useState<StudioSettings>(() => {
         const base = loadSettings(defaultSlug || undefined);
-        if (defaultStudioName && !base.studioName) {
-            base.studioName = defaultStudioName;
-        }
-        if (defaultSlug && !base.studioSlug) {
-            base.studioSlug = defaultSlug;
-        }
+        if (defaultStudioName && !base.studioName) base.studioName = defaultStudioName;
+        if (defaultSlug && !base.studioSlug) base.studioSlug = defaultSlug;
         return base;
     });
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
@@ -68,16 +63,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const hydrate = useCallback(async (isAuto = false) => {
         let activeSlug = getActiveSlug() || defaultSlug;
         
-        // EMERGENCY RECOVERY FOR stdancestudio
-        if (!activeSlug || activeSlug === "subscriptions" || activeSlug === "settings") {
-            const userEmail = profile?.email || (user as any)?.email;
-            if (userEmail === "stdancegroup@gmail.com") {
-                activeSlug = "stdancestudio";
-                localStorage.setItem("cc_active_studio_slug", "stdancestudio");
-            }
-        }
-
-        if (!activeSlug || ["auth", "login", "superadmin"].includes(activeSlug)) {
+        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) {
             if (user && profile?.org_id) {
                 const { createClient } = await import("@/lib/supabase/client");
                 const sb = createClient();
@@ -95,128 +81,43 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             }
         }
 
-        if (lastSyncedSlugRef.current === activeSlug && firstSyncDone && !isAuto) {
-            return;
-        }
+        if (lastSyncedSlugRef.current === activeSlug && firstSyncDone && !isAuto) return;
 
         if (!isAuto) setIsSyncing(true);
-        console.log('🔄 [MasterSync] Hydrating Studio State...', { slug: activeSlug, isAuto });
+        console.log('📡 [CloudTruth] Hydrating authoritative state from DB...', { slug: activeSlug });
 
         try {
             const { fetchFullStudioState, ensureStudioExists, pushCollectionToCloud } = await import("@/lib/master-sync");
             const targetOrgId = profile?.org_id || await ensureStudioExists(activeSlug || "default", settings.studioName);
             
-            const isFresh = localStorage.getItem(`cc_is_fresh_${activeSlug}`) === 'true';
-            if (isFresh && targetOrgId) {
-                const localSettings = loadSettings(activeSlug);
-                const { syncRecordToCloud, pushFullStudioMetadata } = await import('@/lib/master-sync');
-                await syncRecordToCloud('studio_settings', {
-                    studio_slug: activeSlug,
-                    org_id: targetOrgId,
-                    staff_data: {
-                        _staff: localSettings.staff || [],
-                        _operations: {
-                            cc_studio_settings: localSettings,
-                            cc_sa_meta: { owner_info: localSettings.owner_info, plan: 'trial' }
-                        }
-                    }
-                }, targetOrgId);
-
-                await pushFullStudioMetadata(activeSlug, localSettings.studioName, {
-                    owner_info: localSettings.owner_info,
-                    plan: 'trial',
-                    language: localSettings.language,
-                    theme: localSettings.themeKey
-                });
-
-                localStorage.removeItem(`cc_is_fresh_${activeSlug}`);
-            }
-
             if (targetOrgId) {
-                const { createClient } = await import("@/lib/supabase/client");
-                const sb = createClient();
-                const { data: { user: authUser } } = await sb.auth.getUser();
-                if (authUser) {
-                    await sb.from('profiles').update({ org_id: targetOrgId }).eq('id', authUser.id);
-                }
-
                 const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                 if (state) {
-                    const rescueFlag = `cc_rescue_done_${activeSlug}`;
-                    const rescueDone = localStorage.getItem(rescueFlag);
-                    if (!rescueDone) {
-                        const studentStore = await import("@/lib/student-store");
-                        const collectionsToRescue = [
-                            { table: 'students', local: studentStore.getStudentsAllBranches(), cloud: state.students },
-                            { table: 'staff', local: (await import("@/lib/teacher-store")).getTeachers(), cloud: state.staff },
-                            { table: 'groups', local: (await import("@/lib/group-store")).getGroups(), cloud: state.groups },
-                            { table: 'halls', local: (await import("@/lib/hall-store")).getHalls(), cloud: state.halls },
-                            { table: 'subscriptions', local: Object.values((await import("@/lib/subscription-store")).getSubscriptions()).flat(), cloud: state.subscriptions },
-                            { table: 'sales', local: Object.values((await import("@/lib/sales-store")).getStudentSales("all") || {}).flat(), cloud: state.sales },
-                            { table: 'calendar_events', local: (await import("@/lib/event-store")).getEvents(), cloud: state.calendar_events },
-                            { table: 'attendance', local: Object.values((await import("@/lib/checkin-store")).getStudentCheckins("all")).flat(), cloud: state.attendance },
-                            { table: 'subscription_plans', local: (await import("@/lib/plan-store")).getPlans(), cloud: state.subscription_plans }
-                        ];
-
-                        for (const col of collectionsToRescue) {
-                            if (col.local.length > (col.cloud?.length || 0) && col.local.length > 0) {
-                                await pushCollectionToCloud(col.table, col.local, targetOrgId);
-                            }
-                        }
-                        localStorage.setItem(rescueFlag, Date.now().toString());
-                    }
-
                     lastSyncedSlugRef.current = activeSlug;
                     const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...item, ...(item.data || {}), data: undefined }));
-                    const unwrappedStaff = unwrap(state.staff);
-                    const cloudSettings = state.studio?.settings || (state as any).settingsRecord?.settings || {};
                     
-                    // Resolve Collections First
-                    let finalHallsRaw = state.halls || [];
-                    const backupHalls = cloudSettings.halls || cloudSettings.data?.halls;
-                    if (backupHalls) {
-                        const backupArr = Array.isArray(backupHalls) ? backupHalls : Object.values(backupHalls);
-                        if (finalHallsRaw.length === 0) finalHallsRaw = backupArr;
-                        else {
-                            finalHallsRaw = finalHallsRaw.map((dbHall: any) => {
-                                const rich = backupArr.find((b: any) => b.id === dbHall.id);
-                                return rich ? { ...dbHall, ...rich } : dbHall;
-                            });
-                            backupArr.forEach((rich: any) => {
-                                if (!finalHallsRaw.find((h: any) => h.id === rich.id)) finalHallsRaw.push(rich);
-                            });
-                        }
-                    }
-                    finalHallsRaw = finalHallsRaw.map((h: any) => ({ ...h, is_active: h.is_active !== undefined ? h.is_active : true }));
+                    const cloudSettings = state.studio?.settings || state.settingsRecord?.settings || {};
+                    
+                    // Unified resolve logic for Plans & Halls
+                    const resolveRicher = (db: any[], backup: any) => {
+                        const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
+                        if (db.length === 0) return backupArr;
+                        const merged = db.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
+                        backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
+                        return merged;
+                    };
 
-                    let finalPlansRaw = state.subscription_plans || [];
-                    const backupPlans = cloudSettings.subscription_plans || cloudSettings.plans;
-                    if (backupPlans) {
-                        const backupArr = Array.isArray(backupPlans) ? backupPlans : Object.values(backupPlans);
-                        if (finalPlansRaw.length === 0) finalPlansRaw = backupArr;
-                        else {
-                            finalPlansRaw = finalPlansRaw.map((dbPlan: any) => {
-                                const rich = backupArr.find((b: any) => b.id === dbPlan.id);
-                                return rich ? { ...dbPlan, ...rich } : dbPlan;
-                            });
-                            backupArr.forEach((rich: any) => {
-                                if (!finalPlansRaw.find((p: any) => p.id === rich.id)) finalPlansRaw.push(rich);
-                            });
-                        }
-                    }
-                    finalPlansRaw = finalPlansRaw.map((p: any) => {
-                        const plan = p.data && typeof p.data === 'object' ? { ...p.data, ...p, data: undefined } : p;
-                        return { ...plan, type: plan.type || 'group', period: plan.period || (plan.session_count ? 'sessions' : 'monthly'), is_active: plan.is_active !== undefined ? plan.is_active : true };
-                    });
+                    const finalHalls = resolveRicher(state.halls || [], cloudSettings.halls || cloudSettings.data?.halls);
+                    const finalPlans = resolveRicher(state.subscription_plans || [], cloudSettings.subscription_plans || cloudSettings.plans);
 
                     const updates = {
                         orgId: targetOrgId,
                         studioName: state.studio?.studio_name || cloudSettings.studioName || settings.studioName,
                         logoDataUrl: cloudSettings.logoDataUrl || state.studio?.logo_url || settings.logoDataUrl,
-                        staff: unwrappedStaff.length > 0 ? unwrappedStaff : (cloudSettings.staff || settings.staff),
+                        staff: state.staff?.length > 0 ? unwrap(state.staff) : (cloudSettings.staff || settings.staff),
                         branches: state.branches?.length > 0 ? state.branches : (cloudSettings.branches || settings.branches),
                         plan: state.studio?.plan || cloudSettings.plan || settings.plan,
-                        subscription_plans: finalPlansRaw,
+                        subscription_plans: finalPlans,
                         pausePrices: cloudSettings.pausePrices || settings.pausePrices,
                         currency: cloudSettings.currency || settings.currency,
                         language: cloudSettings.language || settings.language,
@@ -224,12 +125,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     };
 
                     const settingsKey = `cc_studio_settings_${activeSlug}`;
-                    const existingRaw = localStorage.getItem(settingsKey);
-                    let existing: any = {};
-                    try { existing = existingRaw ? JSON.parse(existingRaw) : {}; } catch {}
-                    const mergedSettings = { ...existing, ...cloudSettings, ...updates };
+                    const mergedSettings = { ...loadSettings(activeSlug), ...cloudSettings, ...updates };
                     localStorage.setItem(settingsKey, JSON.stringify(mergedSettings));
-                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, targetOrgId);
                     localStorage.setItem(`cc_org_id_${activeSlug}`, targetOrgId);
 
                     setSettings(prev => {
@@ -238,64 +135,36 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         return next;
                     });
 
-                    // Update Collections
+                    // 🚨 UNCONDITIONAL COLLECTION UPDATE: Database is the only truth
                     const mapping: any = {
-                        cc_teachers: unwrappedStaff,
+                        cc_teachers: unwrap(state.staff),
                         cc_branches: state.branches,
-                        cc_halls: finalHallsRaw,
+                        cc_halls: finalHalls,
                         cc_groups: unwrap(state.groups),
-                        cc_student_data: Array.isArray(state.students) ? (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}) : null,
-                        cc_student_subscriptions: Array.isArray(state.subscriptions) ? (unwrap(state.subscriptions)).reduce((acc: any, sub: any) => {
+                        cc_student_data: (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                        cc_student_subscriptions: (unwrap(state.subscriptions)).reduce((acc: any, sub: any) => {
                             const sId = sub.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
                             return acc;
-                        }, {}) : null,
+                        }, {}),
                         cc_calendar_events: unwrap(state.calendar_events),
-                        cc_subscription_plans: finalPlansRaw,
-                        cc_shop_sales: Array.isArray(state.sales) ? (unwrap(state.sales)).reduce((acc: any, sale: any) => {
+                        cc_subscription_plans: finalPlans,
+                        cc_shop_sales: (unwrap(state.sales)).reduce((acc: any, sale: any) => {
                             const sId = sale.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
                             return acc;
-                        }, {}) : null,
+                        }, {}),
                         cc_expenses: unwrap(state.expenses),
                         cc_global_trash: unwrap(state.trash)
                     };
 
                     Object.entries(mapping).forEach(([key, data]) => {
-                        if (data === null) return; // Skip if no data from cloud and we want to preserve local
-
-                        const targetKey = getScopedKey(key, activeSlug);
-                        const existingRaw = localStorage.getItem(targetKey);
-                        const isDataEmpty = !data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0);
-                        
-                        // 🛑 DATA LOSS PROTECTION: If cloud is empty but local is NOT, don't overwrite
-                        if (isDataEmpty && existingRaw && existingRaw !== '[]' && existingRaw !== '{}') {
-                            console.warn(`⚠️ [MasterSync] Cloud is empty for ${key} but local has data. Skipping hydration.`);
-                            return;
-                        }
-
-                        // 🔄 SMART MERGE for Arrays
-                        let finalData = data;
-                        if (Array.isArray(data) && existingRaw) {
-                            try {
-                                const local = JSON.parse(existingRaw);
-                                if (Array.isArray(local) && local.length > 0) {
-                                    const cloudIds = new Set(data.map((item: any) => item.id));
-                                    const localOnly = local.filter((item: any) => item.id && !cloudIds.has(item.id));
-                                    if (localOnly.length > 0) {
-                                        finalData = [...data, ...localOnly];
-                                    }
-                                }
-                            } catch (e) {}
-                        }
-
-                        localStorage.setItem(targetKey, JSON.stringify(finalData));
+                        localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
                     });
 
                     // Attendance
-                    const attendance = unwrap(state.attendance);
                     const groupedAtt: Record<string, any[]> = {};
-                    attendance.forEach(rec => {
+                    (unwrap(state.attendance)).forEach(rec => {
                         const dateStr = rec.date || new Date().toISOString().split('T')[0];
                         if (!groupedAtt[dateStr]) groupedAtt[dateStr] = [];
                         groupedAtt[dateStr].push(rec);
@@ -304,6 +173,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         localStorage.setItem(getScopedKey(`cc_checkins_${date}`, activeSlug), JSON.stringify(list));
                     });
 
+                    // Broadcast the update event
                     ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                      'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
                      'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
@@ -311,7 +181,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 }
             }
         } catch (err) {
-            console.error('❌ [MasterSync] Hydration failed:', err);
+            console.error('❌ [CloudTruth] Hydration failed:', err);
         } finally {
             setIsSyncing(false);
             setFirstSyncDone(true);
@@ -321,35 +191,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
     useEffect(() => {
         hydrate();
-        
-        // 📡 BROADCAST CHANNEL: Sync tabs on the same device instantly
         const bc = typeof window !== 'undefined' ? new BroadcastChannel('cc_studio_sync') : null;
         if (bc) {
             bc.onmessage = (msg) => {
-                if (msg.data?.type === 'RELOAD' && msg.data?.slug === getActiveSlug()) {
-                    console.log('📢 [Broadcast] Received sync signal from another tab');
-                    hydrate(true);
-                }
+                if (msg.data?.type === 'RELOAD' && msg.data?.slug === getActiveSlug()) hydrate(true);
             };
         }
-
-        // 👁️ WINDOW FOCUS: Re-sync when switching back to the app
         const handleFocus = () => {
             const activeSlug = getActiveSlug();
             const lastSync = parseInt(localStorage.getItem(`cc_last_focus_sync_${activeSlug}`) || '0');
-            const now = Date.now();
-            if (now - lastSync > 10000) { // Throttle focus sync to every 10 seconds
-                console.log('👁️ [Focus] Window focused, auto-syncing...');
-                localStorage.setItem(`cc_last_focus_sync_${activeSlug}`, now.toString());
+            if (Date.now() - lastSync > 15000) {
+                localStorage.setItem(`cc_last_focus_sync_${activeSlug}`, Date.now().toString());
                 hydrate(true);
             }
         };
         window.addEventListener('focus', handleFocus);
-
-        return () => {
-            if (bc) bc.close();
-            window.removeEventListener('focus', handleFocus);
-        };
+        return () => { if (bc) bc.close(); window.removeEventListener('focus', handleFocus); };
     }, [hydrate]);
 
     useEffect(() => {
@@ -361,42 +218,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     }, []);
 
     const updateSettings = useCallback((updates: Partial<StudioSettings>) => {
-        // PERMANENT PROTECTION: Never allow manual updates to studioSlug from the UI
-        if ('studioSlug' in updates) {
-            delete updates.studioSlug;
-        }
-        
+        if ('studioSlug' in updates) delete updates.studioSlug;
         if (Object.keys(updates).length === 0) return;
 
         setSettings(prev => {
             const next = { ...prev, ...updates };
-            import('@/lib/settings-store').then(mod => {
-                mod.saveSettings(updates, prev, prev.studioSlug);
-            });
+            import('@/lib/settings-store').then(mod => mod.saveSettings(updates, prev, prev.studioSlug));
             
             if (prev.studioSlug && prev.orgId) {
                 const name = updates.studioName || prev.studioName;
-                const metadata = { 
-                    logo_url: next.logoDataUrl || prev.logoDataUrl,
-                    theme: next.themeKey || prev.themeKey,
-                    currency: next.currency || prev.currency,
-                    language: next.language || prev.language,
-                    owner_info: next.owner_info || prev.owner_info,
-                    plan: next.plan || prev.plan,
-                    suspended: next.suspended !== undefined ? next.suspended : prev.suspended,
-                    is_deleted: next.is_deleted !== undefined ? next.is_deleted : prev.is_deleted,
-                    pausePrices: next.pausePrices || prev.pausePrices,
-                    settings: next.settings || prev.settings
-                };
+                const metadata = { ...next, settings: next };
                 import('@/lib/master-sync').then(mod => {
                     mod.pushFullStudioMetadata(prev.studioSlug, name, metadata);
-                    if (updates.logoDataUrl || updates.accentColor || updates.themeKey) {
-                        mod.syncRecordToCloud('studio_settings', { 
-                            org_id: prev.orgId, 
-                            logo_url: next.logoDataUrl,
-                            theme: next.themeKey
-                        }, prev.orgId);
-                    }
                     if (typeof window !== 'undefined') {
                         const bc = new BroadcastChannel('cc_studio_sync');
                         bc.postMessage({ type: 'RELOAD', slug: prev.studioSlug });
@@ -408,22 +241,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         });
     }, []);
 
+    // Specific Setters
     const setLogo = (url: string | null) => updateSettings({ logoDataUrl: url });
     const setTheme = (key: ThemeKey) => updateSettings({ themeKey: key });
     const setStudioName = (name: string) => updateSettings({ studioName: name });
-    const setNotification = (key: keyof StudioSettings['notifications'], val: boolean) => {
-        updateSettings({ notifications: { ...settings.notifications, [key]: val } });
-    };
-    const setSecurity = (key: keyof StudioSettings['security'], val: any) => {
-        updateSettings({ security: { ...settings.security, [key]: val } });
-    };
+    const setNotification = (key: keyof StudioSettings['notifications'], val: boolean) => updateSettings({ notifications: { ...settings.notifications, [key]: val } });
+    const setSecurity = (key: keyof StudioSettings['security'], val: any) => updateSettings({ security: { ...settings.security, [key]: val } });
     const setCurrency = (c: 'GEL' | 'USD' | 'EUR') => updateSettings({ currency: c });
     const setLanguage = (l: 'ka' | 'ru' | 'en') => updateSettings({ language: l });
     const setTimezone = (tz: string) => updateSettings({ timezone: tz });
     const setGoogleCalendar = (enabled: boolean) => updateSettings({ googleCalendarEnabled: enabled });
-    const setPausePrice = (days: string, price: number) => {
-        updateSettings({ pausePrices: { ...settings.pausePrices, [days]: price } });
-    };
+    const setPausePrice = (days: string, price: number) => updateSettings({ pausePrices: { ...settings.pausePrices, [days]: price } });
     const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
 
     const updateStaff = useCallback((id: string, updates: any) => {
@@ -436,15 +264,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 if (prev.orgId) {
                     const modSync = await import('@/lib/master-sync');
                     const member = list.find(s => s.id === id);
-                    if (member) {
-                        modSync.syncRecordToCloud('staff', {
-                            id: member.id,
-                            org_id: prev.orgId,
-                            full_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.full_name,
-                            phone: member.phone || '',
-                            data: member
-                        }, prev.orgId);
-                    }
+                    if (member) modSync.syncRecordToCloud('staff', { id: member.id, org_id: prev.orgId, full_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.full_name, phone: member.phone || '', data: member }, prev.orgId);
                 }
             }, 0);
             return next;
@@ -478,13 +298,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 modStore.saveSettings({ staff: list }, prev, prev.studioSlug);
                 if (prev.orgId) {
                     const modSync = await import('@/lib/master-sync');
-                    modSync.syncRecordToCloud('staff', {
-                        id: newId,
-                        org_id: prev.orgId,
-                        full_name: `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name,
-                        phone: newMember.phone || '',
-                        data: newMember
-                    }, prev.orgId);
+                    modSync.syncRecordToCloud('staff', { id: newId, org_id: prev.orgId, full_name: `${newMember.first_name || ''} ${newMember.last_name || ''}`.trim() || newMember.full_name, phone: newMember.phone || '', data: newMember }, prev.orgId);
                 }
             }, 0);
             return next;
@@ -543,15 +357,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const addSubscriptionLog = useCallback((log: Omit<SubscriptionLog, 'id' | 'date'>) => {
         setSettings(prev => {
             const subscriptionLogs = [...(prev.subscriptionLogs || [])];
-            subscriptionLogs.unshift({
-                ...log,
-                id: crypto.randomUUID(),
-                date: new Date().toISOString(),
-                studentName: log.studentName,
-                branchId: (log.branchId || activeBranchId || 'main') as string,
-                branchName: (log.branchName || prev.branches.find(b => b.id === (log.branchId || activeBranchId))?.name || 'Main') as string,
-                performedBy: log.issuedByName || 'Admin'
-            });
+            subscriptionLogs.unshift({ ...log, id: crypto.randomUUID(), date: new Date().toISOString(), studentName: log.studentName, branchId: (log.branchId || activeBranchId || 'main') as string, branchName: (log.branchName || prev.branches.find(b => b.id === (log.branchId || activeBranchId))?.name || 'Main') as string, performedBy: log.issuedByName || 'Admin' });
             import('@/lib/settings-store').then(mod => mod.saveSettings({ subscriptionLogs }, prev, prev.studioSlug));
             return prev;
         });
@@ -567,38 +373,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
     return (
         <StudioContext.Provider value={{ 
-            settings, 
-            isLoaded, 
-            firstSyncDone,
-            isSyncing,
-            activeBranchId, 
-            setActiveBranchId,
-            updateSettings,
-            setLogo,
-            setTheme,
-            setStudioName,
-            setNotification,
-            setSecurity,
-            setCurrency,
-            setLanguage,
-            setTimezone,
-            setGoogleCalendar,
-            setPausePrice,
-            setOwnerInfo,
+            settings, isLoaded, firstSyncDone, isSyncing, activeBranchId, setActiveBranchId, updateSettings,
+            setLogo, setTheme, setStudioName, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, setOwnerInfo,
             saveSettings: (s, c, sl) => {
-                const result = loadSettings(sl); // Dummy for type
+                const result = loadSettings(sl);
                 import('@/lib/settings-store').then(mod => mod.saveSettings(s, c || settings, sl || settings.studioSlug));
                 return result;
             },
-            updateStaff,
-            removeStaff,
-            addStaff,
-            addBranch,
-            removeBranch,
-            updateBranch,
-            addSubscriptionLog,
-            setCustomRoles,
-            addToTrash
+            updateStaff, removeStaff, addStaff, addBranch, removeBranch, updateBranch, addSubscriptionLog, setCustomRoles, addToTrash
         }}>
             {children}
         </StudioContext.Provider>
@@ -607,8 +389,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
 export const useStudio = () => {
     const context = useContext(StudioContext);
-    if (context === undefined) {
-        throw new Error('useStudio must be used within a StudioProvider');
-    }
+    if (context === undefined) throw new Error('useStudio must be used within a StudioProvider');
     return context;
 };
