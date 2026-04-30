@@ -25,7 +25,7 @@ export function BottomNav() {
 
     return (
         <nav
-            className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#121212] border-t border-white/[0.05] isolation-auto"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#121212] border-t border-white/[0.05] isolation-auto safe-p-bottom"
             style={{ 
                 paddingBottom: 'env(safe-area-inset-bottom, 0px)',
                 height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
@@ -33,8 +33,8 @@ export function BottomNav() {
                 WebkitTransform: 'translateZ(10px)',
             }}
         >
-            {/* Grounding Filler: Ensures no gap during scrolling/rubber-banding */}
-            <div className="absolute top-[99%] left-0 right-0 h-[300px] bg-[#121212]" />
+            {/* Solid background filler for the safe area below the menu */}
+            <div className="absolute inset-0 bg-[#121212]" />
 
             <div className="flex items-center justify-around w-full max-w-5xl mx-auto px-1 h-[72px] relative z-10">
                 {navItems.map(({ href, labelKey, icon: Icon }) => {

@@ -208,8 +208,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         lastSyncedSlugRef.current = activeSlug;
                         console.log('✅ [MasterSync] Hydrated state for Org:', state.org_id);
                         
-                        // UNWRAP DATA FOR COLLECTIONS
-                        const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...(item.data || {}), ...item, data: undefined }));
+                        // UNWRAP DATA FOR COLLECTIONS - Priority to .data fields (contains formatted IDs)
+                        const unwrap = (arr: any[]) => (arr || []).map(item => ({ ...item, ...(item.data || {}), data: undefined }));
                         const unwrappedStaff = unwrap(state.staff);
 
                         const updates = {
@@ -332,7 +332,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             cc_groups: unwrap(state.groups),
                             cc_student_data: Array.isArray(finalStudentsRaw) 
                                 ? finalStudentsRaw.reduce((acc: any, s: any) => {
-                                    const student = { ...(s.data || {}), ...s, data: undefined };
+                                    const student = { ...s, ...(s.data || {}), data: undefined };
                                     return { ...acc, [student.id]: student };
                                 }, {})
                                 : finalStudentsRaw,
@@ -341,7 +341,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     const sId = sub.student_id || (sub.data as any)?.student_id;
                                     if (sId) {
                                         if (!acc[sId]) acc[sId] = [];
-                                        acc[sId].push({ ...(sub.data || {}), ...sub, data: undefined });
+                                        acc[sId].push({ ...sub, ...(sub.data || {}), data: undefined });
                                     }
                                     return acc;
                                 }, {})
