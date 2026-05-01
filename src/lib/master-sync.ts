@@ -61,75 +61,44 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
     return true;
 }
 export async function pushFullStudioMetadata(slug: string, name: string, metadata: any) {
-    const supabase = createClient();
-    console.log('📡 [MasterSync] Pushing Full Metadata for:', slug);
-    
-    // RESOLVE FIELDS
+    if (!slug || slug === 'demo.classcore.ge') return;
+
     const settingsObj = metadata.settings || metadata;
     const logoUrl = metadata.logo_url || settingsObj.logoDataUrl;
-    
-    console.log(`📤 [MasterSync] Pushing Metadata for ${slug}:`, { 
+    const orgId = metadata.orgId || settingsObj.orgId || metadata.org_id;
+
+    if (!orgId || orgId === 'demo') {
+        console.warn('⚠️ [MasterSync] Skipping push: No OrgID resolved.');
+        return;
+    }
+
+    console.log(`📤 [MasterSync] Pushing Metadata for ${slug} via API:`, { 
         name, 
         logo: logoUrl ? (logoUrl.startsWith('data:') ? `BASE64 (${Math.round(logoUrl.length/1024)}KB)` : logoUrl) : 'NONE' 
     });
-    const themeKey = metadata.theme || settingsObj.themeKey || settingsObj.theme_key;
 
-    // 1. Update 'studios' table (discovery - LEAN)
-    const discoverySettings = {
-        ...settingsObj,
-        staff: undefined,
-        students: undefined,
-        groups: undefined,
-        halls: undefined,
-        calendar_events: undefined,
-        subscription_plans: undefined
-    };
+    try {
+        const res = await fetch('/api/sync/metadata', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                slug,
+                name,
+                logoUrl,
+                orgId,
+                settings: settingsObj
+            })
+        });
 
-    const { data, error } = await supabase
-        .from('studios')
-        .upsert({
-            studio_slug: slug,
-            studio_name: name,
-            logo_url: logoUrl,
-            theme_key: themeKey,
-            currency: settingsObj.currency,
-            language: settingsObj.language,
-            owner_info: settingsObj.owner_info,
-            plan: settingsObj.plan,
-            suspended: settingsObj.suspended,
-            is_deleted: settingsObj.is_deleted,
-            settings: discoverySettings
-        }, { onConflict: 'studio_slug' })
-        .select('org_id')
-        .maybeSingle();
-    
-    if (error) {
-        console.error('❌ [MasterSync] Studios table push failed:', error.message);
-    }
-    
-    const orgId = data?.org_id;
-
-    // 2. Update 'studio_settings' table (full recovery blob - OPTIMIZED)
-    if (orgId) {
-        const leanSettings = { ...settingsObj };
-        // Strip base64 photos from staff to save space in the blob
-        if (Array.isArray(leanSettings.staff)) {
-            leanSettings.staff = leanSettings.staff.map((s: any) => ({ ...s, photo_url: s.photo_url?.startsWith('data:') ? 'EXISTS' : s.photo_url }));
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Sync failed');
         }
-        
-        const staffEmails = Array.isArray(settingsObj.staff) ? settingsObj.staff.map((s: any) => s.email?.toLowerCase().trim()).filter(Boolean) : [];
-        
-        await supabase
-            .from('studio_settings')
-            .upsert({
-                org_id: orgId,
-                settings: leanSettings,
-                staff_emails: staffEmails,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'org_id' });
+
+        console.log(`✅ [MasterSync] Metadata Pushed Successfully for ${slug}`);
+    } catch (err: any) {
+        console.error('❌ [MasterSync] API Metadata Push Failed:', err.message);
     }
-    
-    return orgId;
 }
 
 export async function pushCollectionToCloud(table: string, items: any[], orgId: string) {

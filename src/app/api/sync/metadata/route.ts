@@ -1,0 +1,79 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(req: Request) {
+    try {
+        const { slug, name, logoUrl, settings, orgId } = await req.json();
+
+        // 1. Verify User Session
+        const cookieStore = cookies();
+        const supabaseAuth = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    get(name: string) { return cookieStore.get(name)?.value; },
+                    set(name: string, value: string, options: CookieOptions) { },
+                    remove(name: string, options: CookieOptions) { }
+                }
+            }
+        );
+
+        const { data: { user } } = await supabaseAuth.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!slug || !orgId) {
+            return NextResponse.json({ error: 'Slug and OrgID are required' }, { status: 400 });
+        }
+
+        console.log(`🚀 [SyncAPI] Pushing Metadata for Slug: ${slug} (Org: ${orgId})`);
+
+        // 2. Atomic Update using Service Role
+        const discoverySettings = { ...settings };
+        
+        // Strip large collections from discovery blob
+        const collectionsToStrip = ['staff', 'students', 'groups', 'halls', 'calendar_events', 'subscription_plans', 'attendance', 'sales', 'expenses', 'products', 'trash'];
+        collectionsToStrip.forEach(key => delete discoverySettings[key]);
+
+        const results = await Promise.all([
+            // Update Studios table (Discovery)
+            supabaseAdmin.from('studios').upsert({
+                studio_slug: slug,
+                studio_name: name,
+                logo_url: logoUrl,
+                org_id: orgId,
+                settings: discoverySettings,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'studio_slug' }),
+
+            // Update Studio Settings (Full Recovery Blob)
+            supabaseAdmin.from('studio_settings').upsert({
+                org_id: orgId,
+                studio_name: name,
+                settings: settings,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'org_id' })
+        ]);
+
+        const errors = results.filter(r => r.error);
+        if (errors.length > 0) {
+            console.error('❌ [SyncAPI] Push Errors:', errors.map(e => e.error?.message));
+            return NextResponse.json({ error: 'Sync failed', details: errors.map(e => e.error?.message) }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true });
+
+    } catch (err: any) {
+        console.error('❌ [SyncAPI] Critical Error:', err);
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}
