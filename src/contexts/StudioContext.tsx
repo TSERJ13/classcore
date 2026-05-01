@@ -44,7 +44,7 @@ interface StudioContextType {
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
 export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?: string | null; defaultStudioName?: string | null }> = ({ children, defaultSlug, defaultStudioName }) => {
-    const { user, profile } = useUser();
+    const { user, profile, loading: userLoading } = useUser();
     
     const [settings, setSettings] = useState<StudioSettings>(() => {
         const base = loadSettings(defaultSlug || undefined);
@@ -70,6 +70,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
              if (profile?.studio_slug) {
                  activeSlug = profile.studio_slug;
              } else {
+                 // If we are still loading user profile, don't finish loading yet
+                 if (userLoading) return;
+                 
                  setIsLoaded(true);
                  return;
              }
@@ -217,7 +220,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             setFirstSyncDone(true);
             setIsLoaded(true); // Signal that initial boot sequence is done
         }
-    }, [profile?.org_id, firstSyncDone, settings.studioName, user, defaultSlug]);
+    }, [profile?.org_id, firstSyncDone, settings.studioName, user, defaultSlug, userLoading]);
 
     useEffect(() => {
         hydrate();
