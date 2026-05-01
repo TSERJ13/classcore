@@ -67,17 +67,26 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
         <>
             {/* Loading Overlay with Smooth Fade-out */}
             <div className={cn(
-                "fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8 transition-all duration-700 pointer-events-none",
-                isLoading ? "opacity-100 scale-100" : "opacity-0 invisible scale-100 delay-100"
+                "fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center p-8 transition-all duration-700 pointer-events-none",
+                isLoading ? "opacity-100 scale-100" : "opacity-0 invisible scale-95 delay-100"
             )}>
-                <div className="flex flex-col items-center justify-center gap-6">
-                    <div className="w-[60px] h-[60px] flex items-center justify-center">
-                        <AppLogo size={60} animated loading />
+                <div className="flex flex-col items-center justify-center gap-12">
+                    <div className="relative">
+                        <AppLogo 
+                            size={90} 
+                            src={settings.logoDataUrl} 
+                            radar 
+                            loading 
+                            className="relative z-10" 
+                        />
                     </div>
-                    <div className="text-center space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">
-                            ჩატვირთვა...
+                    <div className="text-center space-y-3">
+                        <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] animate-pulse">
+                            {settings.studioName ? settings.studioName.toUpperCase() : 'ჩატვირთვა...'}
                         </p>
+                        <div className="w-32 h-0.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 animate-[loading-bar_2s_ease-in-out_infinite]" />
+                        </div>
                     </div>
                 </div>
             </div>

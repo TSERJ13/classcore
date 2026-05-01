@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, ArrowRight, Loader2, Sparkles, Shield, Globe, Zap } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Sparkles, Shield, Globe } from 'lucide-react';
 import { AppLogo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -37,30 +37,15 @@ export default function LoginPage() {
         }
 
         if (user && !loading) {
-            // VERIFY SESSION (Ghost Login Protection)
-            (async () => {
-                const currentUserEmail = user.email;
-                const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
-                
-                // SuperAdmins can access the dashboard (User side) as well
-
-
-                const currentSlug = profile?.studio_slug;
-                // NO-OP: Verification moved to per-page hydration guards if needed
-
-
-
-                if (profile?.is_activated === false) {
-                    const { createClient } = require('@/lib/supabase/client');
-                    const supabase = createClient();
-                    supabase.auth.signOut().then(() => {
-                        setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще не активирован.', 'Account not activated.'));
-                    });
-                    return;
-                }
-
-                window.location.href = '/dashboard';
-            })();
+            if (profile?.is_activated === false) {
+                const { createClient } = require('@/lib/supabase/client');
+                const supabase = createClient();
+                supabase.auth.signOut().then(() => {
+                    setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще не активирован.', 'Account not activated.'));
+                });
+                return;
+            }
+            window.location.href = '/dashboard';
         }
     }, [user, loading, lang, profile]);
 
@@ -93,18 +78,16 @@ export default function LoginPage() {
                     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                     
                     if (error) {
-                        // If auth fails, try legacy staff check immediately without waiting
                         setLoginStatus(l('პერსონალის შემოწმება...', 'Проверка персонала...', 'Checking staff...'));
                         const staffResult = await validateStaffLogin(email, password);
                         if (staffResult && 'staff' in staffResult) {
                             setStaffSession(staffResult);
                             setIsSuccess(true);
-                            setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+                            setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
                             return;
                         }
                         throw error;
                     }
-                    
                     signedInUser = data.user;
                 }
 
@@ -114,15 +97,14 @@ export default function LoginPage() {
                 setIsSuccess(true);
                 const isSuperAdmin = signedInUser?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === signedInUser.email?.toLowerCase());
                 
-                // SECURITY: Enforce email activation
                 if (signedInUser && !signedInUser.email_confirmed_at && !isSuperAdmin) {
                     await supabase.auth.signOut();
                     setError(l('გთხოვთ დაადასტუროთ თქვენი ელ-ფოსტა ავტორიზაციამდე.', 'Пожалуйста, подтвердите ваш email перед входом.', 'Please confirm your email before logging in.'));
                     setIsSubmitting(false);
+                    setIsSuccess(false);
                     return;
                 }
 
-                setIsSuccess(true);
                 setTimeout(() => {
                     window.location.href = isSuperAdmin ? '/superadmin' : '/dashboard';
                 }, 2000);
@@ -136,22 +118,28 @@ export default function LoginPage() {
             const rawError = err.message || err.error_description || JSON.stringify(err);
 
             if (isTimeout) {
-                setError(l('[V2] კავშირის დრო ამოიწურა. გთხოვთ შეამოწმოთ ინტერნეტი და სცადოთ თავიდან.', 'Время ожидания истекло. Проверьте интернет и попробуйте снова.', 'Connection timeout. Please check your internet and retry.'));
-            } else if (err.message === 'USER_NOT_FOUND' || err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი' || err.message?.includes('მომხმარებელი ვერ მოიძებნა')) {
-                setError(l('მომხმარებელი ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია.', 'Пользователь не найден. Зарегистрируйтесь.', 'User not found. Please register.'));
-            } else if (err.message === 'Email not confirmed') {
-                setError(t.confirmEmail);
-            } else if (err.message?.includes('Failed to fetch') || err.message?.includes('network')) {
-                setError(l(`კავშირის შეცდომა: ${rawError}`, `Ошибка сети: ${rawError}`, `Network Error: ${rawError}`));
+                setError(l('კავშირის დრო ამოიწურა. გთხოვთ შეამოწმოთ ინტერნეტი და სცადოთ თავიდან.', 'Время ожидания истекло.', 'Connection timeout.'));
+            } else if (err.message === 'USER_NOT_FOUND' || err.message === 'Invalid login credentials' || err.message === 'არასწორი პაროლი') {
+                setError(l('მომხმარებელი ვერ მოიძებნა.', 'Пользователь не найден.', 'User not found.'));
             } else {
                 setError(`${l('შეცდომა:', 'Ошибка:', 'Error:')} ${rawError}`);
             }
             setIsSubmitting(false);
+            setIsSuccess(false);
         }
     };
 
+    // Attempt to get logo from local storage if the user has logged in before
+    const getCachedLogo = () => {
+        if (typeof window === 'undefined') return null;
+        try {
+            const settings = JSON.parse(localStorage.getItem('cc_studio_settings') || '{}');
+            return settings.logoDataUrl;
+        } catch { return null; }
+    };
+
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden relative">
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden">
             <div className="fixed top-0 right-0 w-[50%] h-full bg-indigo-500/5 blur-[120px] -z-10" />
             <div className="fixed bottom-0 left-0 w-[30%] h-1/2 bg-violet-500/5 blur-[100px] -z-10" />
             
@@ -181,7 +169,7 @@ export default function LoginPage() {
                             
                             <div className="bg-slate-50/80 rounded-3xl p-6 border border-slate-100 relative group overflow-hidden text-center">
                                 <p className="text-[11px] text-slate-500 font-bold leading-relaxed uppercase tracking-wide">
-                                    {l('თქვენი კოსმოსური სადგური მზად არის სამუშაოდ. გთხოვთ გაიაროთ ავტორიზაცია.', 'Ваша станция готова к работе. Пожалуйста, войдите в систему.', 'Your command station is fully operational. Proceed to the bridge and login.')}
+                                    {l('თქვენი კოსმოსური სადგური მზად არის სამუშაოდ.', 'Ваша станция готова к работе.', 'Your command station is fully operational.')}
                                 </p>
                             </div>
 
@@ -204,7 +192,7 @@ export default function LoginPage() {
                             </div>
 
                             {error && (
-                                <div className="mb-8 p-5 bg-red-50 border border-red-100/50 rounded-2xl flex items-start gap-4 animate-shake">
+                                <div className="mb-8 p-5 bg-red-50 border border-red-100/50 rounded-2xl flex items-start gap-4">
                                     <p className="text-[11px] text-red-600 font-bold leading-tight uppercase text-center w-full">{error}</p>
                                 </div>
                             )}
@@ -221,7 +209,7 @@ export default function LoginPage() {
                                         name="email"
                                         type="text"
                                         required
-                                        placeholder={l('შეიყვანეთ იმეილი...', 'Введите почту...', 'your@frequency.com')}
+                                        placeholder="your@email.com"
                                         className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                     />
                                 </div>
@@ -232,9 +220,9 @@ export default function LoginPage() {
                                             <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
                                                 <Lock className="w-3.5 h-3.5" />
                                             </div>
-                                            {l('პაროლი', 'Паროль', 'Security Key')}
+                                            {l('პაროლი', 'Пароль', 'Security Key')}
                                         </label>
-                                        <Link href="/forgot-password" className="text-[11px] font-black text-indigo-600 px-1 tracking-tighter hover:text-indigo-700 transition-colors uppercase decoration-indigo-200 hover:underline">
+                                        <Link href="/forgot-password" size="sm" className="text-[11px] font-black text-indigo-600 px-1 hover:underline">
                                             {l('დაგავიწყდათ?', 'Забыли?', 'Recovery')}
                                         </Link>
                                     </div>
@@ -243,7 +231,7 @@ export default function LoginPage() {
                                             name="password"
                                             type={showPassword ? "text" : "password"}
                                             required
-                                            placeholder={l('შეიყვანეთ პაროლი...', 'Введите пароль...', '••••••••')}
+                                            placeholder="••••••••"
                                             className="w-full h-11 bg-slate-50/50 border border-slate-100 rounded-2xl px-5 text-sm font-black text-slate-900 focus:ring-0 focus:border-indigo-500/30 transition-all outline-none placeholder:text-slate-300 shadow-xs"
                                         />
                                         <button
@@ -251,11 +239,7 @@ export default function LoginPage() {
                                             onClick={() => setShowPassword(!showPassword)}
                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors"
                                         >
-                                            {showPassword ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.749 9.749 0 0 0 5.39-1.61"></path><line x1="22" x2="2" y1="2" y2="22"></line></svg>
-                                            ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                            )}
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
                                 </div>
@@ -264,7 +248,7 @@ export default function LoginPage() {
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 active:scale-[0.98] transition-all hover:bg-indigo-700 flex items-center justify-center gap-2 relative group disabled:opacity-50"
+                                        className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 active:scale-[0.98] transition-all hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
                                         {isSubmitting ? (
                                             <div className="flex items-center gap-3">
@@ -276,7 +260,7 @@ export default function LoginPage() {
                                         ) : (
                                             <>
                                                 {l('შესვლა', 'Войти', 'Authorization')}
-                                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                                <ArrowRight className="w-4 h-4" />
                                             </>
                                         )}
                                     </button>
@@ -303,22 +287,27 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            {/* CREATIVE LOGIN SUCCESS TRANSITION */}
+            {/* UNIFIED LOGIN SUCCESS TRANSITION */}
             {isSuccess && (
                 <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center animate-in fade-in duration-500">
                     <div className="relative flex flex-col items-center gap-12">
-                        <div className="absolute inset-0 bg-indigo-500/10 blur-[100px] rounded-full scale-150 animate-pulse" />
+                        <div className="absolute inset-0 bg-indigo-500/5 blur-[100px] rounded-full scale-150 animate-pulse" />
                         
                         <div className="relative">
-                            <div className="absolute inset-0 bg-indigo-500/20 blur-[40px] animate-ping rounded-full scale-75" />
-                            <AppLogo size={90} animated loading className="relative z-10 rounded-full" />
+                            <AppLogo 
+                                size={110} 
+                                radar 
+                                loading 
+                                src={getCachedLogo()}
+                                className="relative z-10" 
+                            />
                         </div>
 
-                        <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
-                            <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em] animate-pulse">
+                        <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+                            <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] animate-pulse">
                                 {l('მიმდინარეობს ავტორიზაცია...', 'Авторизация...', 'Authenticating Pulse...')}
                             </p>
-                            <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                            <div className="w-48 h-0.5 bg-slate-100 rounded-full overflow-hidden">
                                 <div className="h-full bg-indigo-600 animate-[loading-bar_2s_ease-in-out_forwards] shadow-[0_0_15px_rgba(79,70,229,0.5)]" />
                             </div>
                         </div>
