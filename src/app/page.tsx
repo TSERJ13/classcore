@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
-import { Logo } from "@/components/ui/Logo";
+import { AppLogo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
 // --- SUB-COMPONENTS ---
@@ -232,7 +232,7 @@ export default function LandingPage() {
                 <div style={{ height: 'env(safe-area-inset-top, 0px)' }} />
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-1 md:gap-1.5 shrink-0">
-                        <Logo className="w-5 h-5 md:w-10 md:h-10" transparent />
+                        <AppLogo className="w-5 h-5 md:w-10 md:h-10 rounded-full" transparent />
                         <span className="text-[15px] md:text-xl font-black tracking-tight">ClassCore</span>
                     </Link>
 
@@ -389,7 +389,7 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
                     <div className="flex flex-col items-center md:items-start gap-4">
                         <div className="flex items-center gap-3">
-                            <Logo size={40} transparent />
+                            <AppLogo size={40} transparent className="rounded-full" />
                             <span className="text-xl font-black tracking-tighter">ClassCore</span>
                         </div>
                     </div>

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Zap, Mail, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
+import { AppLogo } from '@/components/ui/Logo';
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
                 {/* Logo */}
                 <div className="flex flex-col items-center text-center space-y-4">
                     <Link href="/" className="group flex flex-col items-center gap-2">
-                        <Logo size={80} transparent />
+                        <AppLogo size={80} transparent />
                     </Link>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">პაროლის აღდგენა</h1>
                     <p className="text-slate-500 font-medium px-6">გაგვიზიარეთ თქვენი ელ.ფოსტა და გამოგიგზავნით ინსტრუქციას</p>

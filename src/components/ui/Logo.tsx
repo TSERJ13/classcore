@@ -9,7 +9,7 @@ interface LogoProps {
   loading?: boolean;
 }
 
-export const Logo: React.FC<LogoProps> = React.memo(({ 
+export const AppLogo: React.FC<LogoProps> = React.memo(({ 
   className, 
   size = 80, // Updated default to match loader for stability
   animated = true, 
@@ -19,7 +19,7 @@ export const Logo: React.FC<LogoProps> = React.memo(({
   return (
     <div 
       className={cn(
-        "relative flex items-center justify-center overflow-hidden shrink-0", 
+        "relative flex items-center justify-center overflow-hidden shrink-0 rounded-full", 
         loading && "animate-slow-spin", 
         className
       )} 
@@ -83,7 +83,7 @@ export const Logo: React.FC<LogoProps> = React.memo(({
         
         {/* Background Rect */}
         {!transparent && (
-          <rect width="100" height="100" rx="24" fill="url(#logo-grad)" className="shadow-lg" />
+          <circle cx="50" cy="50" r="50" fill="url(#logo-grad)" className="shadow-lg" />
         )}
         
         <g className={cn(animated && "float-c")}>
@@ -111,4 +111,4 @@ export const Logo: React.FC<LogoProps> = React.memo(({
   );
 });
 
-Logo.displayName = 'Logo';
+AppLogo.displayName = 'AppLogo';

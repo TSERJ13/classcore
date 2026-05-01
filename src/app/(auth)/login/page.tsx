@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Mail, Lock, ArrowRight, Loader2, Sparkles, Shield, Globe, Zap } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
+import { AppLogo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
@@ -158,7 +158,7 @@ export default function LoginPage() {
             <div className="w-full max-w-[440px] flex flex-col pt-0 pb-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <div className="flex flex-col items-center gap-6 mb-4">
                     <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={90} transparent />
+                        <AppLogo size={90} transparent className="rounded-full" />
                     </Link>
                 </div>
 
@@ -311,7 +311,7 @@ export default function LoginPage() {
                         
                         <div className="relative">
                             <div className="absolute inset-0 bg-indigo-500/20 blur-[40px] animate-ping rounded-full scale-75" />
-                            <Logo size={90} animated loading className="relative z-10" />
+                            <AppLogo size={90} animated loading className="relative z-10 rounded-full" />
                         </div>
 
                         <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">

@@ -8,6 +8,7 @@ import { getActiveSlug, STORAGE_KEY, getScopedKey, markLocalUpdate } from '@/lib
 import { ensureStudioExists, fetchFullStudioState, syncRecordToCloud } from '@/lib/master-sync';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
+import { AppLogo } from '@/components/ui/Logo';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -410,11 +411,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         
                         <div className="relative">
                             {settings.logoDataUrl ? (
-                                <div className="w-[120px] h-[120px] rounded-[32px] overflow-hidden border-4 border-indigo-500/20 shadow-2xl animate-in zoom-in duration-700">
+                                <div className="w-[120px] h-[120px] rounded-full overflow-hidden border-4 border-indigo-500/20 shadow-2xl animate-in zoom-in duration-700 bg-white">
                                     <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
                                 </div>
                             ) : (
-                                <Logo size={120} animated loading />
+                                <AppLogo size={120} animated loading />
                             )}
                             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-indigo-500/20 rounded-full blur-sm" />
                         </div>

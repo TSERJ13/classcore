@@ -17,7 +17,7 @@ import { cn, getInitials, compactSlugify, formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { SearchSelect } from '@/components/ui/SearchSelect';
-import { Logo } from '@/components/ui/Logo';
+import { AppLogo } from '@/components/ui/Logo';
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -531,7 +531,7 @@ export default function SettingsPage() {
         return (
             <div className="fixed inset-0 bg-base z-[9999] flex flex-col items-center justify-center p-8">
                 <div className="flex flex-col items-center justify-center gap-6 mt-12">
-                    <Logo size={80} animated loading />
+                    <AppLogo size={80} animated loading />
                     <div className="text-center space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t.loading || 'Loading...'}</p>
                     </div>
@@ -549,7 +549,7 @@ export default function SettingsPage() {
                         <Row label={t.logoLabel} sub={t.logoDesc}>
                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 w-full">
                                 <div className="flex items-center gap-4 self-start">
-                                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-border-subtle flex-shrink-0 bg-surface flex items-center justify-center">
+                                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-border-subtle flex-shrink-0 bg-surface flex items-center justify-center">
                                         {settings.logoDataUrl ? (
                                             <img src={settings.logoDataUrl} alt="logo" className="w-full h-full object-cover" />
                                         ) : (

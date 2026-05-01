@@ -20,7 +20,7 @@ import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
-import { Logo } from '@/components/ui/Logo';
+import { AppLogo } from '@/components/ui/Logo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 const toDateStr = (d: Date) => d.toISOString().split('T')[0];

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
-import { Logo } from "@/components/ui/Logo";
+import { AppLogo } from "@/components/ui/Logo";
 import { cn, compactSlugify } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
@@ -175,7 +175,7 @@ export default function RegistrationPage() {
             <div className="w-full max-w-4xl relative z-10 flex flex-col gap-8 pt-0 pb-8 duration-700">
                 <div className="flex flex-col items-center gap-6">
                     <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={90} transparent />
+                        <AppLogo size={90} transparent />
                     </Link>
                 </div>
 
@@ -412,7 +412,7 @@ export default function RegistrationPage() {
                         <div className="text-center py-10 animate-fade-up">
                             <div className="flex flex-col items-center gap-8 mb-12">
                                 <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                                    <Logo size={110} transparent />
+                                    <AppLogo size={110} transparent />
                                 </Link>
                             </div>
                             

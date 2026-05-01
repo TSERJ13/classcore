@@ -1,7 +1,7 @@
 'use client';
 
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Logo } from "@/components/ui/Logo";
+import { AppLogo } from "@/components/ui/Logo";
 import Link from "next/link";
 import { ArrowLeft, Shield, Lock, Eye, FileText, CheckCircle2 } from "lucide-react";
 
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
             <nav className="fixed top-0 inset-x-0 h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 z-50 px-6">
                 <div className="max-w-7xl mx-auto h-full flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                        <Logo size={40} transparent />
+                        <AppLogo size={40} transparent />
                         <span className="text-xl font-black tracking-tighter">ClassCore</span>
                     </Link>
                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-600 tracking-widest hover:translate-x-[-4px] transition-transform">

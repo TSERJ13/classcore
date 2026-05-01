@@ -15,11 +15,11 @@ export const metadata: Metadata = {
     authors: [{ name: 'ClassCore', url: 'https://classcore.ge' }],
     icons: {
         icon: [
-            { url: '/logo.svg' },
+            { url: '/logo.svg', type: 'image/svg+xml' },
         ],
         shortcut: '/logo.svg',
         apple: [
-            { url: '/logo.svg' },
+            { url: '/logo.svg', type: 'image/svg+xml' },
         ],
     },
     manifest: '/manifest.webmanifest',

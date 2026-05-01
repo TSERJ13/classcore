@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { usePathname, useRouter } from 'next/navigation';
-import { Logo } from '@/components/ui/Logo';
+import { AppLogo } from '@/components/ui/Logo';
 import { cn } from '@/lib/utils';
 
 export function DashboardHydrationGuard({ children }: { children: React.ReactNode }) {
@@ -72,7 +72,7 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
             )}>
                 <div className="flex flex-col items-center justify-center gap-6">
                     <div className="w-[60px] h-[60px] flex items-center justify-center">
-                        <Logo size={60} animated loading />
+                        <AppLogo size={60} animated loading />
                     </div>
                     <div className="text-center space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">

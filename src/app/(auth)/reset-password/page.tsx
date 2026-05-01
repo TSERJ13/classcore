@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Zap, Lock, ArrowRight, CheckCircle2, Shield, Loader2 } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
+import { AppLogo } from '@/components/ui/Logo';
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState('');
@@ -52,7 +52,7 @@ export default function ResetPasswordPage() {
                 {/* Logo */}
                 <div className="flex flex-col items-center text-center space-y-4">
                     <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <Logo size={80} transparent />
+                        <AppLogo size={80} transparent />
                     </Link>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">ახალი პაროლი</h1>
                     <p className="text-slate-500 font-medium px-6">შეიყვანეთ თქვენი ახალი უსაფრთხოების კოდი</p>
