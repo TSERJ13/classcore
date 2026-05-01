@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { useUser } from '@/hooks/useUser';
 import { getActiveSlug, getScopedKey } from '@/lib/utils';
-import type { StudioSettings } from '@/types';
+import type { StudioSettings, Branch } from '@/types';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -29,7 +29,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         if (defaultSlug && !base.studioSlug) base.studioSlug = defaultSlug;
         return base;
     });
-    const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
     const [isLoaded, setIsLoaded] = useState(false);
     const [loadingStep, setLoadingStep] = useState<string>('');
     const [firstSyncDone, setFirstSyncDone] = useState(false);
@@ -86,23 +85,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 if (state) {
                     console.log('📊 [StudioContext] Cloud State Received:', { 
                         events: state.calendar_events?.length, 
-                        students: state.students?.length 
+                        students: state.students?.length,
+                        orgId: targetOrgId
                     });
 
                     const cloudSettings = state.settingsRecord?.settings || {};
-                    const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : [];
+                    const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
                     const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
 
                     const resolveRicher = (db: any[], backup: any) => {
+                        const dbArr = Array.isArray(db) ? db : [];
                         const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
-                        if (db.length === 0) return backupArr;
-                        const merged = db.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
+                        if (dbArr.length === 0) return backupArr;
+                        const merged = dbArr.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
                         backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
                         return merged;
                     };
 
-                    const finalHalls = resolveRicher(state.halls || [], cloudSettings.halls || cloudSettings.data?.halls);
-                    const finalPlans = resolveRicher(state.subscription_plans || [], cloudSettings.subscription_plans || cloudSettings.plans);
+                    const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
+                    const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
                     
                     setLoadingStep('ინტერფეისის მომზადება...');
 
@@ -119,8 +120,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             orgId: targetOrgId,
                             studioName: name,
                             logoDataUrl: logo,
-                            staff: state.staff?.length > 0 ? unwrap(state.staff) : (cloudSettings.staff || prev.staff),
-                            branches: state.branches?.length > 0 ? state.branches : (cloudSettings.branches || prev.branches),
+                            staff: (state.staff && state.staff.length > 0) ? unwrap(state.staff) : (cloudSettings.staff || prev.staff),
+                            branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
                             plan: state.studio?.plan || cloudSettings.plan || prev.plan,
                             subscription_plans: finalPlans,
                             pausePrices: cloudSettings.pausePrices || prev.pausePrices,
@@ -137,8 +138,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         cc_branches: state.branches,
                         cc_halls: finalHalls,
                         cc_groups: unwrap(state.groups),
-                        cc_student_data: (unwrap(state.students)).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
-                        cc_student_subscriptions: (unwrap(state.subscriptions))
+                        cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                        cc_student_subscriptions: (unwrap(state.subscriptions) || [])
                             .filter(sub => !allDeleted.has(sub.id))
                             .reduce((acc: any, sub: any) => {
                                 const sId = sub.student_id;
@@ -148,7 +149,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         cc_calendar_events: unwrap(state.calendar_events),
                         cc_subscription_plans: finalPlans,
                         cc_shop_products: unwrap(state.products),
-                        cc_shop_sales: (unwrap(state.sales)).reduce((acc: any, sale: any) => {
+                        cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
                             const sId = sale.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
                             return acc;
@@ -158,11 +159,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     };
 
                     Object.entries(mapping).forEach(([key, data]) => {
-                        if (data !== undefined && data !== null) {
+                        if (data !== null && data !== undefined) {
                             if (Array.isArray(data) && data.length === 0) {
                                 const localRaw = localStorage.getItem(getScopedKey(key, activeSlug));
                                 if (localRaw && localRaw !== '[]' && localRaw !== '{}') {
-                                    console.warn(`⚠️ [StudioContext] Skipping empty cloud overwrite for ${key} to prevent data loss.`);
+                                    console.warn(`⚠️ [StudioContext] Preservation: Keeping local data for ${key} (Cloud empty)`);
                                     return;
                                 }
                             }
@@ -171,7 +172,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     });
 
                     const groupedAtt: Record<string, any[]> = {};
-                    (unwrap(state.attendance)).forEach(a => {
+                    (unwrap(state.attendance) || []).forEach(a => {
                         if (!a.student_id) return;
                         if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
                         groupedAtt[a.student_id].push(a);
@@ -181,7 +182,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                      'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
                      'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
-                        .forEach(e => window.dispatchEvent(new CustomEvent(e, { detail: { isRemote: true } })));
+                        .forEach(e => window.dispatchEvent(new Event(e)));
                 }
             } else {
                 const { ensureStudioExists } = await import("@/lib/master-sync");
@@ -194,7 +195,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             setFirstSyncDone(true);
             setIsLoaded(true);
         }
-    }, [profile?.org_id, firstSyncDone, settings.studioName, user, defaultSlug, userLoading]);
+    }, [profile?.org_id, profile?.studio_slug, firstSyncDone, settings.studioName, user, defaultSlug, userLoading]);
 
     useEffect(() => {
         hydrate();

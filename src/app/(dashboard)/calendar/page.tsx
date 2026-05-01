@@ -2067,6 +2067,18 @@ export default function CalendarPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Manual Cloud Refresh */}
+                    <button onClick={async () => {
+                        const btn = document.getElementById('cal-refresh-btn');
+                        if (btn) btn.classList.add('animate-spin');
+                        await refreshData();
+                        setTimeout(() => { if (btn) btn.classList.remove('animate-spin'); }, 1000);
+                    }}
+                        title={lang === 'ka' ? 'მონაცემების განახლება' : 'Refresh Cloud Data'}
+                        className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-emerald-500/40 text-muted hover:text-emerald-500 rounded-2xl transition-all shadow-sm group">
+                        <RefreshCw id="cal-refresh-btn" className="w-4 h-4 transition-all duration-500" />
+                    </button>
+
                     {/* Sync Action */}
                     {canEdit && (
                         <button onClick={syncAllGroups}
