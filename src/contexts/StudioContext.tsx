@@ -67,8 +67,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         
         // Skip system/auth routes unless we have a slug from profile
         if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) {
-             if (profile?.studio_slug) activeSlug = profile.studio_slug;
-             else return;
+             if (profile?.studio_slug) {
+                 activeSlug = profile.studio_slug;
+             } else {
+                 setIsLoaded(true);
+                 return;
+             }
         }
 
         // 🚀 ATOMIC BOOT: Parallel resolution
