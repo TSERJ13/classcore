@@ -54,6 +54,7 @@ export default function PlansManagementPage() {
     const [localPausePrices, setLocalPausePrices] = useState<Record<string, number>>({});
     const [savingPause, setSavingPause] = useState(false);
     const [savedPause, setSavedPause] = useState(false);
+    const [savingPlan, setSavingPlan] = useState(false);
 
     useEffect(() => {
         if (settings.pausePrices) {
@@ -85,17 +86,22 @@ export default function PlansManagementPage() {
         setShowForm(true);
     }
 
-    function savePlan() {
+    async function savePlan() {
         if (!form.name || !form.price) return;
-        let next: Plan[];
-        if (editingPlan) {
-            next = plans.map(p => p.id === editingPlan.id ? { ...p, ...form } : p);
-        } else {
-            next = [...plans, { ...form, id: String(Date.now()) } as Plan];
+        setSavingPlan(true);
+        try {
+            let next: Plan[];
+            if (editingPlan) {
+                next = plans.map(p => p.id === editingPlan.id ? { ...p, ...form } : p);
+            } else {
+                next = [...plans, { ...form, id: String(Date.now()) } as Plan];
+            }
+            setPlans(next);
+            await savePlans(next);
+            setShowForm(false);
+        } finally {
+            setSavingPlan(false);
         }
-        setPlans(next);
-        savePlans(next);
-        setShowForm(false);
     }
 
     async function deletePlan(id: string) {
@@ -223,9 +229,14 @@ export default function PlansManagementPage() {
                                 <div className="grid grid-cols-3 gap-2">
                                     {(['group', 'individual', 'rental'] as const).map(tp => (
                                         <button key={tp} onClick={() => setForm(p => ({ ...p, type: tp }))}
-                                            className={cn('py-2.5 rounded-xl text-xs font-semibold border transition-all',
-                                                form.type === tp ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600' : 'border-border-subtle text-muted')}>
-                                            {tp === 'group' ? `👥 ${t.groupClass}` : tp === 'individual' ? `👤 ${t.indSessionShort}` : `🏠 ${t.rental}`}
+                                            className={cn('py-3 rounded-2xl text-[11px] font-black tracking-widest uppercase border transition-all flex flex-col items-center gap-2',
+                                                form.type === tp 
+                                                    ? tp === 'group' ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-400' :
+                                                      tp === 'individual' ? 'bg-violet-500/10 border-violet-500/40 text-violet-400' :
+                                                      'bg-amber-500/10 border-amber-500/40 text-amber-400'
+                                                    : 'border-border-subtle text-muted opacity-40 hover:opacity-100')}>
+                                            {tp === 'group' ? <Users className="w-5 h-5" /> : tp === 'individual' ? <User className="w-5 h-5" /> : <Home className="w-5 h-5" />}
+                                            {tp === 'group' ? t.groupClass : tp === 'individual' ? t.individualClass : t.rental}
                                         </button>
                                     ))}
                                 </div>
@@ -278,21 +289,6 @@ export default function PlansManagementPage() {
                                     </div>
                                 </div>
                                 
-                                {form.type === 'individual' && (
-                                    <div>
-                                        <label className="text-xs text-muted mb-1.5 block">{t.teacher || 'მასწავლებელი'}</label>
-                                        <select 
-                                            value={form.coach || ''} 
-                                            onChange={e => setForm(p => ({ ...p, coach: e.target.value }))}
-                                            className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm text-primary outline-none"
-                                        >
-                                            <option value="">{t.all || 'ყველა'}</option>
-                                            {settings.staff.filter(s => s.role === 'teacher' || s.role === 'coach' || (s.permissions as any)?.isTeacher).map(s => (
-                                                <option key={s.id} value={s.full_name}>{s.full_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
 
                                 {form.type === 'group' && (
                                     <div>
@@ -313,8 +309,13 @@ export default function PlansManagementPage() {
 
                             <div className="flex gap-3 px-6 pb-5">
                                 <button onClick={() => setShowForm(false)} className="flex-1 py-3 border border-border-subtle text-muted text-sm font-medium rounded-xl hover:bg-surface">{t.cancel}</button>
-                                <button onClick={savePlan} disabled={!form.name || !form.price} className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2">
-                                    <Check className="w-4 h-4" /> {t.save}
+                                <button onClick={savePlan} disabled={!form.name || !form.price || savingPlan} className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2">
+                                    {savingPlan ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <Check className="w-4 h-4" />
+                                    )}
+                                    {savingPlan ? t.saving : t.save}
                                 </button>
                             </div>
                         </div>

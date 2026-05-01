@@ -12,6 +12,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, formatCurrency, getScopedKey } from '@/lib/utils';
 import { recordSale, getSales, deleteSale, updateSale, type ShopSale } from '@/lib/sales-store';
+import { getProducts, saveProducts, deleteProduct } from '@/lib/product-store';
 import { getStudentsAllBranches } from '@/lib/student-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
@@ -40,12 +41,7 @@ export default function ShopPage() {
 
     useEffect(() => {
         const load = () => {
-            const saved = localStorage.getItem(getScopedKey('cc_shop_products'));
-            if (saved) {
-                setProducts(JSON.parse(saved));
-            } else {
-                setProducts(isDemo && INITIAL_PRODUCTS.length > 0 ? [INITIAL_PRODUCTS[0]] : []);
-            }
+            setProducts(getProducts());
         };
 
         load();
@@ -58,9 +54,8 @@ export default function ShopPage() {
         };
     }, [isDemo]);
 
-    const saveProducts = (newProds: Product[]) => {
-        setProducts(newProds);
-        localStorage.setItem(getScopedKey('cc_shop_products'), JSON.stringify(newProds));
+    const handleSaveProducts = (newProds: Product[]) => {
+        saveProducts(newProds);
     };
 
     const handleSaveProduct = () => {
@@ -72,7 +67,7 @@ export default function ShopPage() {
                     ? { ...p, ...form as Product, quantity: Number(form.quantity) || 0, price: Number(form.price) || 0 }
                     : p
             );
-            saveProducts(newProds);
+            handleSaveProducts(newProds);
         } else {
             const newProd: Product = {
                 ...form as Product,
@@ -83,7 +78,7 @@ export default function ShopPage() {
                 quantity: Number(form.quantity) || 0,
                 price: Number(form.price) || 0
             };
-            saveProducts([newProd, ...products]);
+            handleSaveProducts([newProd, ...products]);
         }
         setIsAddOpen(false);
         setEditingProduct(null);
@@ -101,7 +96,7 @@ export default function ShopPage() {
         const newProds = products.map(p =>
             p.id === selectedProduct.id ? { ...p, quantity: p.quantity - qty } : p
         );
-        saveProducts(newProds);
+        handleSaveProducts(newProds);
 
         // Record sale
         const allStudents = getStudentsAllBranches();
@@ -169,7 +164,7 @@ export default function ShopPage() {
             const newProds = products.map(p =>
                 p.id === prod.id ? { ...p, quantity: p.quantity - diff } : p
             );
-            saveProducts(newProds);
+            handleSaveProducts(newProds);
         }
 
         updateSale(selectedSale.id, {
@@ -394,7 +389,7 @@ export default function ShopPage() {
                                     onClick={async (e) => {
                                         e.stopPropagation();
                                         if (await confirm(t.confirmDelete)) {
-                                            saveProducts(products.filter(p => p.id !== product.id));
+                                            deleteProduct(product.id);
                                         }
                                     }}
                                     className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all"

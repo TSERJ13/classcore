@@ -25,35 +25,18 @@ import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud } from './master-sync';
 
 const BASE_PLANS_KEY = 'cc_subscription_plans';
-function getPlansKey() { return getScopedKey(BASE_PLANS_KEY); }
+function getPlansKey(slug?: string) { return getScopedKey(BASE_PLANS_KEY, slug); }
 
 const INITIAL_PLANS: Plan[] = [];
 
 export function getPlans(): Plan[] {
     if (typeof window === 'undefined') return INITIAL_PLANS;
     try {
-        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
-        const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
-        const isMainBranch = activeBranch === 'main';
-
-        const key = getPlansKey();
+        const activeSlug = getActiveSlug() || 'demo.classcore.ge';
+        const key = getPlansKey(activeSlug);
         let saved = localStorage.getItem(key);
 
-        // Migration: If new scoped key is empty, check old unscoped key
-        if (!saved && isMainBranch) {
-            const oldKey = `cc_subscription_plans_${activeSlug}`;
-            saved = localStorage.getItem(oldKey);
-            if (saved) {
-                console.log('🚚 [PlanStore] Migrating legacy main branch data');
-                localStorage.setItem(key, saved);
-            }
-        }
-
-        if (!saved) {
-            const data = isMainBranch ? INITIAL_PLANS : [];
-            if (isMainBranch) localStorage.setItem(key, JSON.stringify(data));
-            return data;
-        }
+        if (!saved) return INITIAL_PLANS;
         const parsed = JSON.parse(saved);
         return Array.isArray(parsed) ? parsed : INITIAL_PLANS;
     } catch {
@@ -63,48 +46,51 @@ export function getPlans(): Plan[] {
 
 export async function savePlans(plans: Plan[]): Promise<void> {
     if (typeof window === 'undefined') return;
-    const key = getPlansKey();
+    const activeSlug = getActiveSlug() || '';
+    const key = getPlansKey(activeSlug);
+    
     localStorage.setItem(key, JSON.stringify(plans));
     markLocalUpdate();
     
     // 🔥 ATOMIC SYNC: Push ALL plan fields to the cloud
-    const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
-    const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+    const orgId = settings.orgId;
+    
     if (orgId && orgId !== 'demo') {
-        plans.forEach(plan => {
-            syncRecordToCloud('subscription_plans', {
-                id: plan.id,
-                org_id: orgId,
-                name: plan.name,
-                type: plan.type,
-                price: plan.price,
-                period: plan.period,
-                session_count: plan.session_count,
-                validity_days: plan.validity_days,
-                is_active: plan.is_active,
-                coach_name: plan.coach, // Map local 'coach' to DB 'coach_name'
-                group_id: plan.group_id,
-                data: plan // Store the full object in JSONB just in case
-            }, orgId).catch(() => {});
-        });
+        // 1. Individual record sync (for reporting/analytics)
+        for (const plan of plans) {
+            try {
+                await syncRecordToCloud('subscription_plans', {
+                    id: plan.id,
+                    org_id: orgId,
+                    name: plan.name,
+                    type: plan.type,
+                    price: plan.price,
+                    period: plan.period,
+                    session_count: plan.session_count,
+                    validity_days: plan.validity_days,
+                    is_active: plan.is_active,
+                    coach_name: plan.coach,
+                    group_id: plan.group_id,
+                    data: plan
+                }, orgId);
+            } catch (err) {
+                console.warn('⚠️ [PlanStore] Individual plan sync failed:', err);
+            }
+        }
 
-        // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
-        import('./settings-store').then(({ loadSettings, saveSettings }) => {
-            const settings = loadSettings(activeSlug);
-            (settings as any).subscription_plans = plans;
-            saveSettings(settings, settings, activeSlug);
-            
-            import('./master-sync').then(({ pushFullStudioMetadata }) => {
-                const studioName = (settings as any).studioName || 'Studio';
-                pushFullStudioMetadata(activeSlug, studioName, settings);
-            });
-        });
+        // 2. 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Save full list into settings blob
+        const nextSettings = { ...settings, subscription_plans: plans };
+        const { saveSettings } = await import('./settings-store');
+        saveSettings(nextSettings, settings, activeSlug);
+        
+        const { pushFullStudioMetadata } = await import('./master-sync');
+        const studioName = settings.studioName || 'Studio';
+        await pushFullStudioMetadata(activeSlug, studioName, nextSettings);
     }
 
     // Explicit signal for UI and StudioContext
     window.dispatchEvent(new Event('cc_subscription_plans_update'));
-
     triggerInstantSync();
 }
 

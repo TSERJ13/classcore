@@ -159,6 +159,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             }, {}),
                         cc_calendar_events: unwrap(state.calendar_events),
                         cc_subscription_plans: finalPlans,
+                        cc_shop_products: unwrap(state.products),
                         cc_shop_sales: (unwrap(state.sales)).reduce((acc: any, sale: any) => {
                             const sId = sale.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }

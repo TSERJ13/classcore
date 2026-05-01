@@ -29,42 +29,13 @@ const INITIAL_HALLS: HallData[] = [];
 export function getHalls(): HallData[] {
     if (typeof window === 'undefined') return INITIAL_HALLS;
     try {
-        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
-        const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
-        const isMainBranch = activeBranch === 'main';
-
+        const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         const key = getHallsKey();
         let saved = localStorage.getItem(key);
 
-        const deletedKey = getDeletedHallsKey();
-        let deletedIds = new Set<string>();
-        try {
-            const rawDeleted = localStorage.getItem(deletedKey);
-            if (rawDeleted) {
-                const parsed = JSON.parse(rawDeleted);
-                if (Array.isArray(parsed)) deletedIds = new Set(parsed);
-            }
-        } catch {}
-
-        if (!saved) {
-            // SCORCHED EARTH v3.2: Aggressive Key Discovery
-            // 1. Try Slug-scoped key (Legacy fallback)
-            const slugKey = `cc_halls_${activeSlug}`;
-            const slugKeyMain = `cc_halls_${activeSlug}_main`;
-            const slugData = localStorage.getItem(slugKey) || localStorage.getItem(slugKeyMain);
-            
-            if (slugData) {
-                console.log('🚚 [HallStore] Recovered halls from slug-scoped key');
-                localStorage.setItem(key, slugData);
-                saved = slugData;
-            } else {
-                return INITIAL_HALLS;
-            }
-        }
+        if (!saved) return INITIAL_HALLS;
         const parsed = JSON.parse(saved);
-        if (!Array.isArray(parsed)) return INITIAL_HALLS;
-        const migrated = parsed;
-        return migrated.filter(h => !deletedIds.has(h.id));
+        return Array.isArray(parsed) ? parsed : INITIAL_HALLS;
     } catch {
         return INITIAL_HALLS;
     }
@@ -78,43 +49,35 @@ export function saveHalls(halls: HallData[]): void {
     
     triggerInstantSync();
 
-    // CLOUD SYNC: Ensure new/edited halls are pushed to Supabase
-    if (typeof window !== 'undefined') {
-        const activeSlug = getActiveSlug();
-        const settings = loadSettings(activeSlug);
-        
-        // Priority orgId resolution
-        const orgId = settings.orgId || 
-                     localStorage.getItem(`cc_org_id_override_${activeSlug}`) || 
-                     localStorage.getItem(`cc_org_id_${activeSlug}`);
-                     
-        const branchId = localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main';
+    const activeSlug = getActiveSlug();
+    const settings = loadSettings(activeSlug);
+    const orgId = settings.orgId;
+    
+    if (orgId && orgId !== 'demo') {
+        // 1. Full record sync
+        halls.forEach(hall => {
+            syncRecordToCloud('halls', {
+                id: hall.id,
+                org_id: orgId,
+                name: hall.name,
+                color: hall.color,
+                capacity: hall.capacity,
+                description: hall.description,
+                sq_meters: hall.sq_meters,
+                photo_url: hall.photo_url,
+                is_active: hall.is_active
+            }, orgId).catch(() => {});
+        });
 
-        if (orgId && orgId !== 'demo') {
-            // Minimal compatible insert to keep native table alive (optional, often fails due to bad columns)
-            halls.forEach(hall => {
-                syncRecordToCloud('halls', {
-                    id: hall.id,
-                    org_id: orgId,
-                    name: hall.name
-                }, orgId).catch(() => {});
+        // 2. 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
+        const updatedSettings = { ...settings, halls: halls };
+        import('./settings-store').then(({ saveSettings }) => {
+            saveSettings(updatedSettings, settings, activeSlug);
+            import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                const studioName = settings.studioName || 'Studio';
+                pushFullStudioMetadata(activeSlug, studioName, updatedSettings);
             });
-
-            // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
-            import('./settings-store').then(({ loadSettings, saveSettings }) => {
-                const settings = loadSettings(activeSlug);
-                (settings as any).halls = halls;
-                saveSettings(settings, settings, activeSlug);
-                
-                // CRITICAL: Explicitly push this fallback to the cloud because saveSettings only saves locally!
-                import('./master-sync').then(({ pushFullStudioMetadata }) => {
-                    const studioName = (settings as any).studioName || 'Studio';
-                    pushFullStudioMetadata(activeSlug, studioName, settings);
-                });
-            });
-        } else {
-            console.warn('⚠️ [HallStore] Local save only. Skip cloud sync: Missing valid OrgID');
-        }
+        });
     }
 
     window.dispatchEvent(new Event('cc_halls_update'));

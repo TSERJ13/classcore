@@ -68,7 +68,8 @@ export async function POST(req: Request) {
             supabaseAdmin.from('expenses').select('*').eq('org_id', targetOrgId),
             supabaseAdmin.from('trash').select('*').eq('org_id', targetOrgId),
             supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId),
-            supabaseAdmin.from('subscription_plans').select('*').eq('org_id', targetOrgId)
+            supabaseAdmin.from('subscription_plans').select('*').eq('org_id', targetOrgId),
+            supabaseAdmin.from('products').select('*').eq('org_id', targetOrgId)
         ]);
 
         const data = responses.map(r => r.data || []);
@@ -88,6 +89,7 @@ export async function POST(req: Request) {
             trash: data[10] || [],
             calendar_events: data[11] || [],
             subscription_plans: data[12] || [],
+            products: data[13] || [],
             org_id: targetOrgId
         });
 

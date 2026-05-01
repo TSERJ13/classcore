@@ -51,7 +51,8 @@ export function moveToTrash(type: TrashItem['type'], data: any, branchId: string
         // Cloud sync
         const activeSlug = getActiveSlug() || '';
         const settings = loadSettings(activeSlug);
-        const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+        const orgId = settings.orgId;
+        
         if (orgId && orgId !== 'demo') {
             syncRecordToCloud('trash', {
                 id: newItem.id,
