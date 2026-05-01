@@ -16,6 +16,26 @@ interface StudioContextType {
     setActiveBranch: (id: string) => void;
     addBranch: (name: string, address?: string) => void;
     refreshData: () => Promise<void>;
+    
+    // Setters required by SettingsPage
+    setTheme: (key: any) => void;
+    setStudioName: (name: string) => void;
+    setLogo: (url: string | null) => void;
+    setNotification: (key: string, val: boolean) => void;
+    setSecurity: (key: string, val: any) => void;
+    setCurrency: (cur: string) => void;
+    setLanguage: (lang: string) => void;
+    setTimezone: (tz: string) => void;
+    setGoogleCalendar: (id: string) => void;
+    setPausePrice: (p: number) => void;
+    updateStaff: (id: string, data: any) => void;
+    removeStaff: (id: string) => void;
+    removeBranch: (id: string) => void;
+    updateBranch: (id: string, data: any) => void;
+    setCustomRoles: (roles: any) => void;
+    addStaff: (member: any) => void;
+    setOwnerInfo: (info: any) => void;
+    saveSettings: (updates: any, prev?: any, slug?: string) => void;
 }
 
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
@@ -56,9 +76,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const sb = createClient();
             
             setLoadingStep('სტუდიის იდენტიფიცირება...'); // Identifying Studio...
-            const metadataPromise = sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
-
-            const { data: studioRecord } = await metadataPromise;
+            const { data: studioRecord } = await sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
             
             if (studioRecord) {
                 setSettings(prev => {
@@ -86,6 +104,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     console.log('📊 [StudioContext] Cloud State Received:', { 
                         events: state.calendar_events?.length, 
                         students: state.students?.length,
+                        groups: state.groups?.length,
+                        halls: state.halls?.length,
                         orgId: targetOrgId
                     });
 
@@ -93,6 +113,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
                     const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
 
+                    // Helper for deep merging arrays - CRITICAL FOR RECOVERING LOST DATA
                     const resolveRicher = (db: any[], backup: any) => {
                         const dbArr = Array.isArray(db) ? db : [];
                         const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
@@ -104,6 +125,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                     const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
                     const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
+                    const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
+                    const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events);
                     
                     setLoadingStep('ინტერფეისის მომზადება...');
 
@@ -112,7 +135,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         const logo = updates.logo_url || cloudSettings.logoDataUrl || prev.logoDataUrl;
                         const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
 
-                        console.log('🎨 [StudioContext] Updating Metadata:', { name, logo: logo ? 'EXISTS' : 'EMPTY' });
+                        console.log('🎨 [StudioContext] Final Hydration:', { name, logo: logo ? 'EXISTS' : 'EMPTY', groups: finalGroups.length });
 
                         const next = {
                             ...prev,
@@ -137,7 +160,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         cc_teachers: unwrap(state.staff),
                         cc_branches: state.branches,
                         cc_halls: finalHalls,
-                        cc_groups: unwrap(state.groups),
+                        cc_groups: unwrap(finalGroups),
                         cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
                         cc_student_subscriptions: (unwrap(state.subscriptions) || [])
                             .filter(sub => !allDeleted.has(sub.id))
@@ -146,7 +169,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
                                 return acc;
                             }, {}),
-                        cc_calendar_events: unwrap(state.calendar_events),
+                        cc_calendar_events: unwrap(finalEvents),
                         cc_subscription_plans: finalPlans,
                         cc_shop_products: unwrap(state.products),
                         cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
@@ -163,7 +186,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             if (Array.isArray(data) && data.length === 0) {
                                 const localRaw = localStorage.getItem(getScopedKey(key, activeSlug));
                                 if (localRaw && localRaw !== '[]' && localRaw !== '{}') {
-                                    console.warn(`⚠️ [StudioContext] Preservation: Keeping local data for ${key} (Cloud empty)`);
+                                    console.warn(`⚠️ [StudioContext] Keeping local data for ${key} (Cloud empty)`);
                                     return;
                                 }
                             }
@@ -217,6 +240,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         });
     }, []);
 
+    // SETTERS FOR SETTINGS PAGE
+    const setTheme = (key: any) => updateSettings({ themeKey: key });
+    const setStudioName = (name: string) => updateSettings({ studioName: name });
+    const setLogo = (url: string | null) => updateSettings({ logoDataUrl: url });
+    const setNotification = (key: string, val: boolean) => updateSettings({ notifications: { ...settings.notifications, [key]: val } });
+    const setSecurity = (key: string, val: any) => updateSettings({ security: { ...settings.security, [key]: val } });
+    const setCurrency = (cur: string) => updateSettings({ currency: cur });
+    const setLanguage = (lang: string) => updateSettings({ language: lang });
+    const setTimezone = (tz: string) => updateSettings({ timezone: tz });
+    const setGoogleCalendar = (id: string) => updateSettings({ googleCalendarId: id });
+    const setPausePrice = (p: number) => updateSettings({ pausePrices: { ...settings.pausePrices, monthly: p } });
+    const updateStaff = (id: string, data: any) => updateSettings({ staff: settings.staff?.map((s: any) => s.id === id ? { ...s, ...data } : s) });
+    const removeStaff = (id: string) => updateSettings({ staff: settings.staff?.filter((s: any) => s.id !== id) });
+    const addStaff = (member: any) => updateSettings({ staff: [...(settings.staff || []), member] });
+    const removeBranch = (id: string) => updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
+    const updateBranch = (id: string, data: any) => updateSettings({ branches: settings.branches.map(b => b.id === id ? { ...b, ...data } : b) });
+    const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });
+    const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
+
     const setActiveBranch = useCallback((branchId: string) => {
         setSettings(prev => {
             const next = { ...prev, activeBranchId: branchId };
@@ -244,7 +286,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     return (
         <StudioContext.Provider value={{
             settings, updateSettings, isLoaded, loadingStep, firstSyncDone, isSyncing,
-            activeBranchId, setActiveBranch, addBranch, refreshData
+            activeBranchId, setActiveBranch, addBranch, refreshData,
+            setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings
         }}>
             {children}
         </StudioContext.Provider>

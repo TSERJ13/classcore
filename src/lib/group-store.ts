@@ -103,14 +103,25 @@ export function saveGroups(groups: Group[]): void {
     // 🔥 NEW ATOMIC SYNC: Push all groups to the native table
     const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
-    if (settings.orgId) {
+    if (settings.orgId && settings.orgId !== 'demo') {
+        // 1. Native table sync
         groups.forEach(g => {
             syncRecordToCloud('groups', {
                 id: g.id,
                 org_id: settings.orgId,
                 name: g.name,
                 data: g
-            }, settings.orgId);
+            }, settings.orgId).catch(() => {});
+        });
+
+        // 2. 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Update the settings blob too
+        const updatedSettings = { ...settings, groups: groups };
+        import('./settings-store').then(({ saveSettings }) => {
+            saveSettings({ groups: groups } as any, settings, activeSlug);
+            import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                const studioName = settings.studioName || 'Studio';
+                pushFullStudioMetadata(activeSlug, studioName, updatedSettings);
+            });
         });
     }
 
