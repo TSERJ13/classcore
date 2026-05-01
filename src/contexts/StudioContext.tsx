@@ -30,7 +30,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         return base;
     });
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
-    // ⚡️ START AS NOT LOADED: Only show UI when we have initial data or timeout
     const [isLoaded, setIsLoaded] = useState(false);
     const [loadingStep, setLoadingStep] = useState<string>('');
     const [firstSyncDone, setFirstSyncDone] = useState(false);
@@ -42,20 +41,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const hydrate = useCallback(async (isAuto = false) => {
         let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug;
         
-        // Skip system/auth routes unless we have a slug from profile
         if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) {
              if (profile?.studio_slug) {
                  activeSlug = profile.studio_slug;
              } else {
-                 // If we are still loading user profile, don't finish loading yet
                  if (userLoading) return;
-                 
                  setIsLoaded(true);
                  return;
              }
         }
 
-        // 🚀 ATOMIC BOOT: Parallel resolution
         try {
             if (!isAuto) setIsSyncing(true);
             const { createClient } = await import("@/lib/supabase/client");
@@ -64,7 +59,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             setLoadingStep('სტუდიის იდენტიფიცირება...'); // Identifying Studio...
             const metadataPromise = sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
 
-            // --- PHASE 1: METADATA RESOLUTION (Logo/Name) ---
             const { data: studioRecord } = await metadataPromise;
             
             if (studioRecord) {
@@ -83,19 +77,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
             const targetOrgId = studioRecord?.org_id || profile?.org_id;
             
-            // --- PHASE 2: COLLECTION SYNC (Deep Hydration) ---
             if (targetOrgId) {
-                setLoadingStep('მონაცემების სინქრონიზაცია...'); // Syncing Data...
+                console.log('📡 [StudioContext] Phase 2: Starting Deep Sync for Org:', targetOrgId);
+                setLoadingStep('მონაცემების სინქრონიზაცია...'); 
                 const { fetchFullStudioState } = await import("@/lib/master-sync");
                 const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                 
                 if (state) {
+                    console.log('📊 [StudioContext] Cloud State Received:', { 
+                        events: state.calendar_events?.length, 
+                        students: state.students?.length 
+                    });
+
                     const cloudSettings = state.settingsRecord?.settings || {};
                     const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : [];
-                    
                     const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
 
-                    // Helper for deep merging arrays
                     const resolveRicher = (db: any[], backup: any) => {
                         const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
                         if (db.length === 0) return backupArr;
@@ -107,13 +104,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     const finalHalls = resolveRicher(state.halls || [], cloudSettings.halls || cloudSettings.data?.halls);
                     const finalPlans = resolveRicher(state.subscription_plans || [], cloudSettings.subscription_plans || cloudSettings.plans);
                     
-                    setLoadingStep('ინტერფეისის მომზადება...'); // Preparing Interface...
+                    setLoadingStep('ინტერფეისის მომზადება...');
 
-                    // Final Settings update with all cloud data
                     setSettings(prev => {
                         const updates = state.studio || {};
                         const logo = updates.logo_url || cloudSettings.logoDataUrl || prev.logoDataUrl;
                         const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
+
+                        console.log('🎨 [StudioContext] Updating Metadata:', { name, logo: logo ? 'EXISTS' : 'EMPTY' });
 
                         const next = {
                             ...prev,
@@ -134,7 +132,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         return next;
                     });
 
-                    // Fast Collection Storage
                     const mapping: any = {
                         cc_teachers: unwrap(state.staff),
                         cc_branches: state.branches,
@@ -162,11 +159,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                     Object.entries(mapping).forEach(([key, data]) => {
                         if (data !== undefined && data !== null) {
+                            if (Array.isArray(data) && data.length === 0) {
+                                const localRaw = localStorage.getItem(getScopedKey(key, activeSlug));
+                                if (localRaw && localRaw !== '[]' && localRaw !== '{}') {
+                                    console.warn(`⚠️ [StudioContext] Skipping empty cloud overwrite for ${key} to prevent data loss.`);
+                                    return;
+                                }
+                            }
                             localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
                         }
                     });
 
-                    // Attendance mapping
                     const groupedAtt: Record<string, any[]> = {};
                     (unwrap(state.attendance)).forEach(a => {
                         if (!a.student_id) return;
@@ -175,7 +178,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     });
                     localStorage.setItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt));
 
-                    // Notify UI
                     ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                      'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
                      'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
@@ -186,7 +188,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 await ensureStudioExists(activeSlug || "default", settings.studioName);
             }
         } catch (err) {
-            console.error('❌ [MasterSync] Extreme Hydration failed:', err);
+            console.error('❌ [StudioContext] Hydration failed:', err);
         } finally {
             setIsSyncing(false);
             setFirstSyncDone(true);
@@ -196,7 +198,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
     useEffect(() => {
         hydrate();
-        const interval = setInterval(() => hydrate(true), 300000); // Background sync every 5m
+        const interval = setInterval(() => hydrate(true), 300000);
         return () => clearInterval(interval);
     }, [hydrate]);
 
