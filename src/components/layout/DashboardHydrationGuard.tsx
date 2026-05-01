@@ -73,7 +73,7 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
                 <div className="flex flex-col items-center justify-center gap-12">
                     <div className="relative">
                         <AppLogo 
-                            size={90} 
+                            size={100} 
                             src={settings.logoDataUrl} 
                             radar 
                             loading 

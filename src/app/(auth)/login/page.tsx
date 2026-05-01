@@ -146,7 +146,7 @@ export default function LoginPage() {
             <div className="w-full max-w-[440px] flex flex-col pt-0 pb-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <div className="flex flex-col items-center gap-6 mb-4">
                     <Link href="/" className="group transition-all duration-500 hover:scale-110 active:scale-95">
-                        <AppLogo size={90} transparent className="rounded-full" />
+                        <AppLogo size={100} transparent className="rounded-full" />
                     </Link>
                 </div>
 
@@ -295,7 +295,7 @@ export default function LoginPage() {
                         
                         <div className="relative">
                             <AppLogo 
-                                size={110} 
+                                size={100} 
                                 radar 
                                 loading 
                                 src={getCachedLogo()}

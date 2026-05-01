@@ -90,6 +90,11 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
     
     if (error) {
         console.error('❌ [MasterSync] Studios table push failed:', error.message);
+    } else {
+        // HARDEN: Explicitly update logo_url if it exists to be absolutely sure
+        if (logoUrl) {
+            await supabase.from('studios').update({ logo_url: logoUrl }).eq('studio_slug', slug);
+        }
     }
     
     const orgId = data?.org_id;

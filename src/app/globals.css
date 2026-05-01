@@ -394,3 +394,12 @@ input:-webkit-autofill:active {
     -webkit-tap-highlight-color: transparent;
     width: 100%;
 }
+
+@keyframes radar-spin {
+    from { transform: rotate(0deg) translateZ(0); }
+    to { transform: rotate(360deg) translateZ(0); }
+}
+
+.animate-radar-spin {
+    animation: radar-spin 1.5s linear infinite;
+}
