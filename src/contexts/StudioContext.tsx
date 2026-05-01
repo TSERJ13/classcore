@@ -105,11 +105,15 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     if (state) {
                         const cloudSettings = state.settingsRecord?.settings || {};
                         const updates = state.studio || {};
-                        const resolvedLogo = updates.logo_url || cloudSettings.logoDataUrl || phase1Logo || settings.logoDataUrl;
+                        
+                        // GREEDY LOGO RESOLUTION: Use the richest available source
+                        const cloudLogo = updates.logo_url || cloudSettings.logoDataUrl;
+                        const resolvedLogo = cloudLogo || phase1Logo || settings.logoDataUrl || prev.logoDataUrl;
 
                         console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${targetOrgId})`);
-                        console.log(`🖼️ [StudioContext] Logo Resolved: ${resolvedLogo ? 'FOUND' : 'MISSING'}`);
-                    const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
+                        console.log(`🖼️ [StudioContext] Logo Source: ${cloudLogo ? 'CLOUD' : (phase1Logo ? 'DISCOVERY' : 'LOCAL')}`);
+
+                        const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
                     const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
 
                     // Helper for deep merging arrays - CRITICAL FOR RECOVERING LOST DATA
@@ -132,15 +136,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                         setSettings(prev => {
                             const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
+                            
+                            // GREEDY LOGO RESOLUTION: INSIDE updater to use Phase 1 / Local results
+                            const cloudLogo = updates.logo_url || cloudSettings.logoDataUrl;
+                            const finalLogo = cloudLogo || phase1Logo || prev.logoDataUrl;
 
-                            console.log('🎨 [StudioContext] Final Hydration:', { name, logo: resolvedLogo ? 'EXISTS' : 'EMPTY' });
+                            console.log('🎨 [StudioContext] Final Hydration:', { 
+                                name, 
+                                logo: finalLogo ? (cloudLogo ? 'CLOUD' : 'RECOVERED') : 'MISSING' 
+                            });
 
                             const next = {
                                 ...prev,
                                 ...cloudSettings,
                                 orgId: targetOrgId,
                                 studioName: name,
-                                logoDataUrl: resolvedLogo,
+                                logoDataUrl: finalLogo,
                             staff: unwrap(finalStaff),
                             branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
                             plan: state.studio?.plan || cloudSettings.plan || prev.plan,
