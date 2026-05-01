@@ -78,38 +78,37 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             setLoadingStep('სტუდიის იდენტიფიცირება...'); // Identifying Studio...
             const { data: studioRecord } = await sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
             
-            if (studioRecord) {
-                setSettings(prev => {
-                    const next = {
-                        ...prev,
-                        orgId: studioRecord.org_id,
-                        studioName: studioRecord.studio_name || prev.studioName,
-                        logoDataUrl: studioRecord.logo_url || (studioRecord.settings as any)?.logoDataUrl || prev.logoDataUrl,
-                        studioSlug: activeSlug
-                    };
-                    saveSettings(next, prev, activeSlug);
-                    return next;
-                });
-            }
-
-            const targetOrgId = studioRecord?.org_id || profile?.org_id;
-            
-            if (targetOrgId) {
-                console.log('📡 [StudioContext] Phase 2: Starting Deep Sync for Org:', targetOrgId);
-                setLoadingStep('მონაცემების სინქრონიზაცია...'); 
-                const { fetchFullStudioState } = await import("@/lib/master-sync");
-                const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
-                
-                if (state) {
-                    console.log('📊 [StudioContext] Cloud State Received:', { 
-                        events: state.calendar_events?.length, 
-                        students: state.students?.length,
-                        groups: state.groups?.length,
-                        halls: state.halls?.length,
-                        orgId: targetOrgId
+                let phase1Logo = null;
+                if (studioRecord) {
+                    phase1Logo = studioRecord.logo_url || (studioRecord.settings as any)?.logoDataUrl;
+                    setSettings(prev => {
+                        const next = {
+                            ...prev,
+                            orgId: studioRecord.org_id,
+                            studioName: studioRecord.studio_name || prev.studioName,
+                            logoDataUrl: phase1Logo || prev.logoDataUrl,
+                            studioSlug: activeSlug
+                        };
+                        saveSettings(next, prev, activeSlug);
+                        return next;
                     });
+                }
 
-                    const cloudSettings = state.settingsRecord?.settings || {};
+                const targetOrgId = studioRecord?.org_id || profile?.org_id;
+                
+                if (targetOrgId) {
+                    console.log('📡 [StudioContext] Phase 2: Starting Deep Sync for Org:', targetOrgId);
+                    setLoadingStep('მონაცემების სინქრონიზაცია...'); 
+                    const { fetchFullStudioState } = await import("@/lib/master-sync");
+                    const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
+                    
+                    if (state) {
+                        const cloudSettings = state.settingsRecord?.settings || {};
+                        const updates = state.studio || {};
+                        const resolvedLogo = updates.logo_url || cloudSettings.logoDataUrl || phase1Logo || settings.logoDataUrl;
+
+                        console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${targetOrgId})`);
+                        console.log(`🖼️ [StudioContext] Logo Resolved: ${resolvedLogo ? 'FOUND' : 'MISSING'}`);
                     const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
                     const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
 
@@ -123,6 +122,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         return merged;
                     };
 
+                    const finalStaff = resolveRicher(state.staff, cloudSettings.staff || prev.staff);
                     const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
                     const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
                     const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
@@ -130,20 +130,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     
                     setLoadingStep('ინტერფეისის მომზადება...');
 
-                    setSettings(prev => {
-                        const updates = state.studio || {};
-                        const logo = updates.logo_url || cloudSettings.logoDataUrl || prev.logoDataUrl;
-                        const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
+                        setSettings(prev => {
+                            const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
 
-                        console.log('🎨 [StudioContext] Final Hydration:', { name, logo: logo ? 'EXISTS' : 'EMPTY', groups: finalGroups.length });
+                            console.log('🎨 [StudioContext] Final Hydration:', { name, logo: resolvedLogo ? 'EXISTS' : 'EMPTY' });
 
-                        const next = {
-                            ...prev,
-                            ...cloudSettings,
-                            orgId: targetOrgId,
-                            studioName: name,
-                            logoDataUrl: logo,
-                            staff: (state.staff && state.staff.length > 0) ? unwrap(state.staff) : (cloudSettings.staff || prev.staff),
+                            const next = {
+                                ...prev,
+                                ...cloudSettings,
+                                orgId: targetOrgId,
+                                studioName: name,
+                                logoDataUrl: resolvedLogo,
+                            staff: unwrap(finalStaff),
                             branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
                             plan: state.studio?.plan || cloudSettings.plan || prev.plan,
                             subscription_plans: finalPlans,
@@ -157,9 +155,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     });
 
                     const mapping: any = {
-                        cc_teachers: unwrap(state.staff),
+                        cc_teachers: unwrap(finalStaff),
                         cc_branches: state.branches,
-                        cc_halls: finalHalls,
+                        cc_halls: unwrap(finalHalls),
                         cc_groups: unwrap(finalGroups),
                         cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
                         cc_student_subscriptions: (unwrap(state.subscriptions) || [])
@@ -170,7 +168,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 return acc;
                             }, {}),
                         cc_calendar_events: unwrap(finalEvents),
-                        cc_subscription_plans: finalPlans,
+                        cc_subscription_plans: unwrap(finalPlans),
                         cc_shop_products: unwrap(state.products),
                         cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
                             const sId = sale.student_id;

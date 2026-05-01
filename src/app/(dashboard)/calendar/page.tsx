@@ -311,9 +311,17 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
                         {ev.title}
                     </span>
                     {teacher && !compact && (
-                        <span className="text-[10px] font-bold text-white/70 truncate leading-none mt-1">
-                            {teacher.full_name}
-                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[9px] font-bold text-white/70 truncate leading-none">
+                                {teacher.full_name}
+                            </span>
+                            {hall && (
+                                <span className="text-[8px] font-black text-white/40 truncate leading-none flex items-center gap-1">
+                                    <div className="w-0.5 h-0.5 rounded-full bg-white/20" />
+                                    {hall.name}
+                                </span>
+                            )}
+                        </div>
                     )}
                 </div>
 

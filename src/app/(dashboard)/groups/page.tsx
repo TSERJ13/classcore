@@ -10,6 +10,7 @@ import { getGroups, saveGroups, deleteGroup, type Group, slotsToDisplay } from '
 import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
+import { getHallName } from '@/lib/hall-store';
 import { cn } from '@/lib/utils';
 
 const typeColor: Record<string, string> = {
@@ -226,7 +227,7 @@ export default function GroupsPage() {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex flex-col">
                                             <span className="text-[10px] font-bold text-primary truncate leading-none block">
                                                 {teacher?.full_name || group.coach || t.noTeacher}
                                                 {group.secondaryTeacherId && (
@@ -235,6 +236,12 @@ export default function GroupsPage() {
                                                     </span>
                                                 )}
                                             </span>
+                                            {group.hall_id && (
+                                                <span className="text-[9px] font-bold text-indigo-500/50 truncate mt-1 flex items-center gap-1">
+                                                    <span className="w-1 h-1 rounded-full bg-indigo-500/30" />
+                                                    {getHallName(group.hall_id)}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

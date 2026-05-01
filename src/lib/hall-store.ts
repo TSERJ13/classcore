@@ -41,6 +41,17 @@ export function getHalls(): HallData[] {
     }
 }
 
+export function getHall(id: string): HallData | null {
+    const halls = getHalls();
+    return halls.find(h => h.id === id) || null;
+}
+
+export function getHallName(id?: string): string {
+    if (!id || id === 'all') return '';
+    const h = getHall(id);
+    return h?.name || '';
+}
+
 export function saveHalls(halls: HallData[]): void {
     if (typeof window === 'undefined') return;
     const key = getHallsKey();

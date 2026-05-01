@@ -13,7 +13,8 @@ import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { getTodayEvents } from '@/lib/event-store';
 import { getStudents, getStudentPatches, updateStudent } from '@/lib/student-store';
-import { getTeacherName } from '@/lib/teacher-store';
+import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
+import { getHallName } from '@/lib/hall-store';
 import { addNotification } from '@/lib/notification-store';
 import type { Student } from '@/types';
 import StudentModal from '@/components/students/StudentModal';
@@ -546,6 +547,8 @@ export default function DashboardPage() {
                     return {
                         ...ev,
                         teacherName: getTeacherName(ev.teacher_id),
+                        teacherPhoto: getTeacherPhoto(ev.teacher_id),
+                        hallName: getHallName(ev.hall_id),
                         studentCount: count
                     };
                 });
@@ -1166,7 +1169,27 @@ export default function DashboardPage() {
                                         <div className={`w-1 h-8 rounded-full flex-shrink-0`} style={{ backgroundColor: cls.color || '#6366f1' }} />
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-primary/75'}`}>{cls.title || t.unnamed}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                {(cls as any).teacherName && (
+                                                    <p className="text-[10px] font-bold text-muted/40 truncate">{(cls as any).teacherName}</p>
+                                                )}
+                                                {(cls as any).hallName && (
+                                                    <p className="text-[10px] font-bold text-indigo-500/50 truncate flex items-center gap-1">
+                                                        <span className="w-1 h-1 rounded-full bg-indigo-500/30" />
+                                                        {(cls as any).hallName}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
+                                        {(cls as any).teacherPhoto ? (
+                                            <img src={(cls as any).teacherPhoto} alt="" className="w-7 h-7 rounded-full object-cover border border-border-subtle" />
+                                        ) : (
+                                            (cls as any).teacherName && (
+                                                <div className="w-7 h-7 rounded-full bg-muted/5 border border-border-subtle flex items-center justify-center text-[10px] font-black text-muted/40 uppercase">
+                                                    {(cls as any).teacherName.substring(0, 2)}
+                                                </div>
+                                            )
+                                        )}
                                     </div>
                                 );
                             })

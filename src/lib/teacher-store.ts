@@ -27,16 +27,24 @@ export function saveTeachers(teachers: Teacher[]) {
     }
 }
 
-export function getTeacherById(id: string): Teacher | null {
-    return getTeachers().find(t => t.id === id) || null;
+export function getTeacher(id: string): Teacher | null {
+    const teachers = getTeachers();
+    return teachers.find(t => t.id === id) || null;
 }
 
-export function getTeacherName(id?: string): string {
-    if (!id || id === 't1' || id === 'none') return '';
-    const t = getTeacherById(id);
-    if (!t) return ''; // Don't return the ID itself if not found
-    if (t.first_name || t.last_name) return `${t.first_name || ''} ${t.last_name || ''}`.trim();
-    return t.full_name || '';
+export function getTeacherName(id: string): string {
+    const t = getTeacher(id);
+    if (!t) return '';
+    return t.full_name || `${t.first_name || ''} ${t.last_name || ''}`.trim() || t.email || '';
+}
+
+export function getTeacherPhoto(id: string): string | null {
+    const t = getTeacher(id);
+    return t?.photo_url || null;
+}
+
+export function getTeacherById(id: string): Teacher | null {
+    return getTeachers().find(t => t.id === id) || null;
 }
 
 export function getAllTeachersRaw(): Teacher[] {

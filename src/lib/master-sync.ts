@@ -67,9 +67,24 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
     // RESOLVE FIELDS
     const settingsObj = metadata.settings || metadata;
     const logoUrl = metadata.logo_url || settingsObj.logoDataUrl;
+    
+    console.log(`📤 [MasterSync] Pushing Metadata for ${slug}:`, { 
+        name, 
+        logo: logoUrl ? (logoUrl.startsWith('data:') ? `BASE64 (${Math.round(logoUrl.length/1024)}KB)` : logoUrl) : 'NONE' 
+    });
     const themeKey = metadata.theme || settingsObj.themeKey || settingsObj.theme_key;
 
-    // 1. Update 'studios' table (discovery)
+    // 1. Update 'studios' table (discovery - LEAN)
+    const discoverySettings = {
+        ...settingsObj,
+        staff: undefined,
+        students: undefined,
+        groups: undefined,
+        halls: undefined,
+        calendar_events: undefined,
+        subscription_plans: undefined
+    };
+
     const { data, error } = await supabase
         .from('studios')
         .upsert({
@@ -83,31 +98,32 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
             plan: settingsObj.plan,
             suspended: settingsObj.suspended,
             is_deleted: settingsObj.is_deleted,
-            settings: settingsObj
+            settings: discoverySettings
         }, { onConflict: 'studio_slug' })
         .select('org_id')
-        .single();
+        .maybeSingle();
     
     if (error) {
         console.error('❌ [MasterSync] Studios table push failed:', error.message);
-    } else {
-        // HARDEN: Explicitly update logo_url if it exists to be absolutely sure
-        if (logoUrl) {
-            await supabase.from('studios').update({ logo_url: logoUrl }).eq('studio_slug', slug);
-        }
     }
     
     const orgId = data?.org_id;
 
-    // 2. Update 'studio_settings' table (full recovery blob)
+    // 2. Update 'studio_settings' table (full recovery blob - OPTIMIZED)
     if (orgId) {
+        const leanSettings = { ...settingsObj };
+        // Strip base64 photos from staff to save space in the blob
+        if (Array.isArray(leanSettings.staff)) {
+            leanSettings.staff = leanSettings.staff.map((s: any) => ({ ...s, photo_url: s.photo_url?.startsWith('data:') ? 'EXISTS' : s.photo_url }));
+        }
+        
         const staffEmails = Array.isArray(settingsObj.staff) ? settingsObj.staff.map((s: any) => s.email?.toLowerCase().trim()).filter(Boolean) : [];
         
         await supabase
             .from('studio_settings')
             .upsert({
                 org_id: orgId,
-                settings: settingsObj,
+                settings: leanSettings,
                 staff_emails: staffEmails,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'org_id' });
