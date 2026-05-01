@@ -26,7 +26,7 @@ const SEED_WEEK: CalendarEvent[] = [];
 export function getEvents(): CalendarEvent[] {
     if (typeof window === 'undefined') return SEED_WEEK;
     try {
-        const activeSlug = (typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null) || 'demo.classcore.ge';
+        const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
         const isMainBranch = activeBranch === 'main';
 

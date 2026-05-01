@@ -52,8 +52,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         return base;
     });
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
-    // ⚡️ ALWAYS LOADED: Dashboard will render with local data instantly
-    const [isLoaded, setIsLoaded] = useState(true);
+    // ⚡️ START AS NOT LOADED: Only show UI when we have initial data or timeout
+    const [isLoaded, setIsLoaded] = useState(false);
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
@@ -139,7 +139,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         };
                         const next = { ...prev, ...cloudSettings, ...updates, studioSlug: activeSlug };
                         saveSettings(next, prev, activeSlug);
-                        localStorage.setItem(`cc_studio_settings_${activeSlug}`, JSON.stringify(next));
+                        // FIXED: No longer using hardcoded slug-only key to avoid inconsistency
                         return next;
                     });
 
@@ -169,6 +169,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     };
 
                     Object.entries(mapping).forEach(([key, data]) => {
+                        // 🛡️ SAFE MERGE: Only overwrite if we have new data, otherwise preserve local
+                        if (!data || (Array.isArray(data) && data.length === 0)) {
+                            const local = localStorage.getItem(getScopedKey(key, activeSlug));
+                            if (local) return; // Keep local if cloud is empty
+                        }
                         localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
                     });
 
@@ -199,6 +204,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         } finally {
             setIsSyncing(false);
             setFirstSyncDone(true);
+            setIsLoaded(true); // Signal that initial boot sequence is done
         }
     }, [profile?.org_id, firstSyncDone, settings.studioName, user, defaultSlug]);
 

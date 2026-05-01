@@ -8,12 +8,12 @@ import { cn } from '@/lib/utils';
 
 export function DashboardHydrationGuard({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
-    const { settings, firstSyncDone } = useStudio();
+    const { settings, firstSyncDone, isLoaded: studioLoaded } = useStudio();
     const { loading: authLoading, isVerified } = useUser();
     const [syncTimedOut, setSyncTimedOut] = useState(false);
 
     useEffect(() => {
-        const timer = setTimeout(() => setSyncTimedOut(true), 12000); // 12s fail-safe
+        const timer = setTimeout(() => setSyncTimedOut(true), 15000); // 15s fail-safe for slow sync
         return () => clearTimeout(timer);
     }, []);
     const router = useRouter();
@@ -30,44 +30,38 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
         }
     }, [mounted, authLoading, isVerified, router]);
 
-    // REDIRECT logic for suspended accounts: Only allow Dashboard Home
+    // REDIRECT logic for suspended accounts
     useEffect(() => {
         if (mounted && settings.suspended && pathname !== '/dashboard' && pathname !== '/billing') {
-            console.log('🚫 [DashboardHydrationGuard] Account suspended. Redirecting to Dashboard Home.');
             router.replace('/dashboard');
         }
     }, [mounted, settings.suspended, pathname, router]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('cc_sa_impersonate');
-        document.cookie = "cc_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        window.location.href = '/';
-    };
-
     const [hasLocalData, setHasLocalData] = useState(false);
 
     useEffect(() => {
-        // Quick check if we have enough local data to show the UI instantly
         if (typeof window !== 'undefined') {
-            const hasSettings = localStorage.getItem(`cc_studio_settings_${settings.studioSlug}`);
-            const sessionSynced = sessionStorage.getItem(`cc_session_synced_${settings.studioSlug}`);
-            if (hasSettings || sessionSynced) {
+            // Check for scoped settings - if we have this, we can show the UI immediately
+            const { getScopedKey } = require('@/lib/utils');
+            const scopedSettingsKey = getScopedKey('cc_studio_settings', settings.studioSlug);
+            const hasSettings = localStorage.getItem(scopedSettingsKey);
+            
+            // If we have settings AND at least some collections, we are good to go
+            const hasCollections = localStorage.getItem(getScopedKey('cc_student_data', settings.studioSlug));
+            
+            if (hasSettings || hasCollections) {
                 setHasLocalData(true);
             }
         }
     }, [settings.studioSlug]);
 
-    useEffect(() => {
-        if (firstSyncDone && settings.studioSlug) {
-            sessionStorage.setItem(`cc_session_synced_${settings.studioSlug}`, 'true');
-        }
-    }, [firstSyncDone, settings.studioSlug]);
-
     // Block only the initial hydration to prevent server/client mismatch
     if (!mounted) return null;
 
-    // Show loading overlay only if we are truly waiting for initial critical data
-    const isLoading = authLoading || isVerified === null || (!firstSyncDone && !hasLocalData && settings.studioSlug && !syncTimedOut);
+    // Show loading overlay if:
+    // 1. Auth is still loading
+    // 2. OR: We haven't finished the first sync AND we don't have local data to show yet
+    const isLoading = authLoading || isVerified === null || (!studioLoaded && !hasLocalData && !syncTimedOut);
 
     return (
         <>

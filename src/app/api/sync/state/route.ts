@@ -48,10 +48,11 @@ export async function POST(req: Request) {
         }
 
         if (!targetOrgId) {
+            console.error('❌ [SyncAPI] Could not resolve OrgID for slug:', slug);
             return NextResponse.json({ error: 'Could not resolve OrgID' }, { status: 404 });
         }
 
-        console.log('📡 [API/Sync] Fetching Full State (Admin Bypass) for:', targetOrgId);
+        console.log(`📡 [SyncAPI] Fetching Full State for OrgID: ${targetOrgId} (${slug || 'No Slug'})`);
 
         // 3. Fetch EVERYTHING with Admin privileges
         const responses = await Promise.all([
