@@ -62,13 +62,14 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
 }
 export async function pushFullStudioMetadata(slug: string, name: string, metadata: any) {
     const supabase = createClient();
-    console.log('📡 [MasterSync] Pushing Full Metadata for:', slug, metadata);
+    console.log('📡 [MasterSync] Pushing Full Metadata for:', slug);
     
-    // RESOLVE FIELDS FROM EITHER metadata WRAPPER OR metadata AS SETTINGS
+    // RESOLVE FIELDS
     const settingsObj = metadata.settings || metadata;
     const logoUrl = metadata.logo_url || settingsObj.logoDataUrl;
     const themeKey = metadata.theme || settingsObj.themeKey || settingsObj.theme_key;
 
+    // 1. Update 'studios' table (discovery)
     const { data, error } = await supabase
         .from('studios')
         .upsert({
@@ -88,10 +89,26 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
         .single();
     
     if (error) {
-        console.error('❌ [MasterSync] Metadata push failed:', error.message);
+        console.error('❌ [MasterSync] Studios table push failed:', error.message);
     }
     
-    return data?.org_id;
+    const orgId = data?.org_id;
+
+    // 2. Update 'studio_settings' table (full recovery blob)
+    if (orgId) {
+        const staffEmails = Array.isArray(settingsObj.staff) ? settingsObj.staff.map((s: any) => s.email?.toLowerCase().trim()).filter(Boolean) : [];
+        
+        await supabase
+            .from('studio_settings')
+            .upsert({
+                org_id: orgId,
+                settings: settingsObj,
+                staff_emails: staffEmails,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'org_id' });
+    }
+    
+    return orgId;
 }
 
 export async function pushCollectionToCloud(table: string, items: any[], orgId: string) {

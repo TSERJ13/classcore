@@ -144,7 +144,7 @@ export default function TrashPage() {
                                         </h3>
                                         
                                         {/* Detailed Info Grid */}
-                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                                             {(item.data.phone || item.data.email) && (
                                                 <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted/60">
                                                     {item.data.phone ? <Phone className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
@@ -161,12 +161,19 @@ export default function TrashPage() {
                                                 <CalendarIcon className="w-3 h-3" />
                                                 <span>{lang === 'ka' ? 'წაიშალა' : 'Deleted'}: {new Date(item.deletedAt).toLocaleDateString()}</span>
                                             </div>
+                                            
+                                            {item.deletedBy && (
+                                                <div className="flex items-center gap-1.5 text-[11px] font-black text-primary/40 bg-surface px-2 py-0.5 rounded-lg border border-border-subtle">
+                                                    <User className="w-3 h-3" />
+                                                    <span>{item.deletedBy}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 w-full sm:w-auto">
-                                    <div className="hidden lg:flex flex-col items-end mr-4">
+                                <div className="flex flex-row items-center gap-4 w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-border-subtle/30 pt-4 sm:pt-0">
+                                    <div className="flex flex-col items-start sm:items-end flex-1 sm:flex-none">
                                         <span className="text-[10px] font-black text-rose-500/40 tracking-widest uppercase">
                                             {lang === 'ka' ? 'ვადა' : 'Expires'}
                                         </span>
@@ -178,7 +185,7 @@ export default function TrashPage() {
                                     
                                     <button
                                         onClick={() => handleRestore(item)}
-                                        className="flex-1 sm:flex-none h-14 px-8 rounded-2xl bg-indigo-500 text-white flex items-center justify-center gap-3 hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-500/20 active:scale-95 group/btn"
+                                        className="h-12 px-6 sm:h-14 sm:px-8 rounded-2xl bg-indigo-500 text-white flex items-center justify-center gap-3 hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-500/20 active:scale-95 group/btn shrink-0"
                                     >
                                         <RotateCcw className="w-5 h-5 group-hover/btn:-rotate-45 transition-transform" />
                                         <span className="text-[11px] font-black tracking-widest uppercase">{lang === 'ka' ? 'აღდგენა' : 'Restore'}</span>

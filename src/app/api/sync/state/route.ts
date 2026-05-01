@@ -72,7 +72,10 @@ export async function POST(req: Request) {
             supabaseAdmin.from('products').select('*').eq('org_id', targetOrgId)
         ]);
 
-        const data = responses.map(r => r.data || []);
+        const data = responses.map((r, idx) => {
+            if (idx === 5) return r.data; // studio_settings is maybeSingle
+            return r.data || [];
+        });
         
         return NextResponse.json({
             studio: targetStudio || { studio_slug: slug, studio_name: (data[5] as any)?.studio_name || 'Studio', org_id: targetOrgId },

@@ -14,6 +14,7 @@ export interface TrashItem {
     branchId: string;
     deletedAt: string;
     expiresAt: string;
+    deletedBy?: string;
 }
 
 const TRASH_KEY = 'cc_global_trash';
@@ -36,13 +37,24 @@ export function moveToTrash(type: TrashItem['type'], data: any, branchId: string
         const expiresAt = new Date();
         expiresAt.setDate(deletedAt.getDate() + RETENTION_DAYS);
 
+        // Get current user for attribution
+        let deletedBy = 'System';
+        try {
+            const session = localStorage.getItem('cc_staff_session');
+            if (session) {
+                const parsed = JSON.parse(session);
+                deletedBy = parsed.staff?.full_name || parsed.staff?.first_name || 'User';
+            }
+        } catch {}
+
         const newItem: TrashItem = {
             id: `trash_${type}_${data.id || Date.now()}`,
             type,
             data,
             branchId,
             deletedAt: deletedAt.toISOString(),
-            expiresAt: expiresAt.toISOString()
+            expiresAt: expiresAt.toISOString(),
+            deletedBy
         };
 
         const updated = [newItem, ...trash];

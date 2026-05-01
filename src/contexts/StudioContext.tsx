@@ -54,6 +54,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const [trash, setTrash] = useState<any[]>(loadSettings().trash || []);
     // ⚡️ START AS NOT LOADED: Only show UI when we have initial data or timeout
     const [isLoaded, setIsLoaded] = useState(false);
+    const [loadingStep, setLoadingStep] = useState<string>('');
     const [firstSyncDone, setFirstSyncDone] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
@@ -61,10 +62,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const lastSyncedSlugRef = useRef<string | null>(null);
 
     const hydrate = useCallback(async (isAuto = false) => {
-        let activeSlug = getActiveSlug() || defaultSlug;
+        let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug;
         
-        // Skip system/auth routes
-        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) return;
+        // Skip system/auth routes unless we have a slug from profile
+        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) {
+             if (profile?.studio_slug) activeSlug = profile.studio_slug;
+             else return;
+        }
 
         // 🚀 ATOMIC BOOT: Parallel resolution
         try {
@@ -72,11 +76,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const sb = createClient();
             
             // 🔑 HIGH-PRIORITY LOGO/NAME (Phase 1)
-            // We use a separate promise for metadata to unlock the UI logo ASAP
+            setLoadingStep('სტუდიის იდენტიფიცირება...'); // Identifying Studio...
             const metadataPromise = sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
             
             metadataPromise.then(({ data: studioRecord }) => {
                 if (studioRecord) {
+                    setLoadingStep('ბრენდინგის ჩატვირთვა...'); // Loading Branding...
                     console.log('✅ [MasterSync] Phase 1: Metadata Resolved (Logo/Name)');
                     setSettings(prev => {
                         const next = { 
@@ -100,6 +105,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
             if (targetOrgId) {
                 // PHASE 2: BACKGROUND COLLECTION SYNC
+                setLoadingStep('მონაცემების სინქრონიზაცია...'); // Syncing Data...
                 const { fetchFullStudioState } = await import("@/lib/master-sync");
                 const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
                 
@@ -122,6 +128,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                     const finalHalls = resolveRicher(state.halls || [], cloudSettings.halls || cloudSettings.data?.halls);
                     const finalPlans = resolveRicher(state.subscription_plans || [], cloudSettings.subscription_plans || cloudSettings.plans);
+                    setLoadingStep('ინტერფეისის მომზადება...'); // Preparing Interface...
 
                     // Final Settings update with all cloud data
                     setSettings(prev => {
@@ -170,12 +177,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     };
 
                     Object.entries(mapping).forEach(([key, data]) => {
-                        // 🛡️ SAFE MERGE: Only overwrite if we have new data, otherwise preserve local
-                        if (!data || (Array.isArray(data) && data.length === 0)) {
-                            const local = localStorage.getItem(getScopedKey(key, activeSlug));
-                            if (local) return; // Keep local if cloud is empty
+                        // 🚀 CLOUD-TRUTH ENFORCEMENT: Always overwrite with cloud data if it exists (even if empty)
+                        if (data !== undefined && data !== null) {
+                            localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
                         }
-                        localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
                     });
 
                     // Attendance
@@ -397,6 +402,64 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             },
             updateStaff, removeStaff, addStaff, addBranch, removeBranch, updateBranch, addSubscriptionLog, setCustomRoles, addToTrash
         }}>
+            {!isLoaded && (
+                <div className="fixed inset-0 bg-base z-[99999] flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
+                    <div className="relative flex flex-col items-center justify-center gap-10">
+                        {/* Glow effect */}
+                        <div className="absolute inset-0 bg-indigo-500/10 blur-[120px] rounded-full scale-150" />
+                        
+                        <div className="relative">
+                            {settings.logoDataUrl ? (
+                                <div className="w-[120px] h-[120px] rounded-[32px] overflow-hidden border-4 border-indigo-500/20 shadow-2xl animate-in zoom-in duration-700">
+                                    <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
+                                </div>
+                            ) : (
+                                <Logo size={120} animated loading />
+                            )}
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-indigo-500/20 rounded-full blur-sm" />
+                        </div>
+
+                        <div className="flex flex-col items-center gap-6 text-center z-10">
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-black text-primary tracking-tight">
+                                    {settings.studioName || 'ClassCore'}
+                                </h2>
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="flex items-center justify-between w-48 px-1">
+                                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] animate-pulse">
+                                            {loadingStep || 'იტვირთება...'}
+                                        </p>
+                                        <span className="text-[10px] font-black text-indigo-500/50 tabular-nums">
+                                            {loadingStep === 'სტუდიის იდენტიფიცირება...' ? '20%' : 
+                                             loadingStep === 'ბრენდინგის ჩატვირთვა...' ? '40%' :
+                                             loadingStep === 'მონაცემების სინქრონიზაცია...' ? '70%' :
+                                             loadingStep === 'ინტერფეისის მომზადება...' ? '90%' : '5%'}
+                                        </span>
+                                    </div>
+                                    
+                                    {/* Progressive Progress Bar */}
+                                    <div className="w-48 h-1 bg-muted/10 rounded-full overflow-hidden relative">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+                                        <div 
+                                            className="h-full bg-indigo-500 transition-all duration-700 ease-out shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                            style={{ 
+                                                width: loadingStep === 'სტუდიის იდენტიფიცირება...' ? '20%' : 
+                                                       loadingStep === 'ბრენდინგის ჩატვირთვა...' ? '40%' :
+                                                       loadingStep === 'მონაცემების სინქრონიზაცია...' ? '70%' :
+                                                       loadingStep === 'ინტერფეისის მომზადება...' ? '90%' : '5%'
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className="text-[9px] font-bold text-muted/40 uppercase tracking-widest max-w-[200px] leading-relaxed">
+                                მონაცემები დაცულია და სინქრონიზებულია ღრუბელთან
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
             {children}
         </StudioContext.Provider>
     );

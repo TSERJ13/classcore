@@ -174,6 +174,8 @@ export interface StudioSettings {
     staff: StaffMember[];
     trash?: TrashItem[];
     subscriptionLogs?: SubscriptionLog[];
+    subscription_plans?: any[]; // For recovery/sync
+    halls?: any[];              // For recovery/sync
     // Non-synced / Local only
     activeBranchId: string;
 }

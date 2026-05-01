@@ -8,7 +8,8 @@ import {
     Download,
     X,
     FileSpreadsheet, FileText, CalendarDays, LayoutGrid, Calendar,
-    Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw
+    Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw,
+    Users, User, Home
 } from 'lucide-react';
 import { cn, getLocalISODate } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -967,45 +968,55 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                 </div>
 
                 <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
-                    {/* Event Type */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calEventType}</label>
-                            <SearchSelect
-                                options={eventTypes}
-                                value={form.type}
-                                onChange={val => setF('type', val)}
-                                className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calRecurring}</label>
-                            <SearchSelect
-                                options={[
-                                    { value: 'none', label: t.calOneTime },
-                                    { value: 'weekly', label: t.calEveryWeek }
-                                ]}
-                                value={form.recurring}
-                                onChange={val => setF('recurring', val)}
-                                className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
-                            />
+                    {/* Event Type Toggle */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase ml-1">{t.calEventType}</label>
+                        <div className="flex p-1 bg-surface border border-border-subtle rounded-2xl gap-1">
+                            {([
+                                { v: 'group_class', l: t.calGroupClass, i: Users },
+                                { v: 'individual', l: t.calIndividual, i: User },
+                                { v: 'rental', l: t.calRental, i: Home }
+                            ] as const).map(({ v, l, i: Icon }) => (
+                                <button
+                                    key={v}
+                                    onClick={() => setF('type', v)}
+                                    className={cn(
+                                        "flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl transition-all gap-1 border",
+                                        form.type === v 
+                                            ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20" 
+                                            : "bg-transparent border-transparent text-muted hover:text-primary hover:bg-surface-hover"
+                                    )}
+                                >
+                                    <Icon className={cn("w-4 h-4", form.type === v ? "text-white" : "text-muted/60")} />
+                                    <span className="text-[9px] font-black tracking-tight uppercase">{l}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Title or New Group Name/Title */}
+                    {/* Recurring Switch */}
+                    <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase">{t.calRecurring}</label>
+                        <div className="flex bg-surface border border-border-subtle rounded-xl p-0.5">
+                            <button onClick={() => setF('recurring', 'none')} className={cn("px-3 py-1 text-[9px] font-black rounded-lg transition-all", form.recurring === 'none' ? "bg-indigo-500/10 text-indigo-500" : "text-muted hover:text-primary")}>{t.calOneTime}</button>
+                            <button onClick={() => setF('recurring', 'weekly')} className={cn("px-3 py-1 text-[9px] font-black rounded-lg transition-all", form.recurring === 'weekly' ? "bg-indigo-500/10 text-indigo-500" : "text-muted hover:text-primary")}>{t.calEveryWeek}</button>
+                        </div>
+                    </div>
+
+                    {/* Title or New Group Name */}
                     {form.type === 'group_class' ? (
                         isNewGroup && (
-                            <div>
-                                <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.groupName}</label>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase ml-1">{t.groupName}</label>
                                 <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder={t.calGroupNamePlaceholder}
-                                    className="w-full bg-surface border border-[#6d28d9]/40 focus:border-[#6d28d9] rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-4 py-3 text-sm font-bold text-primary placeholder:text-muted/30 outline-none transition-all shadow-inner" />
                             </div>
                         )
                     ) : (
-                        <div>
-                            <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calTitle}</label>
-                            <input value={form.title} onChange={e => setF('title', e.target.value)} placeholder="სათაური *"
-                                className="w-full bg-surface border border-border-subtle focus:border-[#6d28d9]/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none transition-all" />
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase ml-1">{t.calTitle}</label>
+                            <input value={form.title} onChange={e => setF('title', e.target.value)} placeholder={form.type === 'individual' ? l('ინდივიდუალური გაკვეთილი', 'Индивидуальное занятие', 'Individual Lesson') : (form.type === 'rental' ? l('იჯარა', 'Аренда', 'Rental') : 'სათაური *')}
+                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-4 py-3 text-sm font-bold text-primary placeholder:text-muted/30 outline-none transition-all shadow-inner" />
                         </div>
                     )}
 
@@ -1037,8 +1048,9 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                         </div>
                     )}
 
-                    <div>
-                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calHall}</label>
+                    {/* Hall Selector (Teacher removed as requested) */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase ml-1">{t.calHall}</label>
                         <SearchSelect
                             options={halls.map((h: any) => ({ value: h.id, label: h.name }))}
                             value={form.hall_id}
@@ -1047,20 +1059,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                 const hall = halls.find((h: any) => h.id === val);
                                 if (hall) setSelectedColor(hall.color);
                             }}
-                            className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="text-[10px] text-muted mb-1 block tracking-wider font-bold opacity-70">{t.calTeacher}</label>
-                        <SearchSelect
-                            options={[
-                                { value: '', label: t.allTeachers },
-                                ...teachers.map(tc => ({ value: tc.id, label: tc.full_name }))
-                            ]}
-                            value={form.teacher_id}
-                            onChange={val => setF('teacher_id', val)}
-                            className="!border-border-subtle hover:!border-[#6d28d9]/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                            className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-3 [&>div]:px-4 [&>div]:text-xs [&>div]:rounded-2xl"
                         />
                     </div>
 

@@ -78,7 +78,55 @@ export async function fetchStaffFromCloud(slug: string) {
 }
 
 export async function pullStudioStateFromCloud() { return null; }
-export async function pushStudioStateToCloud() { return true; }
+/**
+ * Synchronizes the entire studio state (settings blob) to the cloud.
+ */
+export async function pushStudioStateToCloud(slug: string, staff: any[], data: any, _ignored?: any, orgIdOverride?: string) {
+    if (!slug || slug === 'demo.classcore.ge') return true;
+    
+    const supabase = createClient();
+    try {
+        // 1. Resolve OrgID
+        let orgId = orgIdOverride;
+        if (!orgId) {
+            const { data: studio } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
+            orgId = studio?.org_id;
+        }
+        
+        if (!orgId) {
+            console.error('❌ [Sync] Cannot push state: OrgID not resolved for slug:', slug);
+            return false;
+        }
+
+        // 2. Extract staff emails for global discovery
+        const staffEmails = Array.isArray(staff) ? staff.map(s => s.email?.toLowerCase().trim()).filter(Boolean) : [];
+
+        // 3. Upsert to studio_settings table
+        const { error } = await supabase
+            .from('studio_settings')
+            .upsert({
+                org_id: orgId,
+                settings: data,
+                staff_emails: staffEmails,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'org_id' });
+
+        if (error) {
+            console.error('❌ [Sync] State push failed:', error.message);
+            return false;
+        }
+
+        // 4. Trigger broadcast for other tabs
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('cc_sync_push_ok', { detail: { time: new Date().toISOString() } }));
+        }
+
+        return true;
+    } catch (err) {
+        console.error('❌ [Sync] Critical push failure:', err);
+        return false;
+    }
+}
 
 /**
  * Targeted verification for session integrity.

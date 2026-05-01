@@ -25,7 +25,7 @@ import { getEvents } from '@/lib/event-store';
 import { logAction } from '@/lib/analytics';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHalls, type HallData } from '@/lib/hall-store';
-import { fetchStudioDataFromCloud } from '@/lib/sync-store';
+import { fetchFullStudioState } from '@/lib/master-sync';
 import type { Student, CalendarEvent, Teacher, Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
@@ -62,7 +62,8 @@ export default function StudentPortalPage() {
                 const local = loadSettings(studio);
                 if (local.studioName === DEFAULT_SETTINGS.studioName && local.studioSlug !== studio) {
                     // Try cloud
-                    const cloud = await fetchStudioDataFromCloud(studio);
+                    const cloudData = await fetchFullStudioState(studio);
+                    const cloud = cloudData?.settingsRecord?.settings || cloudData?.studio?.settings;
                     if (cloud) {
                         // Hydrate settings
                         localStorage.setItem(`cc_settings_${studio}`, JSON.stringify(cloud));
@@ -105,7 +106,7 @@ export default function StudentPortalPage() {
 
                 if (!student) {
                     // CRITICAL: Force cloud fetch if student is not found locally
-                    const cloudData = await fetchStudioDataFromCloud(studio);
+                    const cloudData = await fetchFullStudioState(studio);
                     if (cloudData) {
                         console.log('☁️ [StudentPortal] Hydrating from cloud database');
                         // Search for the specific student in ALL student data keys

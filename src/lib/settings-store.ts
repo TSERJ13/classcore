@@ -449,6 +449,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     sms_enabled: true,
     primary_lang: 'ka',
     staff: [],
+    subscription_plans: [],
+    halls: [],
 };
 
 export function loadSettings(slug?: string): StudioSettings {
@@ -493,7 +495,9 @@ export function loadSettings(slug?: string): StudioSettings {
                 specialty: Array.isArray(s.specialty) ? s.specialty : [],
                 assigned_group_ids: Array.isArray(s.assigned_group_ids) ? s.assigned_group_ids : [],
                 allowedBranchIds: Array.isArray(s.allowedBranchIds) ? s.allowedBranchIds : [],
-            }))
+            })),
+            subscription_plans: Array.isArray(parsed.subscription_plans) ? parsed.subscription_plans : [],
+            halls: Array.isArray(parsed.halls) ? parsed.halls : [],
         };
     } catch {
         return { ...DEFAULT_SETTINGS };
@@ -523,6 +527,13 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
             if (finalSlug && finalSlug !== 'demo.classcore.ge') {
                 const isVitalUpdate = s.staff || s.security || s.branches || s.studioName || s.logoDataUrl;
                 triggerInstantSync();
+                
+                // 🚀 ATOMIC CLOUD SYNC: If we have an orgId, push the full state to ensure persistence
+                if (next.orgId && next.orgId !== 'demo') {
+                    import('./master-sync').then(({ pushFullStudioMetadata }) => {
+                        pushFullStudioMetadata(finalSlug, next.studioName || 'Studio', next);
+                    });
+                }
             }
 
             if (next.studioName) {

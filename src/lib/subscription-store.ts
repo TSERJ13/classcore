@@ -23,6 +23,7 @@ export interface SubscriptionInfo {
     // Payment info
     payment_method?: 'cash' | 'card' | 'transfer';
     amount_paid?: number;
+    teacher_id?: string;
 }
 
 type SubMap = Record<string, SubscriptionInfo[]>;

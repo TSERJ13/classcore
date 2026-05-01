@@ -110,7 +110,18 @@ export function saveEvents(events: CalendarEvent[]) {
     
     const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        // 1. Sync to settings blob (Legacy/Backup)
         pushStudioStateToCloud(activeSlug, [], { [getEventsKey()]: events });
+
+        // 2. Sync to dedicated Calendar Table (High Reliability for Hydration)
+        const orgId = localStorage.getItem(`cc_org_id_override_${activeSlug}`) || 
+                     (JSON.parse(localStorage.getItem(`cc_studio_settings_${activeSlug}`) || '{}')).orgId;
+        
+        if (orgId) {
+            import('./master-sync').then(mod => {
+                mod.pushCollectionToCloud('calendar_events', events, orgId);
+            });
+        }
     }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_calendar_events_update'));
 }

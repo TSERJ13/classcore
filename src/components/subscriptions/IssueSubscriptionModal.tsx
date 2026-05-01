@@ -84,6 +84,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [sessions, setSessions] = useState<number | ''>('');
     const [unlimited, setUnlimited] = useState(false);
     const [neverExpires, setNeverExpires] = useState(false);
+    const [teacherId, setTeacherId] = useState('');
 
     // Payment fields
     const [payMethod, setPayMethod] = useState<PayMethod>('cash');
@@ -123,6 +124,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setPayMethod('cash');
             setAmountPaid('');
             setUseBalance(false);
+            setTeacherId('');
         }
     }, [open, initialStudentId]);
 
@@ -160,6 +162,22 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         subLabel: g.coach || undefined
     })), [groups]);
 
+    const teacherOptions = useMemo(() => [
+        { value: '', label: l('არჩეული არ არის', 'Не выбран', 'Not selected') },
+        ...students.find(s => s.id === studentId)?.enrolled_group_ids?.map(gid => {
+            const g = groups.find(x => x.id === gid);
+            if (!g?.teacherId) return null;
+            const t = settings.staff.find(s => s.id === g.teacherId);
+            if (!t) return null;
+            return { value: t.id, label: `${t.first_name} ${t.last_name || ''} (${g.name})` };
+        }).filter(Boolean) || [],
+        ...settings.staff.filter(s => s.role === 'coach' || s.role === 'teacher').map(t => ({
+            value: t.id,
+            label: `${t.first_name} ${t.last_name || ''}`,
+            subLabel: t.specialty?.join(', ')
+        }))
+    ], [settings.staff, studentId, students, groups]);
+
     // Update planId when category changes
     useEffect(() => {
         if (availablePlans.length > 0 && !availablePlans.find(p => p.id === planId)) {
@@ -190,15 +208,26 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
             if (plan.group_id && groups.find(g => g.id === plan.group_id)) {
                 setGroupId(plan.group_id);
+                const g = groups.find(gx => gx.id === plan.group_id);
+                if (g?.teacherId) setTeacherId(g.teacherId);
             } else if (studentGroup && groups.find(g => g.id === studentGroup)) {
                 setGroupId(studentGroup);
+                const g = groups.find(gx => gx.id === studentGroup);
+                if (g?.teacherId) setTeacherId(g.teacherId);
             } else if (plan.type === 'group' && groups.length > 0) {
                 setGroupId(groups[0].id);
+                const g = groups.find(gx => gx.id === groups[0].id);
+                if (g?.teacherId) setTeacherId(g.teacherId);
             } else {
                 setGroupId('');
             }
+
+            if (plan.coach) {
+                const tc = settings.staff.find(s => s.full_name === plan.coach || `${s.first_name} ${s.last_name}` === plan.coach);
+                if (tc) setTeacherId(tc.id);
+            }
         }
-    }, [planId, groups, studentId]);
+    }, [planId, groups, studentId, settings.staff]);
 
     // Sync amountPaid default to remaining when totalDue changes
     useEffect(() => {
@@ -269,6 +298,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             category: selectedGroup ? selectedGroup.type : (plan.type === 'individual' ? 'Individual' : undefined),
             payment_method: payMethod,
             amount_paid: paidNow,
+            teacher_id: teacherId || undefined,
             teacher_comment: commentParts.join(' · '),
         });
 
@@ -451,6 +481,16 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         />
                                     </div>
                                 )}
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.calTeacher}</label>
+                                    <SearchSelect
+                                        options={teacherOptions}
+                                        value={teacherId}
+                                        onChange={setTeacherId}
+                                        placeholder={t.selectTeacher}
+                                    />
+                                </div>
                             </div>
 
                             {/* Price Block */}

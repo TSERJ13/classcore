@@ -1,32 +1,23 @@
-import { createClient } from '../src/lib/supabase/client';
 
-async function checkSchema() {
-    const supabase = createClient();
-    console.log('Checking schemas...');
+import { createClient } from '@supabase/supabase-js';
 
-    // studios table
-    const { data: studiosData, error: studiosError } = await supabase
-        .from('studios')
-        .select('*')
-        .limit(1);
-    
-    if (studiosError) {
-        console.error('Studios table error:', studiosError);
-    } else {
-        console.log('Studios table keys:', Object.keys(studiosData[0] || {}));
-    }
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-    // studio_settings table
-    const { data: settingsData, error: settingsError } = await supabase
-        .from('studio_settings')
-        .select('*')
-        .limit(1);
+async function check() {
+    console.log('--- Checking subscription_plans ---');
+    const { data: plans, error: plansError } = await supabase.from('subscription_plans').select('*').limit(1);
+    if (plansError) console.error('subscription_plans error:', plansError.message);
+    else console.log('subscription_plans exists, count:', plans.length);
 
-    if (settingsError) {
-        console.error('Studio_settings table error:', settingsError);
-    } else {
-        console.log('Studio_settings table keys:', Object.keys(settingsData[0] || {}));
-    }
+    console.log('--- Checking studio_settings ---');
+    const { data: settings, error: settingsError } = await supabase.from('studio_settings').select('*').limit(1);
+    if (settingsError) console.error('studio_settings error:', settingsError.message);
+    else console.log('studio_settings exists, count:', settings.length);
+
+    console.log('--- Checking calendar_events ---');
+    const { data: events, error: eventsError } = await supabase.from('calendar_events').select('*').limit(1);
+    if (eventsError) console.error('calendar_events error:', eventsError.message);
+    else console.log('calendar_events exists, count:', events.length);
 }
 
-checkSchema();
+check();
