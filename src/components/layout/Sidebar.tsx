@@ -60,7 +60,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
             <div className="flex items-center gap-3">
                 <div
                     className={cn(
-                        "rounded-2xl flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
+                        "rounded-full flex items-center justify-center transition-all overflow-hidden shadow-xl border-2 shrink-0 group-hover:scale-105",
                         isMobile ? "w-14 h-14" : (exp ? "w-16 h-16" : "w-10 h-10"),
                         !settings?.logoDataUrl ? "bg-accent/10 border-accent/20" : "bg-card border-border-subtle shadow-inner"
                     )}
