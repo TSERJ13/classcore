@@ -53,6 +53,10 @@ export async function POST(req: Request) {
         const collectionsToStrip = ['staff', 'students', 'groups', 'halls', 'calendar_events', 'subscription_plans', 'attendance', 'sales', 'expenses', 'products', 'trash'];
         collectionsToStrip.forEach(key => delete discoverySettings[key]);
 
+        // 🚀 SCORCHED EARTH v4.7: CRITICAL FIX - Strip logo from discovery blob
+        // This prevents the 'studios' table row-size limit from blocking the sync.
+        delete discoverySettings.logoDataUrl;
+
         // 🚀 SCORCHED EARTH v4.4: Safety truncation for studios.logo_url (prevent total sync failure if column is varchar)
         const safetyLogoUrl = logoUrl && logoUrl.length > 250 ? (logoUrl.startsWith('data:') ? 'BASE64_BLOB' : logoUrl.substring(0, 250)) : logoUrl;
 

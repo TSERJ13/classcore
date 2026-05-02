@@ -277,8 +277,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 await new Promise((res) => (img.onload = res));
                 
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                const MAX_HEIGHT = 800;
+                const MAX_WIDTH = 500;
+                const MAX_HEIGHT = 500;
                 let width = img.width;
                 let height = img.height;
 
@@ -299,9 +299,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
                 
-                // Compress to JPEG for smaller size, but keep quality high enough
-                const compressed = canvas.toDataURL('image/jpeg', 0.7);
-                console.log(`🖼️ [StudioContext] Logo Compressed: ${Math.round(url.length/1024)}KB -> ${Math.round(compressed.length/1024)}KB`);
+                // Compress to JPEG for smaller size
+                const compressed = canvas.toDataURL('image/jpeg', 0.5);
+                console.log(`🖼️ [StudioContext] Logo Compressed: ${Math.round(compressed.length/1024)}KB`);
                 updateSettings({ logoDataUrl: compressed });
             } catch (e) {
                 console.error('Logo compression failed:', e);
