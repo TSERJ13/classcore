@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 export function DashboardHydrationGuard({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
-    const { settings, firstSyncDone, isLoaded: studioLoaded } = useStudio();
+    const { settings, firstSyncDone, isLoaded: studioLoaded, loadingStep } = useStudio();
     const { loading: authLoading, isVerified } = useUser();
     const [syncTimedOut, setSyncTimedOut] = useState(false);
 
