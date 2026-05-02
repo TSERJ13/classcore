@@ -80,6 +80,11 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
         logo: logoUrl ? (logoUrl.startsWith('data:') ? `BASE64 (${Math.round(logoUrl.length/1024)}KB)` : logoUrl) : 'NONE' 
     });
 
+    // 🚀 SCORCHED EARTH v4.1: Strip large collections to prevent payload limit errors
+    const sanitizedSettings = { ...settingsObj };
+    const collectionsToStrip = ['staff', 'students', 'groups', 'halls', 'calendar_events', 'subscription_plans', 'attendance', 'sales', 'expenses', 'products', 'trash', 'subscriptions'];
+    collectionsToStrip.forEach(key => delete sanitizedSettings[key]);
+
     try {
         const res = await fetch('/api/sync/metadata', {
             method: 'POST',
@@ -89,7 +94,7 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
                 name,
                 logoUrl,
                 orgId,
-                settings: settingsObj
+                settings: sanitizedSettings
             })
         });
 

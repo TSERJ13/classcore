@@ -85,20 +85,24 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const { data: { session } } = await sb.auth.getSession();
             const token = session?.access_token;
             
-            setLoadingStep('სინქრონიზაცია...'); 
+            setLoadingStep('სერვერთან დაკავშირება...'); 
             const { fetchFullStudioState } = await import("@/lib/master-sync");
             const state = await fetchFullStudioState(activeSlug || "default", undefined, token);
                     
             if (state) {
+                setLoadingStep('მონაცემების სინქრონიზაცია...');
                 const cloudSettings = state.settingsRecord?.settings || {};
                 const updates = state.studio || {};
                 const resolvedOrgId = state.org_id;
 
-                // 🖼️ PRIORITY LOGO RESOLUTION: Prefer cloudSettings (Base64) as it's the most reliable "Truth"
+                // 💎 PLAN RESOLUTION: Admin plan from studios table MUST override everything
+                const finalPlan = updates.plan || cloudSettings.plan || settings.plan;
+
+                // 🖼️ LOGO RESOLUTION
                 const finalLogo = cloudSettings.logoDataUrl || updates.logo_url || settings.logoDataUrl;
 
                 console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${resolvedOrgId})`);
-                console.log(`🖼️ [StudioContext] Logo Type: ${cloudSettings.logoDataUrl ? 'BASE64 (Rich)' : (updates.logo_url ? 'URL' : 'NONE')}`);
+                console.log(`💎 [StudioContext] Plan: ${finalPlan} (Master: ${updates.plan}, Blob: ${cloudSettings.plan})`);
 
                 const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
                 const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
@@ -127,7 +131,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         orgId: resolvedOrgId, studioName: name, logoDataUrl: finalLogo,
                         staff: unwrap(finalStaff),
                         branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
-                        plan: state.studio?.plan || cloudSettings.plan || prev.plan,
+                        plan: finalPlan,
                         subscription_plans: finalPlans,
                         pausePrices: cloudSettings.pausePrices || prev.pausePrices,
                         currency: cloudSettings.currency || prev.currency,
