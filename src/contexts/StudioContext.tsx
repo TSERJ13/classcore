@@ -150,17 +150,38 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         studioSlug: activeSlug
                     };
                     
-                    // 🚀 SCORCHED EARTH v4.2: Force sync all cloud tables to local storage keys
+                    // 🚀 SCORCHED EARTH v4.6: Force sync all cloud tables with CORRECT store mapping
                     if (typeof window !== 'undefined') {
                         const sKey = (k: string) => getScopedKey(k, activeSlug);
-                        localStorage.setItem(sKey('cc_student_data'), JSON.stringify(state.students || []));
-                        localStorage.setItem(sKey('cc_groups'), JSON.stringify(state.groups || []));
-                        localStorage.setItem(sKey('cc_calendar_events'), JSON.stringify(state.calendar_events || []));
-                        localStorage.setItem(sKey('cc_student_subscriptions'), JSON.stringify(state.subscriptions || []));
-                        localStorage.setItem(sKey('cc_branches'), JSON.stringify(state.branches || []));
-                        localStorage.setItem(sKey('cc_halls'), JSON.stringify(state.halls || []));
-                        localStorage.setItem(sKey('cc_trash'), JSON.stringify(state.trash || []));
+                        const cloudData = (arr: any[]) => (arr || []).map(item => item.data || item);
+                        
+                        // 1. Students: Array -> Map { [id]: data }
+                        const studentMap = cloudData(state.students).reduce((acc: any, s: any) => {
+                            if (s.id) acc[s.id] = s;
+                            return acc;
+                        }, {});
+                        localStorage.setItem(sKey('cc_student_data'), JSON.stringify(studentMap));
+
+                        // 2. Subscriptions: Array -> Map { [student_id]: data[] }
+                        const subMap = cloudData(state.subscriptions).reduce((acc: any, sub: any) => {
+                            const sid = sub.student_id;
+                            if (sid) {
+                                if (!acc[sid]) acc[sid] = [];
+                                acc[sid].push(sub);
+                            }
+                            return acc;
+                        }, {});
+                        localStorage.setItem(sKey('cc_student_subscriptions'), JSON.stringify(subMap));
+
+                        // 3. Simple Arrays
+                        localStorage.setItem(sKey('cc_groups'), JSON.stringify(cloudData(state.groups)));
+                        localStorage.setItem(sKey('cc_calendar_events'), JSON.stringify(cloudData(state.calendar_events)));
+                        localStorage.setItem(sKey('cc_branches'), JSON.stringify(cloudData(state.branches)));
+                        localStorage.setItem(sKey('cc_halls'), JSON.stringify(cloudData(state.halls)));
+                        localStorage.setItem(sKey('cc_trash'), JSON.stringify(cloudData(state.trash)));
                         localStorage.setItem(sKey('cc_subscription_plans'), JSON.stringify(finalPlans));
+                        
+                        console.log(`📡 [Hydration] Atomic Sync Complete: ${cloudData(state.students).length} students, ${cloudData(state.groups).length} groups.`);
                     }
 
                     saveSettings(next, prev, activeSlug);
