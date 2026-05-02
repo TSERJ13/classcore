@@ -98,8 +98,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // 💎 PLAN RESOLUTION: Admin plan from studios table MUST override everything
                 const finalPlan = updates.plan || cloudSettings.plan || settings.plan;
 
-                // 🖼️ LOGO RESOLUTION
-                const finalLogo = cloudSettings.logoDataUrl || updates.logo_url || settings.logoDataUrl;
+                // 🖼️ LOGO RESOLUTION: 🛡️ PRESERVE LOCAL LOGO IF CLOUD IS EMPTY (Prevent ghosting)
+                const localLogo = settings.logoDataUrl;
+                const cloudLogo = cloudSettings.logoDataUrl || updates.logo_url;
+                const finalLogo = cloudLogo || localLogo;
+
+                if (cloudLogo) {
+                    console.log(`🖼️ [StudioContext] Logo hydrated from Cloud: ${cloudLogo.startsWith('data:') ? 'BASE64' : 'URL'}`);
+                } else if (localLogo) {
+                    console.log(`🖼️ [StudioContext] Logo preserved from Local (Cloud was empty)`);
+                }
 
                 console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${resolvedOrgId})`);
                 console.log(`💎 [StudioContext] Plan: ${finalPlan} (Master: ${updates.plan}, Blob: ${cloudSettings.plan})`);

@@ -44,12 +44,15 @@ export async function POST(req: Request) {
         const collectionsToStrip = ['staff', 'students', 'groups', 'halls', 'calendar_events', 'subscription_plans', 'attendance', 'sales', 'expenses', 'products', 'trash'];
         collectionsToStrip.forEach(key => delete discoverySettings[key]);
 
+        // 🚀 SCORCHED EARTH v4.4: Safety truncation for studios.logo_url (prevent total sync failure if column is varchar)
+        const safetyLogoUrl = logoUrl && logoUrl.length > 250 ? (logoUrl.startsWith('data:') ? 'BASE64_BLOB' : logoUrl.substring(0, 250)) : logoUrl;
+
         const results = await Promise.all([
-            // Update Studios table (Discovery)
+            // Update Master Studio Record
             supabaseAdmin.from('studios').upsert({
                 studio_slug: slug,
                 studio_name: name,
-                logo_url: logoUrl,
+                logo_url: safetyLogoUrl,
                 org_id: orgId,
                 settings: discoverySettings,
                 updated_at: new Date().toISOString()
