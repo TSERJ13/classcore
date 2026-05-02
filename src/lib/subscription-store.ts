@@ -405,18 +405,23 @@ export function deleteSubscription(studentId: string, subId: string): void {
     const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
 
     if (orgId && orgId !== 'demo') {
+        // 1. Permanent Deletion from Table
         deleteRecordFromCloud('subscriptions', subId, orgId).catch(() => {});
 
+        // 2. Add to Cloud Trash (Prevent Resurrection)
+        syncRecordToCloud('trash', {
+            id: `del_${Date.now()}_${subId}`,
+            entity_id: subId,
+            entity_type: 'cc_student_subscriptions',
+            org_id: orgId,
+            data: sub
+        }, orgId).catch(() => {});
+
+        // 3. Update recovery settings blob
         const updatedSubs = Object.values(data).flat();
         const updatedSettings = { ...settings, subscriptions: updatedSubs };
         
-        if (!updatedSettings._deleted_ids) updatedSettings._deleted_ids = [];
-        if (!updatedSettings._deleted_ids.includes(subId)) {
-            updatedSettings._deleted_ids.push(subId);
-        }
-
         saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
-        
         const studioName = (settings as any).studioName || 'Studio';
         pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
     }

@@ -93,9 +93,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const cloudSettings = state.settingsRecord?.settings || {};
                 const updates = state.studio || {};
                 const resolvedOrgId = state.org_id;
-                const finalLogo = updates.logo_url || cloudSettings.logoDataUrl || settings.logoDataUrl;
+
+                // 🖼️ PRIORITY LOGO RESOLUTION: Prefer cloudSettings (Base64) as it's the most reliable "Truth"
+                const finalLogo = cloudSettings.logoDataUrl || updates.logo_url || settings.logoDataUrl;
 
                 console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${resolvedOrgId})`);
+                console.log(`🖼️ [StudioContext] Logo Type: ${cloudSettings.logoDataUrl ? 'BASE64 (Rich)' : (updates.logo_url ? 'URL' : 'NONE')}`);
 
                 const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
                 const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
@@ -142,7 +145,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     cc_groups: unwrap(finalGroups),
                     cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
                     cc_student_subscriptions: (unwrap(state.subscriptions) || [])
-                        .filter(sub => !allDeleted.has(sub.id))
+                        .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`)) // Double check trash
                         .reduce((acc: any, sub: any) => {
                             const sId = sub.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
