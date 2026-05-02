@@ -81,6 +81,12 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                             <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:20px_20px] animate-[shimmer_1s_linear_infinite]" />
                         </div>
                     </div>
+                    {/* Percentage Badge */}
+                    <div className="flex justify-end mt-2 pr-1">
+                        <span className="text-[10px] font-black text-indigo-400 tabular-nums bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                            {progress}%
+                        </span>
+                    </div>
                 </div>
 
                 {/* Status Items */}

@@ -138,6 +138,20 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         language: cloudSettings.language || prev.language,
                         studioSlug: activeSlug
                     };
+                    
+                    // 🚀 SCORCHED EARTH v4.2: Force sync all cloud tables to local storage keys
+                    if (typeof window !== 'undefined') {
+                        const sKey = (k: string) => getScopedKey(k, activeSlug);
+                        localStorage.setItem(sKey('cc_student_data'), JSON.stringify(state.students || []));
+                        localStorage.setItem(sKey('cc_groups'), JSON.stringify(state.groups || []));
+                        localStorage.setItem(sKey('cc_calendar_events'), JSON.stringify(state.calendar_events || []));
+                        localStorage.setItem(sKey('cc_student_subscriptions'), JSON.stringify(state.subscriptions || []));
+                        localStorage.setItem(sKey('cc_branches'), JSON.stringify(state.branches || []));
+                        localStorage.setItem(sKey('cc_halls'), JSON.stringify(state.halls || []));
+                        localStorage.setItem(sKey('cc_trash'), JSON.stringify(state.trash || []));
+                        localStorage.setItem(sKey('cc_subscription_plans'), JSON.stringify(finalPlans));
+                    }
+
                     saveSettings(next, prev, activeSlug);
                     return next;
                 });

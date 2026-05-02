@@ -414,7 +414,8 @@ export function deleteSubscription(studentId: string, subId: string): void {
             entity_id: subId,
             entity_type: 'cc_student_subscriptions',
             org_id: orgId,
-            data: sub
+            name: `${studentName || 'Student'} - ${sub.plan_name || 'Plan'}`,
+            data: { ...sub, name: studentName, fullName: studentName } // Ensure UI can find a name
         }, orgId).catch(() => {});
 
         // 3. Update recovery settings blob
