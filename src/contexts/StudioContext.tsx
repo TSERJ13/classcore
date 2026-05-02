@@ -235,7 +235,50 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     // SETTERS FOR SETTINGS PAGE
     const setTheme = (key: any) => updateSettings({ themeKey: key });
     const setStudioName = (name: string) => updateSettings({ studioName: name });
-    const setLogo = (url: string | null) => updateSettings({ logoDataUrl: url });
+    
+    const setLogo = async (url: string | null) => {
+        if (url && url.startsWith('data:image/')) {
+            // 🚀 SCORCHED EARTH v4.3: Compress high-res logos to prevent sync failure
+            try {
+                const img = new Image();
+                img.src = url;
+                await new Promise((res) => (img.onload = res));
+                
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                
+                // Compress to JPEG for smaller size, but keep quality high enough
+                const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                console.log(`🖼️ [StudioContext] Logo Compressed: ${Math.round(url.length/1024)}KB -> ${Math.round(compressed.length/1024)}KB`);
+                updateSettings({ logoDataUrl: compressed });
+            } catch (e) {
+                console.error('Logo compression failed:', e);
+                updateSettings({ logoDataUrl: url });
+            }
+        } else {
+            updateSettings({ logoDataUrl: url });
+        }
+    };
     const setNotification = (key: string, val: boolean) => updateSettings({ notifications: { ...settings.notifications, [key]: val } });
     const setSecurity = (key: string, val: any) => updateSettings({ security: { ...settings.security, [key]: val } });
     const setCurrency = (cur: string) => updateSettings({ currency: cur });
