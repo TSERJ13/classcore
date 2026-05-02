@@ -12,23 +12,34 @@ const supabaseAdmin = createClient(
 export async function POST(req: Request) {
     try {
         const { slug, orgId } = await req.json();
+        const authHeader = req.headers.get('Authorization');
+        const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
-        // 1. Verify User Session using SSR client
-        const cookieStore = cookies();
-        const supabaseAuth = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                cookies: {
-                    get(name: string) { return cookieStore.get(name)?.value; },
-                    set(name: string, value: string, options: CookieOptions) { },
-                    remove(name: string, options: CookieOptions) { }
+        // 1. Verify User Session
+        let user = null;
+        if (token) {
+            const { data } = await supabaseAdmin.auth.getUser(token);
+            user = data.user;
+        } else {
+            // Fallback to cookie-based session for standard requests
+            const cookieStore = cookies();
+            const supabaseAuth = createServerClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                {
+                    cookies: {
+                        get(name: string) { return cookieStore.get(name)?.value; },
+                        set(name: string, value: string, options: CookieOptions) { },
+                        remove(name: string, options: CookieOptions) { }
+                    }
                 }
-            }
-        );
+            );
+            const { data } = await supabaseAuth.auth.getUser();
+            user = data.user;
+        }
 
-        const { data: { user } } = await supabaseAuth.auth.getUser();
         if (!user) {
+            console.error('❌ [SyncAPI] Unauthorized: No valid token or session.');
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

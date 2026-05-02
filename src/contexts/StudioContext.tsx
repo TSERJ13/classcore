@@ -56,166 +56,128 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const [activeBranchId, setActiveBranchId] = useState('main');
 
     const lastSyncedSlugRef = useRef<string | null>(null);
-
     const hydrate = useCallback(async (isAuto = false) => {
         let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug;
         
-        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings"].includes(activeSlug)) {
-             if (profile?.studio_slug) {
+        // 🔒 AUTH CHECK: Wait for user if we don't have a slug yet
+        if (userLoading && !activeSlug) return;
+
+        // 🛡️ RECOVERY: If no slug found, try to recover from profile or identity
+        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings", "dashboard"].includes(activeSlug)) {
+             if (profile && profile.studio_slug) {
                  activeSlug = profile.studio_slug;
-             } else {
-                 if (userLoading) return;
-                 setIsLoaded(true);
-                 return;
+             } else if (user && !userLoading) {
+                 const identitySlug = (user as any).user_metadata?.studio_slug;
+                 if (identitySlug) activeSlug = identitySlug;
              }
+        }
+
+        if (!activeSlug && !userLoading) {
+            console.warn('⚠️ [StudioContext] No slug resolved.');
+            setIsLoaded(true); 
+            return;
         }
 
         try {
             if (!isAuto) setIsSyncing(true);
             const { createClient } = await import("@/lib/supabase/client");
             const sb = createClient();
+            const { data: { session } } = await sb.auth.getSession();
+            const token = session?.access_token;
             
-            setLoadingStep('სტუდიის იდენტიფიცირება...'); // Identifying Studio...
-            const { data: studioRecord } = await sb.from('studios').select('*').eq('studio_slug', activeSlug).maybeSingle();
-            
-                let phase1Logo = null;
-                if (studioRecord) {
-                    phase1Logo = studioRecord.logo_url || (studioRecord.settings as any)?.logoDataUrl;
-                    setSettings(prev => {
-                        const next = {
-                            ...prev,
-                            orgId: studioRecord.org_id,
-                            studioName: studioRecord.studio_name || prev.studioName,
-                            logoDataUrl: phase1Logo || prev.logoDataUrl,
-                            studioSlug: activeSlug
-                        };
-                        saveSettings(next, prev, activeSlug);
-                        return next;
-                    });
-                }
+            setLoadingStep('სინქრონიზაცია...'); 
+            const { fetchFullStudioState } = await import("@/lib/master-sync");
+            const state = await fetchFullStudioState(activeSlug || "default", undefined, token);
+                    
+            if (state) {
+                const cloudSettings = state.settingsRecord?.settings || {};
+                const updates = state.studio || {};
+                const resolvedOrgId = state.org_id;
+                const finalLogo = updates.logo_url || cloudSettings.logoDataUrl || settings.logoDataUrl;
 
-                const targetOrgId = studioRecord?.org_id || profile?.org_id;
+                console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${resolvedOrgId})`);
+
+                const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
+                const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
+
+                const resolveRicher = (db: any[], backup: any) => {
+                    const dbArr = Array.isArray(db) ? db : [];
+                    const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
+                    if (dbArr.length === 0) return backupArr;
+                    const merged = dbArr.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
+                    backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
+                    return merged;
+                };
+
+                const finalStaff = resolveRicher(state.staff, cloudSettings.staff || settings.staff);
+                const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
+                const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
+                const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
+                const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events);
                 
-                if (targetOrgId) {
-                    console.log('📡 [StudioContext] Phase 2: Starting Deep Sync for Org:', targetOrgId);
-                    setLoadingStep('მონაცემების სინქრონიზაცია...'); 
-                    const { fetchFullStudioState } = await import("@/lib/master-sync");
-                    const state = await fetchFullStudioState(activeSlug || "default", targetOrgId);
-                    
-                    if (state) {
-                        const cloudSettings = state.settingsRecord?.settings || {};
-                        const updates = state.studio || {};
-                        
-                        // GREEDY LOGO RESOLUTION: Use the richest available source
-                        const cloudLogo = updates.logo_url || cloudSettings.logoDataUrl;
-                        const resolvedLogo = cloudLogo || phase1Logo || settings.logoDataUrl || prev.logoDataUrl;
+                setLoadingStep('ინტერფეისის მომზადება...');
 
-                        console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${targetOrgId})`);
-                        console.log(`🖼️ [StudioContext] Logo Source: ${cloudLogo ? 'CLOUD' : (phase1Logo ? 'DISCOVERY' : 'LOCAL')}`);
-
-                        const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
-                    const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
-
-                    // Helper for deep merging arrays - CRITICAL FOR RECOVERING LOST DATA
-                    const resolveRicher = (db: any[], backup: any) => {
-                        const dbArr = Array.isArray(db) ? db : [];
-                        const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
-                        if (dbArr.length === 0) return backupArr;
-                        const merged = dbArr.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
-                        backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
-                        return merged;
+                setSettings(prev => {
+                    const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
+                    const next = {
+                        ...prev, ...cloudSettings,
+                        orgId: resolvedOrgId, studioName: name, logoDataUrl: finalLogo,
+                        staff: unwrap(finalStaff),
+                        branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
+                        plan: state.studio?.plan || cloudSettings.plan || prev.plan,
+                        subscription_plans: finalPlans,
+                        pausePrices: cloudSettings.pausePrices || prev.pausePrices,
+                        currency: cloudSettings.currency || prev.currency,
+                        language: cloudSettings.language || prev.language,
+                        studioSlug: activeSlug
                     };
+                    saveSettings(next, prev, activeSlug);
+                    return next;
+                });
 
-                    const finalStaff = resolveRicher(state.staff, cloudSettings.staff || prev.staff);
-                    const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
-                    const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
-                    const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
-                    const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events);
-                    
-                    setLoadingStep('ინტერფეისის მომზადება...');
-
-                        setSettings(prev => {
-                            const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
-                            
-                            // GREEDY LOGO RESOLUTION: INSIDE updater to use Phase 1 / Local results
-                            const cloudLogo = updates.logo_url || cloudSettings.logoDataUrl;
-                            const finalLogo = cloudLogo || phase1Logo || prev.logoDataUrl;
-
-                            console.log('🎨 [StudioContext] Final Hydration:', { 
-                                name, 
-                                logo: finalLogo ? (cloudLogo ? 'CLOUD' : 'RECOVERED') : 'MISSING' 
-                            });
-
-                            const next = {
-                                ...prev,
-                                ...cloudSettings,
-                                orgId: targetOrgId,
-                                studioName: name,
-                                logoDataUrl: finalLogo,
-                            staff: unwrap(finalStaff),
-                            branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
-                            plan: state.studio?.plan || cloudSettings.plan || prev.plan,
-                            subscription_plans: finalPlans,
-                            pausePrices: cloudSettings.pausePrices || prev.pausePrices,
-                            currency: cloudSettings.currency || prev.currency,
-                            language: cloudSettings.language || prev.language,
-                            studioSlug: activeSlug
-                        };
-                        saveSettings(next, prev, activeSlug);
-                        return next;
-                    });
-
-                    const mapping: any = {
-                        cc_teachers: unwrap(finalStaff),
-                        cc_branches: state.branches,
-                        cc_halls: unwrap(finalHalls),
-                        cc_groups: unwrap(finalGroups),
-                        cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
-                        cc_student_subscriptions: (unwrap(state.subscriptions) || [])
-                            .filter(sub => !allDeleted.has(sub.id))
-                            .reduce((acc: any, sub: any) => {
-                                const sId = sub.student_id;
-                                if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
-                                return acc;
-                            }, {}),
-                        cc_calendar_events: unwrap(finalEvents),
-                        cc_subscription_plans: unwrap(finalPlans),
-                        cc_shop_products: unwrap(state.products),
-                        cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
-                            const sId = sale.student_id;
-                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
+                const mapping: any = {
+                    cc_teachers: unwrap(finalStaff),
+                    cc_branches: state.branches,
+                    cc_halls: unwrap(finalHalls),
+                    cc_groups: unwrap(finalGroups),
+                    cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                    cc_student_subscriptions: (unwrap(state.subscriptions) || [])
+                        .filter(sub => !allDeleted.has(sub.id))
+                        .reduce((acc: any, sub: any) => {
+                            const sId = sub.student_id;
+                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
                             return acc;
                         }, {}),
-                        cc_expenses: unwrap(state.expenses),
-                        cc_global_trash: unwrap(state.trash)
-                    };
+                    cc_calendar_events: unwrap(finalEvents),
+                    cc_subscription_plans: unwrap(finalPlans),
+                    cc_shop_products: unwrap(state.products),
+                    cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
+                        const sId = sale.student_id;
+                        if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
+                        return acc;
+                    }, {}),
+                    cc_expenses: unwrap(state.expenses),
+                    cc_global_trash: unwrap(state.trash)
+                };
 
-                    Object.entries(mapping).forEach(([key, data]) => {
-                        if (data !== null && data !== undefined) {
-                            if (Array.isArray(data) && data.length === 0) {
-                                const localRaw = localStorage.getItem(getScopedKey(key, activeSlug));
-                                if (localRaw && localRaw !== '[]' && localRaw !== '{}') {
-                                    console.warn(`⚠️ [StudioContext] Keeping local data for ${key} (Cloud empty)`);
-                                    return;
-                                }
-                            }
-                            localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
-                        }
-                    });
+                Object.entries(mapping).forEach(([key, data]) => {
+                    if (data !== null && data !== undefined) {
+                        localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
+                    }
+                });
 
-                    const groupedAtt: Record<string, any[]> = {};
-                    (unwrap(state.attendance) || []).forEach(a => {
-                        if (!a.student_id) return;
-                        if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
-                        groupedAtt[a.student_id].push(a);
-                    });
-                    localStorage.setItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt));
+                const groupedAtt: Record<string, any[]> = {};
+                (unwrap(state.attendance) || []).forEach(a => {
+                    if (!a.student_id) return;
+                    if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
+                    groupedAtt[a.student_id].push(a);
+                });
+                localStorage.setItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt));
 
-                    ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
-                     'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
-                     'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
-                        .forEach(e => window.dispatchEvent(new Event(e)));
-                }
+                ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
+                 'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
+                 'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
+                    .forEach(e => window.dispatchEvent(new Event(e)));
             } else {
                 const { ensureStudioExists } = await import("@/lib/master-sync");
                 await ensureStudioExists(activeSlug || "default", settings.studioName);
@@ -227,7 +189,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             setFirstSyncDone(true);
             setIsLoaded(true);
         }
-    }, [profile?.org_id, profile?.studio_slug, firstSyncDone, settings.studioName, user, defaultSlug, userLoading]);
+    }, [profile, firstSyncDone, settings.studioName, user, defaultSlug, userLoading, settings.logoDataUrl]);
 
     useEffect(() => {
         hydrate();
