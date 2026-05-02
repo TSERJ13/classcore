@@ -107,6 +107,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     console.log(`🖼️ [StudioContext] Logo hydrated from Cloud: ${cloudLogo.startsWith('data:') ? 'BASE64' : 'URL'}`);
                 } else if (localLogo) {
                     console.log(`🖼️ [StudioContext] Logo preserved from Local (Cloud was empty)`);
+                    // 🚀 SCORCHED EARTH v4.5: Auto-heal cloud state if logo is missing but exists locally
+                    const { pushFullStudioMetadata } = await import('@/lib/master-sync');
+                    pushFullStudioMetadata(activeSlug, settings.studioName, { ...settings, logoDataUrl: localLogo });
                 }
 
                 console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${resolvedOrgId})`);

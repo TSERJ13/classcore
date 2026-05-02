@@ -38,40 +38,47 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
 
     return (
         <div className="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-500">
-            <div className="relative flex flex-col items-center gap-12 -mt-20">
-                <div className="absolute inset-0 bg-indigo-500/5 blur-[100px] rounded-full scale-150 animate-pulse" />
+            <div className="relative flex flex-col items-center gap-10 -mt-24">
+                {/* 💫 SOFT BACKGROUND GLOW */}
+                <div className="absolute inset-0 bg-indigo-500/5 blur-[120px] rounded-full scale-[2] animate-pulse" />
                 
+                {/* ⚪ THE LOGO / SPINNER */}
                 <div className="relative">
                     <AppLogo 
-                        size={120} 
+                        size={110} 
                         radar 
                         loading 
                         src={settings?.logoDataUrl}
-                        className="relative z-10" 
+                        className="relative z-10 drop-shadow-2xl" 
                     />
                 </div>
 
-                <div className="flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 w-64">
-                    <div className="flex flex-col items-center gap-2">
-                        <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] animate-pulse whitespace-nowrap">
-                            {loadingStep || 'მიმდინარეობს ჩატვირთვა...'}
+                <div className="flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 w-56">
+                    <div className="space-y-1.5 text-center">
+                        <p className="text-[12px] font-black text-indigo-600 uppercase tracking-[0.35em] animate-pulse">
+                            მიმდინარეობს ჩატვირთვა...
                         </p>
-                        <span className="text-[10px] font-black text-indigo-400 tabular-nums bg-indigo-50 px-2 py-0.5 rounded-full">
-                            {progress}%
-                        </span>
+                        <p className="text-[10px] font-black text-indigo-400/60 uppercase tracking-widest leading-none">
+                            {loadingStep || 'სისტემის მომზადება'}
+                        </p>
                     </div>
 
-                    <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                    {/* 📊 THE PROGRESS BAR (Match Login Style) */}
+                    <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                         <div 
-                            className="h-full bg-indigo-600 transition-all duration-300 ease-out shadow-[0_0_15px_rgba(79,70,229,0.3)]" 
+                            className="h-full bg-indigo-600 transition-all duration-300 ease-out shadow-[0_0_15px_rgba(79,70,229,0.4)]" 
                             style={{ width: `${progress}%` }}
                         />
                     </div>
+
+                    <span className="text-[10px] font-black text-indigo-500 tabular-nums bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100/50">
+                        {progress}%
+                    </span>
                 </div>
             </div>
 
             {/* Subtle Footer */}
-            <div className="absolute bottom-12 opacity-40">
+            <div className="absolute bottom-12 opacity-30">
                 <p className="text-[9px] font-black text-slate-400 tracking-[0.6em] uppercase">
                     ClassCore Studio OS
                 </p>

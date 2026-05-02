@@ -31,11 +31,20 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (!slug || !orgId) {
+        let resolvedOrgId = orgId;
+        if (!resolvedOrgId && slug) {
+            // 🛡️ Resolve OrgID from slug if missing (Vital for new devices/guest mode)
+            const { data } = await supabaseAdmin.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
+            resolvedOrgId = data?.org_id;
+        }
+
+        if (!slug || !resolvedOrgId) {
+            console.error('❌ [SyncAPI] Missing Slug or OrgID:', { slug, resolvedOrgId });
             return NextResponse.json({ error: 'Slug and OrgID are required' }, { status: 400 });
         }
 
-        console.log(`🚀 [SyncAPI] Pushing Metadata for Slug: ${slug} (Org: ${orgId})`);
+        console.log(`🚀 [SyncAPI] Pushing Metadata for Slug: ${slug} (Org: ${resolvedOrgId})`);
+        const orgIdToUse = resolvedOrgId;
 
         // 2. Atomic Update using Service Role
         const discoverySettings = { ...settings };
@@ -53,14 +62,14 @@ export async function POST(req: Request) {
                 studio_slug: slug,
                 studio_name: name,
                 logo_url: safetyLogoUrl,
-                org_id: orgId,
+                org_id: orgIdToUse,
                 settings: discoverySettings,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'studio_slug' }),
 
             // Update Studio Settings (Full Recovery Blob)
             supabaseAdmin.from('studio_settings').upsert({
-                org_id: orgId,
+                org_id: orgIdToUse,
                 studio_name: name,
                 settings: settings,
                 updated_at: new Date().toISOString()
@@ -73,7 +82,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Sync failed', details: errors.map(e => e.error?.message) }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, orgId: orgIdToUse });
 
     } catch (err: any) {
         console.error('❌ [SyncAPI] Critical Error:', err);
