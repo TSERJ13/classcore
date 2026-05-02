@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useStudio } from '@/contexts/StudioContext';
-import { ShieldCheck, Database, CloudSync, Sparkles } from 'lucide-react';
+import { Shield, Database, RefreshCcw, Sparkles } from 'lucide-react';
 
 export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isLoaded, loadingStep } = useStudio();
@@ -63,7 +63,7 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                     <h2 className="text-2xl font-black text-white tracking-tight flex items-center justify-center gap-2">
                         {isLoaded ? 'მზად არის!' : 'ClassCore სინქრონიზაცია'}
                         <div className="animate-pulse">
-                            <CloudSync className="w-5 h-5 text-indigo-400" />
+                            <RefreshCcw className="w-5 h-5 text-indigo-400" />
                         </div>
                     </h2>
                     <p className="text-zinc-400 text-sm font-medium h-5">
@@ -86,7 +86,7 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                 {/* Status Items */}
                 <div className="grid grid-cols-2 gap-4 w-full">
                     <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
-                        <ShieldCheck className={cn("w-4 h-4 transition-colors", progress > 40 ? "text-emerald-400" : "text-zinc-500")} />
+                        <Shield className={cn("w-4 h-4 transition-colors", progress > 40 ? "text-emerald-400" : "text-zinc-500")} />
                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">უსაფრთხოება</span>
                     </div>
                     <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
