@@ -58,19 +58,23 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
     // Block only the initial hydration to prevent server/client mismatch
     if (!mounted) return null;
 
+    // 🚀 GUEST MODE FIX: If we are verified as "logged out", don't show the hydration loader
+    // This prevents the "blank screen" in Guest Mode while waiting for a redirect.
+    const isLoggedOut = isVerified === false;
+    
     // Show loading overlay if:
     // 1. Auth is still loading
     // 2. OR: We haven't finished the first sync AND we don't have local data to show yet
-    const isLoading = authLoading || isVerified === null || (!studioLoaded && !hasLocalData && !syncTimedOut);
+    const isLoading = (authLoading || isVerified === null || (!studioLoaded && !hasLocalData && !syncTimedOut)) && !isLoggedOut;
 
     return (
         <>
             {/* Loading Overlay with Smooth Fade-out */}
             <div className={cn(
-                "fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center p-8 transition-all duration-700 pointer-events-none",
-                isLoading ? "opacity-100 scale-100" : "opacity-0 invisible scale-95 delay-100"
+                "fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center p-8 transition-all duration-700",
+                isLoading ? "opacity-100 scale-100" : "opacity-0 invisible scale-105 pointer-events-none"
             )}>
-                <div className="flex flex-col items-center justify-center gap-12">
+                <div className="flex flex-col items-center justify-center gap-12 -mt-20">
                     <div className="relative">
                         <AppLogo 
                             size={100} 
@@ -80,15 +84,28 @@ export function DashboardHydrationGuard({ children }: { children: React.ReactNod
                             className="relative z-10" 
                         />
                     </div>
-                    <div className="text-center space-y-3">
+                    <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                         <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] animate-pulse">
-                            {settings.studioName ? settings.studioName.toUpperCase() : 'ჩატვირთვა...'}
+                            {settings.studioName ? settings.studioName.toUpperCase() : 'მიმდინარეობს ჩატვირთვა...'}
                         </p>
-                        <div className="w-32 h-0.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-indigo-500 animate-[loading-bar_2s_ease-in-out_infinite]" />
+                        <div className="w-48 h-0.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-600 animate-[loading-bar_2s_ease-in-out_infinite] shadow-[0_0_15px_rgba(79,70,229,0.3)]" />
                         </div>
+                        {loadingStep && (
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                {loadingStep}
+                            </p>
+                        )}
                     </div>
                 </div>
+
+                <style jsx global>{`
+                    @keyframes loading-bar {
+                        0% { width: 0%; }
+                        50% { width: 70%; }
+                        100% { width: 100%; }
+                    }
+                `}</style>
             </div>
 
             {/* Dashboard Content - Always mounted after hydration for background init */}

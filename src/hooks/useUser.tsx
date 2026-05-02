@@ -54,7 +54,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
             if (initialized.current) return;
             initialized.current = true;
             try {
+                // 🛡️ FAIL-SAFE: If auth takes too long (common in Incognito), force resolve
+                const failSafe = setTimeout(() => {
+                    if (loading) {
+                        console.warn('⚠️ [UserProvider] Auth check timed out. Forcing resolve.');
+                        setIsVerified(false);
+                        setLoading(false);
+                    }
+                }, 5000);
+
                 const { data: { user: u }, error: authError } = await supabase.auth.getUser();
+                clearTimeout(failSafe);
+                
                 const staffSess = getStaffSession();
                 const urlSlug = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null;
                 const excluded = ['dashboard', 'auth', 'admin', 'login', 'superadmin', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager', 'subscriptions', 'trash'];

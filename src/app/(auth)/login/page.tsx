@@ -290,7 +290,7 @@ export default function LoginPage() {
             {/* UNIFIED LOGIN SUCCESS TRANSITION */}
             {isSuccess && (
                 <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center animate-in fade-in duration-500">
-                    <div className="relative flex flex-col items-center gap-12">
+                    <div className="relative flex flex-col items-center gap-12 -mt-20">
                         <div className="absolute inset-0 bg-indigo-500/5 blur-[100px] rounded-full scale-150 animate-pulse" />
                         
                         <div className="relative">
@@ -303,12 +303,12 @@ export default function LoginPage() {
                             />
                         </div>
 
-                        <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+                        <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                             <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] animate-pulse">
-                                {l('მიმდინარეობს ავტორიზაცია...', 'Авторизация...', 'Authenticating Pulse...')}
+                                {l('მიმდინარეობს ჩატვირთვა...', 'Загрузка...', 'Initiating Systems...')}
                             </p>
                             <div className="w-48 h-0.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-600 animate-[loading-bar_2s_ease-in-out_forwards] shadow-[0_0_15px_rgba(79,70,229,0.5)]" />
+                                <div className="h-full bg-indigo-600 animate-[loading-bar_2s_ease-in-out_infinite] shadow-[0_0_15px_rgba(79,70,229,0.3)]" />
                             </div>
                         </div>
                     </div>
@@ -316,8 +316,7 @@ export default function LoginPage() {
                     <style jsx global>{`
                         @keyframes loading-bar {
                             0% { width: 0%; }
-                            20% { width: 10%; }
-                            60% { width: 45%; }
+                            50% { width: 70%; }
                             100% { width: 100%; }
                         }
                     `}</style>
