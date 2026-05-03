@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
 import { getSubscription, getSubscriptions } from '@/lib/subscription-store';
