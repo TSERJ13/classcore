@@ -96,10 +96,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const state = await fetchFullStudioState(activeSlug || "default", undefined, token);
                     
             if (state) {
+                const resolvedOrgId = state.org_id;
+
+                // 🔐 PERMANENT ORG-ID RESOLUTION (MUST HAPPEN FIRST)
+                if (resolvedOrgId && activeSlug) {
+                    const orgIdOverrideKey = `cc_org_id_override_${activeSlug}`;
+                    import('./utils').then(mod => mod.safeSetItem(orgIdOverrideKey, resolvedOrgId, activeSlug));
+                    
+                    // Update Registry
+                    const registryRaw = localStorage.getItem('cc_studios_list');
+                    let registry = registryRaw ? JSON.parse(registryRaw) : [];
+                    if (!registry.includes(activeSlug)) {
+                        registry.push(activeSlug);
+                        localStorage.setItem('cc_studios_list', JSON.stringify(registry));
+                    }
+                }
+
                 setLoadingStep('მონაცემების სინქრონიზაცია...');
                 const cloudSettings = state.settingsRecord?.settings || {};
                 const updates = state.studio || {};
-                const resolvedOrgId = state.org_id;
 
                 // 💎 PLAN RESOLUTION: Admin plan from studios table MUST override everything
                 const finalPlan = updates.plan || cloudSettings.plan || settings.plan;

@@ -118,11 +118,22 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
     // Chunking to avoid large payload errors
     const chunkSize = 50;
     for (let i = 0; i < items.length; i += chunkSize) {
-        const chunk = items.slice(i, i + chunkSize).map(item => ({
-            ...item,
-            org_id: orgId,
-            data: item // Parity with unwrap
-        }));
+        const chunk = items.slice(i, i + chunkSize).map(item => {
+            const row: any = {
+                ...item,
+                org_id: orgId
+            };
+            
+            // 🛡️ SCHEMA PROTECTION: Strip columns not yet present in production DB
+            if (table === 'calendar_events') {
+                delete row.color;
+                delete row.data;
+            } else {
+                row.data = item; // Parity with unwrap for other collections
+            }
+            
+            return row;
+        });
 
         const { error } = await supabase
             .from(table)
