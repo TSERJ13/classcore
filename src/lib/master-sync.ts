@@ -126,13 +126,19 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
             
             // 🛡️ SCHEMA PROTECTION: Strip columns not yet present in production DB
             if (table === 'calendar_events') {
-                delete row.color;
-                delete row.data;
                 delete row.date;
                 delete row.recurring;
                 delete row.reminder_30m;
                 delete row.notes;
                 delete row.secondary_teacher_id;
+                delete row.color;
+                delete row.data;
+            } else if (table === 'halls') {
+                delete row.photo_url;
+                row.data = item;
+            } else if (table === 'staff') {
+                delete row.photo_url;
+                row.data = item;
             } else {
                 row.data = item; // Parity with unwrap for other collections
             }
