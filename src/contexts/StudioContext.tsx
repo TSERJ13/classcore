@@ -113,7 +113,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 }
 
                 setLoadingStep('მონაცემების სინქრონიზაცია...');
-                const cloudSettings = state.settingsRecord?.settings || {};
+                const cloudSettings = state.settingsRecord?.staff_data || state.settingsRecord?.settings || {};
                 const updates = state.studio || {};
 
                 // 💎 PLAN RESOLUTION: Admin plan from studios table MUST override everything

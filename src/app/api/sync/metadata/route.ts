@@ -62,10 +62,10 @@ export async function POST(req: Request) {
         // 1. Update Master Studio Record (Discovery)
         const masterRes = await supabaseAdmin.from('studios').upsert({
             studio_slug: slug,
-            studio_name: name,
+            studio_name: name === 'Studio' ? 'S_T Dance Studio' : name, // Force correct identity if default
             logo_url: masterLogoUrl,
             org_id: orgIdToUse,
-            owner_info: settings.owner_info || undefined, // Mirror owner info to master table
+            owner_info: settings.owner_info || undefined,
             settings: discoverySettings
         }, { onConflict: 'studio_slug' });
 
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
         const settingsRes = await supabaseAdmin.from('studio_settings').upsert({
             org_id: orgIdToUse,
             studio_slug: slug,
-            staff_data: settings,
+            staff_data: { ...settings, studioName: name === 'Studio' ? 'S_T Dance Studio' : name },
             updated_at: new Date().toISOString()
         }, { onConflict: 'studio_slug' });
 
