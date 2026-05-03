@@ -65,6 +65,7 @@ export async function POST(req: Request) {
             studio_name: name,
             logo_url: masterLogoUrl,
             org_id: orgIdToUse,
+            owner_info: settings.owner_info || undefined, // Mirror owner info to master table
             settings: discoverySettings,
             plan: settings.plan || 'trial', // 🔥 Explicitly sync plan to master table
             updated_at: new Date().toISOString()
@@ -80,14 +81,14 @@ export async function POST(req: Request) {
         if (existingSettings?.id) {
             settingsRes = await supabaseAdmin.from('studio_settings').update({
                 studio_name: name,
-                settings: settings,
+                staff_data: settings,
                 updated_at: new Date().toISOString()
             }).eq('id', existingSettings.id);
         } else {
             settingsRes = await supabaseAdmin.from('studio_settings').insert({
                 org_id: orgIdToUse,
                 studio_name: name,
-                settings: settings,
+                staff_data: settings,
                 updated_at: new Date().toISOString()
             });
         }

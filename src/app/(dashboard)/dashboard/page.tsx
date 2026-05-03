@@ -448,7 +448,7 @@ export default function DashboardPage() {
             )}
 
             {/* Billing Expiration Notification */}
-            {settings.plan !== 'pro' && billing?.plan === 'trial' && billing?.status === 'trial' && (billing?.daysLeftInTrial ?? 0) <= 3 && (
+            {settings.plan !== 'pro' && settings.plan !== 'custom' && billing?.status === 'trial' && (billing?.daysLeftInTrial ?? 0) <= 3 && (
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-2 sm:p-5 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-500/5">
                     <div className="flex items-center gap-2.5 sm:gap-4 text-center sm:text-left">
                         <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
@@ -931,7 +931,7 @@ export default function DashboardPage() {
             )}
 
             {/* Trial Banner at bottom */}
-            {settings.plan !== 'pro' && billing?.status === 'trial' && (
+            {settings.plan !== 'pro' && settings.plan !== 'custom' && billing?.status === 'trial' && (
                 <div className="bg-gradient-to-r from-indigo-500 to-violet-600 rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 text-white shadow-2xl shadow-indigo-500/20 flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4 sm:gap-6 mt-6 sm:mt-12 mb-6 sm:mb-8 relative z-10 border border-white/10 w-full ml-0 mr-0">
                     <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left">
                         <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-inner">

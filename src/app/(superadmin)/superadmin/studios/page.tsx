@@ -1305,9 +1305,12 @@ export default function StudiosPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                {/* Studio Name */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_nameLabel}</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block h-4 ml-1">
+                                        {t.sa_studios_nameLabel}
+                                    </label>
                                     <input 
                                         value={profileName} 
                                         onChange={e => {
@@ -1318,41 +1321,68 @@ export default function StudiosPage() {
                                                 setProfileSlug(compactSlugify(nextName));
                                             }
                                         }} 
-                                        className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" 
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
                                     />
                                 </div>
+
+                                {/* Slug */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_slugLabel}</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block h-4 ml-1">
+                                        {t.sa_studios_slugLabel}
+                                    </label>
                                     <input 
                                         value={profileSlug} 
-                                        onChange={e => {
-                                            const clean = compactSlugify(e.target.value);
-                                            setProfileSlug(clean);
-                                        }} 
-                                        className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" 
+                                        onChange={e => setProfileSlug(compactSlugify(e.target.value))}
+                                        className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-sm font-bold text-slate-500 outline-none"
                                     />
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Owner First Name */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerFirstName}</label>
-                                    <input value={profileFirstName} onChange={e => setProfileFirstName(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block h-4 ml-1">
+                                        {t.sa_studios_ownerFirstName}
+                                    </label>
+                                    <input 
+                                        value={profileFirstName} 
+                                        onChange={e => setProfileFirstName(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                                    />
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerLastName}</label>
-                                    <input value={profileLastName} onChange={e => setProfileLastName(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Owner Last Name */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerEmailLabel}</label>
-                                    <input value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block h-4 ml-1">
+                                        {t.sa_studios_ownerLastName}
+                                    </label>
+                                    <input 
+                                        value={profileLastName} 
+                                        onChange={e => setProfileLastName(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                                    />
                                 </div>
+
+                                {/* Owner Email */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted ml-1">{t.sa_studios_ownerPhoneLabel}</label>
-                                    <input value={profilePhone} onChange={e => setProfilePhone(e.target.value)} className="w-full bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle/50 rounded-2xl px-5 py-3.5 outline-none focus:border-indigo-500/50 text-sm font-bold text-primary transition-all shadow-inner" />
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block h-4 ml-1">
+                                        {t.sa_studios_ownerEmailLabel}
+                                    </label>
+                                    <input 
+                                        value={profileEmail} 
+                                        onChange={e => setProfileEmail(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                                    />
+                                </div>
+
+                                {/* Owner Phone */}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block h-4 ml-1">
+                                        {t.sa_studios_ownerPhoneLabel}
+                                    </label>
+                                    <input 
+                                        value={profilePhone} 
+                                        onChange={e => setProfilePhone(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                                    />
                                 </div>
                             </div>
 
@@ -1442,8 +1472,8 @@ export default function StudiosPage() {
                                              ) : "bg-black/5 border-transparent text-muted hover:bg-black/10 hover:border-black/5"
                                          )}
                                      >
-                                         <span className="truncate pr-2">{(t as any)[PLAN_LABELS_KEYS[p]]}</span>
-                                         {modal.inputVal === p && <ShieldCheck className="w-4 h-4 flex-shrink-0" />}
+                                        <span className="truncate pr-2">{(t as any)[PLAN_LABELS_KEYS[p]] || p}</span>
+                                        {modal.inputVal === p && <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />}
                                      </button>
                                 ))}
                             </div>

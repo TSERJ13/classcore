@@ -256,7 +256,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             setFirstSyncDone(true);
             setIsLoaded(true);
         }
-    }, [profile, firstSyncDone, settings.studioName, user, defaultSlug, userLoading, settings.logoDataUrl]);
+    }, [profile, user, defaultSlug, userLoading]);
 
     useEffect(() => {
         hydrate();
