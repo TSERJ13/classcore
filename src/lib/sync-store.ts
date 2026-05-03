@@ -83,7 +83,7 @@ export async function pullStudioStateFromCloud() { return null; }
  */
 export async function pushStudioStateToCloud(slug: string, staff: any[], data: any, _ignored?: any, orgIdOverride?: string) {
     if (!slug || slug === 'demo.classcore.ge') return true;
-    console.log(`📡 [Sync v1.1.5] Pushing State for ${slug}...`);
+    console.log(`📡 [Sync v1.1.7] Pushing State for ${slug}...`);
     
     const supabase = createClient();
     try {
