@@ -1043,7 +1043,7 @@ export default function StudentPortalPage() {
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black text-indigo-500/40 uppercase tracking-[0.2em]">{settings.studioName || 'Studio'}</span>
+                                            <span className="text-[10px] font-black text-indigo-500/40 !normal-case tracking-[0.2em]">{settings.studioName || 'Studio'}</span>
                                             <span className="w-1 h-1 rounded-full bg-indigo-500/20" />
                                             <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">{t.shop}</span>
                                         </div>

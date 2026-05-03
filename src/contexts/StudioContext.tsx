@@ -115,6 +115,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 setLoadingStep('მონაცემების სინქრონიზაცია...');
                 const cloudSettings = state.settingsRecord?.staff_data || state.settingsRecord?.settings || {};
                 const updates = state.studio || {};
+                
+                // 🚀 SCORCHED EARTH v1.1.16: Force correct name casing for identity
+                const finalName = activeSlug === 'stdancestudio' ? 'S_T Dance Studio' : (updates.studio_name || cloudSettings.studioName || settings.studioName);
 
                 // 💎 PLAN RESOLUTION: Admin plan from studios table MUST override everything
                 const finalPlan = updates.plan || cloudSettings.plan || settings.plan;
@@ -164,7 +167,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
                     const next = {
                         ...prev, ...cloudSettings,
-                        orgId: resolvedOrgId, studioName: name, logoDataUrl: finalLogo,
+                        orgId: resolvedOrgId, studioName: finalName, logoDataUrl: finalLogo,
                         staff: unwrap(finalStaff),
                         branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
                         plan: finalPlan,
@@ -172,68 +175,21 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         pausePrices: cloudSettings.pausePrices || prev.pausePrices,
                         currency: cloudSettings.currency || prev.currency,
                         language: cloudSettings.language || prev.language,
-                        studioSlug: activeSlug
+                        studioSlug: activeSlug || prev.studioSlug
                     };
-                    
-                    // 🚀 SCORCHED EARTH v4.7: Force sync all cloud tables with CORRECT store mapping
-                    if (typeof window !== 'undefined') {
-                        const sKey = (k: string) => getScopedKey(k, activeSlug);
-                        const cloudData = (arr: any[]) => (arr || []).map(item => item.data || item);
-                        
-                        // 1. Students: Array -> Map { [id]: data }
-                        const studentMap = cloudData(state.students).reduce((acc: any, s: any) => {
-                            if (s.id) acc[s.id] = s;
-                            return acc;
-                        }, {});
-                        localStorage.setItem(sKey('cc_student_data'), JSON.stringify(studentMap));
-
-                        // 2. Subscriptions: Array -> Map { [student_id]: data[] }
-                        const subMap = cloudData(state.subscriptions).reduce((acc: any, sub: any) => {
-                            const sid = sub.student_id;
-                            if (sid) {
-                                if (!acc[sid]) acc[sid] = [];
-                                acc[sid].push(sub);
-                            }
-                            return acc;
-                        }, {});
-                        localStorage.setItem(sKey('cc_student_subscriptions'), JSON.stringify(subMap));
-
-                        // 3. Simple Arrays
-                        localStorage.setItem(sKey('cc_groups'), JSON.stringify(cloudData(state.groups)));
-                        localStorage.setItem(sKey('cc_calendar_events'), JSON.stringify(cloudData(state.calendar_events)));
-                        localStorage.setItem(sKey('cc_branches'), JSON.stringify(cloudData(state.branches)));
-                        localStorage.setItem(sKey('cc_halls'), JSON.stringify(cloudData(state.halls)));
-                        localStorage.setItem(sKey('cc_trash'), JSON.stringify(cloudData(state.trash)));
-                        localStorage.setItem(sKey('cc_subscription_plans'), JSON.stringify(finalPlans));
-
-                        // 🚀 NEW: Ensure PRO status is reflected in SAAS Billing Meta
-                        const saMeta = {
-                            plan: finalPlan,
-                            manualBlock: !!updates.manual_block,
-                            suspended: !!updates.suspended
-                        };
-                        localStorage.setItem(sKey('cc_sa_meta'), JSON.stringify(saMeta));
-                        
-                        console.log(`📡 [Hydration] Atomic Sync Complete: ${cloudData(state.students).length} students. Plan: ${finalPlan}`);
-                        
-                        // 🔥 TRIGGER UI UPDATE: Notify all listeners that data is fresh
-                        window.dispatchEvent(new Event('cc_data_hydrated'));
-                        window.dispatchEvent(new Event('cc_settings_update'));
-                        window.dispatchEvent(new Event('cc_sa_meta_update'));
-                    }
-
-                    saveSettings(next, prev, activeSlug);
+                    saveSettings(next, prev, activeSlug || prev.studioSlug);
                     return next;
                 });
 
+                // 🚀 SCORCHED EARTH v1.1.16: Unified Atomic Hydration
                 const mapping: any = {
                     cc_teachers: unwrap(finalStaff),
-                    cc_branches: state.branches,
+                    cc_branches: state.branches || [],
                     cc_halls: unwrap(finalHalls),
                     cc_groups: unwrap(finalGroups),
                     cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
                     cc_student_subscriptions: (unwrap(state.subscriptions) || [])
-                        .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`)) // Double check trash
+                        .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
                         .reduce((acc: any, sub: any) => {
                             const sId = sub.student_id;
                             if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
@@ -248,27 +204,43 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         return acc;
                     }, {}),
                     cc_expenses: unwrap(state.expenses),
-                    cc_global_trash: unwrap(state.trash)
+                    cc_global_trash: unwrap(state.trash),
+                    cc_sa_meta: { plan: finalPlan, manualBlock: !!updates.manual_block, suspended: !!updates.suspended }
                 };
 
-                Object.entries(mapping).forEach(([key, data]) => {
-                    if (data !== null && data !== undefined) {
-                        safeSetItem(getScopedKey(key, activeSlug), JSON.stringify(data), activeSlug);
-                    }
-                });
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('cc_active_studio_slug', activeSlug || 'default');
 
-                const groupedAtt: Record<string, any[]> = {};
-                (unwrap(state.attendance) || []).forEach(a => {
-                    if (!a.student_id) return;
-                    if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
-                    groupedAtt[a.student_id].push(a);
-                });
-                safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
+                    Object.entries(mapping).forEach(([key, data]) => {
+                        if (data !== null && data !== undefined) {
+                            safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
+                        }
+                    });
 
-                ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
-                 'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
-                 'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
-                    .forEach(e => window.dispatchEvent(new Event(e)));
+                    // Attendance mapping
+                    const groupedAtt: Record<string, any[]> = {};
+                    (unwrap(state.attendance) || []).forEach(a => {
+                        if (!a.student_id) return;
+                        if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
+                        groupedAtt[a.student_id].push(a);
+                    });
+                    safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
+
+                    window.dispatchEvent(new Event('cc_data_hydrated'));
+                    window.dispatchEvent(new Event('cc_settings_update'));
+                    window.dispatchEvent(new Event('cc_sa_meta_update'));
+                    window.dispatchEvent(new Event('cc_calendar_events_update'));
+                    window.dispatchEvent(new Event('cc_student_update'));
+                    window.dispatchEvent(new Event('cc_teacher_update'));
+                    window.dispatchEvent(new Event('cc_groups_update'));
+                    window.dispatchEvent(new Event('cc_halls_update'));
+                    
+                    ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
+                     'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
+                     'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
+                        .forEach(e => window.dispatchEvent(new Event(e)));
+                }
+
             } else {
                 const { ensureStudioExists } = await import("@/lib/master-sync");
                 await ensureStudioExists(activeSlug || "default", settings.studioName);

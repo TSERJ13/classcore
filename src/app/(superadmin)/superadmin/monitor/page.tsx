@@ -126,7 +126,7 @@ export default function MonitorPage() {
 
                                     <div className="text-right flex-shrink-0 space-y-2">
                                         <div className="px-3 py-1 bg-black/5 dark:bg-surface border border-black/5 dark:border-border-subtle rounded-lg">
-                                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest">{log.studioName}</p>
+                                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-black tracking-widest">{log.studioName}</p>
                                         </div>
                                         <div className="flex items-center gap-1.5 justify-end text-[10px] text-muted font-black uppercase tracking-tighter opacity-40">
                                             <Clock className="w-3 h-3" />

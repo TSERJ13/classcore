@@ -17,6 +17,7 @@ import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
 import { addNotification } from '@/lib/notification-store';
 import type { Student } from '@/types';
+import { getGroups } from '@/lib/group-store';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
@@ -289,13 +290,18 @@ export default function DashboardPage() {
             });
 
             const allStudents = getStudents();
-            const scheduleWithDetails = events.map(ev => ({
-                ...ev,
-                teacherName: getTeacherName(ev.teacher_id),
-                teacherPhoto: getTeacherPhoto(ev.teacher_id),
-                hallName: getHallName(ev.hall_id),
-                studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length
-            }));
+            const groups = getGroups();
+            const scheduleWithDetails = events.map(ev => {
+                const g = groups.find(x => x.id === ev.group_id);
+                const tid = ev.teacher_id || g?.teacherId;
+                return {
+                    ...ev,
+                    teacherName: getTeacherName(tid),
+                    teacherPhoto: getTeacherPhoto(tid),
+                    hallName: getHallName(ev.hall_id),
+                    studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length
+                };
+            });
             setLiveSchedule(scheduleWithDetails);
         });
 

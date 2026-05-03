@@ -5,7 +5,8 @@ import {
     Search, Scan, CalendarCheck, Check, AlertTriangle, CheckCircle2,
     ChevronLeft, ChevronRight, Calendar, Clock, X, Plus, Edit2,
     Instagram, Facebook, Send, MessageCircle, Phone, MessageSquare, Info, ShieldAlert,
-    ShoppingCart, PlusCircle, Package, ArrowRight, TrendingUp, Trash2
+    ShoppingCart, PlusCircle, Package, ArrowRight, TrendingUp, Trash2,
+    GraduationCap
 } from 'lucide-react';
 import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge } from '@/lib/utils';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
@@ -16,7 +17,7 @@ import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { getSubscriptions, getSubscription, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getEventsByDate, getEvents } from '@/lib/event-store';
-import { getTeacherName } from '@/lib/teacher-store';
+import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
 import { loadSettings, getScopedKey } from '@/lib/settings-store';
 import type { Student, CalendarEvent } from '@/types';
@@ -233,7 +234,9 @@ export default function AttendancePage() {
                         type: 'group',
                         color: g.color || '#6d28d9',
                         start_time: slot?.startTime || '00:00',
-                        end_time: slot?.endTime || '23:59'
+                        end_time: slot?.endTime || '23:59',
+                        teacher_id: g.teacher_id || '',
+                        hall_id: g.hall_id || ''
                     };
                 }) as any;
         }
@@ -243,7 +246,16 @@ export default function AttendancePage() {
                 return profile.assigned_group_ids?.includes(ev.group_id || '');
             }
             return true;
-        }).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+        }).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
+          .map(ev => {
+              const g = groups.find(x => x.id === ev.group_id);
+              const tid = ev.teacher_id || g?.teacherId;
+              return {
+                  ...ev,
+                  teacherPhoto: tid ? getTeacherPhoto(tid) : null,
+                  teacherName: tid ? getTeacherName(tid) : (ev.coach || g?.coach || '')
+              };
+          });
     }, [rawSchedule, profile, groups, selectedDate]);
 
     const [selectedClass, setSelectedClass] = useState('');
@@ -929,10 +941,17 @@ export default function AttendancePage() {
                                                 )}>{timeStr}</span>
                                             </div>
                                             <div className="flex items-center justify-between mt-2.5">
-                                                <span className={cn(
-                                                    'text-[8px] font-bold tracking-tight truncate max-w-[100px] transition-colors',
-                                                    isActive ? 'text-white/60' : 'text-muted opacity-50'
-                                                )}>{getTeacherName(s.teacher_id)}</span>
+                                                <div className="flex items-center gap-2">
+                                                    {(s as any).teacherPhoto ? (
+                                                        <img src={(s as any).teacherPhoto} alt="" className="w-5 h-5 rounded-full object-cover border border-white/20" />
+                                                    ) : (
+                                                        <GraduationCap className={cn("w-3.5 h-3.5", isActive ? "text-white/40" : "text-muted opacity-30")} />
+                                                    )}
+                                                    <span className={cn(
+                                                        'text-[8px] font-bold tracking-tight truncate max-w-[100px] transition-colors',
+                                                        isActive ? 'text-white/60' : 'text-muted opacity-50'
+                                                    )}>{(s as any).teacherName || getTeacherName(s.teacher_id)}</span>
+                                                </div>
                                                 {isCurrent && (
                                                     <span className={cn(
                                                         'w-1.5 h-1.5 rounded-full animate-pulse',
@@ -955,7 +974,14 @@ export default function AttendancePage() {
                                             {cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : (cls.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </h2>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
-                                            <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {getTeacherName(cls.teacher_id)}</p>
+                                            <div className="flex items-center gap-1.5">
+                                                {(cls as any).teacherPhoto ? (
+                                                    <img src={(cls as any).teacherPhoto} alt="" className="w-4 h-4 rounded-full object-cover border border-border-subtle" />
+                                                ) : (
+                                                    <GraduationCap className="w-3.5 h-3.5 text-muted opacity-30" />
+                                                )}
+                                                <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {(cls as any).teacherName || getTeacherName(cls.teacher_id)}</p>
+                                            </div>
                                             {cls.notes && (
                                                 <div className="flex items-center gap-1 px-2 py-0.5 bg-#f5f3ff border border-#ede9fe rounded-full">
                                                     <Info className="w-3 h-3 text-#a78bfa" />

@@ -34,8 +34,14 @@ export function RootLayoutClient({ children, activeLang, activeSlug, studioName 
                         </UserProvider>
                     </>
                 ) : (
-                    <div className="fixed inset-0 bg-base flex items-center justify-center">
-                        <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+                    <div className="fixed inset-0 bg-white flex flex-col items-center justify-center">
+                        <div className="flex items-center gap-4 animate-pulse">
+                            <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center">
+                                <div className="w-5 h-5 border-2 border-white rounded-full" />
+                            </div>
+                            <div className="h-6 w-[1px] bg-slate-200" />
+                            <span className="text-xs font-black text-slate-400 tracking-[0.3em] uppercase">ClassCore</span>
+                        </div>
                     </div>
                 )}
             </body>

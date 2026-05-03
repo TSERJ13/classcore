@@ -35,24 +35,23 @@ export const AppLogo: React.FC<LogoProps> = React.memo(({
     >
       {/* Radar Ring */}
       {(loading || radar) && (
-        <div className="absolute inset-[-12px] rounded-full border-2 border-indigo-500/10" />
+        <div className="absolute inset-[-12px] rounded-full border-2 border-slate-200/50 dark:border-white/5" />
       )}
       {(loading || radar) && (
         <div 
           className="absolute inset-[-12px] rounded-full border-2 border-transparent border-t-indigo-500 animate-[radar-spin_1.5s_linear_infinite]" 
-          style={{ filter: 'drop-shadow(0 0 5px rgba(99, 102, 241, 0.4))' }}
         />
       )}
       {(loading || radar) && (
         <div 
-          className="absolute inset-[-12px] rounded-full border-2 border-transparent border-b-indigo-400/50 animate-[radar-spin_2s_linear_infinite_reverse]" 
+          className="absolute inset-[-12px] rounded-full border-2 border-transparent border-b-indigo-400/20 animate-[radar-spin_2s_linear_infinite_reverse]" 
         />
       )}
 
       {/* Main Logo Container */}
       <div className={cn(
         "relative w-full h-full rounded-full overflow-hidden flex items-center justify-center",
-        !transparent && !src && "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/20",
+        !transparent && !src && "bg-gradient-to-br from-indigo-500 to-indigo-600",
         loading && "animate-pulse"
       )}>
         {src ? (

@@ -78,8 +78,8 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                     exp ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
                 )}>
                     <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className={cn("font-black text-white truncate tracking-tight leading-tight", isMobile ? "text-[12.5px]" : "text-[16px]")}>
-                            {settings?.studioName || profile?.studio_name || 'Studio'}
+                        <span className={cn("font-black text-white truncate tracking-tight leading-tight !normal-case", isMobile ? "text-[12.5px]" : "text-[16px]")}>
+                            {settings?.studioName || profile?.studio_name || 'S_T Dance Studio'}
                         </span>
                         {settings?.plan === 'pro' && (
                             <div className="flex-shrink-0 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg px-2 py-0.5 ml-1">
