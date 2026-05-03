@@ -19,7 +19,8 @@ export function RootLayoutClient({ children, activeLang, activeSlug, studioName 
             </head>
             <body className="min-h-screen bg-base antialiased font-sans" suppressHydrationWarning>
                 {mounted ? (
-                    <CacheBuster>
+                    <>
+                        <CacheBuster />
                         <UserProvider>
                             <LanguageProvider defaultLang={activeLang}>
                                 <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
@@ -31,7 +32,7 @@ export function RootLayoutClient({ children, activeLang, activeSlug, studioName 
                                 </StudioProvider>
                             </LanguageProvider>
                         </UserProvider>
-                    </CacheBuster>
+                    </>
                 ) : (
                     <div className="fixed inset-0 bg-base flex items-center justify-center">
                         <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
