@@ -131,6 +131,8 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
                 delete row.reminder_30m;
                 delete row.notes;
                 delete row.secondary_teacher_id;
+                delete row.teacher_id;
+                delete row.hall_id;
                 delete row.color;
                 delete row.data;
             } else if (table === 'halls') {
