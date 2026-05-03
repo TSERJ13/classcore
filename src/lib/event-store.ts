@@ -119,7 +119,7 @@ export function saveEvents(events: CalendarEvent[]) {
         
         if (orgId) {
             import('./master-sync').then(mod => {
-                mod.pushCollectionToCloud('calendar_events', events, orgId);
+                mod.pushCollectionToCloud('calendar_events', events, orgId, activeSlug);
             });
         }
     }

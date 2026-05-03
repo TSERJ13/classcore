@@ -109,7 +109,7 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
     }
 }
 
-export async function pushCollectionToCloud(table: string, items: any[], orgId: string) {
+export async function pushCollectionToCloud(table: string, items: any[], orgId: string, slug?: string) {
     const supabase = createClient();
     if (!orgId || !items || items.length === 0) return false;
 
@@ -165,7 +165,7 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
                 body: JSON.stringify({
                     table,
                     rows: chunk,
-                    slug
+                    slug: slug || 'unknown'
                 })
             });
 
