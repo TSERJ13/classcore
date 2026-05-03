@@ -78,14 +78,12 @@ export async function POST(req: Request) {
         let settingsRes;
         if (existingSettings?.id) {
             settingsRes = await supabaseAdmin.from('studio_settings').update({
-                studio_name: name,
                 staff_data: settings,
                 updated_at: new Date().toISOString()
             }).eq('id', existingSettings.id);
         } else {
             settingsRes = await supabaseAdmin.from('studio_settings').insert({
                 org_id: orgIdToUse,
-                studio_name: name,
                 staff_data: settings,
                 updated_at: new Date().toISOString()
             });
