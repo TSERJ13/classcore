@@ -101,7 +101,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const { data: studioData } = await sb.from('studios').select('org_id').eq('studio_slug', activeSlug).maybeSingle();
                 if (studioData?.org_id) {
                     currentOrgId = studioData.org_id;
-                    safeSetItem(`cc_org_id_override_${activeSlug}`, currentOrgId, activeSlug);
+                    await safeSetItem(`cc_org_id_override_${activeSlug}`, currentOrgId, activeSlug);
                     console.log(`✅ [StudioContext] OrgID Resolved via Discovery: ${currentOrgId}`);
                 }
             }
@@ -115,14 +115,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // 🔐 PERMANENT ORG-ID RESOLUTION (MUST HAPPEN FIRST)
                 if (resolvedOrgId && activeSlug) {
                     const orgIdOverrideKey = `cc_org_id_override_${activeSlug}`;
-                    safeSetItem(orgIdOverrideKey, resolvedOrgId, activeSlug);
+                    await safeSetItem(orgIdOverrideKey, resolvedOrgId, activeSlug);
                     
                     // Update Registry
                     const registryRaw = localStorage.getItem('cc_studios_list');
                     let registry = registryRaw ? JSON.parse(registryRaw) : [];
                     if (!registry.includes(activeSlug)) {
                         registry.push(activeSlug);
-                        safeSetItem('cc_studios_list', JSON.stringify(registry), activeSlug);
+                        await safeSetItem('cc_studios_list', JSON.stringify(registry), activeSlug);
                     }
                 }
 
@@ -230,13 +230,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 };
 
                 if (typeof window !== 'undefined') {
-                    safeSetItem('cc_active_studio_slug', activeSlug || 'default', activeSlug || 'default');
+                    await safeSetItem('cc_active_studio_slug', activeSlug || 'default', activeSlug || 'default');
 
-                    Object.entries(mapping).forEach(([key, data]) => {
+                    await Promise.all(Object.entries(mapping).map(async ([key, data]) => {
                         if (data !== null && data !== undefined) {
-                            safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
+                            await safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
                         }
-                    });
+                    }));
 
                     // Attendance mapping
                     const groupedAtt: Record<string, any[]> = {};
@@ -245,7 +245,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
                         groupedAtt[a.student_id].push(a);
                     });
-                    safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
+                    await safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
 
                     window.dispatchEvent(new Event('cc_data_hydrated'));
                     window.dispatchEvent(new Event('cc_settings_update'));

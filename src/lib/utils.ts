@@ -332,85 +332,137 @@ export function clearGlobalDeletion(slug: string, collection: string, id: string
     }
 }
 
+/**
+ * 🖼️ IMAGE COMPRESSION v1.1
+ * Compresses base64 images to ~80-100KB for localStorage storage.
+ */
+async function compressBase64(base64: string, maxWidth = 800, quality = 0.6): Promise<string> {
+    if (typeof window === 'undefined' || !base64.startsWith('data:image')) return base64;
+    // If already small enough (~150KB), don't touch
+    if (base64.length < 200000) return base64; 
+
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth) {
+                height = (maxWidth / width) * height;
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(base64);
+        img.src = base64;
+    });
+}
+
+// 🔒 CONCURRENCY LOCK: Prevent overlapping cleanups
+let isCleaning = false;
+
 /** 
  * SCORCHED EARTH v4.8: Safe Storage Layer
  * Handles QuotaExceededError by purging inactive studios from cache.
  */
-export function safeSetItem(key: string, value: string, activeSlug?: string) {
+export async function safeSetItem(key: string, value: string, activeSlug?: string) {
     if (typeof window === 'undefined') return;
+    
     try {
         localStorage.setItem(key, value);
     } catch (err: any) {
         if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) {
-            console.warn('⚠️ [Storage] Quota Exceeded! Starting emergency cleanup...');
-            
-            const currentSlug = activeSlug || getActiveSlug();
-            const keys = Object.keys(localStorage);
-            let clearedCount = 0;
-
-            // 1. Target Inactive Data (Scan all keys for slug/orgId mismatches)
-            const activeOrgId = currentSlug ? (localStorage.getItem(`cc_org_id_override_${currentSlug}`) || null) : null;
-            
-            keys.forEach(k => {
-                // Preserve Auth & Identity
-                const isAuth = k.startsWith('sb-') || k.includes('cc_staff_session') || k.includes('cc_active_slug') || k.includes('cc_auth_token');
-                if (isAuth) return;
-
-                // Check if key belongs to active studio
-                const isCurrent = currentSlug && (k.includes(currentSlug) || (activeOrgId && k.includes(activeOrgId)));
-                
-                if (!isCurrent && k.startsWith('cc_')) {
-                    localStorage.removeItem(k);
-                    clearedCount++;
-                }
-            });
-
-            console.log(`🧹 [Storage] Emergency cleanup complete. Removed ${clearedCount} inactive keys.`);
-            
-            // 2. Data Thinning: If still full, strip photos from the current value
-            let thinnedValue = value;
-            if (value.length > 100000) { // If > 100KB
-                try {
-                    const parsed = JSON.parse(value);
-                    const strip = (obj: any): any => {
-                        if (!obj || typeof obj !== 'object') return obj;
-                        if (Array.isArray(obj)) return obj.map(strip);
-                        const next: any = {};
-                        for (const k in obj) {
-                            if (k === 'photo_url' || k === 'logo_url' || k === 'logoDataUrl') continue;
-                            next[k] = strip(obj[k]);
-                        }
-                        return next;
-                    };
-                    thinnedValue = JSON.stringify(strip(parsed));
-                    console.log(`📉 [Storage] Data thinned: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
-                } catch {}
+            if (isCleaning) {
+                // If already cleaning, just wait and try one last time
+                await new Promise(r => setTimeout(r, 500));
+                try { localStorage.setItem(key, value); return; } catch { return; }
             }
 
-            // Retry with thinned data
+            isCleaning = true;
+            console.warn('⚠️ [Storage] Quota Exceeded! Starting emergency cleanup...');
+            
             try {
-                localStorage.setItem(key, thinnedValue);
-                return;
-            } catch (retryErr) {
-                console.warn('☢️ [Storage] Secondary Failure. Initiating NUCLEAR WIPE...');
+                const currentSlug = activeSlug || getActiveSlug();
+                const keys = Object.keys(localStorage);
+                let clearedCount = 0;
+
+                const activeOrgId = currentSlug ? (localStorage.getItem(`cc_org_id_override_${currentSlug}`) || null) : null;
                 
-                // 3. Nuclear Wipe: Remove EVERYTHING except absolute essentials
+                // 1. Target Inactive Data
                 keys.forEach(k => {
-                    const isEssential = k.startsWith('sb-') || 
-                                      k.includes('cc_staff_session') || 
-                                      k.includes('cc_active_slug') ||
-                                      k.includes('cc_org_id_override');
-                    if (!isEssential) {
+                    // 🛡️ CRITICAL AUTH PROTECTION: Never touch these keys!
+                    const isAuth = k.startsWith('sb-') || 
+                                  k.includes('supabase') || 
+                                  k.includes('auth-token') || 
+                                  k.includes('cc_staff_session') || 
+                                  k.includes('cc_active_slug') || 
+                                  k.includes('cc_auth_token');
+                                  
+                    if (isAuth) return;
+
+                    const isCurrent = currentSlug && (k.includes(currentSlug) || (activeOrgId && k.includes(activeOrgId)));
+                    if (!isCurrent && k.startsWith('cc_')) {
                         localStorage.removeItem(k);
+                        clearedCount++;
                     }
                 });
+
+                console.log(`🧹 [Storage] Emergency cleanup complete. Removed ${clearedCount} inactive keys.`);
                 
+                // 2. Intelligent Data Thinning (Compressing images instead of stripping)
+                let thinnedValue = value;
+                if (value.length > 150000) { // If > 150KB
+                    try {
+                        const parsed = JSON.parse(value);
+                        const process = async (obj: any): Promise<any> => {
+                            if (!obj || typeof obj !== 'object') return obj;
+                            if (Array.isArray(obj)) return Promise.all(obj.map(process));
+                            const next: any = {};
+                            for (const k in obj) {
+                                if ((k === 'photo_url' || k === 'logo_url' || k === 'logoDataUrl') && typeof obj[k] === 'string' && obj[k].startsWith('data:')) {
+                                    next[k] = await compressBase64(obj[k]);
+                                } else {
+                                    next[k] = await process(obj[k]);
+                                }
+                            }
+                            return next;
+                        };
+                        const thinnedObj = await process(parsed);
+                        thinnedValue = JSON.stringify(thinnedObj);
+                        console.log(`📉 [Storage] Data compressed: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
+                    } catch (e) {
+                        thinnedValue = value.replace(/"(photo_url|logo_url|logoDataUrl)":"data:image\/[^"]+"/g, '"$1":null');
+                    }
+                }
+
                 try {
                     localStorage.setItem(key, thinnedValue);
-                    console.log('✅ [Storage] Nuclear recovery successful.');
-                } catch (finalErr) {
-                    console.error('💀 [Storage] UNRECOVERABLE STORAGE FAILURE.');
+                } catch (retryErr) {
+                    console.warn('☢️ [Storage] Secondary Failure. Initiating NUCLEAR WIPE...');
+                    keys.forEach(k => {
+                        const isEssential = k.startsWith('sb-') || 
+                                          k.includes('supabase') || 
+                                          k.includes('auth') ||
+                                          k.includes('cc_staff_session') || 
+                                          k.includes('cc_active_slug') || 
+                                          k.includes('cc_org_id_override');
+                        if (!isEssential) localStorage.removeItem(k);
+                    });
+                    
+                    try {
+                        localStorage.setItem(key, thinnedValue);
+                    } catch (finalErr) {
+                        console.error('💀 [Storage] UNRECOVERABLE STORAGE FAILURE.');
+                    }
                 }
+            } finally {
+                isCleaning = false;
             }
         }
     }

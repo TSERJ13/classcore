@@ -105,7 +105,8 @@ export function getEvents(): CalendarEvent[] {
 
 export function saveEvents(events: CalendarEvent[]) {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getEventsKey(), JSON.stringify(events));
+    const activeSlug = getActiveSlug() || 'default';
+    import('./utils').then(mod => mod.safeSetItem(getEventsKey(), JSON.stringify(events), activeSlug));
     markLocalUpdate();
     
     const activeSlug = getActiveSlug();

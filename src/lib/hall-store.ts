@@ -55,7 +55,8 @@ export function getHallName(id?: string): string {
 export function saveHalls(halls: HallData[]): void {
     if (typeof window === 'undefined') return;
     const key = getHallsKey();
-    localStorage.setItem(key, JSON.stringify(halls));
+    const activeSlug = getActiveSlug() || 'default';
+    import('./utils').then(mod => mod.safeSetItem(key, JSON.stringify(halls), activeSlug));
     markLocalUpdate();
     
     triggerInstantSync();
@@ -94,7 +95,8 @@ export function deleteHall(id: string): void {
     }
 
     const key = getHallsKey();
-    localStorage.setItem(key, JSON.stringify(updated));
+    const activeSlug = getActiveSlug() || 'default';
+    import('./utils').then(mod => mod.safeSetItem(key, JSON.stringify(updated), activeSlug));
     markLocalUpdate();
 
     triggerInstantSync();
