@@ -128,6 +128,7 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
             if (table === 'calendar_events') {
                 delete row.color;
                 delete row.data;
+                delete row.date; // ⚠️ Production table uses start_time/end_time or similar
             } else {
                 row.data = item; // Parity with unwrap for other collections
             }

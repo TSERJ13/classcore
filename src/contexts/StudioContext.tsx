@@ -101,7 +101,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // 🔐 PERMANENT ORG-ID RESOLUTION (MUST HAPPEN FIRST)
                 if (resolvedOrgId && activeSlug) {
                     const orgIdOverrideKey = `cc_org_id_override_${activeSlug}`;
-                    import('../lib/utils').then(mod => mod.safeSetItem(orgIdOverrideKey, resolvedOrgId, activeSlug));
+                    localStorage.setItem(orgIdOverrideKey, resolvedOrgId);
                     
                     // Update Registry
                     const registryRaw = localStorage.getItem('cc_studios_list');
