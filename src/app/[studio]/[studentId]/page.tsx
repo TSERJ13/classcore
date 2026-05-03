@@ -90,6 +90,13 @@ export default function StudentPortalPage() {
     const [isQrExpanded, setIsQrExpanded] = useState(false);
     const [scheduleView, setScheduleView] = useState<'daily' | 'weekly'>('daily');
 
+    // Chat state
+    const [chatMessages, setChatMessages] = useState<any[]>([]);
+    const [chatInput, setChatInput] = useState('');
+    const [isSyncingChat, setIsSyncingChat] = useState(false);
+    const [selectedChatId, setSelectedChatId] = useState<string>('studio'); // 'studio' or 'group_ID'
+    const chatScrollRef = useRef<HTMLDivElement>(null);
+
     // Auth state
     const [authState, setAuthState] = useState<'welcome' | 'phone' | 'authenticated'>('welcome');
     const [phoneInput, setPhoneInput] = useState('');
@@ -262,6 +269,77 @@ export default function StudentPortalPage() {
             downloadIcal(ev); // Apple/Standard iCal
         }
     };
+
+    // Chat Sync Logic
+    const syncChat = async (forcePushMessages?: any[]) => {
+        if (!studentId || !studio) return;
+        setIsSyncingChat(true);
+        try {
+            // 1. Fetch from cloud
+            const res = await fetch(`/api/public/chat?studio=${studio}&studentId=${studentId}`);
+            if (res.ok) {
+                const data = await res.json();
+                const cloudMessages = data.messages || [];
+                
+                // 2. Load from local (for optimistic updates or if offline)
+                const localKey = getScopedKey(`chat_${studentId}`, studio);
+                const localSaved = JSON.parse(localStorage.getItem(localKey) || '[]');
+                
+                // 3. Merge (Cloud wins, unless we have a forcePush)
+                let finalMessages = forcePushMessages || cloudMessages;
+                
+                setChatMessages(finalMessages);
+                localStorage.setItem(localKey, JSON.stringify(finalMessages));
+            }
+        } catch (err) {
+            console.error('Chat sync error:', err);
+        } finally {
+            setIsSyncingChat(false);
+        }
+    };
+
+    const handleSendMessage = async () => {
+        if (!chatInput.trim() || !studentId || !studio) return;
+
+        const newMsg = {
+            id: Date.now().toString(),
+            text: chatInput,
+            sender: 'student',
+            timestamp: new Date().toISOString(),
+            read: false
+        };
+
+        const updatedMessages = [...chatMessages, newMsg];
+        setChatMessages(updatedMessages);
+        setChatInput('');
+
+        // Optimistic Save
+        const localKey = getScopedKey(`chat_${studentId}`, studio);
+        localStorage.setItem(localKey, JSON.stringify(updatedMessages));
+
+        // Sync to cloud
+        try {
+            await fetch('/api/public/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studio, studentId, messages: updatedMessages })
+            });
+        } catch (err) {
+            console.error('Failed to sync message to cloud:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'chat') {
+            syncChat();
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (chatScrollRef.current) {
+            chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+        }
+    }, [chatMessages]);
 
     const toggleReminders = () => {
         if (!studentId) return;
@@ -1147,28 +1225,99 @@ export default function StudentPortalPage() {
                     )}
                     {/* Chat Tab */}
                     {activeTab === 'chat' && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 flex flex-col items-center justify-center min-h-[300px] text-center">
-                            <div className="w-20 h-20 bg-indigo-500/10 rounded-[2rem] flex items-center justify-center text-indigo-500 animate-bounce-subtle">
-                                <MessageSquare className="w-10 h-10" />
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col h-[600px] bg-card/30 rounded-[2.5rem] border border-border-subtle overflow-hidden">
+                            {/* Chat Selector (If student has groups) */}
+                            {studentData?.enrolled_group_ids && studentData.enrolled_group_ids.length > 0 && (
+                                <div className="flex gap-2 p-4 border-b border-border-subtle bg-card/50 overflow-x-auto no-scrollbar">
+                                    <button
+                                        onClick={() => setSelectedChatId('studio')}
+                                        className={cn(
+                                            "px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all",
+                                            selectedChatId === 'studio' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-surface text-muted hover:text-primary"
+                                        )}
+                                    >
+                                        {t.administration}
+                                    </button>
+                                    {studentData.enrolled_group_ids.map(gid => {
+                                        const group = (groups || []).find((g: any) => g.id === gid);
+                                        if (!group) return null;
+                                        return (
+                                            <button
+                                                key={gid}
+                                                onClick={() => setSelectedChatId(gid)}
+                                                className={cn(
+                                                    "px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all",
+                                                    selectedChatId === gid ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-surface text-muted hover:text-primary"
+                                                )}
+                                            >
+                                                {group.name}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Messages Area */}
+                            <div 
+                                ref={chatScrollRef}
+                                className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-surface/5"
+                            >
+                                {chatMessages.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
+                                        <div className="w-16 h-16 bg-surface border border-border-subtle rounded-3xl flex items-center justify-center text-indigo-500 shadow-inner">
+                                            <MessageSquare className="w-8 h-8" />
+                                        </div>
+                                        <p className="text-xs font-bold px-10">
+                                            {selectedChatId === 'studio' ? t.chatWelcome : t.chatStartHint}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    chatMessages.map((m, idx) => (
+                                        <div key={m.id || idx} className={cn("flex flex-col", m.sender === 'student' ? "items-end" : "items-start")}>
+                                            <div className={cn(
+                                                "max-w-[85%] p-4 rounded-3xl text-[13px] font-medium leading-relaxed shadow-sm transition-all animate-in fade-in zoom-in duration-300",
+                                                m.sender === 'student' ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none"
+                                            )}>
+                                                {m.text}
+                                            </div>
+                                            <span className="text-[9px] font-bold text-muted/40 tracking-widest mt-1 px-1">
+                                                {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                                {isSyncingChat && (
+                                    <div className="flex items-center gap-2 text-muted/40 font-bold text-[10px] tracking-widest px-1">
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        {t.loading}
+                                    </div>
+                                )}
                             </div>
-                            <div className="space-y-2">
-                                <h2 className="text-xl font-black text-primary tracking-tight">{l('ჩათი მხარდაჭერასთან', 'Чат с поддержкой', 'Support Chat')}</h2>
-                                <p className="text-xs text-muted font-medium opacity-60 max-w-[240px] mx-auto">
-                                    {l('გამოიყენეთ ჩათის ღილაკი ქვედა კუთხეში ადმინისტრაციასთან დასაკავშირებლად.', 
-                                       'Используйте кнопку чата в нижнем угულში ადმინისტრაციასთან დასაკავშირებლად.', 
-                                       'Use the chat button in the bottom corner to contact the administration.')}
+
+                            {/* Input Area */}
+                            <div className="p-4 bg-card/80 backdrop-blur-md border-t border-border-subtle">
+                                <div className="relative flex items-center">
+                                    <input
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                        placeholder={(t.sendMessageToStart || 'Message') + '...'}
+                                        className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-5 py-4 pr-14 text-sm font-medium outline-none transition-all placeholder:text-muted/40"
+                                    />
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={!chatInput.trim() || isSyncingChat}
+                                        className="absolute right-2 p-3 bg-indigo-600 text-white rounded-xl disabled:opacity-20 disabled:grayscale transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20"
+                                    >
+                                        <Send className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <p className="text-center text-[9px] font-bold text-muted/30 tracking-[0.2em] mt-3 uppercase">
+                                    {settings.studioName} Secure Messenger
                                 </p>
                             </div>
-                            <button
-                                onClick={() => {
-                                    window.dispatchEvent(new CustomEvent('open-support-chat'));
-                                }}
-                                className="px-8 py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-2 mx-auto"
-                            >
-                                {l('ჩათის გახსნა', 'Открыть чат', 'Open Chat')}
-                            </button>
                         </div>
-                    )}
+                    {/* Footer */}
 
                     {/* Footer */}
                     <div className="text-center pt-12 pb-6">
