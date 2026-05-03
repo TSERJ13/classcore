@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { useStudio } from '@/contexts/StudioContext';
 import { AppLogo } from '@/components/ui/Logo';
+import { useT } from '@/contexts/LanguageContext';
 
 export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isLoaded, loadingStep, settings } = useStudio();
+    const { lang } = useT();
     const [showContent, setShowContent] = useState(false);
     const [progress, setProgress] = useState(0);
 
