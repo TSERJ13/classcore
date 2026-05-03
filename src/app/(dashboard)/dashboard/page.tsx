@@ -239,503 +239,95 @@ export default function DashboardPage() {
     };
 
     useEffect(() => {
-        const refreshData = () => {
-            const sales = getSales();
-            let studentsList = getStudents();
-            const allSubsListRaw = Object.values(getSubscriptions()).flat();
-            
-            // ROLE FILTER: Restrict data for teachers
-            const isTeacher = profile?.role === 'teacher' || profile?.role === 'coach';
-            const assignedIds = profile?.assigned_group_ids || [];
-            
-            if (isTeacher) {
-                studentsList = studentsList.filter(s => 
-                    s.enrolled_group_ids?.some(gid => assignedIds.includes(gid))
-                );
-            }
-
-            const allSubsList = isTeacher 
-                ? allSubsListRaw.filter(sub => assignedIds.includes(sub.group_id || ''))
-                : allSubsListRaw;
-
-            const students = studentsList.length;
-
-            const now = new Date();
-            const currentMonth = now.toISOString().split('-').slice(0, 2).join('-');
-
-            let activeCount = 0;
-            let inactiveCount = 0;
-            const activeSubStudentIds = new Set<string>();
-
-            studentsList.forEach(s => {
-                const sub = (s as any).subscription || getSubscription(s.id);
-                if (sub && sub.status === 'active') {
-                    activeCount++;
-                    activeSubStudentIds.add(s.id);
-                } else {
-                    inactiveCount++;
-                }
-            });
-            const studentsWithActiveSub = activeSubStudentIds.size;
-
-            // Attendance Count: Count all check-ins for the day
-            const checkins = getTodayCheckins();
-            const attendance = checkins.length;
-
-            const todayStr = getLocalISODate(new Date());
-
-            // 3 month boundaries
-            const threeMonthsAgo = new Date();
-            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-            const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
-
-            let newStudents3m = studentsList.filter(s => (s as any).created_at && (s as any).created_at >= threeMonthsAgoStr).length;
-            let leftStudents3m = studentsList.filter(s => s.status === 'inactive' && (s as any).updated_at && (s as any).updated_at >= threeMonthsAgoStr).length;
-
-            // Revenue calculation
-            const todaySalesRevenue = sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
-            const todaySubRevenue = allSubsList.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
-
-            const monthSalesRevenue = sales.filter(s => s.date?.startsWith(currentMonth)).reduce((sum, s) => sum + s.price * s.quantity, 0);
-            const monthSubRevenue = allSubsList.filter(sub => sub.purchased_at?.startsWith(currentMonth)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
-
-            const newThisMonth = allSubsList.filter(sub => sub.purchased_at && sub.purchased_at.startsWith(currentMonth)).length;
-            const churnThisMonth = studentsList.filter(s => s.status === 'inactive' && (s as any).updated_at && (s as any).updated_at.startsWith(currentMonth)).length;
-
-            // Debt calculation (sum of all negative balances)
-            const totalDebt = studentsList.reduce((sum, s) => sum + (s.balance && s.balance < 0 ? Math.abs(s.balance) : 0), 0);
-
-            // Expiring soon (active subs expiring in next 7 days)
-            const sevenDaysFromNow = new Date();
-            sevenDaysFromNow.setDate(now.getDate() + 7);
-            const sevenDaysFromNowStr = sevenDaysFromNow.toISOString().split('T')[0];
-            const expiringSoon = allSubsList.filter(sub =>
-                sub.status === 'active' &&
-                sub.expires_at >= todayStr &&
-                sub.expires_at <= sevenDaysFromNowStr
-            ).length;
-
-            // ─── MoM Growth Calculations ───
-            const lastMonthDate = new Date();
-            lastMonthDate.setMonth(now.getMonth() - 1);
-            const lastMonthStr = lastMonthDate.toISOString().split('-').slice(0, 2).join('-');
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(now.getDate() - 30);
-            const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
-
-            // 1. Revenue Comparison
-            const lastMonthSalesRevenue = sales.filter(s => s.date?.startsWith(lastMonthStr)).reduce((sum, s) => sum + s.price * s.quantity, 0);
-            const lastMonthSubRevenue = allSubsList.filter(sub => sub.purchased_at?.startsWith(lastMonthStr)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
-            const lastMonthRevenue = lastMonthSalesRevenue + lastMonthSubRevenue;
-            const currentMonthRevenue = monthSalesRevenue + monthSubRevenue;
-            let revenueChange = 0;
-            if (lastMonthRevenue > 0) {
-                revenueChange = Math.round(((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100);
-            } else if (currentMonthRevenue > 0) {
-                revenueChange = 100;
-            }
-
-            // 2. Active Student Comparison (approximate active vs 30 days ago)
-            const activeThirtyDaysAgo = studentsList.filter(s => {
-                const subs = (allSubsList as any[]).filter(sub => sub.student_id === s.id);
-                return subs.some(sub => sub.purchased_at <= thirtyDaysAgoStr && sub.expires_at >= thirtyDaysAgoStr);
-            }).length;
-            let activeChange = 0;
-            if (activeThirtyDaysAgo > 0) {
-                activeChange = Math.round(((studentsWithActiveSub - activeThirtyDaysAgo) / activeThirtyDaysAgo) * 100);
-            } else if (studentsWithActiveSub > 0) {
-                activeChange = 100;
-            }
-
-            // Attendance Rate based on total students if no active subs (monthly average)
-            let totalCheckinsMonth = 0;
-            let daysWithCheckinsMonth = 0;
-            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-
-            for (let d = 1; d <= daysInMonth; d++) {
-                try {
-                    const dDate = new Date(now.getFullYear(), now.getMonth(), d);
-                    const dStr = dDate.toISOString().split('T')[0];
-                    const key = getScopedKey(`cc_checkins_${dStr}`);
-                    const rawRecords = localStorage.getItem(key);
-                    if (rawRecords) {
-                        const recs = JSON.parse(rawRecords);
-                        if (Array.isArray(recs) && recs.length > 0) {
-                            totalCheckinsMonth += recs.length;
-                            daysWithCheckinsMonth++;
-                        }
-                    }
-                } catch (e) {
-                    console.warn(`⚠️ [Dashboard] Failed to process check-ins for day ${d}:`, e);
-                }
-            }
-            const avgDailyCheckins = daysWithCheckinsMonth > 0 ? totalCheckinsMonth / daysWithCheckinsMonth : 0;
-            const denominator = activeCount > 0 ? activeCount : (students > 0 ? students : 1);
-            const attendanceRateMonth = Math.min(100, Math.round((avgDailyCheckins / denominator) * 100));
-
-            setLiveStats({
-                totalStudents: students,
-                activeStudents: studentsWithActiveSub,
-                activeSubs: studentsWithActiveSub,
-                inactiveSubs: inactiveCount,
-                newStudents3m,
-                leftStudents3m,
-                newThisMonth,
-                churnThisMonth,
-                attendance,
-                attendanceRateMonth,
-                monthlyRevenue: monthSalesRevenue + monthSubRevenue,
-                todayRevenue: todaySalesRevenue + todaySubRevenue,
-                totalDebt,
-                expiringSoon,
-                revenueChange,
-                activeChange
-            });
-        };
-
-        refreshData();
-
-        window.addEventListener('cc_subscription_update', refreshData);
-        window.addEventListener('cc_attendance_update', refreshData);
-        window.addEventListener('cc_sale_update', refreshData);
-        window.addEventListener('cc_student_update', refreshData);
-        window.addEventListener('cc_active_branch_change', refreshData);
-        window.addEventListener('cc_data_hydrated', refreshData);
-
-        return () => {
-            window.removeEventListener('cc_subscription_update', refreshData);
-            window.removeEventListener('cc_attendance_update', refreshData);
-            window.removeEventListener('cc_sale_update', refreshData);
-            window.removeEventListener('cc_student_update', refreshData);
-            window.removeEventListener('cc_active_branch_change', refreshData);
-            window.removeEventListener('cc_data_hydrated', refreshData);
-        };
-    }, [t, settings.studioName, revenueRange]);
-
-    // Cloud Sync Monitoring
-    useEffect(() => {
-        const handlePushOk = () => { setSyncStatus('synced'); setLastSyncTime(Date.now()); };
-        const handlePushStart = () => setSyncStatus('syncing');
-        const handlePushError = () => setSyncStatus('error');
-        const handleSyncStart = () => setSyncStatus('syncing');
-        const handleSyncDone = () => { 
-            setSyncStatus('synced'); 
-            setLastSyncTime(Date.now());
-            setActivityTick(t => t + 1); // 🚀 Force refresh of schedule/activity on sync
-        };
-        const handleSyncError = () => setSyncStatus('error');
-        const handleDataHydrated = () => {
-            setActivityTick(t => t + 1); // 🚀 Force refresh on hydration
-        };
-
-        window.addEventListener('cc_sync_push_ok', handlePushOk);
-        window.addEventListener('cc_sync_push_start', handlePushStart);
-        window.addEventListener('cc_sync_push_error', handlePushError);
-        window.addEventListener('cc_sync_start', handleSyncStart);
-        window.addEventListener('cc_sync_done', handleSyncDone);
-        window.addEventListener('cc_sync_error', handleSyncError);
-        window.addEventListener('cc_data_hydrated', handleDataHydrated);
-
-        return () => {
-            window.removeEventListener('cc_sync_push_ok', handlePushOk);
-            window.removeEventListener('cc_sync_push_start', handlePushStart);
-            window.removeEventListener('cc_sync_push_error', handlePushError);
-            window.removeEventListener('cc_sync_start', handleSyncStart);
-            window.removeEventListener('cc_sync_done', handleSyncDone);
-            window.removeEventListener('cc_sync_error', handleSyncError);
-            window.removeEventListener('cc_data_hydrated', handleDataHydrated);
-        };
-    }, []);
-    const [activityTick, setActivityTick] = useState(0);
-    useEffect(() => {
-        const onAttendanceChange = () => setActivityTick(t => t + 1);
-        window.addEventListener('cc_attendance_update', onAttendanceChange);
-        return () => window.removeEventListener('cc_attendance_update', onAttendanceChange);
-    }, []);
-
-    useEffect(() => {
-        let checkins = getTodayCheckins();
-        let sales = getSales();
+    const refreshFullDashboard = useCallback(() => {
+        // 1. Refresh Stats
+        const sales = getSales();
+        let studentsList = getStudents();
+        const allSubsListRaw = Object.values(getSubscriptions()).flat();
         
-        // ROLE FILTER: Restrict data for teachers
         const isTeacher = profile?.role === 'teacher' || profile?.role === 'coach';
         const assignedIds = profile?.assigned_group_ids || [];
-
+        
         if (isTeacher) {
-            // Filter checkins by class -> group link
-            // For simplicity, we filter by student enrolled groups since checkin record doesn't always have group_id but student does
-            checkins = checkins.filter(c => {
-                // If the checkin has a class_id, we can check that class's group
-                // But most checkins here are for "Today", we can filter by assigned groups
-                return assignedIds.includes(c.groupId || '');
-            });
-            sales = sales.filter(s => s.groupId && assignedIds.includes(s.groupId));
+            studentsList = studentsList.filter(s => 
+                s.enrolled_group_ids?.some(gid => assignedIds.includes(gid))
+            );
         }
+        const allSubsList = isTeacher ? allSubsListRaw.filter(sub => assignedIds.includes(sub.group_id || '')) : allSubsListRaw;
+        const students = studentsList.length;
+        const now = new Date();
+        const currentMonth = now.toISOString().split('-').slice(0, 2).join('-');
+        let activeSubStudentIds = new Set<string>();
 
-        const allStudents = getStudents();
-        const activeIds = new Set(allStudents.map(s => s.id));
-        const activityList: any[] = [];
-
-        checkins.forEach((c: CheckinRecord) => {
-            if (!activeIds.has(c.studentId)) return;
-            const name = c.studentName || t.studentLabelGeneric;
-            let timestamp = 0;
-            try {
-                if (c.date && c.time) {
-                    const dt = new Date(`${c.date.trim()}T${c.time.trim()}`);
-                    if (!isNaN(dt.getTime())) timestamp = dt.getTime();
-                }
-            } catch (e) { }
-
-            activityList.push({
-                name: name,
-                action: 'check-in',
-                group: t.groupSession,
-                time: c.time,
-                timestamp,
-                avatar: name.split(' ').map((n: string) => n ? n[0] : '').join('').toUpperCase(),
-                color: 'from-indigo-500 to-blue-600'
-            });
+        studentsList.forEach(s => {
+            const sub = (s as any).subscription || getSubscription(s.id);
+            if (sub && sub.status === 'active') activeSubStudentIds.add(s.id);
         });
+        const studentsWithActiveSub = activeSubStudentIds.size;
+        const checkins = getTodayCheckins();
+        const attendance = checkins.length;
+        const todayStr = getLocalISODate(new Date());
 
-        sales.forEach((s: ShopSale) => {
-            if (s.studentId && !activeIds.has(s.studentId)) return;
-            const name = s.studentName || t.clientLabelGeneric;
-            const initials = name.trim().split(' ').map((n: string) => n[0] || '').join('').toUpperCase();
-            let timestamp = 0;
-            try {
-                if (s.date && s.time) {
-                    const dt = new Date(`${s.date.trim()}T${s.time.trim()}`);
-                    if (!isNaN(dt.getTime())) timestamp = dt.getTime();
-                }
-            } catch (e) { }
+        const monthSalesRevenue = sales.filter(s => s.date?.startsWith(currentMonth)).reduce((sum, s) => sum + s.price * s.quantity, 0);
+        const monthSubRevenue = allSubsList.filter(sub => sub.purchased_at?.startsWith(currentMonth)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
 
-            activityList.push({
-                name: name,
-                action: 'sale',
-                group: s.productName || t.saleActivity,
-                time: s.time || '',
-                timestamp,
-                avatar: initials || 'K',
-                color: 'from-violet-500 to-fuchsia-600'
-            });
-        });
+        setLiveStats(prev => ({
+            ...prev,
+            totalStudents: students,
+            activeStudents: studentsWithActiveSub,
+            activeSubs: studentsWithActiveSub,
+            attendance,
+            monthlyRevenue: monthSalesRevenue + monthSubRevenue,
+            todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0),
+        }));
 
-        const sorted = activityList.sort((a, b) => b.timestamp - a.timestamp).slice(0, 8);
-        setLiveActivity(sorted);
-
-        // Load All Events for MiniCalendar dots
+        // 2. Refresh Schedule & Activity
         import('@/lib/event-store').then(mod => {
-            setAllEvents(mod.getEvents());
-
-            // Load live schedule for selected date
             const dateStr = getLocalISODate(selectedDate);
-            const evByDate = mod.getEventsByDate(dateStr);
-            
-            // STRICT FILTER: Only show events if they are individual OR belong to an existing group
-            import('@/lib/group-store').then(groupMod => {
-                const existingGroups = groupMod.getGroups();
-                const validGroupIds = new Set(existingGroups.map(g => g.id));
-                
-                const events = evByDate.filter(ev => {
-                    if (isTeacher && ev.group_id && !assignedIds.includes(ev.group_id)) {
-                        return false;
-                    }
-                    if (ev.type === 'group_class' && ev.group_id) {
-                        return validGroupIds.has(ev.group_id);
-                    }
-                    return true;
-                });
-
-                const allStudents = getStudents();
-                const scheduleWithDetails = events.map(ev => {
-                    const classStudents = allStudents.filter(s => {
-                        const sClasses = (s as any).classes || s.enrolled_group_ids || [];
-                        return Array.isArray(sClasses) && sClasses.includes(ev.id);
-                    });
-                    const count = classStudents.length;
-
-                    return {
-                        ...ev,
-                        teacherName: getTeacherName(ev.teacher_id),
-                        teacherPhoto: getTeacherPhoto(ev.teacher_id),
-                        hallName: getHallName(ev.hall_id),
-                        studentCount: count
-                    };
-                });
-                setLiveSchedule(scheduleWithDetails);
-            });
-        });
-
-        // Birthday Check (Only run on real today)
-        const studentsList = getStudents();
-        const realTodayStr = new Date().toISOString().slice(5, 10); // MM-DD
-        studentsList.forEach((s: Student) => {
-            if (s.birth_date && s.birth_date.slice(5, 10) === realTodayStr) {
-                // UI Notification (with dedup to avoid repeating on every page load)
-                const notifKey = `cc_bday_notif_${s.id}_${new Date().getFullYear()}`;
-                if (!localStorage.getItem(notifKey)) {
-                    addNotification({
-                        title: t.birthdayNotification,
-                        message: t.congratulateThem.replace('{name}', s.full_name),
-                        type: 'info',
-                        time: t.now
-                    });
-                    localStorage.setItem(notifKey, 'true');
-                }
-
-                const bdayKey = `sms_bday_${s.id}_${new Date().getFullYear()}`;
-                const currentHour = new Date().getHours();
-                const isQuietHours = currentHour >= 23 || currentHour < 10;
-                const autoSmsEnabled = settings.notifications.autoSms !== false;
-
-                if (s.phone && !localStorage.getItem(bdayKey)) {
-                    if (!autoSmsEnabled || isQuietHours) return;
-
-                    let phone = (s.phone || '').replace(/[^0-9]/g, '');
-                    if (phone.length === 9) phone = '995' + phone;
-                    if (!phone) return;
-
-                    const templates = (settings?.sms_templates || {}) as any;
-                    const prefLang = s.preferred_language || 'ka';
-
-                    let bTpl = prefLang === 'ka' ? 'გილოცავთ დაბადების დღეს!' : prefLang === 'ru' ? 'С днем рождения!' : 'Happy Birthday!';
-                    if (templates[prefLang]?.birthday) {
-                        bTpl = templates[prefLang].birthday;
-                    } else if (templates.ka?.birthday) {
-                        bTpl = templates.ka.birthday;
-                    }
-
-                    const bdayMsg = parseTemplate(bTpl, s.full_name || t.studentLabelGeneric);
-                    fetch('/api/sms/send', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ to: phone, text: bdayMsg, studentName: s.full_name })
-                    }).then(res => res.json()).then(data => {
-                        if (data.success) localStorage.setItem(bdayKey, 'true');
-                    });
-                }
-            }
-        });
-
-        // ─── Multi-Stage Auto-send Expiration SMS & Inactivation ───
-        const todayObj = new Date();
-        const todayDateStr = todayObj.toISOString().split('T')[0];
-        const allSubsList = Object.values(getSubscriptions()).flat();
-
-        const subsByStudent = allSubsList.reduce((acc: Record<string, any[]>, sub) => {
-            if (!acc[sub.student_id]) acc[sub.student_id] = [];
-            acc[sub.student_id].push(sub);
-            return acc;
-        }, {});
-
-        Object.entries(subsByStudent).forEach(([studentId, subs]) => {
-            const student = studentsList.find(s => s.id === studentId);
-            if (!student || !student.phone || student.status !== 'active') return;
-
-            const hasActiveValidSub = subs.some(sub => {
-                const isActive = sub.status === 'active';
-                const hasVisits = !sub.sessions_total || (sub.sessions_total - (sub.sessions_used || 0) > 0);
-                const isNotExpiredByDate = sub.expires_at >= todayDateStr;
-                return isActive && hasVisits && isNotExpiredByDate;
+            const events = mod.getEventsByDate(dateStr).filter(ev => {
+                if (isTeacher && ev.group_id && !assignedIds.includes(ev.group_id)) return false;
+                return true;
             });
 
-            if (hasActiveValidSub) return;
-
-            const expiredSubs = subs.filter(sub => {
-                const isExpiredByDate = sub.expires_at <= todayDateStr;
-                const isOutOfVisits = sub.sessions_total && sub.sessions_total > 0 && (sub.sessions_total - (sub.sessions_used || 0)) <= 0;
-                return isExpiredByDate || isOutOfVisits || sub.status === 'expired';
-            });
-
-            if (expiredSubs.length === 0) return;
-
-            expiredSubs.sort((a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime());
-            const latestExpired = expiredSubs[0];
-
-            let diffDays = 0;
-            if (latestExpired.expires_at === todayDateStr) {
-                diffDays = 0;
-            } else {
-                const expDate = new Date(latestExpired.expires_at);
-                const diffTime = Math.abs(todayObj.setHours(0, 0, 0, 0) - expDate.setHours(0, 0, 0, 0));
-                diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            }
-
-            if (latestExpired.sessions_total && latestExpired.sessions_total > 0 && (latestExpired.sessions_total - (latestExpired.sessions_used || 0)) <= 0) {
-                diffDays = 0;
-            }
-
-            if (diffDays !== 0 && diffDays !== 10) return;
-
-            const triggerReason = `day_${diffDays}`;
-            const smsKey = `sms_sent_${latestExpired.id}_${triggerReason}`;
-
-            if (diffDays === 10) {
-                if (!localStorage.getItem(smsKey)) {
-                    localStorage.setItem(smsKey, 'true');
-                    updateStudent(studentId, { status: 'inactive' });
-                    addNotification({
-                        title: t.statusChanged,
-                        message: t.movedToInactive.replace('{name}', student.full_name),
-                        type: 'info',
-                        time: t.now
-                    });
-                }
-                return;
-            }
-
-            if (!localStorage.getItem(smsKey)) {
-                const currentHour = new Date().getHours();
-                const isQuietHours = currentHour >= 23 || currentHour < 10;
-                const autoSmsEnabled = settings.notifications.autoSms !== false;
-                if (!autoSmsEnabled || isQuietHours) return;
-
-                localStorage.setItem(smsKey, 'pending');
-
-                let phone = (student.phone || '').replace(/[^0-9]/g, '');
-                if (phone.length === 9) phone = '995' + phone;
-                if (!phone) return;
-
-                const prefLang = student.preferred_language || 'ka';
-                const templates = (settings?.sms_templates || {}) as any;
-                const isOutOfVisits = latestExpired.sessions_total && latestExpired.sessions_total > 0 && (latestExpired.sessions_total - (latestExpired.sessions_used || 0)) <= 0;
-
-                let tpl = prefLang === 'ka' ? 'თქვენი აბონემენტი ამოიწურა.' : prefLang === 'ru' ? 'Ваш абонемент истек.' : 'Your subscription has expired.';
-                
-                if (isOutOfVisits) {
-                    if (templates[prefLang]?.visitations_out) {
-                        tpl = templates[prefLang].visitations_out;
-                    } else if (templates.ka?.visitations_out) {
-                        tpl = templates.ka.visitations_out;
-                    } else if (templates[prefLang]?.expiration_day_0) {
-                        tpl = templates[prefLang].expiration_day_0;
-                    }
-                } else if (templates[prefLang]?.expiration_day_0) {
-                    tpl = templates[prefLang].expiration_day_0;
-                } else if (templates.ka?.expiration_day_0) {
-                    tpl = templates.ka.expiration_day_0;
-                }
-
-                const messageText = parseTemplate(tpl, student.full_name || t.studentLabelGeneric, latestExpired.plan_name);
-                fetch('/api/sms/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: phone, text: messageText, studentName: student.full_name })
-                }).then(res => res.json()).then(data => {
-                    if (data.success || data[0]?.success) {
-                        localStorage.setItem(smsKey, 'true');
-                        addNotification({
-                            title: t.smsSentTitle,
-                            message: t.sentReminder.replace('{name}', student.full_name).replace('{days}', String(diffDays)),
-                            type: 'success',
-                            time: t.now
-                        });
-                    }
-                });
-            }
+            const allStudents = getStudents();
+            const scheduleWithDetails = events.map(ev => ({
+                ...ev,
+                teacherName: getTeacherName(ev.teacher_id),
+                teacherPhoto: getTeacherPhoto(ev.teacher_id),
+                hallName: getHallName(ev.hall_id),
+                studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length
+            }));
+            setLiveSchedule(scheduleWithDetails);
         });
-    }, [selectedDate, settings, t, activityTick]);
+
+        // 3. Activity Refresh
+        const activityList: any[] = [];
+        checkins.forEach((c: CheckinRecord) => {
+            const name = c.studentName || t.studentLabelGeneric;
+            activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], color: 'from-indigo-500 to-blue-600' });
+        });
+        setLiveActivity(activityList.slice(0, 8));
+
+    }, [profile, selectedDate, settings.studioName, t]);
+
+    useEffect(() => {
+        refreshFullDashboard();
+        window.addEventListener('cc_subscription_update', refreshFullDashboard);
+        window.addEventListener('cc_attendance_update', refreshFullDashboard);
+        window.addEventListener('cc_sale_update', refreshFullDashboard);
+        window.addEventListener('cc_student_update', refreshFullDashboard);
+        window.addEventListener('cc_data_hydrated', refreshFullDashboard);
+        window.addEventListener('cc_sync_done', refreshFullDashboard);
+
+        return () => {
+            window.removeEventListener('cc_subscription_update', refreshFullDashboard);
+            window.removeEventListener('cc_attendance_update', refreshFullDashboard);
+            window.removeEventListener('cc_sale_update', refreshFullDashboard);
+            window.removeEventListener('cc_student_update', refreshFullDashboard);
+            window.removeEventListener('cc_data_hydrated', refreshFullDashboard);
+            window.removeEventListener('cc_sync_done', refreshFullDashboard);
+        };
+    }, [refreshFullDashboard]);
 
     // No longer using isDemo hardcoded overrides
     const isDemo = false;
