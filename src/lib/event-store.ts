@@ -109,7 +109,6 @@ export function saveEvents(events: CalendarEvent[]) {
     import('./utils').then(mod => mod.safeSetItem(getEventsKey(), JSON.stringify(events), activeSlug));
     markLocalUpdate();
     
-    const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
         // 1. Sync to settings blob (Legacy/Backup)
         pushStudioStateToCloud(activeSlug, [], { [getEventsKey()]: events });

@@ -30,12 +30,15 @@ export function getHalls(): HallData[] {
     if (typeof window === 'undefined') return INITIAL_HALLS;
     try {
         const activeSlug = getActiveSlug() || 'demo.classcore.ge';
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
         const key = getHallsKey();
         let saved = localStorage.getItem(key);
 
         if (!saved) return INITIAL_HALLS;
         const parsed = JSON.parse(saved);
         return Array.isArray(parsed) ? parsed : INITIAL_HALLS;
+        }
+        return INITIAL_HALLS;
     } catch {
         return INITIAL_HALLS;
     }
@@ -61,7 +64,6 @@ export function saveHalls(halls: HallData[]): void {
     
     triggerInstantSync();
 
-    const activeSlug = getActiveSlug();
     const settings = loadSettings(activeSlug);
     const orgId = settings.orgId;
     
