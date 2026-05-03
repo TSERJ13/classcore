@@ -137,8 +137,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${resolvedOrgId})`);
                 console.log(`💎 [StudioContext] Plan: ${finalPlan} (Master: ${updates.plan}, Blob: ${cloudSettings.plan})`);
 
-                const unwrap = (arr: any) => Array.isArray(arr) ? arr.map(i => i.data || i) : null;
-                const allDeleted = new Set((state.trash || []).map((t: any) => t.entity_id || t.id));
+                const unwrap = (arr: any) => {
+                    if (!Array.isArray(arr)) return [];
+                    return arr.map(i => i?.data || i);
+                };
+                const allDeleted = new Set((state.trash || []).map((t: any) => t?.entity_id || t?.id).filter(Boolean));
 
                 const resolveRicher = (db: any[], backup: any) => {
                     const dbArr = Array.isArray(db) ? db : [];
