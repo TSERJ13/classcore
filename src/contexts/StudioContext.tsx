@@ -289,6 +289,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         const currentSlug = profile?.studio_slug || null;
 
         if (currentUserId !== lastUserRef.current || currentSlug !== lastSlugRef.current) {
+            console.log('🚀 [ClassCore] System Initializing (v1.1.1)...');
             lastUserRef.current = currentUserId;
             lastSlugRef.current = currentSlug;
             hydrate();
