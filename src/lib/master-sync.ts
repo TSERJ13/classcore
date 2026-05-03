@@ -63,7 +63,7 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
     }
     return true;
 }
-export async function pushFullStudioMetadata(slug: string, name: string, metadata: any) {
+export async function pushFullStudioMetadata(slug: string, name: string, metadata: any, token?: string) {
     if (!slug || slug === 'demo.classcore.ge') return;
 
     const settingsObj = metadata.settings || metadata;
@@ -88,7 +88,10 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
     try {
         const res = await fetch('/api/sync/metadata', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            },
             body: JSON.stringify({
                 slug,
                 name,

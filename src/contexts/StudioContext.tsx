@@ -44,9 +44,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const { user, profile, loading: userLoading } = useUser();
     
     const [settings, setSettings] = useState<StudioSettings>(() => {
-        const base = loadSettings(defaultSlug || undefined);
+        // 🚀 FAST-PATH: Load identity as early as possible
+        const activeSlug = typeof window !== 'undefined' ? (localStorage.getItem('cc_active_studio_slug') || defaultSlug || undefined) : (defaultSlug || undefined);
+        const base = loadSettings(activeSlug);
         if (defaultStudioName && !base.studioName) base.studioName = defaultStudioName;
-        if (defaultSlug && !base.studioSlug) base.studioSlug = defaultSlug;
+        if (activeSlug && !base.studioSlug) base.studioSlug = activeSlug;
         return base;
     });
     const [isLoaded, setIsLoaded] = useState(false);
@@ -60,7 +62,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const hydrate = useCallback(async (isAuto = false) => {
         if (isHydratingRef.current && !isAuto) return;
         
-        let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug;
+        let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug || settings.studioSlug;
         
         // 🔒 AUTH CHECK: Wait for user if we don't have a slug yet
         if (userLoading && !activeSlug) return;
@@ -115,7 +117,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // 🔐 PERMANENT ORG-ID RESOLUTION (MUST HAPPEN FIRST)
                 if (resolvedOrgId && activeSlug) {
                     const orgIdOverrideKey = `cc_org_id_override_${activeSlug}`;
-                    await safeSetItem(orgIdOverrideKey, resolvedOrgId, activeSlug);
+                    // 🚀 SYNC SAVE for critical identity
+                    localStorage.setItem(orgIdOverrideKey, resolvedOrgId);
+                    localStorage.setItem('cc_active_studio_slug', activeSlug); 
                     
                     // Update Registry
                     const registryRaw = localStorage.getItem('cc_studios_list');
@@ -148,7 +152,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     console.log(`🖼️ [StudioContext] Logo preserved from Local (Cloud was empty)`);
                     // 🚀 SCORCHED EARTH v4.5: Auto-heal cloud state if logo is missing but exists locally
                     const { pushFullStudioMetadata } = await import('@/lib/master-sync');
-                    pushFullStudioMetadata(activeSlug, settings.studioName, { ...settings, logoDataUrl: localLogo });
+                    pushFullStudioMetadata(activeSlug, settings.studioName, { ...settings, logoDataUrl: localLogo }, token);
                 }
 
                 console.log(`✅ [StudioContext] Identity Resolved: ${activeSlug} (Org: ${resolvedOrgId})`);
@@ -230,13 +234,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 };
 
                 if (typeof window !== 'undefined') {
-                    await safeSetItem('cc_active_studio_slug', activeSlug || 'default', activeSlug || 'default');
-
-                    await Promise.all(Object.entries(mapping).map(async ([key, data]) => {
-                        if (data !== null && data !== undefined) {
-                            await safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
+                    // 🚀 SEQUENTIAL SAVING for mobile stability
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    
+                    if (isMobile) {
+                        for (const [key, data] of Object.entries(mapping)) {
+                            if (data !== null && data !== undefined) {
+                                await safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
+                            }
                         }
-                    }));
+                    } else {
+                        await Promise.all(Object.entries(mapping).map(async ([key, data]) => {
+                            if (data !== null && data !== undefined) {
+                                await safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
+                            }
+                        }));
+                    }
 
                     // Attendance mapping
                     const groupedAtt: Record<string, any[]> = {};

@@ -374,12 +374,21 @@ let isCleaning = false;
 export async function safeSetItem(key: string, value: string, activeSlug?: string) {
     if (typeof window === 'undefined') return;
     
+    // 🚀 FAST-PATH: If the value is small, try sync write first
+    if (value.length < 50000) { // < 50KB
+        try {
+            localStorage.setItem(key, value);
+            return;
+        } catch (e) {
+            // If even small write fails, fall through to emergency cleanup
+        }
+    }
+
     try {
         localStorage.setItem(key, value);
     } catch (err: any) {
         if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) {
             if (isCleaning) {
-                // If already cleaning, just wait and try one last time
                 await new Promise(r => setTimeout(r, 500));
                 try { localStorage.setItem(key, value); return; } catch { return; }
             }
@@ -444,15 +453,20 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
                 try {
                     localStorage.setItem(key, thinnedValue);
                 } catch (retryErr) {
-                    console.warn('☢️ [Storage] Secondary Failure. Initiating NUCLEAR WIPE...');
+                    console.warn('☢️ [Storage] Secondary Failure. Initiating SAFE NUCLEAR WIPE...');
+                    
+                    // 🛡️ SCORCHED EARTH v5.0: ONLY touch our own cache keys. 
+                    // NEVER touch Supabase or other system keys.
                     keys.forEach(k => {
-                        const isEssential = k.startsWith('sb-') || 
-                                          k.includes('supabase') || 
-                                          k.includes('auth') ||
-                                          k.includes('cc_staff_session') || 
-                                          k.includes('cc_active_slug') || 
-                                          k.includes('cc_org_id_override');
-                        if (!isEssential) localStorage.removeItem(k);
+                        const isSafeToWipe = k.startsWith('cc_') && 
+                                           !k.includes('cc_staff_session') && 
+                                           !k.includes('cc_active_slug') && 
+                                           !k.includes('cc_org_id_override') &&
+                                           !k.includes('cc_auth');
+                                           
+                        if (isSafeToWipe) {
+                            localStorage.removeItem(k);
+                        }
                     });
                     
                     try {
