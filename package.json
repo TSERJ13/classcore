@@ -1,7 +1,7 @@
 {
   "name": "classcore.ge",
-  "version": "1.1.12",
-  "trigger": 26,
+  "version": "1.1.13",
+  "trigger": 27,
   "private": true,
   "scripts": {
     "dev": "next dev",

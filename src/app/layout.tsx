@@ -35,7 +35,7 @@ export const viewport: Viewport = {
 
 
 
-import { UserProvider } from '@/hooks/useUser';
+import { RootLayoutClient } from '@/components/layout/RootLayoutClient';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     const cookieStore = cookies();
@@ -44,39 +44,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     const studioNameRaw = cookieStore.get('cc_studio_name')?.value || '';
     const studioName = decodeURIComponent(studioNameRaw);
 
-    return <RootLayoutClient activeLang={activeLang} activeSlug={activeSlug} studioName={studioName}>{children}</RootLayoutClient>;
-}
-
-function RootLayoutClient({ children, activeLang, activeSlug, studioName }: any) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
-
     return (
-        <html lang={activeLang || 'ka'} suppressHydrationWarning>
-            <head>
-                <link rel="apple-touch-icon" href="/logo.svg" />
-            </head>
-            <body className="min-h-screen bg-base antialiased font-sans" suppressHydrationWarning>
-                {mounted ? (
-                    <CacheBuster>
-                        <UserProvider>
-                            <LanguageProvider defaultLang={activeLang}>
-                                <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
-                                    <ConfirmProvider>
-                                        <GlobalErrorBoundary>
-                                            {children}
-                                        </GlobalErrorBoundary>
-                                    </ConfirmProvider>
-                                </StudioProvider>
-                            </LanguageProvider>
-                        </UserProvider>
-                    </CacheBuster>
-                ) : (
-                    <div className="fixed inset-0 bg-base flex items-center justify-center">
-                        <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-                    </div>
-                )}
-            </body>
-        </html>
+        <RootLayoutClient 
+            activeLang={activeLang} 
+            activeSlug={activeSlug} 
+            studioName={studioName}
+        >
+            {children}
+        </RootLayoutClient>
     );
 }
