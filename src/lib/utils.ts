@@ -344,52 +344,49 @@ export function safeSetItem(key: string, value: string, activeSlug?: string) {
         if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) {
             console.warn('⚠️ [Storage] Quota Exceeded! Starting emergency cleanup...');
             
-            const registryRaw = localStorage.getItem(REGISTRY_KEY);
             const currentSlug = activeSlug || getActiveSlug();
+            const keys = Object.keys(localStorage);
+            let clearedCount = 0;
+
+            // 1. Target Inactive Data (Scan all keys for slug/orgId mismatches)
+            const activeOrgId = currentSlug ? (localStorage.getItem(`cc_org_id_override_${currentSlug}`) || null) : null;
             
-            if (registryRaw && currentSlug) {
-                try {
-                    const list = JSON.parse(registryRaw);
-                    if (Array.isArray(list)) {
-                        let clearedCount = 0;
-                        const keys = Object.keys(localStorage);
-                        
-                        // Nuclear Cleanup: Remove everything that belongs to OTHER studios
-                        list.forEach(slug => {
-                            if (slug === currentSlug || slug === 'demo.classcore.ge') return;
-                            
-                            keys.forEach(k => {
-                                if (k.includes(`_${slug}`) || k.includes(`${slug}_`) || k.includes(`:${slug}`)) {
-                                    localStorage.removeItem(k);
-                                    clearedCount++;
-                                }
-                            });
-                        });
-                        
-                        console.log(`🧹 [Storage] Emergency cleanup complete. Removed ${clearedCount} keys.`);
-                        
-                        // Retry the original operation
-                        try {
-                            localStorage.setItem(key, value);
-                            return;
-                        } catch (retryErr) {
-                            console.error('❌ [Storage] Retry failed even after cleanup.');
-                        }
-                    }
-                } catch (e) {
-                    console.error('❌ [Storage] Cleanup failed:', e);
+            keys.forEach(k => {
+                // Preserve Auth & Identity
+                const isAuth = k.startsWith('sb-') || k.includes('cc_staff_session') || k.includes('cc_active_slug') || k.includes('cc_auth_token');
+                if (isAuth) return;
+
+                // Check if key belongs to active studio
+                const isCurrent = currentSlug && (k.includes(currentSlug) || (activeOrgId && k.includes(activeOrgId)));
+                
+                if (!isCurrent && k.startsWith('cc_')) {
+                    localStorage.removeItem(k);
+                    clearedCount++;
                 }
-            }
+            });
+
+            console.log(`🧹 [Storage] Emergency cleanup complete. Removed ${clearedCount} inactive keys.`);
             
-            // Final Fallback: Clear Trash and History for current studio
-            if (currentSlug) {
-                localStorage.removeItem(getScopedKey('cc_global_trash', currentSlug));
-                localStorage.removeItem(getScopedKey('cc_global_history', currentSlug));
-                localStorage.removeItem(getScopedKey('cc_trash', currentSlug));
+            // Retry
+            try {
+                localStorage.setItem(key, value);
+                return;
+            } catch (retryErr) {
+                console.warn('☢️ [Storage] Secondary Failure. Initiating NUCLEAR WIPE...');
+                
+                // 2. Nuclear Wipe: Remove EVERYTHING except absolute essentials
+                keys.forEach(k => {
+                    const isEssential = k.startsWith('sb-') || k.includes('cc_staff_session') || k.includes('cc_active_slug');
+                    if (!isEssential) {
+                        localStorage.removeItem(k);
+                    }
+                });
+                
                 try {
                     localStorage.setItem(key, value);
-                } catch (e) {
-                    console.error('💀 [Storage] Total Storage Failure.');
+                    console.log('✅ [Storage] Nuclear recovery successful.');
+                } catch (finalErr) {
+                    console.error('💀 [Storage] UNRECOVERABLE STORAGE FAILURE.');
                 }
             }
         }
