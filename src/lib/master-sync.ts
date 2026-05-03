@@ -136,6 +136,14 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
                 delete row.type;
                 delete row.color;
                 delete row.data;
+
+                // 🕒 TIME TRANSFORMATION: Convert HH:mm to full ISO timestamp
+                if (typeof row.start_time === 'string' && row.start_time.includes(':') && row.start_time.length <= 5) {
+                    row.start_time = `2024-01-01T${row.start_time}:00Z`;
+                }
+                if (typeof row.end_time === 'string' && row.end_time.includes(':') && row.end_time.length <= 5) {
+                    row.end_time = `2024-01-01T${row.end_time}:00Z`;
+                }
             } else if (table === 'halls') {
                 delete row.photo_url;
                 row.data = item;
