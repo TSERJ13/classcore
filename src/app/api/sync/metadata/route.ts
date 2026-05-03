@@ -66,9 +66,7 @@ export async function POST(req: Request) {
             logo_url: masterLogoUrl,
             org_id: orgIdToUse,
             owner_info: settings.owner_info || undefined, // Mirror owner info to master table
-            settings: discoverySettings,
-            plan: settings.plan || 'trial', // 🔥 Explicitly sync plan to master table
-            updated_at: new Date().toISOString()
+            settings: discoverySettings
         }, { onConflict: 'studio_slug' });
 
         if (masterRes.error) console.error('❌ [SyncAPI] Master Upsert Error:', masterRes.error.message);
