@@ -62,7 +62,7 @@ export default function StudentPortalPage() {
                 const local = loadSettings(studio);
                 if (local.studioName === DEFAULT_SETTINGS.studioName && local.studioSlug !== studio) {
                     // Try cloud
-                    const cloudData = await fetchFullStudioState(studio);
+                    const cloudData = await fetchFullStudioState(studio, undefined, undefined, true);
                     const cloud = cloudData?.settingsRecord?.settings || cloudData?.studio?.settings;
                     if (cloud) {
                         // Hydrate settings
@@ -106,7 +106,7 @@ export default function StudentPortalPage() {
 
                 if (!student) {
                     // CRITICAL: Force cloud fetch if student is not found locally
-                    const cloudData = await fetchFullStudioState(studio);
+                    const cloudData = await fetchFullStudioState(studio, undefined, undefined, true);
                     if (cloudData) {
                         console.log('☁️ [StudentPortal] Hydrating from cloud database');
                         // Search for the specific student in ALL student data keys
