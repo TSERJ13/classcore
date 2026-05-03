@@ -132,6 +132,7 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
                 delete row.recurring;
                 delete row.reminder_30m;
                 delete row.notes;
+                delete row.secondary_teacher_id;
             } else {
                 row.data = item; // Parity with unwrap for other collections
             }

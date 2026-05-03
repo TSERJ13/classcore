@@ -110,7 +110,7 @@ export async function pushStudioStateToCloud(slug: string, staff: any[], data: a
             .from('studio_settings')
             .upsert({
                 org_id: orgId,
-                settings: data,
+                staff_data: data,
                 staff_emails: staffEmails,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'org_id' });
