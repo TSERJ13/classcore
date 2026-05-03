@@ -145,7 +145,12 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
                     row.end_time = `2024-01-01T${row.end_time}:00Z`;
                 }
             } else if (table === 'halls') {
+                // 🛡️ SCHEMA PROTECTION: Strip columns not in production DB to prevent upsert failure
                 delete row.photo_url;
+                delete row.sq_meters;
+                delete row.color;
+                delete row.is_active;
+                delete row.description;
                 row.data = item;
             } else if (table === 'staff') {
                 delete row.photo_url;

@@ -65,25 +65,10 @@ export function saveHalls(halls: HallData[]): void {
     const orgId = settings.orgId;
     
     if (orgId && orgId !== 'demo') {
-        // 1. Full record sync
-        halls.forEach(hall => {
-            syncRecordToCloud('halls', {
-                id: hall.id,
-                org_id: orgId,
-                name: hall.name,
-                color: hall.color,
-                capacity: hall.capacity,
-                description: hall.description,
-                sq_meters: hall.sq_meters,
-                photo_url: hall.photo_url,
-                is_active: hall.is_active
-            }, orgId).catch(() => {});
-        });
-
-        // 2. 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
+        // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
         const updatedSettings = { ...settings, halls: halls };
         import('./settings-store').then(({ saveSettings }) => {
-            saveSettings(updatedSettings, settings, activeSlug);
+            saveSettings({ halls: halls } as any, settings, activeSlug);
             import('./master-sync').then(({ pushFullStudioMetadata }) => {
                 const studioName = settings.studioName || 'Studio';
                 pushFullStudioMetadata(activeSlug, studioName, updatedSettings);
