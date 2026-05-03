@@ -102,8 +102,8 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                     ClassCore Studio OS
                 </p>
             </div>
-
-            <style jsx global>{`
+            
+            <style dangerouslySetInnerHTML={{ __html: `
                 @keyframes shimmer {
                     0% { background-position: 100% 0; }
                     100% { background-position: -100% 0; }
@@ -111,7 +111,7 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                 .animate-shimmer {
                     animation: shimmer 3s linear infinite;
                 }
-            `}</style>
+            `}} />
         </div>
     );
 };

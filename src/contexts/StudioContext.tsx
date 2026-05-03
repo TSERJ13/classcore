@@ -56,7 +56,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const [activeBranchId, setActiveBranchId] = useState('main');
 
     const lastSyncedSlugRef = useRef<string | null>(null);
+    const isHydratingRef = useRef(false);
     const hydrate = useCallback(async (isAuto = false) => {
+        if (isHydratingRef.current && !isAuto) return;
+        
         let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug;
         
         // 🔒 AUTH CHECK: Wait for user if we don't have a slug yet
@@ -79,7 +82,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         }
 
         try {
-            if (!isAuto) setIsSyncing(true);
+            if (!isAuto) {
+                setIsSyncing(true);
+                isHydratingRef.current = true;
+            }
             const { createClient } = await import("@/lib/supabase/client");
             const sb = createClient();
             const { data: { session } } = await sb.auth.getSession();
@@ -253,13 +259,28 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             console.error('❌ [StudioContext] Hydration failed:', err);
         } finally {
             setIsSyncing(false);
+            isHydratingRef.current = false;
             setFirstSyncDone(true);
             setIsLoaded(true);
         }
-    }, [profile, user, defaultSlug, userLoading]);
+    }, [defaultSlug, userLoading]);
+
+    // 🚀 Targeted Hydration Trigger
+    const lastUserRef = useRef<string | null>(null);
+    const lastSlugRef = useRef<string | null>(null);
 
     useEffect(() => {
-        hydrate();
+        const currentUserId = user?.id || null;
+        const currentSlug = profile?.studio_slug || null;
+
+        if (currentUserId !== lastUserRef.current || currentSlug !== lastSlugRef.current) {
+            lastUserRef.current = currentUserId;
+            lastSlugRef.current = currentSlug;
+            hydrate();
+        }
+    }, [user?.id, profile?.studio_slug, hydrate]);
+
+    useEffect(() => {
         const interval = setInterval(() => hydrate(true), 300000);
         return () => clearInterval(interval);
     }, [hydrate]);
