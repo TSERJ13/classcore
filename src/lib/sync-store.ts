@@ -110,10 +110,11 @@ export async function pushStudioStateToCloud(slug: string, staff: any[], data: a
             .from('studio_settings')
             .upsert({
                 org_id: orgId,
+                studio_slug: slug,
                 staff_data: data,
                 staff_emails: staffEmails,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'org_id' });
+            }, { onConflict: 'studio_slug' });
 
         if (error) {
             console.error('❌ [Sync] State push failed:', error.message);

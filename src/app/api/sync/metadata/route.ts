@@ -72,22 +72,12 @@ export async function POST(req: Request) {
         if (masterRes.error) console.error('❌ [SyncAPI] Master Upsert Error:', masterRes.error.message);
 
         // 2. Update Studio Settings (Full Recovery Blob)
-        // 🚀 Use Robust Check-then-Update to bypass constraint issues
-        const { data: existingSettings } = await supabaseAdmin.from('studio_settings').select('id').eq('org_id', orgIdToUse).maybeSingle();
-        
-        let settingsRes;
-        if (existingSettings?.id) {
-            settingsRes = await supabaseAdmin.from('studio_settings').update({
-                staff_data: settings,
-                updated_at: new Date().toISOString()
-            }).eq('id', existingSettings.id);
-        } else {
-            settingsRes = await supabaseAdmin.from('studio_settings').insert({
-                org_id: orgIdToUse,
-                staff_data: settings,
-                updated_at: new Date().toISOString()
-            });
-        }
+        const settingsRes = await supabaseAdmin.from('studio_settings').upsert({
+            org_id: orgIdToUse,
+            studio_slug: slug,
+            staff_data: settings,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'studio_slug' });
 
         if (settingsRes.error) console.error('❌ [SyncAPI] Settings Save Error:', settingsRes.error.message);
 
