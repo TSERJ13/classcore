@@ -9,6 +9,22 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
     const { lang } = useT();
     const [showContent, setShowContent] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [localLogo, setLocalLogo] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && !settings?.logoDataUrl) {
+            const slug = localStorage.getItem('cc_active_studio_slug');
+            if (slug) {
+                const s = localStorage.getItem(`cc_studio_settings_${slug}`);
+                if (s) {
+                    try {
+                        const parsed = JSON.parse(s);
+                        if (parsed.logoDataUrl) setLocalLogo(parsed.logoDataUrl);
+                    } catch(e) {}
+                }
+            }
+        }
+    }, [settings?.logoDataUrl]);
 
     useEffect(() => {
         if (isLoaded) {
@@ -47,7 +63,7 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                         size={120} 
                         radar 
                         loading 
-                        src={settings?.logoDataUrl}
+                        src={settings?.logoDataUrl || localLogo}
                         className="relative z-10 drop-shadow-2xl transition-transform duration-700" 
                     />
                 </div>

@@ -199,25 +199,29 @@ export function getActiveSlug(): string | null {
  * Priority: Override > Settings(OrgId) > Slug
  * Note: Only branch-specific collections append the branch ID.
  */
+export function getEffectiveOrgId(slug?: string): string | null {
+    const finalSlug = slug || getActiveSlug();
+    if (!finalSlug) return null;
+    if (typeof window === 'undefined') return null;
+
+    const override = localStorage.getItem(`cc_org_id_override_${finalSlug}`);
+    if (override) return override;
+
+    const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
+    if (raw) {
+        try {
+            const settings = JSON.parse(raw);
+            if (settings?.orgId) return settings.orgId;
+        } catch {}
+    }
+    return null;
+}
+
 export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;
 
-    let scopeId = finalSlug;
-    if (typeof window !== 'undefined') {
-        const override = localStorage.getItem(`cc_org_id_override_${finalSlug}`);
-        if (override) {
-            scopeId = override;
-        } else {
-            const raw = localStorage.getItem(`${STORAGE_KEY}_${finalSlug}`);
-            if (raw) {
-                try {
-                    const settings = JSON.parse(raw);
-                    if (settings?.orgId) scopeId = settings.orgId;
-                } catch {}
-            }
-        }
-    }
+    let scopeId = getEffectiveOrgId(finalSlug) || finalSlug;
 
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
@@ -336,10 +340,10 @@ export function clearGlobalDeletion(slug: string, collection: string, id: string
  * 🖼️ IMAGE COMPRESSION v1.1
  * Compresses base64 images to ~80-100KB for localStorage storage.
  */
-async function compressBase64(base64: string, maxWidth = 800, quality = 0.6): Promise<string> {
+async function compressBase64(base64: string, maxWidth = 600, quality = 0.5): Promise<string> {
     if (typeof window === 'undefined' || !base64.startsWith('data:image')) return base64;
-    // If already small enough (~150KB), don't touch
-    if (base64.length < 200000) return base64; 
+    // Target ~80-100KB: If > 120KB, compress
+    if (base64.length < 120000) return base64; 
 
     return new Promise((resolve) => {
         const img = new Image();

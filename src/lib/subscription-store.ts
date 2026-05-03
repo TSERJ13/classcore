@@ -237,11 +237,11 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     markLocalUpdate();
     
     // 🔥 NEW ATOMIC SYNC: Push this specific subscription to the native table
-    const activeSlug = getActiveSlug();
-    const settings = loadSettings(activeSlug || '');
-    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    const activeSlug = getActiveSlug() || '';
+    const orgId = getEffectiveOrgId(activeSlug);
     
     if (orgId && orgId !== 'demo') {
+        const settings = loadSettings(activeSlug);
         const payload = {
             id: info.id || `sub_${Date.now()}`,
             org_id: orgId,
@@ -401,22 +401,22 @@ export function deleteSubscription(studentId: string, subId: string): void {
     }
 
     // 🔥 ATOMIC DELETION
-    const settings = auditSettings; // Reuse settings
-    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    const finalOrgId = getEffectiveOrgId(activeSlug || '');
 
-    if (orgId && orgId !== 'demo') {
+    if (finalOrgId && finalOrgId !== 'demo') {
+        const settings = loadSettings(activeSlug || '');
         // 1. Permanent Deletion from Table
-        deleteRecordFromCloud('subscriptions', subId, orgId).catch(() => {});
+        deleteRecordFromCloud('subscriptions', subId, finalOrgId).catch(() => {});
 
         // 2. Add to Cloud Trash (Prevent Resurrection)
         syncRecordToCloud('trash', {
             id: `del_${Date.now()}_${subId}`,
             entity_id: subId,
             entity_type: 'cc_student_subscriptions',
-            org_id: orgId,
-            name: `${studentName || 'Student'} - ${sub.plan_name || 'Plan'}`,
+            org_id: finalOrgId,
+            name: `${studentName || 'Student'} - ${sub.plan || 'Plan'}`,
             data: { ...sub, name: studentName, fullName: studentName } // Ensure UI can find a name
-        }, orgId).catch(() => {});
+        }, finalOrgId).catch(() => {});
 
         // 3. Update recovery settings blob
         const updatedSubs = Object.values(data).flat();

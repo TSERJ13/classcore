@@ -1,4 +1,4 @@
-import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate, recordGlobalDeletion, clearGlobalDeletion } from './utils';
+import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate, recordGlobalDeletion, clearGlobalDeletion, getEffectiveOrgId } from './utils';
 import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-store';
 import { triggerInstantSync } from './sync-store';
 import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
@@ -214,9 +214,7 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
         console.log('✅ [StudentStore] Local storage updated for:', studentId);
         
         // 🔥 NEW ATOMIC SYNC: Push this student directly to the native table
-        const settings = loadSettings(activeSlug || '');
-        const overrideOrgId = typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) : null;
-        const finalOrgId = settings.orgId || overrideOrgId;
+        const finalOrgId = getEffectiveOrgId(activeSlug || '');
 
         if (finalOrgId) {
             const studentToSync = patches[studentId];
@@ -231,7 +229,7 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
                 phone: studentToSync.phone || '',
                 email: studentToSync.email || '',
                 data: studentToSync
-            }, settings.orgId).then(success => {
+            }, finalOrgId).then(success => {
                 if (success) console.log('🟢 [StudentStore] Cloud Sync SUCCESS');
                 else console.error('🔴 [StudentStore] Cloud Sync FAILED (Check network/permissions)');
             });
@@ -256,12 +254,13 @@ export function deleteStudent(studentId: string): void {
 
     const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
     if (slug !== 'demo') {
+        const finalOrgId = getEffectiveOrgId(slug);
         const settings = loadSettings(slug);
         const branchName = settings.branches.find(b => b.id === (settings.activeBranchId || 'main'))?.name || 'Main';
         const session = typeof window !== 'undefined' ? getStaffSession() : null;
 
-        if (settings.orgId) {
-            deleteRecordFromCloud('students', studentId, settings.orgId);
+        if (finalOrgId) {
+            deleteRecordFromCloud('students', studentId, finalOrgId);
         }
         
         const student = getStudents().find(s => s.id === studentId);

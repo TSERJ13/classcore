@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { SupportChat } from '@/components/support/SupportChat';
 import {
@@ -8,12 +8,12 @@ import {
     ArrowRight, ShieldCheck, Heart,
     MessageSquare, Smartphone, Clock,
     QrCode, Copy, Check, Info, CalendarDays,
-    Send, ChevronRight, Download,
+    Send, ChevronRight, Download, Users,
     ExternalLink, BellOff, BellRing,
-    CircleUser, AlertCircle, ShoppingBag, Tag
+    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2
 } from 'lucide-react';
 const UserIcon = User;
-import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
+import { cn, getLocalISODate, formatCurrency, getScopedKey } from '@/lib/utils';
 import Link from 'next/link';
 import { getSubscription, renewSubscription, getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { useT } from '@/contexts/LanguageContext';
@@ -163,6 +163,7 @@ export default function StudentPortalPage() {
                                 const scopedSettingsKey = getScopedKey('cc_settings', studio);
                                 localStorage.setItem(scopedSettingsKey, JSON.stringify(cloudSettings));
                             }
+                        }
                     }
                 }
 
@@ -275,14 +276,15 @@ export default function StudentPortalPage() {
         if (!studentId || !studio) return;
         setIsSyncingChat(true);
         try {
+            const channelId = selectedChatId === 'studio' ? studentId : selectedChatId;
             // 1. Fetch from cloud
-            const res = await fetch(`/api/public/chat?studio=${studio}&studentId=${studentId}`);
+            const res = await fetch(`/api/public/chat?studio=${studio}&studentId=${channelId}`);
             if (res.ok) {
                 const data = await res.json();
                 const cloudMessages = data.messages || [];
                 
                 // 2. Load from local (for optimistic updates or if offline)
-                const localKey = getScopedKey(`chat_${studentId}`, studio);
+                const localKey = getScopedKey(`chat_${channelId}`, studio);
                 const localSaved = JSON.parse(localStorage.getItem(localKey) || '[]');
                 
                 // 3. Merge (Cloud wins, unless we have a forcePush)
@@ -298,13 +300,21 @@ export default function StudentPortalPage() {
         }
     };
 
+    useEffect(() => {
+        if (activeTab === 'chat') {
+            syncChat();
+        }
+    }, [activeTab, selectedChatId]);
+
     const handleSendMessage = async () => {
         if (!chatInput.trim() || !studentId || !studio) return;
+        const channelId = selectedChatId === 'studio' ? studentId : selectedChatId;
 
         const newMsg = {
             id: Date.now().toString(),
             text: chatInput,
             sender: 'student',
+            sender_name: studentData?.full_name || 'Student',
             timestamp: new Date().toISOString(),
             read: false
         };
@@ -314,7 +324,7 @@ export default function StudentPortalPage() {
         setChatInput('');
 
         // Optimistic Save
-        const localKey = getScopedKey(`chat_${studentId}`, studio);
+        const localKey = getScopedKey(`chat_${channelId}`, studio);
         localStorage.setItem(localKey, JSON.stringify(updatedMessages));
 
         // Sync to cloud
@@ -322,18 +332,13 @@ export default function StudentPortalPage() {
             await fetch('/api/public/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studio, studentId, messages: updatedMessages })
+                body: JSON.stringify({ studio, studentId: channelId, messages: updatedMessages })
             });
         } catch (err) {
             console.error('Failed to sync message to cloud:', err);
         }
     };
 
-    useEffect(() => {
-        if (activeTab === 'chat') {
-            syncChat();
-        }
-    }, [activeTab]);
 
     useEffect(() => {
         if (chatScrollRef.current) {
@@ -519,8 +524,8 @@ export default function StudentPortalPage() {
         );
     }
 
-    try {
-        const isExpiring = sub ? new Date(sub.expires_at).getTime() < new Date().getTime() + (7 * 24 * 60 * 60 * 1000) : false;
+
+    const isExpiring = sub ? new Date(sub.expires_at).getTime() < new Date().getTime() + (7 * 24 * 60 * 60 * 1000) : false;
         const remaining = sub?.sessions_total ? sub.sessions_total - sub.sessions_used : null;
 
         const initials = studentData.full_name
@@ -1232,26 +1237,43 @@ export default function StudentPortalPage() {
                                     <button
                                         onClick={() => setSelectedChatId('studio')}
                                         className={cn(
-                                            "px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all",
+                                            "px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2",
                                             selectedChatId === 'studio' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-surface text-muted hover:text-primary"
                                         )}
                                     >
+                                        <ShieldCheck className="w-3 h-3" />
                                         {t.administration}
                                     </button>
                                     {studentData.enrolled_group_ids.map(gid => {
                                         const group = (groups || []).find((g: any) => g.id === gid);
                                         if (!group) return null;
+                                        const teacher = teachers.find(t => t.id === group.teacher_id);
+                                        
                                         return (
-                                            <button
-                                                key={gid}
-                                                onClick={() => setSelectedChatId(gid)}
-                                                className={cn(
-                                                    "px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all",
-                                                    selectedChatId === gid ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-surface text-muted hover:text-primary"
+                                            <React.Fragment key={gid}>
+                                                <button
+                                                    onClick={() => setSelectedChatId(gid)}
+                                                    className={cn(
+                                                        "px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2",
+                                                        selectedChatId === gid ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-surface text-muted hover:text-primary"
+                                                    )}
+                                                >
+                                                    <Users className="w-3 h-3" />
+                                                    {group.name}
+                                                </button>
+                                                {teacher && (
+                                                    <button
+                                                        onClick={() => setSelectedChatId(`teach_${teacher.id}`)}
+                                                        className={cn(
+                                                            "px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2",
+                                                            selectedChatId === `teach_${teacher.id}` ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-surface text-muted hover:text-primary"
+                                                        )}
+                                                    >
+                                                        <UserIcon className="w-3 h-3" />
+                                                        {teacher.full_name}
+                                                    </button>
                                                 )}
-                                            >
-                                                {group.name}
-                                            </button>
+                                            </React.Fragment>
                                         );
                                     })}
                                 </div>
@@ -1328,30 +1350,4 @@ export default function StudentPortalPage() {
                 <SupportChat />
             </div>
         );
-    } catch (err) {
-        return (
-            <div className="min-h-screen bg-card flex flex-col items-center justify-center p-6 text-center space-y-6">
-                <div className="w-20 h-20 bg-rose-500/10 rounded-[2rem] flex items-center justify-center text-rose-500 shadow-xl shadow-rose-500/5">
-                    <AlertCircle className="w-10 h-10" />
-                </div>
-                <div className="space-y-2">
-                    <h1 className="text-xl font-black text-primary tracking-tight">{t.portalError}</h1>
-                    <p className="text-[11px] text-muted font-medium opacity-60 max-w-[200px] mx-auto">
-                        {t.errorApology}
-                    </p>
-                </div>
-                <div className="p-4 bg-rose-500/5 rounded-2xl border border-rose-500/10 max-w-xs overflow-auto">
-                    <p className="text-[10px] font-mono text-rose-500/70 text-left whitespace-pre-wrap">
-                        {String(err)}
-                    </p>
-                </div>
-                <button
-                    onClick={() => window.location.reload()}
-                    className="px-6 py-3 bg-indigo-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all"
-                >
-                    {t.refreshPage}
-                </button>
-            </div>
-        );
-    }
 }

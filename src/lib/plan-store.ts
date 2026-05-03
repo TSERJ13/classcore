@@ -19,7 +19,7 @@ export interface Plan {
     is_active: boolean;
 }
 
-import { getScopedKey, markLocalUpdate, getActiveSlug } from './utils';
+import { getScopedKey, markLocalUpdate, getActiveSlug, getEffectiveOrgId } from './utils';
 import { loadSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud } from './master-sync';
@@ -54,7 +54,7 @@ export async function savePlans(plans: Plan[]): Promise<void> {
     
     // 🔥 ATOMIC SYNC: Push ALL plan fields to the cloud
     const settings = loadSettings(activeSlug);
-    const orgId = settings.orgId;
+    const orgId = getEffectiveOrgId(activeSlug);
     
     if (orgId && orgId !== 'demo') {
         // 1. Individual record sync (for reporting/analytics)
@@ -103,7 +103,7 @@ export async function deletePlan(id: string): Promise<void> {
 
     const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
-    const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+    const orgId = getEffectiveOrgId(activeSlug);
     
     if (orgId && orgId !== 'demo') {
         import('./master-sync').then(({ deleteRecordFromCloud }) => {

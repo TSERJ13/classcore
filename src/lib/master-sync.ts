@@ -124,36 +124,22 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
         const chunk = items.slice(i, i + chunkSize).map(item => {
             const row: any = {
                 ...item,
-                org_id: orgId
+                org_id: orgId,
+                data: item // 🔥 ALWAYS PRESERVE FULL DATA BLOB FOR HYDRATION PARITY
             };
             
-            // 🛡️ SCHEMA PROTECTION: Strip columns not yet present in production DB
+            // 🕒 TIME TRANSFORMATION for calendar_events (Legacy DB Support)
             if (table === 'calendar_events') {
-                delete row.date;
-                delete row.recurring;
-                delete row.reminder_30m;
-                delete row.notes;
-                delete row.secondary_teacher_id;
-                delete row.teacher_id;
-                delete row.hall_id;
-                delete row.type;
-                delete row.color;
-                delete row.data;
-
-                // 🕒 TIME TRANSFORMATION: Convert HH:mm to full ISO timestamp
                 if (typeof row.start_time === 'string' && row.start_time.includes(':') && row.start_time.length <= 5) {
                     row.start_time = `2024-01-01T${row.start_time}:00Z`;
                 }
                 if (typeof row.end_time === 'string' && row.end_time.includes(':') && row.end_time.length <= 5) {
                     row.end_time = `2024-01-01T${row.end_time}:00Z`;
                 }
-            } else if (table === 'halls') {
-                // 🚀 FULL SCHEMA SYNC: No more stripping
-            } else if (table === 'staff') {
+            }
+            
+            if (table === 'staff') {
                 delete row.photo_url;
-                row.data = item;
-            } else {
-                row.data = item; // Parity with unwrap for other collections
             }
             
             return row;

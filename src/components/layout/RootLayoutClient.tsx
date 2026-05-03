@@ -35,12 +35,40 @@ export function RootLayoutClient({ children, activeLang, activeSlug, studioName 
                     </>
                 ) : (
                     <div className="fixed inset-0 bg-white flex flex-col items-center justify-center">
-                        <div className="flex items-center gap-4 animate-pulse">
-                            <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center">
-                                <div className="w-5 h-5 border-2 border-white rounded-full" />
+                        <div className="flex flex-col items-center gap-12 animate-pulse">
+                            {/* 🔥 PRE-HYDRATION BRANDING: Show Studio Logo if cached */}
+                            {(() => {
+                                if (typeof window === 'undefined') return null;
+                                const slug = activeSlug || localStorage.getItem('cc_active_studio_slug');
+                                if (!slug) return null;
+                                const settingsRaw = localStorage.getItem(`cc_studio_settings_${slug}`);
+                                if (settingsRaw) {
+                                    try {
+                                        const settings = JSON.parse(settingsRaw);
+                                        const logo = settings.logoDataUrl;
+                                        if (logo) {
+                                            return (
+                                                <div className="relative">
+                                                    <img src={logo} className="w-24 h-24 object-contain drop-shadow-xl" alt="Studio Logo" />
+                                                    <div className="absolute inset-0 bg-white/40 mix-blend-overlay animate-pulse rounded-full" />
+                                                </div>
+                                            );
+                                        }
+                                    } catch(e) {}
+                                }
+                                return null;
+                            })() || (
+                                <div className="w-16 h-16 bg-indigo-500 rounded-[2rem] flex items-center justify-center shadow-xl shadow-indigo-500/20">
+                                    <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                                </div>
+                            )}
+                            
+                            <div className="flex items-center gap-4">
+                                <div className="h-6 w-[1px] bg-slate-200" />
+                                <span className="text-[10px] font-black text-slate-300 tracking-[0.4em] uppercase">
+                                    {studioName || 'ClassCore'}
+                                </span>
                             </div>
-                            <div className="h-6 w-[1px] bg-slate-200" />
-                            <span className="text-xs font-black text-slate-400 tracking-[0.3em] uppercase">ClassCore</span>
                         </div>
                     </div>
                 )}

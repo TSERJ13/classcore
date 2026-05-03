@@ -1,4 +1,4 @@
-import { compactSlugify, STORAGE_KEY, ACTIVE_SLUG_KEY, REGISTRY_KEY, getActiveSlug as getActiveSlugLowLevel, getScopedKey, markLocalUpdate } from './utils';
+import { compactSlugify, STORAGE_KEY, ACTIVE_SLUG_KEY, REGISTRY_KEY, getActiveSlug as getActiveSlugLowLevel, getScopedKey, markLocalUpdate, getEffectiveOrgId, safeSetItem } from './utils';
 export { STORAGE_KEY, ACTIVE_SLUG_KEY, REGISTRY_KEY, getScopedKey };
 import { triggerInstantSync } from './sync-store';
 
@@ -515,8 +515,9 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
     if (typeof window !== 'undefined') {
         try {
             const finalSlug = slug || next.studioSlug || getActiveSlug();
+            const finalOrgId = getEffectiveOrgId(finalSlug);
             const scopedKey = getScopedKey(STORAGE_KEY, finalSlug);
-            import('./utils').then(mod => mod.safeSetItem(scopedKey, JSON.stringify(next), finalSlug));
+            safeSetItem(scopedKey, JSON.stringify(next), finalSlug);
             markLocalUpdate();
 
             // Update active slug if it changed
@@ -529,7 +530,7 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
                 triggerInstantSync();
                 
                 // 🚀 ATOMIC CLOUD SYNC: If we have an orgId, push the full state to ensure persistence
-                if (next.orgId && next.orgId !== 'demo') {
+                if (finalOrgId && finalOrgId !== 'demo') {
                     import('./master-sync').then(({ pushFullStudioMetadata }) => {
                         pushFullStudioMetadata(finalSlug, next.studioName || 'Studio', next);
                     });

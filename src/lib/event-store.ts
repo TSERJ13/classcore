@@ -4,7 +4,7 @@
  */
 import type { CalendarEvent, EventType } from '@/types';
 import { pushStudioStateToCloud } from './sync-store';
-import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, getEffectiveOrgId } from './utils';
 
 const BASE_EVENTS_KEY = 'cc_calendar_events';
 function getEventsKey() { return getScopedKey(BASE_EVENTS_KEY); }
@@ -110,16 +110,14 @@ export function saveEvents(events: CalendarEvent[]) {
     markLocalUpdate();
     
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        const finalOrgId = getEffectiveOrgId(activeSlug);
+        
         // 1. Sync to settings blob (Legacy/Backup)
         pushStudioStateToCloud(activeSlug, [], { [getEventsKey()]: events });
-
-        // 2. Sync to dedicated Calendar Table (High Reliability for Hydration)
-        const orgId = localStorage.getItem(`cc_org_id_override_${activeSlug}`) || 
-                     (JSON.parse(localStorage.getItem(`cc_studio_settings_${activeSlug}`) || '{}')).orgId;
         
-        if (orgId) {
+        if (finalOrgId) {
             import('./master-sync').then(mod => {
-                mod.pushCollectionToCloud('calendar_events', events, orgId, activeSlug);
+                mod.pushCollectionToCloud('calendar_events', events, finalOrgId, activeSlug);
             });
         }
     }
