@@ -95,7 +95,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const { fetchFullStudioState } = await import("@/lib/master-sync");
 
             // 🚀 NUCLEAR DISCOVERY: If orgId is missing, resolve it from the database first
-            let currentOrgId = activeOrgId;
+            let currentOrgId = typeof window !== 'undefined' ? (localStorage.getItem(`cc_org_id_override_${activeSlug}`) || undefined) : undefined;
             if (!currentOrgId && activeSlug) {
                 console.log(`🔍 [StudioContext] OrgID missing. Starting Nuclear Discovery for slug: ${activeSlug}`);
                 const { data: studioData } = await sb.from('studios').select('org_id').eq('studio_slug', activeSlug).maybeSingle();
