@@ -109,34 +109,53 @@ export default function StudentPortalPage() {
                     const cloudData = await fetchFullStudioState(studio, undefined, undefined, true);
                     if (cloudData) {
                         console.log('☁️ [StudentPortal] Hydrating from cloud database');
-                        // Search for the specific student in ALL student data keys
-                        // Entries in cloudData are like: 'cc_student_data_SLUG_BRANCHID': { PATCHES }
-                        let foundInCloud: Student | null = null;
                         
-                        Object.entries(cloudData).forEach(([key, val]: [string, any]) => {
-                            if (key.startsWith('cc_student_data_') && typeof val === 'object') {
-                                // If student is in this patch-block
-                                if (val[studentId]) {
-                                    foundInCloud = { ...val[studentId], id: studentId };
-                                    // Hydrate this specific student data key
-                                    localStorage.setItem(key, JSON.stringify(val));
+                        // 1. Resolve student from cloud response
+                        const cloudStudents = cloudData.students || [];
+                        const unwrap = (i: any) => (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
+                        const unwrappedStudents = cloudStudents.map(unwrap);
+                        
+                        const found = unwrappedStudents.find((s: any) => s.id.toLowerCase() === studentId.toLowerCase());
+                        
+                        if (found) {
+                            student = found as Student;
+                            
+                            // 2. Map and Hydrate essential collections using scoped keys
+                            const mapping: any = {
+                                cc_student_data: unwrappedStudents.reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                                cc_groups: (cloudData.groups || []).map(unwrap),
+                                cc_halls: (cloudData.halls || []).map(unwrap),
+                                cc_teachers: (cloudData.staff || []).map(unwrap),
+                                cc_student_subscriptions: (cloudData.subscriptions || []).map(unwrap).reduce((acc: any, sub: any) => {
+                                    const sId = sub.student_id;
+                                    if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                                    return acc;
+                                }, {}),
+                                cc_calendar_events: (cloudData.calendar_events || []).map(unwrap),
+                                cc_subscription_plans: (cloudData.subscription_plans || []).map(unwrap),
+                                cc_shop_products: (cloudData.products || []).map(unwrap),
+                                cc_attendance_archive: (cloudData.attendance || []).map(unwrap).reduce((acc: any, a: any) => {
+                                    // Attendance is often stored by date and then by classId
+                                    // But here we might just store a flat array if needed, 
+                                    // though the app expects a specific structure.
+                                    // For now, let's just ensure we have basic student/sub data.
+                                    return acc;
+                                }, {})
+                            };
+
+                            for (const [rawKey, data] of Object.entries(mapping)) {
+                                if (data) {
+                                    const scopedKey = getScopedKey(rawKey, studio);
+                                    localStorage.setItem(scopedKey, JSON.stringify(data));
                                 }
                             }
-                        });
-
-                        if (foundInCloud) {
-                            student = foundInCloud;
                             
-                            // Also hydrate other essential studio data (groups, subs)
-                            Object.entries(cloudData).forEach(([key, val]: [string, any]) => {
-                                if (key.startsWith('cc_group_data_') || 
-                                    key.startsWith('cc_subscription_') || 
-                                    key.startsWith('cc_all_subscriptions_') ||
-                                    key.startsWith('cc_hall_data_')) {
-                                    localStorage.setItem(key, JSON.stringify(val));
-                                }
-                            });
-                        }
+                            // Update settings too
+                            const cloudSettings = cloudData.settingsRecord?.settings || cloudData.studio?.settings;
+                            if (cloudSettings) {
+                                const scopedSettingsKey = getScopedKey('cc_settings', studio);
+                                localStorage.setItem(scopedSettingsKey, JSON.stringify(cloudSettings));
+                            }
                     }
                 }
 
