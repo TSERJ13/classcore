@@ -45,7 +45,7 @@ export async function GET() {
         // 🚨 2. Fetch all profiles to resolve owners (Backup Truth)
         const { data: profileData } = await supabase
             .from('profiles')
-            .select('org_id, email, role, full_name');
+            .select('org_id, email, role, full_name, first_name, last_name, phone');
 
         // 🚨 3. Fetch from 'studio_settings' table (Operational Blob)
         const { data: settingsData, error: settingsError } = await supabase
@@ -115,12 +115,13 @@ export async function GET() {
                 ownerPhone = ownerFromStaff.phone || 'N/A';
             }
             // 4. Ultimate Fallback to Profiles
-            else {
+            if (ownerName === 'N/A' || ownerEmail === 'N/A' || ownerPhone === 'N/A') {
                 const orgProfiles = (profileData || []).filter(p => p.org_id === (row as any)?.org_id);
                 const ownerProfile = orgProfiles.find(p => p.role === 'owner') || orgProfiles[0];
                 if (ownerProfile) {
-                    ownerName = ownerProfile.full_name || 'N/A';
-                    ownerEmail = ownerProfile.email || 'N/A';
+                    if (ownerName === 'N/A') ownerName = ownerProfile.full_name || `${ownerProfile.first_name || ''} ${ownerProfile.last_name || ''}`.trim() || 'N/A';
+                    if (ownerEmail === 'N/A') ownerEmail = ownerProfile.email || 'N/A';
+                    if (ownerPhone === 'N/A') ownerPhone = ownerProfile.phone || 'N/A';
                 }
             }
 

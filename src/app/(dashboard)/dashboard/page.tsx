@@ -400,6 +400,7 @@ export default function DashboardPage() {
         window.addEventListener('cc_sale_update', refreshData);
         window.addEventListener('cc_student_update', refreshData);
         window.addEventListener('cc_active_branch_change', refreshData);
+        window.addEventListener('cc_data_hydrated', refreshData);
 
         return () => {
             window.removeEventListener('cc_subscription_update', refreshData);
@@ -407,6 +408,7 @@ export default function DashboardPage() {
             window.removeEventListener('cc_sale_update', refreshData);
             window.removeEventListener('cc_student_update', refreshData);
             window.removeEventListener('cc_active_branch_change', refreshData);
+            window.removeEventListener('cc_data_hydrated', refreshData);
         };
     }, [t, settings.studioName, revenueRange]);
 
@@ -416,8 +418,15 @@ export default function DashboardPage() {
         const handlePushStart = () => setSyncStatus('syncing');
         const handlePushError = () => setSyncStatus('error');
         const handleSyncStart = () => setSyncStatus('syncing');
-        const handleSyncDone = () => { setSyncStatus('synced'); setLastSyncTime(Date.now()); };
+        const handleSyncDone = () => { 
+            setSyncStatus('synced'); 
+            setLastSyncTime(Date.now());
+            setActivityTick(t => t + 1); // 🚀 Force refresh of schedule/activity on sync
+        };
         const handleSyncError = () => setSyncStatus('error');
+        const handleDataHydrated = () => {
+            setActivityTick(t => t + 1); // 🚀 Force refresh on hydration
+        };
 
         window.addEventListener('cc_sync_push_ok', handlePushOk);
         window.addEventListener('cc_sync_push_start', handlePushStart);
@@ -425,6 +434,7 @@ export default function DashboardPage() {
         window.addEventListener('cc_sync_start', handleSyncStart);
         window.addEventListener('cc_sync_done', handleSyncDone);
         window.addEventListener('cc_sync_error', handleSyncError);
+        window.addEventListener('cc_data_hydrated', handleDataHydrated);
 
         return () => {
             window.removeEventListener('cc_sync_push_ok', handlePushOk);
@@ -433,6 +443,7 @@ export default function DashboardPage() {
             window.removeEventListener('cc_sync_start', handleSyncStart);
             window.removeEventListener('cc_sync_done', handleSyncDone);
             window.removeEventListener('cc_sync_error', handleSyncError);
+            window.removeEventListener('cc_data_hydrated', handleDataHydrated);
         };
     }, []);
     const [activityTick, setActivityTick] = useState(0);

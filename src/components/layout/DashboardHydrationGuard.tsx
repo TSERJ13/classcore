@@ -54,16 +54,6 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                 </div>
 
                 <div className="flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 w-56">
-                    <div className="space-y-1.5 text-center">
-                        <p className="text-[12px] font-black text-indigo-600 uppercase tracking-[0.35em] animate-pulse">
-                            მიმდინარეობს ჩატვირთვა...
-                        </p>
-                        <p className="text-[10px] font-black text-indigo-400/60 uppercase tracking-widest leading-none">
-                            {loadingStep || 'სისტემის მომზადება'}
-                        </p>
-                    </div>
-
-                    {/* 📊 THE PROGRESS BAR (Match Login Style) */}
                     <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                         <div 
                             className="h-full bg-indigo-600 transition-all duration-300 ease-out shadow-[0_0_15px_rgba(79,70,229,0.4)]" 

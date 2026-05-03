@@ -1147,6 +1147,8 @@ export const ru: Translations = {
     sa_studios_ownerEmailLabel: 'Email владельца',
     sa_studios_ownerPhoneLabel: 'Телефон владельца',
     sa_studios_slugWarning: 'Изменение slug приведет к миграции всех локальных данных и может нарушить существующие ссылки!',
+    sa_studios_cabinetCode: 'Код:',
+    sa_studios_regDate: 'Регистрация:',
     sa_studios_systemReset: 'Системный сброс (Очистка всех данных)',
     sa_studios_saveChanges: 'Сохранить изменения',
     sa_studios_confirmTitle: 'Подтверждение',

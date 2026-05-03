@@ -53,37 +53,52 @@ export async function POST(req: Request) {
         const collectionsToStrip = ['staff', 'students', 'groups', 'halls', 'calendar_events', 'subscription_plans', 'attendance', 'sales', 'expenses', 'products', 'trash'];
         collectionsToStrip.forEach(key => delete discoverySettings[key]);
 
-        // 🚀 SCORCHED EARTH v4.7: CRITICAL FIX - Strip logo from discovery blob
-        // This prevents the 'studios' table row-size limit from blocking the sync.
+        // 🚀 SCORCHED EARTH v4.8: CRITICAL FIX - Strip logo from discovery blob
         delete discoverySettings.logoDataUrl;
 
-        // 🚀 SCORCHED EARTH v4.4: Safety truncation for studios.logo_url (prevent total sync failure if column is varchar)
-        const safetyLogoUrl = logoUrl && logoUrl.length > 250 ? (logoUrl.startsWith('data:') ? 'BASE64_BLOB' : logoUrl.substring(0, 250)) : logoUrl;
+        // 🚀 SCORCHED EARTH v4.4: Ensure logo_url is persisted to master record
+        const masterLogoUrl = logoUrl || null;
 
-        const results = await Promise.all([
-            // Update Master Studio Record
-            supabaseAdmin.from('studios').upsert({
-                studio_slug: slug,
+        // 1. Update Master Studio Record (Discovery)
+        const masterRes = await supabaseAdmin.from('studios').upsert({
+            studio_slug: slug,
+            studio_name: name,
+            logo_url: masterLogoUrl,
+            org_id: orgIdToUse,
+            settings: discoverySettings,
+            plan: settings.plan || 'trial', // 🔥 Explicitly sync plan to master table
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'studio_slug' });
+
+        if (masterRes.error) console.error('❌ [SyncAPI] Master Upsert Error:', masterRes.error.message);
+
+        // 2. Update Studio Settings (Full Recovery Blob)
+        // 🚀 Use Robust Check-then-Update to bypass constraint issues
+        const { data: existingSettings } = await supabaseAdmin.from('studio_settings').select('id').eq('org_id', orgIdToUse).maybeSingle();
+        
+        let settingsRes;
+        if (existingSettings?.id) {
+            settingsRes = await supabaseAdmin.from('studio_settings').update({
                 studio_name: name,
-                logo_url: safetyLogoUrl,
-                org_id: orgIdToUse,
-                settings: discoverySettings,
+                settings: settings,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'studio_slug' }),
-
-            // Update Studio Settings (Full Recovery Blob)
-            supabaseAdmin.from('studio_settings').upsert({
+            }).eq('id', existingSettings.id);
+        } else {
+            settingsRes = await supabaseAdmin.from('studio_settings').insert({
                 org_id: orgIdToUse,
                 studio_name: name,
                 settings: settings,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'org_id' })
-        ]);
+            });
+        }
 
-        const errors = results.filter(r => r.error);
-        if (errors.length > 0) {
-            console.error('❌ [SyncAPI] Push Errors:', errors.map(e => e.error?.message));
-            return NextResponse.json({ error: 'Sync failed', details: errors.map(e => e.error?.message) }, { status: 500 });
+        if (settingsRes.error) console.error('❌ [SyncAPI] Settings Save Error:', settingsRes.error.message);
+
+        if (masterRes.error || settingsRes.error) {
+            return NextResponse.json({ 
+                error: 'Sync failed', 
+                details: [masterRes.error?.message, settingsRes.error?.message].filter(Boolean) 
+            }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, orgId: orgIdToUse });

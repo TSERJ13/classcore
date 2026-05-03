@@ -1148,6 +1148,8 @@ export const ka: Translations = {
     sa_studios_ownerEmailLabel: 'მფლობელის მეილი',
     sa_studios_ownerPhoneLabel: 'მფლობელის ნომერი',
     sa_studios_slugWarning: 'Slug-ის შეცვლა გამოიწვევს ყველა ადგილობრივი მონაცემის მიგრაციას და შეიძლება დაარღვიოს არსებული ლინკები!',
+    sa_studios_cabinetCode: 'კოდი:',
+    sa_studios_regDate: 'რეგისტრაცია:',
     sa_studios_systemReset: 'სისტემური რესეტი (მონაცემების გასუფთავება)',
     sa_studios_saveChanges: 'ცვლილებების შენახვა',
     sa_studios_confirmTitle: 'დადასტურება',

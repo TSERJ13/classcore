@@ -83,8 +83,8 @@ function loadStudio(slug: string): StudioRecord {
         isDeleted: meta.deleted || false, 
         notes: meta.notes || '', plan: meta.plan || 'trial',
         nextDue: billing.nextDueDate, status: billing.status, daysOverdue: billing.daysOverdue,
-        ownerPhone: owner?.phone || 'N/A',
-        ownerEmail: owner?.email || 'N/A',
+        ownerPhone: owner?.phone || '—',
+        ownerEmail: owner?.email || '—',
         updatedAt: s.updatedAt || null
     };
 }
@@ -253,11 +253,11 @@ export default function StudiosPage() {
             const staffList = Array.isArray(s?.staff) ? s.staff : [];
             const owner = staffList.find((m: any) => m && m.role === 'owner');
 
-            const ownerEmail = cloud?.ownerEmail || s?.owner_info?.email || owner?.email || 'N/A';
-            const ownerPhone = cloud?.ownerPhone || s?.owner_info?.phone || owner?.phone || 'N/A';
+            const ownerEmail = cloud?.ownerEmail || s?.owner_info?.email || owner?.email || '—';
+            const ownerPhone = cloud?.ownerPhone || s?.owner_info?.phone || owner?.phone || '—';
             
-            let ownerName = cloud?.ownerName || 'N/A';
-            if (ownerName === 'N/A') {
+            let ownerName = cloud?.ownerName || '—';
+            if (ownerName === '—') {
                 if (s?.owner_info?.first_name) {
                     ownerName = `${s.owner_info.first_name} ${s.owner_info.last_name || ''}`.trim();
                 } else if (owner?.full_name) {
@@ -472,11 +472,11 @@ export default function StudiosPage() {
     };
 
     const sendReminder = (studio: StudioRecord) => {
-        if (studio.ownerPhone === 'N/A') {
+        if (studio.ownerPhone === '—') {
             setModal({
                 type: 'alert',
                 title: t.sa_studios_errorTitle,
-                message: t.sa_studios_ownerPhoneLabel + ' N/A'
+                message: t.sa_studios_ownerPhoneLabel + ' —'
             });
             return;
         }
@@ -966,43 +966,46 @@ export default function StudiosPage() {
                                     studio.isLocalOnly && "border-l-4 border-l-amber-500 bg-amber-500/[0.02]"
                                 )}>
                                     <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-6 min-w-[1000px]">
-                                        <div className="flex items-center gap-4 min-w-0">
-                                            <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
-                                                {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6 text-zinc-300 opacity-40" />}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-[15px] font-black text-primary dark:text-white truncate flex items-center gap-2 leading-none">
-                                                    {studio.name}
-                                                    {studio.studentCount > 150 && <span title="High Activity"><AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-pulse" /></span>}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <p className="text-[10px] text-muted font-mono uppercase tracking-tighter opacity-60">/{studio.slug}</p>
-                                                    {studio.isLocalOnly && (
-                                                        <span className="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest">
-                                                            {t.sa_studios_localOnly}
-                                                        </span>
-                                                    )}
+                                         <div className="flex items-center gap-4 min-w-0">
+                                             <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
+                                                 {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6 text-zinc-300 opacity-40" />}
+                                             </div>
+                                             <div className="min-w-0">
+                                                 <p className="text-[15px] font-black text-primary dark:text-white truncate flex items-center gap-2 leading-none">
+                                                     {studio.name}
+                                                     {studio.studentCount > 150 && <span title="High Activity"><AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-pulse" /></span>}
+                                                 </p>
+                                                 <div className="flex flex-col gap-0.5 mt-1.5">
+                                                     <div className="flex items-center gap-2">
+                                                         <span className="text-[8px] font-black text-muted uppercase tracking-widest opacity-40">{t.sa_studios_cabinetCode}</span>
+                                                         <p className="text-[10px] text-indigo-500 font-mono font-black uppercase tracking-tighter">/{studio.slug}</p>
+                                                     </div>
+                                                     {studio.updatedAt && (
+                                                         <p className="text-[9px] text-muted font-bold opacity-40">{t.sa_studios_regDate} {new Date(studio.updatedAt).toLocaleDateString()}</p>
+                                                     )}
+                                                 </div>
+                                             </div>
+                                         </div>
+                                         
+                                         <div className="text-center">
+                                             <p className="text-base font-black text-primary dark:text-white leading-snug">{studio.studentCount}</p>
+                                             <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">{t.sa_studios_studentCountLabel}</p>
+                                         </div>
+ 
+                                          <div className="flex flex-col justify-center px-2 min-w-0 h-full">
+                                             <p className="text-xs font-black text-primary dark:text-white truncate leading-snug">{studio.ownerName === '—' ? <span className="opacity-20">—</span> : studio.ownerName}</p>
+                                             <p className="text-[10px] font-bold text-zinc-400 truncate opacity-70 leading-snug">{studio.ownerEmail === '—' ? <span className="opacity-20">—</span> : studio.ownerEmail}</p>
+                                          </div>
+  
+                                          <div className="flex flex-col justify-center px-2 min-w-0 h-full">
+                                             <p className="text-xs font-black text-primary dark:text-white leading-snug">{studio.ownerPhone === '—' ? <span className="opacity-20">—</span> : studio.ownerPhone}</p>
+                                             {studio.ownerPhone !== '—' && (
+                                                <div className="flex items-center gap-1.5 mt-1 leading-none">
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.3)]" />
+                                                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter">Verified</p>
                                                 </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="text-center">
-                                            <span className="text-base font-black text-primary dark:text-white tabular-nums">{studio.studentCount}</span>
-                                            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">{t.sa_studios_studentCountLabel}</p>
-                                        </div>
-
-                                        <div className="px-2 min-w-0">
-                                            <p className="text-xs font-black text-primary dark:text-white truncate leading-tight">{studio.ownerName || 'N/A'}</p>
-                                            <p className="text-[10px] font-bold text-zinc-400 truncate opacity-70">{studio.ownerEmail}</p>
-                                        </div>
-
-                                        <div className="px-2 min-w-0">
-                                            <p className="text-xs font-black text-primary dark:text-white leading-tight">{studio.ownerPhone || 'N/A'}</p>
-                                            <div className="flex items-center gap-1.5 mt-1">
-                                                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.3)]" />
-                                                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter">Verified</p>
-                                            </div>
-                                        </div>
+                                             )}
+                                          </div>
 
                                         <div className="text-center">
                                             <button 
@@ -1099,11 +1102,11 @@ export default function StudiosPage() {
                                                             setEditingProfile(studio); 
                                                             setProfileName(s.studioName || studio.name); 
                                                             setProfileSlug(studio.slug);
-                                                            setProfileEmail(s.owner_info?.email || studio.ownerEmail);
-                                                            setProfilePhone(s.owner_info?.phone || studio.ownerPhone || 'N/A');
-                                                            setProfileFirstName(s.owner_info?.first_name || '');
-                                                            setProfileLastName(s.owner_info?.last_name || '');
-                                                            setProfileLogo(s.logoDataUrl || studio.logoUrl || '');
+                                                             setProfileEmail(s.owner_info?.email || studio.ownerEmail);
+                                                             setProfilePhone(s.owner_info?.phone || studio.ownerPhone || '—');
+                                                             setProfileFirstName(s.owner_info?.first_name || '');
+                                                             setProfileLastName(s.owner_info?.last_name || '');
+                                                             setProfileLogo(s.logoDataUrl || studio.logoUrl || '');
                                                         }} 
                                                         className="p-2 text-zinc-400 hover:text-indigo-500 transition-colors"
                                                         title={t.sa_studios_control}
@@ -1430,18 +1433,18 @@ export default function StudiosPage() {
                                         onClick={() => {
                                             setModal(m => ({ ...m, inputVal: p }));
                                         }}
-                                        className={cn(
-                                            "w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border flex items-center justify-between px-6",
-                                            modal.inputVal === p ? (
-                                                p === 'pro' ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30" :
-                                                p === 'custom' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30" :
-                                                "bg-zinc-900 text-white border-zinc-900"
-                                            ) : "bg-black/5 border-transparent text-muted hover:bg-black/10"
-                                        )}
-                                    >
-                                        <span>{(t as any)[PLAN_LABELS_KEYS[p]]}</span>
-                                        {modal.inputVal === p && <ShieldCheck className="w-4 h-4" />}
-                                    </button>
+                                         className={cn(
+                                             "w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border flex items-center justify-between px-6",
+                                             modal.inputVal === p ? (
+                                                 p === 'pro' ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30" :
+                                                 p === 'custom' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30" :
+                                                 "bg-zinc-900 text-white border-zinc-900"
+                                             ) : "bg-black/5 border-transparent text-muted hover:bg-black/10 hover:border-black/5"
+                                         )}
+                                     >
+                                         <span className="truncate pr-2">{(t as any)[PLAN_LABELS_KEYS[p]]}</span>
+                                         {modal.inputVal === p && <ShieldCheck className="w-4 h-4 flex-shrink-0" />}
+                                     </button>
                                 ))}
                             </div>
                         ) : (

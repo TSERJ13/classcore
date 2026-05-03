@@ -100,7 +100,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                 // 🖼️ LOGO RESOLUTION: 🛡️ PRESERVE LOCAL LOGO IF CLOUD IS EMPTY (Prevent ghosting)
                 const localLogo = settings.logoDataUrl;
-                const cloudLogo = cloudSettings.logoDataUrl || updates.logo_url;
+                const rawCloudLogo = cloudSettings.logoDataUrl || updates.logo_url;
+                const cloudLogo = rawCloudLogo === 'BASE64_BLOB' ? null : rawCloudLogo;
                 const finalLogo = cloudLogo || localLogo;
 
                 if (cloudLogo) {
@@ -150,7 +151,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         studioSlug: activeSlug
                     };
                     
-                    // 🚀 SCORCHED EARTH v4.6: Force sync all cloud tables with CORRECT store mapping
+                    // 🚀 SCORCHED EARTH v4.7: Force sync all cloud tables with CORRECT store mapping
                     if (typeof window !== 'undefined') {
                         const sKey = (k: string) => getScopedKey(k, activeSlug);
                         const cloudData = (arr: any[]) => (arr || []).map(item => item.data || item);
@@ -180,8 +181,21 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         localStorage.setItem(sKey('cc_halls'), JSON.stringify(cloudData(state.halls)));
                         localStorage.setItem(sKey('cc_trash'), JSON.stringify(cloudData(state.trash)));
                         localStorage.setItem(sKey('cc_subscription_plans'), JSON.stringify(finalPlans));
+
+                        // 🚀 NEW: Ensure PRO status is reflected in SAAS Billing Meta
+                        const saMeta = {
+                            plan: finalPlan,
+                            manualBlock: !!updates.manual_block,
+                            suspended: !!updates.suspended
+                        };
+                        localStorage.setItem(sKey('cc_sa_meta'), JSON.stringify(saMeta));
                         
-                        console.log(`📡 [Hydration] Atomic Sync Complete: ${cloudData(state.students).length} students, ${cloudData(state.groups).length} groups.`);
+                        console.log(`📡 [Hydration] Atomic Sync Complete: ${cloudData(state.students).length} students. Plan: ${finalPlan}`);
+                        
+                        // 🔥 TRIGGER UI UPDATE: Notify all listeners that data is fresh
+                        window.dispatchEvent(new Event('cc_data_hydrated'));
+                        window.dispatchEvent(new Event('cc_settings_update'));
+                        window.dispatchEvent(new Event('cc_sa_meta_update'));
                     }
 
                     saveSettings(next, prev, activeSlug);
@@ -277,20 +291,19 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 await new Promise((res) => (img.onload = res));
                 
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 500;
-                const MAX_HEIGHT = 500;
+                const MAX_SIZE = 300; // 🚀 Even smaller for guaranteed sync
                 let width = img.width;
                 let height = img.height;
 
                 if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
+                    if (width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
                     }
                 } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
+                    if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
                     }
                 }
 
