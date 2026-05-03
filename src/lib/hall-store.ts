@@ -65,7 +65,12 @@ export function saveHalls(halls: HallData[]): void {
     const orgId = settings.orgId;
     
     if (orgId && orgId !== 'demo') {
-        // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK
+        // 1. Dedicated Collection Sync (For high reliability)
+        import('./master-sync').then(mod => {
+            mod.pushCollectionToCloud('halls', halls, orgId, activeSlug);
+        });
+
+        // 2. FOOLPROOF SCHEMA-LESS FALLBACK (In settings blob)
         const updatedSettings = { ...settings, halls: halls };
         import('./settings-store').then(({ saveSettings }) => {
             saveSettings({ halls: halls } as any, settings, activeSlug);

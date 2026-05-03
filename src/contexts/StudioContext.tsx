@@ -156,7 +156,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                 const unwrap = (arr: any) => {
                     if (!Array.isArray(arr)) return [];
-                    return arr.map(i => i?.data || i);
+                    return arr.map(i => {
+                        if (!i) return i;
+                        // 🚀 UNIVERSAL MERGE: Combine top-level columns with nested data blob
+                        if (i.data && typeof i.data === 'object') {
+                            return { ...i, ...i.data };
+                        }
+                        return i;
+                    });
                 };
                 const allDeleted = new Set((state.trash || []).map((t: any) => t?.entity_id || t?.id).filter(Boolean));
 
