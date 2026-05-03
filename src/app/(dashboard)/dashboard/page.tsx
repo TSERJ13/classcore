@@ -238,7 +238,6 @@ export default function DashboardPage() {
         return msg;
     };
 
-    useEffect(() => {
     const refreshFullDashboard = useCallback(() => {
         // 1. Refresh Stats
         const sales = getSales();
