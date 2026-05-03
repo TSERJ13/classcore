@@ -677,6 +677,7 @@ export default function StudentPortalPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
 
                             {/* Subscription & Progress Bar */}
@@ -1119,19 +1120,19 @@ export default function StudentPortalPage() {
                                                                                 )}
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            });
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
                                         })()}
                                     </div>
                                 </div>
                             )}
                         </div>
-                    )}
+                    </div>
+                )}
 
 
                     {/* Shop Tab */}
@@ -1339,7 +1340,7 @@ export default function StudentPortalPage() {
                                 </p>
                             </div>
                         </div>
-                    {/* Footer */}
+                    )}
 
                     {/* Footer */}
                     <div className="text-center pt-12 pb-6">

@@ -77,19 +77,20 @@ export async function processProfileImage(file: File): Promise<string> {
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // 2. Initial Compression
-                let quality = 0.7;
+                // 2. Iterative Compression to hit target 80-120KB (DataURL is ~33% larger than binary)
+                let quality = 0.8;
                 let dataUrl = canvas.toDataURL('image/jpeg', quality);
-                
-                // 3. Fine-tuning to get closer to 80KB if needed
-                // (Optional but good for compliance with "around 80KB")
-                const approximateSizeKB = (dataUrl.length * (3 / 4)) / 1024;
-                
-                if (approximateSizeKB > 100) {
+                let currentSizeKB = (dataUrl.length * 0.75) / 1024;
+
+                // Simple iterative step down
+                if (currentSizeKB > 120) {
                     quality = 0.5;
                     dataUrl = canvas.toDataURL('image/jpeg', quality);
-                } else if (approximateSizeKB < 40) {
-                    quality = 0.9;
+                    currentSizeKB = (dataUrl.length * 0.75) / 1024;
+                }
+                
+                if (currentSizeKB > 120) {
+                    quality = 0.3;
                     dataUrl = canvas.toDataURL('image/jpeg', quality);
                 }
 
