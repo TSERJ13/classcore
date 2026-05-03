@@ -516,7 +516,7 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
         try {
             const finalSlug = slug || next.studioSlug || getActiveSlug();
             const scopedKey = getScopedKey(STORAGE_KEY, finalSlug);
-            localStorage.setItem(scopedKey, JSON.stringify(next));
+            import('./utils').then(mod => mod.safeSetItem(scopedKey, JSON.stringify(next), finalSlug));
             markLocalUpdate();
 
             // Update active slug if it changed

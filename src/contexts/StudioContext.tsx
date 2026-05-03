@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { useUser } from '@/hooks/useUser';
-import { getActiveSlug, getScopedKey } from '@/lib/utils';
+import { getActiveSlug, getScopedKey, safeSetItem } from '@/lib/utils';
 import type { StudioSettings, Branch } from '@/types';
 
 interface StudioContextType {
@@ -235,7 +235,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                 Object.entries(mapping).forEach(([key, data]) => {
                     if (data !== null && data !== undefined) {
-                        localStorage.setItem(getScopedKey(key, activeSlug), JSON.stringify(data));
+                        safeSetItem(getScopedKey(key, activeSlug), JSON.stringify(data), activeSlug);
                     }
                 });
 
@@ -245,7 +245,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
                     groupedAtt[a.student_id].push(a);
                 });
-                localStorage.setItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt));
+                safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
 
                 ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
                  'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
@@ -364,7 +364,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         setSettings(prev => {
             const next = { ...prev, activeBranchId: branchId };
             setActiveBranchId(branchId);
-            localStorage.setItem(`cc_active_branch_${prev.studioSlug}`, branchId);
+            safeSetItem(`cc_active_branch_${prev.studioSlug}`, branchId, prev.studioSlug);
             saveSettings({ activeBranchId: branchId }, prev, prev.studioSlug);
             window.dispatchEvent(new CustomEvent('cc_branch_change', { detail: { branchId } }));
             return next;

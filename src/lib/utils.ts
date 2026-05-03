@@ -331,3 +331,67 @@ export function clearGlobalDeletion(slug: string, collection: string, id: string
         console.error('❌ [Utils] Failed to clear deletion:', e);
     }
 }
+
+/** 
+ * SCORCHED EARTH v4.8: Safe Storage Layer
+ * Handles QuotaExceededError by purging inactive studios from cache.
+ */
+export function safeSetItem(key: string, value: string, activeSlug?: string) {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.setItem(key, value);
+    } catch (err: any) {
+        if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) {
+            console.warn('⚠️ [Storage] Quota Exceeded! Starting emergency cleanup...');
+            
+            const registryRaw = localStorage.getItem(REGISTRY_KEY);
+            const currentSlug = activeSlug || getActiveSlug();
+            
+            if (registryRaw && currentSlug) {
+                try {
+                    const list = JSON.parse(registryRaw);
+                    if (Array.isArray(list)) {
+                        let clearedCount = 0;
+                        const keys = Object.keys(localStorage);
+                        
+                        // Nuclear Cleanup: Remove everything that belongs to OTHER studios
+                        list.forEach(slug => {
+                            if (slug === currentSlug || slug === 'demo.classcore.ge') return;
+                            
+                            keys.forEach(k => {
+                                if (k.includes(`_${slug}`) || k.includes(`${slug}_`) || k.includes(`:${slug}`)) {
+                                    localStorage.removeItem(k);
+                                    clearedCount++;
+                                }
+                            });
+                        });
+                        
+                        console.log(`🧹 [Storage] Emergency cleanup complete. Removed ${clearedCount} keys.`);
+                        
+                        // Retry the original operation
+                        try {
+                            localStorage.setItem(key, value);
+                            return;
+                        } catch (retryErr) {
+                            console.error('❌ [Storage] Retry failed even after cleanup.');
+                        }
+                    }
+                } catch (e) {
+                    console.error('❌ [Storage] Cleanup failed:', e);
+                }
+            }
+            
+            // Final Fallback: Clear Trash and History for current studio
+            if (currentSlug) {
+                localStorage.removeItem(getScopedKey('cc_global_trash', currentSlug));
+                localStorage.removeItem(getScopedKey('cc_global_history', currentSlug));
+                localStorage.removeItem(getScopedKey('cc_trash', currentSlug));
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) {
+                    console.error('💀 [Storage] Total Storage Failure.');
+                }
+            }
+        }
+    }
+}
