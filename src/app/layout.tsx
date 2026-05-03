@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <head>
                 <link rel="apple-touch-icon" href="/logo.svg" />
             </head>
-            <body className="min-h-screen bg-base antialiased font-sans">
+            <body className="min-h-screen bg-base antialiased font-sans" suppressHydrationWarning>
                     <CacheBuster />
                     <UserProvider>
                         <LanguageProvider defaultLang={activeLang}>
