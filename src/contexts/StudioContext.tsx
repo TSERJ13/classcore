@@ -93,10 +93,24 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             
             setLoadingStep('სერვერთან დაკავშირება...'); 
             const { fetchFullStudioState } = await import("@/lib/master-sync");
-            const state = await fetchFullStudioState(activeSlug || "default", undefined, token);
+
+            // 🚀 NUCLEAR DISCOVERY: If orgId is missing, resolve it from the database first
+            let currentOrgId = activeOrgId;
+            if (!currentOrgId && activeSlug) {
+                console.log(`🔍 [StudioContext] OrgID missing. Starting Nuclear Discovery for slug: ${activeSlug}`);
+                const { data: studioData } = await sb.from('studios').select('org_id').eq('studio_slug', activeSlug).maybeSingle();
+                if (studioData?.org_id) {
+                    currentOrgId = studioData.org_id;
+                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, currentOrgId);
+                    console.log(`✅ [StudioContext] OrgID Resolved via Discovery: ${currentOrgId}`);
+                }
+            }
+
+            const state = await fetchFullStudioState(activeSlug || "default", currentOrgId, token);
                     
             if (state) {
-                const resolvedOrgId = state.org_id;
+                const resolvedOrgId = state.org_id || currentOrgId;
+                console.log(`📊 [StudioContext] Hydration State Received. OrgID: ${resolvedOrgId}`);
 
                 // 🔐 PERMANENT ORG-ID RESOLUTION (MUST HAPPEN FIRST)
                 if (resolvedOrgId && activeSlug) {

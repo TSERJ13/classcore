@@ -42,21 +42,14 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
         <div className="fixed inset-0 bg-white dark:bg-zinc-950 z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-700">
             <div className="relative flex flex-col items-center gap-12 -mt-32">
                 {/* ⚪ THE PREMIUM LOGO */}
-                <div className="relative group flex flex-col items-center gap-6">
-                    <div className="flex items-center justify-center gap-4">
-                        <AppLogo 
-                            size={40}
-                            className="opacity-50"
-                        />
-                        <div className="h-8 w-[1px] bg-slate-200 dark:bg-white/10" />
-                        <AppLogo 
-                            size={100} 
-                            radar 
-                            loading 
-                            src={settings?.logoDataUrl}
-                            className="relative z-10 drop-shadow-xl transition-transform duration-700" 
-                        />
-                    </div>
+                <div className="relative group flex flex-col items-center justify-center">
+                    <AppLogo 
+                        size={120} 
+                        radar 
+                        loading 
+                        src={settings?.logoDataUrl}
+                        className="relative z-10 drop-shadow-2xl transition-transform duration-700" 
+                    />
                 </div>
                 
                 <div className="flex flex-col items-center gap-8 animate-in fade-in slide-in-from-bottom-8 duration-1000 w-64">

@@ -211,7 +211,13 @@ export default function AttendancePage() {
     useEffect(() => {
         const load = () => setGroups(getGroups());
         window.addEventListener('cc_groups_update', load);
-        return () => window.removeEventListener('cc_groups_update', load);
+        window.addEventListener('cc_calendar_events_update', load);
+        window.addEventListener('cc_data_hydrated', load);
+        return () => {
+            window.removeEventListener('cc_groups_update', load);
+            window.removeEventListener('cc_calendar_events_update', load);
+            window.removeEventListener('cc_data_hydrated', load);
+        };
     }, []);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
