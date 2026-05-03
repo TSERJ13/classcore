@@ -101,7 +101,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const { data: studioData } = await sb.from('studios').select('org_id').eq('studio_slug', activeSlug).maybeSingle();
                 if (studioData?.org_id) {
                     currentOrgId = studioData.org_id;
-                    localStorage.setItem(`cc_org_id_override_${activeSlug}`, currentOrgId);
+                    safeSetItem(`cc_org_id_override_${activeSlug}`, currentOrgId, activeSlug);
                     console.log(`✅ [StudioContext] OrgID Resolved via Discovery: ${currentOrgId}`);
                 }
             }
@@ -109,20 +109,20 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const state = await fetchFullStudioState(activeSlug || "default", currentOrgId, token);
                     
             if (state) {
-                const resolvedOrgId = state.org_id || currentOrgId;
+                const resolvedOrgId = state.org_id || currentOrgId || state.studio?.org_id;
                 console.log(`📊 [StudioContext] Hydration State Received. OrgID: ${resolvedOrgId}`);
 
                 // 🔐 PERMANENT ORG-ID RESOLUTION (MUST HAPPEN FIRST)
                 if (resolvedOrgId && activeSlug) {
                     const orgIdOverrideKey = `cc_org_id_override_${activeSlug}`;
-                    localStorage.setItem(orgIdOverrideKey, resolvedOrgId);
+                    safeSetItem(orgIdOverrideKey, resolvedOrgId, activeSlug);
                     
                     // Update Registry
                     const registryRaw = localStorage.getItem('cc_studios_list');
                     let registry = registryRaw ? JSON.parse(registryRaw) : [];
                     if (!registry.includes(activeSlug)) {
                         registry.push(activeSlug);
-                        localStorage.setItem('cc_studios_list', JSON.stringify(registry));
+                        safeSetItem('cc_studios_list', JSON.stringify(registry), activeSlug);
                     }
                 }
 
@@ -230,7 +230,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 };
 
                 if (typeof window !== 'undefined') {
-                    localStorage.setItem('cc_active_studio_slug', activeSlug || 'default');
+                    safeSetItem('cc_active_studio_slug', activeSlug || 'default', activeSlug || 'default');
 
                     Object.entries(mapping).forEach(([key, data]) => {
                         if (data !== null && data !== undefined) {

@@ -367,23 +367,46 @@ export function safeSetItem(key: string, value: string, activeSlug?: string) {
 
             console.log(`🧹 [Storage] Emergency cleanup complete. Removed ${clearedCount} inactive keys.`);
             
-            // Retry
+            // 2. Data Thinning: If still full, strip photos from the current value
+            let thinnedValue = value;
+            if (value.length > 100000) { // If > 100KB
+                try {
+                    const parsed = JSON.parse(value);
+                    const strip = (obj: any): any => {
+                        if (!obj || typeof obj !== 'object') return obj;
+                        if (Array.isArray(obj)) return obj.map(strip);
+                        const next: any = {};
+                        for (const k in obj) {
+                            if (k === 'photo_url' || k === 'logo_url' || k === 'logoDataUrl') continue;
+                            next[k] = strip(obj[k]);
+                        }
+                        return next;
+                    };
+                    thinnedValue = JSON.stringify(strip(parsed));
+                    console.log(`📉 [Storage] Data thinned: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
+                } catch {}
+            }
+
+            // Retry with thinned data
             try {
-                localStorage.setItem(key, value);
+                localStorage.setItem(key, thinnedValue);
                 return;
             } catch (retryErr) {
                 console.warn('☢️ [Storage] Secondary Failure. Initiating NUCLEAR WIPE...');
                 
-                // 2. Nuclear Wipe: Remove EVERYTHING except absolute essentials
+                // 3. Nuclear Wipe: Remove EVERYTHING except absolute essentials
                 keys.forEach(k => {
-                    const isEssential = k.startsWith('sb-') || k.includes('cc_staff_session') || k.includes('cc_active_slug');
+                    const isEssential = k.startsWith('sb-') || 
+                                      k.includes('cc_staff_session') || 
+                                      k.includes('cc_active_slug') ||
+                                      k.includes('cc_org_id_override');
                     if (!isEssential) {
                         localStorage.removeItem(k);
                     }
                 });
                 
                 try {
-                    localStorage.setItem(key, value);
+                    localStorage.setItem(key, thinnedValue);
                     console.log('✅ [Storage] Nuclear recovery successful.');
                 } catch (finalErr) {
                     console.error('💀 [Storage] UNRECOVERABLE STORAGE FAILURE.');
