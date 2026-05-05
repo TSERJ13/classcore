@@ -360,7 +360,29 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     });
                     
                     await safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
-                    await safeSetItem(getScopedKey('cc_attendance_archive', activeSlug), JSON.stringify(attendanceArchive), activeSlug);
+                    
+                    // 🛡️ MERGE attendance archive: cloud data + local marks (local wins on conflict)
+                    const archiveKey = getScopedKey('cc_attendance_archive', activeSlug);
+                    let existingArchive: Record<string, any> = {};
+                    try {
+                        const existing = localStorage.getItem(archiveKey);
+                        if (existing) existingArchive = JSON.parse(existing);
+                    } catch (e) {}
+                    
+                    // Deep merge: for each date -> class -> student, cloud fills in, local overrides
+                    for (const [date, classes] of Object.entries(attendanceArchive)) {
+                        if (!existingArchive[date]) existingArchive[date] = {};
+                        for (const [classId, students] of Object.entries(classes as any)) {
+                            if (!existingArchive[date][classId]) existingArchive[date][classId] = {};
+                            // Cloud fills in students that aren't in local
+                            for (const [studentId, status] of Object.entries(students as any)) {
+                                if (!existingArchive[date][classId][studentId]) {
+                                    existingArchive[date][classId][studentId] = status;
+                                }
+                            }
+                        }
+                    }
+                    await safeSetItem(archiveKey, JSON.stringify(existingArchive), activeSlug);
 
                     window.dispatchEvent(new Event('cc_data_hydrated'));
                     window.dispatchEvent(new Event('cc_settings_update'));
