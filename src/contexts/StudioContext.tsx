@@ -285,6 +285,15 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     cc_sa_meta: { plan: finalPlan, manualBlock: !!updates.manual_block, suspended: !!updates.suspended }
                 };
 
+                // 🚀 EARLY UNLOCK: Mark as loaded NOW (memory caches are ready)
+                // localStorage writes happen in background — UI can render immediately
+                setIsLoaded(true);
+                setFirstSyncDone(true);
+                window.dispatchEvent(new Event('cc_data_hydrated'));
+                window.dispatchEvent(new Event('cc_subscription_update'));
+                window.dispatchEvent(new Event('cc_student_update'));
+                window.dispatchEvent(new Event('cc_settings_update'));
+
                 if (typeof window !== 'undefined') {
                     // 🚀 SEQUENTIAL SAVING for mobile stability
                     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
