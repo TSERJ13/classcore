@@ -49,7 +49,7 @@ export default function BillingPage() {
         { id: 'transfer', name: l('საბანკო გადარიცხვა', 'Банковский перевод', 'Bank Transfer'), logo: '🏦', desc: l('საჭიროებს კაბინეტის კოდს', 'Требует код кабинета', 'Requires Cabinet Code') },
     ];
 
-    if (!t) return <div className="p-20 text-center opacity-40">Loading billing...</div>;
+
 
     const PLANS = [
         {

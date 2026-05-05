@@ -8,31 +8,11 @@ const SESSION_FLAG = 'cc_splash_shown';
 
 let _moduleFlag = false;
 
-function hasShownSplash(): boolean {
-    if (_moduleFlag) return true;
-    if (typeof window === 'undefined') return false;
-    try {
-        return sessionStorage.getItem(SESSION_FLAG) === '1';
-    } catch {
-        return false;
-    }
-}
-
-function markSplashShown() {
-    _moduleFlag = true;
-    if (typeof window === 'undefined') return;
-    try { sessionStorage.setItem(SESSION_FLAG, '1'); } catch {}
-}
-
 export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isLoaded, loadingStep, settings } = useStudio();
     const { lang } = useT();
     
-    // 🌟 INSTANT CHECK: if splash flag is set OR isLoaded already true, skip splash entirely
-    const initialSkip = hasShownSplash() || isLoaded;
-    if (initialSkip && !_moduleFlag) markSplashShown();
-    
-    const [showContent, setShowContent] = useState(initialSkip);
+    const [showContent, setShowContent] = useState(false);
     const [progress, setProgress] = useState(0);
     const [studioLogo, setStudioLogo] = useState<string | null>(null);
     const progressRef = useRef(0);
@@ -40,7 +20,6 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
 
     useEffect(() => {
         if (isLoaded && !showContent) {
-            markSplashShown();
             setShowContent(true);
         }
     }, [isLoaded, showContent]);

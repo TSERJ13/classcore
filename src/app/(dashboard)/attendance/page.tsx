@@ -799,6 +799,30 @@ export default function AttendancePage() {
         setTimeout(() => {
             setSubs(getSubscriptions());
         }, 10);
+
+        // Auto-clear red X after 3 seconds if it's still absent
+        if (next === 'absent') {
+            setTimeout(() => {
+                setAtt(currentAtt => {
+                    if (currentAtt[id] === 'absent') {
+                        const newAtt = { ...currentAtt, [id]: 'none' as State };
+                        
+                        // Also persist this back to the archive
+                        try {
+                            const key = getScopedKey('cc_attendance_archive');
+                            const saved = localStorage.getItem(key);
+                            const data = saved ? JSON.parse(saved) : {};
+                            if (!data[dateKey]) data[dateKey] = {};
+                            data[dateKey][selectedClass] = newAtt;
+                            localStorage.setItem(key, JSON.stringify(data));
+                        } catch (e) {}
+                        
+                        return newAtt;
+                    }
+                    return currentAtt;
+                });
+            }, 3000);
+        }
     }
 
     const days = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
@@ -1442,7 +1466,7 @@ export default function AttendancePage() {
                                                                             <p className="text-[10px] font-bold text-muted opacity-60 mt-0.5">{ch.time} · {cls.title}</p>
                                                                         </div>
                                                                     </div>
-                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time); setSubs(getSubscriptions()); } }}
+                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time, ch.id); setSubs(getSubscriptions()); } }}
                                                                         className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">
                                                                         <X className="w-4 h-4" />
                                                                     </button>

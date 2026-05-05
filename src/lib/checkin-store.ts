@@ -313,7 +313,7 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
 // ─── History Deletion ────────────────────────────────────────────────────────
 
 /** Delete a specific checkin from history and refund sessions */
-export function deleteCheckin(studentId: string, date: string, time: string): void {
+export function deleteCheckin(studentId: string, date: string, time: string, forceId?: string): void {
     const key = dayKey(date);
     let existing: CheckinRecord[] = [];
     try {
@@ -321,23 +321,56 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
         if (raw) existing = JSON.parse(raw);
         if (!Array.isArray(existing)) existing = [];
     } catch (e) {
-        return; // Corrupt data, can't delete specific record reliably
+        // Ignore
     }
-    const idx = existing.findIndex(r => r.studentId === studentId && (r.time === time || !time));
+    const idx = existing.findIndex(r => r.studentId === studentId && (r.time === time || !time || r.id === forceId));
+
+    let rToDelete: CheckinRecord | undefined = undefined;
 
     if (idx > -1) {
-        const rToDelete = existing[idx];
-        // Refund session
-        refundSessionsUsed(studentId);
-
-        // Remove record
+        rToDelete = existing[idx];
         const updated = [...existing];
         updated.splice(idx, 1);
-        if (updated.length === 0) {
-            localStorage.removeItem(key);
-        } else {
-            localStorage.setItem(key, JSON.stringify(updated));
+        if (updated.length === 0) localStorage.removeItem(key);
+        else localStorage.setItem(key, JSON.stringify(updated));
+    }
+
+    // Also look in cc_attendance_data (cloud hydrated data)
+    try {
+        const attKeys = Object.keys(localStorage).filter(k => k.includes('cc_attendance_data'));
+        for (const attKey of attKeys) {
+            const attData = JSON.parse(localStorage.getItem(attKey) || '{}');
+            const studentRecords = attData[studentId];
+            if (Array.isArray(studentRecords)) {
+                const cloudIdx = studentRecords.findIndex((r: any) => 
+                    r.date === date && (r.time === time || !time || r.id === forceId)
+                );
+                if (cloudIdx > -1) {
+                    if (!rToDelete) {
+                        const r = studentRecords[cloudIdx];
+                        rToDelete = {
+                            id: r.id || `cloud_${r.date}_${r.student_id}`,
+                            studentId: r.student_id || studentId,
+                            studentName: r.student_name || '',
+                            date: r.date || '',
+                            time: r.time || '',
+                            via: 'manual',
+                            sessionsRemaining: 0
+                        };
+                    }
+                    studentRecords.splice(cloudIdx, 1);
+                    attData[studentId] = studentRecords;
+                    localStorage.setItem(attKey, JSON.stringify(attData));
+                }
+            }
         }
+    } catch (e) {
+        // Silent
+    }
+
+    if (rToDelete) {
+        // Refund session
+        refundSessionsUsed(studentId);
         markLocalUpdate();
 
         // Standardized Cloud Sync
@@ -346,7 +379,7 @@ export function deleteCheckin(studentId: string, date: string, time: string): vo
         const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
         if (orgId && orgId !== 'demo' && rToDelete.id) {
             import('./master-sync').then(({ deleteRecordFromCloud }) => {
-                deleteRecordFromCloud('attendance', rToDelete.id, orgId);
+                deleteRecordFromCloud('attendance', rToDelete.id as string, orgId);
             });
         }
 

@@ -125,12 +125,12 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                                 className={cn(
                                     "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all",
                                     branch.id === activeBranchId
-                                        ? "bg-violet-700/10 text-violet-400"
+                                        ? "bg-violet-700/20 text-white"
                                         : "hover:bg-white/5 text-white/50 hover:text-white"
                                 )}
                             >
                                 <span className="text-[11px] font-black truncate">{branch.name}</span>
-                                {branch.id === activeBranchId && <Check className="w-3 h-3" strokeWidth={3} />}
+                                {branch.id === activeBranchId && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                             </button>
                         ))}
 
