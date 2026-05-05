@@ -214,7 +214,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // 🚀 SCORCHED EARTH v1.1.16: Unified Atomic Hydration
                 // 🚀 CRITICAL: Populate in-memory cache FIRST so getStudents() works even if localStorage fails
                 const studentsArray = unwrap(state.students) || [];
-                const studentsMap = studentsArray.reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {});
+                const studentsMap: Record<string, any> = {};
+                studentsArray.forEach((s: any) => { if (s && s.id) studentsMap[s.id] = s; });
                 
                 if (activeSlug && studentsArray.length > 0) {
                     const { setMemoryStudentsCache } = await import('@/lib/student-store');

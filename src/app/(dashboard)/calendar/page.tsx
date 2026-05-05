@@ -1816,18 +1816,25 @@ export default function CalendarPage() {
 
         // Single batch save
         saveEvents(runningEvents);
+        setEvents(runningEvents);
         
         if (!silent) alert(lang === 'ka' 
             ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა!` 
             : `Successfully synced ${count} group schedules!`);
     };
 
-    // Aggressive Auto-sync on mount to ensure Groups always appear in Calendar automatically
+    // Aggressive Auto-sync on mount/data-change to ensure Groups always appear in Calendar automatically
+    const lastSyncCount = useRef(0);
     useEffect(() => {
         if (hasMounted && groups.length > 0) {
-            syncAllGroups(true);
+            // Only auto-sync if count changed or we haven't synced yet
+            if (groups.length !== lastSyncCount.current) {
+                console.log('🔄 [Calendar] Auto-syncing groups to calendar...');
+                syncAllGroups(true);
+                lastSyncCount.current = groups.length;
+            }
         }
-    }, [hasMounted, groups.length]);
+    }, [hasMounted, groups.length, halls.length]);
 
     // 🌟 Re-sync whenever groups data changes (after hydration from cloud)
     useEffect(() => {
