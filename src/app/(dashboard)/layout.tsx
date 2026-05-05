@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="dashboard-stabilized-view flex-1 flex flex-col min-w-0 transition-all duration-300 relative overflow-x-hidden">
                             <Header />
                             <main className="dashboard-main-lock flex-1 relative w-full overflow-x-hidden max-w-full">
-                                <div className="w-full h-full p-2.5 sm:p-4">
+                                <div className="w-full h-full p-2.5 sm:p-4 animate-fade-in">
                                     {children}
                                 </div>
                             </main>

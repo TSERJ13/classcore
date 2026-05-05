@@ -7,6 +7,7 @@ import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { getGroups, saveGroups, deleteGroup, type Group, slotsToDisplay } from '@/lib/group-store';
+import { getStudents } from '@/lib/student-store';
 import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
@@ -26,13 +27,28 @@ export default function GroupsPage() {
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [groups, setGroups] = useState<Group[]>([]);
+    const [allStudents, setAllStudents] = useState<any[]>([]);
 
     const { settings, updateStaff } = useStudio();
     useEffect(() => {
-        function load() { setGroups(getGroups()); }
+        function load() {
+            const students = getStudents();
+            setAllStudents(students);
+            const rawGroups = getGroups();
+            // Compute real enrolled count from student data
+            const enriched = rawGroups.map(g => ({
+                ...g,
+                enrolled: students.filter(s => (s.enrolled_group_ids || []).includes(g.id)).length
+            }));
+            setGroups(enriched);
+        }
         load();
         window.addEventListener('cc_groups_update', load);
-        return () => window.removeEventListener('cc_groups_update', load);
+        window.addEventListener('cc_student_update', load);
+        return () => {
+            window.removeEventListener('cc_groups_update', load);
+            window.removeEventListener('cc_student_update', load);
+        };
     }, [settings.activeBranchId]);
 
     const [editing, setEditing] = useState<Group | null>(null);
@@ -179,29 +195,7 @@ export default function GroupsPage() {
                     );
                 })()}
 
-                {/* Sync All Groups to Calendar */}
-                <button onClick={async () => {
-                    const evMod = await import('@/lib/event-store');
-                    let synced = 0;
-                    for (const g of groups) {
-                        if (g.schedule_slots && g.schedule_slots.length > 0) {
-                            evMod.syncGroupScheduleToCalendar(
-                                g.id, g.name, g.teacherId || '', g.hall_id || 'h1',
-                                g.schedule_slots, g.color, g.secondaryTeacherId || ''
-                            );
-                            synced++;
-                        }
-                    }
-                    alert(lang === 'ka' 
-                        ? `✅ ${synced} ჯგუფი გადატანილია კალენდარში` 
-                        : lang === 'ru' 
-                            ? `✅ ${synced} групп перенесено в календарь` 
-                            : `✅ ${synced} groups synced to calendar`);
-                }}
-                    title={lang === 'ka' ? 'კალენდართან სინქრონიზაცია' : 'Sync to calendar'}
-                    className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface border border-border-subtle hover:border-emerald-500/40 text-muted hover:text-emerald-500 rounded-[1.25rem] transition-all shadow-sm">
-                    <RefreshCw className="w-4 h-4" />
-                </button>
+
 
                 {/* Add Group Action */}
                 <button onClick={() => { setEditing(null); setModalOpen(true); }}

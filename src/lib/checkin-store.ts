@@ -252,24 +252,56 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
     if (typeof window === 'undefined') return [];
 
     const history: CheckinRecord[] = [];
+    const seenIds = new Set<string>();
     const keys = Object.keys(localStorage);
 
-    // ONLY look for keys that match the current scoped prefix
-    // This prevents history from other branches/studios from leaking
+    // 1. Look in per-day checkin keys (local records)
     const prefix = getScopedKey(BASE_CHECKINS_PREFIX);
-
     keys.forEach(key => {
         if (key.startsWith(prefix)) {
             try {
                 const records = JSON.parse(localStorage.getItem(key) ?? '[]') as CheckinRecord[];
                 records.forEach(r => {
-                    if (r.studentId === studentId) history.push(r);
+                    if (r.studentId === studentId) {
+                        history.push(r);
+                        if (r.id) seenIds.add(r.id);
+                    }
                 });
             } catch (e) {
                 console.error('Error parsing checkin record', key, e);
             }
         }
     });
+
+    // 2. Also pull from cloud-hydrated attendance data (cc_attendance_data)
+    try {
+        const attKey = keys.find(k => k.includes('cc_attendance_data'));
+        if (attKey) {
+            const attData = JSON.parse(localStorage.getItem(attKey) || '{}');
+            const studentRecords = attData[studentId];
+            if (Array.isArray(studentRecords)) {
+                studentRecords.forEach((r: any) => {
+                    const id = r.id || `cloud_${r.date}_${r.student_id}`;
+                    if (!seenIds.has(id)) {
+                        seenIds.add(id);
+                        history.push({
+                            id,
+                            studentId: r.student_id || studentId,
+                            studentName: r.student_name || '',
+                            date: r.date || '',
+                            time: r.time || r.notes?.replace('Via ', '') || '',
+                            via: 'manual',
+                            sessionsRemaining: 0,
+                            classId: r.class_id,
+                            groupId: r.group_id,
+                        });
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        // Silent fail
+    }
 
     // Sort by date and time descending
     return history.sort((a, b) => {

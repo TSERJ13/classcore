@@ -218,10 +218,10 @@ export default function SubscriptionsPage() {
                     <div className="flex flex-row items-center gap-3 overflow-x-auto no-scrollbar pb-1">
                         {/* Status Tabs */}
                         <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 w-fit">
-                            {[
-                                { id: 'active', label: { ka: 'აქტ.', en: 'Act.', ru: 'Акт.' }[lang] || 'Act.', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
-                                { id: 'paused', label: { ka: 'შეჩ.', en: 'Susp.', ru: 'Приоз.' }[lang] || 'Susp.', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
-                                { id: 'expired', label: { ka: 'ვად.', en: 'Exp.', ru: 'Ист.' }[lang] || 'Exp.', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
+                        {[
+                                { id: 'active', shortLabel: { ka: 'აქტ.', en: 'Act.', ru: 'Акт.' }[lang] || 'Act.', fullLabel: { ka: 'აქტიური', en: 'Active', ru: 'Активные' }[lang] || 'Active', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'paused', shortLabel: { ka: 'შეჩ.', en: 'Susp.', ru: 'Приоз.' }[lang] || 'Susp.', fullLabel: { ka: 'შეჩერებული', en: 'Suspended', ru: 'Приостановлен.' }[lang] || 'Suspended', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
+                                { id: 'expired', shortLabel: { ka: 'ვად.', en: 'Exp.', ru: 'Ист.' }[lang] || 'Exp.', fullLabel: { ka: 'ვადაგასული', en: 'Expired', ru: 'Истекшие' }[lang] || 'Expired', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
@@ -229,7 +229,8 @@ export default function SubscriptionsPage() {
                                         tab === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-white/50', v.hoverColor)
                                     )}>
                                     <v.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                                    <span className="whitespace-nowrap">{v.label}</span>
+                                    <span className="whitespace-nowrap sm:hidden">{v.shortLabel}</span>
+                                    <span className="whitespace-nowrap hidden sm:inline">{v.fullLabel}</span>
                                 </button>
                             ))}
                         </div>
