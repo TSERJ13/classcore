@@ -2117,16 +2117,16 @@ export default function CalendarPage() {
                 <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
                     <button
                         onClick={() => setFilterHall('all')}
-                        className={cn('flex items-center gap-2 px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                        className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
                             filterHall === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60')}
                     >
-                        <LayoutGrid className="w-3 h-3" />
+                        <LayoutGrid className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                         {lang === 'ka' ? 'ყველა' : t.allHalls}
                     </button>
                     {halls.map((h: any) => (
                         <button key={h.id}
                             onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
-                            className={cn('flex items-center gap-2 px-3 h-8 rounded-xl text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                            className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
                                 filterHall === h.id ? 'text-white' : 'hover:bg-white/5')}
                             style={{ 
                                 backgroundColor: filterHall === h.id ? h.color : `${h.color}15`, 

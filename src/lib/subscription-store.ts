@@ -117,7 +117,7 @@ export function getSubscriptions(): SubMap {
         Object.keys(data).forEach(studentId => {
             // Safety: Only delete from local if we have a robust list of students
             // and we are CERTAIN this student is missing (not just a sync delay)
-            if (studentsLoaded && !studentIds.has(studentId)) {
+            if (studentIdSet.size > 10 && !studentIdSet.has(studentId)) {
                 delete data[studentId];
                 dataChanged = true;
                 return;

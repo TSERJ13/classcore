@@ -96,14 +96,14 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                         className={cn(
                             "flex items-center gap-1.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
                             isMobile ? "py-0.5 px-2" : "py-1.5",
-                            isHovered && "border-#6d28d9/40 bg-#6d28d9/10"
+                            isHovered && "border-violet-700/40 bg-violet-700/10"
                         )}
                     >
-                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3.5 h-3.5", isHovered ? "text-#a78bfa" : "text-white/40")} />
-                        <span className={cn("font-black tracking-tight truncate max-w-[120px]", isHovered ? "text-#a78bfa" : "text-white/60", isMobile ? "text-[9px]" : "text-[11px]")}>
+                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3.5 h-3.5", isHovered ? "text-violet-400" : "text-white/40")} />
+                        <span className={cn("font-black tracking-tight truncate max-w-[120px]", isHovered ? "text-violet-400" : "text-white/60", isMobile ? "text-[9px]" : "text-[11px]")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
-                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-3 h-3", isHovered && "rotate-90 text-#a78bfa")} />
+                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-3 h-3", isHovered && "rotate-90 text-violet-400")} />
                     </button>
                 </div>
             </div>
@@ -125,7 +125,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                                 className={cn(
                                     "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all",
                                     branch.id === activeBranchId
-                                        ? "bg-#6d28d9/10 text-#a78bfa"
+                                        ? "bg-violet-700/10 text-violet-400"
                                         : "hover:bg-white/5 text-white/50 hover:text-white"
                                 )}
                             >
@@ -140,7 +140,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                                     setBranchModalOpen(true);
                                     setIsHovered(false);
                                 }}
-                                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-#6d28d9/10 text-#a78bfa hover:bg-#6d28d9/20 transition-all border border-#6d28d9/20 mt-1"
+                                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-violet-700/10 text-violet-400 hover:bg-violet-700/20 transition-all border border-violet-700/20 mt-1"
                             >
                                 <Plus className="w-3 h-3" />
                                 <span className="text-[10px] font-black uppercase tracking-widest">{t.newBranch || 'New Branch'}</span>
