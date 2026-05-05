@@ -30,7 +30,7 @@ type SubMap = Record<string, SubscriptionInfo[]>;
 
 import { getStaffSession, loadSettings, saveSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
-import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion } from './utils';
+import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, makeEntityId } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud, pushFullStudioMetadata } from './master-sync';
 
@@ -42,6 +42,17 @@ function getDeletedSubsKey() { return getScopedKey(BASE_DELETED_SUBS_KEY); }
 
 // Initial mock data
 const INITIAL_SUBS: SubMap = {};
+
+// 🚀 MEMORY CACHE: Fallback when localStorage is full
+let _subsMemoryCache: SubMap | null = null;
+let _subsMemoryCacheSlug: string | null = null;
+
+export function setSubscriptionsMemoryCache(subs: SubMap, slug: string) {
+    _subsMemoryCache = subs;
+    _subsMemoryCacheSlug = slug;
+    const count = Object.values(subs).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
+    console.log(`💾 [SubscriptionStore] Memory cache set: ${count} subscriptions for ${Object.keys(subs).length} students`);
+}
 
 // --- Performance Caching ---
 let cachedSubs: SubMap | null = null;
@@ -58,6 +69,13 @@ export function getSubscriptions(): SubMap {
 
         const key = getSubsKey();
         let saved = localStorage.getItem(key);
+
+        // 🚀 Fall back to memory cache if localStorage empty
+        if (!saved && _subsMemoryCache && _subsMemoryCacheSlug === activeSlug) {
+            console.log('💾 [SubscriptionStore] Using memory cache');
+            cachedSubs = _subsMemoryCache;
+            return _subsMemoryCache;
+        }
 
         // Migration: If new scoped key is empty, check old unscoped key
         if (!saved && isMainBranch) {
@@ -235,6 +253,13 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     }
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
+
+    // 🚀 Update memory cache so subsequent reads see the change immediately
+    const slugForCache = getActiveSlug() || '';
+    if (slugForCache) {
+        _subsMemoryCache = data;
+        _subsMemoryCacheSlug = slugForCache;
+    }
     
     // 🔥 NEW ATOMIC SYNC: Push this specific subscription to the native table
     const activeSlug = getActiveSlug() || '';
@@ -243,7 +268,7 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     if (orgId && orgId !== 'demo') {
         const settings = loadSettings(activeSlug);
         const payload = {
-            id: info.id || `sub_${Date.now()}`,
+            id: info.id || makeEntityId('SUB'),
             org_id: orgId,
             student_id: studentId,
             data: info
@@ -381,11 +406,18 @@ export function deleteSubscription(studentId: string, subId: string): void {
         branchId: auditSettings.activeBranchId || 'main',
         studentId,
         studentName,
-        amount: sub.price
+        amount: sub.amount_paid
     });
 
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
+
+    // 🚀 Update memory cache after deletion
+    const slugForCache = activeSlug || '';
+    if (slugForCache) {
+        _subsMemoryCache = data;
+        _subsMemoryCacheSlug = slugForCache;
+    }
 
     // 🔥 PREVENT RESURRECTION: Add to local deleted IDs list
     try {

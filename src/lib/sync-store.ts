@@ -11,8 +11,15 @@ export function markLocalUpdate() {
     markUtilsUpdate();
 }
 
+// 🛡️ IO-OPTIMIZED: Debounced sync trigger - max 1 sync per 5 seconds
+let _syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 export function triggerInstantSync() {
-    window.dispatchEvent(new Event('cc_instant_sync_request'));
+    if (typeof window === 'undefined') return;
+    if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
+    _syncDebounceTimer = setTimeout(() => {
+        window.dispatchEvent(new Event('cc_instant_sync_request'));
+        _syncDebounceTimer = null;
+    }, 5000);
 }
 
 /** 
@@ -83,6 +90,29 @@ export async function pullStudioStateFromCloud() { return null; }
  */
 export async function pushStudioStateToCloud(slug: string, staff: any[], data: any, _ignored?: any, orgIdOverride?: string) {
     if (!slug || slug === 'demo.classcore.ge') return true;
+    
+    // 🛡️ SAFETY: Don't push if students/groups/halls accidentally empty
+    // This prevents one device with cleared localStorage from wiping cloud data
+    if (data && typeof data === 'object') {
+        const studentsBlob = data.cc_student_data;
+        const studentCount = studentsBlob && typeof studentsBlob === 'object' ? Object.keys(studentsBlob).length : -1;
+        
+        // Read previous state to check what was there
+        if (typeof window !== 'undefined') {
+            try {
+                const prevRaw = localStorage.getItem(`cc_last_blob_${slug}_studentCount`);
+                const prevCount = prevRaw ? parseInt(prevRaw) : 0;
+                if (prevCount >= 5 && studentCount === 0) {
+                    console.warn(`⚠️ [Sync] BLOCKED: Refusing to push blob with 0 students when previous had ${prevCount}. This would wipe data.`);
+                    return false;
+                }
+                if (studentCount > 0) {
+                    localStorage.setItem(`cc_last_blob_${slug}_studentCount`, String(studentCount));
+                }
+            } catch {}
+        }
+    }
+    
     console.log(`📡 [Sync v1.1.10] Pushing State for ${slug}...`);
     
     const supabase = createClient();

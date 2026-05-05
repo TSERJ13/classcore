@@ -76,7 +76,14 @@ export default function TrashPage() {
     };
 
     const getDisplayName = (item: TrashItem) => {
-        return item.data.name || item.data.fullName || item.data.full_name || 'Unnamed Item';
+        const d: any = item.data || {};
+        // Subscription deletions: prefer student name with plan info
+        if (item.type === 'subscription') {
+            const sName = d.studentName || d.fullName || d.full_name || d.name;
+            const planLabel = d.plan || d.plan_name || '';
+            if (sName) return planLabel ? `${sName} — ${planLabel}` : sName;
+        }
+        return d.name || d.fullName || d.full_name || d.studentName || 'Unnamed Item';
     };
 
     return (

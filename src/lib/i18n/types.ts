@@ -49,6 +49,9 @@ export interface Translations {
     selectedPeriod: string;
     welcomeBack: string;
     active: string;
+    defaultPlan: string;
+    setAsDefault: string;
+    removeDefault: string;
     new: string;
     analytics: string;
     todayIs: string;

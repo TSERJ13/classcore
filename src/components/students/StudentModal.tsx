@@ -1272,10 +1272,13 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                     onClose={() => setIssueModalOpen(false)}
                     initialStudentId={student.id}
                     onIssue={(data) => {
-                        import('@/lib/subscription-store').then(mod => {
+                        Promise.all([
+                            import('@/lib/subscription-store'),
+                            import('@/lib/utils')
+                        ]).then(([mod, utilsMod]) => {
                             mod.saveSubscription(data.student_id, {
                                 ...data,
-                                id: `sub_${Date.now()}`
+                                id: utilsMod.makeEntityId('SUB')
                             } as any);
                             setIssueModalOpen(false);
                             // Refresh sales/visits if needed

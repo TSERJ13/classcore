@@ -881,9 +881,19 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
         }
     };
 
-    const [selectedColor, setSelectedColor] = useState<string>('#6366f1'); // Default color
+    // 🎨 Default color: use the first hall's color if available, otherwise fall back to indigo
+    const defaultHallColor = halls[0]?.color || '#6366f1';
+    const [selectedColor, setSelectedColor] = useState<string>(defaultHallColor);
 
-    // Auto-select group color if group selected
+    // 🎨 Auto-select hall color when hall changes (unless user already picked custom)
+    useEffect(() => {
+        if (form.hall_id) {
+            const h = halls.find((h: any) => h.id === form.hall_id);
+            if (h?.color) setSelectedColor(h.color);
+        }
+    }, [form.hall_id, halls]);
+
+    // Auto-select group color if group selected (overrides hall color)
     useEffect(() => {
         if (form.group_id) {
             const g = groups.find(g => g.id === form.group_id);
@@ -1384,11 +1394,18 @@ export default function CalendarPage() {
     const dayGridRef = useRef<HTMLDivElement | null>(null);
 
 
-    // Filtered events
-    const filtered = useMemo(() => expandedEvents.filter(ev =>
-        (filterHall === 'all' || ev.hall_id === filterHall) &&
-        (filterTeacher === 'all' || ev.teacher_id === filterTeacher)
-    ), [expandedEvents, filterHall, filterTeacher]);
+    // Filtered events — accept events whose hall_id matches OR is 'h1' (default fallback) when first hall selected
+    const filtered = useMemo(() => {
+        const firstHallId = halls[0]?.id;
+        return expandedEvents.filter(ev => {
+            const hallMatch = filterHall === 'all'
+                || ev.hall_id === filterHall
+                // If no specific hall_id set or h1 default, treat as belonging to first hall
+                || (!ev.hall_id && filterHall === firstHallId)
+                || (ev.hall_id === 'h1' && filterHall === firstHallId);
+            return hallMatch && (filterTeacher === 'all' || ev.teacher_id === filterTeacher);
+        });
+    }, [expandedEvents, filterHall, filterTeacher, halls]);
 
     // Week navigation
     const weekDates = getWeekDates(anchor);
@@ -1788,6 +1805,25 @@ export default function CalendarPage() {
         }
     }, [hasMounted, groups.length]);
 
+    // 🌟 Re-sync whenever groups data changes (after hydration from cloud)
+    useEffect(() => {
+        if (!hasMounted) return;
+        const handleGroupsUpdate = () => {
+            const freshGroups = getGroups();
+            if (freshGroups.length > 0) {
+                setGroups(freshGroups);
+                // Wait a tick for hall data to settle, then sync
+                setTimeout(() => syncAllGroups(true), 500);
+            }
+        };
+        window.addEventListener('cc_groups_update', handleGroupsUpdate);
+        window.addEventListener('cc_studio_hydrated', handleGroupsUpdate);
+        return () => {
+            window.removeEventListener('cc_groups_update', handleGroupsUpdate);
+            window.removeEventListener('cc_studio_hydrated', handleGroupsUpdate);
+        };
+    }, [hasMounted]);
+
     // Events on a specific date
     function dayEvents(dateStr: string) {
         return filtered
@@ -2075,27 +2111,6 @@ export default function CalendarPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {/* Manual Cloud Refresh */}
-                    <button onClick={async () => {
-                        const btn = document.getElementById('cal-refresh-btn');
-                        if (btn) btn.classList.add('animate-spin');
-                        await refreshData();
-                        setTimeout(() => { if (btn) btn.classList.remove('animate-spin'); }, 1000);
-                    }}
-                        title={lang === 'ka' ? 'მონაცემების განახლება' : 'Refresh Cloud Data'}
-                        className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-emerald-500/40 text-muted hover:text-emerald-500 rounded-2xl transition-all shadow-sm group">
-                        <RefreshCw id="cal-refresh-btn" className="w-4 h-4 transition-all duration-500" />
-                    </button>
-
-                    {/* Sync Action */}
-                    {canEdit && (
-                        <button onClick={syncAllGroups}
-                            title={lang === 'ka' ? 'ჯგუფების კალენდართან სინქრონიზაცია' : 'Sync all groups to calendar'}
-                            className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-muted hover:text-[#6d28d9] rounded-2xl transition-all shadow-sm group">
-                            <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-                        </button>
-                    )}
-
                     {/* PDF Export */}
                     <button onClick={exportPDF}
                         className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-muted hover:text-[#6d28d9] rounded-2xl transition-all shadow-sm group">

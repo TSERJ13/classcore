@@ -291,7 +291,35 @@ export default function DashboardPage() {
 
             const allStudents = getStudents();
             const groups = getGroups();
-            const scheduleWithDetails = events.map(ev => {
+
+            // 🌟 If no events for this date, fall back to group schedule_slots
+            // Day of week: Mon=0..Sun=6 (project convention)
+            const dayOfWeek = (selectedDate.getDay() + 6) % 7;
+            
+            let scheduleSource = events;
+            if (events.length === 0) {
+                // Build virtual events from group schedule_slots
+                const virtualEvents = groups
+                    .filter((g: any) => Array.isArray(g.schedule_slots) && g.schedule_slots.some((s: any) => s.dayOfWeek === dayOfWeek))
+                    .filter((g: any) => !isTeacher || assignedIds.includes(g.id))
+                    .map((g: any) => {
+                        const slot = g.schedule_slots.find((s: any) => s.dayOfWeek === dayOfWeek);
+                        return {
+                            id: `virtual-${g.id}`,
+                            group_id: g.id,
+                            title: g.name,
+                            type: 'group',
+                            color: g.color || '#6d28d9',
+                            start_time: slot?.startTime || '00:00',
+                            end_time: slot?.endTime || '23:59',
+                            teacher_id: g.teacher_id || g.teacherId || '',
+                            hall_id: g.hall_id || ''
+                        };
+                    });
+                scheduleSource = virtualEvents as any;
+            }
+
+            const scheduleWithDetails = scheduleSource.map((ev: any) => {
                 const g = groups.find(x => x.id === ev.group_id);
                 const tid = ev.teacher_id || g?.teacherId;
                 return {
@@ -301,7 +329,7 @@ export default function DashboardPage() {
                     hallName: getHallName(ev.hall_id),
                     studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length
                 };
-            });
+            }).sort((a: any, b: any) => (a.start_time || '').localeCompare(b.start_time || ''));
             setLiveSchedule(scheduleWithDetails);
         });
 
@@ -311,6 +339,42 @@ export default function DashboardPage() {
             const name = c.studentName || t.studentLabelGeneric;
             activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], color: 'from-indigo-500 to-blue-600' });
         });
+
+        // 🗑️ Add recent deletions from trash to activity
+        try {
+            const { getTrash } = require('@/lib/trash-store');
+            const trashItems = (getTrash() || []) as any[];
+            // Only show deletions from today/recent (last 24h) to keep activity feed fresh
+            const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+            const recentTrash = trashItems
+                .filter((it: any) => {
+                    const ts = new Date(it.deleted_at || it.deletedAt || 0).getTime();
+                    return ts > oneDayAgo;
+                })
+                .sort((a: any, b: any) => {
+                    const aT = new Date(a.deleted_at || a.deletedAt || 0).getTime();
+                    const bT = new Date(b.deleted_at || b.deletedAt || 0).getTime();
+                    return bT - aT;
+                });
+            
+            recentTrash.forEach((item: any) => {
+                const name = item.name || item.label || item.title || 'წაშლილი ჩანაწერი';
+                const time = new Date(item.deleted_at || item.deletedAt || Date.now()).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' });
+                activityList.push({
+                    name,
+                    action: 'deleted',
+                    group: item.entity_type === 'subscription' ? 'აბონემენტი' : item.entity_type === 'student' ? 'სტუდენტი' : (item.entity_type || 'ჩანაწერი'),
+                    time,
+                    avatar: name[0] || '✕',
+                    color: 'from-red-500 to-rose-600'
+                });
+            });
+        } catch (e) {
+            // Silent fail — trash is optional
+        }
+
+        // Sort by time descending
+        activityList.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
         setLiveActivity(activityList.slice(0, 8));
 
     }, [profile, selectedDate, settings.studioName, t]);

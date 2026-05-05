@@ -175,7 +175,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     const dbArr = Array.isArray(db) ? db : [];
                     const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
                     if (dbArr.length === 0) return backupArr;
-                    const merged = dbArr.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
+                    // 🌟 DB WINS: backup is fallback for missing fields, but DB values override
+                    const merged = dbArr.map(item => {
+                        const backupItem = backupArr.find((b: any) => b.id === item.id) || {};
+                        // backup first, then item (DB) so DB wins for any conflicting field
+                        return { ...backupItem, ...item };
+                    });
                     backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
                     return merged;
                 };
@@ -207,12 +212,56 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 });
 
                 // 🚀 SCORCHED EARTH v1.1.16: Unified Atomic Hydration
+                // 🚀 CRITICAL: Populate in-memory cache FIRST so getStudents() works even if localStorage fails
+                const studentsArray = unwrap(state.students) || [];
+                const studentsMap = studentsArray.reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {});
+                
+                if (activeSlug && studentsArray.length > 0) {
+                    const { setMemoryStudentsCache } = await import('@/lib/student-store');
+                    setMemoryStudentsCache(studentsMap, activeSlug);
+                }
+
+                // 🚀 Populate halls memory cache
+                const hallsArray = unwrap(finalHalls) || [];
+                if (activeSlug && hallsArray.length > 0) {
+                    const { setHallsMemoryCache } = await import('@/lib/hall-store');
+                    setHallsMemoryCache(hallsArray, activeSlug);
+                }
+
+                // 🚀 Populate events memory cache
+                const eventsArray = unwrap(finalEvents) || [];
+                if (activeSlug && eventsArray.length > 0) {
+                    const { setEventsMemoryCache } = await import('@/lib/event-store');
+                    setEventsMemoryCache(eventsArray, activeSlug);
+                }
+
+                // 🚀 Populate plans memory cache
+                const plansArray = unwrap(finalPlans) || [];
+                if (activeSlug && plansArray.length > 0) {
+                    const { setPlansMemoryCache } = await import('@/lib/plan-store');
+                    setPlansMemoryCache(plansArray, activeSlug);
+                }
+
+                // 🚀 Populate subscriptions memory cache (grouped by student)
+                const subsArray = unwrap(state.subscriptions) || [];
+                if (activeSlug && subsArray.length > 0) {
+                    const subsMap = subsArray
+                        .filter((sub: any) => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
+                        .reduce((acc: any, sub: any) => {
+                            const sId = sub.student_id;
+                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                            return acc;
+                        }, {});
+                    const { setSubscriptionsMemoryCache } = await import('@/lib/subscription-store');
+                    setSubscriptionsMemoryCache(subsMap, activeSlug);
+                }
+
                 const mapping: any = {
                     cc_teachers: unwrap(finalStaff),
                     cc_branches: state.branches || [],
                     cc_halls: unwrap(finalHalls),
                     cc_groups: unwrap(finalGroups),
-                    cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                    cc_student_data: studentsMap,
                     cc_student_subscriptions: (unwrap(state.subscriptions) || [])
                         .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
                         .reduce((acc: any, sub: any) => {
@@ -306,19 +355,31 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     }, [user?.id, profile?.studio_slug, hydrate]);
 
     useEffect(() => {
-        const interval = setInterval(() => hydrate(true), 300000);
+        // 🛡️ IO-OPTIMIZED: Increased from 5min to 10min to reduce DB load
+        const interval = setInterval(() => hydrate(true), 600000);
         return () => clearInterval(interval);
     }, [hydrate]);
+
+    // 🛡️ Debounced metadata push - prevents rapid successive cloud writes
+    const metadataPushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingMetadata = useRef<any>(null);
 
     const updateSettings = useCallback((updates: Partial<StudioSettings>) => {
         setSettings(prev => {
             const next = { ...prev, ...updates };
             import('@/lib/settings-store').then(mod => mod.saveSettings(updates, prev, prev.studioSlug));
             if (prev.studioSlug && prev.orgId) {
-                const metadata = { ...next, settings: next };
-                import('@/lib/master-sync').then(mod => {
-                    mod.pushFullStudioMetadata(prev.studioSlug, updates.studioName || prev.studioName, metadata);
-                });
+                // 🛡️ DEBOUNCED: Queue metadata push, only send after 10s of inactivity
+                pendingMetadata.current = { ...next, settings: next };
+                if (metadataPushTimer.current) clearTimeout(metadataPushTimer.current);
+                metadataPushTimer.current = setTimeout(() => {
+                    if (pendingMetadata.current) {
+                        import('@/lib/master-sync').then(mod => {
+                            mod.pushFullStudioMetadata(prev.studioSlug, updates.studioName || prev.studioName, pendingMetadata.current);
+                            pendingMetadata.current = null;
+                        });
+                    }
+                }, 10000);
             }
             return next;
         });

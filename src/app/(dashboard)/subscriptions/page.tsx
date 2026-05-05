@@ -4,15 +4,17 @@ import { useState, useEffect } from 'react';
 import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { getSubscriptions, deleteSubscription, saveSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getStudents } from '@/lib/student-store';
+import { useStudio } from '@/contexts/StudioContext';
 import { SubscriptionModal } from '@/components/subscriptions/SubscriptionModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 
 export default function SubscriptionsPage() {
     const { t, lang } = useT();
     const { confirm } = useConfirm();
+    const { settings } = useStudio();
     const students = getStudents();
     const [tab, setTab] = useState<'active' | 'paused' | 'expired'>('active');
     const [category, setCategory] = useState<'group' | 'individual'>('group');
@@ -157,8 +159,7 @@ export default function SubscriptionsPage() {
                             </div>
                             {s.amount_paid !== undefined && (
                                 <div className="flex items-center gap-1 text-[9px] lg:text-xs text-emerald-600 font-black bg-emerald-500/5 px-2 py-0.5 rounded-lg border border-emerald-500/10">
-                                    <DollarSign className="w-3 h-3" />
-                                    <span>{s.amount_paid}₾</span>
+                                    <span>{formatCurrency(s.amount_paid, settings.currency)}</span>
                                 </div>
                             )}
                         </div>

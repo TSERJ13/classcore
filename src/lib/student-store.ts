@@ -22,6 +22,28 @@ import { ALL_STUDENTS } from './student-data';
 
 export const INITIAL_STUDENTS: Student[] = [];
 
+// 🚀 IN-MEMORY CACHE: When localStorage is full, we still have data here
+// Populated by StudioContext after cloud hydration
+let _memoryStudentsCache: Record<string, Student> | null = null;
+let _memoryCacheSlug: string | null = null;
+
+export function setMemoryStudentsCache(students: Student[] | Record<string, Student>, slug: string) {
+    if (Array.isArray(students)) {
+        _memoryStudentsCache = students.reduce((acc, s) => {
+            if (s.id) acc[s.id] = s;
+            return acc;
+        }, {} as Record<string, Student>);
+    } else {
+        _memoryStudentsCache = students;
+    }
+    _memoryCacheSlug = slug;
+    console.log(`💾 [StudentStore] Memory cache set: ${Object.keys(_memoryStudentsCache).length} students for ${slug}`);
+}
+
+export function getMemoryStudentsCache(slug: string): Student[] | null {
+    if (_memoryCacheSlug !== slug || !_memoryStudentsCache) return null;
+    return Object.values(_memoryStudentsCache);
+}
 
 export function getStudents(): Student[] {
     if (typeof window === 'undefined') return INITIAL_STUDENTS;
@@ -30,8 +52,21 @@ export function getStudents(): Student[] {
         const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
         const isMainBranch = activeBranch === 'main';
 
+        // 🚀 MEMORY CACHE FIRST: If localStorage is full, fall back to in-memory cache
         const key = getStudentDataKey();
         let stored = localStorage.getItem(key);
+        
+        // If localStorage is empty for this slug, try memory cache
+        if (!stored && activeSlug && _memoryCacheSlug === activeSlug && _memoryStudentsCache) {
+            console.log('💾 [StudentStore] Using in-memory cache (localStorage was empty)');
+            const memCache = Object.values(_memoryStudentsCache);
+            // Apply branch filter
+            if (activeBranch === 'all') return memCache;
+            return memCache.filter(s => {
+                const bId = (s as any).branch_id || 'main';
+                return bId === activeBranch || bId === 'all';
+            });
+        }
 
         // Migration: If new scoped key is empty, check old unscoped key
         if (!stored && isMainBranch) {

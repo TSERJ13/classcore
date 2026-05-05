@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus
+    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus, Star
 } from 'lucide-react';
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
@@ -116,8 +116,22 @@ export default function PlansManagementPage() {
         savePlans(next);
     }
 
+    // Mark plan as default — only ONE plan can be default at a time
+    function toggleDefault(id: string) {
+        const target = plans.find(p => p.id === id);
+        if (!target) return;
+        const willBeDefault = !target.is_default;
+        const next = plans.map(p => ({
+            ...p,
+            // If turning ON, clear default from all others. If turning OFF, just clear this one.
+            is_default: willBeDefault ? p.id === id : (p.id === id ? false : p.is_default)
+        }));
+        setPlans(next);
+        savePlans(next);
+    }
+
     return (
-        <div className="space-y-8 animate-fade-up max-w-6xl mx-auto pb-10">
+        <div className="space-y-8 max-w-6xl mx-auto pb-10">
             {/* Header */}
             <div className="flex flex-row items-stretch justify-between gap-3">
                 <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
@@ -171,7 +185,15 @@ export default function PlansManagementPage() {
                                             <Home className="w-5 h-5 text-amber-400" />}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-sm font-bold text-primary truncate">{plan.name}</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="text-sm font-bold text-primary truncate">{plan.name}</p>
+                                        {plan.is_default && (
+                                            <span className="flex items-center gap-0.5 text-[8px] font-black tracking-widest bg-amber-500/15 text-amber-500 border border-amber-500/30 px-1.5 py-0.5 rounded-md uppercase flex-shrink-0">
+                                                <Star className="w-2 h-2 fill-amber-500" />
+                                                {t.defaultPlan}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         {plan.period === 'sessions' && plan.session_count && <span className="text-[10px] text-muted">{plan.session_count} {t.visits}</span>}
                                         {plan.period === 'unlimited' && <span className="flex items-center gap-1 text-[10px] text-emerald-400/70"><Zap className="w-2.5 h-2.5" />{t.notAccounted}</span>}
@@ -180,6 +202,16 @@ export default function PlansManagementPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => toggleDefault(plan.id)}
+                                    title={plan.is_default ? t.removeDefault : t.setAsDefault}
+                                    className={cn(
+                                        "w-7 h-7 flex items-center justify-center rounded-lg transition-colors",
+                                        plan.is_default
+                                            ? "bg-amber-500/15 text-amber-500 hover:bg-amber-500/25"
+                                            : "hover:bg-surface text-muted/40 hover:text-amber-500"
+                                    )}>
+                                    <Star className={cn("w-3.5 h-3.5", plan.is_default && "fill-amber-500")} />
+                                </button>
                                 <button onClick={() => openEdit(plan)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface text-muted/40 hover:text-primary transition-colors">
                                     <Pencil className="w-3.5 h-3.5" />
                                 </button>

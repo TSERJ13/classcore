@@ -17,6 +17,7 @@ export interface Plan {
     coach?: string;
     group_id?: string;
     is_active: boolean;
+    is_default?: boolean;
 }
 
 import { getScopedKey, markLocalUpdate, getActiveSlug, getEffectiveOrgId } from './utils';
@@ -29,6 +30,16 @@ function getPlansKey(slug?: string) { return getScopedKey(BASE_PLANS_KEY, slug);
 
 const INITIAL_PLANS: Plan[] = [];
 
+// 🚀 MEMORY CACHE: Fallback when localStorage is full
+let _plansMemoryCache: Plan[] | null = null;
+let _plansMemoryCacheSlug: string | null = null;
+
+export function setPlansMemoryCache(plans: Plan[], slug: string) {
+    _plansMemoryCache = plans;
+    _plansMemoryCacheSlug = slug;
+    console.log(`💾 [PlanStore] Memory cache set: ${plans.length} plans`);
+}
+
 export function getPlans(): Plan[] {
     if (typeof window === 'undefined') return INITIAL_PLANS;
     try {
@@ -36,9 +47,18 @@ export function getPlans(): Plan[] {
         const key = getPlansKey(activeSlug);
         let saved = localStorage.getItem(key);
 
-        if (!saved) return INITIAL_PLANS;
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : INITIAL_PLANS;
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) ? parsed : INITIAL_PLANS;
+        }
+        
+        // 🚀 Fall back to memory cache
+        if (_plansMemoryCache && _plansMemoryCacheSlug === activeSlug) {
+            console.log('💾 [PlanStore] Using memory cache');
+            return _plansMemoryCache;
+        }
+        
+        return INITIAL_PLANS;
     } catch {
         return INITIAL_PLANS;
     }

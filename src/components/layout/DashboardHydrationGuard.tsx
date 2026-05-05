@@ -1,78 +1,120 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useStudio } from '@/contexts/StudioContext';
 import { AppLogo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
 
+const SESSION_FLAG = 'cc_splash_shown';
+
+let _moduleFlag = false;
+
+function hasShownSplash(): boolean {
+    if (_moduleFlag) return true;
+    if (typeof window === 'undefined') return false;
+    try {
+        return sessionStorage.getItem(SESSION_FLAG) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function markSplashShown() {
+    _moduleFlag = true;
+    if (typeof window === 'undefined') return;
+    try { sessionStorage.setItem(SESSION_FLAG, '1'); } catch {}
+}
+
 export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isLoaded, loadingStep, settings } = useStudio();
     const { lang } = useT();
-    const [showContent, setShowContent] = useState(false);
+    
+    // 🌟 INSTANT CHECK: if splash flag is set OR isLoaded already true, skip splash entirely
+    const initialSkip = hasShownSplash() || isLoaded;
+    if (initialSkip && !_moduleFlag) markSplashShown();
+    
+    const [showContent, setShowContent] = useState(initialSkip);
     const [progress, setProgress] = useState(0);
-    const [localLogo, setLocalLogo] = useState<string | null>(null);
+    const [studioLogo, setStudioLogo] = useState<string | null>(null);
+    const progressRef = useRef(0);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && !settings?.logoDataUrl) {
+        if (isLoaded && !showContent) {
+            markSplashShown();
+            setShowContent(true);
+        }
+    }, [isLoaded, showContent]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
             const slug = localStorage.getItem('cc_active_studio_slug');
             if (slug) {
                 const s = localStorage.getItem(`cc_studio_settings_${slug}`);
                 if (s) {
                     try {
                         const parsed = JSON.parse(s);
-                        if (parsed.logoDataUrl) setLocalLogo(parsed.logoDataUrl);
-                    } catch(e) {}
+                        if (parsed.logoDataUrl) setStudioLogo(parsed.logoDataUrl);
+                    } catch (e) {}
                 }
             }
         }
-    }, [settings?.logoDataUrl]);
+    }, []);
 
     useEffect(() => {
+        if (showContent) return;
+        
         if (isLoaded) {
-            setProgress(100);
-            const timer = setTimeout(() => setShowContent(true), 1500);
-            return () => clearTimeout(timer);
-        } else {
-            const stepMap: Record<string, number> = {
-                'სერვერთან დაკავშირება...': 15,
-                'მონაცემების სინქრონიზაცია...': 45,
-                'ინტერფეისის მომზადება...': 80
-            };
-            
-            const target = stepMap[loadingStep] || progress;
-            if (target > progress) {
-                const interval = setInterval(() => {
-                    setProgress(prev => {
-                        if (prev < target) return prev + 1;
-                        clearInterval(interval);
-                        return prev;
-                    });
-                }, 15);
-                return () => clearInterval(interval);
-            }
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            intervalRef.current = setInterval(() => {
+                progressRef.current = Math.min(100, progressRef.current + 10);
+                setProgress(progressRef.current);
+                if (progressRef.current >= 100) {
+                    if (intervalRef.current) clearInterval(intervalRef.current);
+                    setTimeout(() => {
+                        markSplashShown();
+                        setShowContent(true);
+                    }, 100);
+                }
+            }, 8);
+            return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
         }
-    }, [isLoaded, loadingStep, progress]);
+
+        const stepTargets: Record<string, number> = {
+            'სერვერთან დაკავშირება...': 35,
+            'მონაცემების სინქრონიზაცია...': 70,
+            'ინტერფეისის მომზადება...': 92
+        };
+        const target = stepTargets[loadingStep] || 20;
+
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        intervalRef.current = setInterval(() => {
+            if (progressRef.current < target) {
+                progressRef.current = Math.min(target, progressRef.current + 2);
+                setProgress(progressRef.current);
+            }
+        }, 20);
+        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    }, [isLoaded, loadingStep, showContent]);
 
     if (showContent) return <>{children}</>;
 
+    const logoSrc = settings?.logoDataUrl || studioLogo;
+
     return (
-        <div className="fixed inset-0 bg-white dark:bg-zinc-950 z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-700">
-            <div className="relative flex flex-col items-center gap-12 -mt-32">
-                {/* ⚪ THE PREMIUM LOGO */}
-                <div className="relative group flex flex-col items-center justify-center">
-                    <AppLogo 
-                        size={120} 
-                        radar 
-                        loading 
-                        src={settings?.logoDataUrl || localLogo}
-                        className="relative z-10 drop-shadow-2xl transition-transform duration-700" 
-                    />
-                </div>
+        <div className="fixed inset-0 bg-white dark:bg-zinc-950 z-[9999] flex items-center justify-center">
+            <div className="relative flex flex-col items-center gap-10">
+                <AppLogo 
+                    size={120} 
+                    radar 
+                    loading 
+                    src={logoSrc}
+                    className="relative z-10 drop-shadow-2xl" 
+                />
                 
-                <div className="flex flex-col items-center gap-8 animate-in fade-in slide-in-from-bottom-8 duration-1000 w-64">
-                    {/* Modern Progress Track */}
+                <div className="flex flex-col items-center gap-6 w-64">
                     <div className="w-full h-[6px] bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden p-[1px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
                         <div 
-                            className="h-full bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 bg-[length:200%_100%] animate-shimmer rounded-full transition-all duration-500 ease-out" 
+                            className="h-full bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 bg-[length:200%_100%] animate-shimmer rounded-full transition-all duration-200 ease-linear" 
                             style={{ width: `${progress}%` }}
                         />
                     </div>
@@ -85,22 +127,6 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                             <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 tabular-nums">
                                 {progress}%
                             </span>
-                        </div>
-                        
-                        <div className="h-4 flex items-center justify-center">
-                            <p className="text-[10px] font-bold text-slate-400/60 dark:text-zinc-500/50 uppercase tracking-[0.2em] text-center animate-pulse">
-                                {(() => {
-                                    if (!loadingStep) return lang === 'ka' ? 'სისტემის მომზადება...' : lang === 'ru' ? 'Подготовка...' : 'Preparing...';
-                                    
-                                    const translations: Record<string, Record<string, string>> = {
-                                        'სერვერთან დაკავშირება...': { ka: 'სერვერთან დაკავშირება...', ru: 'Подключение к серверу...', en: 'Connecting to server...' },
-                                        'მონაცემების სინქრონიზაცია...': { ka: 'მონაცემების სინქრონიზაცია...', ru: 'Сინхронизация данных...', en: 'Synchronizing data...' },
-                                        'ინტერფეისის მომზადება...': { ka: 'ინტერფეისის მომზადება...', ru: 'Подготовка интерфейса...', en: 'Preparing interface...' }
-                                    };
-
-                                    return translations[loadingStep]?.[lang || 'ka'] || loadingStep;
-                                })()}
-                            </p>
                         </div>
                     </div>
                 </div>

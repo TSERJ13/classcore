@@ -19,6 +19,53 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+/**
+ * Generate a studio prefix from the studio name for unique IDs.
+ * Examples:
+ *   "S_T Dance Studio" → "STDS"
+ *   "Mark's Karate"    → "MK"
+ *   "Yoga"             → "YG"
+ * Falls back to "ST" if name is empty/unavailable.
+ */
+export function getStudioPrefix(studioName?: string): string {
+    if (!studioName) {
+        // Try to read from active settings if not provided
+        if (typeof window !== 'undefined') {
+            try {
+                const slug = localStorage.getItem('cc_active_studio_slug');
+                if (slug) {
+                    const raw = localStorage.getItem(`cc_studio_settings_${slug}`);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        studioName = parsed.studioName || parsed.name || '';
+                    }
+                }
+            } catch {}
+        }
+    }
+    if (!studioName) return 'ST';
+    // Strip non-alphanumeric (keeps Latin letters and digits), split into words
+    const words = studioName
+        .replace(/[^A-Za-z0-9\s_-]/g, ' ')
+        .split(/[\s_-]+/)
+        .filter(Boolean);
+    if (words.length === 0) return 'ST';
+    let prefix = words.map(w => w[0]?.toUpperCase() || '').join('').slice(0, 4);
+    if (prefix.length < 2) prefix = (words[0] || 'ST').slice(0, 2).toUpperCase();
+    return prefix || 'ST';
+}
+
+/**
+ * Generate a unique entity ID using studio prefix.
+ * Example: makeEntityId('SUB') → "STDS-SUB-1762345678901"
+ */
+export function makeEntityId(entityCode: string, studioName?: string): string {
+    const prefix = getStudioPrefix(studioName);
+    const ts = Date.now();
+    const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${prefix}-${entityCode}-${ts}${rand}`;
+}
+
 export function smartCapitalize(str: string): string {
     if (!str) return '';
     // If it's Georgian, don't touch it (Georgian has no upper case)
@@ -372,19 +419,20 @@ async function compressBase64(base64: string, maxWidth = 600, quality = 0.5): Pr
 let isCleaning = false;
 
 /** 
- * SCORCHED EARTH v4.8: Safe Storage Layer
- * Handles QuotaExceededError by purging inactive studios from cache.
+ * SCORCHED EARTH v6.0: Cloud-First Safe Storage
+ * If localStorage fills up, we DO NOT WIPE DATA — we just skip the local write.
+ * Cloud (Supabase) remains the source of truth. Next page load will re-hydrate from cloud.
  */
 export async function safeSetItem(key: string, value: string, activeSlug?: string) {
     if (typeof window === 'undefined') return;
     
-    // 🚀 FAST-PATH: If the value is small, try sync write first
-    if (value.length < 50000) { // < 50KB
+    // 🚀 FAST-PATH: small writes
+    if (value.length < 50000) {
         try {
             localStorage.setItem(key, value);
             return;
         } catch (e) {
-            // If even small write fails, fall through to emergency cleanup
+            // fall through
         }
     }
 
@@ -392,45 +440,15 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
         localStorage.setItem(key, value);
     } catch (err: any) {
         if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) {
-            if (isCleaning) {
-                await new Promise(r => setTimeout(r, 500));
-                try { localStorage.setItem(key, value); return; } catch { return; }
-            }
-
+            if (isCleaning) return; // Skip — another cleanup in progress
+            
             isCleaning = true;
-            console.warn('⚠️ [Storage] Quota Exceeded! Starting emergency cleanup...');
+            console.warn('⚠️ [Storage] Quota near limit. Compressing images only (cloud is source of truth)...');
             
             try {
-                const currentSlug = activeSlug || getActiveSlug();
-                const keys = Object.keys(localStorage);
-                let clearedCount = 0;
-
-                const activeOrgId = currentSlug ? (localStorage.getItem(`cc_org_id_override_${currentSlug}`) || null) : null;
-                
-                // 1. Target Inactive Data
-                keys.forEach(k => {
-                    // 🛡️ CRITICAL AUTH PROTECTION: Never touch these keys!
-                    const isAuth = k.startsWith('sb-') || 
-                                  k.includes('supabase') || 
-                                  k.includes('auth-token') || 
-                                  k.includes('cc_staff_session') || 
-                                  k.includes('cc_active_slug') || 
-                                  k.includes('cc_auth_token');
-                                  
-                    if (isAuth) return;
-
-                    const isCurrent = currentSlug && (k.includes(currentSlug) || (activeOrgId && k.includes(activeOrgId)));
-                    if (!isCurrent && k.startsWith('cc_')) {
-                        localStorage.removeItem(k);
-                        clearedCount++;
-                    }
-                });
-
-                console.log(`🧹 [Storage] Emergency cleanup complete. Removed ${clearedCount} inactive keys.`);
-                
-                // 2. Intelligent Data Thinning (Compressing images instead of stripping)
+                // 🛡️ SAFE STRATEGY: Only compress images in THIS write, never delete other data
                 let thinnedValue = value;
-                if (value.length > 150000) { // If > 150KB
+                if (value.length > 150000) {
                     try {
                         const parsed = JSON.parse(value);
                         const process = async (obj: any): Promise<any> => {
@@ -448,36 +466,20 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
                         };
                         const thinnedObj = await process(parsed);
                         thinnedValue = JSON.stringify(thinnedObj);
-                        console.log(`📉 [Storage] Data compressed: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
+                        console.log(`📉 [Storage] Compressed: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
                     } catch (e) {
+                        // Strip images as last resort
                         thinnedValue = value.replace(/"(photo_url|logo_url|logoDataUrl)":"data:image\/[^"]+"/g, '"$1":null');
                     }
                 }
 
                 try {
                     localStorage.setItem(key, thinnedValue);
+                    console.log('✅ [Storage] Wrote compressed version successfully');
                 } catch (retryErr) {
-                    console.warn('☢️ [Storage] Secondary Failure. Initiating SAFE NUCLEAR WIPE...');
-                    
-                    // 🛡️ SCORCHED EARTH v5.0: ONLY touch our own cache keys. 
-                    // NEVER touch Supabase or other system keys.
-                    keys.forEach(k => {
-                        const isSafeToWipe = k.startsWith('cc_') && 
-                                           !k.includes('cc_staff_session') && 
-                                           !k.includes('cc_active_slug') && 
-                                           !k.includes('cc_org_id_override') &&
-                                           !k.includes('cc_auth');
-                                           
-                        if (isSafeToWipe) {
-                            localStorage.removeItem(k);
-                        }
-                    });
-                    
-                    try {
-                        localStorage.setItem(key, thinnedValue);
-                    } catch (finalErr) {
-                        console.error('💀 [Storage] UNRECOVERABLE STORAGE FAILURE.');
-                    }
+                    // 🛡️ NEVER WIPE DATA. Just skip this write.
+                    // Cloud has the data — next page reload will hydrate it back.
+                    console.warn('⚠️ [Storage] Cannot fit in cache. Skipping local save (cloud has the data).');
                 }
             } finally {
                 isCleaning = false;

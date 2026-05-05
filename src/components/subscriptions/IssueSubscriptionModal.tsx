@@ -125,8 +125,24 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setAmountPaid('');
             setUseBalance(false);
             setTeacherId('');
+            setPlanId(''); // 🌟 Clear so default-pick effect runs fresh on each open
         }
     }, [open, initialStudentId]);
+
+    // 🌟 Auto-select default plan when type/oneTime changes or list updates
+    useEffect(() => {
+        if (!open) return;
+        // Pick: default first, then first active, then anything
+        const defaultPlan = availablePlans.find(p => p.is_default && p.is_active !== false);
+        const firstActive = availablePlans.find(p => p.is_active !== false);
+        const auto = defaultPlan || firstActive || availablePlans[0];
+
+        // If current plan is invalid OR this is fresh open (planId empty), pick auto
+        const stillValid = planId && availablePlans.find(p => p.id === planId);
+        if (!stillValid && auto) {
+            setPlanId(auto.id);
+        }
+    }, [open, selectedType, isOneTime, availablePlans]);
 
     // Reset balance usage and auto-fill discount when student changes
     useEffect(() => {
@@ -152,7 +168,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     const planOptions = useMemo(() => availablePlans.map(p => ({
         value: p.id,
-        label: p.name,
+        label: p.is_default ? `⭐ ${p.name}` : p.name,
         subLabel: `${formatCurrency(p.price, settings.currency)} (${p.type})`
     })), [availablePlans, settings.currency]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays, Search, Pencil } from 'lucide-react';
+import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays, Search, Pencil, RefreshCw } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
@@ -110,6 +110,22 @@ export default function GroupsPage() {
 
         setGroups(updated);
         saveGroups(updated);
+        
+        // 🌟 Auto-sync this group to calendar immediately
+        const savedGroup = updated.find(g => g.id === gid);
+        if (savedGroup && savedGroup.schedule_slots && savedGroup.schedule_slots.length > 0) {
+            import('@/lib/event-store').then(mod => {
+                mod.syncGroupScheduleToCalendar(
+                    savedGroup.id,
+                    savedGroup.name,
+                    savedGroup.teacherId || '',
+                    savedGroup.hall_id || 'h1',
+                    savedGroup.schedule_slots || [],
+                    savedGroup.color,
+                    savedGroup.secondaryTeacherId || ''
+                );
+            });
+        }
     }
 
     function handleDelete(id: string) {
@@ -163,7 +179,30 @@ export default function GroupsPage() {
                     );
                 })()}
 
-                {/* Add Group Action */}
+                {/* Sync All Groups to Calendar */}
+                <button onClick={async () => {
+                    const evMod = await import('@/lib/event-store');
+                    let synced = 0;
+                    for (const g of groups) {
+                        if (g.schedule_slots && g.schedule_slots.length > 0) {
+                            evMod.syncGroupScheduleToCalendar(
+                                g.id, g.name, g.teacherId || '', g.hall_id || 'h1',
+                                g.schedule_slots, g.color, g.secondaryTeacherId || ''
+                            );
+                            synced++;
+                        }
+                    }
+                    alert(lang === 'ka' 
+                        ? `✅ ${synced} ჯგუფი გადატანილია კალენდარში` 
+                        : lang === 'ru' 
+                            ? `✅ ${synced} групп перенесено в календарь` 
+                            : `✅ ${synced} groups synced to calendar`);
+                }}
+                    title={lang === 'ka' ? 'კალენდართან სინქრონიზაცია' : 'Sync to calendar'}
+                    className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface border border-border-subtle hover:border-emerald-500/40 text-muted hover:text-emerald-500 rounded-[1.25rem] transition-all shadow-sm">
+                    <RefreshCw className="w-4 h-4" />
+                </button>
+
                 {/* Add Group Action */}
                 <button onClick={() => { setEditing(null); setModalOpen(true); }}
                     className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">

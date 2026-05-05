@@ -23,6 +23,16 @@ function makeEvent(id: string, title: string, type: EventType, hallId: string, t
 
 const SEED_WEEK: CalendarEvent[] = [];
 
+// 🚀 MEMORY CACHE: Fallback when localStorage is full
+let _eventsMemoryCache: CalendarEvent[] | null = null;
+let _eventsMemoryCacheSlug: string | null = null;
+
+export function setEventsMemoryCache(events: CalendarEvent[], slug: string) {
+    _eventsMemoryCache = events;
+    _eventsMemoryCacheSlug = slug;
+    console.log(`💾 [EventStore] Memory cache set: ${events.length} events`);
+}
+
 export function getEvents(): CalendarEvent[] {
     if (typeof window === 'undefined') return SEED_WEEK;
     try {
@@ -32,6 +42,12 @@ export function getEvents(): CalendarEvent[] {
 
         const key = getEventsKey();
         let saved = localStorage.getItem(key);
+        
+        // 🚀 Fall back to memory cache if localStorage empty
+        if (!saved && _eventsMemoryCache && _eventsMemoryCacheSlug === activeSlug) {
+            console.log('💾 [EventStore] Using memory cache');
+            return _eventsMemoryCache;
+        }
 
         // Migration: If new scoped key is empty, check old unscoped key
         if (!saved && isMainBranch) {
@@ -187,6 +203,26 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
     // Remove old recurring events for this group
     const cleaned = getEvents().filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));
 
+    // 🌟 Resolve fallback hall_id from actual halls list (first hall) if none provided
+    let finalHallId = hallId;
+    if (!finalHallId || finalHallId === 'h1') {
+        try {
+            if (typeof window !== 'undefined') {
+                const slug = localStorage.getItem('cc_active_studio_slug');
+                if (slug) {
+                    const hallsRaw = localStorage.getItem(`cc_halls_${slug}`);
+                    if (hallsRaw) {
+                        const halls = JSON.parse(hallsRaw);
+                        if (Array.isArray(halls) && halls.length > 0) {
+                            finalHallId = halls[0].id;
+                        }
+                    }
+                }
+            }
+        } catch {}
+        if (!finalHallId) finalHallId = 'h1';
+    }
+
     // Find the most recent Monday as anchor
     const today = new Date();
 
@@ -211,7 +247,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
             org_id: getActiveSlug() || '',
             title: groupTitle,
             type: 'group_class' as const,
-            hall_id: hallId || 'h1',
+            hall_id: finalHallId,
             teacher_id: teacherId || '',
             secondary_teacher_id: secondaryTeacherId || '',
             group_id: groupId,

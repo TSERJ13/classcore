@@ -96,15 +96,18 @@ export default function StudentsPage() {
         const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && isActive) || (statusFilter === 'inactive' && !isActive);
         const matchesGender = genderFilter === 'all' || s.gender === genderFilter;
 
-        const st = s as Student & { enrolled_group_ids?: string[]; classes?: string[] };
+        const st = s as Student & { enrolled_group_ids?: string[]; classes?: string[]; group_id?: string };
         const enrolledGroupIds = st.enrolled_group_ids || [];
         // Also check legacy `classes` field: cls1 → g1, cls2 → g2, etc.
         const classesAsGroupIds = (st.classes || []).map((c: string) => {
             const m = c.match(/^cls(\d+)$/);
             return m ? `g${m[1]}` : c;
         });
-        const allGroupIds = [...enrolledGroupIds, ...classesAsGroupIds];
-        const matchesGroup = !groupFilter || allGroupIds.includes(groupFilter);
+        // Also check `group_id` (single group field)
+        const singleGroupId = st.group_id ? [st.group_id] : [];
+        const allGroupIds = [...enrolledGroupIds, ...classesAsGroupIds, ...singleGroupId];
+        // If groupFilter is null, undefined, or empty string -> show ALL students
+        const matchesGroup = !groupFilter || groupFilter === '' || allGroupIds.includes(groupFilter);
 
         return matchesSearch && matchesStatus && matchesGroup && matchesGender;
     }).sort((a, b) => {

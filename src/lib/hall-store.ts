@@ -26,17 +26,35 @@ function getDeletedHallsKey() { return getScopedKey(BASE_DELETED_HALLS_KEY); }
 
 const INITIAL_HALLS: HallData[] = [];
 
+// 🚀 MEMORY CACHE: Fallback when localStorage is full
+let _hallsMemoryCache: HallData[] | null = null;
+let _hallsMemoryCacheSlug: string | null = null;
+
+export function setHallsMemoryCache(halls: HallData[], slug: string) {
+    _hallsMemoryCache = halls;
+    _hallsMemoryCacheSlug = slug;
+    console.log(`💾 [HallStore] Memory cache set: ${halls.length} halls`);
+}
+
 export function getHalls(): HallData[] {
     if (typeof window === 'undefined') return INITIAL_HALLS;
     try {
         const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        const key = getHallsKey();
-        let saved = localStorage.getItem(key);
+            const key = getHallsKey();
+            let saved = localStorage.getItem(key);
 
-        if (!saved) return INITIAL_HALLS;
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : INITIAL_HALLS;
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return Array.isArray(parsed) ? parsed : INITIAL_HALLS;
+            }
+            
+            // 🚀 Fall back to memory cache
+            if (_hallsMemoryCache && _hallsMemoryCacheSlug === activeSlug) {
+                console.log('💾 [HallStore] Using memory cache');
+                return _hallsMemoryCache;
+            }
+            return INITIAL_HALLS;
         }
         return INITIAL_HALLS;
     } catch {

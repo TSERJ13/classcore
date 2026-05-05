@@ -847,17 +847,37 @@ export default function AttendancePage() {
                             </button>
                             
                              <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
-                                <span className="absolute inset-x-0 inset-y-0 flex items-center justify-center text-[13px] font-bold uppercase text-primary pointer-events-none tracking-widest font-sans">
-                                    {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                                <StandardDatePicker
-                                    hideIcon={true}
+                                {/* Calendar trigger: clicking opens native date picker */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        // Open the hidden native date input
+                                        const inp = document.getElementById('att-date-native') as HTMLInputElement | null;
+                                        if (inp) {
+                                            // showPicker is supported on modern browsers
+                                            // @ts-ignore
+                                            if (typeof inp.showPicker === 'function') inp.showPicker();
+                                            else inp.click();
+                                        }
+                                    }}
+                                    className="flex items-center gap-2 h-full px-4 hover:bg-card/40 rounded-xl transition-all active:scale-95"
+                                >
+                                    <Calendar className="w-4 h-4 text-[#6d28d9]" />
+                                    <span className="text-[13px] font-bold uppercase text-primary tracking-widest font-sans">
+                                        {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </span>
+                                </button>
+                                {/* Hidden native date input — opens picker on showPicker() */}
+                                <input
+                                    id="att-date-native"
+                                    type="date"
                                     value={dateKey}
-                                    onChange={(val) => {
-                                        const d = new Date(val);
+                                    onChange={(e) => {
+                                        const d = new Date(e.target.value);
                                         if (!isNaN(d.getTime())) setSelectedDate(d);
                                     }}
-                                    className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-0 [&_input]:!text-transparent [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px] flex items-center justify-center"
+                                    className="absolute inset-0 opacity-0 pointer-events-none"
+                                    tabIndex={-1}
                                 />
                             </div>
 
@@ -886,16 +906,33 @@ export default function AttendancePage() {
                                             </button>
                                             
                                             <div className="flex-1 min-w-0">
-                                                <StandardDatePicker
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const inp = document.getElementById('att-date-native-desktop') as HTMLInputElement | null;
+                                                        if (inp) {
+                                                            // @ts-ignore
+                                                            if (typeof inp.showPicker === 'function') inp.showPicker();
+                                                            else inp.click();
+                                                        }
+                                                    }}
+                                                    className="w-full h-7 flex items-center justify-center gap-1.5 hover:bg-card/40 rounded-lg transition-all"
+                                                >
+                                                    <Calendar className="w-3 h-3 text-[#6d28d9]" />
+                                                    <span className="text-[11px] font-black tracking-tight text-center">
+                                                        {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </span>
+                                                </button>
+                                                <input
+                                                    id="att-date-native-desktop"
+                                                    type="date"
                                                     value={dateKey}
-                                                    hideIcon={true}
-                                                    onChange={(val) => {
-                                                        const d = new Date(val);
+                                                    onChange={(e) => {
+                                                        const d = new Date(e.target.value);
                                                         if (!isNaN(d.getTime())) setSelectedDate(d);
                                                     }}
-                                                    className="w-full [&>div]:mt-0"
-                                                    style={{ margin: 0 }}
-                                                    inputClassName="!bg-transparent !border-none !shadow-none !p-0 !h-7 !pl-0 !text-[11px] !font-black !tracking-tight text-center !rounded-none"
+                                                    className="absolute opacity-0 pointer-events-none w-0 h-0"
+                                                    tabIndex={-1}
                                                 />
                                             </div>
 
@@ -1330,10 +1367,9 @@ export default function AttendancePage() {
                                                     </div>
 
                                                     <button onClick={() => setIssueModalOpen(true)}
-                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all"
+                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-[#6d28d9] hover:bg-indigo-600"
                                                         style={{ 
-                                                            backgroundColor: selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9',
-                                                            boxShadow: `0 8px 20px -4px ${(selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9')}40`
+                                                            boxShadow: `0 8px 20px -4px #6d28d940`
                                                         }}>
                                                         <PlusCircle className="w-4 h-4" />
                                                         <span>{t.issueSubscription || t.issuePlan}</span>
