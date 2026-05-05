@@ -211,89 +211,77 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     return next;
                 });
 
-                // 🚀 SCORCHED EARTH v1.1.16: Unified Atomic Hydration
-                // 🚀 CRITICAL: Populate in-memory cache FIRST so getStudents() works even if localStorage fails
-                const studentsArray = unwrap(state.students) || [];
+                // 🚀 SCORCHED EARTH v1.1.18: Recursive Data Extraction
+                // Supabase returns rows like {id, data: {...}}, we need the 'data' part.
+                const extract = (arr: any[]) => arr.map(item => item.data || item);
+                
+                const studentsArray = extract(unwrap(state.students));
                 const studentsMap: Record<string, any> = {};
                 studentsArray.forEach((s: any) => { if (s && s.id) studentsMap[s.id] = s; });
-                
-                // 🚀 SCORCHED EARTH v1.1.17: Multi-Cache Hydration
-                // We populate ALL memory caches first to ensure Stores return data even before localStorage is flushed
+
+                const groupsArray = extract(unwrap(state.groups));
+                const hallsArray = extract(unwrap(state.halls));
+                const teachersArray = extract(unwrap(state.teachers));
+                const subsRaw = unwrap(state.subscriptions);
+                const eventsArray = extract(unwrap(state.events));
+                const plansArray = extract(unwrap(state.plans));
+                const productsArray = extract(unwrap(state.products));
+                const salesRaw = unwrap(state.sales);
+                const attendanceRaw = unwrap(state.attendance);
+
+                // 🚀 Multi-Cache Hydration (Immediate UI Availability)
                 if (activeSlug) {
-                    const [studMod, grpMod, hallMod, subMod, teaMod] = await Promise.all([
+                    const [studMod, grpMod, hallMod, subMod, teaMod, evtMod, planMod] = await Promise.all([
                         import('@/lib/student-store'),
                         import('@/lib/group-store'),
                         import('@/lib/hall-store'),
                         import('@/lib/subscription-store'),
-                        import('@/lib/teacher-store')
+                        import('@/lib/teacher-store'),
+                        import('@/lib/event-store'),
+                        import('@/lib/plan-store')
                     ]);
 
                     if (studentsArray.length > 0) studMod.setMemoryStudentsCache(studentsMap, activeSlug);
-                    
-                    const groupsArray = unwrap(state.groups) || [];
                     if (groupsArray.length > 0) grpMod.setGroupsMemoryCache(groupsArray, activeSlug);
-
-                    const hallsArray = unwrap(state.halls) || [];
                     if (hallsArray.length > 0) hallMod.setHallsMemoryCache(hallsArray, activeSlug);
-
-                    const teachersArray = unwrap(state.teachers) || [];
                     if (teachersArray.length > 0) teaMod.setTeachersMemoryCache(teachersArray, activeSlug);
+                    if (eventsArray.length > 0) evtMod.setEventsMemoryCache(eventsArray, activeSlug);
+                    if (plansArray.length > 0) planMod.setPlansMemoryCache(plansArray, activeSlug);
 
-                    const subsArray = unwrap(state.subscriptions) || [];
-                    if (subsArray.length > 0) {
+                    if (subsRaw.length > 0) {
                         const subMap: Record<string, any[]> = {};
-                        subsArray.forEach(s => {
-                            const sid = s.student_id;
-                            if (sid) { if (!subMap[sid]) subMap[sid] = []; subMap[sid].push(s); }
+                        subsRaw.forEach(row => {
+                            const sid = row.student_id;
+                            if (sid) { 
+                                if (!subMap[sid]) subMap[sid] = []; 
+                                subMap[sid].push(row.data || row); 
+                            }
                         });
                         subMod.setSubscriptionsMemoryCache(subMap, activeSlug);
                     }
                 }
 
-                // 🚀 Populate plans memory cache
-                const plansArray = unwrap(finalPlans) || [];
-                if (activeSlug && plansArray.length > 0) {
-                    const { setPlansMemoryCache } = await import('@/lib/plan-store');
-                    setPlansMemoryCache(plansArray, activeSlug);
-                }
-
-                // 🚀 Populate subscriptions memory cache (grouped by student)
-                const subsArray = unwrap(state.subscriptions) || [];
-                if (activeSlug && subsArray.length > 0) {
-                    const subsMap = subsArray
-                        .filter((sub: any) => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
-                        .reduce((acc: any, sub: any) => {
-                            const sId = sub.student_id;
-                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
-                            return acc;
-                        }, {});
-                    const { setSubscriptionsMemoryCache } = await import('@/lib/subscription-store');
-                    setSubscriptionsMemoryCache(subsMap, activeSlug);
-                }
-
                 const mapping: any = {
-                    cc_teachers: unwrap(finalStaff),
+                    cc_teachers: teachersArray,
                     cc_branches: state.branches || [],
-                    cc_halls: unwrap(finalHalls),
-                    cc_groups: unwrap(finalGroups),
+                    cc_halls: hallsArray,
+                    cc_groups: groupsArray,
                     cc_student_data: studentsMap,
-                    cc_student_subscriptions: (unwrap(state.subscriptions) || [])
-                        .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
-                        .reduce((acc: any, sub: any) => {
-                            const sId = sub.student_id;
-                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
-                            return acc;
-                        }, {}),
-                    cc_calendar_events: unwrap(finalEvents),
-                    cc_subscription_plans: unwrap(finalPlans),
-                    cc_shop_products: unwrap(state.products),
-                    cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
-                        const sId = sale.student_id;
-                        if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
+                    cc_student_subscriptions: subsRaw.reduce((acc: any, row: any) => {
+                        const sid = row.student_id;
+                        if (sid) { if (!acc[sid]) acc[sid] = []; acc[sid].push(row.data || row); }
                         return acc;
                     }, {}),
-                    cc_expenses: unwrap(state.expenses),
-                    cc_global_trash: unwrap(state.trash),
+                    cc_calendar_events: eventsArray,
+                    cc_subscription_plans: plansArray,
+                    cc_shop_products: productsArray,
+                    cc_shop_sales: salesRaw.reduce((acc: any, row: any) => {
+                        const sid = row.student_id;
+                        if (sid) { if (!acc[sid]) acc[sid] = []; acc[sid].push(row.data || row); }
+                        return acc;
+                    }, {}),
+                    cc_expenses: extract(unwrap(state.expenses)),
+                    cc_global_trash: extract(unwrap(state.trash)),
                     cc_sa_meta: { plan: finalPlan, manualBlock: !!updates.manual_block, suspended: !!updates.suspended }
                 };
 
