@@ -39,7 +39,8 @@ const BASE_DELETED_GROUPS_KEY = 'cc_deleted_groups';
 function getGroupsKey() { return getScopedKey(BASE_GROUPS_KEY); }
 function getDeletedGroupsKey() { return getScopedKey(BASE_DELETED_GROUPS_KEY); }
 
-// Matches teacher-store assigned_group_ids (g1 to g5)
+const INITIAL_GROUPS: Group[] = [];
+
 // 🚀 MEMORY CACHE: Fallback when localStorage is full
 let _groupsMemoryCache: Group[] | null = null;
 let _groupsMemoryCacheSlug: string | null = null;
