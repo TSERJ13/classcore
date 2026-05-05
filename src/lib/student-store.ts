@@ -415,12 +415,29 @@ export function getStudentUid(studentId: string): string {
 
 // StudentPatch type is now imported from @/types
 
-export function getStudentPatches(): Record<string, StudentPatch> {
+export function getStudentPatches(): Record<string, Student> {
     if (typeof window === 'undefined') return {};
     try {
+        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
         const key = getStudentDataKey();
         let stored = localStorage.getItem(key);
-        return JSON.parse(stored ?? '{}') || {};
+        
+        // 🚀 CRITICAL FIX: If localStorage is empty, check memory cache
+        // Otherwise we overwrite the entire database with just ONE student when editing!
+        if (!stored && activeSlug && _memoryCacheSlug === activeSlug && _memoryStudentsCache) {
+            console.log('💾 [StudentStore] getStudentPatches: Using in-memory cache as base');
+            return { ..._memoryStudentsCache };
+        }
+
+        const parsed = JSON.parse(stored ?? '{}');
+        if (Array.isArray(parsed)) {
+            return parsed.reduce((acc: any, s: any) => {
+                const id = s.id || s.studentId;
+                if (id) acc[id] = s;
+                return acc;
+            }, {});
+        }
+        return parsed || {};
     } catch {
         return {};
     }

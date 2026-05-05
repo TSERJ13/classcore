@@ -1763,39 +1763,63 @@ export default function CalendarPage() {
             return;
         }
 
-        // AGGRESSIVE CLEANUP: Remove all recurring events first to avoid duplicates or fragmented hall IDs
+        // AGGRESSIVE CLEANUP: Filter out all recurring group events first
         const existingEvents = getEvents();
-        const manualEvents = existingEvents.filter(e => !e.group_id);
-        saveEvents(manualEvents);
+        let runningEvents = existingEvents.filter(e => !e.group_id);
         
         let count = 0;
+        const today = new Date();
+
         for (const g of allGroups) {
             if (g.schedule_slots && g.schedule_slots.length > 0) {
-                // Determine the correct hall ID - use the one assigned to group, or the first available
                 let hall = halls.find((h: any) => h.id === g.hall_id);
                 if (!hall && halls.length > 0) {
-                    hall = halls[0]; // Auto-assign to first hall if none specified
+                    hall = halls[0];
                 }
                 
                 const hallId = hall?.id || 'h1';
                 const hallColor = hall?.color || '#6366f1';
 
-                syncGroupScheduleToCalendar(
-                    g.id, 
-                    g.name, 
-                    g.teacherId, 
-                    hallId, 
-                    g.schedule_slots, 
-                    g.color || hallColor, 
-                    g.secondaryTeacherId
-                );
+                // Generate events for this group's slots
+                const groupEvents = g.schedule_slots.map((slot, i) => {
+                    const monday = new Date(today);
+                    const day = today.getDay();
+                    const diffToMonday = day === 0 ? -6 : 1 - day;
+                    monday.setDate(today.getDate() + diffToMonday);
+
+                    const targetDate = new Date(monday);
+                    targetDate.setDate(monday.getDate() + slot.dayOfWeek);
+
+                    return {
+                        id: `grp_${g.id}_slot${i}_${slot.dayOfWeek}`,
+                        org_id: getActiveSlug() || '',
+                        title: g.name,
+                        type: 'group_class' as const,
+                        hall_id: hallId,
+                        teacher_id: g.teacherId || '',
+                        secondary_teacher_id: g.secondaryTeacherId || '',
+                        group_id: g.id,
+                        date: getLocalISODate(targetDate),
+                        start_time: slot.startTime,
+                        end_time: slot.endTime,
+                        color: g.color || hallColor,
+                        recurring: 'weekly' as const,
+                        reminder_30m: false,
+                        created_at: new Date().toISOString(),
+                    };
+                });
+
+                runningEvents = [...runningEvents, ...groupEvents];
                 count++;
             }
         }
-        setEvents(getEvents());
+
+        // Single batch save
+        saveEvents(runningEvents);
+        
         if (!silent) alert(lang === 'ka' 
-            ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა! თუ კალენდარი მაინც ცარიელია, დარწმუნდით რომ ჯგუფებს მიენიჭა შესაბამისი დარბაზი.` 
-            : `Successfully synced ${count} group schedules! If the calendar is still empty, make sure groups are assigned to the correct hall.`);
+            ? `${count} ჯგუფის განრიგი წარმატებით დასინქრონდა!` 
+            : `Successfully synced ${count} group schedules!`);
     };
 
     // Aggressive Auto-sync on mount to ensure Groups always appear in Calendar automatically

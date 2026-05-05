@@ -119,10 +119,14 @@ export function getEvents(): CalendarEvent[] {
     }
 }
 
+import { safeSetItem } from './utils';
+
 export function saveEvents(events: CalendarEvent[]) {
     if (typeof window === 'undefined') return;
     const activeSlug = getActiveSlug() || 'default';
-    import('./utils').then(mod => mod.safeSetItem(getEventsKey(), JSON.stringify(events), activeSlug));
+    
+    // 🚀 FIXED: No more dynamic import here to prevent race conditions in sync loops
+    safeSetItem(getEventsKey(), JSON.stringify(events), activeSlug);
     markLocalUpdate();
     
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
