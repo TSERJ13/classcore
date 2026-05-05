@@ -448,29 +448,10 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
             try {
                 // 🛡️ SAFE STRATEGY: Only compress images in THIS write, never delete other data
                 let thinnedValue = value;
-                if (value.length > 150000) {
-                    try {
-                        const parsed = JSON.parse(value);
-                        const process = async (obj: any): Promise<any> => {
-                            if (!obj || typeof obj !== 'object') return obj;
-                            if (Array.isArray(obj)) return Promise.all(obj.map(process));
-                            const next: any = {};
-                            for (const k in obj) {
-                                if ((k === 'photo_url' || k === 'logo_url' || k === 'logoDataUrl') && typeof obj[k] === 'string' && obj[k].startsWith('data:')) {
-                                    next[k] = await compressBase64(obj[k]);
-                                } else {
-                                    next[k] = await process(obj[k]);
-                                }
-                            }
-                            return next;
-                        };
-                        const thinnedObj = await process(parsed);
-                        thinnedValue = JSON.stringify(thinnedObj);
-                        console.log(`📉 [Storage] Compressed: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
-                    } catch (e) {
-                        // Strip images as last resort
-                        thinnedValue = value.replace(/"(photo_url|logo_url|logoDataUrl)":"data:image\/[^"]+"/g, '"$1":null');
-                    }
+                // 🚀 FAST COMPRESSION: Just strip heavy Base64 images if we're over quota
+                thinnedValue = value.replace(/"(photo_url|logo_url|logoDataUrl)":"data:image\/[^"]+"/g, '"$1":null');
+                if (thinnedValue.length !== value.length) {
+                    console.log(`📉 [Storage] Thinned: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
                 }
 
                 try {
