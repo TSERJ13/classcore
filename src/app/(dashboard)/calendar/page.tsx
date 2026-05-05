@@ -11,7 +11,7 @@ import {
     Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw,
     Users, User, Home
 } from 'lucide-react';
-import { cn, getLocalISODate } from '@/lib/utils';
+import { cn, getLocalISODate, getActiveSlug } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import type { CalendarEvent, EventType } from '@/types';
 import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar } from '@/lib/event-store';

@@ -217,23 +217,37 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const studentsMap: Record<string, any> = {};
                 studentsArray.forEach((s: any) => { if (s && s.id) studentsMap[s.id] = s; });
                 
-                if (activeSlug && studentsArray.length > 0) {
-                    const { setMemoryStudentsCache } = await import('@/lib/student-store');
-                    setMemoryStudentsCache(studentsMap, activeSlug);
-                }
+                // 🚀 SCORCHED EARTH v1.1.17: Multi-Cache Hydration
+                // We populate ALL memory caches first to ensure Stores return data even before localStorage is flushed
+                if (activeSlug) {
+                    const [studMod, grpMod, hallMod, subMod, teaMod] = await Promise.all([
+                        import('@/lib/student-store'),
+                        import('@/lib/group-store'),
+                        import('@/lib/hall-store'),
+                        import('@/lib/subscription-store'),
+                        import('@/lib/teacher-store')
+                    ]);
 
-                // 🚀 Populate halls memory cache
-                const hallsArray = unwrap(finalHalls) || [];
-                if (activeSlug && hallsArray.length > 0) {
-                    const { setHallsMemoryCache } = await import('@/lib/hall-store');
-                    setHallsMemoryCache(hallsArray, activeSlug);
-                }
+                    if (studentsArray.length > 0) studMod.setMemoryStudentsCache(studentsMap, activeSlug);
+                    
+                    const groupsArray = unwrap(state.groups) || [];
+                    if (groupsArray.length > 0) grpMod.setGroupsMemoryCache(groupsArray, activeSlug);
 
-                // 🚀 Populate events memory cache
-                const eventsArray = unwrap(finalEvents) || [];
-                if (activeSlug && eventsArray.length > 0) {
-                    const { setEventsMemoryCache } = await import('@/lib/event-store');
-                    setEventsMemoryCache(eventsArray, activeSlug);
+                    const hallsArray = unwrap(state.halls) || [];
+                    if (hallsArray.length > 0) hallMod.setHallsMemoryCache(hallsArray, activeSlug);
+
+                    const teachersArray = unwrap(state.teachers) || [];
+                    if (teachersArray.length > 0) teaMod.setTeachersMemoryCache(teachersArray, activeSlug);
+
+                    const subsArray = unwrap(state.subscriptions) || [];
+                    if (subsArray.length > 0) {
+                        const subMap: Record<string, any[]> = {};
+                        subsArray.forEach(s => {
+                            const sid = s.student_id;
+                            if (sid) { if (!subMap[sid]) subMap[sid] = []; subMap[sid].push(s); }
+                        });
+                        subMod.setSubscriptionsMemoryCache(subMap, activeSlug);
+                    }
                 }
 
                 // 🚀 Populate plans memory cache

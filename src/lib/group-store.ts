@@ -40,7 +40,15 @@ function getGroupsKey() { return getScopedKey(BASE_GROUPS_KEY); }
 function getDeletedGroupsKey() { return getScopedKey(BASE_DELETED_GROUPS_KEY); }
 
 // Matches teacher-store assigned_group_ids (g1 to g5)
-const INITIAL_GROUPS: Group[] = [];
+// 🚀 MEMORY CACHE: Fallback when localStorage is full
+let _groupsMemoryCache: Group[] | null = null;
+let _groupsMemoryCacheSlug: string | null = null;
+
+export function setGroupsMemoryCache(groups: Group[], slug: string) {
+    _groupsMemoryCache = groups;
+    _groupsMemoryCacheSlug = slug;
+    console.log(`💾 [GroupStore] Memory cache set: ${groups.length} groups`);
+}
 
 export function getGroups(): Group[] {
     if (typeof window === 'undefined') return INITIAL_GROUPS;
@@ -51,6 +59,12 @@ export function getGroups(): Group[] {
 
         const key = getGroupsKey();
         let saved = localStorage.getItem(key);
+
+        // 🚀 Fall back to memory cache
+        if (!saved && _groupsMemoryCache && _groupsMemoryCacheSlug === activeSlug) {
+            console.log('💾 [GroupStore] Using memory cache');
+            return _groupsMemoryCache;
+        }
 
         // Migration: If new scoped key is empty, check old unscoped key
         if (!saved && isMainBranch) {

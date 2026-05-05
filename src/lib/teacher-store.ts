@@ -7,9 +7,23 @@ import { loadSettings, saveSettings, type StaffMember } from './settings-store';
 
 const INITIAL_TEACHERS: Teacher[] = [];
 
+// 🚀 MEMORY CACHE: Fallback when localStorage is full
+let _teachersMemoryCache: Teacher[] | null = null;
+let _teachersMemoryCacheSlug: string | null = null;
+
+export function setTeachersMemoryCache(teachers: Teacher[], slug: string) {
+    _teachersMemoryCache = teachers;
+    _teachersMemoryCacheSlug = slug;
+}
+
 export function getTeachers(): Teacher[] {
     if (typeof window === 'undefined') return INITIAL_TEACHERS;
     try {
+        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
+        if (activeSlug && _teachersMemoryCache && _teachersMemoryCacheSlug === activeSlug) {
+            return _teachersMemoryCache;
+        }
+        
         const settings = loadSettings();
         return (settings.staff || []) as unknown as Teacher[];
     } catch {
