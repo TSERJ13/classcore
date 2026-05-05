@@ -221,10 +221,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                 const groupsArray = extract(unwrap(state.groups));
                 const hallsArray = extract(unwrap(state.halls));
-                const teachersArray = extract(unwrap(state.teachers));
+                const teachersArray = extract(unwrap(state.staff)); // Fixed: API returns 'staff'
                 const subsRaw = unwrap(state.subscriptions);
-                const eventsArray = extract(unwrap(state.events));
-                const plansArray = extract(unwrap(state.plans));
+                const eventsArray = extract(unwrap(state.calendar_events)); // Fixed: API returns 'calendar_events'
+                const plansArray = extract(unwrap(state.subscription_plans)); // Fixed: API returns 'subscription_plans'
                 const productsArray = extract(unwrap(state.products));
                 const salesRaw = unwrap(state.sales);
                 const attendanceRaw = unwrap(state.attendance);
