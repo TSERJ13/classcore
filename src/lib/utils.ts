@@ -448,10 +448,37 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
             try {
                 // 🛡️ SAFE STRATEGY: Only compress images in THIS write, never delete other data
                 let thinnedValue = value;
-                // 🚀 FAST COMPRESSION: Just strip heavy Base64 images if we're over quota
-                thinnedValue = value.replace(/"(photo_url|logo_url|logoDataUrl)":"data:image\/[^"]+"/g, '"$1":null');
-                if (thinnedValue.length !== value.length) {
-                    console.log(`📉 [Storage] Thinned: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
+                // 🛡️ RECOVERY STRATEGY: Instead of deleting, we compress to 80KB
+                try {
+                    const parsed = JSON.parse(value);
+                    const compressRecursive = async (obj: any, depth = 0): Promise<any> => {
+                        if (depth > 5 || !obj || typeof obj !== 'object') return obj;
+                        
+                        if (Array.isArray(obj)) {
+                            // Compress in small batches to avoid blocking main thread
+                            const next = [];
+                            for (const item of obj) {
+                                next.push(await compressRecursive(item, depth + 1));
+                            }
+                            return next;
+                        }
+                        
+                        const next: any = {};
+                        for (const [k, v] of Object.entries(obj)) {
+                            if ((k === 'photo_url' || k === 'logo_url' || k === 'logoDataUrl') && typeof v === 'string' && v.startsWith('data:image')) {
+                                next[k] = await compressBase64(v, 400, 0.4); // Target 80KB
+                            } else {
+                                next[k] = await compressRecursive(v, depth + 1);
+                            }
+                        }
+                        return next;
+                    };
+                    const thinnedObj = await compressRecursive(parsed);
+                    thinnedValue = JSON.stringify(thinnedObj);
+                    console.log(`📉 [Storage] Compressed: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
+                } catch (e) {
+                    // Fallback to simple regex if JSON parse fails
+                    thinnedValue = value.replace(/"(photo_url|logo_url|logoDataUrl)":"data:image\/[^"]+"/g, '"$1":null');
                 }
 
                 try {
