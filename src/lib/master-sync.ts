@@ -10,7 +10,7 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
 
 // ─── Debounce Registry ────────────────────────────────────────────────────────
 const pendingWrites: Map<string, { table: string; record: any; orgId: string; timer: ReturnType<typeof setTimeout> }> = new Map();
-const DEBOUNCE_MS = 15000; // 15 seconds - prevents IO exhaustion
+const DEBOUNCE_MS = 1000; // 1 second - responsive but avoids rapid-fire IO
 
 export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false) {
     console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token });

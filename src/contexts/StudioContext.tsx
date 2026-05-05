@@ -303,12 +303,27 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
                     // Attendance mapping
                     const groupedAtt: Record<string, any[]> = {};
+                    const attendanceArchive: Record<string, any> = {};
                     (unwrap(state.attendance) || []).forEach(a => {
-                        if (!a.student_id) return;
-                        if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
-                        groupedAtt[a.student_id].push(a);
+                        const sId = a.student_id;
+                        if (!sId) return;
+                        
+                        // 1. Grouped by student for Student Profile
+                        if (!groupedAtt[sId]) groupedAtt[sId] = [];
+                        groupedAtt[sId].push(a);
+
+                        // 2. Hydrate Attendance Archive for Attendance Page checks
+                        const date = a.date;
+                        const classId = a.class_id || 'none';
+                        if (date && sId) {
+                            if (!attendanceArchive[date]) attendanceArchive[date] = {};
+                            if (!attendanceArchive[date][classId]) attendanceArchive[date][classId] = {};
+                            attendanceArchive[date][classId][sId] = 'present';
+                        }
                     });
+                    
                     await safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
+                    await safeSetItem(getScopedKey('cc_attendance_archive', activeSlug), JSON.stringify(attendanceArchive), activeSlug);
 
                     window.dispatchEvent(new Event('cc_data_hydrated'));
                     window.dispatchEvent(new Event('cc_settings_update'));

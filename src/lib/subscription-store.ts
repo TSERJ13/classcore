@@ -87,38 +87,7 @@ export function getSubscriptions(): SubMap {
             }
         }
 
-        // 🔥 NEW: Cleanup orphaned subscriptions for deleted students
-        const studentDataRaw = typeof window !== 'undefined' ? localStorage.getItem(getScopedKey('cc_student_data')) : null;
-        let studentIds = new Set<string>();
-        let studentsLoaded = false;
-        
-        if (studentDataRaw) {
-            try {
-                const parsed = JSON.parse(studentDataRaw);
-                const students = Array.isArray(parsed) ? parsed : Object.values(parsed);
-                if (students.length > 0) {
-                    studentIds = new Set(students.map((s: any) => s.id));
-                    studentsLoaded = true;
-                }
-            } catch (e) {
-                console.warn('⚠️ [SubscriptionStore] Failed to parse student data for cleanup:', e);
-            }
-        }
-
-        if (studentsLoaded) {
-            let cleaned = false;
-            const data = saved ? JSON.parse(saved) : INITIAL_SUBS;
-            Object.keys(data).forEach(sid => {
-                if (!studentIds.has(sid)) {
-                    delete data[sid];
-                    cleaned = true;
-                }
-            });
-            if (cleaned) {
-                localStorage.setItem(getSubsKey(), JSON.stringify(data));
-                cachedSubs = data;
-            }
-        }
+        // Cleanup orphaned subscriptions for deleted students removed - too dangerous during hydration race conditions
 
         const deletedKey = getDeletedSubsKey();
         let deletedSubIds = new Set<string>();
