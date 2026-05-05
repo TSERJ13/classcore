@@ -88,6 +88,32 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 setIsSyncing(true);
                 isHydratingRef.current = true;
             }
+
+            // 🚀 PHASE 1: INSTANT LOCAL HYDRATION
+            // Load from localStorage cache first so UI appears immediately
+            if (!isAuto && typeof window !== 'undefined' && activeSlug) {
+                try {
+                    const localStudents = localStorage.getItem(getScopedKey('cc_student_data', activeSlug));
+                    const localSubs = localStorage.getItem(getScopedKey('cc_student_subscriptions', activeSlug));
+                    const localGroups = localStorage.getItem(getScopedKey('cc_groups', activeSlug));
+                    const localEvents = localStorage.getItem(getScopedKey('cc_calendar_events', activeSlug));
+                    
+                    // If we have ANY cached data, unlock UI immediately
+                    if (localStudents || localSubs || localGroups || localEvents) {
+                        console.log('⚡ [StudioContext] Phase 1: Instant load from localStorage cache');
+                        setIsLoaded(true);
+                        setFirstSyncDone(true);
+                        // Dispatch events so pages can render with cached data
+                        window.dispatchEvent(new Event('cc_data_hydrated'));
+                        window.dispatchEvent(new Event('cc_subscription_update'));
+                        window.dispatchEvent(new Event('cc_student_update'));
+                    }
+                } catch (e) {
+                    // Silent fail - we'll load from cloud
+                }
+            }
+
+            // 🚀 PHASE 2: CLOUD SYNC (background)
             const { createClient } = await import("@/lib/supabase/client");
             const sb = createClient();
             const { data: { session } } = await sb.auth.getSession();

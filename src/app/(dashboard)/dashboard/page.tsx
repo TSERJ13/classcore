@@ -473,7 +473,7 @@ export default function DashboardPage() {
         };
     }, [settings?.studioSlug]);
 
-    if (!isLoaded || (loading && !isDemo)) return null;
+    // Loading is handled by DashboardHydrationGuard at layout level
 
     return (
         <div className="space-y-6 animate-fade-in relative max-w-7xl mx-auto">
