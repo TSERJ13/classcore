@@ -590,6 +590,46 @@ export default function StudentPortalPage() {
                             </div>
                         )}
 
+                        {/* Attendance Stats Progress Bar */}
+                        {sub && sub.type !== 'monthly' && sub.sessions_total && (
+                            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 shadow-xl shadow-black/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <h3 className="text-sm font-black text-primary tracking-tight mb-4 flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4 text-indigo-500" />
+                                    {lang === 'ka' ? 'დასწრების სტატისტიკა' : lang === 'ru' ? 'Статистика посещений' : 'Attendance Stats'}
+                                </h3>
+                                
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest opacity-80">{lang === 'ka' ? 'დაესწრო' : 'Attended'}</p>
+                                            <p className="text-2xl font-black text-emerald-500 tabular-nums leading-none mt-1">{sub.sessions_used || 0}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest opacity-80">{lang === 'ka' ? 'დარჩენილი' : 'Remaining'}</p>
+                                            <p className="text-2xl font-black text-indigo-500 tabular-nums leading-none mt-1">{Math.max(0, sub.sessions_total - (sub.sessions_used || 0))}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="h-3 w-full bg-surface rounded-full overflow-hidden flex shadow-inner">
+                                        <div 
+                                            className="h-full bg-emerald-500 transition-all duration-1000 ease-out" 
+                                            style={{ width: `${Math.min(100, ((sub.sessions_used || 0) / sub.sessions_total) * 100)}%` }}
+                                        />
+                                        <div 
+                                            className="h-full bg-indigo-500 transition-all duration-1000 ease-out" 
+                                            style={{ width: `${Math.max(0, 100 - ((sub.sessions_used || 0) / sub.sessions_total) * 100)}%` }}
+                                        />
+                                    </div>
+                                    
+                                    <div className="text-center mt-2">
+                                        <p className="text-[10px] font-bold text-muted opacity-40">
+                                            სულ {sub.sessions_total} {lang === 'ka' ? 'ვიზიტი' : 'Visits'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* QR Card */}
                         <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-xl shadow-black/5 transition-all duration-500">
                             <button

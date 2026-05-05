@@ -61,8 +61,8 @@ function avatarColor(id: string) { return AVATAR_COLORS[parseInt(id) % AVATAR_CO
 
 // ─── Popup ─────────────────────────────────────────────────────────────────────
 
-type PopupPhase = 'success' | 'confirm' | 'double-success';
-interface PopupData { studentId: string; studentName: string; sessionsRemaining: number; checkinCount: number; phase: PopupPhase; isMonthly?: boolean; }
+type PopupPhase = 'success' | 'confirm' | 'double-success' | 'info' | 'expired';
+interface PopupData { studentId: string; studentName: string; sessionsRemaining: number; checkinCount: number; phase: PopupPhase; isMonthly?: boolean; photo?: string; planName?: string; }
 
 function useCountdown(active: boolean, seconds: number, onDone: () => void) {
     const [remaining, setRemaining] = useState(seconds);
@@ -118,10 +118,14 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                     data.phase === 'success' && 'bg-emerald-500',
                                     data.phase === 'confirm' && 'bg-amber-500',
                                     data.phase === 'double-success' && 'bg-#6d28d9',
+                                    data.phase === 'info' && 'bg-blue-500',
+                                    data.phase === 'expired' && 'bg-rose-500'
                                 )}>
                                     {data.phase === 'success' && <Check className="w-4 h-4 text-white" strokeWidth={4} />}
                                     {data.phase === 'confirm' && <AlertTriangle className="w-4 h-4 text-white" strokeWidth={3} />}
                                     {data.phase === 'double-success' && <CheckCircle2 className="w-4 h-4 text-white" strokeWidth={3} />}
+                                    {data.phase === 'info' && <Info className="w-4 h-4 text-white" strokeWidth={3} />}
+                                    {data.phase === 'expired' && <X className="w-4 h-4 text-white" strokeWidth={3} />}
                                 </div>
                             </div>
                         </div>
@@ -130,6 +134,8 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                             {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendanceSheet} OK</p></>}
                             {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ {t.alreadyCheckedIn}</p>}
                             {data.phase === 'double-success' && <p className="text-[11px] font-black text-#5b21b6 tracking-widest mt-2 bg-#6d28d9/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
+                            {data.phase === 'info' && <p className="text-[11px] font-black text-blue-600 tracking-widest mt-2 bg-blue-500/10 px-3 py-1 rounded-full inline-block animate-pulse">ℹ️ კიდევ ერთხელ გაატარეთ</p>}
+                            {data.phase === 'expired' && <p className="text-[11px] font-black text-rose-600 tracking-widest mt-2 bg-rose-500/10 px-3 py-1 rounded-full inline-block">❌ აბონემენტი ამოწურულია</p>}
                         </div>
 
                         {hasMultipleSubs && subscriptions && onSelectSub ? (
@@ -395,9 +401,11 @@ export default function AttendancePage() {
     const [scanError, setScanError] = useState('');
     const [popup, setPopup] = useState<PopupData | null>(null);
     const [subs, setSubs] = useState<ReturnType<typeof getSubscriptions>>({});
+    const [updateTrigger, setUpdateTrigger] = useState(0);
 
     const refreshSubs = useCallback(() => {
         setSubs(getSubscriptions());
+        setUpdateTrigger(prev => prev + 1);
     }, []);
 
     useEffect(() => {
@@ -406,9 +414,11 @@ export default function AttendancePage() {
         // Listen to focus window and custom events to refresh background updates
         window.addEventListener('focus', refreshSubs);
         window.addEventListener('cc_subscription_update', refreshSubs);
+        window.addEventListener('cc_attendance_update', refreshSubs);
         return () => {
             window.removeEventListener('focus', refreshSubs);
             window.removeEventListener('cc_subscription_update', refreshSubs);
+            window.removeEventListener('cc_attendance_update', refreshSubs);
         };
     }, [refreshSubs]);
     const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
@@ -619,7 +629,20 @@ export default function AttendancePage() {
                 return true;
             });
 
-            // If multiple valid subs and NO specific sub chosen yet
+            // 1. Block if no active subscriptions
+            if (studentSubs.length === 0) {
+                setPopup({
+                    studentId,
+                    studentName,
+                    sessionsRemaining: 0,
+                    checkinCount: getCheckinCountToday(studentId),
+                    phase: 'expired',
+                    isMonthly: false
+                });
+                return;
+            }
+
+            // 2. If multiple valid subs and NO specific sub chosen yet
             if (studentSubs.length > 1 && !choiceSubId) {
                 const checkinCount = getCheckinCountToday(studentId);
                 const sub = getSubscription(studentId, cls.group_id);
@@ -636,8 +659,31 @@ export default function AttendancePage() {
                 return;
             }
 
+            // 3. Two-stage logic: if first scan, show info popup
+            if (popup?.studentId !== studentId || popup?.phase !== 'info') {
+                const checkinCount = getCheckinCountToday(studentId);
+                const sub = choiceSubId ? studentSubs.find(s => s.id === choiceSubId) : studentSubs[0];
+                setPopup({
+                    studentId,
+                    studentName,
+                    sessionsRemaining: getSessionsRemaining(studentId, cls.group_id),
+                    checkinCount,
+                    phase: 'info',
+                    isMonthly: sub?.type === 'monthly',
+                    planName: sub?.plan_name
+                });
+                
+                // Clear the popup after 5 seconds if not scanned again
+                setTimeout(() => {
+                    setPopup(curr => curr?.studentId === studentId && curr?.phase === 'info' ? null : curr);
+                }, 5000);
+                
+                return;
+            }
+
+            // 4. Second scan (deduct!)
             const checkinCount = getCheckinCountToday(studentId);
-            const result = recordCheckin(studentId, studentName, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
+            const result = recordCheckin(studentId, studentName, 'nfc', selectedClass, selClass?.group_id, choiceSubId, dateKey);
             const newAtt = { ...att, [studentId!]: 'present' as State };
             saveAttendance(newAtt);
             setScanError('');
