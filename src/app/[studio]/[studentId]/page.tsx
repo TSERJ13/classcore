@@ -29,6 +29,7 @@ import { fetchFullStudioState } from '@/lib/master-sync';
 import type { Student, CalendarEvent, Teacher, Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { Logo } from '@/components/ui/Logo';
 
 type ActiveTab = 'info' | 'schedule' | 'shop' | 'chat';
 
