@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { getStudents } from '@/lib/student-store';
+import { getStudents, lookupByUid } from '@/lib/student-store';
 import { getSubscriptions, getSubscription, incrementSessionsUsed } from '@/lib/subscription-store';
 import { recordCheckin, getCheckinCountToday, getSessionsRemaining } from '@/lib/checkin-store';
 import { getLocalISODate } from '@/lib/utils';
@@ -37,12 +37,15 @@ export function GlobalRFIDScanner() {
         const clean = code.toUpperCase().replace(/[:\-\s]/g, '').trim();
         if (!clean) return;
 
-        const students = getStudents();
-        let student = null;
+        let studentId = lookupByUid(clean)?.studentId ?? null;
+        
+        if (!studentId) {
+            const students = getStudents();
+            const student = students.find(s => s.card_uid?.toUpperCase().replace(/[:\-\s]/g, '') === clean);
+            studentId = student?.id ?? null;
+        }
 
-        // Find by UID in card_uid
-        student = students.find(s => s.card_uid?.toUpperCase().replace(/[:\-\s]/g, '') === clean) || null;
-        let studentId = student?.id;
+        const student = studentId ? getStudents().find(s => s.id === studentId) : null;
 
         if (student && studentId) {
             const todayStr = getLocalISODate();

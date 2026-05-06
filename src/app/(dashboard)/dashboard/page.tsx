@@ -221,7 +221,7 @@ export default function DashboardPage() {
         revenueChange: 0,
         activeChange: 0
     });
-    const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
+    const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string; photo?: string | null }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
     
@@ -355,8 +355,9 @@ export default function DashboardPage() {
         // 3. Activity Refresh
         const activityList: any[] = [];
         checkins.forEach((c: CheckinRecord) => {
+            const student = allStudents.find(s => s.id === c.studentId);
             const name = c.studentName || t.studentLabelGeneric;
-            activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], color: 'from-indigo-500 to-blue-600' });
+            activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], photo: student?.photo_url || null, color: 'from-indigo-500 to-blue-600' });
         });
 
         // 🗑️ Add recent deletions from trash to activity
@@ -911,8 +912,12 @@ export default function DashboardPage() {
                                 const badge = actionBadge(item.action, t);
                                 return (
                                     <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-surface transition-colors">
-                                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                                            <span className="text-[10px] font-bold text-white">{item.avatar}</span>
+                                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden`}>
+                                            {item.photo ? (
+                                                <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-white">{item.avatar}</span>
+                                            )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-primary/85 truncate">{item.name}</p>
