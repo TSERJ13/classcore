@@ -23,7 +23,16 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
             },
             body: JSON.stringify({ slug, orgId, isClientPortal })
         });
-        if (!response.ok) { console.error('❌ [MasterSync] API fetch failed:', response.statusText); return null; }
+        if (!response.ok) {
+            if (typeof window !== 'undefined') {
+                (window as any)._portalDebug = { 
+                    ...((window as any)._portalDebug || {}),
+                    status: 'CloudFetchError',
+                    httpStatus: response.status
+                };
+            }
+            console.error('❌ [MasterSync] API fetch failed:', response.statusText); return null; 
+        }
         const data = await response.json();
         if (data.error) { console.error('❌ [MasterSync] API error:', data.error); return null; }
         console.log('📊 [MasterSync] Hydration Complete:', { students: data.students?.length || 0, staff: data.staff?.length || 0 });

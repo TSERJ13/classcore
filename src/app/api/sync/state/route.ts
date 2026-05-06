@@ -107,6 +107,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
     try {
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            return NextResponse.json({ error: 'System config error: missing service key' }, { status: 500 });
+        }
+
         const { slug, orgId, isClientPortal } = await req.json();
         const authHeader = req.headers.get('Authorization');
         const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
@@ -144,11 +148,11 @@ export async function POST(req: Request) {
         let targetStudio = null;
 
         if (!targetOrgId && slug) {
-            const { data } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug.toLowerCase()).maybeSingle();
-            if (data) {
-                targetOrgId = data.org_id;
-                targetStudio = data;
-            }
+            const { data, error } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug.toLowerCase()).maybeSingle();
+            if (error) return NextResponse.json({ error: 'DB lookup failed', details: error.message }, { status: 500 });
+            if (!data) return NextResponse.json({ error: `Studio not found: ${slug}` }, { status: 404 });
+            targetOrgId = data.org_id;
+            targetStudio = data;
         } else if (targetOrgId) {
             const { data } = await supabaseAdmin.from('studios').select('*').eq('org_id', targetOrgId).maybeSingle();
             targetStudio = data;
