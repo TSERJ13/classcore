@@ -116,41 +116,48 @@ export function forceCheckin(
 
 /** Refund a checkin: increments sessions back */
 export function refundCheckin(studentId: string, customDate?: string): void {
-    const key = customDate ? getScopedKey(`cc_checkins_${customDate}`) : dayKey();
-    const existing: CheckinRecord[] = JSON.parse(localStorage.getItem(key) || '[]');
-    const record = existing.find(r => r.studentId === studentId);
+    const activeSlug = getActiveSlug();
+    const targetDate = customDate || today();
+    let rToDeleteId: string | undefined;
 
-    if (record) {
+    // 1. Try to find and remove in local day queue
+    const key = getScopedKey(`cc_checkins_${targetDate}`);
+    const existing: CheckinRecord[] = JSON.parse(localStorage.getItem(key) || '[]');
+    const idx = existing.findLastIndex(r => r.studentId === studentId);
+    if (idx > -1) {
+        rToDeleteId = existing[idx].id;
+        existing.splice(idx, 1);
+        localStorage.setItem(key, JSON.stringify(existing));
+        markLocalUpdate();
+    }
+
+    // 2. Try to find and remove in cloud global data
+    let cloudFound = false;
+    try {
+        const attDataKey = getScopedKey('cc_attendance_data', activeSlug);
+        const attData = JSON.parse(localStorage.getItem(attDataKey) || '{}');
+        if (attData[studentId]) {
+            const recordIdx = attData[studentId].findIndex((r: any) => r.date === targetDate);
+            if (recordIdx > -1) {
+                if (!rToDeleteId) rToDeleteId = attData[studentId][recordIdx].id;
+                cloudFound = true;
+                attData[studentId].splice(recordIdx, 1);
+                localStorage.setItem(attDataKey, JSON.stringify(attData));
+            }
+        }
+    } catch (e) {}
+
+    if (rToDeleteId || cloudFound || idx > -1) {
         // Delegate refund to subscription store
         refundSessionsUsed(studentId);
 
-        // Remove only the latest checkin from today
-        const updated = [...existing];
-        const idx = updated.findLastIndex(r => r.studentId === studentId);
-        if (idx > -1) {
-            const rToDelete = updated[idx];
-            updated.splice(idx, 1);
-            localStorage.setItem(key, JSON.stringify(updated));
-            markLocalUpdate();
-
-            const activeSlug = getActiveSlug();
-            const settings = loadSettings(activeSlug || '');
-            const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
-            if (orgId && orgId !== 'demo' && rToDelete.id) {
-                import('./master-sync').then(({ deleteRecordFromCloud }) => {
-                    deleteRecordFromCloud('attendance', rToDelete.id!, orgId);
-                });
-
-                // 🔥 OPTIMISTIC UPDATE: Remove from global cloud state immediately
-                try {
-                    const attDataKey = getScopedKey('cc_attendance_data', activeSlug);
-                    const attData = JSON.parse(localStorage.getItem(attDataKey) || '{}');
-                    if (attData[studentId]) {
-                        attData[studentId] = attData[studentId].filter((r: any) => r.id !== rToDelete.id && r.date !== customDate);
-                        localStorage.setItem(attDataKey, JSON.stringify(attData));
-                    }
-                } catch (e) {}
-            }
+        const settings = loadSettings(activeSlug || '');
+        const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+        
+        if (orgId && orgId !== 'demo' && rToDeleteId) {
+            import('./master-sync').then(({ deleteRecordFromCloud }) => {
+                deleteRecordFromCloud('attendance', rToDeleteId!, orgId);
+            });
         }
 
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
