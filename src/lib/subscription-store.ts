@@ -259,7 +259,12 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
 }
 
 export function getStudentSubscriptions(studentId: string): SubscriptionInfo[] {
-    return getSubscriptions()[studentId] ?? [];
+    const subs = getSubscriptions();
+    // Case-insensitive lookup
+    const targetKey = Object.keys(subs).find(k => k.toLowerCase() === studentId.toLowerCase());
+    const studentSubs = targetKey ? subs[targetKey] : [];
+    
+    return (studentSubs || []).filter(s => s.status === 'active' || s.status === 'expired' || s.status === 'paused');
 }
 
 /** 

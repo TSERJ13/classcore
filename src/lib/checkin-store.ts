@@ -306,7 +306,10 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
         const attKey = keys.find(k => k.includes('cc_attendance_data'));
         if (attKey) {
             const attData = JSON.parse(localStorage.getItem(attKey) || '{}');
-            const studentRecords = attData[studentId];
+            // Case-insensitive lookup
+            const targetKey = Object.keys(attData).find(k => k.toLowerCase() === studentId.toLowerCase());
+            const studentRecords = targetKey ? attData[targetKey] : [];
+            
             if (Array.isArray(studentRecords)) {
                 studentRecords.forEach((r: any) => {
                     const id = r.id || `cloud_${r.date}_${r.student_id}`;
@@ -335,13 +338,14 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
         if (archiveKey) {
             const archive = JSON.parse(localStorage.getItem(archiveKey) || '[]') as any[];
             archive.forEach(r => {
-                if (r.student_id === studentId || r.studentId === studentId) {
-                    const id = r.id || `arch_${r.date}_${r.student_id}`;
+                const sId = (r.student_id || r.studentId || '').toString().toLowerCase();
+                if (sId === studentId.toLowerCase()) {
+                    const id = r.id || `arch_${r.date}_${sId}`;
                     if (!seenIds.has(id)) {
                         seenIds.add(id);
                         history.push({
                             id,
-                            studentId: r.student_id || studentId,
+                            studentId: sId,
                             studentName: r.student_name || '',
                             date: r.date || '',
                             time: r.time || '',
