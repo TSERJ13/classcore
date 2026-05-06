@@ -10,7 +10,7 @@ import {
     QrCode, Copy, Check, Info, CalendarDays,
     Send, ChevronRight, Download, Users,
     ExternalLink, BellOff, BellRing,
-    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2
+    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp
 } from 'lucide-react';
 const UserIcon = User;
 import { cn, getLocalISODate, formatCurrency, getScopedKey, safeSetItem } from '@/lib/utils';
