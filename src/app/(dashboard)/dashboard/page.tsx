@@ -354,48 +354,90 @@ export default function DashboardPage() {
 
         // 3. Activity Refresh
         const activityList: any[] = [];
+        const allStudents = getStudents();
+
+        // A. Check-ins (Today)
         checkins.forEach((c: CheckinRecord) => {
-            const student = studentsList.find(s => s.id === c.studentId);
+            const student = allStudents.find(s => s.id === c.studentId);
             const name = c.studentName || t.studentLabelGeneric;
-            activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], photo: student?.photo_url || null, color: 'from-indigo-500 to-blue-600' });
+            activityList.push({ 
+                name, 
+                action: 'check-in', 
+                group: t.groupSession, 
+                time: c.time, 
+                avatar: name[0], 
+                photo: student?.photo_url || null, 
+                color: 'from-emerald-500 to-teal-600',
+                timestamp: new Date(`${todayStr}T${c.time}`).getTime()
+            });
         });
 
-        // 🗑️ Add recent deletions from trash to activity
+        // B. New Subscriptions (Recent 24h)
+        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        allSubsList.forEach(sub => {
+            const ts = new Date(sub.purchased_at || 0).getTime();
+            if (ts > oneDayAgo) {
+                const student = allStudents.find(s => s.id === sub.student_id);
+                const name = student?.full_name || t.studentLabelGeneric;
+                activityList.push({
+                    name,
+                    action: 'subscription',
+                    group: sub.plan || t.subscriptions,
+                    time: new Date(ts).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }),
+                    avatar: name[0],
+                    photo: student?.photo_url || null,
+                    color: 'from-indigo-500 to-blue-600',
+                    timestamp: ts
+                });
+            }
+        });
+
+        // C. Sales (Recent 24h)
+        sales.forEach(sale => {
+            const ts = new Date(sale.date || 0).getTime();
+            if (ts > oneDayAgo) {
+                const student = allStudents.find(s => s.id === sale.studentId);
+                const name = student?.full_name || t.studentLabelGeneric;
+                activityList.push({
+                    name,
+                    action: 'sale',
+                    group: `${sale.name} (x${sale.quantity})`,
+                    time: new Date(ts).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }),
+                    avatar: name[0],
+                    photo: student?.photo_url || null,
+                    color: 'from-violet-500 to-purple-600',
+                    timestamp: ts
+                });
+            }
+        });
+
+        // D. Recent Deletions (Recent 24h)
         try {
             const { getTrash } = require('@/lib/trash-store');
             const trashItems = (getTrash() || []) as any[];
-            // Only show deletions from today/recent (last 24h) to keep activity feed fresh
-            const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-            const recentTrash = trashItems
-                .filter((it: any) => {
-                    const ts = new Date(it.deleted_at || it.deletedAt || 0).getTime();
-                    return ts > oneDayAgo;
-                })
-                .sort((a: any, b: any) => {
-                    const aT = new Date(a.deleted_at || a.deletedAt || 0).getTime();
-                    const bT = new Date(b.deleted_at || b.deletedAt || 0).getTime();
-                    return bT - aT;
-                });
+            const recentTrash = trashItems.filter((it: any) => {
+                const ts = new Date(it.deleted_at || it.deletedAt || 0).getTime();
+                return ts > oneDayAgo;
+            });
             
             recentTrash.forEach((item: any) => {
-                const name = item.name || item.label || item.title || 'წაშლილი ჩანაწერი';
-                const time = new Date(item.deleted_at || item.deletedAt || Date.now()).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' });
+                const name = item.name || item.label || item.title || 'წაშლილი';
+                const ts = new Date(item.deleted_at || item.deletedAt || Date.now()).getTime();
                 activityList.push({
                     name,
                     action: 'deleted',
                     group: item.entity_type === 'subscription' ? 'აბონემენტი' : item.entity_type === 'student' ? 'სტუდენტი' : (item.entity_type || 'ჩანაწერი'),
-                    time,
+                    time: new Date(ts).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }),
                     avatar: name[0] || '✕',
-                    color: 'from-red-500 to-rose-600'
+                    color: 'from-red-500 to-rose-600',
+                    timestamp: ts
                 });
             });
-        } catch (e) {
-            // Silent fail — trash is optional
-        }
+        } catch (e) { }
 
-        // Sort by time descending
-        activityList.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
-        setLiveActivity(activityList.slice(0, 8));
+        // Sort by timestamp descending
+        activityList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setLiveActivity(activityList.slice(0, 10));
 
     }, [profile, selectedDate, settings.studioName, t]);
 
