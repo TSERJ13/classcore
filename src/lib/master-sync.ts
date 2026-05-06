@@ -12,16 +12,16 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
 const pendingWrites: Map<string, { table: string; record: any; orgId: string; timer: ReturnType<typeof setTimeout> }> = new Map();
 const DEBOUNCE_MS = 1000; // 1 second - responsive but avoids rapid-fire IO
 
-export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false) {
+export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string) {
     console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token });
     try {
         const response = await fetch('/api/sync/state', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : ''
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             },
-            body: JSON.stringify({ slug, orgId, isClientPortal })
+            body: JSON.stringify({ slug, orgId, isClientPortal, studentId })
         });
         if (!response.ok) {
             if (typeof window !== 'undefined') {

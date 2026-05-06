@@ -121,72 +121,80 @@ export default function StudentPortalPage() {
             try {
                 if (!studentId || !studio) return;
 
-                const students = getStudents();
-                let student = students.find(st => st.id.toLowerCase() === studentId.toLowerCase());
+                setSyncing(true);
+                const unwrap = (i: any) => (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
 
-                if (!student) {
-                    const cloudData = await fetchFullStudioState(studio, undefined, undefined, true);
+                try {
+                    const cloudData = await fetchFullStudioState(studio, undefined, undefined, true, studentId);
                     if (cloudData) {
-                        const cloudStudents = cloudData.students || [];
-                        const unwrap = (i: any) => (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
-                        const unwrappedStudents = cloudStudents.map(unwrap);
-                        const found = unwrappedStudents.find((s: any) => s.id.toLowerCase() === studentId.toLowerCase());
-                        if (found) {
-                            student = found as Student;
-                            const mapping: any = {
-                                cc_student_data: unwrappedStudents.reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
-                                cc_groups: (cloudData.groups || []).map(unwrap),
-                                cc_halls: (cloudData.halls || []).map(unwrap),
-                                cc_teachers: (cloudData.staff || []).map(unwrap),
-                                cc_student_subscriptions: (cloudData.subscriptions || []).map(unwrap).reduce((acc: any, sub: any) => {
-                                    const sId = sub.student_id;
-                                    if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
-                                    return acc;
-                                }, {}),
-                                cc_calendar_events: (cloudData.calendar_events || []).map(unwrap),
-                                cc_subscription_plans: (cloudData.subscription_plans || []).map(unwrap),
-                                cc_shop_products: (cloudData.products || []).map(unwrap),
-                            };
-                            for (const [rawKey, data] of Object.entries(mapping)) {
-                                if (data) {
-                                    const scopedKey = getScopedKey(rawKey, studio);
-                                    safeSetItem(scopedKey, JSON.stringify(data), studio);
-                                }
+                        // 🚀 SCORCHED EARTH v4.1: Fresh Atomic Hydration
+                        const mapping: any = {
+                            cc_student_data: (cloudData.students || []).map(unwrap),
+                            cc_groups: (cloudData.groups || []).map(unwrap),
+                            cc_halls: (cloudData.halls || []).map(unwrap),
+                            cc_teachers: (cloudData.staff || []).map(unwrap),
+                            cc_attendance_archive: (cloudData.attendance || []).map(unwrap),
+                            cc_subscription_plans: (cloudData.plans || []).map(unwrap),
+                            cc_student_subscriptions: (cloudData.subscriptions || []).map(unwrap).reduce((acc: any, sub: any) => {
+                                const sId = sub.student_id;
+                                if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                                return acc;
+                            }, {}),
+                            cc_shop_products: (cloudData.products || []).map(unwrap),
+                            cc_calendar_events: (cloudData.events || []).map(unwrap),
+                            [`cc_studio_settings_${studio}`]: cloudData.settingsRecord?.settings || cloudData.studio?.settings
+                        };
+
+                        for (const [rawKey, data] of Object.entries(mapping)) {
+                            if (data) {
+                                const scopedKey = getScopedKey(rawKey, studio);
+                                safeSetItem(scopedKey, JSON.stringify(data), studio);
                             }
-                            setGroups((cloudData.groups || []).map(unwrap));
-                        } else {
-                            console.warn('❌ [StudentPortal] Student not found in cloud students list', {
-                                searchId: studentId,
-                                count: unwrappedStudents.length,
-                                firstFew: unwrappedStudents.slice(0, 5).map((s: any) => s.id)
-                            });
-                            (window as any)._portalDebug = {
-                                status: 'NotFoundInCloud',
-                                availableCount: unwrappedStudents.length,
-                                samples: unwrappedStudents.slice(0, 5).map((s: any) => s.id)
-                            };
                         }
-                    } else {
-                        console.error('❌ [StudentPortal] cloudData is null');
-                        (window as any)._portalDebug = { status: 'CloudDataNull' };
+                        
+                        setGroups((cloudData.groups || []).map(unwrap));
+                        setHalls((cloudData.halls || []).map(unwrap));
+                        setTeachers((cloudData.staff || []).map(unwrap));
+                        setSettings(cloudData.settingsRecord?.settings || cloudData.studio?.settings || null);
+                        
+                        const unwrappedStudents = (cloudData.students || []).map(unwrap);
+                        const found = unwrappedStudents.find((s: any) => s.id.toLowerCase() === studentId.toLowerCase());
+                        
+                        if (found) {
+                            setStudentData(found as Student);
+                            const s = getSubscription(found.id, undefined, undefined, true);
+                            setSub(s || null);
+                        } else {
+                            console.warn('Student not found in cloud data');
+                        }
                     }
+                } catch (err) {
+                    console.error('Cloud hydration error:', err);
+                } finally {
+                    setSyncing(false);
                 }
 
-                setStudentData(student || null);
-
-                if (student) {
-                    const s = getSubscription(studentId, undefined, undefined, true);
-                    setSub(s || null);
-                    const patch = getStudentPatch(studentId);
-                    const nfcUid = patch.nfc_uid || student.nfc_uid;
-                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                    const studioSlug = studio || 'studio';
-                    const finalQrData = nfcUid ? nfcUid : `${origin}/${studioSlug}/${studentId}`;
-                    generateQRDataUrl(finalQrData).then(setQrDataUrl);
-                    const isAuth = typeof window !== 'undefined' ? sessionStorage.getItem(`auth_${studentId}`) : null;
-                    if (isAuth === 'true') setAuthState('authenticated');
-                    if (student.preferred_language) setLang(student.preferred_language);
-                    logAction('portal_visit', studio, { studentId });
+                // Fallback to local if cloud was slow/empty and we still don't have student data
+                if (typeof window !== 'undefined') {
+                    const students = getStudents();
+                    const student = students.find(st => st.id.toLowerCase() === studentId.toLowerCase());
+                    if (student) {
+                        setStudentData(prev => prev || student);
+                        const s = getSubscription(studentId, undefined, undefined, true);
+                        setSub(prev => prev || s || null);
+                        
+                        const patch = getStudentPatch(studentId);
+                        const nfcUid = patch.nfc_uid || student.nfc_uid;
+                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                        const studioSlug = studio || 'studio';
+                        const finalQrData = nfcUid ? nfcUid : `${origin}/${studioSlug}/${studentId}`;
+                        generateQRDataUrl(finalQrData).then(setQrDataUrl);
+                        
+                        const isAuth = typeof window !== 'undefined' ? sessionStorage.getItem(`auth_${studentId}`) : null;
+                        if (isAuth === 'true') setAuthState('authenticated');
+                        if (student.preferred_language) setLang(student.preferred_language);
+                        logAction('portal_visit', studio, { studentId });
+                    }
                 }
             } catch (err) {
                 console.error('Portal load error:', err);
@@ -547,8 +555,8 @@ export default function StudentPortalPage() {
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <p className={cn("text-[10px] font-black tracking-widest uppercase", sub?.status === 'active' ? "text-emerald-500" : "text-rose-500")}>
-                                            {sub?.status === 'active' ? t.active : t.inactive || 'InActive'}
+                                        <p className={cn("text-[10px] font-black tracking-widest uppercase", (sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? "text-emerald-500" : "text-rose-500")}>
+                                            {(sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? t.active : t.inactive || 'InActive'}
                                         </p>
                                         <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
                                         <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {studentId}</p>

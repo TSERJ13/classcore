@@ -14,6 +14,7 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const slug = searchParams.get('slug');
         const orgId = searchParams.get('orgId');
+        const studentId = searchParams.get('studentId');
         const isClientPortal = searchParams.get('isClientPortal') === 'true';
 
         // 1. Auth Logic (Strict for Admins, Lenient for Portals)
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'System config error: missing service key' }, { status: 500 });
         }
 
-        const { slug, orgId, isClientPortal } = await req.json();
+        const { slug, orgId, isClientPortal, studentId } = await req.json();
         const authHeader = req.headers.get('Authorization');
         const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
@@ -166,20 +167,49 @@ export async function POST(req: Request) {
         console.log(`📡 [SyncAPI] Fetching Full State for OrgID: ${targetOrgId} (${slug || 'No Slug'})`);
 
         // 3. Fetch EVERYTHING with Admin privileges
+        // 🚀 OPTIMIZATION: If studentId is provided, fetch ONLY relevant data for the portal
         const responses = await Promise.all([
-            supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
-            supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId),
+            // 0: Students
+            studentId 
+                ? supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId).eq('id', studentId)
+                : supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
+            // 1: Staff (Skip if portal)
+            isClientPortal 
+                ? supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId).limit(5)
+                : supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId),
+            // 2: Groups
             supabaseAdmin.from('groups').select('*').eq('org_id', targetOrgId),
+            // 3: Branches
             supabaseAdmin.from('branches').select('*').eq('org_id', targetOrgId),
+            // 4: Halls
             supabaseAdmin.from('halls').select('*').eq('org_id', targetOrgId),
+            // 5: Settings
             supabaseAdmin.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle(),
-            supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId),
-            supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId),
-            supabaseAdmin.from('sales').select('*').eq('org_id', targetOrgId),
-            supabaseAdmin.from('expenses').select('*').eq('org_id', targetOrgId),
-            supabaseAdmin.from('trash').select('*').eq('org_id', targetOrgId),
+            // 6: Subscriptions
+            studentId
+                ? supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId).eq('student_id', studentId)
+                : supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId),
+            // 7: Attendance
+            studentId
+                ? supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId).eq('student_id', studentId)
+                : supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId),
+            // 8: Sales (Skip if portal)
+            isClientPortal
+                ? Promise.resolve({ data: [] })
+                : supabaseAdmin.from('sales').select('*').eq('org_id', targetOrgId),
+            // 9: Expenses (Skip if portal)
+            isClientPortal
+                ? Promise.resolve({ data: [] })
+                : supabaseAdmin.from('expenses').select('*').eq('org_id', targetOrgId),
+            // 10: Trash (Skip if portal)
+            isClientPortal
+                ? Promise.resolve({ data: [] })
+                : supabaseAdmin.from('trash').select('*').eq('org_id', targetOrgId),
+            // 11: Events
             supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId),
+            // 12: Plans
             supabaseAdmin.from('subscription_plans').select('*').eq('org_id', targetOrgId),
+            // 13: Products
             supabaseAdmin.from('products').select('*').eq('org_id', targetOrgId)
         ]);
 
