@@ -586,6 +586,11 @@ export default function AttendancePage() {
         ...(studentPatches[selStudentRaw.id] || {})
     } as Student : null;
 
+    const studentCheckinsList = useMemo(() => {
+        if (!selectedStudent) return [];
+        return getStudentCheckins(selectedStudent);
+    }, [selectedStudent, updateTrigger]);
+
     useEffect(() => { qrRef.current?.focus(); }, []);
     const closePopup = useCallback(() => { setPopup(null); setTimeout(() => qrRef.current?.focus(), 50); }, []);
     const openProfile = (id: string) => {
@@ -1497,7 +1502,7 @@ export default function AttendancePage() {
                                                 <div className="flex-1 overflow-y-auto p-6 no-scrollbar">
                                                     {activeTab === 'recent' && (
                                                         <div className="space-y-3 pb-24">
-                                                            {getStudentCheckins(selStudent.id).length > 0 ? getStudentCheckins(selStudent.id).map((ch, i) => (
+                                                            {studentCheckinsList.length > 0 ? studentCheckinsList.map((ch, i) => (
                                                                 <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-#6d28d9/30 transition-all">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -1512,7 +1517,7 @@ export default function AttendancePage() {
                                                                             <p className="text-[10px] font-bold text-muted opacity-60 mt-0.5">{ch.time} · {cls.title}</p>
                                                                         </div>
                                                                     </div>
-                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time, ch.id); setSubs(getSubscriptions()); } }}
+                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time, ch.id); setSubs(getSubscriptions()); setUpdateTrigger(prev => prev + 1); } }}
                                                                         className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">
                                                                         <X className="w-4 h-4" />
                                                                     </button>
