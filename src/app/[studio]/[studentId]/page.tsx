@@ -111,6 +111,7 @@ export default function StudentPortalPage() {
     const [isSyncingChat, setIsSyncingChat] = useState(false);
     const [selectedChatId, setSelectedChatId] = useState<string>('studio');
     const chatScrollRef = useRef<HTMLDivElement>(null);
+    const hasLoadedRef = useRef(false);
 
     const [authState, setAuthState] = useState<'welcome' | 'phone' | 'authenticated'>('welcome');
     const [phoneInput, setPhoneInput] = useState('');
@@ -118,11 +119,13 @@ export default function StudentPortalPage() {
 
     useEffect(() => {
         const loadPortal = async () => {
+            if (hasLoadedRef.current) return;
             try {
                 if (!studentId || !studio) return;
 
                 setSyncing(true);
                 const unwrap = (i: any) => (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
+                const targetId = studentId.trim().toLowerCase();
 
                 try {
                     const cloudData = await fetchFullStudioState(studio, undefined, undefined, true, studentId);
@@ -164,8 +167,13 @@ export default function StudentPortalPage() {
                         setTeachers((cloudData.staff || []).map(unwrap));
                         setSettings(settingsBlob || null);
                         
+                        setSettings(settingsBlob || null);
+                        
                         const unwrappedStudents = mapping.cc_student_data;
-                        const found = unwrappedStudents.find((s: any) => s.id.toLowerCase() === studentId.toLowerCase());
+                        const found = unwrappedStudents.find((s: any) => 
+                            (s.id && s.id.trim().toLowerCase() === targetId) || 
+                            (s.student_id && s.student_id.trim().toLowerCase() === targetId)
+                        );
                         
                         if (found) {
                             setStudentData(found as Student);
@@ -184,7 +192,10 @@ export default function StudentPortalPage() {
                 // Fallback to local if cloud was slow/empty and we still don't have student data
                 if (typeof window !== 'undefined') {
                     const students = getStudents();
-                    const student = students.find(st => st.id.toLowerCase() === studentId.toLowerCase());
+                    const student = students.find(st => 
+                        (st.id && st.id.trim().toLowerCase() === targetId) || 
+                        (st.student_id && st.student_id.trim().toLowerCase() === targetId)
+                    );
                     if (student) {
                         setStudentData(prev => prev || student);
                         const s = getSubscription(studentId, undefined, undefined, true);
@@ -197,10 +208,11 @@ export default function StudentPortalPage() {
                         const finalQrData = nfcUid ? nfcUid : `${origin}/${studioSlug}/${studentId}`;
                         generateQRDataUrl(finalQrData).then(setQrDataUrl);
                         
-                        const isAuth = typeof window !== 'undefined' ? sessionStorage.getItem(`auth_${studentId}`) : null;
-                        if (isAuth === 'true') setAuthState('authenticated');
-                        if (student.preferred_language) setLang(student.preferred_language);
+                        if (student.preferred_language) {
+                            // Don't use setLang here to avoid re-triggering the effect
+                        }
                         logAction('portal_visit', studio, { studentId });
+                        hasLoadedRef.current = true;
                     }
                 }
             } catch (err) {
@@ -210,7 +222,7 @@ export default function StudentPortalPage() {
             }
         };
         loadPortal();
-    }, [studentId, studio, setLang]);
+    }, [studentId, studio]);
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
