@@ -355,7 +355,7 @@ export default function DashboardPage() {
         // 3. Activity Refresh
         const activityList: any[] = [];
         checkins.forEach((c: CheckinRecord) => {
-            const student = allStudents.find(s => s.id === c.studentId);
+            const student = studentsList.find(s => s.id === c.studentId);
             const name = c.studentName || t.studentLabelGeneric;
             activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], photo: student?.photo_url || null, color: 'from-indigo-500 to-blue-600' });
         });
