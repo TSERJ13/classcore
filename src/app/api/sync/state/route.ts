@@ -51,7 +51,7 @@ export async function GET(req: Request) {
         let targetStudio = null;
 
         if (!targetOrgId && slug) {
-            const { data } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug).maybeSingle();
+            const { data } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug.toLowerCase()).maybeSingle();
             if (data) {
                 targetOrgId = data.org_id;
                 targetStudio = data;
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
         let targetStudio = null;
 
         if (!targetOrgId && slug) {
-            const { data } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug).maybeSingle();
+            const { data } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug.toLowerCase()).maybeSingle();
             if (data) {
                 targetOrgId = data.org_id;
                 targetStudio = data;

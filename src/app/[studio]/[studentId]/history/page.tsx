@@ -11,7 +11,9 @@ import { loadSettings, DEFAULT_SETTINGS } from '@/lib/settings-store';
 import type { Student } from '@/types';
 
 export default function PaymentHistoryPage() {
-    const { studio, studentId } = useParams() as { studio: string, studentId: string };
+    const params = useParams() as { studio: string, studentId: string };
+    const studio = (params?.studio || '').toLowerCase();
+    const studentId = (params?.studentId || '').toLowerCase();
     const router = useRouter();
     const { t, lang } = useT();
     const [history, setHistory] = useState<SubscriptionInfo[]>([]);

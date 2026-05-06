@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
             const { data: current, error: pullError } = await supabase
                 .from(SETTINGS_TABLE)
                 .select('staff_data, updated_at')
-                .eq('studio_slug', studio)
+                .eq('studio_slug', studio.toLowerCase())
                 .maybeSingle();
 
             if (pullError) throw pullError;
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
                     staff_data: staffData,
                     updated_at: new Date().toISOString()
                 })
-                .eq('studio_slug', studio)
+                .eq('studio_slug', studio.toLowerCase())
                 .eq('updated_at', current.updated_at);
 
             if (!pushError) {
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
         const { data: current, error: pullError } = await supabase
             .from(SETTINGS_TABLE)
             .select('staff_data')
-            .eq('studio_slug', studio)
+            .eq('studio_slug', studio.toLowerCase())
             .maybeSingle();
 
         if (pullError) throw pullError;

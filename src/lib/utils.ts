@@ -216,7 +216,7 @@ export function getActiveSlug(): string | null {
         'success', 'error', 'api', 'static', 'favicon.ico'
     ];
     if (path && !excluded.includes(path)) {
-        return path;
+        return path.toLowerCase();
     }
 
 

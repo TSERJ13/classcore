@@ -35,8 +35,20 @@ type ActiveTab = 'info' | 'schedule' | 'shop' | 'chat';
 
 export default function StudentPortalPage() {
     const params = useParams();
-    const studio = params?.studio as string;
-    const studentId = params?.studentId as string;
+    const studio = (params?.studio as string || '').toLowerCase();
+    const studentId = (params?.studentId as string || '').toLowerCase();
+
+    useEffect(() => {
+        if (studio && typeof window !== 'undefined') {
+            const current = localStorage.getItem('cc_active_studio_slug');
+            if (current !== studio) {
+                localStorage.setItem('cc_active_studio_slug', studio);
+                // Also trigger a refresh of store states that might depend on activeSlug
+                window.dispatchEvent(new Event('cc_settings_update'));
+            }
+        }
+    }, [studio]);
+
     const { t, setLang, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [sub, setSub] = useState<SubscriptionInfo | null>(null);

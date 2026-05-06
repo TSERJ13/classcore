@@ -13,7 +13,8 @@ import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 
 export default function StudentRegistrationPage() {
-    const { studio } = useParams() as { studio: string };
+    const params = useParams() as { studio: string };
+    const studio = (params?.studio || '').toLowerCase();
     const { t, lang } = useT();
     const [isMounted, setIsMounted] = useState(false);
     const [settings, setSettings] = useState<any>(DEFAULT_SETTINGS);
