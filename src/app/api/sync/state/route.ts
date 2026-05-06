@@ -51,7 +51,7 @@ export async function GET(req: Request) {
         let targetStudio = null;
 
         if (!targetOrgId && slug) {
-            const { data } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug.toLowerCase()).maybeSingle();
+            const { data } = await supabaseAdmin.from('studios').select('*').ilike('studio_slug', slug).maybeSingle();
             if (data) {
                 targetOrgId = data.org_id;
                 targetStudio = data;
@@ -148,7 +148,7 @@ export async function POST(req: Request) {
         let targetStudio = null;
 
         if (!targetOrgId && slug) {
-            const { data, error } = await supabaseAdmin.from('studios').select('*').eq('studio_slug', slug.toLowerCase()).maybeSingle();
+            const { data, error } = await supabaseAdmin.from('studios').select('*').ilike('studio_slug', slug).maybeSingle();
             if (error) return NextResponse.json({ error: 'DB lookup failed', details: error.message }, { status: 500 });
             if (!data) return NextResponse.json({ error: `Studio not found: ${slug}` }, { status: 404 });
             targetOrgId = data.org_id;

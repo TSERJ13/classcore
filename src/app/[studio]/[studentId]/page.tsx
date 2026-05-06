@@ -13,7 +13,7 @@ import {
     CircleUser, AlertCircle, ShoppingBag, Tag, Loader2
 } from 'lucide-react';
 const UserIcon = User;
-import { cn, getLocalISODate, formatCurrency, getScopedKey } from '@/lib/utils';
+import { cn, getLocalISODate, formatCurrency, getScopedKey, safeSetItem } from '@/lib/utils';
 import Link from 'next/link';
 import { getSubscription, renewSubscription, getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { useT } from '@/contexts/LanguageContext';
@@ -42,7 +42,7 @@ export default function StudentPortalPage() {
         if (studio && typeof window !== 'undefined') {
             const current = localStorage.getItem('cc_active_studio_slug');
             if (current !== studio) {
-                localStorage.setItem('cc_active_studio_slug', studio);
+                safeSetItem('cc_active_studio_slug', studio, studio);
                 // Also trigger a refresh of store states that might depend on activeSlug
                 window.dispatchEvent(new Event('cc_settings_update'));
             }
@@ -78,7 +78,7 @@ export default function StudentPortalPage() {
                     const cloudData = await fetchFullStudioState(studio, undefined, undefined, true);
                     const cloud = cloudData?.settingsRecord?.settings || cloudData?.studio?.settings;
                     if (cloud) {
-                        localStorage.setItem(`cc_settings_${studio}`, JSON.stringify(cloud));
+                        safeSetItem(`cc_settings_${studio}`, JSON.stringify(cloud), studio);
                         setSettings(cloud);
                         return;
                     }
@@ -150,7 +150,7 @@ export default function StudentPortalPage() {
                             for (const [rawKey, data] of Object.entries(mapping)) {
                                 if (data) {
                                     const scopedKey = getScopedKey(rawKey, studio);
-                                    localStorage.setItem(scopedKey, JSON.stringify(data));
+                                    safeSetItem(scopedKey, JSON.stringify(data), studio);
                                 }
                             }
                             setGroups((cloudData.groups || []).map(unwrap));
@@ -253,7 +253,7 @@ export default function StudentPortalPage() {
                 const localKey = getScopedKey(`chat_${channelId}`, studio);
                 let finalMessages = forcePushMessages || cloudMessages;
                 setChatMessages(finalMessages);
-                localStorage.setItem(localKey, JSON.stringify(finalMessages));
+                safeSetItem(localKey, JSON.stringify(finalMessages), studio);
             }
         } catch (err) {
             console.error('Chat sync error:', err);
@@ -281,7 +281,7 @@ export default function StudentPortalPage() {
         setChatMessages(updatedMessages);
         setChatInput('');
         const localKey = getScopedKey(`chat_${channelId}`, studio);
-        localStorage.setItem(localKey, JSON.stringify(updatedMessages));
+        safeSetItem(localKey, JSON.stringify(updatedMessages), studio);
         try {
             await fetch('/api/public/chat', {
                 method: 'POST',

@@ -34,7 +34,7 @@ export async function POST(req: Request) {
         let resolvedOrgId = orgId;
         if (!resolvedOrgId && slug) {
             // 🛡️ Resolve OrgID from slug if missing (Vital for new devices/guest mode)
-            const { data } = await supabaseAdmin.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
+            const { data } = await supabaseAdmin.from('studios').select('org_id').ilike('studio_slug', slug).maybeSingle();
             resolvedOrgId = data?.org_id;
         }
 
