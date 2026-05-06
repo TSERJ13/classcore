@@ -63,6 +63,7 @@ export default function StudentPortalPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [runtimeError, setRuntimeError] = useState<string | null>(null);
     const [groups, setGroups] = useState<any[]>([]);
+    const [syncing, setSyncing] = useState(false);
 
     // 🛡️ SAFETY REDIRECT
     useEffect(() => {
