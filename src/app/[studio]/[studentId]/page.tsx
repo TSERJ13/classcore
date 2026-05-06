@@ -711,7 +711,7 @@ export default function StudentPortalPage() {
                                         let startDate = new Date();
                                         if (allSubs.length > 0) {
                                             const dates = allSubs
-                                                .map(s => s.purchased_at || s.expires_at) // Fallback to expires if purchased missing
+                                                .map(s => s.purchased_at || s.expires_at)
                                                 .filter(Boolean)
                                                 .map(d => new Date(d));
                                             
@@ -719,10 +719,10 @@ export default function StudentPortalPage() {
                                                 const minTime = Math.min(...dates.map(d => d.getTime()));
                                                 startDate = new Date(minTime);
                                             } else {
-                                                startDate.setMonth(startDate.getMonth() - 5);
+                                                startDate.setMonth(startDate.getMonth() - 2); // Default to 3 months window
                                             }
                                         } else {
-                                            startDate.setMonth(startDate.getMonth() - 5);
+                                            startDate.setMonth(startDate.getMonth() - 2);
                                         }
 
                                         // Adjust to start of the week (Monday)
@@ -731,11 +731,15 @@ export default function StudentPortalPage() {
                                         startDate.setDate(diff);
                                         startDate.setHours(0,0,0,0);
 
+                                        // End date is 3 months from start date
+                                        const endDate = new Date(startDate);
+                                        endDate.setMonth(endDate.getMonth() + 3);
+
                                         const curr = new Date(startDate);
                                         const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean }[] = [];
                                         let lastMonth = '';
                                         
-                                        while (curr <= today) {
+                                        while (curr <= endDate) {
                                             const dStr = getLocalISODate(curr);
                                             const dayOfWeek = (curr.getDay() + 6) % 7; // Mon=0
                                             const monthName = curr.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short' });
@@ -744,12 +748,12 @@ export default function StudentPortalPage() {
                                             
                                             if (checkinDates.has(dStr)) {
                                                 status = 'present';
-                                            } else {
+                                            } else if (curr <= today) {
                                                 const hasScheduledGroup = enrolledGroups.some(g => g.schedule_slots?.some((s: any) => s.dayOfWeek === dayOfWeek));
                                                 const hasIndividualEvent = myEvents.some(e => e.date === dStr);
                                                 
                                                 if (hasScheduledGroup || hasIndividualEvent) {
-                                                    if (curr < today) status = 'absent';
+                                                    status = 'absent';
                                                 }
                                             }
 
