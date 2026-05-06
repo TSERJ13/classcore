@@ -607,6 +607,7 @@ export default function StudentPortalPage() {
                             }
 
                             const curr = new Date(startDate);
+                            const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean }[] = [];
                             let lastMonth = '';
                             
                             while (curr <= today) {
