@@ -154,7 +154,21 @@ export default function StudentPortalPage() {
                                 }
                             }
                             setGroups((cloudData.groups || []).map(unwrap));
+                        } else {
+                            console.warn('❌ [StudentPortal] Student not found in cloud students list', {
+                                searchId: studentId,
+                                count: unwrappedStudents.length,
+                                firstFew: unwrappedStudents.slice(0, 5).map((s: any) => s.id)
+                            });
+                            (window as any)._portalDebug = {
+                                status: 'NotFoundInCloud',
+                                availableCount: unwrappedStudents.length,
+                                samples: unwrappedStudents.slice(0, 5).map((s: any) => s.id)
+                            };
                         }
+                    } else {
+                        console.error('❌ [StudentPortal] cloudData is null');
+                        (window as any)._portalDebug = { status: 'CloudDataNull' };
                     }
                 }
 
@@ -369,6 +383,24 @@ export default function StudentPortalPage() {
                 <div className="pt-4 space-y-2 opacity-30">
                     <p className="text-[9px] font-mono tracking-widest">ID: {studentId}</p>
                     <p className="text-[9px] font-mono tracking-widest">Studio: {studio}</p>
+                    
+                    {/* 🐛 EMERGENCY DEBUG SECTION */}
+                    <div className="mt-8 p-4 bg-surface/50 border border-border-subtle rounded-2xl text-left space-y-2 opacity-40 hover:opacity-100 transition-opacity">
+                        <p className="text-[8px] font-black tracking-widest uppercase">Debug Info</p>
+                        <div className="text-[9px] font-mono space-y-1 break-all">
+                            <p>UA: {typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 50) : 'N/A'}...</p>
+                            <p>Storage: {typeof localStorage !== 'undefined' ? 'OK' : 'BLOCKED'}</p>
+                            <p>Active: {typeof localStorage !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'N/A'}</p>
+                            <p>Params: {studio} | {studentId}</p>
+                            <p>Status: {(window as any)._portalDebug?.status || 'Unknown'}</p>
+                            {(window as any)._portalDebug?.availableCount !== undefined && (
+                                <p>Count: {(window as any)._portalDebug.availableCount}</p>
+                            )}
+                            {(window as any)._portalDebug?.samples && (
+                                <p>Cloud IDs: {(window as any)._portalDebug.samples.join(', ')}</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         );
