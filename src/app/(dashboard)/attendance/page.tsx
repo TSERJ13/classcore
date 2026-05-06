@@ -350,7 +350,6 @@ export default function AttendancePage() {
             }
 
             // 🛡️ ALWAYS Enforce 'present' from per-day checkin records (cc_checkins_YYYY-MM-DD)
-            // This ensures Cloud Truth is respected across devices and history is preserved
             try {
                 const checkinKey = getScopedKey(`cc_checkins_${dateKey}`);
                 const checkinRaw = localStorage.getItem(checkinKey);
@@ -358,11 +357,33 @@ export default function AttendancePage() {
                     const checkins = JSON.parse(checkinRaw);
                     if (Array.isArray(checkins) && checkins.length > 0) {
                         checkins.forEach((c: any) => {
-                            // Match by classId or groupId
                             if (c.classId === selectedClass || c.groupId === selClass?.group_id) {
                                 finalAtt[c.studentId] = 'present';
                             }
                         });
+                    }
+                }
+            } catch (e) {
+                // Silent
+            }
+
+            // 🛡️ ALWAYS Enforce 'present' from cloud history (cc_attendance_data)
+            try {
+                const cloudRaw = localStorage.getItem(getScopedKey('cc_attendance_data'));
+                if (cloudRaw) {
+                    const cloudData = JSON.parse(cloudRaw);
+                    for (const [studentId, records] of Object.entries(cloudData)) {
+                        if (Array.isArray(records)) {
+                            records.forEach(r => {
+                                if (r.date === dateKey) {
+                                    const rClass = r.class_id || r.data?.classId;
+                                    const rGroup = r.group_id || r.data?.groupId;
+                                    if (rClass === selectedClass || rGroup === selClass?.group_id) {
+                                        finalAtt[studentId] = 'present';
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
             } catch (e) {
