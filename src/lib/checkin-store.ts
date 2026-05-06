@@ -301,7 +301,7 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
         }
     });
 
-    // 2. Also pull from cloud-hydrated attendance data (cc_attendance_data)
+    // 2. Also pull from cloud-hydrated attendance data (cc_attendance_data - per-student object)
     try {
         const attKey = keys.find(k => k.includes('cc_attendance_data'));
         if (attKey) {
@@ -318,18 +318,41 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
                             studentName: r.student_name || '',
                             date: r.date || '',
                             time: r.time || r.notes?.replace('Via ', '') || '',
-                            via: 'manual',
-                            sessionsRemaining: 0,
+                            via: r.via || 'cloud',
+                            sessionsRemaining: r.sessionsRemaining || 0,
                             classId: r.class_id,
-                            groupId: r.group_id,
+                            groupId: r.group_id
                         });
                     }
                 });
             }
         }
-    } catch (e) {
-        // Silent fail
-    }
+    } catch (e) {}
+
+    // 3. Look in cc_attendance_archive (flat array - common in portal)
+    try {
+        const archiveKey = keys.find(k => k.includes('cc_attendance_archive'));
+        if (archiveKey) {
+            const archive = JSON.parse(localStorage.getItem(archiveKey) || '[]') as any[];
+            archive.forEach(r => {
+                if (r.student_id === studentId || r.studentId === studentId) {
+                    const id = r.id || `arch_${r.date}_${r.student_id}`;
+                    if (!seenIds.has(id)) {
+                        seenIds.add(id);
+                        history.push({
+                            id,
+                            studentId: r.student_id || studentId,
+                            studentName: r.student_name || '',
+                            date: r.date || '',
+                            time: r.time || '',
+                            via: 'archive',
+                            sessionsRemaining: 0
+                        });
+                    }
+                }
+            });
+        }
+    } catch (e) {}
 
     // Sort by date and time descending
     return history.sort((a, b) => {
