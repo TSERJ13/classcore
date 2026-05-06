@@ -591,11 +591,20 @@ export default function StudentPortalPage() {
                             const enrolledGroups = getGroups().filter(g => studentData?.enrolled_group_ids?.includes(g.id));
                             const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
                             
-                            // Generate last 6 months
-                            const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean }[] = [];
-                            const startDate = new Date();
-                            startDate.setMonth(startDate.getMonth() - 5);
-                            startDate.setDate(1);
+                            // Find the first subscription date
+                            const allSubs = getStudentSubscriptions(studentId);
+                            let startDate = new Date();
+                            if (allSubs.length > 0) {
+                                const earliest = allSubs.reduce((min, s) => {
+                                    const pDate = new Date(s.purchased_at || Date.now());
+                                    return pDate < min ? pDate : min;
+                                }, new Date());
+                                startDate = earliest;
+                            } else {
+                                // Default to 6 months if no subs found
+                                startDate.setMonth(startDate.getMonth() - 5);
+                                startDate.setDate(1);
+                            }
 
                             const curr = new Date(startDate);
                             let lastMonth = '';
@@ -682,7 +691,7 @@ export default function StudentPortalPage() {
 
                 <div className="mt-6 flex items-center justify-between border-t border-border-subtle/50 pt-4">
                     <p className="text-[10px] font-bold text-muted opacity-40">
-                        {l('ბოლო 6 თვის აქტივობა', 'Активность за 6 месяцев', 'Last 6 months activity')}
+                        {l('სრული აქტივობა', 'Полная активность', 'Total Activity')}
                     </p>
                     <div className="flex gap-1">
                          {[0,1,2,3,4].map(i => (
@@ -808,45 +817,6 @@ export default function StudentPortalPage() {
                             </div>
                         )}
 
-                        {/* Attendance Stats Progress Bar */}
-                        {sub && sub.type !== 'monthly' && sub.sessions_total && (
-                            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 shadow-xl shadow-black/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <h3 className="text-sm font-black text-primary tracking-tight mb-4 flex items-center gap-2">
-                                    <TrendingUp className="w-4 h-4 text-indigo-500" />
-                                    {lang === 'ka' ? 'დასწრების სტატისტიკა' : lang === 'ru' ? 'Статистика посещений' : 'Attendance Stats'}
-                                </h3>
-                                
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-end">
-                                        <div>
-                                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest opacity-80">{lang === 'ka' ? 'დაესწრო' : 'Attended'}</p>
-                                            <p className="text-2xl font-black text-emerald-500 tabular-nums leading-none mt-1">{sub.sessions_used || 0}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest opacity-80">{lang === 'ka' ? 'დარჩენილი' : 'Remaining'}</p>
-                                            <p className="text-2xl font-black text-indigo-500 tabular-nums leading-none mt-1">{Math.max(0, sub.sessions_total - (sub.sessions_used || 0))}</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="h-3 w-full bg-surface rounded-full overflow-hidden flex shadow-inner">
-                                        <div 
-                                            className="h-full bg-emerald-500 transition-all duration-1000 ease-out" 
-                                            style={{ width: `${Math.min(100, ((sub.sessions_used || 0) / sub.sessions_total) * 100)}%` }}
-                                        />
-                                        <div 
-                                            className="h-full bg-indigo-500 transition-all duration-1000 ease-out" 
-                                            style={{ width: `${Math.max(0, 100 - ((sub.sessions_used || 0) / sub.sessions_total) * 100)}%` }}
-                                        />
-                                    </div>
-                                    
-                                    <div className="text-center mt-2">
-                                        <p className="text-[10px] font-bold text-muted opacity-40">
-                                            სულ {sub.sessions_total} {lang === 'ka' ? 'ვიზიტი' : 'Visits'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
 
                         {/* QR Card */}
                         <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-xl shadow-black/5 transition-all duration-500">
