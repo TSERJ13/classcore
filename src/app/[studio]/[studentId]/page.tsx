@@ -619,9 +619,9 @@ export default function StudentPortalPage() {
                                             : '—'}
                                     </p>
                                 </div>
-                                <div className="hidden sm:block space-y-1">
-                                    <p className="text-[9px] font-black text-muted tracking-widest opacity-40 uppercase">ID</p>
-                                    <p className="text-xs font-bold text-primary">{studentId}</p>
+                                <div className="space-y-1">
+                                    <span className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest">ID</span>
+                                    <p className="text-sm font-black text-primary tabular-nums">{(studentData?.id || studentId).toUpperCase()}</p>
                                 </div>
                             </div>
                         </div>
@@ -858,6 +858,11 @@ export default function StudentPortalPage() {
                                         <QrCode className="w-6 h-6" />
                                     </div>
                                     <div className="text-left">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <h1 className="text-xl font-black text-primary truncate max-w-[200px] leading-tight">{studentData?.full_name || t.loading}</h1>
+                                            <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-500/20">{studentData?.status || 'Active'}</div>
+                                            <div className="text-[10px] font-bold text-muted/40 ml-auto uppercase tracking-tighter">ID: {(studentData?.id || studentId).toUpperCase()}</div>
+                                        </div>
                                         <h3 className="text-sm font-black text-primary tracking-tight">{t.qrCode || 'QR კოდი'}</h3>
                                         <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{isQrExpanded ? t.hideQr || 'დამალვა' : t.showQr || 'ჩვენება'}</p>
                                     </div>
@@ -1186,12 +1191,12 @@ export default function StudentPortalPage() {
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col h-[600px] bg-card/30 rounded-[2.5rem] border border-border-subtle overflow-hidden">
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-[calc(100vh-320px)] bg-card/30 rounded-[2.5rem] border border-border-subtle overflow-hidden">
                         {studentData?.enrolled_group_ids && studentData.enrolled_group_ids.length > 0 && (
                             <div className="flex gap-2 p-4 border-b border-border-subtle bg-card/50 overflow-x-auto no-scrollbar">
                                 <button onClick={() => setSelectedChatId('studio')} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === 'studio' ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
                                     <ShieldCheck className="w-3 h-3" />
-                                    {t.administration}
+                                    {lang === 'ka' ? 'სტუდია' : (t.administration || 'Studio')}
                                 </button>
                                 {studentData.enrolled_group_ids.map(gid => {
                                     const group = groups.find((g: any) => g.id === gid);
