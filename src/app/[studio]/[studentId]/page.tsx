@@ -513,31 +513,29 @@ export default function StudentPortalPage() {
 
     return (
         <div className="min-h-screen bg-card animate-fade-up max-w-lg mx-auto pb-24 md:pb-10 pt-6 px-4 relative overflow-x-hidden">
-            <div className="absolute top-4 right-4 z-50">
-                <LanguageSwitcher variant="landing" align="right" hideLabel={true} />
-            </div>
-
-            {/* Header */}
-            <div className="flex flex-col items-center justify-center mb-6 mt-2 pt-2">
-                {settings.logoDataUrl ? (
-                    <div className="relative group p-1">
-                        <div className="absolute inset-0 bg-indigo-500/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <img src={settings.logoDataUrl} alt={settings.studioName} className="w-10 h-10 rounded-xl object-contain shadow-md relative z-10" />
-                    </div>
-                ) : (
-                    <div className="w-10 h-10 bg-card border border-border-subtle rounded-xl flex items-center justify-center shadow-md shadow-black/5 mb-2 overflow-hidden group">
-                        <div className="w-full h-full bg-indigo-500 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
-                            <CircleUser className="text-white w-5 h-5" />
+            <div className="flex items-center justify-between mb-8 mt-2 px-1">
+                <div className="flex items-center gap-3">
+                    {settings.logoDataUrl ? (
+                        <div className="relative group p-1">
+                            <div className="absolute inset-0 bg-indigo-500/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <img src={settings.logoDataUrl} alt={settings.studioName} className="w-10 h-10 rounded-xl object-contain shadow-md relative z-10" />
+                        </div>
+                    ) : (
+                        <div className="w-10 h-10 bg-card border border-border-subtle rounded-xl flex items-center justify-center shadow-md shadow-black/5 overflow-hidden group">
+                            <div className="w-full h-full bg-indigo-500 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
+                                <CircleUser className="text-white w-5 h-5" />
+                            </div>
+                        </div>
+                    )}
+                    <div className="text-left group">
+                        <h1 className="text-sm font-black text-primary tracking-tight mb-0 group-hover:text-indigo-500 transition-colors leading-none">{settings.studioName}</h1>
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
+                            <span className="text-[9px] font-bold text-muted tracking-widest opacity-40 uppercase">{t.portalSubtitle}</span>
                         </div>
                     </div>
-                )}
-                <div className="text-center mt-1.5 group">
-                    <h1 className="text-sm font-black text-primary tracking-tight mb-0 group-hover:text-indigo-500 transition-colors">{settings.studioName}</h1>
-                    <div className="flex items-center justify-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                        <span className="text-[9px] font-bold text-muted tracking-[0.2em] opacity-40">{t.portalSubtitle}</span>
-                    </div>
                 </div>
+                <LanguageSwitcher variant="landing" align="right" hideLabel={true} />
             </div>
 
             {/* Tab Navigation */}
@@ -713,25 +711,25 @@ export default function StudentPortalPage() {
                                         let startDate = new Date();
                                         if (allSubs.length > 0) {
                                             const dates = allSubs
-                                                .map(s => s.purchased_at)
+                                                .map(s => s.purchased_at || s.expires_at) // Fallback to expires if purchased missing
                                                 .filter(Boolean)
                                                 .map(d => new Date(d));
                                             
                                             if (dates.length > 0) {
                                                 const minTime = Math.min(...dates.map(d => d.getTime()));
                                                 startDate = new Date(minTime);
-                                                // Adjust to start of that week (Monday)
-                                                const day = startDate.getDay();
-                                                const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-                                                startDate.setDate(diff);
                                             } else {
                                                 startDate.setMonth(startDate.getMonth() - 5);
-                                                startDate.setDate(1);
                                             }
                                         } else {
                                             startDate.setMonth(startDate.getMonth() - 5);
-                                            startDate.setDate(1);
                                         }
+
+                                        // Adjust to start of the week (Monday)
+                                        const dayOf = startDate.getDay();
+                                        const diff = startDate.getDate() - dayOf + (dayOf === 0 ? -6 : 1);
+                                        startDate.setDate(diff);
+                                        startDate.setHours(0,0,0,0);
 
                                         const curr = new Date(startDate);
                                         const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean }[] = [];
@@ -768,11 +766,6 @@ export default function StudentPortalPage() {
                                         const weeks: typeof days[] = [];
                                         let currentWeek: typeof days = [];
                                         
-                                        const firstDayOfWeek = (new Date(days[0].date).getDay() + 6) % 7;
-                                        for (let i = 0; i < firstDayOfWeek; i++) {
-                                            currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false });
-                                        }
-
                                         days.forEach(d => {
                                             currentWeek.push(d);
                                             if (currentWeek.length === 7) {
@@ -785,38 +778,61 @@ export default function StudentPortalPage() {
                                             weeks.push(currentWeek);
                                         }
 
-                                        return weeks.map((week, wIdx) => {
-                                            const monthLabel = week.find(d => d.isStartOfMonth)?.month;
-                                            return (
-                                                <div key={wIdx} className="flex flex-col gap-1.5">
-                                                    <div className="h-4 flex items-center justify-center">
-                                                        {monthLabel && <span className="text-[9px] font-black text-muted opacity-40 uppercase whitespace-nowrap">{monthLabel}</span>}
-                                                    </div>
-                                                    <div className="flex flex-col gap-1.5">
-                                                        {week.map((day, dIdx) => (
-                                                            <div
-                                                                key={dIdx}
-                                                                title={day.date}
-                                                                className={cn(
-                                                                    "w-4 h-4 rounded-[4px] transition-all duration-500",
-                                                                    day.date === '' ? "opacity-0" :
-                                                                    day.status === 'present' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" :
-                                                                    day.status === 'absent' ? "bg-rose-500/40" :
-                                                                    "bg-indigo-500/5 border border-indigo-500/5"
-                                                                )}
-                                                            />
-                                                        ))}
-                                                    </div>
+                                        return (
+                                            <div className="flex gap-2">
+                                                {/* Day Labels */}
+                                                <div className="flex flex-col gap-1.5 pt-5 pr-1">
+                                                    {['M', '', 'W', '', 'F', '', ''].map((label, i) => (
+                                                        <div key={i} className="h-4 flex items-center">
+                                                            <span className="text-[8px] font-black text-muted opacity-30 uppercase">{label}</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            );
-                                        });
+
+                                                <div className="flex gap-1.5 flex-1">
+                                                    {weeks.map((week, wIdx) => {
+                                                        const monthLabel = week.find(d => d.isStartOfMonth)?.month;
+                                                        return (
+                                                            <div key={wIdx} className="flex flex-col gap-1.5">
+                                                                <div className="h-4 flex items-center justify-center">
+                                                                    {monthLabel && <span className="text-[9px] font-black text-muted opacity-40 uppercase whitespace-nowrap">{monthLabel}</span>}
+                                                                </div>
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    {week.map((day, dIdx) => (
+                                                                        <div
+                                                                            key={dIdx}
+                                                                            title={day.date}
+                                                                            className={cn(
+                                                                                "w-4 h-4 rounded-[4px] transition-all duration-500",
+                                                                                day.date === '' ? "opacity-0" :
+                                                                                day.status === 'present' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" :
+                                                                                day.status === 'absent' ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.1)]" :
+                                                                                "bg-indigo-500/5 border border-indigo-500/5"
+                                                                            )}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
                                     })()}
                                 </div>
                             </div>
 
                             <div className="mt-6 flex items-center justify-between border-t border-border-subtle/50 pt-4">
                                 <p className="text-[10px] font-bold text-muted opacity-40 uppercase tracking-widest">
-                                    {l('სრული აქტივობა', 'Полная активность', 'Total Activity')}
+                                    {l('სტუდენტია: ', 'Студент с: ', 'Joined: ')}
+                                    {(() => {
+                                        const allSubs = getStudentSubscriptions(studentId);
+                                        if (allSubs.length > 0) {
+                                            const dates = allSubs.map(s => s.purchased_at).filter(Boolean).map(d => new Date(d));
+                                            if (dates.length > 0) return new Date(Math.min(...dates.map(d => d.getTime()))).toLocaleDateString();
+                                        }
+                                        return '—';
+                                    })()}
                                 </p>
                                 <div className="flex gap-1.5">
                                      {[0,1,2,3,4].map(i => (
