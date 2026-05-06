@@ -562,145 +562,6 @@ export default function StudentPortalPage() {
                 ))}
             </div>
 
-            {/* Contribution Graph (GitHub Style) */}
-            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-black text-primary tracking-tight flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-indigo-500" />
-                        {l('დასწრების ისტორია', 'История посещений', 'Attendance History')}
-                    </h3>
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" />
-                            <span className="text-[9px] font-bold text-muted opacity-40 uppercase">{l('იყო', 'Был', 'Present')}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 bg-rose-500 rounded-sm" />
-                            <span className="text-[9px] font-bold text-muted opacity-40 uppercase">{l('არა', 'Нет', 'Absent')}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto no-scrollbar pb-2">
-                    <div className="flex gap-1 min-w-max">
-                        {(() => {
-                            const today = new Date();
-                            const checkins = getStudentCheckins(studentId);
-                            const checkinDates = new Set(checkins.map(c => c.date));
-                            
-                            const enrolledGroups = getGroups().filter(g => studentData?.enrolled_group_ids?.includes(g.id));
-                            const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
-                            
-                            // Find the first subscription date
-                            const allSubs = getStudentSubscriptions(studentId);
-                            let startDate = new Date();
-                            if (allSubs.length > 0) {
-                                const earliest = allSubs.reduce((min, s) => {
-                                    const pDate = new Date(s.purchased_at || Date.now());
-                                    return pDate < min ? pDate : min;
-                                }, new Date());
-                                startDate = earliest;
-                            } else {
-                                // Default to 6 months if no subs found
-                                startDate.setMonth(startDate.getMonth() - 5);
-                                startDate.setDate(1);
-                            }
-
-                            const curr = new Date(startDate);
-                            const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean }[] = [];
-                            let lastMonth = '';
-                            
-                            while (curr <= today) {
-                                const dStr = getLocalISODate(curr);
-                                const dayOfWeek = (curr.getDay() + 6) % 7; // Mon=0
-                                const monthName = curr.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short' });
-                                
-                                let status: 'present' | 'absent' | 'none' = 'none';
-                                
-                                if (checkinDates.has(dStr)) {
-                                    status = 'present';
-                                } else {
-                                    // Check if class was scheduled
-                                    const hasScheduledGroup = enrolledGroups.some(g => g.schedule_slots?.some((s: any) => s.dayOfWeek === dayOfWeek));
-                                    const hasIndividualEvent = myEvents.some(e => e.date === dStr);
-                                    
-                                    if (hasScheduledGroup || hasIndividualEvent) {
-                                        if (curr < today) status = 'absent';
-                                    }
-                                }
-
-                                days.push({ 
-                                    date: dStr, 
-                                    status, 
-                                    month: monthName,
-                                    isStartOfMonth: monthName !== lastMonth
-                                });
-                                lastMonth = monthName;
-                                curr.setDate(curr.getDate() + 1);
-                            }
-
-                            // Group days into weeks for vertical layout
-                            const weeks: typeof days[] = [];
-                            let currentWeek: typeof days = [];
-                            
-                            // Pad the first week
-                            const firstDayOfWeek = (new Date(days[0].date).getDay() + 6) % 7;
-                            for (let i = 0; i < firstDayOfWeek; i++) {
-                                currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false });
-                            }
-
-                            days.forEach(d => {
-                                currentWeek.push(d);
-                                if (currentWeek.length === 7) {
-                                    weeks.push(currentWeek);
-                                    currentWeek = [];
-                                }
-                            });
-                            if (currentWeek.length > 0) {
-                                while (currentWeek.length < 7) currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false });
-                                weeks.push(currentWeek);
-                            }
-
-                            return weeks.map((week, wIdx) => {
-                                const monthLabel = week.find(d => d.isStartOfMonth)?.month;
-                                return (
-                                    <div key={wIdx} className="flex flex-col gap-1">
-                                        <div className="h-3 mb-1">
-                                            {monthLabel && <span className="text-[8px] font-black text-muted opacity-40 uppercase">{monthLabel}</span>}
-                                        </div>
-                                        <div className="flex flex-col gap-1">
-                                            {week.map((day, dIdx) => (
-                                                <div
-                                                    key={dIdx}
-                                                    title={day.date}
-                                                    className={cn(
-                                                        "w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] transition-all duration-500",
-                                                        day.date === '' ? "opacity-0" :
-                                                        day.status === 'present' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" :
-                                                        day.status === 'absent' ? "bg-rose-500/40" :
-                                                        "bg-indigo-500/5 border border-indigo-500/5"
-                                                    )}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            });
-                        })()}
-                    </div>
-                </div>
-
-                <div className="mt-6 flex items-center justify-between border-t border-border-subtle/50 pt-4">
-                    <p className="text-[10px] font-bold text-muted opacity-40">
-                        {l('სრული აქტივობა', 'Полная активность', 'Total Activity')}
-                    </p>
-                    <div className="flex gap-1">
-                         {[0,1,2,3,4].map(i => (
-                             <div key={i} className={cn("w-2 h-2 rounded-sm", i === 0 ? "bg-indigo-500/5" : i === 4 ? "bg-emerald-500" : "bg-emerald-500/" + (i*20))} />
-                         ))}
-                    </div>
-                </div>
-            </div>
 
             {/* Tab Content */}
             <div className="space-y-6">
@@ -817,6 +678,153 @@ export default function StudentPortalPage() {
                                 )}
                             </div>
                         )}
+
+                        {/* Contribution Graph (GitHub Style) */}
+                        <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-sm font-black text-primary tracking-tight flex items-center gap-2">
+                                    <Activity className="w-4 h-4 text-indigo-500" />
+                                    {l('დასწრების ისტორია', 'История посещений', 'Attendance History')}
+                                </h3>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" />
+                                        <span className="text-[9px] font-bold text-muted opacity-40 uppercase">{l('იყო', 'Был', 'Present')}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-2.5 h-2.5 bg-rose-500 rounded-sm" />
+                                        <span className="text-[9px] font-bold text-muted opacity-40 uppercase">{l('არა', 'Нет', 'Absent')}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto no-scrollbar pb-2">
+                                <div className="flex gap-1 min-w-max">
+                                    {(() => {
+                                        const today = new Date();
+                                        const checkins = getStudentCheckins(studentId);
+                                        const checkinDates = new Set(checkins.map(c => c.date));
+                                        
+                                        const enrolledGroups = getGroups().filter(g => studentData?.enrolled_group_ids?.includes(g.id));
+                                        const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
+                                        
+                                        // Find the first subscription date
+                                        const allSubs = getStudentSubscriptions(studentId);
+                                        let startDate = new Date();
+                                        if (allSubs.length > 0) {
+                                            const dates = allSubs
+                                                .map(s => s.purchased_at)
+                                                .filter(Boolean)
+                                                .map(d => new Date(d));
+                                            
+                                            if (dates.length > 0) {
+                                                const minTime = Math.min(...dates.map(d => d.getTime()));
+                                                startDate = new Date(minTime);
+                                                // Adjust to start of that week (Monday)
+                                                const day = startDate.getDay();
+                                                const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+                                                startDate.setDate(diff);
+                                            } else {
+                                                startDate.setMonth(startDate.getMonth() - 5);
+                                                startDate.setDate(1);
+                                            }
+                                        } else {
+                                            startDate.setMonth(startDate.getMonth() - 5);
+                                            startDate.setDate(1);
+                                        }
+
+                                        const curr = new Date(startDate);
+                                        const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean }[] = [];
+                                        let lastMonth = '';
+                                        
+                                        while (curr <= today) {
+                                            const dStr = getLocalISODate(curr);
+                                            const dayOfWeek = (curr.getDay() + 6) % 7; // Mon=0
+                                            const monthName = curr.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short' });
+                                            
+                                            let status: 'present' | 'absent' | 'none' = 'none';
+                                            
+                                            if (checkinDates.has(dStr)) {
+                                                status = 'present';
+                                            } else {
+                                                const hasScheduledGroup = enrolledGroups.some(g => g.schedule_slots?.some((s: any) => s.dayOfWeek === dayOfWeek));
+                                                const hasIndividualEvent = myEvents.some(e => e.date === dStr);
+                                                
+                                                if (hasScheduledGroup || hasIndividualEvent) {
+                                                    if (curr < today) status = 'absent';
+                                                }
+                                            }
+
+                                            days.push({ 
+                                                date: dStr, 
+                                                status, 
+                                                month: monthName,
+                                                isStartOfMonth: monthName !== lastMonth
+                                            });
+                                            lastMonth = monthName;
+                                            curr.setDate(curr.getDate() + 1);
+                                        }
+
+                                        const weeks: typeof days[] = [];
+                                        let currentWeek: typeof days = [];
+                                        
+                                        const firstDayOfWeek = (new Date(days[0].date).getDay() + 6) % 7;
+                                        for (let i = 0; i < firstDayOfWeek; i++) {
+                                            currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false });
+                                        }
+
+                                        days.forEach(d => {
+                                            currentWeek.push(d);
+                                            if (currentWeek.length === 7) {
+                                                weeks.push(currentWeek);
+                                                currentWeek = [];
+                                            }
+                                        });
+                                        if (currentWeek.length > 0) {
+                                            while (currentWeek.length < 7) currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false });
+                                            weeks.push(currentWeek);
+                                        }
+
+                                        return weeks.map((week, wIdx) => {
+                                            const monthLabel = week.find(d => d.isStartOfMonth)?.month;
+                                            return (
+                                                <div key={wIdx} className="flex flex-col gap-1.5">
+                                                    <div className="h-4 flex items-center justify-center">
+                                                        {monthLabel && <span className="text-[9px] font-black text-muted opacity-40 uppercase whitespace-nowrap">{monthLabel}</span>}
+                                                    </div>
+                                                    <div className="flex flex-col gap-1.5">
+                                                        {week.map((day, dIdx) => (
+                                                            <div
+                                                                key={dIdx}
+                                                                title={day.date}
+                                                                className={cn(
+                                                                    "w-4 h-4 rounded-[4px] transition-all duration-500",
+                                                                    day.date === '' ? "opacity-0" :
+                                                                    day.status === 'present' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" :
+                                                                    day.status === 'absent' ? "bg-rose-500/40" :
+                                                                    "bg-indigo-500/5 border border-indigo-500/5"
+                                                                )}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        });
+                                    })()}
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex items-center justify-between border-t border-border-subtle/50 pt-4">
+                                <p className="text-[10px] font-bold text-muted opacity-40 uppercase tracking-widest">
+                                    {l('სრული აქტივობა', 'Полная активность', 'Total Activity')}
+                                </p>
+                                <div className="flex gap-1.5">
+                                     {[0,1,2,3,4].map(i => (
+                                         <div key={i} className={cn("w-3 h-3 rounded-sm", i === 0 ? "bg-indigo-500/5" : i === 4 ? "bg-emerald-500" : "bg-emerald-500/" + (i*20))} />
+                                     ))}
+                                </div>
+                            </div>
+                        </div>
 
 
                         {/* QR Card */}
