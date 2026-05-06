@@ -138,8 +138,18 @@ export function refundCheckin(studentId: string, customDate?: string): void {
             const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
             if (orgId && orgId !== 'demo' && rToDelete.id) {
                 import('./master-sync').then(({ deleteRecordFromCloud }) => {
-                    deleteRecordFromCloud('attendance', rToDelete.id, orgId);
+                    deleteRecordFromCloud('attendance', rToDelete.id!, orgId);
                 });
+
+                // 🔥 OPTIMISTIC UPDATE: Remove from global cloud state immediately
+                try {
+                    const attDataKey = getScopedKey('cc_attendance_data', activeSlug);
+                    const attData = JSON.parse(localStorage.getItem(attDataKey) || '{}');
+                    if (attData[studentId]) {
+                        attData[studentId] = attData[studentId].filter((r: any) => r.id !== rToDelete.id && r.date !== customDate);
+                        localStorage.setItem(attDataKey, JSON.stringify(attData));
+                    }
+                } catch (e) {}
             }
         }
 
@@ -186,7 +196,7 @@ function _writeCheckin(
     const settings = loadSettings(activeSlug || '');
     const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
     if (orgId && orgId !== 'demo') {
-        syncRecordToCloud('attendance', {
+        const cloudRecord = {
             id: checkinId,
             org_id: orgId,
             student_id: studentId,
@@ -195,7 +205,17 @@ function _writeCheckin(
             status: 'present',
             notes: `Via ${via.toUpperCase()}`,
             data: record
-        }, orgId);
+        };
+        syncRecordToCloud('attendance', cloudRecord, orgId);
+
+        // 🔥 OPTIMISTIC UPDATE: Append to global cloud state immediately
+        try {
+            const attDataKey = getScopedKey('cc_attendance_data', activeSlug);
+            const attData = JSON.parse(localStorage.getItem(attDataKey) || '{}');
+            if (!attData[studentId]) attData[studentId] = [];
+            attData[studentId].push(cloudRecord);
+            localStorage.setItem(attDataKey, JSON.stringify(attData));
+        } catch (e) {}
     }
 
     // Legacy sync trigger removed (Native SYNC prioritized)
