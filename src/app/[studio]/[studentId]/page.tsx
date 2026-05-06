@@ -559,7 +559,7 @@ export default function StudentPortalPage() {
                                             {(sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? t.active : t.inactive || 'InActive'}
                                         </p>
                                         <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
-                                        <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {studentId}</p>
+                                        <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {(studentData?.id || studentId).toUpperCase()}</p>
                                     </div>
                                 </div>
                             </div>

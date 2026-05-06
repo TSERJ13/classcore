@@ -169,10 +169,8 @@ export async function POST(req: Request) {
         // 3. Fetch EVERYTHING with Admin privileges
         // 🚀 OPTIMIZATION: If studentId is provided, fetch ONLY relevant data for the portal
         const responses = await Promise.all([
-            // 0: Students
-            studentId 
-                ? supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId).ilike('id', studentId)
-                : supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
+            // 0: Students (Fetch all for the studio to ensure legacy/migrated records are found)
+            supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
             // 1: Staff (Skip if portal)
             isClientPortal 
                 ? supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId).limit(5)
