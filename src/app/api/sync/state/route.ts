@@ -171,7 +171,7 @@ export async function POST(req: Request) {
         const responses = await Promise.all([
             // 0: Students
             studentId 
-                ? supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId).eq('id', studentId)
+                ? supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId).ilike('id', studentId)
                 : supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
             // 1: Staff (Skip if portal)
             isClientPortal 
@@ -187,11 +187,11 @@ export async function POST(req: Request) {
             supabaseAdmin.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle(),
             // 6: Subscriptions
             studentId
-                ? supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId).eq('student_id', studentId)
+                ? supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId).ilike('student_id', studentId)
                 : supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId),
             // 7: Attendance
             studentId
-                ? supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId).eq('student_id', studentId)
+                ? supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId).ilike('student_id', studentId)
                 : supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId),
             // 8: Sales (Skip if portal)
             isClientPortal
