@@ -127,23 +127,30 @@ export default function StudentPortalPage() {
                 try {
                     const cloudData = await fetchFullStudioState(studio, undefined, undefined, true, studentId);
                     if (cloudData) {
-                        // 🚀 SCORCHED EARTH v4.1: Fresh Atomic Hydration
-                        const mapping: any = {
-                            cc_student_data: (cloudData.students || []).map(unwrap),
-                            cc_groups: (cloudData.groups || []).map(unwrap),
-                            cc_halls: (cloudData.halls || []).map(unwrap),
-                            cc_teachers: (cloudData.staff || []).map(unwrap),
-                            cc_attendance_archive: (cloudData.attendance || []).map(unwrap),
-                            cc_subscription_plans: (cloudData.plans || []).map(unwrap),
-                            cc_student_subscriptions: (cloudData.subscriptions || []).map(unwrap).reduce((acc: any, sub: any) => {
-                                const sId = sub.student_id;
-                                if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
-                                return acc;
-                            }, {}),
-                            cc_shop_products: (cloudData.products || []).map(unwrap),
-                            cc_calendar_events: (cloudData.events || []).map(unwrap),
-                            [`cc_studio_settings_${studio}`]: cloudData.settingsRecord?.settings || cloudData.studio?.settings
-                        };
+                            // 🚀 SCORCHED EARTH v4.2: Ultra-Robust Hydration
+                            const settingsBlob = cloudData.settingsRecord?.staff_data || cloudData.studio?.settings;
+                            const mapping: any = {
+                                cc_student_data: [
+                                    ...(cloudData.students || []),
+                                    ...(settingsBlob?.students || [])
+                                ].map(unwrap),
+                                cc_groups: (cloudData.groups || settingsBlob?.groups || []).map(unwrap),
+                                cc_halls: (cloudData.halls || settingsBlob?.halls || []).map(unwrap),
+                                cc_teachers: (cloudData.staff || settingsBlob?.staff || []).map(unwrap),
+                                cc_attendance_archive: (cloudData.attendance || settingsBlob?.attendance || []).map(unwrap),
+                                cc_subscription_plans: (cloudData.plans || settingsBlob?.subscription_plans || []).map(unwrap),
+                                cc_student_subscriptions: [
+                                    ...(cloudData.subscriptions || []),
+                                    ...(settingsBlob?.subscriptions || [])
+                                ].map(unwrap).reduce((acc: any, sub: any) => {
+                                    const sId = sub.student_id;
+                                    if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                                    return acc;
+                                }, {}),
+                                cc_shop_products: (cloudData.products || settingsBlob?.shop_products || []).map(unwrap),
+                                cc_calendar_events: (cloudData.events || settingsBlob?.calendar_events || []).map(unwrap),
+                                [`cc_studio_settings_${studio}`]: settingsBlob
+                            };
 
                         for (const [rawKey, data] of Object.entries(mapping)) {
                             if (data) {
@@ -155,9 +162,9 @@ export default function StudentPortalPage() {
                         setGroups((cloudData.groups || []).map(unwrap));
                         setHalls((cloudData.halls || []).map(unwrap));
                         setTeachers((cloudData.staff || []).map(unwrap));
-                        setSettings(cloudData.settingsRecord?.settings || cloudData.studio?.settings || null);
+                        setSettings(settingsBlob || null);
                         
-                        const unwrappedStudents = (cloudData.students || []).map(unwrap);
+                        const unwrappedStudents = mapping.cc_student_data;
                         const found = unwrappedStudents.find((s: any) => s.id.toLowerCase() === studentId.toLowerCase());
                         
                         if (found) {
