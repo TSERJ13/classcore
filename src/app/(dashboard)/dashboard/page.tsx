@@ -271,12 +271,31 @@ export default function DashboardPage() {
         const monthSalesRevenue = sales.filter(s => s.date?.startsWith(currentMonth)).reduce((sum, s) => sum + s.price * s.quantity, 0);
         const monthSubRevenue = allSubsList.filter(sub => sub.purchased_at?.startsWith(currentMonth)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
 
+        let totalCheckins = 0;
+        let daysWithCheckins = 0;
+        const daysInMonth = new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]), 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dStr = `${currentMonth}-${String(d).padStart(2, '0')}`;
+            const key = getScopedKey(`cc_checkins_${dStr}`);
+            try {
+                const recs = JSON.parse(localStorage.getItem(key) || '[]');
+                if (recs.length > 0) {
+                    totalCheckins += recs.length;
+                    daysWithCheckins++;
+                }
+            } catch (e) { }
+        }
+        const avgDailyCheckins = daysWithCheckins > 0 ? totalCheckins / daysWithCheckins : 0;
+        const denominator = studentsWithActiveSub > 0 ? studentsWithActiveSub : (studentsList.length > 0 ? studentsList.length : 1);
+        const attendanceRateMonth = denominator > 0 ? Math.round((avgDailyCheckins / denominator) * 100) : 0;
+
         setLiveStats(prev => ({
             ...prev,
             totalStudents: students,
             activeStudents: studentsWithActiveSub,
             activeSubs: studentsWithActiveSub,
             attendance,
+            attendanceRateMonth,
             monthlyRevenue: monthSalesRevenue + monthSubRevenue,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0),
         }));

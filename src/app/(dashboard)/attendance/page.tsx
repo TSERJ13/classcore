@@ -832,7 +832,7 @@ export default function AttendancePage() {
             }
         } else if (cur === 'present') {
             // Mark absent: refund session (since it was present)
-            refundCheckin(id);
+            refundCheckin(id, dateKey);
             next = 'absent';
         } else {
             next = 'none';
@@ -1172,13 +1172,13 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="xl:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 px-3 touch-pan-x relative z-30">
+                                <div className="xl:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 touch-pan-x relative z-30 -mx-3 px-3 md:-mx-6 md:px-6">
                                     {mounted && filteredSchedule.map(s => {
                                         const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
                                         return (
                                             <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                                 className={cn(
-                                                    'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
+                                                    'px-3 py-1.5 md:px-3.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
                                                     selectedClass === s.id ? 'text-white shadow-lg' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
                                                 )}
                                                 style={selectedClass === s.id ? { 

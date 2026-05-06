@@ -20,9 +20,14 @@ export default function HallsPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Hall | null>(null);
 
+    const [events, setEvents] = useState<any[]>([]);
+
     useEffect(() => {
         const refresh = () => setHalls(getHalls() as unknown as Hall[]);
         refresh();
+        import('@/lib/event-store').then(mod => {
+            setEvents(mod.getEvents());
+        });
         
         window.addEventListener('cc_halls_update', refresh);
         return () => window.removeEventListener('cc_halls_update', refresh);
@@ -64,17 +69,15 @@ export default function HallsPage() {
         saveHalls(updated as any);
     }
 
-    const groups = getGroups();
     const hallStats = useMemo(() => {
         const stats: Record<string, number> = {};
-        groups.forEach(g => {
-            if (g.hall_id && g.schedule) {
-                const slots = Array.isArray(g.schedule) ? g.schedule.length : 0;
-                stats[g.hall_id] = (stats[g.hall_id] || 0) + slots;
+        events.forEach(e => {
+            if (e.hall_id) {
+                stats[e.hall_id] = (stats[e.hall_id] || 0) + 1;
             }
         });
         return stats;
-    }, [groups]);
+    }, [events]);
 
     const totalCapacity = halls.filter(h => h.is_active).reduce((s, h) => s + (h.capacity ?? 0), 0);
     const totalWeekEvents = Object.values(hallStats).reduce((a, b) => a + b, 0);

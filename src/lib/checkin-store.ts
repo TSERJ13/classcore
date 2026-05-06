@@ -115,8 +115,9 @@ export function forceCheckin(
 }
 
 /** Refund a checkin: increments sessions back */
-export function refundCheckin(studentId: string): void {
-    const existing = getTodayCheckins();
+export function refundCheckin(studentId: string, customDate?: string): void {
+    const key = customDate ? getScopedKey(`cc_checkins_${customDate}`) : dayKey();
+    const existing: CheckinRecord[] = JSON.parse(localStorage.getItem(key) || '[]');
     const record = existing.find(r => r.studentId === studentId);
 
     if (record) {
@@ -129,7 +130,7 @@ export function refundCheckin(studentId: string): void {
         if (idx > -1) {
             const rToDelete = updated[idx];
             updated.splice(idx, 1);
-            localStorage.setItem(dayKey(), JSON.stringify(updated));
+            localStorage.setItem(key, JSON.stringify(updated));
             markLocalUpdate();
 
             const activeSlug = getActiveSlug();
