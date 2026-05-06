@@ -386,48 +386,62 @@ export default function StudentPortalPage() {
 
     const isExpiring = remaining != null && remaining <= 2;
 
-    if (isLoading) {
+    if (isLoading || syncing) {
         return (
-            <div className="min-h-screen bg-card flex flex-col items-center justify-center p-6 space-y-4">
-                <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl animate-pulse flex items-center justify-center">
-                    <div className="w-8 h-8 bg-indigo-500/20 rounded-full" />
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <div className="relative">
+                    <div className="w-20 h-20 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <Logo className="w-8 h-8 opacity-20" />
+                    </div>
                 </div>
-                <div className="h-4 w-32 bg-indigo-500/5 rounded-full animate-pulse" />
+                <div className="space-y-2">
+                    <p className="text-sm font-black tracking-[0.2em] text-indigo-500 animate-pulse uppercase">{t.loading || 'Loading Portal'}</p>
+                    <p className="text-[10px] font-bold text-muted tracking-widest opacity-40 uppercase">Secure Connection Established</p>
+                </div>
             </div>
         );
     }
 
     if (!studentData) {
         return (
-            <div className="min-h-screen bg-card flex flex-col items-center justify-center p-6 text-center space-y-6">
-                <div className="w-20 h-20 bg-amber-500/10 rounded-[2rem] flex items-center justify-center text-amber-500 shadow-xl shadow-amber-500/5">
-                    <AlertCircle className="w-10 h-10" />
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-8">
+                <div className="w-24 h-24 bg-rose-500/10 rounded-[2.5rem] flex items-center justify-center text-rose-500">
+                    <AlertCircle className="w-12 h-12" />
                 </div>
-                <div className="space-y-2">
-                    <h1 className="text-xl font-black text-primary tracking-tight">{t.noData}</h1>
-                    <p className="text-[11px] text-muted font-medium opacity-60 max-w-[200px] mx-auto">{t.dataNotFound}</p>
+                <div className="space-y-3 max-w-xs">
+                    <h1 className="text-xl font-black text-primary tracking-tight">{t.noData || 'Data Not Found'}</h1>
+                    <p className="text-sm font-medium text-muted leading-relaxed">
+                        {t.dataNotFoundDesc || 'We could not find your student profile. Please check the link or contact your studio.'}
+                    </p>
                 </div>
-                <div className="pt-4 space-y-2 opacity-30">
-                    <p className="text-[9px] font-mono tracking-widest">ID: {studentId}</p>
-                    <p className="text-[9px] font-mono tracking-widest">Studio: {studio}</p>
-                    
-                    {/* 🐛 EMERGENCY DEBUG SECTION */}
-                    <div className="mt-8 p-4 bg-surface/50 border border-border-subtle rounded-2xl text-left space-y-2 opacity-40 hover:opacity-100 transition-opacity">
-                        <p className="text-[8px] font-black tracking-widest uppercase">Debug Info</p>
-                        <div className="text-[9px] font-mono space-y-1 break-all">
-                            <p>UA: {typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 50) : 'N/A'}...</p>
-                            <p>Storage: {typeof localStorage !== 'undefined' ? 'OK' : 'BLOCKED'}</p>
-                            <p>Active: {typeof localStorage !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'N/A'}</p>
-                            <p>Params: {studio} | {studentId}</p>
-                            <p>Status: {(window as any)._portalDebug?.status || 'Unknown'}</p>
-                            {(window as any)._portalDebug?.availableCount !== undefined && (
-                                <p>Count: {(window as any)._portalDebug.availableCount}</p>
-                            )}
-                            {(window as any)._portalDebug?.samples && (
-                                <p>Cloud IDs: {(window as any)._portalDebug.samples.join(', ')}</p>
-                            )}
+                
+                {/* Emergency Debug Info */}
+                <div className="p-6 bg-card/50 rounded-3xl border border-border-subtle w-full max-w-md text-left space-y-3">
+                    <p className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">System Debug Info</p>
+                    <div className="grid grid-cols-2 gap-4 text-[11px] font-bold">
+                        <div>
+                            <p className="text-muted opacity-50 mb-1">Studio Slug</p>
+                            <p className="text-primary truncate">{studio || 'NULL'}</p>
+                        </div>
+                        <div>
+                            <p className="text-muted opacity-50 mb-1">Student ID</p>
+                            <p className="text-primary truncate">{(studentId || 'NULL').toUpperCase()}</p>
                         </div>
                     </div>
+                    <div className="pt-2 text-[9px] font-mono text-muted/50 break-all">
+                        Status: {(window as any)._portalDebug?.status || 'Active'}
+                    </div>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="w-full mt-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black tracking-widest hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-600/20"
+                    >
+                        RETRY CONNECTION
+                    </button>
+                </div>
+
+                <div className="pt-8">
+                    <Logo className="w-12 h-12 opacity-10 grayscale" />
                 </div>
             </div>
         );
