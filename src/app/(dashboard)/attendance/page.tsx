@@ -336,48 +336,40 @@ export default function AttendancePage() {
                 }
             }
 
+            const finalAtt: Record<string, State> = {};
+
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
                     if (data[dateKey] && data[dateKey][selectedClass]) {
-                        setAtt(data[dateKey][selectedClass]);
-                        return;
+                        Object.assign(finalAtt, data[dateKey][selectedClass]);
                     }
                 } catch (e) {
                     console.error('❌ [Attendance] Failed to parse archive:', e);
                 }
             }
 
-            // 🛡️ FALLBACK: Reconstruct from per-day checkin records (cc_checkins_YYYY-MM-DD)
+            // 🛡️ ALWAYS Enforce 'present' from per-day checkin records (cc_checkins_YYYY-MM-DD)
+            // This ensures Cloud Truth is respected across devices and history is preserved
             try {
                 const checkinKey = getScopedKey(`cc_checkins_${dateKey}`);
                 const checkinRaw = localStorage.getItem(checkinKey);
                 if (checkinRaw) {
                     const checkins = JSON.parse(checkinRaw);
                     if (Array.isArray(checkins) && checkins.length > 0) {
-                        const reconstructed: Record<string, State> = {};
                         checkins.forEach((c: any) => {
                             // Match by classId or groupId
                             if (c.classId === selectedClass || c.groupId === selClass?.group_id) {
-                                reconstructed[c.studentId] = 'present';
+                                finalAtt[c.studentId] = 'present';
                             }
                         });
-                        if (Object.keys(reconstructed).length > 0) {
-                            setAtt(reconstructed);
-                            // Also persist to archive so it loads faster next time
-                            const archiveData = saved ? JSON.parse(saved) : {};
-                            if (!archiveData[dateKey]) archiveData[dateKey] = {};
-                            archiveData[dateKey][selectedClass] = reconstructed;
-                            localStorage.setItem(key, JSON.stringify(archiveData));
-                            return;
-                        }
                     }
                 }
             } catch (e) {
                 // Silent
             }
 
-            setAtt({});
+            setAtt(finalAtt);
         };
 
         loadAtt();
