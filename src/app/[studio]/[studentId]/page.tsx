@@ -53,7 +53,7 @@ export default function StudentPortalPage() {
 
     const { t, setLang, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+    const [subs, setSubs] = useState<SubscriptionInfo[]>([]);
     const [studentData, setStudentData] = useState<Student | null>(null);
     const [status, setStatus] = useState<'idle' | 'paying' | 'success'>('idle');
     const [qrDataUrl, setQrDataUrl] = useState('');
@@ -135,8 +135,12 @@ export default function StudentPortalPage() {
                 );
                 if (student) {
                     setStudentData(student);
-                    const s = getSubscription(studentId, undefined, undefined, true);
-                    setSub(s || null);
+                    const all = getStudentSubscriptions(studentId);
+                    const active = all.filter(s => {
+                        const today = new Date().toISOString().split('T')[0];
+                        return s.status === 'active' && s.expires_at >= today && (s.sessions_total === null || s.sessions_used < s.sessions_total);
+                    });
+                    setSubs(active);
                     setIsLoading(false); // Stop loading screen early
                 }
             }
@@ -214,8 +218,12 @@ export default function StudentPortalPage() {
                         
                         if (found) {
                             setStudentData(found as Student);
-                            const s = getSubscription(found.id, undefined, undefined, true);
-                            setSub(s || null);
+                            const all = getStudentSubscriptions(found.id);
+                            const active = all.filter(s => {
+                                const today = new Date().toISOString().split('T')[0];
+                                return s.status === 'active' && s.expires_at >= today && (s.sessions_total === null || s.sessions_used < s.sessions_total);
+                            });
+                            setSubs(active);
                         } else {
                             console.warn('Student not found in cloud data');
                         }
@@ -235,8 +243,12 @@ export default function StudentPortalPage() {
                     );
                     if (student) {
                         setStudentData(prev => prev || student);
-                        const s = getSubscription(studentId, undefined, undefined, true);
-                        setSub(prev => prev || s || null);
+                        const all = getStudentSubscriptions(studentId);
+                        const active = all.filter(s => {
+                            const today = new Date().toISOString().split('T')[0];
+                            return s.status === 'active' && s.expires_at >= today && (s.sessions_total === null || s.sessions_used < s.sessions_total);
+                        });
+                        setSubs(prev => (prev.length > 0 ? prev : active));
                         
                         const patch = getStudentPatch(studentId);
                         const nfcUid = patch.nfc_uid || student.nfc_uid;
@@ -426,22 +438,17 @@ export default function StudentPortalPage() {
         setStatus('paying');
         setTimeout(() => {
             const updated = renewSubscription(studentId);
-            setSub(updated);
+            if (updated) {
+                setSubs(prev => [updated, ...prev.filter(s => s.id !== updated.id)]);
+            }
             setStatus('success');
             setTimeout(() => setStatus('idle'), 3000);
         }, 2000);
     };
 
-    // ✅ Computed variables that were missing
     const initials = studentData ? (
         (studentData.first_name?.[0] || '') + (studentData.last_name?.[0] || '')
     ).toUpperCase() : '';
-
-    const remaining = sub?.sessions_total != null && sub?.sessions_used != null
-        ? sub.sessions_total - sub.sessions_used
-        : null;
-
-    const isExpiring = remaining != null && remaining <= 2;
 
     if (isLoading || syncing) {
         return (
@@ -644,8 +651,8 @@ export default function StudentPortalPage() {
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <p className={cn("text-[10px] font-black tracking-widest uppercase", (sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? "text-emerald-500" : "text-rose-500")}>
-                                            {(sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? t.active : t.inactive || 'InActive'}
+                                        <p className={cn("text-[10px] font-black tracking-widest uppercase", subs.length > 0 ? "text-emerald-500" : "text-rose-500")}>
+                                            {subs.length > 0 ? t.active : t.inactive || 'InActive'}
                                         </p>
                                     </div>
                                 </div>
@@ -674,56 +681,63 @@ export default function StudentPortalPage() {
                             </div>
                         </div>
 
-                        {/* Subscription Card */}
-                        {sub && (
-                            <div className={cn(
-                                "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5",
-                                isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle"
-                            )}>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
-                                            <CreditCard className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-base font-black text-primary tracking-tight">{t.subscriptionRenewal}</h2>
-                                            <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{sub.plan}</p>
-                                        </div>
-                                    </div>
-                                    <span className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider", sub.status === 'active' ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")}>
-                                        {sub.status === 'active' ? t.active : t.expired}
-                                    </span>
-                                </div>
+                        {/* Subscription Cards */}
+                        {subs.map(sub => {
+                            const remaining = sub.sessions_total != null && sub.sessions_used != null
+                                ? sub.sessions_total - sub.sessions_used
+                                : null;
+                            const isExpiring = remaining != null && remaining <= 2;
 
-                                {sub.sessions_total && remaining !== null && (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between text-[11px] font-black text-primary tracking-widest mb-1 px-1">
-                                            <span>{t.remaining}</span>
-                                            <div className="flex items-baseline gap-1">
-                                                <span className="text-xl text-indigo-500 tabular-nums">{remaining}</span>
-                                                <span className="opacity-40">/ {sub.sessions_total}</span>
+                            return (
+                                <div key={sub.id} className={cn(
+                                    "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5",
+                                    isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle"
+                                )}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
+                                                <CreditCard className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-base font-black text-primary tracking-tight">{t.subscriptionRenewal}</h2>
+                                                <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{sub.plan}</p>
                                             </div>
                                         </div>
-                                        <div className="h-4 bg-surface rounded-full overflow-hidden p-1 border border-border-subtle/50 shadow-inner">
-                                            <div
-                                                className={cn("h-full rounded-full transition-all duration-1000 ease-out shadow-sm", remaining <= 2 ? "bg-rose-500" : "bg-gradient-to-r from-indigo-500 to-indigo-600")}
-                                                style={{ width: `${(remaining / sub.sessions_total) * 100}%` }}
-                                            />
-                                        </div>
-                                        <div className="flex justify-between px-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                                <span className="text-[9px] font-bold text-muted tracking-widest opacity-60">{t.used} {sub.sessions_used}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[10px] font-bold text-muted">
-                                                <Calendar className="w-3.5 h-3.5 opacity-40 text-indigo-500" />
-                                                <span>{t.expiryDate}: <span className="text-primary font-black">{sub.expires_at}</span></span>
-                                            </div>
-                                        </div>
+                                        <span className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider", sub.status === 'active' ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")}>
+                                            {sub.status === 'active' ? t.active : t.expired}
+                                        </span>
                                     </div>
-                                )}
-                            </div>
-                        )}
+
+                                    {sub.sessions_total && remaining !== null && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between text-[11px] font-black text-primary tracking-widest mb-1 px-1">
+                                                <span>{t.remaining}</span>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-xl text-indigo-500 tabular-nums">{remaining}</span>
+                                                    <span className="opacity-40">/ {sub.sessions_total}</span>
+                                                </div>
+                                            </div>
+                                            <div className="h-4 bg-surface rounded-full overflow-hidden p-1 border border-border-subtle/50 shadow-inner">
+                                                <div
+                                                    className={cn("h-full rounded-full transition-all duration-1000 ease-out shadow-sm", remaining <= 2 ? "bg-rose-500" : "bg-gradient-to-r from-indigo-500 to-indigo-600")}
+                                                    style={{ width: `${(remaining / sub.sessions_total) * 100}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between px-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                                    <span className="text-[9px] font-bold text-muted tracking-widest opacity-60">{t.used} {sub.sessions_used}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted">
+                                                    <Calendar className="w-3.5 h-3.5 opacity-40 text-indigo-500" />
+                                                    <span>{t.expiryDate}: <span className="text-primary font-black">{sub.expires_at}</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
 
                         {/* Contribution Graph (GitHub Style) */}
                         <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
