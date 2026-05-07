@@ -516,10 +516,10 @@ export default function StudentPortalPage() {
         <div className="min-h-screen bg-card animate-fade-up max-w-lg mx-auto pb-24 md:pb-10 pt-6 px-4 relative overflow-x-hidden">
             <div className="flex items-center justify-between mb-8 mt-2 px-1">
                 <div className="flex items-center gap-3">
-                    {settings.logoDataUrl ? (
+                    {(settings?.logoDataUrl || settings?.studioLogo) ? (
                         <div className="relative group p-1">
                             <div className="absolute inset-0 bg-indigo-500/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <img src={settings.logoDataUrl} alt={settings.studioName} className="w-10 h-10 rounded-xl object-contain shadow-md relative z-10" />
+                            <img src={settings.logoDataUrl || settings.studioLogo} alt={settings.studioName} className="w-10 h-10 rounded-xl object-contain shadow-md relative z-10" />
                         </div>
                     ) : (
                         <div className="w-10 h-10 bg-card border border-border-subtle rounded-xl flex items-center justify-center shadow-md shadow-black/5 overflow-hidden group">
@@ -855,9 +855,6 @@ export default function StudentPortalPage() {
                                     <h1 className="text-xl font-black text-primary truncate leading-tight">{studentData?.full_name || t.loading}</h1>
                                     <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-500/20">{studentData?.status || 'Active'}</div>
                                 </div>
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted/40 uppercase tracking-tighter">
-                                    <span>ID: {(studentData?.id || studentId).toUpperCase()}</span>
-                                </div>
                             </div>
                             <button
                                 onClick={() => setIsQrExpanded(!isQrExpanded)}
@@ -953,7 +950,8 @@ export default function StudentPortalPage() {
                                         const myEvents = allEvents.filter(e => {
                                             const sIdMatch = e.student_id?.toLowerCase() === studentId.toLowerCase();
                                             const studentIsInGroup = studentData?.enrolled_group_ids?.some(gid => gid.toLowerCase() === e.group_id?.toLowerCase());
-                                            return e.org_id === studio && (sIdMatch || studentIsInGroup);
+                                            const isThisStudio = !e.org_id || e.org_id === studio || e.org_id === settings?.orgId;
+                                            return isThisStudio && (sIdMatch || studentIsInGroup);
                                         });
 
                                         let displayEvents: CalendarEvent[] = [];
@@ -1060,7 +1058,7 @@ export default function StudentPortalPage() {
 
                                 <div className="space-y-8">
                                     {(() => {
-                                        const allEvents = getEvents().filter(e => e.org_id === studio);
+                                        const allEvents = getEvents().filter(e => !e.org_id || e.org_id === studio || e.org_id === settings?.orgId);
                                         const today = new Date();
                                         const todayStr = getLocalISODate();
                                         let days: string[] = [];
@@ -1201,12 +1199,9 @@ export default function StudentPortalPage() {
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="fixed inset-0 z-[100] bg-white flex flex-col">
-                        <div className="h-16 border-b border-border-subtle bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => setActiveTab('info')} className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface text-muted transition-all rotate-180">
-                                    <ChevronRight className="w-6 h-6" />
-                                </button>
+                    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-0 sm:p-4 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="w-full h-full sm:max-w-md sm:h-[85vh] bg-white sm:rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
+                            <div className="h-16 border-b border-border-subtle bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
                                         <MessageSquare className="w-5 h-5" />
@@ -1216,7 +1211,6 @@ export default function StudentPortalPage() {
                                         <p className="text-[10px] font-bold text-emerald-500 tracking-widest uppercase leading-none">Online</p>
                                     </div>
                                 </div>
-                            </div>
                             <button onClick={() => setActiveTab('info')} className="p-2 text-muted hover:text-primary transition-colors">
                                 <X className="w-6 h-6" />
                             </button>
