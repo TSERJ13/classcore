@@ -97,50 +97,54 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
             <div className="fixed inset-0 z-[60] bg-black/20" onClick={autoClose && !hasMultipleSubs ? onClose : undefined} />
             <div className="fixed inset-x-0 bottom-0 z-[70] flex justify-center pb-24 px-4 items-center sm:inset-0 sm:pb-0 animate-in fade-in zoom-in-95 duration-200">
                 <div className={cn(
-                    'w-[calc(100vw-4rem)] max-w-[280px] sm:w-full sm:max-w-sm rounded-[2.5rem] border overflow-hidden bg-card transition-all',
-                    data.phase === 'success' && 'border-emerald-500/10',
-                    data.phase === 'confirm' && 'border-amber-500/10',
-                    data.phase === 'double-success' && 'border-#6d28d9/10',
+                    'w-[calc(100vw-4rem)] max-w-[300px] sm:w-full sm:max-w-sm rounded-[3rem] border overflow-hidden bg-card transition-all shadow-2xl',
+                    data.phase === 'success' && 'border-emerald-500/10 shadow-emerald-500/10',
+                    data.phase === 'confirm' && 'border-amber-500/10 shadow-amber-500/10',
+                    data.phase === 'double-success' && 'border-[#6d28d9]/10 shadow-indigo-500/10',
                 )}>
                     {autoClose && !hasMultipleSubs && (
                         <div className="h-1 bg-surface relative overflow-hidden">
-                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-#6d28d9')}
+                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-[#6d28d9]')}
                                 style={{ width: `${progress}%`, transitionDuration: '1s' }} />
                         </div>
                     )}
                     <div className="p-8">
                         <div className="flex justify-center mb-6">
                             <div className="relative">
-                                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${avatarColor(data.studentId)} flex items-center justify-center text-white text-3xl font-black`}>
-                                    {getInitials(data.studentName)}
+                                <div className={`w-24 h-24 rounded-full bg-gradient-to-br ${avatarColor(data.studentId)} flex items-center justify-center text-white text-3xl font-black overflow-hidden shadow-xl border-4 border-card`}>
+                                    {data.photo ? (
+                                        <img src={data.photo} alt={data.studentName} className="w-full h-full object-cover" />
+                                    ) : (
+                                        getInitials(data.studentName)
+                                    )}
                                 </div>
-                                <div className={cn('absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-4 border-card',
+                                <div className={cn('absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center border-4 border-card shadow-lg',
                                     data.phase === 'success' && 'bg-emerald-500',
                                     data.phase === 'confirm' && 'bg-amber-500',
-                                    data.phase === 'double-success' && 'bg-#6d28d9',
+                                    data.phase === 'double-success' && 'bg-[#6d28d9]',
                                     data.phase === 'info' && 'bg-blue-500',
                                     data.phase === 'expired' && 'bg-rose-500'
                                 )}>
-                                    {data.phase === 'success' && <Check className="w-4 h-4 text-white" strokeWidth={4} />}
-                                    {data.phase === 'confirm' && <AlertTriangle className="w-4 h-4 text-white" strokeWidth={3} />}
-                                    {data.phase === 'double-success' && <CheckCircle2 className="w-4 h-4 text-white" strokeWidth={3} />}
-                                    {data.phase === 'info' && <Info className="w-4 h-4 text-white" strokeWidth={3} />}
-                                    {data.phase === 'expired' && <X className="w-4 h-4 text-white" strokeWidth={3} />}
+                                    {data.phase === 'success' && <Check className="w-5 h-5 text-white" strokeWidth={4} />}
+                                    {data.phase === 'confirm' && <AlertTriangle className="w-5 h-5 text-white" strokeWidth={3} />}
+                                    {data.phase === 'double-success' && <CheckCircle2 className="w-5 h-5 text-white" strokeWidth={3} />}
+                                    {data.phase === 'info' && <Info className="w-5 h-5 text-white" strokeWidth={3} />}
+                                    {data.phase === 'expired' && <X className="w-5 h-5 text-white" strokeWidth={3} />}
                                 </div>
                             </div>
                         </div>
                         <div className="text-center mb-6">
                             <h2 className="text-2xl font-black text-primary tracking-tight">{data.studentName}</h2>
-                            {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendanceSheet} OK</p></>}
-                            {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ {t.alreadyCheckedIn}</p>}
-                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-#5b21b6 tracking-widest mt-2 bg-#6d28d9/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
-                            {data.phase === 'info' && <p className="text-[11px] font-black text-blue-600 tracking-widest mt-2 bg-blue-500/10 px-3 py-1 rounded-full inline-block animate-pulse">ℹ️ კიდევ ერთხელ გაატარეთ</p>}
-                            {data.phase === 'expired' && <p className="text-[11px] font-black text-rose-600 tracking-widest mt-2 bg-rose-500/10 px-3 py-1 rounded-full inline-block">❌ აბონემენტი ამოწურულია</p>}
+                            {data.phase === 'success' && <p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-4 py-1.5 rounded-full inline-block uppercase">✅ {t.attendanceSheet || 'დასწრება'} OK</p>}
+                            {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-4 py-1.5 rounded-full inline-block uppercase">⚠️ {t.alreadyCheckedIn || 'უკვე დაფიქსირდა'}</p>}
+                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-[#5b21b6] tracking-widest mt-2 bg-[#6d28d9]/10 px-4 py-1.5 rounded-full inline-block uppercase">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
+                            {data.phase === 'info' && <p className="text-[11px] font-black text-blue-600 tracking-widest mt-2 bg-blue-500/10 px-4 py-1.5 rounded-full inline-block uppercase animate-pulse">ℹ️ კიდევ ერთხელ გაატარეთ</p>}
+                            {data.phase === 'expired' && <p className="text-[11px] font-black text-rose-600 tracking-widest mt-2 bg-rose-500/10 px-4 py-1.5 rounded-full inline-block uppercase">❌ {t.subscriptionExpired || 'აბონემენტი ამოწურულია'}</p>}
                         </div>
 
                         {hasMultipleSubs && subscriptions && onSelectSub ? (
                             <div className="space-y-3 mb-6">
-                                <p className="text-[10px] font-black text-muted text-center opacity-40 tracking-widest">{t.selectSubscription}</p>
+                                <p className="text-[10px] font-black text-muted text-center opacity-40 tracking-widest uppercase">{t.selectSubscription}</p>
                                 <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                                     {subscriptions.map(s => {
                                         const rem = (s.sessions_total ?? 0) - (s.sessions_used ?? 0);
@@ -148,15 +152,15 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                             <button
                                                 key={s.id}
                                                 onClick={() => onSelectSub(s.id)}
-                                                className="w-full text-left p-3 rounded-2xl bg-surface border border-border-subtle hover:border-#6d28d9/50 hover:bg-#6d28d9/5 transition-all group"
+                                                className="w-full text-left p-4 rounded-2xl bg-surface border border-border-subtle hover:border-[#6d28d9]/50 hover:bg-[#6d28d9]/5 transition-all group"
                                             >
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-[11px] font-black text-primary truncate max-w-[140px]">{s.plan}</span>
-                                                    <span className="text-[10px] font-black text-#5b21b6 tabular-nums">
+                                                    <span className="text-xs font-black text-primary truncate max-w-[140px]">{s.plan}</span>
+                                                    <span className="text-xs font-black text-[#5b21b6] tabular-nums">
                                                         {s.type === 'monthly' ? '∞' : rem}
                                                     </span>
                                                 </div>
-                                                <p className="text-[8px] font-bold text-muted opacity-40 mt-0.5">{s.expires_at}</p>
+                                                <p className="text-[9px] font-bold text-muted opacity-40 mt-1">{s.expires_at}</p>
                                             </button>
                                         );
                                     })}
@@ -165,32 +169,95 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                         ) : (() => {
                             const rem = data.sessionsRemaining;
                             const noSub = rem < 0;
-                            const sessionColor = noSub ? 'text-amber-500' : rem <= 2 ? 'text-red-500' : rem === 3 ? 'text-amber-500' : 'text-emerald-500';
-                            const boxBg = noSub ? 'bg-amber-500/5 border border-amber-500/20' : rem <= 2 ? 'bg-red-500/5 border border-red-500/20' : rem === 3 ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-emerald-500/5 border border-emerald-500/20';
+                            const isMonthly = data.isMonthly;
+                            
+                            // Visual progress for bar
+                            const sub = subscriptions?.[0];
+                            const total = sub?.sessions_total || 1;
+                            const used = sub?.sessions_used || 0;
+                            const percent = isMonthly ? 100 : Math.max(0, Math.min(100, ((total - used) / total) * 100));
+
+                            const sessionColor = noSub ? 'text-rose-500' : rem <= 2 ? 'text-red-500' : rem === 3 ? 'text-amber-500' : 'text-emerald-500';
+                            const boxBg = noSub ? 'bg-rose-500/5 border border-rose-500/20' : rem <= 2 ? 'bg-red-500/5 border border-red-500/20' : rem === 3 ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-emerald-500/5 border border-emerald-500/20';
+                            const barColor = noSub ? 'bg-rose-500' : rem <= 2 ? 'bg-red-500' : rem === 3 ? 'bg-amber-500' : 'bg-emerald-500';
+
                             return (
-                                <div className={cn('rounded-2xl p-4 mb-8 mt-2 flex items-center justify-between', boxBg)}>
-                                    <span className="text-xs font-bold text-muted opacity-60">
-                                        {noSub ? (t.noSubscription || 'აბონიმენტი არ არის') : `${t.remaining} ${data.isMonthly ? t.days : t.visits}`}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        {!noSub && (data.phase === 'success' || data.phase === 'double-success') && <span className="text-[10px] text-amber-600 font-black">-1</span>}
-                                        <span className={cn('text-xl font-black tabular-nums', sessionColor)}>
-                                            {data.isMonthly ? '∞' : noSub ? '—' : rem}
-                                        </span>
+                                <div className={cn('rounded-3xl p-5 mb-8 transition-colors', boxBg)}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] mb-0.5 leading-none">
+                                                {data.planName || (noSub ? 'NO PLAN' : 'ACTIVE PLAN')}
+                                            </span>
+                                            <span className="text-xs font-bold text-muted/60">
+                                                {noSub ? (t.noSubscription || 'აბონიმენტი არ არის') : `${t.remaining || 'დარჩენილი'} ${isMonthly ? (t.days || 'დღე') : (t.visits || 'ვიზიტი')}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {!noSub && (data.phase === 'success' || data.phase === 'double-success') && <span className="text-xs text-amber-600 font-black animate-bounce">-1</span>}
+                                            <span className={cn('text-2xl font-black tabular-nums tracking-tighter', sessionColor)}>
+                                                {isMonthly ? '∞' : noSub ? '—' : rem}
+                                            </span>
+                                        </div>
                                     </div>
+                                    
+                                    {/* Visual Progress Bar */}
+                                    {!noSub && (
+                                        <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
+                                            <div 
+                                                className={cn("h-full rounded-full transition-all duration-1000", barColor)}
+                                                style={{ width: `${percent}%` }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })()}
 
                         {data.phase === 'confirm' ? (
+                            <div className="space-y-4">
+                                <p className="text-xs text-center text-muted font-medium px-4">{t.confirmVisit || 'გსურთ ვიზიტის დაფიქსირება?'}</p>
+                                <button onClick={onConfirm} className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all uppercase tracking-widest shadow-xl shadow-emerald-500/20">{t.yesConfirm || 'დიახ'}</button>
+                                
+                                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-border-subtle/50">
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-group'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-4 rounded-2xl bg-[#6d28d9] text-white hover:bg-indigo-600 transition-all active:scale-95 shadow-lg shadow-indigo-500/20 border border-white/10"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[9px] font-black tracking-widest uppercase">{t.groupSubscription || 'ჯგუფური'}</span>
+                                    </button>
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-individual'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-4 rounded-2xl bg-amber-500 text-white hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-500/20 border border-white/10"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[9px] font-black tracking-widest uppercase">{t.individualSubscription || 'ინდივიდუალური'}</span>
+                                    </button>
+                                </div>
+
+                                <button onClick={onClose} className="w-full py-3.5 bg-surface hover:bg-surface/80 text-muted font-bold text-xs rounded-2xl transition-all uppercase tracking-widest">{t.skip || 'გამოტოვება'}</button>
+                            </div>
+                        ) : data.phase === 'expired' ? (
                             <div className="space-y-3">
-                                <p className="text-xs text-center text-muted font-medium mb-4">{t.confirmVisit}</p>
-                                <button onClick={onConfirm} className="w-full py-3.5 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all uppercase tracking-widest">{t.yesConfirm}</button>
-                                <button onClick={onClose} className="w-full py-3 bg-surface hover:bg-surface/80 text-muted font-bold text-sm rounded-2xl transition-all">{t.skip}</button>
+                                <div className="grid grid-cols-2 gap-3 mb-2">
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-group'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-[#6d28d9] hover:bg-indigo-600 text-white transition-all active:scale-95 shadow-xl shadow-indigo-500/20"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[10px] font-black tracking-widest uppercase">{t.groupSubscription || 'ჯგუფური'}</span>
+                                    </button>
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-individual'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all active:scale-95 shadow-xl shadow-amber-500/20"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[10px] font-black tracking-widest uppercase">{t.individualSubscription || 'ინდივიდუალური'}</span>
+                                    </button>
+                                </div>
+                                <button onClick={onClose} className="w-full py-4 bg-surface hover:bg-surface/80 text-muted font-black text-xs rounded-2xl transition-all uppercase tracking-widest">
+                                    {t.close || 'დახურვა'}
+                                </button>
                             </div>
                         ) : (
-                            <button onClick={onClose} className="w-full py-3.5 bg-surface hover:bg-surface/80 text-muted font-bold text-sm rounded-2xl transition-all">
-                                {t.close} {(!hasMultipleSubs && autoClose) && `(${countdown}s)`}
+                            <button onClick={onClose} className="w-full py-4 bg-surface hover:bg-surface/80 text-muted font-black text-xs rounded-2xl transition-all uppercase tracking-widest">
+                                {t.close || 'დახურვა'} {(!hasMultipleSubs && autoClose) && `(${countdown}s)`}
                             </button>
                         )}
                     </div>
@@ -199,6 +266,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
         </>
     );
 }
+
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -445,6 +513,7 @@ export default function AttendancePage() {
     const [manualSmsOpen, setManualSmsOpen] = useState(false);
     const [freezeDays, setFreezeDays] = useState('7');
     const [issueModalOpen, setIssueModalOpen] = useState(false);
+    const [issueType, setIssueType] = useState<'group' | 'individual' | undefined>(undefined);
     
     // Shop state in drawer
     const [studentSales, setStudentSales] = useState<ShopSale[]>([]);
@@ -629,15 +698,19 @@ export default function AttendancePage() {
         const clean = code.toUpperCase().replace(/[:\-\s]/g, '').trim();
         if (!clean) return;
 
-        let studentId = lookupByUid(clean)?.studentId ?? null;
-        let studentName = lookupByUid(clean)?.studentName ?? null;
+        const lookup = lookupByUid(clean);
+        let studentId = lookup?.studentId ?? null;
 
         if (!studentId) {
             studentId = SCAN_MAP[clean] ?? null;
-            if (studentId) studentName = getStudents().find(x => x.id === studentId)?.full_name ?? null;
         }
 
-        if (studentId && studentName) {
+        const student = studentId ? getStudents().find(x => x.id === studentId) : null;
+
+        if (student) {
+            const studentId = student.id;
+            const studentName = student.full_name;
+            const studentPhoto = student.photo;
             const todayStr = getLocalISODate();
             const studentSubs = (getSubscriptions()[studentId] || []).filter(s => {
                 const expired = s.status !== 'active' || s.expires_at < todayStr;
@@ -655,7 +728,8 @@ export default function AttendancePage() {
                     sessionsRemaining: 0,
                     checkinCount: getCheckinCountToday(studentId),
                     phase: 'expired',
-                    isMonthly: false
+                    isMonthly: false,
+                    photo: studentPhoto
                 });
                 return;
             }
@@ -671,6 +745,7 @@ export default function AttendancePage() {
                     checkinCount,
                     phase: 'success',
                     isMonthly: sub?.type === 'monthly',
+                    photo: studentPhoto,
                     // @ts-ignore
                     subscriptions: studentSubs
                 });
@@ -688,7 +763,8 @@ export default function AttendancePage() {
                     checkinCount,
                     phase: 'info',
                     isMonthly: sub?.type === 'monthly',
-                    planName: sub?.plan_name
+                    planName: sub?.plan_name,
+                    photo: studentPhoto
                 });
                 
                 // Clear the popup after 5 seconds if not scanned again
@@ -714,9 +790,9 @@ export default function AttendancePage() {
             const isMonthly = sub?.type === 'monthly';
 
             if (result.alreadyCheckedIn && !choiceSubId) {
-                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount, phase: 'confirm', isMonthly });
+                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount, phase: 'confirm', isMonthly, photo: studentPhoto });
             } else {
-                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount: checkinCount + 1, phase: 'success', isMonthly });
+                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount: checkinCount + 1, phase: 'success', isMonthly, photo: studentPhoto });
             }
         } else {
             setScanError(`${t.noData}`);
@@ -783,6 +859,7 @@ export default function AttendancePage() {
                     checkinCount,
                     phase: 'success',
                     isMonthly: activeSub?.type === 'monthly',
+                    photo: student.photo,
                     // @ts-ignore
                     subscriptions: studentSubs
                 });
@@ -919,7 +996,17 @@ export default function AttendancePage() {
                         // @ts-ignore
                         subscriptions={popup.subscriptions}
                         onSelectSub={(subId) => {
-                            if (popup.studentId) toggle(popup.studentId, subId);
+                            if (subId === 'new-group') {
+                                setSelectedStudent(popup.studentId);
+                                setIssueType('group');
+                                setIssueModalOpen(true);
+                            } else if (subId === 'new-individual') {
+                                setSelectedStudent(popup.studentId);
+                                setIssueType('individual');
+                                setIssueModalOpen(true);
+                            } else if (popup.studentId) {
+                                toggle(popup.studentId, subId);
+                            }
                         }}
                     />}
 
@@ -1156,6 +1243,15 @@ export default function AttendancePage() {
                                             const hasAnyAtt = Object.values(att).some(v => v !== 'none');
                                             return (
                                                 <>
+                                                    <button onClick={() => { setIssueType('group'); setIssueModalOpen(true); }}
+                                                        className="px-2.5 py-1.5 rounded-lg bg-[#6d28d9]/10 border border-[#6d28d9]/20 text-[#6d28d9] text-[9px] font-black tracking-wider hover:bg-[#6d28d9] hover:text-white transition-all flex items-center gap-1">
+                                                        <Plus className="w-3 h-3 stroke-[3]" /> {t.groupSubscription}
+                                                    </button>
+                                                    <button onClick={() => { setIssueType('individual'); setIssueModalOpen(true); }}
+                                                        className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[9px] font-black tracking-wider hover:bg-amber-500 hover:text-white transition-all flex items-center gap-1">
+                                                        <Plus className="w-3 h-3 stroke-[3]" /> {t.individualSubscription}
+                                                    </button>
+
                                                     <button onClick={() => {
                                                         const n: Record<string, State> = { ...att };
                                                         students.forEach(s => {
@@ -1338,32 +1434,45 @@ export default function AttendancePage() {
 
                                             {/* Attendance Toggle (Fixed Right) */}
                                             <div className="flex-none pl-1 relative z-20">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (isExpired && state === 'none') {
-                                                            setSelectedStudent(st.id);
-                                                            setIssueModalOpen(true);
-                                                        } else {
+                                                {isExpired && state === 'none' ? (
+                                                    <div className="flex flex-col gap-1 w-11 md:w-14 h-11 md:h-14">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setIssueType('group'); setIssueModalOpen(true); }}
+                                                            className="flex-1 bg-[#6d28d9] text-white rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm border border-[#6d28d9]/20"
+                                                            title={t.groupSubscription}
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 stroke-[3]" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setIssueType('individual'); setIssueModalOpen(true); }}
+                                                            className="flex-1 bg-amber-500 text-white rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm border border-amber-500/20"
+                                                            title={t.individualSubscription}
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 stroke-[3]" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
                                                             toggle(st.id);
-                                                        }
-                                                    }}
-                                                    className={cn(
-                                                        "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
-                                                        state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                            state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                                isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
+                                                        }}
+                                                        className={cn(
+                                                            "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
+                                                            state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                                state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
                                                                     "bg-surface border-border-subtle text-muted/30"
-                                                    )}
-                                                >
-                                                    {state === 'present' ? (
-                                                        <Check className="w-6 h-6 stroke-[3]" />
-                                                    ) : state === 'absent' ? (
-                                                        <X className="w-6 h-6 stroke-[3]" />
-                                                    ) : (
-                                                        <Plus className="w-6 h-6 stroke-[3]" />
-                                                    )}
-                                                </button>
+                                                        )}
+                                                    >
+                                                        {state === 'present' ? (
+                                                            <Check className="w-6 h-6 stroke-[3]" />
+                                                        ) : state === 'absent' ? (
+                                                            <X className="w-6 h-6 stroke-[3]" />
+                                                        ) : (
+                                                            <Plus className="w-6 h-6 stroke-[3]" />
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -1484,14 +1593,20 @@ export default function AttendancePage() {
                                                         </div>
                                                     </div>
 
-                                                    <button onClick={() => setIssueModalOpen(true)}
-                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-[#6d28d9] hover:bg-indigo-600"
-                                                        style={{ 
-                                                            boxShadow: `0 8px 20px -4px #6d28d940`
-                                                        }}>
-                                                        <PlusCircle className="w-4 h-4" />
-                                                        <span>{t.issueSubscription || t.issuePlan}</span>
-                                                    </button>
+                                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                                        <button onClick={() => { setIssueType('group'); setIssueModalOpen(true); }}
+                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl text-white font-black text-[9px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-[#6d28d9] hover:bg-indigo-600"
+                                                            style={{ boxShadow: `0 8px 20px -4px #6d28d940` }}>
+                                                            <Plus className="w-4 h-4 stroke-[3]" />
+                                                            <span>{t.groupSubscription}</span>
+                                                        </button>
+                                                        <button onClick={() => { setIssueType('individual'); setIssueModalOpen(true); }}
+                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl text-white font-black text-[9px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-amber-500 hover:bg-amber-600"
+                                                            style={{ boxShadow: `0 8px 20px -4px #f59e0b40` }}>
+                                                            <Plus className="w-4 h-4 stroke-[3]" />
+                                                            <span>{t.individualSubscription}</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20 flex-shrink-0">
@@ -1632,7 +1747,7 @@ export default function AttendancePage() {
                                 open={issueModalOpen} 
                                 onClose={() => setIssueModalOpen(false)} 
                                 initialStudentId={selStudent.id} 
-                                defaultType={cls.type === 'individual' ? 'individual' : 'group'}
+                                defaultType={issueType || (cls.type === 'individual' ? 'individual' : 'group')}
                                 onIssue={(data) => { 
                                     import('@/lib/subscription-store').then(mod => { 
                                         mod.saveSubscription(data.student_id, { ...data, id: `sub_${Date.now()}` } as any); 

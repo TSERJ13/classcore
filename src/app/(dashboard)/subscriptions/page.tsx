@@ -21,6 +21,7 @@ export default function SubscriptionsPage() {
     const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<SubscriptionInfo | null>(null);
     const [issuing, setIssuing] = useState(false);
+    const [issueType, setIssueType] = useState<'group' | 'individual'>('group');
     const [subsData, setSubsData] = useState<Record<string, SubscriptionInfo[]>>({});
 
     useEffect(() => {
@@ -245,11 +246,18 @@ export default function SubscriptionsPage() {
                         </button>
 
                         {/* Primary Action Button */}
-                        <button onClick={() => setIssuing(true)}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation">
-                            <FolderPlus className="w-5 h-5 flex-shrink-0" />
-                            <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
-                        </button>
+                        <div className="flex gap-2">
+                            <button onClick={() => { setIssueType('group'); setIssuing(true); }}
+                                className="flex-shrink-0 flex items-center justify-center gap-2 h-12 px-4 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[10px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 shadow-lg shadow-indigo-500/20">
+                                <Plus className="w-5 h-5 sm:w-4 sm:h-4 stroke-[3]" />
+                                <span className="hidden sm:inline uppercase">{t.groupSubscription}</span>
+                            </button>
+                            <button onClick={() => { setIssueType('individual'); setIssuing(true); }}
+                                className="flex-shrink-0 flex items-center justify-center gap-2 h-12 px-4 sm:px-6 bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 shadow-lg shadow-amber-500/20">
+                                <Plus className="w-5 h-5 sm:w-4 sm:h-4 stroke-[3]" />
+                                <span className="hidden sm:inline uppercase">{t.individualSubscription}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -313,6 +321,7 @@ export default function SubscriptionsPage() {
                 open={issuing}
                 onClose={() => setIssuing(false)}
                 onIssue={handleIssue}
+                defaultType={issueType}
             />
         </div>
     );

@@ -325,6 +325,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
     const [sales, setSales] = useState<ShopSale[]>([]);
     const [visits, setVisits] = useState<CheckinRecord[]>([]);
     const [issueModalOpen, setIssueModalOpen] = useState(false);
+    const [issueType, setIssueType] = useState<'group' | 'individual'>('group');
     const [showCopyToast, setShowCopyToast] = useState(false);
     const nfcReaderRef = useRef<HTMLDivElement | null>(null);
     const rfidBuffer = useRef('');
@@ -689,13 +690,24 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
 
                         <div className="w-[1px] h-4 bg-border-subtle/30 mx-0.5 shrink-0" />
 
-                        <button
-                            onClick={() => setIssueModalOpen(true)}
-                            title={t.issueSubscription}
-                            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all rounded-xl shadow-sm active:scale-95 shrink-0"
-                        >
-                            <PlusCircle className="w-5 h-5" strokeWidth={2.5} />
-                        </button>
+                        <div className="flex gap-1.5 shrink-0">
+                            <button
+                                onClick={() => { setIssueType('group'); setIssueModalOpen(true); }}
+                                title={t.groupSubscription}
+                                className="h-8 sm:h-9 px-2 sm:px-2.5 flex items-center justify-center gap-1.5 bg-[#6d28d9]/10 text-[#6d28d9] hover:bg-[#6d28d9] hover:text-white border border-[#6d28d9]/20 transition-all rounded-xl shadow-sm active:scale-95"
+                            >
+                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={4} />
+                                <span className="text-[7px] sm:text-[8px] font-black tracking-tighter uppercase hidden xs:block">{t.groupShort || 'GROUP'}</span>
+                            </button>
+                            <button
+                                onClick={() => { setIssueType('individual'); setIssueModalOpen(true); }}
+                                title={t.individualSubscription}
+                                className="h-8 sm:h-9 px-2 sm:px-2.5 flex items-center justify-center gap-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white border border-amber-500/20 transition-all rounded-xl shadow-sm active:scale-95"
+                            >
+                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={4} />
+                                <span className="text-[7px] sm:text-[8px] font-black tracking-tighter uppercase hidden xs:block">{t.individualShort || 'INDIV'}</span>
+                            </button>
+                        </div>
 
                         <button
                             onClick={() => setActiveTab('visits')}
@@ -1247,6 +1259,26 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
 
                 {/* Footer */}
                 <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-10 sm:pb-8">
+                    {isEdit && (
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <button 
+                                type="button"
+                                onClick={() => { setIssueType('group'); setIssueModalOpen(true); }}
+                                className="h-11 rounded-xl bg-[#6d28d9] text-white font-black text-[9px] sm:text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
+                            >
+                                <Plus className="w-4 h-4 stroke-[3]" />
+                                <span>{t.groupSubscription}</span>
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => { setIssueType('individual'); setIssueModalOpen(true); }}
+                                className="h-11 rounded-xl bg-amber-500 text-white font-black text-[9px] sm:text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                            >
+                                <Plus className="w-4 h-4 stroke-[3]" />
+                                <span>{t.individualSubscription}</span>
+                            </button>
+                        </div>
+                    )}
                     <div className="flex gap-3">
                         <button 
                             onClick={onClose}
@@ -1271,6 +1303,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                     open={issueModalOpen}
                     onClose={() => setIssueModalOpen(false)}
                     initialStudentId={student.id}
+                    defaultType={issueType}
                     onIssue={(data) => {
                         Promise.all([
                             import('@/lib/subscription-store'),
