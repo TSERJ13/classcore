@@ -99,6 +99,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [selectedColor, setSelectedColor] = useState('#6366f1');
     const [selectedHallId, setSelectedHallId] = useState('');
     const [couplePartnerName, setCouplePartnerName] = useState('');
+    const [selectedPartnerId, setSelectedPartnerId] = useState('');
     const [slots, setSlots] = useState<Array<{ dayOfWeek: number, startTime: string, endTime: string }>>([]);
 
     const halls = useMemo(() => getHalls(), []);
@@ -347,6 +348,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             teacher_comment: commentParts.join(' · '),
             schedule_slots: plan.type === 'individual' ? slots : undefined,
             couple_partner_name: selectedType === 'individual' ? couplePartnerName : undefined,
+            couple_partner_id: selectedType === 'individual' ? selectedPartnerId : undefined,
         });
 
         // 📅 Create Calendar Events for Individual Slots
@@ -378,6 +380,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                         start_time: slot.startTime,
                         end_time: slot.endTime,
                         color: selectedColor,
+                        couple_partner_id: selectedPartnerId || undefined,
+                        couple_partner_name: couplePartnerName || undefined,
                         recurring: 'none',
                         reminder_30m: false,
                         created_at: new Date().toISOString()
@@ -601,17 +605,35 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             </label>
                                         </div>
 
-                                        <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                                <User className="w-3 h-3" /> {l('მეწყვილე / პარტნიორი', 'Партнер / Второй чел.', 'Partner / Second Person')}
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={couplePartnerName}
-                                                onChange={e => setCouplePartnerName(e.target.value)}
-                                                placeholder={l('მაგ: ნინო ბერიძე', 'Напр: Нино Беридзе', 'e.g. Nino Beridze')}
-                                                className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all shadow-sm"
-                                            />
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                                    <User className="w-3 h-3" /> {l('მეწყვილე / პარტნიორი (სტუდენტი)', 'Партнер / Второй чел. (Студент)', 'Partner / Second Person (Student)')}
+                                                </label>
+                                                <SearchSelect
+                                                    options={students.map(s => ({ id: s.id, name: s.full_name || s.id }))}
+                                                    value={selectedPartnerId}
+                                                    onChange={id => {
+                                                        setSelectedPartnerId(id);
+                                                        const s = students.find(x => x.id === id);
+                                                        if (s) setCouplePartnerName(s.full_name || '');
+                                                    }}
+                                                    placeholder={l('აირჩიეთ მეწყვილე...', 'Выберите партнера...', 'Select partner student...')}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                                    <Tag className="w-3 h-3" /> {l('პარტნიორის სახელი (ხელით)', 'Имя партнера (вручную)', 'Partner Name (Manual)')}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={couplePartnerName}
+                                                    onChange={e => setCouplePartnerName(e.target.value)}
+                                                    placeholder={l('მაგ: ნინო ბერიძე', 'Напр: Нино Беридзе', 'e.g. Nino Beridze')}
+                                                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all shadow-sm"
+                                                />
+                                            </div>
                                         </div>
 
                                         {/* Group-style Schedule Builder */}

@@ -297,6 +297,8 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
 
     // Highest priority: Custom Event Color -> Group Color -> Hall Color
     const color = ev.color || group?.color || (hall?.color ?? '#6366f1');
+    const isIndividual = ev.type === 'individual';
+    const partner = ev.couple_partner_id ? students.find(s => s.id === ev.couple_partner_id) : null;
 
     return (
         <button
@@ -307,24 +309,27 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
                 "w-full h-full text-left rounded-lg overflow-hidden transition-all group shadow-sm border border-black/5 relative p-0",
                 canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-default",
                 style ? "absolute z-10" : "min-h-[24px] mb-0.5",
+                isIndividual && "ring-1 ring-orange-500/30",
                 className
             )}
             style={style}>
 
             {/* Pure Solid background */}
-            <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: color }} />
-
-            {/* Dark/Pure solid left border */}
-            <div className="absolute left-0 top-0 bottom-0 w-1 pointer-events-none" style={{ backgroundColor: color }} />
+            <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: isIndividual ? (ev.color || '#f97316') : color }} />
 
             {/* Content properly positioned above backgrounds */}
             <div className="relative z-10 flex h-full w-full items-center gap-1.5 overflow-hidden px-2 py-1">
                 <div className="flex flex-col flex-1 min-w-0 h-full justify-center overflow-hidden">
-                    <span className={cn("truncate font-black leading-tight text-white", compact ? "text-[8px]" : "text-[11px] sm:text-[12px]")}>
-                        {displayTitle}
-                    </span>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        {isIndividual && (
+                            <span className="text-[7px] font-black bg-white/20 text-white px-1 py-0.5 rounded tracking-widest leading-none">IND</span>
+                        )}
+                        <span className={cn("truncate font-black leading-tight text-white", compact ? "text-[8px]" : "text-[11px] sm:text-[12px]")}>
+                            {displayTitle}
+                        </span>
+                    </div>
                     {teacher && !compact && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="flex items-center gap-1.5">
                             <span className="text-[9px] font-bold text-white/70 truncate leading-none">
                                 {teacher.full_name}
                             </span>
@@ -338,20 +343,40 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
                     )}
                 </div>
 
-                {(teacher || (ev.type === 'individual' && student)) && (
-                    <div className={cn(
-                        "flex-shrink-0 overflow-hidden rounded-full border border-white/20 shadow-sm bg-white/30 transition-all",
-                        compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
-                    )}>
-                        {photoUrl ? (
-                            <img src={photoUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                                <User className={cn("opacity-60 text-white", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} />
-                            </div>
-                        )}
-                    </div>
-                )}
+                {/* Photos Section */}
+                <div className="flex items-center -space-x-3">
+                    {/* Partner Photo First (Background) */}
+                    {partner && (
+                        <div className={cn(
+                            "flex-shrink-0 overflow-hidden rounded-full border-2 border-white/40 shadow-sm bg-white/20 relative z-0",
+                            compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
+                        )}>
+                            {partner.photo_url ? (
+                                <img src={partner.photo_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <User className={cn("opacity-60 text-white", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} />
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* Main Student or Teacher Photo (Foreground) */}
+                    {(teacher || (isIndividual && student)) && (
+                        <div className={cn(
+                            "flex-shrink-0 overflow-hidden rounded-full border-2 border-white/80 shadow-sm bg-white/30 relative z-10",
+                            compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
+                        )}>
+                            {photoUrl ? (
+                                <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <User className={cn("opacity-60 text-white", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} />
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </button>
     );

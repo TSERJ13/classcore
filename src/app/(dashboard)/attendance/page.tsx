@@ -599,7 +599,7 @@ export default function AttendancePage() {
             .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
             .filter(s => {
                 if (cls?.type === 'individual' || cls?.type === 'rental') {
-                    return s.id === cls.student_id;
+                    return s.id === cls.student_id || (cls.couple_partner_id && s.id === cls.couple_partner_id);
                 }
                 if (cls?.group_id && (s.enrolled_group_ids || []).includes(cls.group_id)) return true;
                 
@@ -1321,6 +1321,8 @@ export default function AttendancePage() {
 
                                     const sInf = studentStatuses[st.id] || { score: 3, label: null, isExpired: true, activeSub: null, color: 'red' };
                                     const { label, isExpired, activeSub, color: statusColor, remaining } = sInf;
+                                    const partnerId = st.id === cls?.student_id ? cls?.couple_partner_id : (st.id === cls?.couple_partner_id ? cls?.student_id : null);
+                                    const partner = partnerId ? getStudents().find(x => x.id === partnerId) : null;
 
                                     return (
                                         <div key={st.id}
@@ -1330,36 +1332,56 @@ export default function AttendancePage() {
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
                                                     isSel ? 'bg-#f5f3ff/50 border-#ddd6fe' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
-                                                isExpired && 'opacity-90'
+                                                isExpired && 'opacity-90',
+                                                (cls?.type === 'individual') && 'ring-1 ring-orange-500/20 bg-orange-500/[0.02]'
                                             )}>
 
                                             {/* Avatar + Info Area (Fills space) */}
                                             <div className="flex items-center gap-3.5 md:gap-5 relative z-10 flex-1 min-w-0">
-                                                {/* Photo */}
-                                                <div
-                                                    className={cn(
-                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative",
-                                                        isExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
-                                                        remaining === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
-                                                        remaining <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
-                                                        "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                                                {/* Photo Section */}
+                                                <div className="flex items-center -space-x-4">
+                                                    {/* Partner Photo (Background) */}
+                                                    {partner && (
+                                                        <div className={cn(
+                                                            "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] border-white/40 shadow-lg bg-white/20 overflow-hidden relative z-0 scale-90 -translate-x-2",
+                                                            isExpired ? "border-red-500/40" : "border-orange-500/40"
+                                                        )}>
+                                                            {partner.photo_url ? (
+                                                                <img src={partner.photo_url} alt="" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-muted/20">
+                                                                    <User className="w-5 h-5 text-muted opacity-40" />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
-                                                >
-                                                    <span className={cn(
-                                                        `w-full h-full rounded-full flex items-center justify-center transition-transform duration-300`,
-                                                        !mounted ? "bg-surface" : (
-                                                            isExpired ? "bg-red-500" :
-                                                            remaining === 1 ? "bg-yellow-400" :
-                                                            remaining <= 3 ? "bg-amber-500" :
-                                                            "bg-emerald-500"
-                                                        )
-                                                    )}>
-                                                        {st.photo_url ? (
-                                                            <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <span className="text-[11px] md:text-sm font-black text-white">{getInitials(st.full_name)}</span>
+
+                                                    {/* Main Student Photo (Foreground) */}
+                                                    <div
+                                                        className={cn(
+                                                            "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative z-10 shadow-xl",
+                                                            isExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
+                                                            remaining === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
+                                                            remaining <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
+                                                            "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
                                                         )}
-                                                    </span>
+                                                    >
+                                                        <span className={cn(
+                                                            `w-full h-full rounded-full flex items-center justify-center transition-transform duration-300`,
+                                                            !mounted ? "bg-surface" : (
+                                                                isExpired ? "bg-red-500" :
+                                                                remaining === 1 ? "bg-yellow-400" :
+                                                                remaining <= 3 ? "bg-amber-500" :
+                                                                "bg-emerald-500"
+                                                            )
+                                                        )}>
+                                                            {st.photo_url ? (
+                                                                <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <span className="text-[11px] md:text-sm font-black text-white">{getInitials(st.full_name)}</span>
+                                                            )}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
                                                 {/* Text Info */}

@@ -26,6 +26,7 @@ export interface SubscriptionInfo {
     teacher_id?: string;
     notes?: string;
     couple_partner_name?: string;
+    couple_partner_id?: string;
 }
 
 type SubMap = Record<string, SubscriptionInfo[]>;
