@@ -8,7 +8,7 @@ import {
     ArrowRight, ShieldCheck, Heart,
     MessageSquare, Smartphone, Clock,
     QrCode, Copy, Check, Info, CalendarDays,
-    Send, ChevronRight, Download, Users,
+    Send, ChevronRight, Download, UserRound,
     ExternalLink, BellOff, BellRing, X, Image as ImageIcon,
     CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity
 } from 'lucide-react';
@@ -1280,7 +1280,7 @@ export default function StudentPortalPage() {
                                     if (!group) return null;
                                     return (
                                         <button key={gid} onClick={() => setSelectedChatId(gid)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === gid ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-white border border-border-subtle text-muted hover:text-primary")}>
-                                            <Users className="w-3 h-3" />
+                                            <UserRound className="w-3 h-3" />
                                             {group.name}
                                         </button>
                                     );
@@ -1303,7 +1303,7 @@ export default function StudentPortalPage() {
                                         <div key={m.id || idx} className={cn("flex gap-3", isMe ? "flex-row-reverse" : "flex-row")}>
                                             <div className="flex-shrink-0 mt-auto">
                                                 <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shadow-sm", isMe ? "bg-indigo-600 text-white" : "bg-white border border-border-subtle text-primary")}>
-                                                    {isMe ? (studentData?.photo_url ? <img src={studentData.photo_url} className="w-full h-full rounded-full object-cover" /> : studentData?.full_name?.[0]) : (selectedChatId === 'studio' ? <ShieldCheck className="w-4 h-4" /> : <Users className="w-4 h-4" />)}
+                                                    {isMe ? (studentData?.photo_url ? <img src={studentData.photo_url} className="w-full h-full rounded-full object-cover" /> : studentData?.full_name?.[0]) : (selectedChatId === 'studio' ? <ShieldCheck className="w-4 h-4" /> : <UserRound className="w-4 h-4" />)}
                                                 </div>
                                             </div>
                                             <div className={cn("flex flex-col max-w-[80%]", isMe ? "items-end" : "items-start")}>

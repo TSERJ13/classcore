@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-    Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, Users, 
+    Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, UserRound,
     User as UserIcon, ChevronRight, Pin, LogOut, Plus, Building2, Check, 
     ExternalLink, Shield, Paperclip, FileText, Image as ImageIcon, Download 
 } from 'lucide-react';
@@ -740,7 +740,7 @@ export function Header() {
                                                 activeTab === 'group' ? "bg-card text-indigo-500 shadow-sm border border-indigo-500/10" : "text-muted hover:text-primary"
                                             )}
                                         >
-                                            <Users className="w-3.5 h-3.5" />
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                             {t.groups}
                                         </button>
                                         <button

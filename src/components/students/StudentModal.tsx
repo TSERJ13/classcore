@@ -223,6 +223,62 @@ function SubscriptionCard({ student }: { student: Student }) {
                                         <RefreshCw className="w-3.5 h-3.5" />
                                     </button>
                                 )}
+                                {sub.plan_type === 'individual' && sub.schedule_slots && (
+                                    <button
+                                        onClick={async () => {
+                                            const mod = await import('@/lib/event-store');
+                                            const { getLocalISODate } = await import('@/lib/utils');
+                                            
+                                            const sessionsTotal = sub.sessions_total;
+                                            const maxLessons = sessionsTotal || 999;
+                                            let lessonsCreated = 0;
+                                            let checkDate = new Date(sub.purchased_at + 'T00:00:00');
+                                            const endD = new Date(sub.expires_at + 'T00:00:00');
+                                            
+                                            const newEvents: any[] = [];
+                                            let safetyLimit = 365;
+
+                                            while (lessonsCreated < maxLessons && checkDate <= endD && safetyLimit > 0) {
+                                                const jsDay = checkDate.getDay();
+                                                const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+                                                const slot = (sub as any).schedule_slots.find((s: any) => s.dayOfWeek === dayOfWeek);
+                                                if (slot) {
+                                                    newEvents.push({
+                                                        id: `ind-${sub.student_id}-${Date.now()}-${lessonsCreated}`,
+                                                        org_id: settings.studioSlug,
+                                                        title: student.full_name || 'Student',
+                                                        type: 'individual',
+                                                        hall_id: sub.hall_id || 'main',
+                                                        teacher_id: sub.teacher_id,
+                                                        student_id: sub.student_id,
+                                                        date: getLocalISODate(checkDate),
+                                                        start_time: slot.startTime,
+                                                        end_time: slot.endTime,
+                                                        color: sub.is_default ? '#6366f1' : '#f59e0b',
+                                                        recurring: 'none',
+                                                        reminder_30m: false,
+                                                        created_at: new Date().toISOString()
+                                                    });
+                                                    lessonsCreated++;
+                                                }
+                                                checkDate.setDate(checkDate.getDate() + 1);
+                                                safetyLimit--;
+                                            }
+
+                                            if (newEvents.length > 0) {
+                                                const current = mod.getEvents();
+                                                mod.saveEvents([...current, ...newEvents]);
+                                                alert(t.calendarUpdated || 'Calendar updated!');
+                                            } else {
+                                                alert(t.noSlotsToSync || 'No lessons found in this period.');
+                                            }
+                                        }}
+                                        className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all"
+                                        title={t.syncCal || "Sync Calendar"}
+                                    >
+                                        <Calendar className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
                                 {!isTeacher && (
                                     <button
                                         onClick={async () => {
@@ -696,7 +752,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                 title={t.groupSubscription}
                                 className="h-8 sm:h-9 px-2 sm:px-2.5 flex items-center justify-center gap-1.5 bg-[#6d28d9]/10 text-[#6d28d9] hover:bg-[#6d28d9] hover:text-white border border-[#6d28d9]/20 transition-all rounded-xl shadow-sm active:scale-95"
                             >
-                                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                 <span className="text-[7px] sm:text-[8px] font-black tracking-tighter uppercase hidden xs:block">{t.groupShort || 'GROUP'}</span>
                             </button>
                             <button

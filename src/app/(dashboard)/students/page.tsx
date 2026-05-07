@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, UserPlus, Users, User, Calendar, Phone, ShieldAlert, Heart, ChevronRight, AlertTriangle, SortAsc, BookOpen, X, ChevronDown, Link2, Check, Edit2, Trash2, Zap, AlertCircle, Filter, MessageCircle } from 'lucide-react';
+import { Search, UserPlus, UserRound, User, Calendar, Phone, ShieldAlert, Heart, ChevronRight, AlertTriangle, SortAsc, BookOpen, X, ChevronDown, Link2, Check, Edit2, Trash2, Zap, AlertCircle, Filter, MessageCircle } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
@@ -201,7 +201,7 @@ export default function StudentsPage() {
                         {/* Row 1 on Mobile: Status Filter */}
                         <div className="flex flex-[3] lg:flex-none w-full lg:w-fit h-12 bg-surface border border-border-subtle p-1 rounded-2xl sm:rounded-[1.25rem] gap-1 shrink-0">
                             {[
-                                { id: 'all', label: t.allFilter, icon: Users, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-[#5b21b6]' },
+                                { id: 'all', label: t.allFilter, icon: UserRound, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-[#5b21b6]' },
                                 { id: 'active', label: t.active, icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-emerald-600' },
                                 { id: 'inactive', label: t.expired, icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-rose-600' },
                             ].map(v => (
@@ -512,7 +512,7 @@ export default function StudentsPage() {
                     ) : filtered.length === 0 ? (
                         <div className="col-span-full flex flex-col items-center py-20">
                             <div className="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-6">
-                                <Users className="w-10 h-10 opacity-20" />
+                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 opacity-20"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                             </div>
                             <p className="text-xl font-black text-primary mb-2 uppercase tracking-tighter">{t.noData}</p>
                             <p className="text-sm font-medium text-muted mb-8">{t.tryAnotherSearch || 'მონაცემები ვერ მოიძებნა'}</p>

@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
     ArrowRight,
     Check,
-    Users,
+    UserPlus,
     Calendar,
     Zap,
     BarChart3,
@@ -310,7 +310,7 @@ export default function LandingPage() {
                             <p className="text-xl text-slate-400 font-medium">{l('მოიცავს ყველა სერვისს ყოველგვარი ფარული ხარჯების გარეშე.', 'Включает все услуги без скрытых платежей.', 'Includes all services without any hidden fees.')}</p>
                             <div className="grid grid-cols-2 gap-6">
                                 {[
-                                    { t: l('ულიმიტო მოსწავლეები', 'Безлимит учеников', 'Unlimited Students'), i: Users },
+                                    { t: l('ულიმიტო მოსწავლეები', 'Безლიмит учеников', 'Unlimited Students'), i: UserPlus },
                                     { t: l('სმს შეტყობინებები', 'СМС уведомления', 'SMS Notifications'), i: MessageSquare },
                                     { t: l('ფინანსური ანალიტიკა', 'Фин. аналитика', 'Financial Analytics'), i: BarChart3 },
                                     { t: l('AI ასისტენტი', 'AI Ассиსტენტი', 'AI Assistant'), i: Sparkles }

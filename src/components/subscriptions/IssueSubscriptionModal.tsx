@@ -14,7 +14,7 @@ import { useUser } from '@/hooks/useUser';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { getHalls } from '@/lib/hall-store';
-import { addEvent } from '@/lib/event-store';
+import { addEvent, getEvents, saveEvents } from '@/lib/event-store';
 import { generateTimeOptions } from '@/lib/date-utils';
 interface IssueSubscriptionModalProps {
     open: boolean;
@@ -241,20 +241,29 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             const student = students.find(s => s.id === studentId);
             const studentGroup = student?.enrolled_group_ids?.[0];
 
-            if (plan.group_id && groups.find(g => g.id === plan.group_id)) {
-                setGroupId(plan.group_id);
-                const g = groups.find(gx => gx.id === plan.group_id);
-                if (g?.teacherId) setTeacherId(g.teacherId);
-            } else if (studentGroup && groups.find(g => g.id === studentGroup)) {
-                setGroupId(studentGroup);
-                const g = groups.find(gx => gx.id === studentGroup);
-                if (g?.teacherId) setTeacherId(g.teacherId);
-            } else if (plan.type === 'group' && groups.length > 0) {
-                setGroupId(groups[0].id);
-                const g = groups.find(gx => gx.id === groups[0].id);
-                if (g?.teacherId) setTeacherId(g.teacherId);
+            if (plan.type === 'group') {
+                if (plan.group_id && groups.find(g => g.id === plan.group_id)) {
+                    setGroupId(plan.group_id);
+                    const g = groups.find(gx => gx.id === plan.group_id);
+                    if (g?.teacherId) setTeacherId(g.teacherId);
+                } else if (studentGroup && groups.find(g => g.id === studentGroup)) {
+                    setGroupId(studentGroup);
+                    const g = groups.find(gx => gx.id === studentGroup);
+                    if (g?.teacherId) setTeacherId(g.teacherId);
+                } else if (groups.length > 0) {
+                    setGroupId(groups[0].id);
+                    const g = groups.find(gx => gx.id === groups[0].id);
+                    if (g?.teacherId) setTeacherId(g.teacherId);
+                } else {
+                    setGroupId('');
+                }
             } else {
+                // Individual or Rental
                 setGroupId('');
+                // If it's individual, we might want to default to the coach from the plan
+                if (plan.teacher_id) {
+                    setTeacherId(plan.teacher_id);
+                }
             }
 
             if (plan.coach) {
@@ -338,19 +347,20 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             schedule_slots: plan.type === 'individual' ? slots : undefined,
         });
 
-        // 📅 Create Calendar Events for Individual Slots (Limited by sessions_total)
-        if (selectedType === 'individual' && slots.length > 0) {
+        // 📅 Create Calendar Events for Individual Slots
+        if ((selectedType === 'individual' || plan.type === 'individual') && slots.length > 0) {
             let lessonsCreated = 0;
-            const maxLessons = sessionsTotal || 999; 
+            const maxLessons = sessionsTotal || 999;
             let checkDate = new Date(startDate + 'T00:00:00');
             const endD = new Date(endDate + 'T00:00:00');
             
             const newEvents: any[] = [];
-            let safetyLimit = 365; 
+            let safetyLimit = 365;
 
-            while ((sessionsTotal ? lessonsCreated < maxLessons : checkDate <= endD) && safetyLimit > 0) {
+            // Generate events within the validity period or until max lessons reached
+            while (lessonsCreated < maxLessons && checkDate <= endD && safetyLimit > 0) {
                 const jsDay = checkDate.getDay();
-                const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; 
+                const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; // Mon=0 ... Sun=6
                 
                 const slot = slots.find(s => s.dayOfWeek === dayOfWeek);
                 if (slot) {
@@ -377,10 +387,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             }
 
             if (newEvents.length > 0) {
-                import('@/lib/event-store').then(mod => {
-                    const current = mod.getEvents();
-                    mod.saveEvents([...current, ...newEvents]);
-                });
+                const current = getEvents();
+                saveEvents([...current, ...newEvents]);
             }
         }
 

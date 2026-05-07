@@ -301,25 +301,30 @@ export default function AttendancePage() {
     const filteredSchedule = useMemo(() => {
         const dayOfWeek = (selectedDate.getDay() + 6) % 7;
         
-        let targetSchedule = rawSchedule;
-        if (targetSchedule.length === 0) {
-            targetSchedule = groups
-                .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
-                .map(g => {
-                    const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
-                    return {
-                        id: `virtual-${g.id}`,
-                        group_id: g.id,
-                        title: g.name,
-                        type: 'group',
-                        color: g.color || '#6d28d9',
-                        start_time: slot?.startTime || '00:00',
-                        end_time: slot?.endTime || '23:59',
-                        teacher_id: g.teacher_id || '',
-                        hall_id: g.hall_id || ''
-                    };
-                }) as any;
-        }
+        let targetSchedule = [...rawSchedule];
+        
+        // 🌟 ADD VIRTUAL EVENTS for groups that don't have a real event today
+        const existingGroupIds = new Set(rawSchedule.map(ev => ev.group_id).filter(Boolean));
+        
+        const virtualEvents = groups
+            .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
+            .filter(g => !existingGroupIds.has(g.id)) // Don't duplicate if already in calendar
+            .map(g => {
+                const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
+                return {
+                    id: `virtual-${g.id}`,
+                    group_id: g.id,
+                    title: g.name,
+                    type: 'group',
+                    color: g.color || '#6d28d9',
+                    start_time: slot?.startTime || '00:00',
+                    end_time: slot?.endTime || '23:59',
+                    teacher_id: g.teacher_id || '',
+                    hall_id: g.hall_id || ''
+                };
+            });
+        
+        targetSchedule = [...targetSchedule, ...virtualEvents];
 
         return targetSchedule.filter(ev => {
             if (profile?.role === 'teacher' || profile?.role === 'coach') {
@@ -593,7 +598,9 @@ export default function AttendancePage() {
         return base
             .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
             .filter(s => {
-                if (cls?.type === 'individual' || cls?.type === 'rental') return true;
+                if (cls?.type === 'individual' || cls?.type === 'rental') {
+                    return s.id === cls.student_id;
+                }
                 if (cls?.group_id && (s.enrolled_group_ids || []).includes(cls.group_id)) return true;
                 
                 // Allow students with active subscriptions for this group
@@ -1605,7 +1612,7 @@ export default function AttendancePage() {
                                                                             const newEvents: any[] = [];
                                                                             let safetyLimit = 365;
 
-                                                                            while ((sessionsTotal ? lessonsCreated < maxLessons : checkDate <= endD) && safetyLimit > 0) {
+                                                                            while (lessonsCreated < maxLessons && checkDate <= endD && safetyLimit > 0) {
                                                                                 const jsDay = checkDate.getDay();
                                                                                 const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
                                                                                 const slot = (sub as any).schedule_slots.find((s: any) => s.dayOfWeek === dayOfWeek);
@@ -1615,13 +1622,13 @@ export default function AttendancePage() {
                                                                                         org_id: settings.studioSlug,
                                                                                         title: selStudent.full_name,
                                                                                         type: 'individual',
-                                                                                        hall_id: sub.group_id || 'main',
+                                                                                        hall_id: sub.hall_id || 'main',
                                                                                         teacher_id: sub.teacher_id,
                                                                                         student_id: sub.student_id,
                                                                                         date: getLocalISODate(checkDate),
                                                                                         start_time: slot.startTime,
                                                                                         end_time: slot.endTime,
-                                                                                        color: sub.is_default ? '#f59e0b' : '#6d28d9',
+                                                                                        color: sub.is_default ? '#6366f1' : '#f59e0b',
                                                                                         recurring: 'none',
                                                                                         reminder_30m: false,
                                                                                         created_at: new Date().toISOString()

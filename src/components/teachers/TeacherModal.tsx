@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { 
-    X, User, Users, Phone, Mail, Camera, Trash2, AlertTriangle, Check, 
+    X, User, UserRound, Phone, Mail, Camera, Trash2, AlertTriangle, Check, 
     Plus, Upload, Globe, Search, ArrowRight, Save, Image as ImageIcon, AlertCircle,
     BookOpen, Eye, EyeOff, Layout, Percent, Calendar,
     CreditCard, CalendarDays, Edit2, GraduationCap, DoorOpen, ShoppingBag, BarChart2, MessageSquare, Zap
@@ -341,7 +341,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                             {[
                                                 { key: 'canViewAttendance', label: t.attendance, icon: Calendar },
                                                 { key: 'canViewSubscriptions', label: t.subscriptions, icon: CreditCard },
-                                                { key: 'canViewStudents', label: t.students, icon: Users },
+                                                { key: 'canViewStudents', label: t.students, icon: UserRound },
                                                 { key: 'canViewCalendar', label: t.calendar, icon: CalendarDays },
                                                 { key: 'canEditCalendar', label: l('კალენდრის რედაქტირება', 'Редактирование календаря', 'Edit Calendar'), icon: Edit2 },
                                                 { key: 'canViewGroups', label: t.groups, icon: BookOpen },
@@ -395,7 +395,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
                     {/* Groups (Compact Labels) */}
                     <section className="space-y-4">
-                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2"><Users className="w-3 h-3" /> {t.groups}</p>
+                        <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2"><UserRound className="w-3 h-3" /> {t.groups}</p>
                         <div className="flex flex-wrap gap-2">
                             {groups.map(g => {
                                 const assigned = form.assigned_group_ids?.includes(g.id);
