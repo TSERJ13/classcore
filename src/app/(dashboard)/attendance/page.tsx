@@ -547,13 +547,13 @@ export default function AttendancePage() {
     const getSubStatus = useCallback((studentId: string) => {
         const todayStr = getLocalISODate();
         
-        // 1. Check for specific group sub
-        let activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+        // 1. Find ANY sub where student is primary or partner
+        const allStudentSubs = Object.values(subs).flat().filter(sub => sub.student_id === studentId || sub.couple_partner_id === studentId);
         
-        // 2. If nothing found, check for a general sub (group_id: undefined)
-        if (!activeSub) {
-            activeSub = getSubscription(studentId, undefined, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
-        }
+        let activeSub = allStudentSubs.find(sub => 
+            sub.status === 'active' && 
+            (selClass?.type === 'individual' ? sub.plan_type === 'individual' : (sub.group_id === selClass?.group_id || !sub.group_id))
+        );
         
         if (activeSub) {
             const hasExpiredByDate = activeSub.expires_at < todayStr;
@@ -595,7 +595,7 @@ export default function AttendancePage() {
     // 1. Get base students list
     const students = useMemo(() => {
         const base = getStudents();
-        return base
+        const raw = base
             .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
             .filter(s => {
                 if (cls?.type === 'individual' || cls?.type === 'rental') {
@@ -603,7 +603,6 @@ export default function AttendancePage() {
                 }
                 if (cls?.group_id && (s.enrolled_group_ids || []).includes(cls.group_id)) return true;
                 
-                // Allow students with active subscriptions for this group
                 const studentSubs = subs[s.id] || [];
                 const hasActiveSub = studentSubs.some(sub => 
                     sub.status === 'active' && 
@@ -613,6 +612,19 @@ export default function AttendancePage() {
 
                 return (s as any).classes?.includes(selectedClass);
             });
+
+        // 🔥 Group couples for individual lessons
+        if (cls?.type === 'individual' && cls.couple_partner_id) {
+            const primary = raw.find(s => s.id === cls.student_id);
+            const partner = raw.find(s => s.id === cls.couple_partner_id);
+            if (primary) {
+                return [{
+                    ...primary,
+                    couple_partner: partner || null
+                } as any];
+            }
+        }
+        return raw;
     }, [studentPatches, cls, selectedClass, subs]);
 
     // 2. Pre-calculate statuses for ALL visible students once
@@ -874,6 +886,19 @@ export default function AttendancePage() {
             }
 
             // Mark present: deduct session
+            const partnerId = cls?.type === 'individual' ? cls.couple_partner_id : null;
+            if (partnerId && id === cls.student_id) {
+                const partner = getStudents().find(s => s.id === partnerId);
+                // Record BOTH, but only deduct for Primary
+                recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
+                recordCheckin(partnerId, partner?.full_name || partnerId, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, true); // skipDeduction: true
+                
+                const n = { ...att, [id]: 'present' as State, [partnerId]: 'present' as State };
+                saveAttendance(n);
+                setSubs(getSubscriptions());
+                return;
+            }
+
             recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
             next = 'present';
 
@@ -1159,17 +1184,23 @@ export default function AttendancePage() {
                                 )}
                                 <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
                             </div>
-                            <div className="flex-1 p-3 space-y-1.5 flex-shrink-0 overflow-y-auto no-scrollbar">
                                 {mounted && filteredSchedule.map(s => {
                                     const isCurrent = isCurrentClass(s.start_time);
                                     const isActive = selectedClass === s.id;
                                     const timeStr = `${s.start_time}–${s.end_time}`;
                                     const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
                                     const isInd = s.type === 'individual';
-                                    const displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                    const getFirstName = (name: string) => name?.trim().split(' ')[0] || '';
                                     const indStudent = isInd ? getStudents().find(st => st.id === s.student_id) : null;
                                     const indPartner = isInd && s.couple_partner_id ? getStudents().find(st => st.id === s.couple_partner_id) : null;
                                     
+                                    let displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                    if (isInd && (indStudent || indPartner)) {
+                                        const pName = indStudent ? getFirstName(indStudent.full_name) : '';
+                                        const sName = indPartner ? getFirstName(indPartner.full_name) : '';
+                                        displayTitle = sName ? `${pName} & ${sName}` : pName;
+                                    }
+
                                     return (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
@@ -1317,9 +1348,17 @@ export default function AttendancePage() {
                                     {mounted && filteredSchedule.map(s => {
                                         const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
                                         const isInd = s.type === 'individual';
-                                        const displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                        const getFirstName = (name: string) => name?.trim().split(' ')[0] || '';
                                         const indStudent = isInd ? getStudents().find(st => st.id === s.student_id) : null;
                                         const indPartner = isInd && s.couple_partner_id ? getStudents().find(st => st.id === s.couple_partner_id) : null;
+                                        
+                                        let displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                        if (isInd && (indStudent || indPartner)) {
+                                            const pName = indStudent ? getFirstName(indStudent.full_name) : '';
+                                            const sName = indPartner ? getFirstName(indPartner.full_name) : '';
+                                            displayTitle = sName ? `${pName} & ${sName}` : pName;
+                                        }
+
                                         return (
                                             <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                                 className={cn(
@@ -1372,8 +1411,7 @@ export default function AttendancePage() {
 
                                     const sInf = studentStatuses[st.id] || { score: 3, label: null, isExpired: true, activeSub: null, color: 'red' };
                                     const { label, isExpired, activeSub, color: statusColor, remaining } = sInf;
-                                    const partnerId = st.id === cls?.student_id ? cls?.couple_partner_id : (st.id === cls?.couple_partner_id ? cls?.student_id : null);
-                                    const partner = partnerId ? getStudents().find(x => x.id === partnerId) : null;
+                                    const partner = (st as any).couple_partner;
 
                                     return (
                                         <div key={st.id}
@@ -1442,7 +1480,7 @@ export default function AttendancePage() {
                                                             'text-[13px] md:text-[15px] font-black truncate tracking-tight', 
                                                             state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary'
                                                         )}>
-                                                            {st.full_name}
+                                                            {partner ? `${st.full_name?.trim().split(' ')[0]} & ${partner.full_name?.trim().split(' ')[0]}` : (st.full_name?.trim().split(' ')[0] || st.full_name)}
                                                         </p>
                                                         {label && (
                                                             <span className={cn(

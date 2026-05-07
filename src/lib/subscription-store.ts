@@ -281,7 +281,13 @@ export function getSubscription(
     includeExpiredWithSessions: boolean = false
 ): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
-    const subs = getStudentSubscriptions(studentId);
+    
+    // 🔥 Search all subs where student is primary OR partner
+    const allSubs = getSubscriptions();
+    const subs = Object.values(allSubs).flat().filter(s => 
+        s.student_id === studentId || s.couple_partner_id === studentId
+    );
+    
     if (!Array.isArray(subs) || subs.length === 0) return null;
 
     const todayStr = getLocalISODate();
@@ -546,6 +552,8 @@ export function incrementSessionsUsed(studentId: string, subId?: string): Subscr
 
     if (!active) return null;
 
+    const primaryId = active.student_id;
+
     const todayStr = getLocalISODate();
     if (active.expires_at < todayStr) {
         active.status = 'expired';
@@ -561,7 +569,7 @@ export function incrementSessionsUsed(studentId: string, subId?: string): Subscr
         }
     }
 
-    saveSubscription(studentId, active);
+    saveSubscription(primaryId, active);
     return active;
 }
 

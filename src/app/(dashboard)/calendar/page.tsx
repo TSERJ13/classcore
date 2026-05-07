@@ -285,10 +285,16 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
     const group = ev.group_id ? groups.find(g => g.id === ev.group_id) : null;
     const student = ev.student_id ? students.find(s => s.id === ev.student_id) : null;
 
+    const getFirstName = (name: string) => name?.trim().split(' ')[0] || '';
+
     // Use student name as title for individual lessons
-    const displayTitle = (ev.type === 'individual' && student) 
-        ? (student.full_name || `${student.first_name} ${student.last_name}`)
-        : ev.title;
+    let displayTitle = ev.title;
+    if (ev.type === 'individual' && student) {
+        const pName = getFirstName(student.full_name || `${student.first_name || ''} ${student.last_name || ''}`);
+        const partner = ev.couple_partner_id ? students.find(s => s.id === ev.couple_partner_id) : null;
+        const sName = partner ? getFirstName(partner.full_name || `${partner.first_name || ''} ${partner.last_name || ''}`) : '';
+        displayTitle = sName ? `${pName} & ${sName}` : pName;
+    }
 
     // Use student photo for individual lessons
     const photoUrl = (ev.type === 'individual' && student?.photo_url) 

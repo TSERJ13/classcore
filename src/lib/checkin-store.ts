@@ -93,9 +93,10 @@ export function recordCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string
+    customDate?: string,
+    skipDeduction?: boolean
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, skipDeduction);
 }
 
 /**
@@ -109,9 +110,10 @@ export function forceCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string
+    customDate?: string,
+    skipDeduction?: boolean
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, skipDeduction);
 }
 
 /** Refund a checkin: increments sessions back */
@@ -164,17 +166,12 @@ export function refundCheckin(studentId: string, customDate?: string): void {
     }
 }
 
-function _writeCheckin(
-    studentId: string,
-    studentName: string,
-    via: 'nfc' | 'qr' | 'manual',
-    classId?: string,
-    groupId?: string,
     subId?: string,
-    customDate?: string
+    customDate?: string,
+    skipDeduction?: boolean
 ): CheckinResult {
-    // Only deduct sessions if the student has an active subscription
-    const subResult = incrementSessionsUsed(studentId, subId);
+    // Only deduct sessions if the student has an active subscription and skipDeduction is false
+    const subResult = skipDeduction ? getSubscription(studentId, groupId) : incrementSessionsUsed(studentId, subId);
     const hasSubscription = subResult !== null;
 
     const next = hasSubscription ? getSessionsRemaining(studentId, groupId) : -1;

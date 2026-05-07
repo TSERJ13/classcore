@@ -96,7 +96,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [unlimited, setUnlimited] = useState(false);
     const [neverExpires, setNeverExpires] = useState(false);
     const [teacherId, setTeacherId] = useState('');
-    const [selectedColor, setSelectedColor] = useState('#6366f1');
+    const [selectedColor, setSelectedColor] = useState(defaultType === 'individual' ? '#f97316' : '#6366f1');
     const [selectedHallId, setSelectedHallId] = useState('');
     const [secondaryStudentId, setSecondaryStudentId] = useState('');
     const [isCouple, setIsCouple] = useState(false);
@@ -137,6 +137,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         if (open) {
             setStep(defaultType ? 'form' : 'type_selection');
             setSelectedType(defaultType || 'group');
+            setSelectedColor((defaultType || 'group') === 'individual' ? '#f97316' : '#6366f1');
             const currentStudents = getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
             setStudentId(initialStudentId || currentStudents[0]?.id || '');
             setStartDate(getLocalISODate());
@@ -150,7 +151,16 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setSelectedHallId(getHalls()[0]?.id || 'main');
             setSlots([]);
         }
-    }, [open, initialStudentId]);
+    }, [open, initialStudentId, defaultType]);
+
+    // Update color when type changes manually
+    useEffect(() => {
+        if (selectedType === 'individual') {
+            setSelectedColor('#f97316');
+        } else {
+            setSelectedColor('#6366f1');
+        }
+    }, [selectedType]);
 
     // 🌟 Auto-select default plan when type/oneTime changes or list updates
     useEffect(() => {
@@ -328,7 +338,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         const partner = isCouple && secondaryStudentId ? students.find(s => s.id === secondaryStudentId) : null;
         const coupleId = isCouple ? `cpl-${Date.now()}` : undefined;
 
-        const baseSubData = {
+        const getFirstName = (name: string) => name.trim().split(' ')[0] || '';
+
+        const subData = {
+            student_id: studentId,
             plan: plan.name,
             sessions_used: 0,
             sessions_total: sessionsTotal,
@@ -340,32 +353,17 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             group_id: isGroupPlan ? groupId : undefined,
             category: selectedGroup ? selectedGroup.type : (plan.type === 'individual' ? 'Individual' : undefined),
             payment_method: payMethod,
+            amount_paid: paidNow,
             teacher_id: teacherId || undefined,
             teacher_comment: commentParts.join(' · '),
             schedule_slots: plan.type === 'individual' ? slots : undefined,
             couple_id: coupleId,
-        };
-
-        // 1. Issue Primary Subscription
-        onIssue({
-            ...baseSubData,
-            student_id: studentId,
-            amount_paid: paidNow,
             couple_partner_id: secondaryStudentId || undefined,
             couple_partner_name: partner?.full_name || couplePartnerName || undefined,
-        });
+        };
 
-        // 2. Issue Secondary Subscription (if couple)
-        if (isCouple && secondaryStudentId) {
-            onIssue({
-                ...baseSubData,
-                student_id: secondaryStudentId,
-                amount_paid: 0, // Paid by primary
-                couple_partner_id: studentId,
-                couple_partner_name: selectedStudent?.full_name || undefined,
-                teacher_comment: `${l('მეწყვილის აბონემენტი', 'Абонемент напарника', 'Partner subscription')} · ${commentParts.join(' · ')}`,
-            });
-        }
+        // 1. Issue Single Subscription
+        onIssue(subData);
 
         // 📅 Create Calendar Events for Individual Slots
         if ((selectedType === 'individual' || plan.type === 'individual') && slots.length > 0) {
@@ -384,9 +382,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 
                 const slot = slots.find(s => s.dayOfWeek === dayOfWeek);
                 if (slot) {
+                    const primaryFirstName = getFirstName(selectedStudent?.full_name || 'Student');
                     const eventTitle = isCouple && partner 
-                        ? `${selectedStudent?.full_name} & ${partner.full_name}`
-                        : `${selectedStudent?.full_name || 'Student'}`;
+                        ? `${primaryFirstName} & ${getFirstName(partner.full_name)}`
+                        : primaryFirstName;
 
                     newEvents.push({
                         id: `ind-${studentId}-${Date.now()}-${lessonsCreated}`,
