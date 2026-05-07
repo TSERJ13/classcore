@@ -340,20 +340,20 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         // 📅 Create Calendar Events for Individual Slots (Limited by sessions_total)
         if (selectedType === 'individual' && slots.length > 0) {
             let lessonsCreated = 0;
-            const maxLessons = sessionsTotal; 
-            let checkDate = new Date(startDate + 'T00:00:00'); // Ensure local date parsing
+            const maxLessons = sessionsTotal || 999; 
+            let checkDate = new Date(startDate + 'T00:00:00');
+            const endD = new Date(endDate + 'T00:00:00');
             
-            // Safety limit to avoid infinite loops (1 year max search)
+            const newEvents: any[] = [];
             let safetyLimit = 365; 
 
-            while (lessonsCreated < maxLessons && safetyLimit > 0) {
+            while ((sessionsTotal ? lessonsCreated < maxLessons : checkDate <= endD) && safetyLimit > 0) {
                 const jsDay = checkDate.getDay();
-                // Map JS Day (0-Sun, 1-Mon) to Slot Day (0-Mon, 6-Sun)
                 const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; 
                 
                 const slot = slots.find(s => s.dayOfWeek === dayOfWeek);
                 if (slot) {
-                    addEvent({
+                    newEvents.push({
                         id: `ind-${studentId}-${Date.now()}-${lessonsCreated}`,
                         org_id: settings.studioSlug,
                         title: `${selectedStudent?.full_name || 'Student'}`,
@@ -373,6 +373,13 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 }
                 checkDate.setDate(checkDate.getDate() + 1);
                 safetyLimit--;
+            }
+
+            if (newEvents.length > 0) {
+                import('@/lib/event-store').then(mod => {
+                    const current = mod.getEvents();
+                    mod.saveEvents([...current, ...newEvents]);
+                });
             }
         }
 
