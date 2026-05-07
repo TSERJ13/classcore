@@ -890,92 +890,57 @@ export function Header() {
                                             </p>
                                         </div>
                                     ) : (
-                                        messages.map(m => (
-                                            <div key={m.id} className={cn("flex flex-col", m.sender === 'manager' ? "items-end" : "items-start")}>
-                                                <div className={cn(
-                                                    "max-w-[85%] p-4 rounded-3xl text-sm font-medium shadow-sm transition-all animate-in fade-in zoom-in duration-300",
-                                                    m.sender === 'manager' ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none",
-                                                    m.metadata?.type === 'lesson_request' ? "bg-amber-500/10 border-amber-500/20 text-amber-900 shadow-none" : ""
-                                                )}>
-                                                    {m.attachment && (
-                                                        <div className="mb-3 overflow-hidden rounded-2xl border border-white/10">
-                                                            {m.attachment.type.startsWith('image/') ? (
-                                                                <img src={m.attachment.data} className="w-full h-auto max-h-[300px] object-contain bg-black/10" alt="attachment" />
-                                                            ) : (
-                                                                <div className="bg-black/20 p-4 flex items-center gap-3">
-                                                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                                                                        <FileText className="w-5 h-5" />
-                                                                    </div>
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="text-xs font-bold truncate">{m.attachment.name}</p>
-                                                                        <p className="text-[10px] opacity-60">{(m.attachment.size / 1024).toFixed(1)} KB</p>
-                                                                    </div>
-                                                                    <a 
-                                                                        href={m.attachment.data} 
-                                                                        download={m.attachment.name}
-                                                                        className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-                                                                    >
-                                                                        <Download className="w-4 h-4" />
-                                                                    </a>
+                                                messages.map(m => {
+                                                    const isMe = m.sender === 'manager';
+                                                    const student = activeTab === 'private' ? students.find(s => s.id === selectedChatId) : null;
+                                                    
+                                                    return (
+                                                        <div key={m.id} className={cn("flex gap-3", isMe ? "flex-row-reverse" : "flex-row")}>
+                                                            <div className="flex-shrink-0 mt-auto">
+                                                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shadow-sm", isMe ? "bg-indigo-600 text-white" : "bg-card border border-border-subtle text-primary")}>
+                                                                    {isMe ? (
+                                                                        settings.studioLogo ? <img src={settings.studioLogo} className="w-full h-full rounded-full object-cover" /> : settings.studioName[0]
+                                                                    ) : (
+                                                                        student?.photo_url ? <img src={student.photo_url} className="w-full h-full rounded-full object-cover" /> : (m.senderName?.[0] || 'S')
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    {activeTab === 'group' && m.sender === 'student' && (
-                                                        <p className="text-[9px] font-black tracking-widest mb-1 opacity-50">{m.senderName || t.students}</p>
-                                                    )}
-                                                    {m.metadata?.type === 'lesson_request' ? (
-                                                        <div className="space-y-3 w-full min-w-[200px]">
-                                                            <div className="flex items-center gap-2 pb-2 border-b border-amber-500/20">
-                                                                <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-600">
-                                                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                                                </div>
-                                                                <span className="text-xs font-black text-amber-800 tracking-tight">{t.bookingRequest}</span>
                                                             </div>
-                                                            <div className="space-y-1.5 pt-1">
-                                                                <div className="flex items-center justify-between text-[11px]">
-                                                                    <span className="font-bold text-amber-900/60 tracking-widest">სტილი:</span>
-                                                                    <span className="font-black text-amber-900">{m.metadata.style || t.any}</span>
-                                                                </div>
-                                                                {m.metadata.hallName && (
-                                                                    <div className="flex items-center justify-between text-[11px]">
-                                                                        <span className="font-bold text-amber-900/60 tracking-widest">დარბაზი:</span>
-                                                                        <span className="font-black text-amber-900">{m.metadata.hallName}</span>
-                                                                    </div>
+                                                            <div className={cn("flex flex-col max-w-[80%]", isMe ? "items-end" : "items-start")}>
+                                                                {!isMe && (
+                                                                    <span className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest mb-1 px-1">{m.senderName || (activeTab === 'private' ? student?.full_name : 'Student')}</span>
                                                                 )}
-                                                                <div className="pt-2">
-                                                                    <span className="text-[9px] font-bold text-amber-900/60 tracking-widest mb-1 block">არჩეული დროები:</span>
-                                                                    <div className="flex flex-wrap gap-1">
-                                                                        {m.metadata.slots.map((s, i) => (
-                                                                            <span key={i} className="px-1.5 py-0.5 bg-white/50 rounded text-[10px] font-bold text-amber-900 font-mono">
-                                                                                {new Date(s.date).toLocaleDateString('ka-GE', { day: 'numeric', month: 'short' })} {s.time}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
+                                                                <div className={cn(
+                                                                    "p-4 rounded-2xl text-sm font-medium shadow-sm transition-all animate-in fade-in zoom-in duration-300",
+                                                                    isMe ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none",
+                                                                    m.metadata?.type === 'lesson_request' ? "bg-amber-500/10 border-amber-500/20 text-amber-900 shadow-none" : ""
+                                                                )}>
+                                                                    {m.attachment && (
+                                                                        <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
+                                                                            {m.attachment.type.startsWith('image/') ? (
+                                                                                <img src={m.attachment.data} className="w-full h-auto max-h-[300px] object-contain bg-black/10" alt="attachment" />
+                                                                            ) : (
+                                                                                <div className="bg-black/20 p-4 flex items-center gap-3">
+                                                                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                                                                                        <FileText className="w-5 h-5" />
+                                                                                    </div>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <p className="text-xs font-bold truncate">{m.attachment.name}</p>
+                                                                                        <p className="text-[10px] opacity-60">{(m.attachment.size / 1024).toFixed(1)} KB</p>
+                                                                                    </div>
+                                                                                    <a href={m.attachment.data} download={m.attachment.name} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                                                                                        <Download className="w-4 h-4" />
+                                                                                    </a>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                    {m.text}
                                                                 </div>
+                                                                <span className="text-[9px] font-black text-muted opacity-40 mt-1.5 px-1">{m.timestamp}</span>
                                                             </div>
-                                                            {m.metadata.status !== 'confirmed' ? (
-                                                                <button
-                                                                    onClick={() => handleApproveLesson(m.id)}
-                                                                    className="w-full mt-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black tracking-widest shadow-md shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                                                                >
-                                                                    <CheckCircle2 className="w-3 h-3" />
-                                                                    {t.confirm}
-                                                                </button>
-                                                            ) : (
-                                                                <div className="w-full mt-2 py-1.5 bg-emerald-500/10 text-emerald-600 rounded-xl text-[10px] font-black tracking-widest text-center flex items-center justify-center gap-1 border border-emerald-500/20">
-                                                                    <CheckCircle2 className="w-3 h-3" />
-                                                                    {t.confirmed}
-                                                                </div>
-                                                            )}
                                                         </div>
-                                                    ) : (
-                                                        m.text
-                                                    )}
-                                                </div>
-                                                <span className="text-[9px] font-black text-muted opacity-40 mt-1.5 px-1">{m.timestamp}</span>
-                                            </div>
-                                        ))
+                                                    );
+                                                })
                                     )}
                                 </div>
 

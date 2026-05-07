@@ -9,7 +9,7 @@ import {
     MessageSquare, Smartphone, Clock,
     QrCode, Copy, Check, Info, CalendarDays,
     Send, ChevronRight, Download, Users,
-    ExternalLink, BellOff, BellRing,
+    ExternalLink, BellOff, BellRing, X, Image as ImageIcon,
     CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity
 } from 'lucide-react';
 const UserIcon = User;
