@@ -1324,6 +1324,7 @@ export default function StudentPortalPage() {
                             <p className="text-center text-[9px] font-bold text-muted/30 tracking-[0.2em] mt-3 uppercase">{settings.studioName} Secure Messenger</p>
                         </div>
                     </div>
+                </div>
                 )}
             </div>
 
