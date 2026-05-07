@@ -27,6 +27,7 @@ export function GlobalRFIDScanner() {
         sessionsRemaining?: number;
         planName?: string;
         isMonthly?: boolean;
+        isIndividual?: boolean;
         totalSessions?: number;
         usedSessions?: number;
     } | null>(null);
@@ -86,6 +87,7 @@ export function GlobalRFIDScanner() {
                     sessionsRemaining,
                     planName: sub.plan || 'Active Plan',
                     isMonthly,
+                    isIndividual: sub.plan_type === 'individual' || sub.plan?.toLowerCase().includes('ინდ') || sub.plan?.toLowerCase().includes('indiv'),
                     totalSessions: sessionsTotal || 0,
                     usedSessions,
                     message: isAlreadyCheckedIn ? (t.alreadyCheckedIn || 'Already Checked In') : (isExpired ? (t.subscriptionExpired || 'Expired') : undefined)
@@ -136,13 +138,14 @@ export function GlobalRFIDScanner() {
 
     if (!popup) return null;
 
+    const isIndividual = popup.isIndividual;
     const isMonthly = popup.isMonthly;
     const rem = popup.sessionsRemaining ?? 0;
     const noSub = popup.phase === 'expired' && rem <= 0;
     
-    const sessionColor = noSub ? 'text-rose-500' : rem <= 2 ? 'text-red-500' : rem === 3 ? 'text-amber-500' : 'text-emerald-500';
-    const boxBg = noSub ? 'bg-rose-500/5 border border-rose-500/20' : rem <= 2 ? 'bg-red-500/5 border border-red-500/20' : rem === 3 ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-emerald-500/5 border border-emerald-500/20';
-    const barColor = noSub ? 'bg-rose-500' : rem <= 2 ? 'bg-red-500' : rem === 3 ? 'bg-amber-500' : 'bg-emerald-500';
+    const sessionColor = noSub ? 'text-rose-500' : rem <= 2 ? 'text-red-500' : rem === 3 ? 'text-amber-500' : isIndividual ? 'text-orange-500' : 'text-emerald-500';
+    const boxBg = noSub ? 'bg-rose-500/5 border border-rose-500/20' : rem <= 2 ? 'bg-red-500/5 border border-red-500/20' : rem === 3 ? 'bg-amber-500/5 border border-amber-500/20' : isIndividual ? 'bg-orange-500/5 border border-orange-500/20' : 'bg-emerald-500/5 border border-emerald-500/20';
+    const barColor = noSub ? 'bg-rose-500' : rem <= 2 ? 'bg-red-500' : rem === 3 ? 'bg-amber-500' : isIndividual ? 'bg-orange-500' : 'bg-emerald-500';
     const percent = isMonthly ? 100 : Math.max(0, Math.min(100, (rem / (popup.totalSessions || 1)) * 100));
 
     return (

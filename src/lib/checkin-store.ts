@@ -165,7 +165,12 @@ export function refundCheckin(studentId: string, customDate?: string): void {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }
-
+function _writeCheckin(
+    studentId: string,
+    studentName: string,
+    via: 'nfc' | 'qr' | 'manual',
+    classId?: string,
+    groupId?: string,
     subId?: string,
     customDate?: string,
     skipDeduction?: boolean
