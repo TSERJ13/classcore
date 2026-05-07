@@ -1098,16 +1098,17 @@ export default function StudentPortalPage() {
                                                     <div className="space-y-3">
                                                         {dayEvents.map(ev => {
                                                             const isMyEvent = studentData?.enrolled_group_ids?.includes(ev.group_id || '') || ev.student_id === studentId;
+                                                            const groupData = groups.find(g => g.id === ev.group_id);
                                                             return (
-                                                                <div key={`${ev.id}-${dayDate}`} className={cn("relative bg-surface border rounded-3xl p-4 flex gap-4 transition-all overflow-hidden", isMyEvent ? "border-indigo-500/30 bg-indigo-50/20 shadow-lg shadow-indigo-500/5" : "border-border-subtle opacity-80 shadow-sm", dayDate < todayStr && "opacity-40 grayscale-[0.5]")}>
-                                                                    {isMyEvent && (
-                                                                        <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl uppercase">{t.myClass}</div>
+                                                                <div key={`${ev.id}-${dayDate}`} className={cn("relative bg-surface border rounded-3xl p-4 flex gap-4 transition-all overflow-hidden group", isMyEvent ? "border-indigo-500/30 bg-indigo-50/20 shadow-lg shadow-indigo-500/5" : "border-border-subtle opacity-80 shadow-sm", dayDate < todayStr && "opacity-40 grayscale-[0.5]")}>
+                                                                    {groupData && (
+                                                                        <div className={cn(
+                                                                            "w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black border-2 shadow-sm transition-transform group-hover:scale-105 shrink-0",
+                                                                            groupData.color ? "" : "bg-violet-500 text-white border-violet-600/20"
+                                                                        )} style={groupData.color ? { backgroundColor: groupData.color, color: '#fff', borderColor: 'rgba(255,255,255,0.2)' } : {}}>
+                                                                            {groupData.name[0]}
+                                                                        </div>
                                                                     )}
-                                                                    <div className="flex-shrink-0 w-12 flex flex-col items-center justify-center font-black">
-                                                                        <span className="text-[11px] text-primary tabular-nums">{ev.start_time}</span>
-                                                                        <div className="w-px h-3 bg-border-subtle my-0.5" />
-                                                                        <span className="text-[9px] text-muted opacity-40 tabular-nums">{ev.end_time}</span>
-                                                                    </div>
                                                                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                                         <h4 className="text-sm font-black text-primary truncate mb-1">{ev.title}</h4>
                                                                         {ev.teacher_id && (
@@ -1116,6 +1117,10 @@ export default function StudentPortalPage() {
                                                                                 <span className="truncate max-w-[120px]">{teachers.find(tc => tc.id === ev.teacher_id)?.full_name || t.teacherRole}</span>
                                                                             </div>
                                                                         )}
+                                                                    </div>
+                                                                    <div className="flex-shrink-0 flex flex-col items-end justify-center font-black">
+                                                                        <span className="text-[11px] text-primary tabular-nums">{ev.start_time}</span>
+                                                                        <span className="text-[9px] text-muted opacity-40 tabular-nums">{ev.end_time}</span>
                                                                     </div>
                                                                 </div>
                                                             );
@@ -1191,30 +1196,41 @@ export default function StudentPortalPage() {
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-[calc(100vh-320px)] bg-card/30 rounded-[2.5rem] border border-border-subtle overflow-hidden">
+                    <div className="fixed inset-0 z-[100] bg-white flex flex-col">
+                        <div className="h-16 border-b border-border-subtle bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => setActiveTab('info')} className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface text-muted transition-all rotate-180">
+                                    <ChevronRight className="w-6 h-6" />
+                                </button>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
+                                        <MessageSquare className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-black text-primary tracking-tight leading-none mb-1">{selectedChatId === 'studio' ? settings.studioName : (groups.find(g => g.id === selectedChatId)?.name || t.chat)}</h2>
+                                        <p className="text-[10px] font-bold text-emerald-500 tracking-widest uppercase leading-none">Online</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={() => setActiveTab('info')} className="p-2 text-muted hover:text-primary transition-colors">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
                         {studentData?.enrolled_group_ids && studentData.enrolled_group_ids.length > 0 && (
-                            <div className="flex gap-2 p-4 border-b border-border-subtle bg-card/50 overflow-x-auto no-scrollbar">
-                                <button onClick={() => setSelectedChatId('studio')} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === 'studio' ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
+                            <div className="flex gap-2 p-4 border-b border-border-subtle bg-surface/30 overflow-x-auto no-scrollbar">
+                                <button onClick={() => setSelectedChatId('studio')} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === 'studio' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-white border border-border-subtle text-muted hover:text-primary")}>
                                     <ShieldCheck className="w-3 h-3" />
                                     {lang === 'ka' ? 'სტუდია' : (t.administration || 'Studio')}
                                 </button>
                                 {studentData.enrolled_group_ids.map(gid => {
                                     const group = groups.find((g: any) => g.id === gid);
                                     if (!group) return null;
-                                    const teacher = teachers.find(tc => tc.id === group.teacher_id);
                                     return (
-                                        <React.Fragment key={gid}>
-                                            <button onClick={() => setSelectedChatId(gid)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === gid ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
-                                                <Users className="w-3 h-3" />
-                                                {group.name}
-                                            </button>
-                                            {teacher && (
-                                                <button onClick={() => setSelectedChatId(`teach_${teacher.id}`)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === `teach_${teacher.id}` ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
-                                                    <UserIcon className="w-3 h-3" />
-                                                    {teacher.full_name}
-                                                </button>
-                                            )}
-                                        </React.Fragment>
+                                        <button key={gid} onClick={() => setSelectedChatId(gid)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === gid ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-white border border-border-subtle text-muted hover:text-primary")}>
+                                            <Users className="w-3 h-3" />
+                                            {group.name}
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -1229,16 +1245,34 @@ export default function StudentPortalPage() {
                                     <p className="text-xs font-bold px-10">{selectedChatId === 'studio' ? t.chatWelcome : t.chatStartHint}</p>
                                 </div>
                             ) : (
-                                chatMessages.map((m, idx) => (
-                                    <div key={m.id || idx} className={cn("flex flex-col", m.sender === 'student' ? "items-end" : "items-start")}>
-                                        <div className={cn("max-w-[85%] p-4 rounded-3xl text-[13px] font-medium leading-relaxed shadow-sm", m.sender === 'student' ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none")}>
-                                            {m.text}
+                                chatMessages.map((m, idx) => {
+                                    const isMe = m.sender === 'student';
+                                    return (
+                                        <div key={m.id || idx} className={cn("flex gap-3", isMe ? "flex-row-reverse" : "flex-row")}>
+                                            <div className="flex-shrink-0 mt-auto">
+                                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shadow-sm", isMe ? "bg-indigo-600 text-white" : "bg-white border border-border-subtle text-primary")}>
+                                                    {isMe ? (studentData?.photo_url ? <img src={studentData.photo_url} className="w-full h-full rounded-full object-cover" /> : studentData?.full_name?.[0]) : (selectedChatId === 'studio' ? <ShieldCheck className="w-4 h-4" /> : <Users className="w-4 h-4" />)}
+                                                </div>
+                                            </div>
+                                            <div className={cn("flex flex-col max-w-[80%]", isMe ? "items-end" : "items-start")}>
+                                                {!isMe && (
+                                                    <span className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest mb-1 px-1">{selectedChatId === 'studio' ? settings.studioName : (m.sender_name || 'Admin')}</span>
+                                                )}
+                                                <div className={cn("p-4 rounded-2xl text-sm font-medium leading-relaxed shadow-sm", isMe ? "bg-indigo-600 text-white rounded-br-none" : "bg-white border border-border-subtle text-primary rounded-bl-none")}>
+                                                    {m.attachment && (
+                                                        <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
+                                                            <img src={m.attachment.data} className="w-full h-auto max-h-[300px] object-contain bg-black/10" alt="attachment" />
+                                                        </div>
+                                                    )}
+                                                    {m.text}
+                                                </div>
+                                                <span className="text-[8px] font-bold text-muted/30 tracking-widest mt-1 px-1 uppercase">
+                                                    {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <span className="text-[9px] font-bold text-muted/40 tracking-widest mt-1 px-1">
-                                            {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                        </span>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                             {isSyncingChat && (
                                 <div className="flex items-center gap-2 text-muted/40 font-bold text-[10px] tracking-widest px-1">
@@ -1249,17 +1283,44 @@ export default function StudentPortalPage() {
                         </div>
 
                         <div className="p-4 bg-card/80 backdrop-blur-md border-t border-border-subtle">
-                            <div className="relative flex items-center">
-                                <input
-                                    value={chatInput}
-                                    onChange={(e) => setChatInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                    placeholder={(t.sendMessageToStart || 'Message') + '...'}
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-5 py-4 pr-14 text-sm font-medium outline-none transition-all placeholder:text-muted/40"
-                                />
-                                <button onClick={handleSendMessage} disabled={!chatInput.trim() || isSyncingChat} className="absolute right-2 p-3 bg-indigo-600 text-white rounded-xl disabled:opacity-20 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20">
-                                    <Send className="w-4 h-4" />
-                                </button>
+                            <div className="relative flex items-center gap-3">
+                                    <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-surface border border-border-subtle text-muted hover:text-indigo-500 rounded-xl transition-all active:scale-95">
+                                        <ImageIcon className="w-5 h-5" />
+                                    </button>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file && studentId && studio) {
+                                                const reader = new FileReader();
+                                                reader.onload = async (ev) => {
+                                                    const attachment = { name: file.name, type: file.type, size: file.size, data: ev.target?.result as string };
+                                                    const channelId = selectedChatId === 'studio' ? studentId : selectedChatId;
+                                                    const newMsg = { id: Date.now().toString(), text: '', attachment, sender: 'student', sender_name: studentData?.full_name || 'Student', timestamp: new Date().toISOString(), read: false };
+                                                    const updated = [...chatMessages, newMsg];
+                                                    setChatMessages(updated);
+                                                    const localKey = getScopedKey(`chat_${channelId}`, studio);
+                                                    safeSetItem(localKey, JSON.stringify(updated), studio);
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                        className="hidden" 
+                                        accept="image/*" 
+                                    />
+                                    <div className="relative flex-1">
+                                        <input
+                                            value={chatInput}
+                                            onChange={(e) => setChatInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                            placeholder={(t.sendMessageToStart || 'Message') + '...'}
+                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-5 py-4 pr-14 text-sm font-medium outline-none transition-all placeholder:text-muted/40 shadow-inner"
+                                        />
+                                        <button onClick={handleSendMessage} disabled={!chatInput.trim() || isSyncingChat} className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-indigo-600 text-white rounded-xl disabled:opacity-20 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20">
+                                            <Send className="w-4 h-4" />
+                                        </button>
+                                    </div>
                             </div>
                             <p className="text-center text-[9px] font-bold text-muted/30 tracking-[0.2em] mt-3 uppercase">{settings.studioName} Secure Messenger</p>
                         </div>
