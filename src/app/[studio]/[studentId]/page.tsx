@@ -152,7 +152,13 @@ export default function StudentPortalPage() {
                     const cloudData = await fetchFullStudioState(studio, undefined, undefined, true, studentId);
                     if (cloudData) {
                             // 🚀 SCORCHED EARTH v4.2: Ultra-Robust Hydration
-                            const settingsBlob = cloudData.settingsRecord?.staff_data || cloudData.studio?.settings;
+                            const studioData = cloudData.studio || {};
+                            const settingsBlob = cloudData.settingsRecord?.staff_data || studioData.settings || {};
+                            
+                            // 🎨 BRANDING RECOVERY: Ensure logo is pulled from studio metadata if missing in settings blob
+                            if (!settingsBlob.studioLogo && !settingsBlob.logoDataUrl && studioData.logo_url) {
+                                settingsBlob.studioLogo = studioData.logo_url;
+                            }
                             const mapping: any = {
                                 cc_student_data: [
                                     ...(cloudData.students || []),
@@ -997,10 +1003,9 @@ export default function StudentPortalPage() {
                                             startOfWeek.setDate(todayDate.getDate() - (todayDate.getDay() === 0 ? 6 : todayDate.getDay() - 1));
                                             displayEvents = myEvents.filter(e => {
                                                 const evDate = new Date(`${e.date}T00:00:00`);
-                                                if (![1,2,3,4,5].includes(evDate.getDay())) return false;
                                                 if (e.recurring === 'weekly') return true;
                                                 const endOfWeek = new Date(startOfWeek);
-                                                endOfWeek.setDate(startOfWeek.getDate() + 4);
+                                                endOfWeek.setDate(startOfWeek.getDate() + 6);
                                                 return evDate >= startOfWeek && evDate <= endOfWeek;
                                             }).sort((a, b) => new Date(`${a.date}T00:00:00`).getDay() - new Date(`${b.date}T00:00:00`).getDay() || a.start_time.localeCompare(b.start_time));
                                         }
@@ -1230,8 +1235,8 @@ export default function StudentPortalPage() {
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="fixed inset-0 z-[100] bg-white flex flex-col max-w-lg mx-auto shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
-                        <div className="w-full h-full bg-white flex flex-col relative overflow-hidden">
+                    <div className="fixed inset-0 z-[100] flex justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="w-full h-full max-w-lg bg-white shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-8 duration-500">
                             <div className="h-16 border-b border-border-subtle bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">

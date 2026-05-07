@@ -851,17 +851,25 @@ export function Header() {
                                         <ChevronRight className="w-5 h-5" />
                                     </button>
                                     <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-xl flex items-center justify-center font-black",
-                                            selectedChatId === SUPPORT_CHAT_ID ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-indigo-500/10 text-indigo-500"
-                                        )}>
-                                            {selectedChatId === SUPPORT_CHAT_ID ? (
-                                                <Shield className="w-5 h-5" />
-                                            ) : activeTab === 'private'
-                                                ? (students.find(s => s.id === selectedChatId)?.full_name?.[0] || students.find(s => s.id === selectedChatId)?.first_name?.[0])
-                                                : groups.find(g => g.id === selectedChatId)?.name[0]
-                                            }
-                                        </div>
+                                        {(() => {
+                                            const group = activeTab === 'group' ? groups.find(g => g.id === selectedChatId) : null;
+                                            return (
+                                                <div 
+                                                    className={cn(
+                                                        "w-10 h-10 rounded-xl flex items-center justify-center font-black",
+                                                        selectedChatId === SUPPORT_CHAT_ID ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : (!group ? "bg-indigo-500/10 text-indigo-500" : "")
+                                                    )}
+                                                    style={group?.color ? { backgroundColor: group.color + '20', color: group.color } : {}}
+                                                >
+                                                    {selectedChatId === SUPPORT_CHAT_ID ? (
+                                                        <Shield className="w-5 h-5" />
+                                                    ) : activeTab === 'private'
+                                                        ? (students.find(s => s.id === selectedChatId)?.full_name?.[0] || students.find(s => s.id === selectedChatId)?.first_name?.[0])
+                                                        : group?.name?.[0]
+                                                    }
+                                                </div>
+                                            );
+                                        })()}
                                         <div>
                                             <p className="text-sm font-black text-primary leading-none mb-1">
                                                 {selectedChatId === SUPPORT_CHAT_ID ? (
