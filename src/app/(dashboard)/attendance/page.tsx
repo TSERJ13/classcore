@@ -1591,11 +1591,12 @@ export default function AttendancePage() {
                                                             style={{ boxShadow: `0 8px 20px -4px #f59e0b40` }}>
                                                             <Plus className="w-4 h-4 stroke-[3]" />
                                                             <span>{t.individualSubscription}</span>
-                                                            {sub.plan_type === 'individual' && sub.schedule_slots && (
+                                                            {activeSub?.plan_type === 'individual' && (activeSub as any).schedule_slots && (
                                                                 <button 
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         import('@/lib/event-store').then(mod => {
+                                                                            const sub = activeSub!;
                                                                             const sessionsTotal = sub.sessions_total;
                                                                             const maxLessons = sessionsTotal || 999;
                                                                             let lessonsCreated = 0;
