@@ -124,6 +124,23 @@ export default function StudentPortalPage() {
     useEffect(() => {
         const loadPortal = async () => {
             if (hasLoadedRef.current) return;
+            const targetId = studentId.trim().toLowerCase();
+
+            // 🚀 FAST-PATH: Load local data immediately to show UI instantly
+            if (typeof window !== 'undefined') {
+                const students = getStudents();
+                const student = students.find(st => 
+                    (st.id && st.id.trim().toLowerCase() === targetId) || 
+                    (st.student_id && st.student_id.trim().toLowerCase() === targetId)
+                );
+                if (student) {
+                    setStudentData(student);
+                    const s = getSubscription(studentId, undefined, undefined, true);
+                    setSub(s || null);
+                    setIsLoading(false); // Stop loading screen early
+                }
+            }
+
             try {
                 if (!studentId || !studio) return;
 
@@ -349,12 +366,32 @@ export default function StudentPortalPage() {
         link.href = url; link.download = `${ev.title}.ics`; link.click();
     };
 
+    useEffect(() => {
+        if (typeof window === 'undefined' || !studentId) return;
+        const saved = localStorage.getItem(`cc_portal_session_${studentId}`);
+        if (saved) {
+            try {
+                const session = JSON.parse(saved);
+                const isFresh = Date.now() - session.timestamp < 30 * 60 * 1000;
+                if (session.authenticated && isFresh) {
+                    setAuthState('authenticated');
+                } else {
+                    localStorage.removeItem(`cc_portal_session_${studentId}`);
+                }
+            } catch (e) {}
+        }
+    }, [studentId]);
+
     const handleAuth = () => {
         if (!studentData) return;
         const cleanInput = phoneInput.replace(/\D/g, '');
         const cleanStudentPhone = studentData.phone.replace(/\D/g, '');
         if (cleanInput && (cleanStudentPhone === cleanInput || cleanStudentPhone.endsWith(cleanInput))) {
-            sessionStorage.setItem(`auth_${studentId}`, 'true');
+            const session = {
+                authenticated: true,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(`cc_portal_session_${studentId}`, JSON.stringify(session));
             setAuthState('authenticated');
         } else {
             setAuthError(t.incorrectPhone);
@@ -594,8 +631,6 @@ export default function StudentPortalPage() {
                                         <p className={cn("text-[10px] font-black tracking-widest uppercase", (sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? "text-emerald-500" : "text-rose-500")}>
                                             {(sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? t.active : t.inactive || 'InActive'}
                                         </p>
-                                        <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
-                                        <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {(studentData?.id || studentId).toUpperCase()}</p>
                                     </div>
                                 </div>
                             </div>
@@ -619,10 +654,6 @@ export default function StudentPortalPage() {
                                             ? getGroups().filter(g => studentData.enrolled_group_ids?.includes(g.id)).map(g => g.name).join(', ')
                                             : '—'}
                                     </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest">ID</span>
-                                    <p className="text-sm font-black text-primary tabular-nums">{(studentData?.id || studentId).toUpperCase()}</p>
                                 </div>
                             </div>
                         </div>
@@ -1199,8 +1230,8 @@ export default function StudentPortalPage() {
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-0 sm:p-4 backdrop-blur-sm animate-in fade-in duration-300">
-                        <div className="w-full h-full sm:max-w-md sm:h-[85vh] bg-white sm:rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
+                    <div className="fixed inset-0 z-[100] bg-white flex flex-col max-w-lg mx-auto shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
+                        <div className="w-full h-full bg-white flex flex-col relative overflow-hidden">
                             <div className="h-16 border-b border-border-subtle bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
