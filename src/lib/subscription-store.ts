@@ -115,16 +115,27 @@ export function getSubscriptions(): SubMap {
         // Filter and Normalize data
         const allStudents = getStudents();
         const studentIdSet = new Set(allStudents.map(s => s.id));
+        console.log(`🔍 [SubscriptionStore] Hydrating ${Object.keys(data).length} student subscription keys. Students in system: ${studentIdSet.size}`);
+        
         let dataChanged = false;
-
         Object.keys(data).forEach(studentId => {
             // Safety: Only delete from local if we have a robust list of students
             // and we are CERTAIN this student is missing (not just a sync delay)
             if (studentIdSet.size > 10 && !studentIdSet.has(studentId)) {
+                console.warn(`⚠️ [SubscriptionStore] Pruning orphaned subscriptions for studentId: ${studentId}`);
                 delete data[studentId];
                 dataChanged = true;
                 return;
             }
+            
+            // Normalize: Ensure all subscriptions have the correct student_id
+            data[studentId] = (data[studentId] || []).map((sub: any) => {
+                if (!sub.student_id) {
+                    return { ...sub, student_id: studentId };
+                }
+                return sub;
+            });
+            
             if (Array.isArray(data[studentId])) {
                 data[studentId] = data[studentId]
                     .filter(sub => !deletedSubIds.has(sub.id))
@@ -243,10 +254,21 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             id: info.id || makeEntityId('SUB'),
             org_id: orgId,
             student_id: studentId,
-            data: info
+            data: info, // JSONB fallback
+            // Explicit columns for faster SQL queries
+            plan_type: info.plan_type,
+            group_id: info.group_id,
+            status: info.status,
+            starts_at: info.purchased_at,
+            expires_at: info.expires_at,
+            sessions_total: info.sessions_total,
+            sessions_used: info.sessions_used
         };
         
-        syncRecordToCloud('subscriptions', payload, orgId).catch(() => {});
+        console.log(`📡 [SubscriptionStore] Syncing subscription ${payload.id} to cloud...`);
+        syncRecordToCloud('subscriptions', payload, orgId).catch(err => {
+            console.error(`❌ [SubscriptionStore] Atomic sync failed for ${payload.id}:`, err);
+        });
 
         // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Also update the settings blob
         // This is shared across all devices and used for 'rescue' recovery
