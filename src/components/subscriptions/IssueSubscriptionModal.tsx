@@ -13,6 +13,8 @@ import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
+import { getHalls } from '@/lib/hall-store';
+import { addEvent } from '@/lib/event-store';
 interface IssueSubscriptionModalProps {
     open: boolean;
     onClose: () => void;
@@ -85,6 +87,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [unlimited, setUnlimited] = useState(false);
     const [neverExpires, setNeverExpires] = useState(false);
     const [teacherId, setTeacherId] = useState('');
+    const [slots, setSlots] = useState<Array<{ day: string, startTime: string, endTime: string, hallId: string }>>([]);
+
+    const halls = useMemo(() => getHalls(), []);
 
     // Payment fields
     const [payMethod, setPayMethod] = useState<PayMethod>('cash');
@@ -125,7 +130,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setAmountPaid('');
             setUseBalance(false);
             setTeacherId('');
-            setPlanId(''); // 🌟 Clear so default-pick effect runs fresh on each open
+            setPlanId(''); 
+            setSlots([]);
         }
     }, [open, initialStudentId]);
 
@@ -318,6 +324,38 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             teacher_comment: commentParts.join(' · '),
         });
 
+        // 📅 Create Calendar Events for Individual Slots
+        if (selectedType === 'individual' && slots.length > 0) {
+            slots.forEach((slot, i) => {
+                const today = new Date();
+                const currentDay = today.getDay(); // 0-6
+                const targetDay = parseInt(slot.day);
+                let dayOffset = targetDay - currentDay;
+                if (dayOffset < 0) dayOffset += 7;
+
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() + dayOffset);
+                const dateStr = getLocalISODate(targetDate);
+
+                addEvent({
+                    id: `ind-${studentId}-${Date.now()}-${i}`,
+                    org_id: settings.studioSlug,
+                    title: `${selectedStudent?.full_name || 'Student'} - ${plan.name}`,
+                    type: 'individual',
+                    hall_id: slot.hallId || halls[0]?.id || 'main',
+                    teacher_id: teacherId || undefined,
+                    student_id: studentId,
+                    date: dateStr,
+                    start_time: slot.startTime,
+                    end_time: slot.endTime,
+                    color: '#6366f1',
+                    recurring: 'weekly',
+                    reminder_30m: false,
+                    created_at: new Date().toISOString()
+                });
+            });
+        }
+
         // Log to history
         logSubscription({
             studentId,
@@ -507,6 +545,62 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         placeholder={t.selectTeacher}
                                     />
                                 </div>
+
+                                {selectedType === 'individual' && (
+                                    <div className="space-y-4 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[9px] font-black text-indigo-500 tracking-widest uppercase">{l('ინდივიდუალური განრიგი', 'Индивидуальный график', 'Individual Schedule')}</label>
+                                            <button 
+                                                onClick={() => setSlots([...slots, { day: '1', startTime: '12:00', endTime: '13:00', hallId: halls[0]?.id || '' }])}
+                                                className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all active:scale-95"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                        {slots.length === 0 && (
+                                            <p className="text-[10px] text-muted font-medium text-center py-2 opacity-50 italic">{l('გრაფიკი არჩეული არ არის', 'График არ არჩეული', 'No schedule selected')}</p>
+                                        )}
+                                        <div className="space-y-2">
+                                            {slots.map((slot, idx) => (
+                                                <div key={idx} className="flex gap-2 items-center">
+                                                    <select 
+                                                        value={slot.day} 
+                                                        onChange={e => {
+                                                            const newSlots = [...slots];
+                                                            newSlots[idx].day = e.target.value;
+                                                            setSlots(newSlots);
+                                                        }}
+                                                        className="flex-1 bg-white border border-border-subtle rounded-xl px-2 py-2 text-[11px] font-bold outline-none"
+                                                    >
+                                                        <option value="1">{t.shortMon}</option>
+                                                        <option value="2">{t.shortTue}</option>
+                                                        <option value="3">{t.shortWed}</option>
+                                                        <option value="4">{t.shortThu}</option>
+                                                        <option value="5">{t.shortFri}</option>
+                                                        <option value="6">{t.shortSat}</option>
+                                                        <option value="0">{t.shortSun}</option>
+                                                    </select>
+                                                    <input 
+                                                        type="time" 
+                                                        value={slot.startTime} 
+                                                        onChange={e => {
+                                                            const newSlots = [...slots];
+                                                            newSlots[idx].startTime = e.target.value;
+                                                            setSlots(newSlots);
+                                                        }}
+                                                        className="w-24 bg-white border border-border-subtle rounded-xl px-2 py-2 text-[11px] font-bold outline-none"
+                                                    />
+                                                    <button 
+                                                        onClick={() => setSlots(slots.filter((_, i) => i !== idx))} 
+                                                        className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Price Block */}

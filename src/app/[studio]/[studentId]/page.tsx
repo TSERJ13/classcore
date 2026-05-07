@@ -993,11 +993,18 @@ export default function StudentPortalPage() {
 
                                         let displayEvents: CalendarEvent[] = [];
                                         if (scheduleView === 'daily') {
-                                            displayEvents = myEvents.filter(e => {
-                                                if (e.date === todayStr) return true;
-                                                if (e.recurring === 'weekly') return new Date(`${e.date}T00:00:00`).getDay() === todayDate.getDay();
-                                                return false;
-                                            }).sort((a, b) => a.start_time.localeCompare(b.start_time));
+                                            // 📅 SHOW NEXT 3 UPCOMING LESSONS
+                                            displayEvents = myEvents
+                                                .filter(e => {
+                                                    if (e.recurring === 'weekly') return true;
+                                                    return e.date >= todayStr;
+                                                })
+                                                .sort((a, b) => {
+                                                    if (a.recurring === 'weekly' && b.recurring !== 'weekly') return -1;
+                                                    if (a.recurring !== 'weekly' && b.recurring === 'weekly') return 1;
+                                                    return a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time);
+                                                })
+                                                .slice(0, 3);
                                         } else {
                                             const startOfWeek = new Date(todayDate);
                                             startOfWeek.setDate(todayDate.getDate() - (todayDate.getDay() === 0 ? 6 : todayDate.getDay() - 1));
@@ -1235,7 +1242,7 @@ export default function StudentPortalPage() {
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="fixed inset-0 z-[100] flex justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="fixed inset-0 z-[100] flex justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300 sm:px-4">
                         <div className="w-full h-full max-w-lg bg-white shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-8 duration-500">
                             <div className="h-16 border-b border-border-subtle bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
                                 <div className="flex items-center gap-3">
