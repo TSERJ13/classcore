@@ -27,6 +27,14 @@ interface IssueSubscriptionModalProps {
 
 type PayMethod = 'cash' | 'card' | 'transfer';
 
+const addHour = (time: string) => {
+    if (!time) return '';
+    const [h, m] = time.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return time;
+    const nh = (h + 1) % 24;
+    return `${nh.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
 export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, defaultType, centered = false }: IssueSubscriptionModalProps) {
     const { t, lang } = useT();
     const { settings, logSubscription } = useStudio();
@@ -622,7 +630,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                         options={timeOptions}
                                                                         value={slot.startTime}
                                                                         allowCustom
-                                                                        onChange={val => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, startTime: val } : s))}
+                                                                        onChange={val => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, startTime: val, endTime: addHour(val) } : s))}
                                                                         className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
                                                                     />
                                                                     <span className="text-muted/20 font-black text-[10px]">-</span>

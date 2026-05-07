@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 import { cn, getLocalISODate, getActiveSlug } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
-import type { CalendarEvent, EventType } from '@/types';
+import type { CalendarEvent, EventType, Student } from '@/types';
 import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar } from '@/lib/event-store';
 import { getTeachers } from '@/lib/teacher-store';
+import { getStudents } from '@/lib/student-store';
 import { getHalls } from '@/lib/hall-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getGroups, addSlotToGroup, removeSlotFromGroup, createGroup, saveGroups, type Group } from '@/lib/group-store';
