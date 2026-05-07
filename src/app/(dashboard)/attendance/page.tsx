@@ -1435,22 +1435,16 @@ export default function AttendancePage() {
                                             {/* Attendance Toggle (Fixed Right) */}
                                             <div className="flex-none pl-1 relative z-20">
                                                 {isExpired && state === 'none' ? (
-                                                    <div className="flex flex-col gap-1 w-11 md:w-14 h-11 md:h-14">
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); setIssueType('group'); setIssueModalOpen(true); }}
-                                                            className="flex-1 bg-[#6d28d9] text-white rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm border border-[#6d28d9]/20"
-                                                            title={t.groupSubscription}
-                                                        >
-                                                            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 stroke-[3]" />
-                                                        </button>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); setIssueType('individual'); setIssueModalOpen(true); }}
-                                                            className="flex-1 bg-amber-500 text-white rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm border border-amber-500/20"
-                                                            title={t.individualSubscription}
-                                                        >
-                                                            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 stroke-[3]" />
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIssueType('group');
+                                                            setIssueModalOpen(true);
+                                                        }}
+                                                        className="w-11 h-11 md:w-14 md:h-14 rounded-2xl bg-red-500 border-2 border-red-500 text-white flex items-center justify-center transition-all active:scale-90 shadow-lg shadow-red-500/20"
+                                                    >
+                                                        <Plus className="w-6 h-6 stroke-[3]" />
+                                                    </button>
                                                 ) : (
                                                     <button
                                                         onClick={(e) => {
