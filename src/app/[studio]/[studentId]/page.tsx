@@ -687,23 +687,40 @@ export default function StudentPortalPage() {
                                 ? sub.sessions_total - sub.sessions_used
                                 : null;
                             const isExpiring = remaining != null && remaining <= 2;
+                            const isIndividual = sub.plan_type === 'individual' || sub.plan?.toLowerCase().includes('individual') || sub.plan?.toLowerCase().includes('ინდივიდუალური');
+
+                            // Label logic
+                            const subLabel = isIndividual 
+                                ? l('ინდივიდუალური აბონემენტი', 'Индивидуальный абонемент', 'Individual Aboniment')
+                                : l('ჯგუფური აბონემენტი', 'Групповой абонемент', 'Group Aboniment');
 
                             return (
                                 <div key={sub.id} className={cn(
-                                    "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5",
-                                    isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle"
+                                    "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5 transition-all duration-300",
+                                    isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle",
+                                    isIndividual && !isExpiring && "border-violet-500/20 bg-violet-500/[0.02]"
                                 )}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-2xl flex items-center justify-center border transition-colors",
+                                                isIndividual ? "bg-violet-500/10 text-violet-500 border-violet-500/20" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20"
+                                            )}>
                                                 <CreditCard className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <h2 className="text-base font-black text-primary tracking-tight">{t.subscriptionRenewal}</h2>
+                                                <h2 className={cn("text-base font-black tracking-tight transition-colors", isIndividual ? "text-violet-600" : "text-primary")}>
+                                                    {subLabel}
+                                                </h2>
                                                 <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{sub.plan}</p>
                                             </div>
                                         </div>
-                                        <span className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider", sub.status === 'active' ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")}>
+                                        <span className={cn(
+                                            "px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider", 
+                                            sub.status === 'active' 
+                                                ? (isIndividual ? "bg-violet-500 text-white shadow-lg shadow-violet-500/20" : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20") 
+                                                : "bg-rose-500 text-white shadow-lg shadow-rose-500/20"
+                                        )}>
                                             {sub.status === 'active' ? t.active : t.expired}
                                         </span>
                                     </div>
@@ -713,23 +730,26 @@ export default function StudentPortalPage() {
                                             <div className="flex items-center justify-between text-[11px] font-black text-primary tracking-widest mb-1 px-1">
                                                 <span>{t.remaining}</span>
                                                 <div className="flex items-baseline gap-1">
-                                                    <span className="text-xl text-indigo-500 tabular-nums">{remaining}</span>
+                                                    <span className={cn("text-xl tabular-nums", isIndividual ? "text-violet-500" : "text-indigo-500")}>{remaining}</span>
                                                     <span className="opacity-40">/ {sub.sessions_total}</span>
                                                 </div>
                                             </div>
                                             <div className="h-4 bg-surface rounded-full overflow-hidden p-1 border border-border-subtle/50 shadow-inner">
                                                 <div
-                                                    className={cn("h-full rounded-full transition-all duration-1000 ease-out shadow-sm", remaining <= 2 ? "bg-rose-500" : "bg-gradient-to-r from-indigo-500 to-indigo-600")}
+                                                    className={cn(
+                                                        "h-full rounded-full transition-all duration-1000 ease-out shadow-sm", 
+                                                        remaining <= 2 ? "bg-rose-500" : (isIndividual ? "bg-gradient-to-r from-violet-500 to-violet-600" : "bg-gradient-to-r from-indigo-500 to-indigo-600")
+                                                    )}
                                                     style={{ width: `${(remaining / sub.sessions_total) * 100}%` }}
                                                 />
                                             </div>
                                             <div className="flex justify-between px-2">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                                    <div className={cn("w-1.5 h-1.5 rounded-full", isIndividual ? "bg-violet-500" : "bg-indigo-500")} />
                                                     <span className="text-[9px] font-bold text-muted tracking-widest opacity-60">{t.used} {sub.sessions_used}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] font-bold text-muted">
-                                                    <Calendar className="w-3.5 h-3.5 opacity-40 text-indigo-500" />
+                                                    <Calendar className={cn("w-3.5 h-3.5 opacity-40", isIndividual ? "text-violet-500" : "text-indigo-500")} />
                                                     <span>{t.expiryDate}: <span className="text-primary font-black">{sub.expires_at}</span></span>
                                                 </div>
                                             </div>
