@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Plus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette, Trash2, LayoutGrid, DoorOpen } from 'lucide-react';
+import { Save, Plus, Minus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette, Trash2, LayoutGrid, DoorOpen } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import type { SubscriptionInfo } from '@/lib/subscription-store';
@@ -567,33 +567,39 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
                                 <div className="space-y-1.5 relative">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
-                                        {selectedType === 'individual' && (
-                                            <button 
-                                                type="button"
-                                                onClick={() => setIsCouple(!isCouple)}
-                                                className={cn(
-                                                    "text-[9px] font-black px-2 py-0.5 rounded-lg border transition-all flex items-center gap-1.5 uppercase tracking-wider",
-                                                    isCouple ? "bg-indigo-500 text-white border-indigo-500 shadow-sm" : "text-indigo-500 border-indigo-500/30 hover:bg-indigo-50"
-                                                )}
-                                            >
-                                                {isCouple ? <Minus className="w-2.5 h-2.5 stroke-[3]" /> : <Plus className="w-2.5 h-2.5 stroke-[3]" />}
-                                                {isCouple ? l('წაშლა', 'Удалить', 'Remove') : l('დამატება', 'Добавить', 'Add Partner')}
-                                            </button>
-                                        )}
-                                    </div>
+                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
                                     <SearchSelect
                                         options={studentOptions}
                                         value={studentId}
                                         onChange={setStudentId}
                                         placeholder={t.selectClient}
                                     />
+                                    {selectedType === 'individual' && !isCouple && (
+                                        <div className="flex justify-end pt-1">
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsCouple(true)}
+                                                className="text-[9px] font-black px-2.5 py-1.5 rounded-lg border border-indigo-500/30 text-indigo-500 hover:bg-indigo-50 transition-all flex items-center gap-1.5 uppercase tracking-wider"
+                                            >
+                                                <Plus className="w-2.5 h-2.5 stroke-[3]" />
+                                                {l('მეწყვილის დამატება', 'Добавить партнера', 'Add Partner')}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {isCouple && selectedType === 'individual' && (
                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{l('მეწყვილე / პარტნიორი (სტუდენტი)', 'Напарник / Партнер (Студент)', 'Partner (Student)')}</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{l('მეწყვილე / პარტნიორი (სტუდენტი)', 'Напарник / Партнер (Студент)', 'Partner (Student)')}</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => { setIsCouple(false); setSecondaryStudentId(''); }}
+                                                className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all flex items-center gap-1 uppercase tracking-wider"
+                                            >
+                                                <Minus className="w-2.5 h-2.5 stroke-[3]" /> {l('წაშლა', 'Удалить', 'Remove')}
+                                            </button>
+                                        </div>
                                         <SearchSelect
                                             options={studentOptions.filter(o => o.value !== studentId)}
                                             value={secondaryStudentId}
@@ -652,36 +658,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             </label>
                                         </div>
 
-                                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                                    <User className="w-3 h-3" /> {l('მეწყვილე / პარტნიორი (სტუდენტი)', 'Партнер / Второй чел. (Студент)', 'Partner / Second Person (Student)')}
-                                                </label>
-                                                <SearchSelect
-                                                    options={students.map(s => ({ id: s.id, name: s.full_name || s.id }))}
-                                                    value={selectedPartnerId}
-                                                    onChange={id => {
-                                                        setSelectedPartnerId(id);
-                                                        const s = students.find(x => x.id === id);
-                                                        if (s) setCouplePartnerName(s.full_name || '');
-                                                    }}
-                                                    placeholder={l('აირჩიეთ მეწყვილე...', 'Выберите партнера...', 'Select partner student...')}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                                    <Tag className="w-3 h-3" /> {l('პარტნიორის სახელი (ხელით)', 'Имя партнера (вручную)', 'Partner Name (Manual)')}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={couplePartnerName}
-                                                    onChange={e => setCouplePartnerName(e.target.value)}
-                                                    placeholder={l('მაგ: ნინო ბერიძე', 'Напр: Нино Беридзе', 'e.g. Nino Beridze')}
-                                                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all shadow-sm"
-                                                />
-                                            </div>
-                                        </div>
 
                                         {/* Group-style Schedule Builder */}
                                         <div className="space-y-4">
