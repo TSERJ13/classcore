@@ -169,8 +169,10 @@ export async function POST(req: Request) {
         // 3. Fetch EVERYTHING with Admin privileges
         // 🚀 OPTIMIZATION: If studentId is provided, fetch ONLY relevant data for the portal
         const responses = await Promise.all([
-            // 0: Students (Fetch all for the studio to ensure legacy/migrated records are found)
-            supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
+            // 0: Students (Fetch only specific student if portal, otherwise all)
+            (isClientPortal && studentId)
+                ? supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId).or(`id.eq.${studentId},student_id.eq.${studentId},student_id.ilike.${studentId}`)
+                : supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
             // 1: Staff (Skip if portal)
             isClientPortal 
                 ? supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId).limit(5)
@@ -203,8 +205,12 @@ export async function POST(req: Request) {
             isClientPortal
                 ? Promise.resolve({ data: [] })
                 : supabaseAdmin.from('trash').select('*').eq('org_id', targetOrgId),
-            // 11: Events
-            supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId),
+            // 11: Events (Optimized: Only recent and future events for portal)
+            isClientPortal
+                ? supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId)
+                    .gte('date', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // 60 days ago
+                    .lte('date', new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // 120 days future
+                : supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId),
             // 12: Plans
             supabaseAdmin.from('subscription_plans').select('*').eq('org_id', targetOrgId),
             // 13: Products

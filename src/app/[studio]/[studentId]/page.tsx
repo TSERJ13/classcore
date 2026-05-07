@@ -163,7 +163,12 @@ export default function StudentPortalPage() {
                 const targetId = studentId.trim().toLowerCase();
 
                 try {
-                    const cloudData = await fetchFullStudioState(studio, undefined, undefined, true, studentId);
+                    // ⏱️ CLOUD TIMEOUT: Don't block the UI for more than 6 seconds
+                    const cloudPromise = fetchFullStudioState(studio, undefined, undefined, true, studentId);
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 6000));
+                    
+                    const cloudData = await Promise.race([cloudPromise, timeoutPromise]) as any;
+                    
                     if (cloudData) {
                             // 🚀 SCORCHED EARTH v4.2: Ultra-Robust Hydration
                             const studioData = cloudData.studio || {};
@@ -452,16 +457,28 @@ export default function StudentPortalPage() {
 
     if (isLoading || syncing) {
         return (
-            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-8">
                 <div className="relative">
                     <div className="w-20 h-20 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
                     <div className="absolute inset-0 flex items-center justify-center">
                         <Logo className="w-8 h-8 opacity-20" />
                     </div>
                 </div>
-                <div className="space-y-2">
-                    <p className="text-sm font-black tracking-[0.2em] text-indigo-500 animate-pulse uppercase">{t.loading || 'Loading Portal'}</p>
-                    <p className="text-[10px] font-bold text-muted tracking-widest opacity-40 uppercase">Secure Connection Established</p>
+                <div className="space-y-3">
+                    <p className="text-sm font-black tracking-[0.2em] text-indigo-500 animate-pulse uppercase">
+                        {t.loading || 'იტვირთება...'}
+                    </p>
+                    <p className="text-[10px] font-bold text-muted tracking-widest opacity-40 uppercase">
+                        Secure Connection Established
+                    </p>
+                    {/* Taking too long hint - appears via CSS delay if needed, or we just show it if syncing is taking time */}
+                    {syncing && (
+                        <div className="pt-4 animate-in fade-in duration-1000 delay-5000">
+                            <p className="text-[9px] font-medium text-muted/30 italic">
+                                {lang === 'ka' ? 'ჩვეულებრივზე მეტი დრო სჭირდება...' : 'Taking longer than usual...'}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         );
