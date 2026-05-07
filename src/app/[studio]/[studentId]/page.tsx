@@ -114,6 +114,7 @@ export default function StudentPortalPage() {
     const [isSyncingChat, setIsSyncingChat] = useState(false);
     const [selectedChatId, setSelectedChatId] = useState<string>('studio');
     const chatScrollRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedRef = useRef(false);
 
     const [authState, setAuthState] = useState<'welcome' | 'phone' | 'authenticated'>('welcome');
@@ -849,6 +850,15 @@ export default function StudentPortalPage() {
 
                         {/* QR Card */}
                         <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-xl shadow-black/5 transition-all duration-500">
+                            <div className="p-6 sm:p-8 border-b border-border-subtle/50 bg-surface/10">
+                                <div className="flex items-center justify-between gap-4 mb-2">
+                                    <h1 className="text-xl font-black text-primary truncate leading-tight">{studentData?.full_name || t.loading}</h1>
+                                    <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-500/20">{studentData?.status || 'Active'}</div>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted/40 uppercase tracking-tighter">
+                                    <span>ID: {(studentData?.id || studentId).toUpperCase()}</span>
+                                </div>
+                            </div>
                             <button
                                 onClick={() => setIsQrExpanded(!isQrExpanded)}
                                 className="w-full p-6 sm:p-8 flex items-center justify-between hover:bg-surface/50 transition-colors"
@@ -858,11 +868,6 @@ export default function StudentPortalPage() {
                                         <QrCode className="w-6 h-6" />
                                     </div>
                                     <div className="text-left">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <h1 className="text-xl font-black text-primary truncate max-w-[200px] leading-tight">{studentData?.full_name || t.loading}</h1>
-                                            <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-500/20">{studentData?.status || 'Active'}</div>
-                                            <div className="text-[10px] font-bold text-muted/40 ml-auto uppercase tracking-tighter">ID: {(studentData?.id || studentId).toUpperCase()}</div>
-                                        </div>
                                         <h3 className="text-sm font-black text-primary tracking-tight">{t.qrCode || 'QR კოდი'}</h3>
                                         <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{isQrExpanded ? t.hideQr || 'დამალვა' : t.showQr || 'ჩვენება'}</p>
                                     </div>
