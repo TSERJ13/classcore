@@ -696,7 +696,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                 title={t.groupSubscription}
                                 className="h-8 sm:h-9 px-2 sm:px-2.5 flex items-center justify-center gap-1.5 bg-[#6d28d9]/10 text-[#6d28d9] hover:bg-[#6d28d9] hover:text-white border border-[#6d28d9]/20 transition-all rounded-xl shadow-sm active:scale-95"
                             >
-                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={4} />
+                                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
                                 <span className="text-[7px] sm:text-[8px] font-black tracking-tighter uppercase hidden xs:block">{t.groupShort || 'GROUP'}</span>
                             </button>
                             <button
@@ -704,7 +704,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                 title={t.individualSubscription}
                                 className="h-8 sm:h-9 px-2 sm:px-2.5 flex items-center justify-center gap-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white border border-amber-500/20 transition-all rounded-xl shadow-sm active:scale-95"
                             >
-                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={4} />
+                                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
                                 <span className="text-[7px] sm:text-[8px] font-black tracking-tighter uppercase hidden xs:block">{t.individualShort || 'INDIV'}</span>
                             </button>
                         </div>
@@ -1259,26 +1259,6 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
 
                 {/* Footer */}
                 <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md flex-shrink-0 sticky bottom-0 z-10 pb-10 sm:pb-8">
-                    {isEdit && (
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            <button 
-                                type="button"
-                                onClick={() => { setIssueType('group'); setIssueModalOpen(true); }}
-                                className="h-11 rounded-xl bg-[#6d28d9] text-white font-black text-[9px] sm:text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
-                            >
-                                <Plus className="w-4 h-4 stroke-[3]" />
-                                <span>{t.groupSubscription}</span>
-                            </button>
-                            <button 
-                                type="button"
-                                onClick={() => { setIssueType('individual'); setIssueModalOpen(true); }}
-                                className="h-11 rounded-xl bg-amber-500 text-white font-black text-[9px] sm:text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
-                            >
-                                <Plus className="w-4 h-4 stroke-[3]" />
-                                <span>{t.individualSubscription}</span>
-                            </button>
-                        </div>
-                    )}
                     <div className="flex gap-3">
                         <button 
                             onClick={onClose}
