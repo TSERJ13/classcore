@@ -98,6 +98,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [teacherId, setTeacherId] = useState('');
     const [selectedColor, setSelectedColor] = useState('#6366f1');
     const [selectedHallId, setSelectedHallId] = useState('');
+    const [couplePartnerName, setCouplePartnerName] = useState('');
     const [slots, setSlots] = useState<Array<{ dayOfWeek: number, startTime: string, endTime: string }>>([]);
 
     const halls = useMemo(() => getHalls(), []);
@@ -345,6 +346,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             teacher_id: teacherId || undefined,
             teacher_comment: commentParts.join(' · '),
             schedule_slots: plan.type === 'individual' ? slots : undefined,
+            couple_partner_name: selectedType === 'individual' ? couplePartnerName : undefined,
         });
 
         // 📅 Create Calendar Events for Individual Slots
@@ -597,6 +599,19 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                 </span>
                                                 <span className="text-xs text-muted font-medium select-none truncate">{t.chooseAnotherColor}</span>
                                             </label>
+                                        </div>
+
+                                        <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                                <User className="w-3 h-3" /> {l('მეწყვილე / პარტნიორი', 'Партнер / Второй чел.', 'Partner / Second Person')}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={couplePartnerName}
+                                                onChange={e => setCouplePartnerName(e.target.value)}
+                                                placeholder={l('მაგ: ნინო ბერიძე', 'Напр: Нино Беридзе', 'e.g. Nino Beridze')}
+                                                className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all shadow-sm"
+                                            />
                                         </div>
 
                                         {/* Group-style Schedule Builder */}

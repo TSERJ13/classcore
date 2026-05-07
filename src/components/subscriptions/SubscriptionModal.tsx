@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, CreditCard, Calendar, Save, Trash2, Pause, Check } from 'lucide-react';
+import { X, CreditCard, Calendar, Save, Trash2, Pause, Check, UserRound } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useUser } from '@/hooks/useUser';
@@ -22,7 +22,8 @@ interface SubscriptionModalProps {
 }
 
 export function SubscriptionModal({ open, subscription, onClose, onSave, onDelete, centered = false }: SubscriptionModalProps) {
-    const { t } = useT();
+    const { t, lang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const { user, profile } = useUser();
     const confirm = useConfirm();
     const { settings } = useStudio();
@@ -170,6 +171,22 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                             placeholder={t.commentPlaceholder}
                         />
                     </div>
+
+                    {/* Partner Field */}
+                    {form.plan_type === 'individual' && (
+                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <label className="text-[10px] font-black text-muted tracking-widest px-1 uppercase flex items-center gap-2">
+                                <UserRound className="w-3.5 h-3.5" /> {l('მეწყვილე / პარტნიორი', 'Партнер', 'Partner / Couple member')}
+                            </label>
+                            <input
+                                type="text"
+                                value={form.couple_partner_name || ''}
+                                onChange={(e) => setForm({ ...form, couple_partner_name: e.target.value })}
+                                className="w-full bg-surface border border-border-subtle rounded-2xl px-4 py-3 text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                placeholder="..."
+                            />
+                        </div>
+                    )}
 
                     {/* Pause Subscription Section */}
                     {form.status === 'active' && (

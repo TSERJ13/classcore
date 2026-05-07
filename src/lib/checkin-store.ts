@@ -290,7 +290,7 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
             try {
                 const records = JSON.parse(localStorage.getItem(key) ?? '[]') as CheckinRecord[];
                 records.forEach(r => {
-                    if (r.studentId === studentId) {
+                    if ((r.studentId || '').toLowerCase() === (studentId || '').toLowerCase()) {
                         history.push(r);
                         if (r.id) seenIds.add(r.id);
                     }

@@ -698,18 +698,18 @@ export default function StudentPortalPage() {
                                 <div key={sub.id} className={cn(
                                     "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5 transition-all duration-300",
                                     isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle",
-                                    isIndividual && !isExpiring && "border-violet-500/20 bg-violet-500/[0.02]"
+                                    isIndividual && !isExpiring && "border-orange-500/20 bg-orange-500/[0.02]"
                                 )}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className={cn(
                                                 "w-10 h-10 rounded-2xl flex items-center justify-center border transition-colors",
-                                                isIndividual ? "bg-violet-500/10 text-violet-500 border-violet-500/20" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20"
+                                                isIndividual ? "bg-orange-500/10 text-orange-600 border-orange-500/20" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20"
                                             )}>
                                                 <CreditCard className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <h2 className={cn("text-base font-black tracking-tight transition-colors", isIndividual ? "text-violet-600" : "text-primary")}>
+                                                <h2 className={cn("text-base font-black tracking-tight transition-colors", isIndividual ? "text-orange-600" : "text-primary")}>
                                                     {subLabel}
                                                 </h2>
                                                 <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{sub.plan}</p>
@@ -718,7 +718,7 @@ export default function StudentPortalPage() {
                                         <span className={cn(
                                             "px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider", 
                                             sub.status === 'active' 
-                                                ? (isIndividual ? "bg-violet-500 text-white shadow-lg shadow-violet-500/20" : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20") 
+                                                ? (isIndividual ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20") 
                                                 : "bg-rose-500 text-white shadow-lg shadow-rose-500/20"
                                         )}>
                                             {sub.status === 'active' ? t.active : t.expired}
@@ -730,7 +730,7 @@ export default function StudentPortalPage() {
                                             <div className="flex items-center justify-between text-[11px] font-black text-primary tracking-widest mb-1 px-1">
                                                 <span>{t.remaining}</span>
                                                 <div className="flex items-baseline gap-1">
-                                                    <span className={cn("text-xl tabular-nums", isIndividual ? "text-violet-500" : "text-indigo-500")}>{remaining}</span>
+                                                    <span className={cn("text-xl tabular-nums", isIndividual ? "text-orange-600" : "text-indigo-500")}>{remaining}</span>
                                                     <span className="opacity-40">/ {sub.sessions_total}</span>
                                                 </div>
                                             </div>
@@ -738,21 +738,32 @@ export default function StudentPortalPage() {
                                                 <div
                                                     className={cn(
                                                         "h-full rounded-full transition-all duration-1000 ease-out shadow-sm", 
-                                                        remaining <= 2 ? "bg-rose-500" : (isIndividual ? "bg-gradient-to-r from-violet-500 to-violet-600" : "bg-gradient-to-r from-indigo-500 to-indigo-600")
+                                                        remaining <= 2 ? "bg-rose-500" : (isIndividual ? "bg-gradient-to-r from-orange-400 to-orange-600" : "bg-gradient-to-r from-indigo-500 to-indigo-600")
                                                     )}
                                                     style={{ width: `${(remaining / sub.sessions_total) * 100}%` }}
                                                 />
                                             </div>
                                             <div className="flex justify-between px-2">
                                                 <div className="flex items-center gap-2">
-                                                    <div className={cn("w-1.5 h-1.5 rounded-full", isIndividual ? "bg-violet-500" : "bg-indigo-500")} />
+                                                    <div className={cn("w-1.5 h-1.5 rounded-full", isIndividual ? "bg-orange-500" : "bg-indigo-500")} />
                                                     <span className="text-[9px] font-bold text-muted tracking-widest opacity-60">{t.used} {sub.sessions_used}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] font-bold text-muted">
-                                                    <Calendar className={cn("w-3.5 h-3.5 opacity-40", isIndividual ? "text-violet-500" : "text-indigo-500")} />
+                                                    <Calendar className={cn("w-3.5 h-3.5 opacity-40", isIndividual ? "text-orange-500" : "text-indigo-500")} />
                                                     <span>{t.expiryDate}: <span className="text-primary font-black">{sub.expires_at}</span></span>
                                                 </div>
                                             </div>
+                                        </div>
+                                    )}
+                                    
+                                    {sub.couple_partner_name && (
+                                        <div className="pt-4 border-t border-border-subtle/50 flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-600">
+                                                <UserIcon className="w-3 h-3" />
+                                            </div>
+                                            <p className="text-[10px] font-bold text-muted tracking-wide">
+                                                {l('პარტნიორი:', 'Партнер:', 'Partner:')} <span className="text-primary font-black">{sub.couple_partner_name}</span>
+                                            </p>
                                         </div>
                                     )}
                                 </div>
@@ -786,7 +797,11 @@ export default function StudentPortalPage() {
                                         const checkinDates = new Set(checkins.map(c => c.date));
                                         
                                         const enrolledGroups = getGroups().filter(g => studentData?.enrolled_group_ids?.includes(g.id));
-                                        const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
+                                        const myEvents = getEvents().filter(e => {
+                                            const sIdMatch = (e.student_id || '').toLowerCase() === (studentId || '').toLowerCase();
+                                            const studentIsInGroup = studentData?.enrolled_group_ids?.some(gid => gid.toLowerCase() === (e.group_id || '').toLowerCase());
+                                            return sIdMatch || studentIsInGroup;
+                                        });
                                         
                                         // Find the first subscription date
                                         const allSubs = getStudentSubscriptions(studentId);
@@ -1086,7 +1101,7 @@ export default function StudentPortalPage() {
                                                             )}
                                                             <div className={cn("group relative bg-surface border border-border-subtle hover:border-indigo-500/30 rounded-3xl p-4 flex gap-4 transition-all hover:shadow-lg hover:shadow-indigo-500/5 overflow-hidden", ev.date < todayStr && "opacity-40 grayscale-[0.5]")}>
                                                                 {ev.type === 'individual' && (
-                                                                    <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl z-10 uppercase">{t.individual}</div>
+                                                                    <div className="absolute top-0 right-0 bg-orange-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl z-10 uppercase">{l('ინდივიდუალური გაკვეთილი', 'Индив. занятие', 'Individual Lesson')}</div>
                                                                 )}
                                                                 <div className="flex-shrink-0 w-14 flex flex-col items-center justify-center bg-indigo-50/50 rounded-2xl py-2 border border-indigo-100/50 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
                                                                     <span className="text-[8px] font-black tracking-widest opacity-60 group-hover:opacity-80 uppercase">{monthName}</span>
