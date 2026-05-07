@@ -335,6 +335,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             amount_paid: paidNow,
             teacher_id: teacherId || undefined,
             teacher_comment: commentParts.join(' · '),
+            schedule_slots: plan.type === 'individual' ? slots : undefined,
         });
 
         // 📅 Create Calendar Events for Individual Slots (Limited by sessions_total)

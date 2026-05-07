@@ -1599,6 +1599,57 @@ export default function AttendancePage() {
                                                             style={{ boxShadow: `0 8px 20px -4px #f59e0b40` }}>
                                                             <Plus className="w-4 h-4 stroke-[3]" />
                                                             <span>{t.individualSubscription}</span>
+                                                            {sub.plan_type === 'individual' && sub.schedule_slots && (
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        import('@/lib/event-store').then(mod => {
+                                                                            const sessionsTotal = sub.sessions_total;
+                                                                            const maxLessons = sessionsTotal || 999;
+                                                                            let lessonsCreated = 0;
+                                                                            let checkDate = new Date(sub.purchased_at + 'T00:00:00');
+                                                                            const endD = new Date(sub.expires_at + 'T00:00:00');
+                                                                            const newEvents: any[] = [];
+                                                                            let safetyLimit = 365;
+
+                                                                            while ((sessionsTotal ? lessonsCreated < maxLessons : checkDate <= endD) && safetyLimit > 0) {
+                                                                                const jsDay = checkDate.getDay();
+                                                                                const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+                                                                                const slot = (sub as any).schedule_slots.find((s: any) => s.dayOfWeek === dayOfWeek);
+                                                                                if (slot) {
+                                                                                    newEvents.push({
+                                                                                        id: `ind-${sub.student_id}-${Date.now()}-${lessonsCreated}`,
+                                                                                        org_id: settings.studioSlug,
+                                                                                        title: selStudent.full_name,
+                                                                                        type: 'individual',
+                                                                                        hall_id: sub.group_id || 'main',
+                                                                                        teacher_id: sub.teacher_id,
+                                                                                        student_id: sub.student_id,
+                                                                                        date: getLocalISODate(checkDate),
+                                                                                        start_time: slot.startTime,
+                                                                                        end_time: slot.endTime,
+                                                                                        color: sub.is_default ? '#f59e0b' : '#6d28d9',
+                                                                                        recurring: 'none',
+                                                                                        reminder_30m: false,
+                                                                                        created_at: new Date().toISOString()
+                                                                                    });
+                                                                                    lessonsCreated++;
+                                                                                }
+                                                                                checkDate.setDate(checkDate.getDate() + 1);
+                                                                                safetyLimit--;
+                                                                            }
+                                                                            if (newEvents.length > 0) {
+                                                                                const current = mod.getEvents();
+                                                                                mod.saveEvents([...current, ...newEvents]);
+                                                                                alert('Calendar updated!');
+                                                                            }
+                                                                        });
+                                                                    }}
+                                                                    className="ml-auto p-1 bg-white/10 hover:bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter"
+                                                                >
+                                                                    Sync Cal
+                                                                </button>
+                                                            )}
                                                         </button>
                                                     </div>
                                                 </div>
