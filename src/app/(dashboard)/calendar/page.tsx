@@ -264,7 +264,7 @@ function GridLines({ onClick }: { onClick: (e: React.MouseEvent<HTMLDivElement>)
 
 /* ─── EventChip component ────────────────────────────────────── */
 
-function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, groups = [], compact = false, style, className, canEdit }: {
+function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, groups = [], students = [], compact = false, style, className, canEdit }: {
     ev: CalendarEvent;
     onClick: () => void;
     onMouseDown?: (e: React.MouseEvent) => void;
@@ -272,6 +272,7 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
     teachers: any[];
     halls: any[];
     groups?: Group[];
+    students?: Student[];
     compact?: boolean;
     style?: React.CSSProperties;
     className?: string;
@@ -281,6 +282,17 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
     const tid = ev.teacher_id || (ev as any).teacherId;
     const teacher = teachers.find(t => t.id === tid);
     const group = ev.group_id ? groups.find(g => g.id === ev.group_id) : null;
+    const student = ev.student_id ? students.find(s => s.id === ev.student_id) : null;
+
+    // Use student name as title for individual lessons
+    const displayTitle = (ev.type === 'individual' && student) 
+        ? (student.full_name || `${student.first_name} ${student.last_name}`)
+        : ev.title;
+
+    // Use student photo for individual lessons
+    const photoUrl = (ev.type === 'individual' && student?.photo_url) 
+        ? student.photo_url 
+        : teacher?.photo_url;
 
     // Highest priority: Custom Event Color -> Group Color -> Hall Color
     const color = ev.color || group?.color || (hall?.color ?? '#6366f1');
@@ -308,7 +320,7 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
             <div className="relative z-10 flex h-full w-full items-center gap-1.5 overflow-hidden px-2 py-1">
                 <div className="flex flex-col flex-1 min-w-0 h-full justify-center overflow-hidden">
                     <span className={cn("truncate font-black leading-tight text-white", compact ? "text-[8px]" : "text-[11px] sm:text-[12px]")}>
-                        {ev.title}
+                        {displayTitle}
                     </span>
                     {teacher && !compact && (
                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -325,16 +337,16 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
                     )}
                 </div>
 
-                {teacher && (
+                {(teacher || (ev.type === 'individual' && student)) && (
                     <div className={cn(
                         "flex-shrink-0 overflow-hidden rounded-full border border-white/20 shadow-sm bg-white/30 transition-all",
                         compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
                     )}>
-                        {teacher.photo_url ? (
-                            <img src={teacher.photo_url} alt="" className="w-full h-full object-cover" />
+                        {photoUrl ? (
+                            <img src={photoUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                                <UserCheck className={cn("opacity-60", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} style={{ color: color }} />
+                                <User className={cn("opacity-60 text-white", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} />
                             </div>
                         )}
                     </div>
@@ -1324,6 +1336,7 @@ export default function CalendarPage() {
     const [teachers, setTeachers] = useState<any[]>([]);
     const [halls, setHalls] = useState<{ id: string; name: string; color: string }[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
+    const [students, setStudents] = useState<Student[]>([]);
     const [hasMounted, setHasMounted] = useState(false);
 
     useEffect(() => {
@@ -1332,6 +1345,7 @@ export default function CalendarPage() {
             setTeachers(getTeachers());
             setHalls(getHalls().filter(h => h.is_active !== false));
             setGroups(getGroups());
+            setStudents(getStudents());
         };
 
         setHasMounted(true);
@@ -2233,6 +2247,7 @@ export default function CalendarPage() {
                                                     teachers={teachers}
                                                     halls={halls}
                                                     groups={groups}
+                                                    students={students}
                                                     className="h-full border-white/10"
                                                 />
                                             </div>
@@ -2335,6 +2350,7 @@ export default function CalendarPage() {
                                                             teachers={teachers}
                                                             halls={halls}
                                                             groups={groups}
+                                                            students={students}
                                                             className="h-full border-white/20"
                                                         />
                                                     </div>
@@ -2391,6 +2407,7 @@ export default function CalendarPage() {
                                                 teachers={teachers}
                                                 halls={halls}
                                                 groups={groups}
+                                                students={students}
                                                 compact={true}
                                                 canEdit={canEdit}
                                             />
@@ -2489,6 +2506,7 @@ export default function CalendarPage() {
                         teachers={teachers}
                         halls={halls}
                         groups={groups}
+                        students={students}
                         className="h-full border-2 border-[#6d28d9] animate-pulse"
                     />
                 </div>

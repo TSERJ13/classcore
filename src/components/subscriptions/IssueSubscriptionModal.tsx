@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Plus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check } from 'lucide-react';
+import { Save, Plus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette, Trash2, LayoutGrid } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import type { SubscriptionInfo } from '@/lib/subscription-store';
@@ -87,7 +87,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [unlimited, setUnlimited] = useState(false);
     const [neverExpires, setNeverExpires] = useState(false);
     const [teacherId, setTeacherId] = useState('');
-    const [slots, setSlots] = useState<Array<{ day: string, startTime: string, endTime: string, hallId: string }>>([]);
+    const [selectedColor, setSelectedColor] = useState('#6366f1');
+    const [slots, setSlots] = useState<Array<{ dayOfWeek: number, startTime: string, endTime: string, hallId: string }>>([]);
 
     const halls = useMemo(() => getHalls(), []);
 
@@ -131,6 +132,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setUseBalance(false);
             setTeacherId('');
             setPlanId(''); 
+            setSelectedColor('#6366f1');
             setSlots([]);
         }
     }, [open, initialStudentId]);
@@ -324,36 +326,43 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             teacher_comment: commentParts.join(' · '),
         });
 
-        // 📅 Create Calendar Events for Individual Slots
+        // 📅 Create Calendar Events for Individual Slots (Limited by sessions_total)
         if (selectedType === 'individual' && slots.length > 0) {
-            slots.forEach((slot, i) => {
-                const today = new Date();
-                const currentDay = today.getDay(); // 0-6
-                const targetDay = parseInt(slot.day);
-                let dayOffset = targetDay - currentDay;
-                if (dayOffset < 0) dayOffset += 7;
+            let lessonsCreated = 0;
+            const maxLessons = sessionsTotal; 
+            let checkDate = new Date(startDate + 'T00:00:00'); // Ensure local date parsing
+            
+            // Safety limit to avoid infinite loops (1 year max search)
+            let safetyLimit = 365; 
 
-                const targetDate = new Date(today);
-                targetDate.setDate(today.getDate() + dayOffset);
-                const dateStr = getLocalISODate(targetDate);
-
-                addEvent({
-                    id: `ind-${studentId}-${Date.now()}-${i}`,
-                    org_id: settings.studioSlug,
-                    title: `${selectedStudent?.full_name || 'Student'} - ${plan.name}`,
-                    type: 'individual',
-                    hall_id: slot.hallId || halls[0]?.id || 'main',
-                    teacher_id: teacherId || undefined,
-                    student_id: studentId,
-                    date: dateStr,
-                    start_time: slot.startTime,
-                    end_time: slot.endTime,
-                    color: '#6366f1',
-                    recurring: 'weekly',
-                    reminder_30m: false,
-                    created_at: new Date().toISOString()
-                });
-            });
+            while (lessonsCreated < maxLessons && safetyLimit > 0) {
+                const jsDay = checkDate.getDay();
+                // Map JS Day (0-Sun, 1-Mon) to Slot Day (0-Mon, 6-Sun)
+                const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; 
+                
+                const slot = slots.find(s => s.dayOfWeek === dayOfWeek);
+                if (slot) {
+                    addEvent({
+                        id: `ind-${studentId}-${Date.now()}-${lessonsCreated}`,
+                        org_id: settings.studioSlug,
+                        title: `${selectedStudent?.full_name || 'Student'}`,
+                        type: 'individual',
+                        hall_id: slot.hallId || halls[0]?.id || 'main',
+                        teacher_id: teacherId || undefined,
+                        student_id: studentId,
+                        date: getLocalISODate(checkDate),
+                        start_time: slot.startTime,
+                        end_time: slot.endTime,
+                        color: selectedColor,
+                        recurring: 'none',
+                        reminder_30m: false,
+                        created_at: new Date().toISOString()
+                    });
+                    lessonsCreated++;
+                }
+                checkDate.setDate(checkDate.getDate() + 1);
+                safetyLimit--;
+            }
         }
 
         // Log to history
@@ -547,57 +556,101 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 </div>
 
                                 {selectedType === 'individual' && (
-                                    <div className="space-y-4 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-[9px] font-black text-indigo-500 tracking-widest uppercase">{l('ინდივიდუალური განრიგი', 'Индивидуальный график', 'Individual Schedule')}</label>
-                                            <button 
-                                                onClick={() => setSlots([...slots, { day: '1', startTime: '12:00', endTime: '13:00', hallId: halls[0]?.id || '' }])}
-                                                className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all active:scale-95"
-                                            >
-                                                <Plus className="w-3.5 h-3.5" />
-                                            </button>
+                                    <div className="space-y-5 animate-in fade-in slide-in-from-top-2">
+                                        {/* Color Selector */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase flex items-center gap-2">
+                                                <Palette className="w-3 h-3" /> {t.groupColor}
+                                            </label>
+                                            <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-2xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
+                                                <span className="w-8 h-8 rounded-xl border border-black/10 flex-shrink-0 overflow-hidden relative">
+                                                    <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
+                                                        className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
+                                                    <div className="w-full h-full pointer-events-none" style={{ backgroundColor: selectedColor }} />
+                                                </span>
+                                                <span className="text-[10px] text-muted font-bold select-none">{t.chooseAnotherColor}</span>
+                                            </label>
                                         </div>
-                                        {slots.length === 0 && (
-                                            <p className="text-[10px] text-muted font-medium text-center py-2 opacity-50 italic">{l('გრაფიკი არჩეული არ არის', 'График არ არჩეული', 'No schedule selected')}</p>
-                                        )}
-                                        <div className="space-y-2">
-                                            {slots.map((slot, idx) => (
-                                                <div key={idx} className="flex gap-2 items-center">
-                                                    <select 
-                                                        value={slot.day} 
-                                                        onChange={e => {
-                                                            const newSlots = [...slots];
-                                                            newSlots[idx].day = e.target.value;
-                                                            setSlots(newSlots);
-                                                        }}
-                                                        className="flex-1 bg-white border border-border-subtle rounded-xl px-2 py-2 text-[11px] font-bold outline-none"
-                                                    >
-                                                        <option value="1">{t.shortMon}</option>
-                                                        <option value="2">{t.shortTue}</option>
-                                                        <option value="3">{t.shortWed}</option>
-                                                        <option value="4">{t.shortThu}</option>
-                                                        <option value="5">{t.shortFri}</option>
-                                                        <option value="6">{t.shortSat}</option>
-                                                        <option value="0">{t.shortSun}</option>
-                                                    </select>
-                                                    <input 
-                                                        type="time" 
-                                                        value={slot.startTime} 
-                                                        onChange={e => {
-                                                            const newSlots = [...slots];
-                                                            newSlots[idx].startTime = e.target.value;
-                                                            setSlots(newSlots);
-                                                        }}
-                                                        className="w-24 bg-white border border-border-subtle rounded-xl px-2 py-2 text-[11px] font-bold outline-none"
-                                                    />
-                                                    <button 
-                                                        onClick={() => setSlots(slots.filter((_, i) => i !== idx))} 
-                                                        className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            ))}
+
+                                        {/* Group-style Schedule Builder */}
+                                        <div className="space-y-3 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[9px] font-black text-indigo-500 tracking-widest uppercase flex items-center gap-2">
+                                                    <Calendar className="w-3.5 h-3.5" /> {l('ინდივიდუალური განრიგი', 'Индивидуальный график', 'Individual Schedule')}
+                                                </label>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-1">
+                                                {[0, 1, 2, 3, 4, 5, 6].map(d => {
+                                                    const isActive = slots.some(s => s.dayOfWeek === d);
+                                                    const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                                    return (
+                                                        <button key={d} 
+                                                            onClick={() => {
+                                                                setSlots(prev => {
+                                                                    const existing = prev.find(s => s.dayOfWeek === d);
+                                                                    if (existing) return prev.filter(s => s.dayOfWeek !== d);
+                                                                    const base = prev[0] || { startTime: '12:00', endTime: '13:00' };
+                                                                    return [...prev, { dayOfWeek: d, startTime: base.startTime, endTime: base.endTime, hallId: halls[0]?.id || 'main' }];
+                                                                });
+                                                            }}
+                                                            className={cn(
+                                                                "flex-1 h-8 rounded-lg text-[10px] font-black transition-all border shrink-0",
+                                                                isActive ? "text-white" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                                            )}
+                                                            style={isActive ? { backgroundColor: selectedColor, borderColor: selectedColor } : {}}>
+                                                            {DAY_LABELS[d]}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((slot) => {
+                                                    const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                                    return (
+                                                        <div key={slot.dayOfWeek} className="flex flex-col gap-2 bg-card/30 p-2.5 rounded-xl border border-indigo-500/10">
+                                                            <div className="flex items-center justify-between px-1">
+                                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{DAY_LABELS[slot.dayOfWeek]}</span>
+                                                                <button onClick={() => setSlots(slots.filter(s => s.dayOfWeek !== slot.dayOfWeek))} className="text-red-400 hover:text-red-500 transition-colors">
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1 flex items-center gap-1.5 bg-surface/50 rounded-lg px-2 py-1 border border-indigo-500/5">
+                                                                    <Clock className="w-3 h-3 text-indigo-400" />
+                                                                    <input 
+                                                                        type="time" 
+                                                                        value={slot.startTime} 
+                                                                        onChange={e => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, startTime: e.target.value } : s))}
+                                                                        className="bg-transparent border-none text-[10px] font-bold text-primary outline-none w-full"
+                                                                    />
+                                                                    <span className="text-muted/20 font-black text-[10px]">-</span>
+                                                                    <input 
+                                                                        type="time" 
+                                                                        value={slot.endTime} 
+                                                                        onChange={e => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, endTime: e.target.value } : s))}
+                                                                        className="bg-transparent border-none text-[10px] font-bold text-primary outline-none w-full"
+                                                                    />
+                                                                </div>
+                                                                <select 
+                                                                    value={slot.hallId} 
+                                                                    onChange={e => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, hallId: e.target.value } : s))}
+                                                                    className="bg-surface/50 border border-indigo-500/5 rounded-lg px-2 py-1 text-[9px] font-bold text-muted outline-none"
+                                                                >
+                                                                    {halls.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {slots.length === 0 && (
+                                                <p className="text-[10px] text-muted opacity-40 italic text-center py-2">
+                                                    {l('აირჩიეთ კვირის დღეები', 'Выберите дни недели', 'Select days of week')}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 )}
