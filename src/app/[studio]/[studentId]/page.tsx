@@ -145,7 +145,17 @@ export default function StudentPortalPage() {
                 if (!studentId || !studio) return;
 
                 setSyncing(true);
-                const unwrap = (i: any) => (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
+                const unwrap = (i: any) => {
+                    let res = (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
+                    // 🕒 Time Normalization: Cloud storage uses ISO strings, UI expects HH:mm
+                    if (typeof res.start_time === 'string' && res.start_time.includes('T')) {
+                        res.start_time = res.start_time.split('T')[1].substring(0, 5);
+                    }
+                    if (typeof res.end_time === 'string' && res.end_time.includes('T')) {
+                        res.end_time = res.end_time.split('T')[1].substring(0, 5);
+                    }
+                    return res;
+                };
                 const targetId = studentId.trim().toLowerCase();
 
                 try {
@@ -168,7 +178,7 @@ export default function StudentPortalPage() {
                                 cc_halls: (cloudData.halls || settingsBlob?.halls || []).map(unwrap),
                                 cc_teachers: (cloudData.staff || settingsBlob?.staff || []).map(unwrap),
                                 cc_attendance_archive: (cloudData.attendance || settingsBlob?.attendance || []).map(unwrap),
-                                cc_subscription_plans: (cloudData.plans || settingsBlob?.subscription_plans || []).map(unwrap),
+                                cc_subscription_plans: (cloudData.subscription_plans || settingsBlob?.subscription_plans || []).map(unwrap),
                                 cc_student_subscriptions: [
                                     ...(cloudData.subscriptions || []),
                                     ...(settingsBlob?.subscriptions || [])
@@ -178,7 +188,7 @@ export default function StudentPortalPage() {
                                     return acc;
                                 }, {}),
                                 cc_shop_products: (cloudData.products || settingsBlob?.shop_products || []).map(unwrap),
-                                cc_calendar_events: (cloudData.events || settingsBlob?.calendar_events || []).map(unwrap),
+                                cc_calendar_events: (cloudData.calendar_events || settingsBlob?.calendar_events || []).map(unwrap),
                                 [`cc_studio_settings_${studio}`]: settingsBlob
                             };
 
