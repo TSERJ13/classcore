@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Plus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette, Trash2, LayoutGrid } from 'lucide-react';
+import { Save, Plus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette, Trash2, LayoutGrid, DoorOpen } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import type { SubscriptionInfo } from '@/lib/subscription-store';
@@ -15,6 +15,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { getHalls } from '@/lib/hall-store';
 import { addEvent } from '@/lib/event-store';
+import { generateTimeOptions } from '@/lib/date-utils';
 interface IssueSubscriptionModalProps {
     open: boolean;
     onClose: () => void;
@@ -88,7 +89,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [neverExpires, setNeverExpires] = useState(false);
     const [teacherId, setTeacherId] = useState('');
     const [selectedColor, setSelectedColor] = useState('#6366f1');
-    const [slots, setSlots] = useState<Array<{ dayOfWeek: number, startTime: string, endTime: string, hallId: string }>>([]);
+    const [selectedHallId, setSelectedHallId] = useState('');
+    const [slots, setSlots] = useState<Array<{ dayOfWeek: number, startTime: string, endTime: string }>>([]);
 
     const halls = useMemo(() => getHalls(), []);
 
@@ -133,6 +135,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setTeacherId('');
             setPlanId(''); 
             setSelectedColor('#6366f1');
+            setSelectedHallId(getHalls()[0]?.id || 'main');
             setSlots([]);
         }
     }, [open, initialStudentId]);
@@ -347,7 +350,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                         org_id: settings.studioSlug,
                         title: `${selectedStudent?.full_name || 'Student'}`,
                         type: 'individual',
-                        hall_id: slot.hallId || halls[0]?.id || 'main',
+                        hall_id: selectedHallId || 'main',
                         teacher_id: teacherId || undefined,
                         student_id: studentId,
                         date: getLocalISODate(checkDate),
@@ -559,98 +562,117 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <div className="space-y-5 animate-in fade-in slide-in-from-top-2">
                                         {/* Color Selector */}
                                         <div className="space-y-1.5">
-                                            <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase flex items-center gap-2">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
                                                 <Palette className="w-3 h-3" /> {t.groupColor}
                                             </label>
-                                            <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-2xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
-                                                <span className="w-8 h-8 rounded-xl border border-black/10 flex-shrink-0 overflow-hidden relative">
+                                            <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
+                                                <span className="w-8 h-8 rounded-lg border border-black/10 flex-shrink-0 overflow-hidden relative">
                                                     <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
                                                         className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
                                                     <div className="w-full h-full pointer-events-none" style={{ backgroundColor: selectedColor }} />
                                                 </span>
-                                                <span className="text-[10px] text-muted font-bold select-none">{t.chooseAnotherColor}</span>
+                                                <span className="text-xs text-muted font-medium select-none truncate">{t.chooseAnotherColor}</span>
                                             </label>
                                         </div>
 
                                         {/* Group-style Schedule Builder */}
-                                        <div className="space-y-3 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+                                        <div className="space-y-4">
                                             <div className="flex items-center justify-between">
-                                                <label className="text-[9px] font-black text-indigo-500 tracking-widest uppercase flex items-center gap-2">
-                                                    <Calendar className="w-3.5 h-3.5" /> {l('ინდივიდუალური განრიგი', 'Индивидуальный график', 'Individual Schedule')}
+                                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                                    <Calendar className="w-3.5 h-3.5" /> {t.schedule}
                                                 </label>
                                             </div>
 
-                                            <div className="flex items-center justify-between gap-1">
-                                                {[0, 1, 2, 3, 4, 5, 6].map(d => {
-                                                    const isActive = slots.some(s => s.dayOfWeek === d);
-                                                    const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                                    return (
-                                                        <button key={d} 
-                                                            onClick={() => {
-                                                                setSlots(prev => {
-                                                                    const existing = prev.find(s => s.dayOfWeek === d);
-                                                                    if (existing) return prev.filter(s => s.dayOfWeek !== d);
-                                                                    const base = prev[0] || { startTime: '12:00', endTime: '13:00' };
-                                                                    return [...prev, { dayOfWeek: d, startTime: base.startTime, endTime: base.endTime, hallId: halls[0]?.id || 'main' }];
-                                                                });
-                                                            }}
-                                                            className={cn(
-                                                                "flex-1 h-8 rounded-lg text-[10px] font-black transition-all border shrink-0",
-                                                                isActive ? "text-white" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
-                                                            )}
-                                                            style={isActive ? { backgroundColor: selectedColor, borderColor: selectedColor } : {}}>
-                                                            {DAY_LABELS[d]}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                                            <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
+                                                <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">{t.selectDaysAndTimes}</label>
+                                                <div className="flex items-center justify-between gap-1">
+                                                    {[0, 1, 2, 3, 4, 5, 6].map(d => {
+                                                        const isActive = slots.some(s => s.dayOfWeek === d);
+                                                        const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вს'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                                        return (
+                                                            <button key={d} 
+                                                                onClick={() => {
+                                                                    setSlots(prev => {
+                                                                        const existing = prev.find(s => s.dayOfWeek === d);
+                                                                        if (existing) return prev.filter(s => s.dayOfWeek !== d);
+                                                                        const base = prev[0] || { startTime: '13:00', endTime: '14:00' };
+                                                                        return [...prev, { dayOfWeek: d, startTime: base.startTime, endTime: base.endTime }];
+                                                                    });
+                                                                }}
+                                                                className={cn(
+                                                                    "flex-1 h-9 rounded-lg text-[10px] font-black transition-all border shrink-0",
+                                                                    isActive ? "text-white" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                                                )}
+                                                                style={isActive ? { backgroundColor: selectedColor, borderColor: selectedColor } : {}}>
+                                                                {DAY_LABELS[d]}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
 
-                                            <div className="space-y-2">
-                                                {slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((slot) => {
-                                                    const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                                    return (
-                                                        <div key={slot.dayOfWeek} className="flex flex-col gap-2 bg-card/30 p-2.5 rounded-xl border border-indigo-500/10">
-                                                            <div className="flex items-center justify-between px-1">
-                                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{DAY_LABELS[slot.dayOfWeek]}</span>
-                                                                <button onClick={() => setSlots(slots.filter(s => s.dayOfWeek !== slot.dayOfWeek))} className="text-red-400 hover:text-red-500 transition-colors">
-                                                                    <Trash2 className="w-3 h-3" />
-                                                                </button>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex-1 flex items-center gap-1.5 bg-surface/50 rounded-lg px-2 py-1 border border-indigo-500/5">
-                                                                    <Clock className="w-3 h-3 text-indigo-400" />
-                                                                    <input 
-                                                                        type="time" 
-                                                                        value={slot.startTime} 
-                                                                        onChange={e => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, startTime: e.target.value } : s))}
-                                                                        className="bg-transparent border-none text-[10px] font-bold text-primary outline-none w-full"
+                                                <div className="space-y-2">
+                                                    {slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((slot) => {
+                                                        const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вს'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                                        const timeOptions = generateTimeOptions(15);
+                                                        return (
+                                                            <div key={slot.dayOfWeek} className="flex flex-row items-center gap-2 bg-card/30 p-2 rounded-xl border border-border-subtle/20">
+                                                                <span className="text-[10px] font-black text-primary w-12 pl-1 truncate">{DAY_LABELS[slot.dayOfWeek]}</span>
+                                                                <div className="flex-1 flex items-center gap-1.5">
+                                                                    <SearchSelect 
+                                                                        options={timeOptions}
+                                                                        value={slot.startTime}
+                                                                        allowCustom
+                                                                        onChange={val => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, startTime: val } : s))}
+                                                                        className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
                                                                     />
                                                                     <span className="text-muted/20 font-black text-[10px]">-</span>
-                                                                    <input 
-                                                                        type="time" 
-                                                                        value={slot.endTime} 
-                                                                        onChange={e => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, endTime: e.target.value } : s))}
-                                                                        className="bg-transparent border-none text-[10px] font-bold text-primary outline-none w-full"
+                                                                    <SearchSelect 
+                                                                        options={timeOptions}
+                                                                        value={slot.endTime}
+                                                                        allowCustom
+                                                                        onChange={val => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, endTime: val } : s))}
+                                                                        className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
                                                                     />
                                                                 </div>
-                                                                <select 
-                                                                    value={slot.hallId} 
-                                                                    onChange={e => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, hallId: e.target.value } : s))}
-                                                                    className="bg-surface/50 border border-indigo-500/5 rounded-lg px-2 py-1 text-[9px] font-bold text-muted outline-none"
-                                                                >
-                                                                    {halls.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
-                                                                </select>
+                                                                <button onClick={() => setSlots(slots.filter(s => s.dayOfWeek !== slot.dayOfWeek))} className="p-1.5 text-red-400 hover:text-red-500 transition-colors">
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {slots.length === 0 && (
+                                                    <p className="text-xs text-muted opacity-40 italic text-center py-2">
+                                                        {t.atLeastOneDay}
+                                                    </p>
+                                                )}
                                             </div>
 
-                                            {slots.length === 0 && (
-                                                <p className="text-[10px] text-muted opacity-40 italic text-center py-2">
-                                                    {l('აირჩიეთ კვირის დღეები', 'Выберите дни недели', 'Select days of week')}
-                                                </p>
+                                            {/* Calendar update notice */}
+                                            {slots.length > 0 && (
+                                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl animate-in fade-in slide-in-from-top-2"
+                                                     style={{ backgroundColor: `${selectedColor}08`, border: `1px solid ${selectedColor}20` }}>
+                                                    <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: selectedColor }} />
+                                                    <p className="text-[10px] font-bold opacity-80" style={{ color: selectedColor }}>
+                                                        {t.calendarUpdateNotice}
+                                                    </p>
+                                                </div>
                                             )}
+                                        </div>
+
+                                        {/* Global Hall Selector */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                                <DoorOpen className="w-3 h-3" /> {lang === 'ka' ? 'დარბაზი' : 'Hall'}
+                                            </label>
+                                            <SearchSelect
+                                                options={halls.map(h => ({ value: h.id, label: h.name }))}
+                                                value={selectedHallId}
+                                                onChange={setSelectedHallId}
+                                                placeholder={lang === 'ka' ? 'აირჩიეთ დარბაზი' : 'Select Hall'}
+                                                className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4 shadow-sm"
+                                            />
                                         </div>
                                     </div>
                                 )}
