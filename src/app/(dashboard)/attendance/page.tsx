@@ -1165,6 +1165,10 @@ export default function AttendancePage() {
                                     const isActive = selectedClass === s.id;
                                     const timeStr = `${s.start_time}–${s.end_time}`;
                                     const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                    const isInd = s.type === 'individual';
+                                    const displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                    const indStudent = isInd ? getStudents().find(st => st.id === s.student_id) : null;
+                                    const indPartner = isInd && s.couple_partner_id ? getStudents().find(st => st.id === s.couple_partner_id) : null;
                                     
                                     return (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
@@ -1179,22 +1183,46 @@ export default function AttendancePage() {
                                                 borderColor: classColor,
                                                 boxShadow: `0 10px 25px -5px ${classColor}40`
                                             } : {}}>
-                                            <h3 className={cn(
-                                                'text-[12.5px] font-black truncate leading-tight transition-colors',
-                                                isActive ? 'text-white' : 'text-primary'
-                                            )}>
-                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
-                                            </h3>
-                                            <div className="flex items-center gap-2 mt-1.5">
-                                                <Clock className={cn(
-                                                    'w-2.5 h-2.5 transition-colors',
-                                                    isActive ? 'text-white/60' : isCurrent ? 'text-emerald-500' : 'text-muted opacity-40'
-                                                )} />
-                                                <span className={cn(
-                                                    'text-[9px] font-black tabular-nums transition-colors',
-                                                    isActive ? 'text-white/80' : isCurrent ? 'text-emerald-600' : 'text-muted'
-                                                )}>{timeStr}</span>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className={cn(
+                                                        'text-[12.5px] font-black truncate leading-tight transition-colors',
+                                                        isActive ? 'text-white' : 'text-primary'
+                                                    )}>
+                                                        {isInd ? (
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[7px] uppercase tracking-wider opacity-60">ინდ. გაკვეთილი</span>
+                                                                <span className="truncate">{displayTitle}</span>
+                                                            </div>
+                                                        ) : displayTitle}
+                                                    </h3>
+                                                    <div className="flex items-center gap-2 mt-1.5">
+                                                        <Clock className={cn(
+                                                            'w-2.5 h-2.5 transition-colors',
+                                                            isActive ? 'text-white/60' : 'text-muted'
+                                                        )} />
+                                                        <span className={cn(
+                                                            'text-[10px] font-bold tabular-nums transition-colors',
+                                                            isActive ? 'text-white/60' : 'text-muted'
+                                                        )}>{timeStr}</span>
+                                                    </div>
+                                                </div>
+                                                {isInd && (indStudent || indPartner) && (
+                                                    <div className="flex items-center -space-x-3">
+                                                        {indPartner && (
+                                                            <div className="w-6 h-6 rounded-full border-2 border-white/20 overflow-hidden bg-white/10">
+                                                                {indPartner.photo_url ? <img src={indPartner.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] font-black">{getInitials(indPartner.full_name)}</div>}
+                                                            </div>
+                                                        )}
+                                                        {indStudent && (
+                                                            <div className="w-7 h-7 rounded-full border-2 border-white/40 overflow-hidden bg-white/20 relative z-10">
+                                                                {indStudent.photo_url ? <img src={indStudent.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[10px] font-black">{getInitials(indStudent.full_name)}</div>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
+
                                             <div className="flex items-center justify-between mt-2.5">
                                                 <div className="flex items-center gap-2">
                                                     {(s as any).teacherPhoto ? (
@@ -1288,6 +1316,10 @@ export default function AttendancePage() {
                                 <div className="xl:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 touch-pan-x relative z-30 -mx-3 px-3 md:-mx-6 md:px-6">
                                     {mounted && filteredSchedule.map(s => {
                                         const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                        const isInd = s.type === 'individual';
+                                        const displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                        const indStudent = isInd ? getStudents().find(st => st.id === s.student_id) : null;
+                                        const indPartner = isInd && s.couple_partner_id ? getStudents().find(st => st.id === s.couple_partner_id) : null;
                                         return (
                                             <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                                 className={cn(
@@ -1299,7 +1331,26 @@ export default function AttendancePage() {
                                                     borderColor: classColor,
                                                     boxShadow: `0 4px 12px ${classColor}30`
                                                 } : {}}>
-                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
+                                                <div className="flex items-center gap-2">
+                                                    {isInd && (indStudent || indPartner) && (
+                                                        <div className="flex items-center -space-x-2 mr-1">
+                                                            {indPartner && (
+                                                                <div className="w-5 h-5 rounded-full border border-white/20 overflow-hidden bg-white/10">
+                                                                    {indPartner.photo_url ? <img src={indPartner.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[6px]">{getInitials(indPartner.full_name)}</div>}
+                                                                </div>
+                                                            )}
+                                                            {indStudent && (
+                                                                <div className="w-6 h-6 rounded-full border border-white/40 overflow-hidden bg-white/20 relative z-10">
+                                                                    {indStudent.photo_url ? <img src={indStudent.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px]">{getInitials(indStudent.full_name)}</div>}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex flex-col items-start">
+                                                        {isInd && <span className="text-[6px] uppercase opacity-60 leading-none mb-0.5">ინდ. გაკვეთილი</span>}
+                                                        <span>{displayTitle}</span>
+                                                    </div>
+                                                </div>
                                             </button>
                                         );
                                     })}

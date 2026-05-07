@@ -322,7 +322,7 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
                 <div className="flex flex-col flex-1 min-w-0 h-full justify-center overflow-hidden">
                     <div className="flex items-center gap-1.5 mb-0.5">
                         {isIndividual && (
-                            <span className="text-[7px] font-black bg-white/20 text-white px-1 py-0.5 rounded tracking-widest leading-none">IND</span>
+                            <span className="text-[7px] font-black bg-white/20 text-white px-1 py-0.5 rounded tracking-normal leading-none uppercase">ინდ. გაკვეთილი</span>
                         )}
                         <span className={cn("truncate font-black leading-tight text-white", compact ? "text-[8px]" : "text-[11px] sm:text-[12px]")}>
                             {displayTitle}

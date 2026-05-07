@@ -98,7 +98,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [teacherId, setTeacherId] = useState('');
     const [selectedColor, setSelectedColor] = useState('#6366f1');
     const [selectedHallId, setSelectedHallId] = useState('');
-    const [couplePartnerName, setCouplePartnerName] = useState('');
+    const [secondaryStudentId, setSecondaryStudentId] = useState('');
+    const [isCouple, setIsCouple] = useState(false);
+    const [couplePartnerName, setCouplePartnerName] = useState(''); // Manual name fallback
     const [selectedPartnerId, setSelectedPartnerId] = useState('');
     const [slots, setSlots] = useState<Array<{ dayOfWeek: number, startTime: string, endTime: string }>>([]);
 
@@ -201,19 +203,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     const teacherOptions = useMemo(() => [
         { value: '', label: l('არჩეული არ არის', 'Не выбран', 'Not selected') },
-        ...students.find(s => s.id === studentId)?.enrolled_group_ids?.map(gid => {
-            const g = groups.find(x => x.id === gid);
-            if (!g?.teacherId) return null;
-            const t = settings.staff.find(s => s.id === g.teacherId);
-            if (!t) return null;
-            return { value: t.id, label: `${t.first_name} ${t.last_name || ''} (${g.name})` };
-        }).filter(Boolean) || [],
-        ...settings.staff.filter(s => s.role === 'coach' || s.role === 'teacher').map(t => ({
+        ...settings.staff.filter(s => s.status === 'active' && (s.role === 'teacher' || s.role === 'coach' || s.assigned_individual || s.role === 'staff')).map(t => ({
             value: t.id,
-            label: `${t.first_name} ${t.last_name || ''}`,
+            label: `${t.first_name || ''} ${t.last_name || ''}`.trim() || t.full_name,
             subLabel: t.specialty?.join(', ')
         }))
-    ], [settings.staff, studentId, students, groups]);
+    ], [settings.staff]);
 
     // Update planId when category changes
     useEffect(() => {
@@ -330,8 +325,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
         const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
 
-        onIssue({
-            student_id: studentId,
+        const partner = isCouple && secondaryStudentId ? students.find(s => s.id === secondaryStudentId) : null;
+        const coupleId = isCouple ? `cpl-${Date.now()}` : undefined;
+
+        const baseSubData = {
             plan: plan.name,
             sessions_used: 0,
             sessions_total: sessionsTotal,
@@ -343,13 +340,32 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             group_id: isGroupPlan ? groupId : undefined,
             category: selectedGroup ? selectedGroup.type : (plan.type === 'individual' ? 'Individual' : undefined),
             payment_method: payMethod,
-            amount_paid: paidNow,
             teacher_id: teacherId || undefined,
             teacher_comment: commentParts.join(' · '),
             schedule_slots: plan.type === 'individual' ? slots : undefined,
-            couple_partner_name: selectedType === 'individual' ? couplePartnerName : undefined,
-            couple_partner_id: selectedType === 'individual' ? selectedPartnerId : undefined,
+            couple_id: coupleId,
+        };
+
+        // 1. Issue Primary Subscription
+        onIssue({
+            ...baseSubData,
+            student_id: studentId,
+            amount_paid: paidNow,
+            couple_partner_id: secondaryStudentId || undefined,
+            couple_partner_name: partner?.full_name || couplePartnerName || undefined,
         });
+
+        // 2. Issue Secondary Subscription (if couple)
+        if (isCouple && secondaryStudentId) {
+            onIssue({
+                ...baseSubData,
+                student_id: secondaryStudentId,
+                amount_paid: 0, // Paid by primary
+                couple_partner_id: studentId,
+                couple_partner_name: selectedStudent?.full_name || undefined,
+                teacher_comment: `${l('მეწყვილის აბონემენტი', 'Абонемент напарника', 'Partner subscription')} · ${commentParts.join(' · ')}`,
+            });
+        }
 
         // 📅 Create Calendar Events for Individual Slots
         if ((selectedType === 'individual' || plan.type === 'individual') && slots.length > 0) {
@@ -368,10 +384,14 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 
                 const slot = slots.find(s => s.dayOfWeek === dayOfWeek);
                 if (slot) {
+                    const eventTitle = isCouple && partner 
+                        ? `${selectedStudent?.full_name} & ${partner.full_name}`
+                        : `${selectedStudent?.full_name || 'Student'}`;
+
                     newEvents.push({
                         id: `ind-${studentId}-${Date.now()}-${lessonsCreated}`,
                         org_id: settings.studioSlug,
-                        title: `${selectedStudent?.full_name || 'Student'}`,
+                        title: eventTitle,
                         type: 'individual',
                         hall_id: selectedHallId || 'main',
                         teacher_id: teacherId || undefined,
@@ -380,8 +400,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                         start_time: slot.startTime,
                         end_time: slot.endTime,
                         color: selectedColor,
-                        couple_partner_id: selectedPartnerId || undefined,
-                        couple_partner_name: couplePartnerName || undefined,
+                        couple_partner_id: secondaryStudentId || undefined,
+                        couple_partner_name: partner?.full_name || couplePartnerName || undefined,
                         recurring: 'none',
                         reminder_30m: false,
                         created_at: new Date().toISOString()
@@ -547,7 +567,22 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
                                 <div className="space-y-1.5 relative">
-                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
+                                        {selectedType === 'individual' && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsCouple(!isCouple)}
+                                                className={cn(
+                                                    "text-[9px] font-black px-2 py-0.5 rounded-lg border transition-all flex items-center gap-1.5 uppercase tracking-wider",
+                                                    isCouple ? "bg-indigo-500 text-white border-indigo-500 shadow-sm" : "text-indigo-500 border-indigo-500/30 hover:bg-indigo-50"
+                                                )}
+                                            >
+                                                {isCouple ? <Minus className="w-2.5 h-2.5 stroke-[3]" /> : <Plus className="w-2.5 h-2.5 stroke-[3]" />}
+                                                {isCouple ? l('წაშლა', 'Удалить', 'Remove') : l('დამატება', 'Добавить', 'Add Partner')}
+                                            </button>
+                                        )}
+                                    </div>
                                     <SearchSelect
                                         options={studentOptions}
                                         value={studentId}
@@ -555,6 +590,18 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         placeholder={t.selectClient}
                                     />
                                 </div>
+
+                                {isCouple && selectedType === 'individual' && (
+                                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{l('მეწყვილე / პარტნიორი (სტუდენტი)', 'Напарник / Партнер (Студент)', 'Partner (Student)')}</label>
+                                        <SearchSelect
+                                            options={studentOptions.filter(o => o.value !== studentId)}
+                                            value={secondaryStudentId}
+                                            onChange={setSecondaryStudentId}
+                                            placeholder={l('აირჩიეთ მეწყვილე...', 'Выберите напарника...', 'Select partner...')}
+                                        />
+                                    </div>
+                                )}
 
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectPlan}</label>
