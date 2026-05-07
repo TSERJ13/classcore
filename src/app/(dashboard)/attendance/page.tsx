@@ -1243,14 +1243,6 @@ export default function AttendancePage() {
                                             const hasAnyAtt = Object.values(att).some(v => v !== 'none');
                                             return (
                                                 <>
-                                                    <button onClick={() => { setIssueType('group'); setIssueModalOpen(true); }}
-                                                        className="px-2.5 py-1.5 rounded-lg bg-[#6d28d9]/10 border border-[#6d28d9]/20 text-[#6d28d9] text-[9px] font-black tracking-wider hover:bg-[#6d28d9] hover:text-white transition-all flex items-center gap-1">
-                                                        <Plus className="w-3 h-3 stroke-[3]" /> {t.groupSubscription}
-                                                    </button>
-                                                    <button onClick={() => { setIssueType('individual'); setIssueModalOpen(true); }}
-                                                        className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[9px] font-black tracking-wider hover:bg-amber-500 hover:text-white transition-all flex items-center gap-1">
-                                                        <Plus className="w-3 h-3 stroke-[3]" /> {t.individualSubscription}
-                                                    </button>
 
                                                     <button onClick={() => {
                                                         const n: Record<string, State> = { ...att };
