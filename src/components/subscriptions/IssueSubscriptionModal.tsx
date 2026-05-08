@@ -92,7 +92,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [useBalance, setUseBalance] = useState(false);
 
     // 📅 Scheduling State (for Individual)
-    const [schedule, setSchedule] = useState<{ day: number; time: string; hallId: string }[]>([]);
+    const [schedule, setSchedule] = useState<{ day: number; time: string; endTime: string; hallId: string }[]>([]);
     const [eventColor, setEventColor] = useState('#6d28d9');
 
     // Current student balance
@@ -770,7 +770,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                 if (isActive) {
                                                                     setSchedule(prev => prev.filter(s => s.day !== d.id));
                                                                 } else {
-                                                                    setSchedule(prev => [...prev, { day: d.id, time: '18:00', hallId: activeHalls[0]?.id || '' }]);
+                                                                    setSchedule(prev => [...prev, { day: d.id, time: '18:00', endTime: '19:00', hallId: activeHalls[0]?.id || '' }]);
                                                                 }
                                                             }}
                                                             className={cn(
@@ -800,7 +800,19 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                     if (i > -1) next[i].time = e.target.value;
                                                                     setSchedule(next);
                                                                 }}
-                                                                className="flex-1 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40"
+                                                                className="w-20 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40"
+                                                            />
+                                                            <span className="text-muted/20 font-black text-[10px]">-</span>
+                                                            <input 
+                                                                type="time" 
+                                                                value={s.endTime || '19:00'}
+                                                                onChange={e => {
+                                                                    const next = [...schedule];
+                                                                    const i = next.findIndex(n => n.day === s.day);
+                                                                    if (i > -1) next[i].endTime = e.target.value;
+                                                                    setSchedule(next);
+                                                                }}
+                                                                className="w-20 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40"
                                                             />
                                                             <select
                                                                 value={s.hallId}
