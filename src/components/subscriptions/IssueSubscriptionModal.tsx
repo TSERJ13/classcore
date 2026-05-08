@@ -900,23 +900,19 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             <label className="flex items-center gap-1 cursor-pointer">
                                                 <input type="checkbox" checked={unlimited} onChange={e => setUnlimited(e.target.checked)} className="w-3 h-3 accent-indigo-500 rounded" />
                                                 <span className="text-[8px] font-bold text-muted">{t.unlimited}</span>
- all border-2",
-                                                            eventColor === c ? "border-primary scale-110 shadow-sm" : "border-transparent"
-                                                        )}
-                                                        style={{ backgroundColor: c }}
-                                                    />
-                                                ))}
-                                                <input 
-                                                    type="color" 
-                                                    value={eventColor} 
-                                                    onChange={e => setEventColor(e.target.value)}
-                                                    className="w-6 h-6 rounded-lg border-2 border-transparent bg-transparent cursor-pointer p-0 overflow-hidden"
-                                                />
-                                            </div>
+                                            </label>
                                         </div>
+                                        <input
+                                            type="number"
+                                            value={sessions}
+                                            disabled={unlimited}
+                                            onFocus={(e) => e.target.select()}
+                                            onChange={(e) => setSessions(parseInt(e.target.value) || '')}
+                                            className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all disabled:opacity-50"
+                                        />
                                     </div>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     )}
 
