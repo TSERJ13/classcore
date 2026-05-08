@@ -15,7 +15,7 @@ import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, 
 import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { getSubscriptions, getSubscription, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getSubscriptions, getSubscription, getStudentSubscriptions, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getEventsByDate, getEvents } from '@/lib/event-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
