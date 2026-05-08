@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Plus, UserPlus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette, DoorOpen } from 'lucide-react';
+import { Save, Plus, UserPlus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import type { SubscriptionInfo } from '@/lib/subscription-store';
@@ -833,7 +833,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     {/* Hall Selection (Individual) */}
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                            <DoorOpen className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
+                                            <Building2 className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
                                         </label>
                                         <SearchSelect
                                             options={activeHalls.map(h => ({ id: h.id, label: h.name }))}
