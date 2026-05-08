@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Plus, Minus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette, Trash2, LayoutGrid, DoorOpen } from 'lucide-react';
+import { Save, Plus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import type { SubscriptionInfo } from '@/lib/subscription-store';
@@ -13,9 +13,6 @@ import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
-import { getHalls } from '@/lib/hall-store';
-import { addEvent, getEvents, saveEvents } from '@/lib/event-store';
-import { generateTimeOptions } from '@/lib/date-utils';
 interface IssueSubscriptionModalProps {
     open: boolean;
     onClose: () => void;
@@ -26,14 +23,6 @@ interface IssueSubscriptionModalProps {
 }
 
 type PayMethod = 'cash' | 'card' | 'transfer';
-
-const addHour = (time: string) => {
-    if (!time) return '';
-    const [h, m] = time.split(':').map(Number);
-    if (isNaN(h) || isNaN(m)) return time;
-    const nh = (h + 1) % 24;
-    return `${nh.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-};
 
 export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, defaultType, centered = false }: IssueSubscriptionModalProps) {
     const { t, lang } = useT();
@@ -96,15 +85,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [unlimited, setUnlimited] = useState(false);
     const [neverExpires, setNeverExpires] = useState(false);
     const [teacherId, setTeacherId] = useState('');
-    const [selectedColor, setSelectedColor] = useState(defaultType === 'individual' ? '#f97316' : '#6366f1');
-    const [selectedHallId, setSelectedHallId] = useState('');
-    const [secondaryStudentId, setSecondaryStudentId] = useState('');
-    const [isCouple, setIsCouple] = useState(false);
-    const [couplePartnerName, setCouplePartnerName] = useState(''); // Manual name fallback
-    const [selectedPartnerId, setSelectedPartnerId] = useState('');
-    const [slots, setSlots] = useState<Array<{ dayOfWeek: number, startTime: string, endTime: string }>>([]);
-
-    const halls = useMemo(() => getHalls(), []);
 
     // Payment fields
     const [payMethod, setPayMethod] = useState<PayMethod>('cash');
@@ -137,7 +117,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         if (open) {
             setStep(defaultType ? 'form' : 'type_selection');
             setSelectedType(defaultType || 'group');
-            setSelectedColor((defaultType || 'group') === 'individual' ? '#f97316' : '#6366f1');
             const currentStudents = getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
             setStudentId(initialStudentId || currentStudents[0]?.id || '');
             setStartDate(getLocalISODate());
@@ -146,21 +125,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setAmountPaid('');
             setUseBalance(false);
             setTeacherId('');
-            setPlanId(''); 
-            setSelectedColor('#6366f1');
-            setSelectedHallId(getHalls()[0]?.id || 'main');
-            setSlots([]);
+            setPlanId(''); // 🌟 Clear so default-pick effect runs fresh on each open
         }
-    }, [open, initialStudentId, defaultType]);
-
-    // Update color when type changes manually
-    useEffect(() => {
-        if (selectedType === 'individual') {
-            setSelectedColor('#f97316');
-        } else {
-            setSelectedColor('#6366f1');
-        }
-    }, [selectedType]);
+    }, [open, initialStudentId]);
 
     // 🌟 Auto-select default plan when type/oneTime changes or list updates
     useEffect(() => {
@@ -213,12 +180,19 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     const teacherOptions = useMemo(() => [
         { value: '', label: l('არჩეული არ არის', 'Не выбран', 'Not selected') },
-        ...settings.staff.filter(s => s.status === 'active' && (s.role === 'teacher' || s.role === 'coach' || s.assigned_individual || s.role === 'staff')).map(t => ({
+        ...students.find(s => s.id === studentId)?.enrolled_group_ids?.map(gid => {
+            const g = groups.find(x => x.id === gid);
+            if (!g?.teacherId) return null;
+            const t = settings.staff.find(s => s.id === g.teacherId);
+            if (!t) return null;
+            return { value: t.id, label: `${t.first_name} ${t.last_name || ''} (${g.name})` };
+        }).filter(Boolean) || [],
+        ...settings.staff.filter(s => s.role === 'coach' || s.role === 'teacher').map(t => ({
             value: t.id,
-            label: `${t.first_name || ''} ${t.last_name || ''}`.trim() || t.full_name,
+            label: `${t.first_name} ${t.last_name || ''}`,
             subLabel: t.specialty?.join(', ')
         }))
-    ], [settings.staff]);
+    ], [settings.staff, studentId, students, groups]);
 
     // Update planId when category changes
     useEffect(() => {
@@ -248,29 +222,20 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             const student = students.find(s => s.id === studentId);
             const studentGroup = student?.enrolled_group_ids?.[0];
 
-            if (plan.type === 'group') {
-                if (plan.group_id && groups.find(g => g.id === plan.group_id)) {
-                    setGroupId(plan.group_id);
-                    const g = groups.find(gx => gx.id === plan.group_id);
-                    if (g?.teacherId) setTeacherId(g.teacherId);
-                } else if (studentGroup && groups.find(g => g.id === studentGroup)) {
-                    setGroupId(studentGroup);
-                    const g = groups.find(gx => gx.id === studentGroup);
-                    if (g?.teacherId) setTeacherId(g.teacherId);
-                } else if (groups.length > 0) {
-                    setGroupId(groups[0].id);
-                    const g = groups.find(gx => gx.id === groups[0].id);
-                    if (g?.teacherId) setTeacherId(g.teacherId);
-                } else {
-                    setGroupId('');
-                }
+            if (plan.group_id && groups.find(g => g.id === plan.group_id)) {
+                setGroupId(plan.group_id);
+                const g = groups.find(gx => gx.id === plan.group_id);
+                if (g?.teacherId) setTeacherId(g.teacherId);
+            } else if (studentGroup && groups.find(g => g.id === studentGroup)) {
+                setGroupId(studentGroup);
+                const g = groups.find(gx => gx.id === studentGroup);
+                if (g?.teacherId) setTeacherId(g.teacherId);
+            } else if (plan.type === 'group' && groups.length > 0) {
+                setGroupId(groups[0].id);
+                const g = groups.find(gx => gx.id === groups[0].id);
+                if (g?.teacherId) setTeacherId(g.teacherId);
             } else {
-                // Individual or Rental
                 setGroupId('');
-                // If it's individual, we might want to default to the coach from the plan
-                if (plan.teacher_id) {
-                    setTeacherId(plan.teacher_id);
-                }
             }
 
             if (plan.coach) {
@@ -301,7 +266,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     if (!open) return null;
 
     const handleIssue = () => {
-        if (!studentId || !planId || !startDate || !endDate) return;
+        const studentIds = studentId.split(',').map(id => id.trim()).filter(Boolean);
+        if (studentIds.length === 0 || !planId || !startDate || !endDate) return;
 
         const plan = plans.find(p => p.id === planId);
         if (!plan) return;
@@ -312,20 +278,24 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         const subType = plan.period === 'unlimited' ? 'monthly' : 'sessions';
         const sessionsTotal = unlimited ? null : (typeof sessions === 'number' ? sessions : 12);
 
-        // Balance logic: update student balance
+        // Balance logic: update primary student's balance
+        const primaryStudentId = studentIds[0];
         const paidNow = typeof amountPaid === 'number' ? amountPaid : remaining;
         if (newBalance !== studentBalance) {
-            updateStudent(studentId, { balance: newBalance });
+            updateStudent(primaryStudentId, { balance: newBalance });
         }
 
+        // Enroll all students in the group if it's a group plan
         if (isGroupPlan && groupId) {
-            const student = students.find(s => s.id === studentId);
-            if (student) {
-                const enrolled = student.enrolled_group_ids || [];
-                if (!enrolled.includes(groupId)) {
-                    updateStudent(studentId, { enrolled_group_ids: [...enrolled, groupId] });
+            studentIds.forEach(id => {
+                const s = students.find(x => x.id === id);
+                if (s) {
+                    const enrolled = s.enrolled_group_ids || [];
+                    if (!enrolled.includes(groupId)) {
+                        updateStudent(id, { enrolled_group_ids: [...enrolled, groupId] });
+                    }
                 }
-            }
+            });
         }
 
         const commentParts: string[] = [];
@@ -335,12 +305,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
         const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
 
-        const partner = isCouple && secondaryStudentId ? students.find(s => s.id === secondaryStudentId) : null;
-        const coupleId = isCouple ? `cpl-${Date.now()}` : undefined;
-
-        const getFirstName = (name: string) => name.trim().split(' ')[0] || '';
-
-        const subData = {
+        onIssue({
             student_id: studentId,
             plan: plan.name,
             sessions_used: 0,
@@ -356,66 +321,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             amount_paid: paidNow,
             teacher_id: teacherId || undefined,
             teacher_comment: commentParts.join(' · '),
-            schedule_slots: plan.type === 'individual' ? slots : undefined,
-            couple_id: coupleId,
-            couple_partner_id: secondaryStudentId || undefined,
-            couple_partner_name: partner?.full_name || couplePartnerName || undefined,
-        };
-
-        // 1. Issue Single Subscription
-        onIssue(subData);
-
-        // 📅 Create Calendar Events for Individual Slots
-        if ((selectedType === 'individual' || plan.type === 'individual') && slots.length > 0) {
-            let lessonsCreated = 0;
-            const maxLessons = sessionsTotal || 999;
-            let checkDate = new Date(startDate + 'T00:00:00');
-            const endD = new Date(endDate + 'T00:00:00');
-            
-            const newEvents: any[] = [];
-            let safetyLimit = 365;
-
-            // Generate events within the validity period or until max lessons reached
-            while (lessonsCreated < maxLessons && checkDate <= endD && safetyLimit > 0) {
-                const jsDay = checkDate.getDay();
-                const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; // Mon=0 ... Sun=6
-                
-                const slot = slots.find(s => s.dayOfWeek === dayOfWeek);
-                if (slot) {
-                    const primaryFirstName = getFirstName(selectedStudent?.full_name || 'Student');
-                    const eventTitle = isCouple && partner 
-                        ? `${primaryFirstName} & ${getFirstName(partner.full_name)}`
-                        : primaryFirstName;
-
-                    newEvents.push({
-                        id: `ind-${studentId}-${Date.now()}-${lessonsCreated}`,
-                        org_id: settings.studioSlug,
-                        title: eventTitle,
-                        type: 'individual',
-                        hall_id: selectedHallId || 'main',
-                        teacher_id: teacherId || undefined,
-                        student_id: studentId,
-                        date: getLocalISODate(checkDate),
-                        start_time: slot.startTime,
-                        end_time: slot.endTime,
-                        color: selectedColor,
-                        couple_partner_id: secondaryStudentId || undefined,
-                        couple_partner_name: partner?.full_name || couplePartnerName || undefined,
-                        recurring: 'none',
-                        reminder_30m: false,
-                        created_at: new Date().toISOString()
-                    });
-                    lessonsCreated++;
-                }
-                checkDate.setDate(checkDate.getDate() + 1);
-                safetyLimit--;
-            }
-
-            if (newEvents.length > 0) {
-                const current = getEvents();
-                saveEvents([...current, ...newEvents]);
-            }
-        }
+        });
 
         // Log to history
         logSubscription({
@@ -569,44 +475,45 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
                                     <SearchSelect
                                         options={studentOptions}
-                                        value={studentId}
-                                        onChange={setStudentId}
+                                        value={studentId.split(',')[0] || ''}
+                                        onChange={val => {
+                                            const currentIds = studentId ? studentId.split(',').map(id => id.trim()).filter(Boolean) : [];
+                                            let nextIds = [];
+                                            if (currentIds.includes(val)) {
+                                                nextIds = currentIds.filter(id => id !== val);
+                                            } else {
+                                                nextIds = [...currentIds, val].slice(0, 2); // Limit to 2 for couple subscriptions
+                                            }
+                                            setStudentId(nextIds.join(', '));
+                                        }}
                                         placeholder={t.selectClient}
                                     />
-                                    {selectedType === 'individual' && !isCouple && (
-                                        <div className="flex justify-end pt-1">
-                                            <button 
-                                                type="button"
-                                                onClick={() => setIsCouple(true)}
-                                                className="text-[9px] font-black px-2.5 py-1.5 rounded-lg border border-indigo-500/30 text-indigo-500 hover:bg-indigo-50 transition-all flex items-center gap-1.5 uppercase tracking-wider"
-                                            >
-                                                <Plus className="w-2.5 h-2.5 stroke-[3]" />
-                                                {l('მეწყვილის დამატება', 'Добавить партнера', 'Add Partner')}
-                                            </button>
+                                    {studentId && (
+                                        <div className="mt-2 flex flex-wrap gap-1.5 px-1">
+                                            {studentId.split(',').map(id => id.trim()).filter(Boolean).map(id => {
+                                                const s = students.find(x => x.id === id);
+                                                if (!s) return null;
+                                                return (
+                                                    <div key={id} className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full pl-1.5 pr-1 py-1 animate-in zoom-in-95 duration-200">
+                                                        <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-indigo-200">
+                                                            {s.photo_url ? <img src={s.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-2.5 h-2.5 text-indigo-500 m-auto mt-0.5" />}
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-indigo-700 truncate max-w-[120px]">{s.first_name} {s.last_name}</span>
+                                                        <button 
+                                                            onClick={() => {
+                                                                const nextIds = studentId.split(',').map(i => i.trim()).filter(i => i !== id);
+                                                                setStudentId(nextIds.join(', '));
+                                                            }}
+                                                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-indigo-500/20 text-indigo-500 transition-colors"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
-
-                                {isCouple && selectedType === 'individual' && (
-                                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{l('მეწყვილე / პარტნიორი (სტუდენტი)', 'Напарник / Партнер (Студент)', 'Partner (Student)')}</label>
-                                            <button 
-                                                type="button"
-                                                onClick={() => { setIsCouple(false); setSecondaryStudentId(''); }}
-                                                className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all flex items-center gap-1 uppercase tracking-wider"
-                                            >
-                                                <Minus className="w-2.5 h-2.5 stroke-[3]" /> {l('წაშლა', 'Удалить', 'Remove')}
-                                            </button>
-                                        </div>
-                                        <SearchSelect
-                                            options={studentOptions.filter(o => o.value !== studentId)}
-                                            value={secondaryStudentId}
-                                            onChange={setSecondaryStudentId}
-                                            placeholder={l('აირჩიეთ მეწყვილე...', 'Выберите напарника...', 'Select partner...')}
-                                        />
-                                    </div>
-                                )}
 
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectPlan}</label>
@@ -639,126 +546,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         placeholder={t.selectTeacher}
                                     />
                                 </div>
-
-                                {selectedType === 'individual' && (
-                                    <div className="space-y-5 animate-in fade-in slide-in-from-top-2">
-                                        {/* Color Selector */}
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                                <Palette className="w-3 h-3" /> {t.groupColor}
-                                            </label>
-                                            <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
-                                                <span className="w-8 h-8 rounded-lg border border-black/10 flex-shrink-0 overflow-hidden relative">
-                                                    <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}
-                                                        className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
-                                                    <div className="w-full h-full pointer-events-none" style={{ backgroundColor: selectedColor }} />
-                                                </span>
-                                                <span className="text-xs text-muted font-medium select-none truncate">{t.chooseAnotherColor}</span>
-                                            </label>
-                                        </div>
-
-
-                                        {/* Group-style Schedule Builder */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                                    <Calendar className="w-3.5 h-3.5" /> {t.schedule}
-                                                </label>
-                                            </div>
-
-                                            <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
-                                                <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">{t.selectDaysAndTimes}</label>
-                                                <div className="flex items-center justify-between gap-1">
-                                                    {[0, 1, 2, 3, 4, 5, 6].map(d => {
-                                                        const isActive = slots.some(s => s.dayOfWeek === d);
-                                                        const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вს'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                                        return (
-                                                            <button key={d} 
-                                                                onClick={() => {
-                                                                    setSlots(prev => {
-                                                                        const existing = prev.find(s => s.dayOfWeek === d);
-                                                                        if (existing) return prev.filter(s => s.dayOfWeek !== d);
-                                                                        const base = prev[0] || { startTime: '13:00', endTime: '14:00' };
-                                                                        return [...prev, { dayOfWeek: d, startTime: base.startTime, endTime: base.endTime }];
-                                                                    });
-                                                                }}
-                                                                className={cn(
-                                                                    "flex-1 h-9 rounded-lg text-[10px] font-black transition-all border shrink-0",
-                                                                    isActive ? "text-white" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
-                                                                )}
-                                                                style={isActive ? { backgroundColor: selectedColor, borderColor: selectedColor } : {}}>
-                                                                {DAY_LABELS[d]}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    {slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((slot) => {
-                                                        const DAY_LABELS = lang === 'ka' ? ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'] : lang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вს'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                                        const timeOptions = generateTimeOptions(15);
-                                                        return (
-                                                            <div key={slot.dayOfWeek} className="flex flex-row items-center gap-2 bg-card/30 p-2 rounded-xl border border-border-subtle/20">
-                                                                <span className="text-[10px] font-black text-primary w-12 pl-1 truncate">{DAY_LABELS[slot.dayOfWeek]}</span>
-                                                                <div className="flex-1 flex items-center gap-1.5">
-                                                                    <SearchSelect 
-                                                                        options={timeOptions}
-                                                                        value={slot.startTime}
-                                                                        allowCustom
-                                                                        onChange={val => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, startTime: val, endTime: addHour(val) } : s))}
-                                                                        className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
-                                                                    />
-                                                                    <span className="text-muted/20 font-black text-[10px]">-</span>
-                                                                    <SearchSelect 
-                                                                        options={timeOptions}
-                                                                        value={slot.endTime}
-                                                                        allowCustom
-                                                                        onChange={val => setSlots(slots.map(s => s.dayOfWeek === slot.dayOfWeek ? { ...s, endTime: val } : s))}
-                                                                        className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
-                                                                    />
-                                                                </div>
-                                                                <button onClick={() => setSlots(slots.filter(s => s.dayOfWeek !== slot.dayOfWeek))} className="p-1.5 text-red-400 hover:text-red-500 transition-colors">
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                {slots.length === 0 && (
-                                                    <p className="text-xs text-muted opacity-40 italic text-center py-2">
-                                                        {t.atLeastOneDay}
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            {/* Calendar update notice */}
-                                            {slots.length > 0 && (
-                                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl animate-in fade-in slide-in-from-top-2"
-                                                     style={{ backgroundColor: `${selectedColor}08`, border: `1px solid ${selectedColor}20` }}>
-                                                    <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: selectedColor }} />
-                                                    <p className="text-[10px] font-bold opacity-80" style={{ color: selectedColor }}>
-                                                        {t.calendarUpdateNotice}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Global Hall Selector */}
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                                <DoorOpen className="w-3 h-3" /> {lang === 'ka' ? 'დარბაზი' : 'Hall'}
-                                            </label>
-                                            <SearchSelect
-                                                options={halls.map(h => ({ value: h.id, label: h.name }))}
-                                                value={selectedHallId}
-                                                onChange={setSelectedHallId}
-                                                placeholder={lang === 'ka' ? 'აირჩიეთ დარბაზი' : 'Select Hall'}
-                                                className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4 shadow-sm"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
                             {/* Price Block */}

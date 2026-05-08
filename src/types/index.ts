@@ -212,8 +212,6 @@ export interface CalendarEvent {
     end_time: string;     // HH:MM
     color?: string;
     notes?: string;
-    couple_partner_id?: string;
-    couple_partner_name?: string;
     recurring?: 'none' | 'weekly';
     reminder_30m?: boolean;
     created_at: string;

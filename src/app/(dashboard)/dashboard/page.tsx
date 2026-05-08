@@ -231,7 +231,6 @@ export default function DashboardPage() {
 
     const [showAddStudent, setShowAddStudent] = useState(false);
     const [showIssueSub, setShowIssueSub] = useState(false);
-    const [issueType, setIssueType] = useState<'group' | 'individual'>('group');
 
     const parseTemplate = (template: string, studentName: string, planName?: string) => {
         let msg = template.replace(/{name}/g, studentName);
@@ -826,16 +825,10 @@ export default function DashboardPage() {
                                     href: '/attendance'
                                 },
                                 {
-                                    label: t.groupSubscription,
+                                    label: t.issuePlan || 'აბონემენტი',
                                     icon: CreditCard,
-                                    color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
-                                    onClick: () => { setIssueType('group'); setShowIssueSub(true); }
-                                },
-                                {
-                                    label: t.individualSubscription,
-                                    icon: Zap,
                                     color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-                                    onClick: () => { setIssueType('individual'); setShowIssueSub(true); }
+                                    onClick: () => setShowIssueSub(true)
                                 },
                                 {
                                     label: t.shop || 'მაღაზია',
@@ -1061,7 +1054,6 @@ export default function DashboardPage() {
                     open={showIssueSub}
                     centered={true}
                     onClose={() => setShowIssueSub(false)}
-                    defaultType={issueType}
                     onIssue={(data) => {
                         import('@/lib/subscription-store').then(mod => {
                             mod.saveSubscription(data.student_id, {

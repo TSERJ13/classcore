@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus, Home } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -21,20 +21,7 @@ export default function SubscriptionsPage() {
     const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<SubscriptionInfo | null>(null);
     const [issuing, setIssuing] = useState(false);
-    const [issueType, setIssueType] = useState<'group' | 'individual' | 'rental'>('group');
-    const [showIssueMenu, setShowIssueMenu] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
     const [subsData, setSubsData] = useState<Record<string, SubscriptionInfo[]>>({});
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setShowIssueMenu(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     useEffect(() => {
         function load() { setSubsData(getSubscriptions() || {}); }
@@ -258,48 +245,11 @@ export default function SubscriptionsPage() {
                         </button>
 
                         {/* Primary Action Button */}
-                        <div className="relative" ref={menuRef}>
-                            <button onClick={() => setShowIssueMenu(!showIssueMenu)}
-                                className="flex-shrink-0 flex items-center justify-center gap-2 h-12 px-4 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[10px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 shadow-lg shadow-indigo-500/20">
-                                <Plus className={cn("w-5 h-5 sm:w-4 sm:h-4 stroke-[3] transition-transform duration-300", showIssueMenu && "rotate-45")} />
-                                <span className="uppercase">{lang === 'ka' ? 'გაფორმება' : lang === 'ru' ? 'Оформить' : 'Issue'}</span>
-                            </button>
-
-                            {showIssueMenu && (
-                                <div className="absolute right-0 top-14 w-56 bg-surface border border-border-subtle rounded-2xl shadow-2xl z-[100] p-2 animate-in fade-in slide-in-from-top-2">
-                                    <button onClick={() => { setIssueType('group'); setIssuing(true); setShowIssueMenu(false); }}
-                                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-hover transition-colors text-left group">
-                                        <div className="w-8 h-8 rounded-lg bg-[#6d28d9]/10 flex items-center justify-center group-hover:bg-[#6d28d9] group-hover:text-white transition-colors">
-                                            <Users className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-black uppercase tracking-wider">{t.groupSubscription}</span>
-                                            <span className="text-[8px] text-muted opacity-60">{lang === 'ka' ? 'ჯგუფური მეცადინეობა' : 'Group class'}</span>
-                                        </div>
-                                    </button>
-                                    <button onClick={() => { setIssueType('individual'); setIssuing(true); setShowIssueMenu(false); }}
-                                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-hover transition-colors text-left group">
-                                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                                            <Zap className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-black uppercase tracking-wider">{t.individualSubscription}</span>
-                                            <span className="text-[8px] text-muted opacity-60">{lang === 'ka' ? 'ინდივიდუალური გაკვეთილი' : 'Private session'}</span>
-                                        </div>
-                                    </button>
-                                    <button onClick={() => { setIssueType('rental'); setIssuing(true); setShowIssueMenu(false); }}
-                                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-hover transition-colors text-left group">
-                                        <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-colors">
-                                            <Home className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-black uppercase tracking-wider">{t.rentalSubscription || 'იჯარა'}</span>
-                                            <span className="text-[8px] text-muted opacity-60">{lang === 'ka' ? 'დარბაზის ქირაობა' : 'Hall rental'}</span>
-                                        </div>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        <button onClick={() => setIssuing(true)}
+                            className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation">
+                            <FolderPlus className="w-5 h-5 flex-shrink-0" />
+                            <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
+                        </button>
                     </div>
                 </div>
 
@@ -363,7 +313,6 @@ export default function SubscriptionsPage() {
                 open={issuing}
                 onClose={() => setIssuing(false)}
                 onIssue={handleIssue}
-                defaultType={issueType}
             />
         </div>
     );

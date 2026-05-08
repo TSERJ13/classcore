@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    LayoutDashboard, UserRound, CalendarCheck, CalendarDays,
+    LayoutDashboard, Users, CalendarCheck, CalendarDays,
     BookOpen, Menu, CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ export function BottomNav() {
     // 4 most common pages + "More" button that opens full sidebar
     const navItems = [
         { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-        { href: '/students', labelKey: 'students', icon: UserRound },
+        { href: '/students', labelKey: 'students', icon: Users },
         { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck },
         { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard },
     ] as const;

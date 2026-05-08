@@ -8,8 +8,8 @@ import {
     ArrowRight, ShieldCheck, Heart,
     MessageSquare, Smartphone, Clock,
     QrCode, Copy, Check, Info, CalendarDays,
-    Send, ChevronRight, Download, UserRound,
-    ExternalLink, BellOff, BellRing, X, Image as ImageIcon,
+    Send, ChevronRight, Download, Users,
+    ExternalLink, BellOff, BellRing,
     CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity
 } from 'lucide-react';
 const UserIcon = User;
@@ -53,7 +53,7 @@ export default function StudentPortalPage() {
 
     const { t, setLang, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const [subs, setSubs] = useState<SubscriptionInfo[]>([]);
+    const [sub, setSub] = useState<SubscriptionInfo | null>(null);
     const [studentData, setStudentData] = useState<Student | null>(null);
     const [status, setStatus] = useState<'idle' | 'paying' | 'success'>('idle');
     const [qrDataUrl, setQrDataUrl] = useState('');
@@ -114,7 +114,6 @@ export default function StudentPortalPage() {
     const [isSyncingChat, setIsSyncingChat] = useState(false);
     const [selectedChatId, setSelectedChatId] = useState<string>('studio');
     const chatScrollRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedRef = useRef(false);
 
     const [authState, setAuthState] = useState<'welcome' | 'phone' | 'authenticated'>('welcome');
@@ -124,60 +123,18 @@ export default function StudentPortalPage() {
     useEffect(() => {
         const loadPortal = async () => {
             if (hasLoadedRef.current) return;
-            const targetId = studentId.trim().toLowerCase();
-
-            // 🚀 FAST-PATH: Load local data immediately to show UI instantly
-            if (typeof window !== 'undefined') {
-                const students = getStudents();
-                const student = students.find(st => 
-                    (st.id && st.id.trim().toLowerCase() === targetId) || 
-                    (st.student_id && st.student_id.trim().toLowerCase() === targetId)
-                );
-                if (student) {
-                    setStudentData(student);
-                    const all = getStudentSubscriptions(studentId);
-                    const active = all.filter(s => {
-                        const today = new Date().toISOString().split('T')[0];
-                        return s.status === 'active' && s.expires_at >= today && (s.sessions_total === null || s.sessions_used < s.sessions_total);
-                    });
-                    setSubs(active);
-                    setIsLoading(false); // Stop loading screen early
-                }
-            }
-
             try {
                 if (!studentId || !studio) return;
 
                 setSyncing(true);
-                const unwrap = (i: any) => {
-                    let res = (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
-                    // 🕒 Time Normalization: Cloud storage uses ISO strings, UI expects HH:mm
-                    if (typeof res.start_time === 'string' && res.start_time.includes('T')) {
-                        res.start_time = res.start_time.split('T')[1].substring(0, 5);
-                    }
-                    if (typeof res.end_time === 'string' && res.end_time.includes('T')) {
-                        res.end_time = res.end_time.split('T')[1].substring(0, 5);
-                    }
-                    return res;
-                };
+                const unwrap = (i: any) => (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
                 const targetId = studentId.trim().toLowerCase();
 
                 try {
-                    // ⏱️ CLOUD TIMEOUT: Don't block the UI for more than 6 seconds
-                    const cloudPromise = fetchFullStudioState(studio, undefined, undefined, true, studentId);
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 6000));
-                    
-                    const cloudData = await Promise.race([cloudPromise, timeoutPromise]) as any;
-                    
+                    const cloudData = await fetchFullStudioState(studio, undefined, undefined, true, studentId);
                     if (cloudData) {
                             // 🚀 SCORCHED EARTH v4.2: Ultra-Robust Hydration
-                            const studioData = cloudData.studio || {};
-                            const settingsBlob = cloudData.settingsRecord?.staff_data || studioData.settings || {};
-                            
-                            // 🎨 BRANDING RECOVERY: Ensure logo is pulled from studio metadata if missing in settings blob
-                            if (!settingsBlob.studioLogo && !settingsBlob.logoDataUrl && studioData.logo_url) {
-                                settingsBlob.studioLogo = studioData.logo_url;
-                            }
+                            const settingsBlob = cloudData.settingsRecord?.staff_data || cloudData.studio?.settings;
                             const mapping: any = {
                                 cc_student_data: [
                                     ...(cloudData.students || []),
@@ -187,7 +144,7 @@ export default function StudentPortalPage() {
                                 cc_halls: (cloudData.halls || settingsBlob?.halls || []).map(unwrap),
                                 cc_teachers: (cloudData.staff || settingsBlob?.staff || []).map(unwrap),
                                 cc_attendance_archive: (cloudData.attendance || settingsBlob?.attendance || []).map(unwrap),
-                                cc_subscription_plans: (cloudData.subscription_plans || settingsBlob?.subscription_plans || []).map(unwrap),
+                                cc_subscription_plans: (cloudData.plans || settingsBlob?.subscription_plans || []).map(unwrap),
                                 cc_student_subscriptions: [
                                     ...(cloudData.subscriptions || []),
                                     ...(settingsBlob?.subscriptions || [])
@@ -197,7 +154,7 @@ export default function StudentPortalPage() {
                                     return acc;
                                 }, {}),
                                 cc_shop_products: (cloudData.products || settingsBlob?.shop_products || []).map(unwrap),
-                                cc_calendar_events: (cloudData.calendar_events || settingsBlob?.calendar_events || []).map(unwrap),
+                                cc_calendar_events: (cloudData.events || settingsBlob?.calendar_events || []).map(unwrap),
                                 [`cc_studio_settings_${studio}`]: settingsBlob
                             };
 
@@ -223,12 +180,8 @@ export default function StudentPortalPage() {
                         
                         if (found) {
                             setStudentData(found as Student);
-                            const all = getStudentSubscriptions(found.id);
-                            const active = all.filter(s => {
-                                const today = new Date().toISOString().split('T')[0];
-                                return s.status === 'active' && s.expires_at >= today && (s.sessions_total === null || s.sessions_used < s.sessions_total);
-                            });
-                            setSubs(active);
+                            const s = getSubscription(found.id, undefined, undefined, true);
+                            setSub(s || null);
                         } else {
                             console.warn('Student not found in cloud data');
                         }
@@ -248,12 +201,8 @@ export default function StudentPortalPage() {
                     );
                     if (student) {
                         setStudentData(prev => prev || student);
-                        const all = getStudentSubscriptions(studentId);
-                        const active = all.filter(s => {
-                            const today = new Date().toISOString().split('T')[0];
-                            return s.status === 'active' && s.expires_at >= today && (s.sessions_total === null || s.sessions_used < s.sessions_total);
-                        });
-                        setSubs(prev => (prev.length > 0 ? prev : active));
+                        const s = getSubscription(studentId, undefined, undefined, true);
+                        setSub(prev => prev || s || null);
                         
                         const patch = getStudentPatch(studentId);
                         const nfcUid = patch.nfc_uid || student.nfc_uid;
@@ -399,32 +348,12 @@ export default function StudentPortalPage() {
         link.href = url; link.download = `${ev.title}.ics`; link.click();
     };
 
-    useEffect(() => {
-        if (typeof window === 'undefined' || !studentId) return;
-        const saved = localStorage.getItem(`cc_portal_session_${studentId}`);
-        if (saved) {
-            try {
-                const session = JSON.parse(saved);
-                const isFresh = Date.now() - session.timestamp < 30 * 60 * 1000;
-                if (session.authenticated && isFresh) {
-                    setAuthState('authenticated');
-                } else {
-                    localStorage.removeItem(`cc_portal_session_${studentId}`);
-                }
-            } catch (e) {}
-        }
-    }, [studentId]);
-
     const handleAuth = () => {
         if (!studentData) return;
         const cleanInput = phoneInput.replace(/\D/g, '');
         const cleanStudentPhone = studentData.phone.replace(/\D/g, '');
         if (cleanInput && (cleanStudentPhone === cleanInput || cleanStudentPhone.endsWith(cleanInput))) {
-            const session = {
-                authenticated: true,
-                timestamp: Date.now()
-            };
-            localStorage.setItem(`cc_portal_session_${studentId}`, JSON.stringify(session));
+            sessionStorage.setItem(`auth_${studentId}`, 'true');
             setAuthState('authenticated');
         } else {
             setAuthError(t.incorrectPhone);
@@ -443,42 +372,35 @@ export default function StudentPortalPage() {
         setStatus('paying');
         setTimeout(() => {
             const updated = renewSubscription(studentId);
-            if (updated) {
-                setSubs(prev => [updated, ...prev.filter(s => s.id !== updated.id)]);
-            }
+            setSub(updated);
             setStatus('success');
             setTimeout(() => setStatus('idle'), 3000);
         }, 2000);
     };
 
+    // ✅ Computed variables that were missing
     const initials = studentData ? (
         (studentData.first_name?.[0] || '') + (studentData.last_name?.[0] || '')
     ).toUpperCase() : '';
 
+    const remaining = sub?.sessions_total != null && sub?.sessions_used != null
+        ? sub.sessions_total - sub.sessions_used
+        : null;
+
+    const isExpiring = remaining != null && remaining <= 2;
+
     if (isLoading || syncing) {
         return (
-            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-8">
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
                 <div className="relative">
                     <div className="w-20 h-20 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
                     <div className="absolute inset-0 flex items-center justify-center">
                         <Logo className="w-8 h-8 opacity-20" />
                     </div>
                 </div>
-                <div className="space-y-3">
-                    <p className="text-sm font-black tracking-[0.2em] text-indigo-500 animate-pulse uppercase">
-                        {t.loading || 'იტვირთება...'}
-                    </p>
-                    <p className="text-[10px] font-bold text-muted tracking-widest opacity-40 uppercase">
-                        Secure Connection Established
-                    </p>
-                    {/* Taking too long hint - appears via CSS delay if needed, or we just show it if syncing is taking time */}
-                    {syncing && (
-                        <div className="pt-4 animate-in fade-in duration-1000 delay-5000">
-                            <p className="text-[9px] font-medium text-muted/30 italic">
-                                {lang === 'ka' ? 'ჩვეულებრივზე მეტი დრო სჭირდება...' : 'Taking longer than usual...'}
-                            </p>
-                        </div>
-                    )}
+                <div className="space-y-2">
+                    <p className="text-sm font-black tracking-[0.2em] text-indigo-500 animate-pulse uppercase">{t.loading || 'Loading Portal'}</p>
+                    <p className="text-[10px] font-bold text-muted tracking-widest opacity-40 uppercase">Secure Connection Established</p>
                 </div>
             </div>
         );
@@ -593,10 +515,10 @@ export default function StudentPortalPage() {
         <div className="min-h-screen bg-card animate-fade-up max-w-lg mx-auto pb-24 md:pb-10 pt-6 px-4 relative overflow-x-hidden">
             <div className="flex items-center justify-between mb-8 mt-2 px-1">
                 <div className="flex items-center gap-3">
-                    {(settings?.logoDataUrl || settings?.studioLogo) ? (
+                    {settings.logoDataUrl ? (
                         <div className="relative group p-1">
                             <div className="absolute inset-0 bg-indigo-500/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <img src={settings.logoDataUrl || settings.studioLogo} alt={settings.studioName} className="w-10 h-10 rounded-xl object-contain shadow-md relative z-10" />
+                            <img src={settings.logoDataUrl} alt={settings.studioName} className="w-10 h-10 rounded-xl object-contain shadow-md relative z-10" />
                         </div>
                     ) : (
                         <div className="w-10 h-10 bg-card border border-border-subtle rounded-xl flex items-center justify-center shadow-md shadow-black/5 overflow-hidden group">
@@ -668,9 +590,11 @@ export default function StudentPortalPage() {
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <p className={cn("text-[10px] font-black tracking-widest uppercase", subs.length > 0 ? "text-emerald-500" : "text-rose-500")}>
-                                            {subs.length > 0 ? t.active : t.inactive || 'InActive'}
+                                        <p className={cn("text-[10px] font-black tracking-widest uppercase", (sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? "text-emerald-500" : "text-rose-500")}>
+                                            {(sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? t.active : t.inactive || 'InActive'}
                                         </p>
+                                        <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
+                                        <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {(studentData?.id || studentId).toUpperCase()}</p>
                                     </div>
                                 </div>
                             </div>
@@ -695,97 +619,63 @@ export default function StudentPortalPage() {
                                             : '—'}
                                     </p>
                                 </div>
+                                <div className="space-y-1">
+                                    <span className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest">ID</span>
+                                    <p className="text-sm font-black text-primary tabular-nums">{(studentData?.id || studentId).toUpperCase()}</p>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Subscription Cards */}
-                        {subs.map(sub => {
-                            const remaining = sub.sessions_total != null && sub.sessions_used != null
-                                ? sub.sessions_total - sub.sessions_used
-                                : null;
-                            const isExpiring = remaining != null && remaining <= 2;
-                            const isIndividual = sub.plan_type === 'individual' || sub.plan?.toLowerCase().includes('individual') || sub.plan?.toLowerCase().includes('ინდივიდუალური');
-
-                            // Label logic
-                            const subLabel = isIndividual 
-                                ? l('ინდივიდუალური აბონემენტი', 'Индивидуальный абонемент', 'Individual Aboniment')
-                                : l('ჯგუფური აბონემენტი', 'Групповой абонемент', 'Group Aboniment');
-
-                            return (
-                                <div key={sub.id} className={cn(
-                                    "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5 transition-all duration-300",
-                                    isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle",
-                                    isIndividual && !isExpiring && "border-orange-500/20 bg-orange-500/[0.02]"
-                                )}>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className={cn(
-                                                "w-10 h-10 rounded-2xl flex items-center justify-center border transition-colors",
-                                                isIndividual ? "bg-orange-500/10 text-orange-600 border-orange-500/20" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20"
-                                            )}>
-                                                <CreditCard className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <h2 className={cn("text-base font-black tracking-tight transition-colors", isIndividual ? "text-orange-600" : "text-primary")}>
-                                                    {subLabel}
-                                                </h2>
-                                                <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{sub.plan}</p>
-                                            </div>
+                        {/* Subscription Card */}
+                        {sub && (
+                            <div className={cn(
+                                "bg-card border rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-black/5",
+                                isExpiring ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle"
+                            )}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
+                                            <CreditCard className="w-5 h-5" />
                                         </div>
-                                        <span className={cn(
-                                            "px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider", 
-                                            sub.status === 'active' 
-                                                ? (isIndividual ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20") 
-                                                : "bg-rose-500 text-white shadow-lg shadow-rose-500/20"
-                                        )}>
-                                            {sub.status === 'active' ? t.active : t.expired}
-                                        </span>
+                                        <div>
+                                            <h2 className="text-base font-black text-primary tracking-tight">{t.subscriptionRenewal}</h2>
+                                            <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{sub.plan}</p>
+                                        </div>
                                     </div>
-
-                                    {sub.sessions_total && remaining !== null && (
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between text-[11px] font-black text-primary tracking-widest mb-1 px-1">
-                                                <span>{t.remaining}</span>
-                                                <div className="flex items-baseline gap-1">
-                                                    <span className={cn("text-xl tabular-nums", isIndividual ? "text-orange-600" : "text-indigo-500")}>{remaining}</span>
-                                                    <span className="opacity-40">/ {sub.sessions_total}</span>
-                                                </div>
-                                            </div>
-                                            <div className="h-4 bg-surface rounded-full overflow-hidden p-1 border border-border-subtle/50 shadow-inner">
-                                                <div
-                                                    className={cn(
-                                                        "h-full rounded-full transition-all duration-1000 ease-out shadow-sm", 
-                                                        remaining <= 2 ? "bg-rose-500" : (isIndividual ? "bg-gradient-to-r from-orange-400 to-orange-600" : "bg-gradient-to-r from-indigo-500 to-indigo-600")
-                                                    )}
-                                                    style={{ width: `${(remaining / sub.sessions_total) * 100}%` }}
-                                                />
-                                            </div>
-                                            <div className="flex justify-between px-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={cn("w-1.5 h-1.5 rounded-full", isIndividual ? "bg-orange-500" : "bg-indigo-500")} />
-                                                    <span className="text-[9px] font-bold text-muted tracking-widest opacity-60">{t.used} {sub.sessions_used}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted">
-                                                    <Calendar className={cn("w-3.5 h-3.5 opacity-40", isIndividual ? "text-orange-500" : "text-indigo-500")} />
-                                                    <span>{t.expiryDate}: <span className="text-primary font-black">{sub.expires_at}</span></span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    
-                                    {sub.couple_partner_name && (
-                                        <div className="pt-4 border-t border-border-subtle/50 flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-600">
-                                                <UserIcon className="w-3 h-3" />
-                                            </div>
-                                            <p className="text-[10px] font-bold text-muted tracking-wide">
-                                                {l('პარტნიორი:', 'Партнер:', 'Partner:')} <span className="text-primary font-black">{sub.couple_partner_name}</span>
-                                            </p>
-                                        </div>
-                                    )}
+                                    <span className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider", sub.status === 'active' ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")}>
+                                        {sub.status === 'active' ? t.active : t.expired}
+                                    </span>
                                 </div>
-                            );
-                        })}
+
+                                {sub.sessions_total && remaining !== null && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between text-[11px] font-black text-primary tracking-widest mb-1 px-1">
+                                            <span>{t.remaining}</span>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-xl text-indigo-500 tabular-nums">{remaining}</span>
+                                                <span className="opacity-40">/ {sub.sessions_total}</span>
+                                            </div>
+                                        </div>
+                                        <div className="h-4 bg-surface rounded-full overflow-hidden p-1 border border-border-subtle/50 shadow-inner">
+                                            <div
+                                                className={cn("h-full rounded-full transition-all duration-1000 ease-out shadow-sm", remaining <= 2 ? "bg-rose-500" : "bg-gradient-to-r from-indigo-500 to-indigo-600")}
+                                                style={{ width: `${(remaining / sub.sessions_total) * 100}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between px-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                                <span className="text-[9px] font-bold text-muted tracking-widest opacity-60">{t.used} {sub.sessions_used}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-[10px] font-bold text-muted">
+                                                <Calendar className="w-3.5 h-3.5 opacity-40 text-indigo-500" />
+                                                <span>{t.expiryDate}: <span className="text-primary font-black">{sub.expires_at}</span></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Contribution Graph (GitHub Style) */}
                         <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
@@ -814,11 +704,7 @@ export default function StudentPortalPage() {
                                         const checkinDates = new Set(checkins.map(c => c.date));
                                         
                                         const enrolledGroups = getGroups().filter(g => studentData?.enrolled_group_ids?.includes(g.id));
-                                        const myEvents = getEvents().filter(e => {
-                                            const sIdMatch = (e.student_id || '').toLowerCase() === (studentId || '').toLowerCase();
-                                            const studentIsInGroup = studentData?.enrolled_group_ids?.some(gid => gid.toLowerCase() === (e.group_id || '').toLowerCase());
-                                            return sIdMatch || studentIsInGroup;
-                                        });
+                                        const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
                                         
                                         // Find the first subscription date
                                         const allSubs = getStudentSubscriptions(studentId);
@@ -963,12 +849,6 @@ export default function StudentPortalPage() {
 
                         {/* QR Card */}
                         <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-xl shadow-black/5 transition-all duration-500">
-                            <div className="p-6 sm:p-8 border-b border-border-subtle/50 bg-surface/10">
-                                <div className="flex items-center justify-between gap-4 mb-2">
-                                    <h1 className="text-xl font-black text-primary truncate leading-tight">{studentData?.full_name || t.loading}</h1>
-                                    <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-500/20">{studentData?.status || 'Active'}</div>
-                                </div>
-                            </div>
                             <button
                                 onClick={() => setIsQrExpanded(!isQrExpanded)}
                                 className="w-full p-6 sm:p-8 flex items-center justify-between hover:bg-surface/50 transition-colors"
@@ -978,6 +858,11 @@ export default function StudentPortalPage() {
                                         <QrCode className="w-6 h-6" />
                                     </div>
                                     <div className="text-left">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <h1 className="text-xl font-black text-primary truncate max-w-[200px] leading-tight">{studentData?.full_name || t.loading}</h1>
+                                            <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-500/20">{studentData?.status || 'Active'}</div>
+                                            <div className="text-[10px] font-bold text-muted/40 ml-auto uppercase tracking-tighter">ID: {(studentData?.id || studentId).toUpperCase()}</div>
+                                        </div>
                                         <h3 className="text-sm font-black text-primary tracking-tight">{t.qrCode || 'QR კოდი'}</h3>
                                         <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{isQrExpanded ? t.hideQr || 'დამალვა' : t.showQr || 'ჩვენება'}</p>
                                     </div>
@@ -1063,32 +948,25 @@ export default function StudentPortalPage() {
                                         const myEvents = allEvents.filter(e => {
                                             const sIdMatch = e.student_id?.toLowerCase() === studentId.toLowerCase();
                                             const studentIsInGroup = studentData?.enrolled_group_ids?.some(gid => gid.toLowerCase() === e.group_id?.toLowerCase());
-                                            const isThisStudio = !e.org_id || e.org_id === studio || e.org_id === settings?.orgId;
-                                            return isThisStudio && (sIdMatch || studentIsInGroup);
+                                            return e.org_id === studio && (sIdMatch || studentIsInGroup);
                                         });
 
                                         let displayEvents: CalendarEvent[] = [];
                                         if (scheduleView === 'daily') {
-                                            // 📅 SHOW NEXT 3 UPCOMING LESSONS
-                                            displayEvents = myEvents
-                                                .filter(e => {
-                                                    if (e.recurring === 'weekly') return true;
-                                                    return e.date >= todayStr;
-                                                })
-                                                .sort((a, b) => {
-                                                    if (a.recurring === 'weekly' && b.recurring !== 'weekly') return -1;
-                                                    if (a.recurring !== 'weekly' && b.recurring === 'weekly') return 1;
-                                                    return a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time);
-                                                })
-                                                .slice(0, 3);
+                                            displayEvents = myEvents.filter(e => {
+                                                if (e.date === todayStr) return true;
+                                                if (e.recurring === 'weekly') return new Date(`${e.date}T00:00:00`).getDay() === todayDate.getDay();
+                                                return false;
+                                            }).sort((a, b) => a.start_time.localeCompare(b.start_time));
                                         } else {
                                             const startOfWeek = new Date(todayDate);
                                             startOfWeek.setDate(todayDate.getDate() - (todayDate.getDay() === 0 ? 6 : todayDate.getDay() - 1));
                                             displayEvents = myEvents.filter(e => {
                                                 const evDate = new Date(`${e.date}T00:00:00`);
+                                                if (![1,2,3,4,5].includes(evDate.getDay())) return false;
                                                 if (e.recurring === 'weekly') return true;
                                                 const endOfWeek = new Date(startOfWeek);
-                                                endOfWeek.setDate(startOfWeek.getDate() + 6);
+                                                endOfWeek.setDate(startOfWeek.getDate() + 4);
                                                 return evDate >= startOfWeek && evDate <= endOfWeek;
                                             }).sort((a, b) => new Date(`${a.date}T00:00:00`).getDay() - new Date(`${b.date}T00:00:00`).getDay() || a.start_time.localeCompare(b.start_time));
                                         }
@@ -1118,7 +996,7 @@ export default function StudentPortalPage() {
                                                             )}
                                                             <div className={cn("group relative bg-surface border border-border-subtle hover:border-indigo-500/30 rounded-3xl p-4 flex gap-4 transition-all hover:shadow-lg hover:shadow-indigo-500/5 overflow-hidden", ev.date < todayStr && "opacity-40 grayscale-[0.5]")}>
                                                                 {ev.type === 'individual' && (
-                                                                    <div className="absolute top-0 right-0 bg-orange-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl z-10 uppercase">{l('ინდივიდუალური გაკვეთილი', 'Индив. занятие', 'Individual Lesson')}</div>
+                                                                    <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl z-10 uppercase">{t.individual}</div>
                                                                 )}
                                                                 <div className="flex-shrink-0 w-14 flex flex-col items-center justify-center bg-indigo-50/50 rounded-2xl py-2 border border-indigo-100/50 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
                                                                     <span className="text-[8px] font-black tracking-widest opacity-60 group-hover:opacity-80 uppercase">{monthName}</span>
@@ -1177,7 +1055,7 @@ export default function StudentPortalPage() {
 
                                 <div className="space-y-8">
                                     {(() => {
-                                        const allEvents = getEvents().filter(e => !e.org_id || e.org_id === studio || e.org_id === settings?.orgId);
+                                        const allEvents = getEvents().filter(e => e.org_id === studio);
                                         const today = new Date();
                                         const todayStr = getLocalISODate();
                                         let days: string[] = [];
@@ -1220,17 +1098,16 @@ export default function StudentPortalPage() {
                                                     <div className="space-y-3">
                                                         {dayEvents.map(ev => {
                                                             const isMyEvent = studentData?.enrolled_group_ids?.includes(ev.group_id || '') || ev.student_id === studentId;
-                                                            const groupData = groups.find(g => g.id === ev.group_id);
                                                             return (
-                                                                <div key={`${ev.id}-${dayDate}`} className={cn("relative bg-surface border rounded-3xl p-4 flex gap-4 transition-all overflow-hidden group", isMyEvent ? "border-indigo-500/30 bg-indigo-50/20 shadow-lg shadow-indigo-500/5" : "border-border-subtle opacity-80 shadow-sm", dayDate < todayStr && "opacity-40 grayscale-[0.5]")}>
-                                                                    {groupData && (
-                                                                        <div className={cn(
-                                                                            "w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black border-2 shadow-sm transition-transform group-hover:scale-105 shrink-0",
-                                                                            groupData.color ? "" : "bg-violet-500 text-white border-violet-600/20"
-                                                                        )} style={groupData.color ? { backgroundColor: groupData.color, color: '#fff', borderColor: 'rgba(255,255,255,0.2)' } : {}}>
-                                                                            {groupData.name[0]}
-                                                                        </div>
+                                                                <div key={`${ev.id}-${dayDate}`} className={cn("relative bg-surface border rounded-3xl p-4 flex gap-4 transition-all overflow-hidden", isMyEvent ? "border-indigo-500/30 bg-indigo-50/20 shadow-lg shadow-indigo-500/5" : "border-border-subtle opacity-80 shadow-sm", dayDate < todayStr && "opacity-40 grayscale-[0.5]")}>
+                                                                    {isMyEvent && (
+                                                                        <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black tracking-widest px-3 py-1 rounded-bl-2xl uppercase">{t.myClass}</div>
                                                                     )}
+                                                                    <div className="flex-shrink-0 w-12 flex flex-col items-center justify-center font-black">
+                                                                        <span className="text-[11px] text-primary tabular-nums">{ev.start_time}</span>
+                                                                        <div className="w-px h-3 bg-border-subtle my-0.5" />
+                                                                        <span className="text-[9px] text-muted opacity-40 tabular-nums">{ev.end_time}</span>
+                                                                    </div>
                                                                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                                         <h4 className="text-sm font-black text-primary truncate mb-1">{ev.title}</h4>
                                                                         {ev.teacher_id && (
@@ -1239,10 +1116,6 @@ export default function StudentPortalPage() {
                                                                                 <span className="truncate max-w-[120px]">{teachers.find(tc => tc.id === ev.teacher_id)?.full_name || t.teacherRole}</span>
                                                                             </div>
                                                                         )}
-                                                                    </div>
-                                                                    <div className="flex-shrink-0 flex flex-col items-end justify-center font-black">
-                                                                        <span className="text-[11px] text-primary tabular-nums">{ev.start_time}</span>
-                                                                        <span className="text-[9px] text-muted opacity-40 tabular-nums">{ev.end_time}</span>
                                                                     </div>
                                                                 </div>
                                                             );
@@ -1318,37 +1191,30 @@ export default function StudentPortalPage() {
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="fixed inset-0 z-[100] flex justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300 sm:px-4">
-                        <div className="w-full h-full max-w-lg bg-white shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-8 duration-500">
-                            <div className="h-16 border-b border-border-subtle bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
-                                        <MessageSquare className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-base font-black text-primary tracking-tight leading-none mb-1">{selectedChatId === 'studio' ? settings.studioName : (groups.find(g => g.id === selectedChatId)?.name || t.chat)}</h2>
-                                        <p className="text-[10px] font-bold text-emerald-500 tracking-widest uppercase leading-none">Online</p>
-                                    </div>
-                                </div>
-                            <button onClick={() => setActiveTab('info')} className="p-2 text-muted hover:text-primary transition-colors">
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-[calc(100vh-320px)] bg-card/30 rounded-[2.5rem] border border-border-subtle overflow-hidden">
                         {studentData?.enrolled_group_ids && studentData.enrolled_group_ids.length > 0 && (
-                            <div className="flex gap-2 p-4 border-b border-border-subtle bg-surface/30 overflow-x-auto no-scrollbar">
-                                <button onClick={() => setSelectedChatId('studio')} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === 'studio' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-white border border-border-subtle text-muted hover:text-primary")}>
+                            <div className="flex gap-2 p-4 border-b border-border-subtle bg-card/50 overflow-x-auto no-scrollbar">
+                                <button onClick={() => setSelectedChatId('studio')} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === 'studio' ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
                                     <ShieldCheck className="w-3 h-3" />
                                     {lang === 'ka' ? 'სტუდია' : (t.administration || 'Studio')}
                                 </button>
                                 {studentData.enrolled_group_ids.map(gid => {
                                     const group = groups.find((g: any) => g.id === gid);
                                     if (!group) return null;
+                                    const teacher = teachers.find(tc => tc.id === group.teacher_id);
                                     return (
-                                        <button key={gid} onClick={() => setSelectedChatId(gid)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === gid ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-white border border-border-subtle text-muted hover:text-primary")}>
-                                            <UserRound className="w-3 h-3" />
-                                            {group.name}
-                                        </button>
+                                        <React.Fragment key={gid}>
+                                            <button onClick={() => setSelectedChatId(gid)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === gid ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
+                                                <Users className="w-3 h-3" />
+                                                {group.name}
+                                            </button>
+                                            {teacher && (
+                                                <button onClick={() => setSelectedChatId(`teach_${teacher.id}`)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === `teach_${teacher.id}` ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
+                                                    <UserIcon className="w-3 h-3" />
+                                                    {teacher.full_name}
+                                                </button>
+                                            )}
+                                        </React.Fragment>
                                     );
                                 })}
                             </div>
@@ -1363,34 +1229,16 @@ export default function StudentPortalPage() {
                                     <p className="text-xs font-bold px-10">{selectedChatId === 'studio' ? t.chatWelcome : t.chatStartHint}</p>
                                 </div>
                             ) : (
-                                chatMessages.map((m, idx) => {
-                                    const isMe = m.sender === 'student';
-                                    return (
-                                        <div key={m.id || idx} className={cn("flex gap-3", isMe ? "flex-row-reverse" : "flex-row")}>
-                                            <div className="flex-shrink-0 mt-auto">
-                                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shadow-sm", isMe ? "bg-indigo-600 text-white" : "bg-white border border-border-subtle text-primary")}>
-                                                    {isMe ? (studentData?.photo_url ? <img src={studentData.photo_url} className="w-full h-full rounded-full object-cover" /> : studentData?.full_name?.[0]) : (selectedChatId === 'studio' ? <ShieldCheck className="w-4 h-4" /> : <UserRound className="w-4 h-4" />)}
-                                                </div>
-                                            </div>
-                                            <div className={cn("flex flex-col max-w-[80%]", isMe ? "items-end" : "items-start")}>
-                                                {!isMe && (
-                                                    <span className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest mb-1 px-1">{selectedChatId === 'studio' ? settings.studioName : (m.sender_name || 'Admin')}</span>
-                                                )}
-                                                <div className={cn("p-4 rounded-2xl text-sm font-medium leading-relaxed shadow-sm", isMe ? "bg-indigo-600 text-white rounded-br-none" : "bg-white border border-border-subtle text-primary rounded-bl-none")}>
-                                                    {m.attachment && (
-                                                        <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
-                                                            <img src={m.attachment.data} className="w-full h-auto max-h-[300px] object-contain bg-black/10" alt="attachment" />
-                                                        </div>
-                                                    )}
-                                                    {m.text}
-                                                </div>
-                                                <span className="text-[8px] font-bold text-muted/30 tracking-widest mt-1 px-1 uppercase">
-                                                    {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                                </span>
-                                            </div>
+                                chatMessages.map((m, idx) => (
+                                    <div key={m.id || idx} className={cn("flex flex-col", m.sender === 'student' ? "items-end" : "items-start")}>
+                                        <div className={cn("max-w-[85%] p-4 rounded-3xl text-[13px] font-medium leading-relaxed shadow-sm", m.sender === 'student' ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none")}>
+                                            {m.text}
                                         </div>
-                                    );
-                                })
+                                        <span className="text-[9px] font-bold text-muted/40 tracking-widest mt-1 px-1">
+                                            {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                        </span>
+                                    </div>
+                                ))
                             )}
                             {isSyncingChat && (
                                 <div className="flex items-center gap-2 text-muted/40 font-bold text-[10px] tracking-widest px-1">
@@ -1401,49 +1249,21 @@ export default function StudentPortalPage() {
                         </div>
 
                         <div className="p-4 bg-card/80 backdrop-blur-md border-t border-border-subtle">
-                            <div className="relative flex items-center gap-3">
-                                    <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-surface border border-border-subtle text-muted hover:text-indigo-500 rounded-xl transition-all active:scale-95">
-                                        <ImageIcon className="w-5 h-5" />
-                                    </button>
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file && studentId && studio) {
-                                                const reader = new FileReader();
-                                                reader.onload = async (ev) => {
-                                                    const attachment = { name: file.name, type: file.type, size: file.size, data: ev.target?.result as string };
-                                                    const channelId = selectedChatId === 'studio' ? studentId : selectedChatId;
-                                                    const newMsg = { id: Date.now().toString(), text: '', attachment, sender: 'student', sender_name: studentData?.full_name || 'Student', timestamp: new Date().toISOString(), read: false };
-                                                    const updated = [...chatMessages, newMsg];
-                                                    setChatMessages(updated);
-                                                    const localKey = getScopedKey(`chat_${channelId}`, studio);
-                                                    safeSetItem(localKey, JSON.stringify(updated), studio);
-                                                };
-                                                reader.readAsDataURL(file);
-                                            }
-                                        }}
-                                        className="hidden" 
-                                        accept="image/*" 
-                                    />
-                                    <div className="relative flex-1">
-                                        <input
-                                            value={chatInput}
-                                            onChange={(e) => setChatInput(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                            placeholder={(t.sendMessageToStart || 'Message') + '...'}
-                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-5 py-4 pr-14 text-sm font-medium outline-none transition-all placeholder:text-muted/40 shadow-inner"
-                                        />
-                                        <button onClick={handleSendMessage} disabled={!chatInput.trim() || isSyncingChat} className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-indigo-600 text-white rounded-xl disabled:opacity-20 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20">
-                                            <Send className="w-4 h-4" />
-                                        </button>
-                                    </div>
+                            <div className="relative flex items-center">
+                                <input
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                    placeholder={(t.sendMessageToStart || 'Message') + '...'}
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-5 py-4 pr-14 text-sm font-medium outline-none transition-all placeholder:text-muted/40"
+                                />
+                                <button onClick={handleSendMessage} disabled={!chatInput.trim() || isSyncingChat} className="absolute right-2 p-3 bg-indigo-600 text-white rounded-xl disabled:opacity-20 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20">
+                                    <Send className="w-4 h-4" />
+                                </button>
                             </div>
                             <p className="text-center text-[9px] font-bold text-muted/30 tracking-[0.2em] mt-3 uppercase">{settings.studioName} Secure Messenger</p>
                         </div>
                     </div>
-                </div>
                 )}
             </div>
 
@@ -1454,4 +1274,3 @@ export default function StudentPortalPage() {
         </div>
     );
 }
- 

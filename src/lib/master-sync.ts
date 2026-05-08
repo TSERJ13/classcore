@@ -139,11 +139,7 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
 
 export async function pushCollectionToCloud(table: string, items: any[], orgId: string, slug?: string) {
     const supabase = createClient();
-    if (!orgId || !items || items.length === 0) {
-        console.log(`📡 [MasterSync] Skipping ${table} sync: No items or OrgID.`);
-        return false;
-    }
-    console.log(`📡 [MasterSync] Pushing ${items.length} items to ${table}...`);
+    if (!orgId || !items || items.length === 0) return false;
     const chunkSize = 50;
     for (let i = 0; i < items.length; i += chunkSize) {
         const chunk = items.slice(i, i + chunkSize).map(item => {

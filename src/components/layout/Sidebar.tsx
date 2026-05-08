@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    LayoutDashboard, UserRound, CalendarCheck, BookOpen, Settings,
+    LayoutDashboard, Users, CalendarCheck, BookOpen, Settings,
     CreditCard, Receipt, GraduationCap, BarChart2,
     CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare,
     Building2, Plus, Check, LogOut, Zap
@@ -27,7 +27,7 @@ const ALL_ITEMS: (NavItem & { color: string })[] = [
     { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, color: 'text-emerald-500' },
     { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck, color: 'text-blue-500' },
     { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard, color: 'text-#6d28d9' },
-    { href: '/students', labelKey: 'students', icon: UserRound, color: 'text-sky-500' },
+    { href: '/students', labelKey: 'students', icon: Users, color: 'text-sky-500' },
     { href: '/calendar', labelKey: 'calendar', icon: CalendarDays, color: 'text-violet-500' },
     { href: '/groups', labelKey: 'groups', icon: BookOpen, color: 'text-purple-500' },
     { href: '/teachers', labelKey: 'teachers', icon: GraduationCap, color: 'text-amber-500' },

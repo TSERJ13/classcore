@@ -13,15 +13,15 @@ import {
 } from 'lucide-react';
 import { cn, getLocalISODate, getActiveSlug } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
-import type { CalendarEvent, EventType, Student } from '@/types';
+import type { CalendarEvent, EventType } from '@/types';
 import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar } from '@/lib/event-store';
 import { getTeachers } from '@/lib/teacher-store';
-import { getStudents } from '@/lib/student-store';
 import { getHalls } from '@/lib/hall-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getGroups, addSlotToGroup, removeSlotFromGroup, createGroup, saveGroups, type Group } from '@/lib/group-store';
 import { saveSubscription } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { getStudents } from '@/lib/student-store';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 
@@ -265,7 +265,7 @@ function GridLines({ onClick }: { onClick: (e: React.MouseEvent<HTMLDivElement>)
 
 /* ─── EventChip component ────────────────────────────────────── */
 
-function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, groups = [], students = [], compact = false, style, className, canEdit }: {
+function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, groups = [], compact = false, style, className, canEdit }: {
     ev: CalendarEvent;
     onClick: () => void;
     onMouseDown?: (e: React.MouseEvent) => void;
@@ -273,38 +273,25 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
     teachers: any[];
     halls: any[];
     groups?: Group[];
-    students?: Student[];
     compact?: boolean;
     style?: React.CSSProperties;
     className?: string;
     canEdit?: boolean;
 }) {
+    const { t } = useT();
     const hall = halls.find((h: any) => h.id === ev.hall_id);
     const tid = ev.teacher_id || (ev as any).teacherId;
     const teacher = teachers.find(t => t.id === tid);
     const group = ev.group_id ? groups.find(g => g.id === ev.group_id) : null;
-    const student = ev.student_id ? students.find(s => s.id === ev.student_id) : null;
-
-    const getFirstName = (name: string) => name?.trim().split(' ')[0] || '';
-
-    // Use student name as title for individual lessons
-    let displayTitle = ev.title;
-    if (ev.type === 'individual' && student) {
-        const pName = getFirstName(student.full_name || `${student.first_name || ''} ${student.last_name || ''}`);
-        const partner = ev.couple_partner_id ? students.find(s => s.id === ev.couple_partner_id) : null;
-        const sName = partner ? getFirstName(partner.full_name || `${partner.first_name || ''} ${partner.last_name || ''}`) : '';
-        displayTitle = sName ? `${pName} & ${sName}` : pName;
-    }
-
-    // Use student photo for individual lessons
-    const photoUrl = (ev.type === 'individual' && student?.photo_url) 
-        ? student.photo_url 
-        : teacher?.photo_url;
 
     // Highest priority: Custom Event Color -> Group Color -> Hall Color
     const color = ev.color || group?.color || (hall?.color ?? '#6366f1');
-    const isIndividual = ev.type === 'individual';
-    const partner = ev.couple_partner_id ? students.find(s => s.id === ev.couple_partner_id) : null;
+
+    // Individual session student photos and names
+    const studentIds = (ev.type === 'individual' && ev.student_id) ? ev.student_id.split(',').map(id => id.trim()) : [];
+    const allStudents = getStudents();
+    const studentPhotos = studentIds.map(id => allStudents.find(s => s.id === id)?.photo_url).filter(Boolean) as string[];
+    const studentNames = studentIds.map(id => allStudents.find(s => s.id === id)?.full_name).filter(Boolean).join(' & ');
 
     return (
         <button
@@ -315,74 +302,72 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
                 "w-full h-full text-left rounded-lg overflow-hidden transition-all group shadow-sm border border-black/5 relative p-0",
                 canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-default",
                 style ? "absolute z-10" : "min-h-[24px] mb-0.5",
-                isIndividual && "ring-1 ring-orange-500/30",
                 className
             )}
             style={style}>
 
             {/* Pure Solid background */}
-            <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: isIndividual ? (ev.color || '#f97316') : color }} />
+            <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: color }} />
+
+            {/* Dark/Pure solid left border */}
+            <div className="absolute left-0 top-0 bottom-0 w-1 pointer-events-none" style={{ backgroundColor: color }} />
 
             {/* Content properly positioned above backgrounds */}
-            <div className="relative z-10 flex h-full w-full items-center gap-1.5 overflow-hidden px-2 py-1">
-                <div className="flex flex-col flex-1 min-w-0 h-full justify-center overflow-hidden">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                        {isIndividual && (
-                            <span className="text-[7px] font-black bg-white/20 text-white px-1 py-0.5 rounded tracking-normal leading-none uppercase">ინდ. გაკვეთილი</span>
-                        )}
-                        <span className={cn("truncate font-black leading-tight text-white", compact ? "text-[8px]" : "text-[11px] sm:text-[12px]")}>
-                            {displayTitle}
-                        </span>
-                    </div>
-                    {teacher && !compact && (
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] font-bold text-white/70 truncate leading-none">
-                                {teacher.full_name}
+            <div className="relative z-10 flex h-full w-full flex-col overflow-hidden px-2 py-1">
+                {ev.type === 'individual' && !compact && (
+                    <span className="text-[7px] font-black uppercase tracking-widest text-white/60 leading-none mb-0.5">
+                        {t.calIndividual}
+                    </span>
+                )}
+                    <div className="flex-1 flex items-center justify-between gap-1.5 min-w-0 overflow-hidden">
+                        <div className="flex flex-col flex-1 min-w-0 h-full justify-center overflow-hidden">
+                            <span className={cn("truncate font-black leading-tight text-white", compact ? "text-[8px]" : "text-[11px] sm:text-[12px]")}>
+                                {ev.type === 'individual' ? studentNames || ev.title : ev.title}
                             </span>
-                            {hall && (
-                                <span className="text-[8px] font-black text-white/40 truncate leading-none flex items-center gap-1">
-                                    <div className="w-0.5 h-0.5 rounded-full bg-white/20" />
-                                    {hall.name}
-                                </span>
+                            {teacher && !compact && (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[9px] font-bold text-white/70 truncate leading-none">
+                                        {teacher.full_name}
+                                    </span>
+                                    {hall && (
+                                        <span className="text-[8px] font-black text-white/40 truncate leading-none flex items-center gap-1">
+                                            <div className="w-0.5 h-0.5 rounded-full bg-white/20" />
+                                            {hall.name}
+                                        </span>
+                                    )}
+                                </div>
                             )}
                         </div>
-                    )}
-                </div>
 
-                {/* Photos Section */}
-                <div className="flex items-center -space-x-3">
-                    {/* Partner Photo First (Background) */}
-                    {partner && (
-                        <div className={cn(
-                            "flex-shrink-0 overflow-hidden rounded-full border-2 border-white/40 shadow-sm bg-white/20 relative z-0",
-                            compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
-                        )}>
-                            {partner.photo_url ? (
-                                <img src={partner.photo_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                    <User className={cn("opacity-60 text-white", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} />
+                        <div className="flex items-center gap-1">
+                            {ev.type === 'individual' && studentPhotos.length > 0 && (
+                                <div className="flex -space-x-2 overflow-hidden mr-1">
+                                    {studentPhotos.map((url, i) => (
+                                        <div key={i} className={cn(
+                                            "flex-shrink-0 overflow-hidden rounded-full border border-white/20 shadow-sm bg-white/30 transition-all",
+                                            compact ? "w-3 h-3" : "w-5 h-5 sm:w-6 sm:h-6"
+                                        )}>
+                                            <img src={url} alt="" className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {teacher && (
+                                <div className={cn(
+                                    "flex-shrink-0 overflow-hidden rounded-full border border-white/20 shadow-sm bg-white/30 transition-all",
+                                    compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
+                                )}>
+                                    {teacher.photo_url ? (
+                                        <img src={teacher.photo_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <UserCheck className={cn("opacity-60", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} style={{ color: color }} />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
-                    )}
-                    
-                    {/* Main Student or Teacher Photo (Foreground) */}
-                    {(teacher || (isIndividual && student)) && (
-                        <div className={cn(
-                            "flex-shrink-0 overflow-hidden rounded-full border-2 border-white/80 shadow-sm bg-white/30 relative z-10",
-                            compact ? "w-4 h-4" : "w-6 h-6 sm:w-7 sm:h-7"
-                        )}>
-                            {photoUrl ? (
-                                <img src={photoUrl} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                    <User className={cn("opacity-60 text-white", compact ? "w-2 h-2" : "w-3 h-3 sm:w-4 sm:h-4")} />
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                    </div>
             </div>
         </button>
     );
@@ -496,6 +481,54 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                     <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
                         <input value={form.title} onChange={e => setF('title', e.target.value)} placeholder="სათაური *"
                             className="w-full bg-surface border border-border-subtle focus:border-[#6d28d9]/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/50 outline-none" />
+
+                        {form.type === 'individual' && (
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase ml-1">{t.calStudent}</label>
+                                <div className="relative group">
+                                    <SearchSelect
+                                        options={getStudents().map(s => ({ value: s.id, label: s.full_name, subLabel: s.phone }))}
+                                        value={form.student_id?.split(',')[0] || ''}
+                                        onChange={val => {
+                                            const sIds = form.student_id ? form.student_id.split(',').map(id => id.trim()) : [];
+                                            let nextIds = [];
+                                            if (sIds.includes(val)) {
+                                                nextIds = sIds.filter(id => id !== val);
+                                            } else {
+                                                nextIds = [...sIds, val].slice(0, 2);
+                                            }
+                                            const finalIds = nextIds.join(', ');
+                                            setF('student_id', finalIds);
+                                            const names = nextIds.map(id => getStudents().find(x => x.id === id)?.full_name).filter(Boolean);
+                                            if (names.length > 0) setF('title', names.join(' & '));
+                                        }}
+                                        className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-2.5 [&>div]:px-3 [&>div]:text-xs"
+                                    />
+                                    {form.student_id && (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                            {form.student_id.split(',').map(id => id.trim()).filter(Boolean).map(id => {
+                                                const s = getStudents().find(x => x.id === id);
+                                                return s ? (
+                                                    <div key={id} className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-2 py-1">
+                                                        {s.photo_url && <img src={s.photo_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                                                        <span className="text-[10px] font-bold text-indigo-600">{s.full_name}</span>
+                                                        <button onClick={() => {
+                                                            const nextIds = form.student_id.split(',').map(i => i.trim()).filter(i => i !== id);
+                                                            const finalIds = nextIds.join(', ');
+                                                            setF('student_id', finalIds);
+                                                            const names = nextIds.map(i => getStudents().find(x => x.id === i)?.full_name).filter(Boolean);
+                                                            setF('title', names.length > 0 ? names.join(' & ') : '');
+                                                        }} className="text-indigo-500 hover:text-indigo-700">
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ) : null;
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-2">
                             <div>
@@ -779,7 +812,16 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                 <div className="flex items-start gap-3">
                     <div className="w-3 h-3 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: color }} />
                     <div className="flex-1">
-                        <p className="text-sm font-bold text-primary">{ev.title}</p>
+                        <p className="text-sm font-bold text-primary">
+                            {(() => {
+                                if (ev.type === 'individual' && ev.student_id) {
+                                    const sIds = ev.student_id.split(',').map(id => id.trim());
+                                    const names = sIds.map(id => getStudents().find(x => x.id === id)?.full_name).filter(Boolean);
+                                    if (names.length > 0) return names.join(' & ');
+                                }
+                                return ev.title;
+                            })()}
+                        </p>
                         <p className="text-[10px] text-muted mt-0.5">
                             {eventTypes.find(et => et.value === ev.type)?.label}
                             {ev.recurring === 'weekly' && t.calEveryWeekLabel}
@@ -793,7 +835,20 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                     {hall && <div className="flex items-center gap-2"><DoorOpen className="w-3.5 h-3.5" style={{ color }} /><span style={{ color }}>{hall.name}</span></div>}
                     {teacher && (
                         <div className="flex items-center gap-2">
-                            {teacher.photo_url ? (
+                            {ev.type === 'individual' && ev.student_id ? (
+                                <div className="flex -space-x-2">
+                                    {ev.student_id.split(',').map(id => id.trim()).map(id => {
+                                        const s = getStudents().find(x => x.id === id);
+                                        return s?.photo_url ? (
+                                            <img key={id} src={s.photo_url} alt="" className="w-10 h-10 object-cover rounded-full border border-border-subtle shadow-sm" />
+                                        ) : (
+                                            <div key={id} className="w-10 h-10 rounded-full bg-surface border border-border-subtle flex items-center justify-center">
+                                                <User className="w-5 h-5 opacity-40" />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : teacher.photo_url ? (
                                 <img src={teacher.photo_url} alt="" className="w-10 h-10 object-cover rounded-full border border-border-subtle shadow-sm" />
                             ) : (
                                 <UserCheck className="w-5 h-5 opacity-40" />
@@ -1079,6 +1134,62 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                             <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase ml-1">{t.calTitle}</label>
                             <input value={form.title} onChange={e => setF('title', e.target.value)} placeholder={form.type === 'individual' ? l('ინდივიდუალური გაკვეთილი', 'Индивидуальное занятие', 'Individual Lesson') : (form.type === 'rental' ? l('იჯარა', 'Аренда', 'Rental') : 'სათაური *')}
                                 className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-4 py-3 text-sm font-bold text-primary placeholder:text-muted/30 outline-none transition-all shadow-inner" />
+                        </div>
+                    )}
+
+                    {/* Student Selection for Individual Sessions */}
+                    {form.type === 'individual' && (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] text-muted tracking-wider font-black opacity-40 uppercase ml-1">{t.calStudent}</label>
+                            <div className="relative group">
+                                <SearchSelect
+                                    options={getStudents().map(s => ({ value: s.id, label: s.full_name, subLabel: s.phone }))}
+                                    value={form.student_id?.split(',')[0] || ''}
+                                    onChange={val => {
+                                        const s = getStudents().find(x => x.id === val);
+                                        const currentIds = form.student_id ? form.student_id.split(',').map(id => id.trim()) : [];
+                                        
+                                        let nextIds = [];
+                                        if (currentIds.includes(val)) {
+                                            nextIds = currentIds.filter(id => id !== val);
+                                        } else {
+                                            nextIds = [...currentIds, val].slice(0, 2); // Limit to 2 for now as per user screenshot
+                                        }
+                                        
+                                        const finalIds = nextIds.join(', ');
+                                        setF('student_id', finalIds);
+                                        
+                                        // Auto-generate title based on students
+                                        const names = nextIds.map(id => getStudents().find(x => x.id === id)?.full_name).filter(Boolean);
+                                        if (names.length > 0) {
+                                            setF('title', names.join(' & '));
+                                        }
+                                    }}
+                                    className="!border-border-subtle hover:!border-indigo-500/40 shadow-sm [&>div]:py-3 [&>div]:px-4 [&>div]:text-xs [&>div]:rounded-2xl"
+                                />
+                                {form.student_id && (
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                        {form.student_id.split(',').map(id => id.trim()).filter(Boolean).map(id => {
+                                            const s = getStudents().find(x => x.id === id);
+                                            return s ? (
+                                                <div key={id} className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-2 py-1">
+                                                    {s.photo_url && <img src={s.photo_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                                                    <span className="text-[10px] font-bold text-indigo-600">{s.full_name}</span>
+                                                    <button onClick={() => {
+                                                        const nextIds = form.student_id.split(',').map(i => i.trim()).filter(i => i !== id);
+                                                        const finalIds = nextIds.join(', ');
+                                                        setF('student_id', finalIds);
+                                                        const names = nextIds.map(i => getStudents().find(x => x.id === i)?.full_name).filter(Boolean);
+                                                        setF('title', names.length > 0 ? names.join(' & ') : '');
+                                                    }} className="text-indigo-500 hover:text-indigo-700">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ) : null;
+                                        })}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -1368,7 +1479,6 @@ export default function CalendarPage() {
     const [teachers, setTeachers] = useState<any[]>([]);
     const [halls, setHalls] = useState<{ id: string; name: string; color: string }[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
-    const [students, setStudents] = useState<Student[]>([]);
     const [hasMounted, setHasMounted] = useState(false);
 
     useEffect(() => {
@@ -1377,7 +1487,6 @@ export default function CalendarPage() {
             setTeachers(getTeachers());
             setHalls(getHalls().filter(h => h.is_active !== false));
             setGroups(getGroups());
-            setStudents(getStudents());
         };
 
         setHasMounted(true);
@@ -2279,7 +2388,6 @@ export default function CalendarPage() {
                                                     teachers={teachers}
                                                     halls={halls}
                                                     groups={groups}
-                                                    students={students}
                                                     className="h-full border-white/10"
                                                 />
                                             </div>
@@ -2382,7 +2490,6 @@ export default function CalendarPage() {
                                                             teachers={teachers}
                                                             halls={halls}
                                                             groups={groups}
-                                                            students={students}
                                                             className="h-full border-white/20"
                                                         />
                                                     </div>
@@ -2439,7 +2546,6 @@ export default function CalendarPage() {
                                                 teachers={teachers}
                                                 halls={halls}
                                                 groups={groups}
-                                                students={students}
                                                 compact={true}
                                                 canEdit={canEdit}
                                             />
@@ -2538,7 +2644,6 @@ export default function CalendarPage() {
                         teachers={teachers}
                         halls={halls}
                         groups={groups}
-                        students={students}
                         className="h-full border-2 border-[#6d28d9] animate-pulse"
                     />
                 </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Fragment } from 'react';
-import { X, DoorOpen, UserRound, Palette, Check, Trash2, AlertTriangle, Camera, Layout } from 'lucide-react';
+import { X, DoorOpen, Users, Palette, Check, Trash2, AlertTriangle, Camera, Layout } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -125,7 +125,7 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-muted tracking-widest px-1 flex items-center gap-1.5 h-4 uppercase">
-                                    <UserRound className="w-3 h-3" /> {t.capacity}
+                                    <Users className="w-3 h-3" /> {t.capacity}
                                 </label>
                                  <input type="number" min="1" value={form.capacity ?? ''}
                                     onChange={e => setF('capacity', e.target.value ? Number(e.target.value) : undefined)}

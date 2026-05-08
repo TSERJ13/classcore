@@ -93,10 +93,9 @@ export function recordCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string,
-    skipDeduction?: boolean
+    customDate?: string
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, skipDeduction);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
 }
 
 /**
@@ -110,10 +109,9 @@ export function forceCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string,
-    skipDeduction?: boolean
+    customDate?: string
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, skipDeduction);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
 }
 
 /** Refund a checkin: increments sessions back */
@@ -165,6 +163,7 @@ export function refundCheckin(studentId: string, customDate?: string): void {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('cc_attendance_update'));
     }
 }
+
 function _writeCheckin(
     studentId: string,
     studentName: string,
@@ -172,11 +171,10 @@ function _writeCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string,
-    skipDeduction?: boolean
+    customDate?: string
 ): CheckinResult {
-    // Only deduct sessions if the student has an active subscription and skipDeduction is false
-    const subResult = skipDeduction ? getSubscription(studentId, groupId) : incrementSessionsUsed(studentId, subId);
+    // Only deduct sessions if the student has an active subscription
+    const subResult = incrementSessionsUsed(studentId, subId);
     const hasSubscription = subResult !== null;
 
     const next = hasSubscription ? getSessionsRemaining(studentId, groupId) : -1;
@@ -292,7 +290,7 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
             try {
                 const records = JSON.parse(localStorage.getItem(key) ?? '[]') as CheckinRecord[];
                 records.forEach(r => {
-                    if ((r.studentId || '').toLowerCase() === (studentId || '').toLowerCase()) {
+                    if (r.studentId === studentId) {
                         history.push(r);
                         if (r.id) seenIds.add(r.id);
                     }

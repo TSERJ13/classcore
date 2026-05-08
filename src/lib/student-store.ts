@@ -453,6 +453,14 @@ export function getStudentPatch(studentId: string): StudentPatch {
     return getStudentPatches()[studentId] ?? {};
 }
 
+export function getStudentPhoto(id: string): string | null {
+    return getStudents().find(s => s.id === id)?.photo_url || null;
+}
+
+export function getStudentName(id: string): string {
+    return getStudents().find(s => s.id === id)?.full_name || id;
+}
+
 /**
  * Generates a student ID in the format: [LastInitial][FirstInitial][Sequence]
  * Example: Afshilava Elene -> AE00001

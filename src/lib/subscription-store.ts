@@ -24,9 +24,6 @@ export interface SubscriptionInfo {
     payment_method?: 'cash' | 'card' | 'transfer';
     amount_paid?: number;
     teacher_id?: string;
-    notes?: string;
-    couple_partner_name?: string;
-    couple_partner_id?: string;
 }
 
 type SubMap = Record<string, SubscriptionInfo[]>;
@@ -115,27 +112,16 @@ export function getSubscriptions(): SubMap {
         // Filter and Normalize data
         const allStudents = getStudents();
         const studentIdSet = new Set(allStudents.map(s => s.id));
-        console.log(`🔍 [SubscriptionStore] Hydrating ${Object.keys(data).length} student subscription keys. Students in system: ${studentIdSet.size}`);
-        
         let dataChanged = false;
+
         Object.keys(data).forEach(studentId => {
             // Safety: Only delete from local if we have a robust list of students
             // and we are CERTAIN this student is missing (not just a sync delay)
             if (studentIdSet.size > 10 && !studentIdSet.has(studentId)) {
-                console.warn(`⚠️ [SubscriptionStore] Pruning orphaned subscriptions for studentId: ${studentId}`);
                 delete data[studentId];
                 dataChanged = true;
                 return;
             }
-            
-            // Normalize: Ensure all subscriptions have the correct student_id
-            data[studentId] = (data[studentId] || []).map((sub: any) => {
-                if (!sub.student_id) {
-                    return { ...sub, student_id: studentId };
-                }
-                return sub;
-            });
-            
             if (Array.isArray(data[studentId])) {
                 data[studentId] = data[studentId]
                     .filter(sub => !deletedSubIds.has(sub.id))
@@ -254,21 +240,10 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             id: info.id || makeEntityId('SUB'),
             org_id: orgId,
             student_id: studentId,
-            data: info, // JSONB fallback
-            // Explicit columns for faster SQL queries
-            plan_type: info.plan_type,
-            group_id: info.group_id,
-            status: info.status,
-            starts_at: info.purchased_at,
-            expires_at: info.expires_at,
-            sessions_total: info.sessions_total,
-            sessions_used: info.sessions_used
+            data: info
         };
         
-        console.log(`📡 [SubscriptionStore] Syncing subscription ${payload.id} to cloud...`);
-        syncRecordToCloud('subscriptions', payload, orgId).catch(err => {
-            console.error(`❌ [SubscriptionStore] Atomic sync failed for ${payload.id}:`, err);
-        });
+        syncRecordToCloud('subscriptions', payload, orgId).catch(() => {});
 
         // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Also update the settings blob
         // This is shared across all devices and used for 'rescue' recovery
@@ -285,11 +260,25 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
 
 export function getStudentSubscriptions(studentId: string): SubscriptionInfo[] {
     const subs = getSubscriptions();
-    // Case-insensitive lookup
-    const targetKey = Object.keys(subs).find(k => k.toLowerCase() === studentId.toLowerCase());
-    const studentSubs = targetKey ? subs[targetKey] : [];
     
-    return (studentSubs || []).filter(s => s.status === 'active' || s.status === 'expired' || s.status === 'paused');
+    // Find all subscriptions that belong to this student, including shared ones
+    const allSubs: SubscriptionInfo[] = [];
+    const lowerId = studentId.toLowerCase();
+
+    Object.values(subs).forEach(subList => {
+        subList.forEach(sub => {
+            if (!sub.student_id) return;
+            const ids = sub.student_id.split(',').map(id => id.trim().toLowerCase());
+            if (ids.includes(lowerId)) {
+                // Avoid duplicates if a student is listed multiple times
+                if (!allSubs.find(s => s.id === sub.id)) {
+                    allSubs.push(sub);
+                }
+            }
+        });
+    });
+    
+    return allSubs.filter(s => s.status === 'active' || s.status === 'expired' || s.status === 'paused');
 }
 
 /** 
@@ -303,13 +292,7 @@ export function getSubscription(
     includeExpiredWithSessions: boolean = false
 ): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
-    
-    // 🔥 Search all subs where student is primary OR partner
-    const allSubs = getSubscriptions();
-    const subs = Object.values(allSubs).flat().filter(s => 
-        s.student_id === studentId || s.couple_partner_id === studentId
-    );
-    
+    const subs = getStudentSubscriptions(studentId);
     if (!Array.isArray(subs) || subs.length === 0) return null;
 
     const todayStr = getLocalISODate();
@@ -386,13 +369,24 @@ export function setDefaultSubscription(studentId: string, subId: string): void {
 export function deleteSubscription(studentId: string, subId: string): void {
     const data = getSubscriptions();
     clearCache();
-    if (!data[studentId]) return;
+    
+    let subToDelete: SubscriptionInfo | null = null;
+    let primaryKey = studentId;
 
-    const sub = data[studentId].find(s => s.id === subId);
-    if (!sub) return;
+    // Scan all keys to find the subscription
+    Object.keys(data).forEach(key => {
+        const found = data[key].find(s => s.id === subId);
+        if (found) {
+            subToDelete = found;
+            primaryKey = key;
+            data[key] = data[key].filter(s => s.id !== subId);
+            if (data[key].length === 0) delete data[key];
+        }
+    });
 
-    data[studentId] = data[studentId].filter(s => s.id !== subId);
-    if (data[studentId].length === 0) delete data[studentId]; // Remove student entry if no subscriptions left
+    if (!subToDelete) return;
+
+    const sub = subToDelete;
     const activeSlug = getActiveSlug();
     const session = typeof window !== 'undefined' ? getStaffSession() : null;
     const performedBy = session?.staff.full_name || 'System';
@@ -415,6 +409,7 @@ export function deleteSubscription(studentId: string, subId: string): void {
     });
 
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
+    markLocalUpdate();
     markLocalUpdate();
 
     // 🚀 Update memory cache after deletion
@@ -574,8 +569,6 @@ export function incrementSessionsUsed(studentId: string, subId?: string): Subscr
 
     if (!active) return null;
 
-    const primaryId = active.student_id;
-
     const todayStr = getLocalISODate();
     if (active.expires_at < todayStr) {
         active.status = 'expired';
@@ -591,7 +584,7 @@ export function incrementSessionsUsed(studentId: string, subId?: string): Subscr
         }
     }
 
-    saveSubscription(primaryId, active);
+    saveSubscription(studentId, active);
     return active;
 }
 

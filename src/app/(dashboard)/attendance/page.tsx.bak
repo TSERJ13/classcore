@@ -41,7 +41,7 @@ type State = 'present' | 'absent' | 'none';
 import { getStudentsByClass } from '@/lib/student-data';
 
 const THEME_CLASSES: Record<string, string> = {
-    indigo: 'border-#6d28d9 text-#6d28d9 hover:bg-#6d28d9/10',
+    indigo: 'border-[#6d28d9] text-[#6d28d9] hover:bg-[#6d28d9]/10',
     violet: 'border-violet-500 text-violet-500 hover:bg-violet-500/10',
     emerald: 'border-emerald-500 text-emerald-500 hover:bg-emerald-500/10',
     rose: 'border-rose-500 text-rose-500 hover:bg-rose-500/10',
@@ -97,50 +97,54 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
             <div className="fixed inset-0 z-[60] bg-black/20" onClick={autoClose && !hasMultipleSubs ? onClose : undefined} />
             <div className="fixed inset-x-0 bottom-0 z-[70] flex justify-center pb-24 px-4 items-center sm:inset-0 sm:pb-0 animate-in fade-in zoom-in-95 duration-200">
                 <div className={cn(
-                    'w-[calc(100vw-4rem)] max-w-[280px] sm:w-full sm:max-w-sm rounded-[2.5rem] border overflow-hidden bg-card transition-all',
-                    data.phase === 'success' && 'border-emerald-500/10',
-                    data.phase === 'confirm' && 'border-amber-500/10',
-                    data.phase === 'double-success' && 'border-#6d28d9/10',
+                    'w-[calc(100vw-4rem)] max-w-[300px] sm:w-full sm:max-w-sm rounded-[3rem] border overflow-hidden bg-card transition-all shadow-2xl',
+                    data.phase === 'success' && 'border-emerald-500/10 shadow-emerald-500/10',
+                    data.phase === 'confirm' && 'border-amber-500/10 shadow-amber-500/10',
+                    data.phase === 'double-success' && 'border-[#6d28d9]/10 shadow-indigo-500/10',
                 )}>
                     {autoClose && !hasMultipleSubs && (
                         <div className="h-1 bg-surface relative overflow-hidden">
-                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-#6d28d9')}
+                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-[#6d28d9]')}
                                 style={{ width: `${progress}%`, transitionDuration: '1s' }} />
                         </div>
                     )}
                     <div className="p-8">
                         <div className="flex justify-center mb-6">
                             <div className="relative">
-                                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${avatarColor(data.studentId)} flex items-center justify-center text-white text-3xl font-black`}>
-                                    {getInitials(data.studentName)}
+                                <div className={`w-24 h-24 rounded-full bg-gradient-to-br ${avatarColor(data.studentId)} flex items-center justify-center text-white text-3xl font-black overflow-hidden shadow-xl border-4 border-card`}>
+                                    {data.photo ? (
+                                        <img src={data.photo} alt={data.studentName} className="w-full h-full object-cover" />
+                                    ) : (
+                                        getInitials(data.studentName)
+                                    )}
                                 </div>
-                                <div className={cn('absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-4 border-card',
+                                <div className={cn('absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center border-4 border-card shadow-lg',
                                     data.phase === 'success' && 'bg-emerald-500',
                                     data.phase === 'confirm' && 'bg-amber-500',
-                                    data.phase === 'double-success' && 'bg-#6d28d9',
+                                    data.phase === 'double-success' && 'bg-[#6d28d9]',
                                     data.phase === 'info' && 'bg-blue-500',
                                     data.phase === 'expired' && 'bg-rose-500'
                                 )}>
-                                    {data.phase === 'success' && <Check className="w-4 h-4 text-white" strokeWidth={4} />}
-                                    {data.phase === 'confirm' && <AlertTriangle className="w-4 h-4 text-white" strokeWidth={3} />}
-                                    {data.phase === 'double-success' && <CheckCircle2 className="w-4 h-4 text-white" strokeWidth={3} />}
-                                    {data.phase === 'info' && <Info className="w-4 h-4 text-white" strokeWidth={3} />}
-                                    {data.phase === 'expired' && <X className="w-4 h-4 text-white" strokeWidth={3} />}
+                                    {data.phase === 'success' && <Check className="w-5 h-5 text-white" strokeWidth={4} />}
+                                    {data.phase === 'confirm' && <AlertTriangle className="w-5 h-5 text-white" strokeWidth={3} />}
+                                    {data.phase === 'double-success' && <CheckCircle2 className="w-5 h-5 text-white" strokeWidth={3} />}
+                                    {data.phase === 'info' && <Info className="w-5 h-5 text-white" strokeWidth={3} />}
+                                    {data.phase === 'expired' && <X className="w-5 h-5 text-white" strokeWidth={3} />}
                                 </div>
                             </div>
                         </div>
                         <div className="text-center mb-6">
                             <h2 className="text-2xl font-black text-primary tracking-tight">{data.studentName}</h2>
-                            {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendanceSheet} OK</p></>}
-                            {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ {t.alreadyCheckedIn}</p>}
-                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-#5b21b6 tracking-widest mt-2 bg-#6d28d9/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
-                            {data.phase === 'info' && <p className="text-[11px] font-black text-blue-600 tracking-widest mt-2 bg-blue-500/10 px-3 py-1 rounded-full inline-block animate-pulse">ℹ️ კიდევ ერთხელ გაატარეთ</p>}
-                            {data.phase === 'expired' && <p className="text-[11px] font-black text-rose-600 tracking-widest mt-2 bg-rose-500/10 px-3 py-1 rounded-full inline-block">❌ აბონემენტი ამოწურულია</p>}
+                            {data.phase === 'success' && <p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-4 py-1.5 rounded-full inline-block uppercase">✅ {t.attendanceSheet || 'დასწრება'} OK</p>}
+                            {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-4 py-1.5 rounded-full inline-block uppercase">⚠️ {t.alreadyCheckedIn || 'უკვე დაფიქსირდა'}</p>}
+                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-[#5b21b6] tracking-widest mt-2 bg-[#6d28d9]/10 px-4 py-1.5 rounded-full inline-block uppercase">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
+                            {data.phase === 'info' && <p className="text-[11px] font-black text-blue-600 tracking-widest mt-2 bg-blue-500/10 px-4 py-1.5 rounded-full inline-block uppercase animate-pulse">ℹ️ კიდევ ერთხელ გაატარეთ</p>}
+                            {data.phase === 'expired' && <p className="text-[11px] font-black text-rose-600 tracking-widest mt-2 bg-rose-500/10 px-4 py-1.5 rounded-full inline-block uppercase">❌ {t.subscriptionExpired || 'აბონემენტი ამოწურულია'}</p>}
                         </div>
 
                         {hasMultipleSubs && subscriptions && onSelectSub ? (
                             <div className="space-y-3 mb-6">
-                                <p className="text-[10px] font-black text-muted text-center opacity-40 tracking-widest">{t.selectSubscription}</p>
+                                <p className="text-[10px] font-black text-muted text-center opacity-40 tracking-widest uppercase">{t.selectSubscription}</p>
                                 <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                                     {subscriptions.map(s => {
                                         const rem = (s.sessions_total ?? 0) - (s.sessions_used ?? 0);
@@ -148,15 +152,15 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                             <button
                                                 key={s.id}
                                                 onClick={() => onSelectSub(s.id)}
-                                                className="w-full text-left p-3 rounded-2xl bg-surface border border-border-subtle hover:border-#6d28d9/50 hover:bg-#6d28d9/5 transition-all group"
+                                                className="w-full text-left p-4 rounded-2xl bg-surface border border-border-subtle hover:border-[#6d28d9]/50 hover:bg-[#6d28d9]/5 transition-all group"
                                             >
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-[11px] font-black text-primary truncate max-w-[140px]">{s.plan}</span>
-                                                    <span className="text-[10px] font-black text-#5b21b6 tabular-nums">
+                                                    <span className="text-xs font-black text-primary truncate max-w-[140px]">{s.plan}</span>
+                                                    <span className="text-xs font-black text-[#5b21b6] tabular-nums">
                                                         {s.type === 'monthly' ? '∞' : rem}
                                                     </span>
                                                 </div>
-                                                <p className="text-[8px] font-bold text-muted opacity-40 mt-0.5">{s.expires_at}</p>
+                                                <p className="text-[9px] font-bold text-muted opacity-40 mt-1">{s.expires_at}</p>
                                             </button>
                                         );
                                     })}
@@ -165,32 +169,95 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                         ) : (() => {
                             const rem = data.sessionsRemaining;
                             const noSub = rem < 0;
-                            const sessionColor = noSub ? 'text-amber-500' : rem <= 2 ? 'text-red-500' : rem === 3 ? 'text-amber-500' : 'text-emerald-500';
-                            const boxBg = noSub ? 'bg-amber-500/5 border border-amber-500/20' : rem <= 2 ? 'bg-red-500/5 border border-red-500/20' : rem === 3 ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-emerald-500/5 border border-emerald-500/20';
+                            const isMonthly = data.isMonthly;
+                            
+                            // Visual progress for bar
+                            const sub = subscriptions?.[0];
+                            const total = sub?.sessions_total || 1;
+                            const used = sub?.sessions_used || 0;
+                            const percent = isMonthly ? 100 : Math.max(0, Math.min(100, ((total - used) / total) * 100));
+
+                            const sessionColor = noSub ? 'text-rose-500' : rem <= 2 ? 'text-red-500' : rem === 3 ? 'text-amber-500' : 'text-emerald-500';
+                            const boxBg = noSub ? 'bg-rose-500/5 border border-rose-500/20' : rem <= 2 ? 'bg-red-500/5 border border-red-500/20' : rem === 3 ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-emerald-500/5 border border-emerald-500/20';
+                            const barColor = noSub ? 'bg-rose-500' : rem <= 2 ? 'bg-red-500' : rem === 3 ? 'bg-amber-500' : 'bg-emerald-500';
+
                             return (
-                                <div className={cn('rounded-2xl p-4 mb-8 mt-2 flex items-center justify-between', boxBg)}>
-                                    <span className="text-xs font-bold text-muted opacity-60">
-                                        {noSub ? (t.noSubscription || 'აბონიმენტი არ არის') : `${t.remaining} ${data.isMonthly ? t.days : t.visits}`}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        {!noSub && (data.phase === 'success' || data.phase === 'double-success') && <span className="text-[10px] text-amber-600 font-black">-1</span>}
-                                        <span className={cn('text-xl font-black tabular-nums', sessionColor)}>
-                                            {data.isMonthly ? '∞' : noSub ? '—' : rem}
-                                        </span>
+                                <div className={cn('rounded-3xl p-5 mb-8 transition-colors', boxBg)}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] mb-0.5 leading-none">
+                                                {data.planName || (noSub ? 'NO PLAN' : 'ACTIVE PLAN')}
+                                            </span>
+                                            <span className="text-xs font-bold text-muted/60">
+                                                {noSub ? (t.noSubscription || 'აბონიმენტი არ არის') : `${t.remaining || 'დარჩენილი'} ${isMonthly ? (t.days || 'დღე') : (t.visits || 'ვიზიტი')}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {!noSub && (data.phase === 'success' || data.phase === 'double-success') && <span className="text-xs text-amber-600 font-black animate-bounce">-1</span>}
+                                            <span className={cn('text-2xl font-black tabular-nums tracking-tighter', sessionColor)}>
+                                                {isMonthly ? '∞' : noSub ? '—' : rem}
+                                            </span>
+                                        </div>
                                     </div>
+                                    
+                                    {/* Visual Progress Bar */}
+                                    {!noSub && (
+                                        <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
+                                            <div 
+                                                className={cn("h-full rounded-full transition-all duration-1000", barColor)}
+                                                style={{ width: `${percent}%` }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })()}
 
                         {data.phase === 'confirm' ? (
+                            <div className="space-y-4">
+                                <p className="text-xs text-center text-muted font-medium px-4">{t.confirmVisit || 'გსურთ ვიზიტის დაფიქსირება?'}</p>
+                                <button onClick={onConfirm} className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all uppercase tracking-widest shadow-xl shadow-emerald-500/20">{t.yesConfirm || 'დიახ'}</button>
+                                
+                                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-border-subtle/50">
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-group'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-4 rounded-2xl bg-[#6d28d9] text-white hover:bg-indigo-600 transition-all active:scale-95 shadow-lg shadow-indigo-500/20 border border-white/10"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[9px] font-black tracking-widest uppercase">{t.groupSubscription || 'ჯგუფური'}</span>
+                                    </button>
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-individual'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-4 rounded-2xl bg-amber-500 text-white hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-500/20 border border-white/10"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[9px] font-black tracking-widest uppercase">{t.individualSubscription || 'ინდივიდუალური'}</span>
+                                    </button>
+                                </div>
+
+                                <button onClick={onClose} className="w-full py-3.5 bg-surface hover:bg-surface/80 text-muted font-bold text-xs rounded-2xl transition-all uppercase tracking-widest">{t.skip || 'გამოტოვება'}</button>
+                            </div>
+                        ) : data.phase === 'expired' ? (
                             <div className="space-y-3">
-                                <p className="text-xs text-center text-muted font-medium mb-4">{t.confirmVisit}</p>
-                                <button onClick={onConfirm} className="w-full py-3.5 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-[0.97] text-white font-black text-sm rounded-2xl transition-all uppercase tracking-widest">{t.yesConfirm}</button>
-                                <button onClick={onClose} className="w-full py-3 bg-surface hover:bg-surface/80 text-muted font-bold text-sm rounded-2xl transition-all">{t.skip}</button>
+                                <div className="grid grid-cols-2 gap-3 mb-2">
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-group'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-[#6d28d9] hover:bg-indigo-600 text-white transition-all active:scale-95 shadow-xl shadow-indigo-500/20"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[10px] font-black tracking-widest uppercase">{t.groupSubscription || 'ჯგუფური'}</span>
+                                    </button>
+                                    <button onClick={() => { onClose(); onSelectSub?.('new-individual'); }}
+                                        className="flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all active:scale-95 shadow-xl shadow-amber-500/20"
+                                    >
+                                        <Plus className="w-5 h-5 stroke-[3]" />
+                                        <span className="text-[10px] font-black tracking-widest uppercase">{t.individualSubscription || 'ინდივიდუალური'}</span>
+                                    </button>
+                                </div>
+                                <button onClick={onClose} className="w-full py-4 bg-surface hover:bg-surface/80 text-muted font-black text-xs rounded-2xl transition-all uppercase tracking-widest">
+                                    {t.close || 'დახურვა'}
+                                </button>
                             </div>
                         ) : (
-                            <button onClick={onClose} className="w-full py-3.5 bg-surface hover:bg-surface/80 text-muted font-bold text-sm rounded-2xl transition-all">
-                                {t.close} {(!hasMultipleSubs && autoClose) && `(${countdown}s)`}
+                            <button onClick={onClose} className="w-full py-4 bg-surface hover:bg-surface/80 text-muted font-black text-xs rounded-2xl transition-all uppercase tracking-widest">
+                                {t.close || 'დახურვა'} {(!hasMultipleSubs && autoClose) && `(${countdown}s)`}
                             </button>
                         )}
                     </div>
@@ -199,6 +266,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
         </>
     );
 }
+
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -233,25 +301,30 @@ export default function AttendancePage() {
     const filteredSchedule = useMemo(() => {
         const dayOfWeek = (selectedDate.getDay() + 6) % 7;
         
-        let targetSchedule = rawSchedule;
-        if (targetSchedule.length === 0) {
-            targetSchedule = groups
-                .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
-                .map(g => {
-                    const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
-                    return {
-                        id: `virtual-${g.id}`,
-                        group_id: g.id,
-                        title: g.name,
-                        type: 'group',
-                        color: g.color || '#6d28d9',
-                        start_time: slot?.startTime || '00:00',
-                        end_time: slot?.endTime || '23:59',
-                        teacher_id: g.teacher_id || '',
-                        hall_id: g.hall_id || ''
-                    };
-                }) as any;
-        }
+        let targetSchedule = [...rawSchedule];
+        
+        // 🌟 ADD VIRTUAL EVENTS for groups that don't have a real event today
+        const existingGroupIds = new Set(rawSchedule.map(ev => ev.group_id).filter(Boolean));
+        
+        const virtualEvents = groups
+            .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
+            .filter(g => !existingGroupIds.has(g.id)) // Don't duplicate if already in calendar
+            .map(g => {
+                const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
+                return {
+                    id: `virtual-${g.id}`,
+                    group_id: g.id,
+                    title: g.name,
+                    type: 'group',
+                    color: g.color || '#6d28d9',
+                    start_time: slot?.startTime || '00:00',
+                    end_time: slot?.endTime || '23:59',
+                    teacher_id: g.teacher_id || '',
+                    hall_id: g.hall_id || ''
+                };
+            });
+        
+        targetSchedule = [...targetSchedule, ...virtualEvents];
 
         return targetSchedule.filter(ev => {
             if (profile?.role === 'teacher' || profile?.role === 'coach') {
@@ -262,24 +335,10 @@ export default function AttendancePage() {
           .map(ev => {
               const g = groups.find(x => x.id === ev.group_id);
               const tid = ev.teacher_id || g?.teacherId;
-              
-              // Handle individual session student names and photos
-              let studentPhotos: string[] = [];
-              let studentNames = '';
-              if (ev.type === 'individual' && ev.student_id) {
-                  const sIds = ev.student_id.split(',').map(id => id.trim());
-                  const allS = getStudents();
-                  const { getStudentPhoto } = require('@/lib/student-store');
-                  studentPhotos = sIds.map(id => getStudentPhoto(id)).filter(Boolean) as string[];
-                  studentNames = sIds.map(id => allS.find(x => x.id === id)?.full_name).filter(Boolean).join(' & ');
-              }
-
               return {
                   ...ev,
                   teacherPhoto: tid ? getTeacherPhoto(tid) : null,
-                  teacherName: tid ? getTeacherName(tid) : (ev.coach || g?.coach || ''),
-                  studentPhotos,
-                  studentNames
+                  teacherName: tid ? getTeacherName(tid) : (ev.coach || g?.coach || '')
               };
           });
     }, [rawSchedule, profile, groups, selectedDate]);
@@ -459,6 +518,7 @@ export default function AttendancePage() {
     const [manualSmsOpen, setManualSmsOpen] = useState(false);
     const [freezeDays, setFreezeDays] = useState('7');
     const [issueModalOpen, setIssueModalOpen] = useState(false);
+    const [issueType, setIssueType] = useState<'group' | 'individual' | undefined>(undefined);
     
     // Shop state in drawer
     const [studentSales, setStudentSales] = useState<ShopSale[]>([]);
@@ -487,13 +547,13 @@ export default function AttendancePage() {
     const getSubStatus = useCallback((studentId: string) => {
         const todayStr = getLocalISODate();
         
-        // 1. Check for specific group sub
-        let activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+        // 1. Find ANY sub where student is primary or partner
+        const allStudentSubs = Object.values(subs).flat().filter(sub => sub.student_id === studentId || sub.couple_partner_id === studentId);
         
-        // 2. If nothing found, check for a general sub (group_id: undefined)
-        if (!activeSub) {
-            activeSub = getSubscription(studentId, undefined, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
-        }
+        let activeSub = allStudentSubs.find(sub => 
+            sub.status === 'active' && 
+            (selClass?.type === 'individual' ? sub.plan_type === 'individual' : (sub.group_id === selClass?.group_id || !sub.group_id))
+        );
         
         if (activeSub) {
             const hasExpiredByDate = activeSub.expires_at < todayStr;
@@ -535,13 +595,14 @@ export default function AttendancePage() {
     // 1. Get base students list
     const students = useMemo(() => {
         const base = getStudents();
-        return base
+        const raw = base
             .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
             .filter(s => {
-                if (cls?.type === 'individual' || cls?.type === 'rental') return true;
+                if (cls?.type === 'individual' || cls?.type === 'rental') {
+                    return s.id === cls.student_id || (cls.couple_partner_id && s.id === cls.couple_partner_id);
+                }
                 if (cls?.group_id && (s.enrolled_group_ids || []).includes(cls.group_id)) return true;
                 
-                // Allow students with active subscriptions for this group
                 const studentSubs = subs[s.id] || [];
                 const hasActiveSub = studentSubs.some(sub => 
                     sub.status === 'active' && 
@@ -551,6 +612,19 @@ export default function AttendancePage() {
 
                 return (s as any).classes?.includes(selectedClass);
             });
+
+        // 🔥 Group couples for individual lessons
+        if (cls?.type === 'individual' && cls.couple_partner_id) {
+            const primary = raw.find(s => s.id === cls.student_id);
+            const partner = raw.find(s => s.id === cls.couple_partner_id);
+            if (primary) {
+                return [{
+                    ...primary,
+                    couple_partner: partner || null
+                } as any];
+            }
+        }
+        return raw;
     }, [studentPatches, cls, selectedClass, subs]);
 
     // 2. Pre-calculate statuses for ALL visible students once
@@ -643,15 +717,19 @@ export default function AttendancePage() {
         const clean = code.toUpperCase().replace(/[:\-\s]/g, '').trim();
         if (!clean) return;
 
-        let studentId = lookupByUid(clean)?.studentId ?? null;
-        let studentName = lookupByUid(clean)?.studentName ?? null;
+        const lookup = lookupByUid(clean);
+        let studentId = lookup?.studentId ?? null;
 
         if (!studentId) {
             studentId = SCAN_MAP[clean] ?? null;
-            if (studentId) studentName = getStudents().find(x => x.id === studentId)?.full_name ?? null;
         }
 
-        if (studentId && studentName) {
+        const student = studentId ? getStudents().find(x => x.id === studentId) : null;
+
+        if (student) {
+            const studentId = student.id;
+            const studentName = student.full_name;
+            const studentPhoto = student.photo;
             const todayStr = getLocalISODate();
             const studentSubs = (getSubscriptions()[studentId] || []).filter(s => {
                 const expired = s.status !== 'active' || s.expires_at < todayStr;
@@ -669,7 +747,8 @@ export default function AttendancePage() {
                     sessionsRemaining: 0,
                     checkinCount: getCheckinCountToday(studentId),
                     phase: 'expired',
-                    isMonthly: false
+                    isMonthly: false,
+                    photo: studentPhoto
                 });
                 return;
             }
@@ -685,6 +764,7 @@ export default function AttendancePage() {
                     checkinCount,
                     phase: 'success',
                     isMonthly: sub?.type === 'monthly',
+                    photo: studentPhoto,
                     // @ts-ignore
                     subscriptions: studentSubs
                 });
@@ -702,7 +782,8 @@ export default function AttendancePage() {
                     checkinCount,
                     phase: 'info',
                     isMonthly: sub?.type === 'monthly',
-                    planName: sub?.plan_name
+                    planName: sub?.plan_name,
+                    photo: studentPhoto
                 });
                 
                 // Clear the popup after 5 seconds if not scanned again
@@ -728,9 +809,9 @@ export default function AttendancePage() {
             const isMonthly = sub?.type === 'monthly';
 
             if (result.alreadyCheckedIn && !choiceSubId) {
-                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount, phase: 'confirm', isMonthly });
+                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount, phase: 'confirm', isMonthly, photo: studentPhoto });
             } else {
-                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount: checkinCount + 1, phase: 'success', isMonthly });
+                setPopup({ studentId, studentName, sessionsRemaining: result.sessionsRemaining, checkinCount: checkinCount + 1, phase: 'success', isMonthly, photo: studentPhoto });
             }
         } else {
             setScanError(`${t.noData}`);
@@ -797,6 +878,7 @@ export default function AttendancePage() {
                     checkinCount,
                     phase: 'success',
                     isMonthly: activeSub?.type === 'monthly',
+                    photo: student.photo,
                     // @ts-ignore
                     subscriptions: studentSubs
                 });
@@ -804,6 +886,19 @@ export default function AttendancePage() {
             }
 
             // Mark present: deduct session
+            const partnerId = cls?.type === 'individual' ? cls.couple_partner_id : null;
+            if (partnerId && id === cls.student_id) {
+                const partner = getStudents().find(s => s.id === partnerId);
+                // Record BOTH, but only deduct for Primary
+                recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
+                recordCheckin(partnerId, partner?.full_name || partnerId, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, true); // skipDeduction: true
+                
+                const n = { ...att, [id]: 'present' as State, [partnerId]: 'present' as State };
+                saveAttendance(n);
+                setSubs(getSubscriptions());
+                return;
+            }
+
             recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
             next = 'present';
 
@@ -914,17 +1009,20 @@ export default function AttendancePage() {
         if (!start) return false;
         const h = parseInt(start.split(':')[0]);
         const ch = new Date().getHours();
-        return h <= ch && h + 2 > ch;
+        return h <= ch && (h + 2 > ch);
+    }
+
+    if (!mounted) {
+        return (
+            <div className="flex flex-col flex-1 min-h-[100dvh] bg-card items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl border-4 border-[#6d28d9]/20 border-t-[#6d28d9] animate-spin" />
+            </div>
+        );
     }
 
     return (
         <div className="flex flex-col flex-1 min-h-[100dvh] bg-card animate-fade-up overflow-x-hidden relative max-w-full">
-            {!mounted ? (
-                <div className="flex-1 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-2xl border-4 border-#6d28d9/20 border-t-#6d28d9 animate-spin" />
-                </div>
-            ) : (
-                <>
+            <>
                     {popup && <ScanPopup
                         data={popup}
                         onClose={closePopup}
@@ -933,7 +1031,17 @@ export default function AttendancePage() {
                         // @ts-ignore
                         subscriptions={popup.subscriptions}
                         onSelectSub={(subId) => {
-                            if (popup.studentId) toggle(popup.studentId, subId);
+                            if (subId === 'new-group') {
+                                setSelectedStudent(popup.studentId);
+                                setIssueType('group');
+                                setIssueModalOpen(true);
+                            } else if (subId === 'new-individual') {
+                                setSelectedStudent(popup.studentId);
+                                setIssueType('individual');
+                                setIssueModalOpen(true);
+                            } else if (popup.studentId) {
+                                toggle(popup.studentId, subId);
+                            }
                         }}
                     />}
 
@@ -973,7 +1081,7 @@ export default function AttendancePage() {
                         <div className="flex items-center justify-between bg-surface/50 h-11 relative overflow-hidden group">
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
                             >
                                 <ChevronLeft className="w-6 h-6" />
                             </button>
@@ -1015,7 +1123,7 @@ export default function AttendancePage() {
 
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
                             >
                                 <ChevronRight className="w-6 h-6" />
                             </button>
@@ -1079,13 +1187,23 @@ export default function AttendancePage() {
                                 )}
                                 <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
                             </div>
-                            <div className="flex-1 p-3 space-y-1.5 flex-shrink-0 overflow-y-auto no-scrollbar">
                                 {mounted && filteredSchedule.map(s => {
                                     const isCurrent = isCurrentClass(s.start_time);
                                     const isActive = selectedClass === s.id;
                                     const timeStr = `${s.start_time}–${s.end_time}`;
                                     const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                    const isInd = s.type === 'individual';
+                                    const getFirstName = (name: string) => name?.trim().split(' ')[0] || '';
+                                    const indStudent = isInd ? getStudents().find(st => st.id === s.student_id) : null;
+                                    const indPartner = isInd && s.couple_partner_id ? getStudents().find(st => st.id === s.couple_partner_id) : null;
                                     
+                                    let displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                    if (isInd && (indStudent || indPartner)) {
+                                        const pName = indStudent ? getFirstName(indStudent.full_name) : '';
+                                        const sName = indPartner ? getFirstName(indPartner.full_name) : '';
+                                        displayTitle = sName ? `${pName} & ${sName}` : pName;
+                                    }
+
                                     return (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                             className={cn(
@@ -1099,59 +1217,64 @@ export default function AttendancePage() {
                                                 borderColor: classColor,
                                                 boxShadow: `0 10px 25px -5px ${classColor}40`
                                             } : {}}>
-                                            {s.type === 'individual' && (
-                                                <p className={cn(
-                                                    "text-[8px] font-black uppercase tracking-[0.1em] mb-1 opacity-60",
-                                                    isActive ? "text-white" : "text-indigo-600"
-                                                )}>
-                                                    {t.calIndividual}
-                                                </p>
-                                            )}
-                                            <h3 className={cn(
-                                                'text-[12px] font-black truncate leading-tight transition-colors',
-                                                isActive ? 'text-white' : 'text-primary'
-                                            )}>
-                                                {s.type === 'individual' 
-                                                    ? (s as any).studentNames || s.title || t.indSessionShort
-                                                    : s.title || (s.group_id ? GROUP_MAP[s.group_id] : t.unnamed)}
-                                            </h3>
-                                            <div className="flex items-center gap-2 mt-1.5">
-                                                <Clock className={cn(
-                                                    'w-2.5 h-2.5 transition-colors',
-                                                    isActive ? 'text-white/60' : isCurrent ? 'text-emerald-500' : 'text-muted opacity-40'
-                                                )} />
-                                                <span className={cn(
-                                                    'text-[9px] font-black tabular-nums transition-colors',
-                                                    isActive ? 'text-white/80' : isCurrent ? 'text-emerald-600' : 'text-muted'
-                                                )}>{timeStr}</span>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className={cn(
+                                                        'text-[12.5px] font-black truncate leading-tight transition-colors',
+                                                        isActive ? 'text-white' : 'text-primary'
+                                                    )}>
+                                                        {isInd ? (
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[7px] uppercase tracking-wider opacity-60">ინდ. გაკვეთილი</span>
+                                                                <span className="truncate">{displayTitle}</span>
+                                                            </div>
+                                                        ) : displayTitle}
+                                                    </h3>
+                                                    <div className="flex items-center gap-2 mt-1.5">
+                                                        <Clock className={cn(
+                                                            'w-2.5 h-2.5 transition-colors',
+                                                            isActive ? 'text-white/60' : 'text-muted'
+                                                        )} />
+                                                        <span className={cn(
+                                                            'text-[10px] font-bold tabular-nums transition-colors',
+                                                            isActive ? 'text-white/60' : 'text-muted'
+                                                        )}>{timeStr}</span>
+                                                    </div>
+                                                </div>
+                                                {isInd && (indStudent || indPartner) && (
+                                                    <div className="flex items-center -space-x-3">
+                                                        {indPartner && (
+                                                            <div className="w-6 h-6 rounded-full border-2 border-white/20 overflow-hidden bg-white/10">
+                                                                {indPartner.photo_url ? <img src={indPartner.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] font-black">{getInitials(indPartner.full_name)}</div>}
+                                                            </div>
+                                                        )}
+                                                        {indStudent && (
+                                                            <div className="w-7 h-7 rounded-full border-2 border-white/40 overflow-hidden bg-white/20 relative z-10">
+                                                                {indStudent.photo_url ? <img src={indStudent.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[10px] font-black">{getInitials(indStudent.full_name)}</div>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
+
                                             <div className="flex items-center justify-between mt-2.5">
-                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                <div className="flex items-center gap-2">
                                                     {(s as any).teacherPhoto ? (
                                                         <img src={(s as any).teacherPhoto} alt="" className="w-5 h-5 rounded-full object-cover border border-white/20" />
                                                     ) : (
                                                         <GraduationCap className={cn("w-3.5 h-3.5", isActive ? "text-white/40" : "text-muted opacity-30")} />
                                                     )}
                                                     <span className={cn(
-                                                        'text-[8px] font-bold tracking-tight truncate transition-colors',
+                                                        'text-[8px] font-bold tracking-tight truncate max-w-[100px] transition-colors',
                                                         isActive ? 'text-white/60' : 'text-muted opacity-50'
                                                     )}>{(s as any).teacherName || getTeacherName(s.teacher_id)}</span>
                                                 </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    {(s as any).studentPhotos && (s as any).studentPhotos.length > 0 && (
-                                                        <div className="flex -space-x-1.5 mr-1">
-                                                            {(s as any).studentPhotos.map((url: string, i: number) => (
-                                                                <img key={i} src={url} alt="" className="w-5 h-5 rounded-full object-cover border border-white/20 shadow-sm" />
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    {isCurrent && (
-                                                        <span className={cn(
-                                                            'w-1.5 h-1.5 rounded-full animate-pulse',
-                                                            isActive ? 'bg-white' : 'bg-emerald-500'
-                                                        )} />
-                                                    )}
-                                                </div>
+                                                {isCurrent && (
+                                                    <span className={cn(
+                                                        'w-1.5 h-1.5 rounded-full animate-pulse',
+                                                        isActive ? 'bg-white' : 'bg-emerald-500'
+                                                    )} />
+                                                )}
                                             </div>
                                         </button>
                                     );
@@ -1165,20 +1288,11 @@ export default function AttendancePage() {
                                 <div className="flex items-center justify-between">
                                     <div className="min-w-0 pr-2">
                                         <h2 className="text-lg md:text-xl font-black text-primary tracking-tight truncate">
-                                            {cls.type === 'individual' && <span className="block text-[10px] uppercase tracking-widest text-indigo-600 mb-0.5">{t.calIndividual}</span>}
-                                            {cls.type === 'individual' 
-                                                ? (cls as any).studentNames || cls.title || t.indSessionShort
-                                                : cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : t.unnamed)}
+                                            {cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : (cls.type === 'individual' ? t.indSession : t.untitledClass))}
                                         </h2>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
                                             <div className="flex items-center gap-1.5">
-                                                {(cls as any).studentPhotos && (cls as any).studentPhotos.length > 0 ? (
-                                                    <div className="flex -space-x-1.5">
-                                                        {(cls as any).studentPhotos.map((url: string, i: number) => (
-                                                            <img key={i} src={url} alt="" className="w-5 h-5 rounded-full object-cover border border-border-subtle" />
-                                                        ))}
-                                                    </div>
-                                                ) : (cls as any).teacherPhoto ? (
+                                                {(cls as any).teacherPhoto ? (
                                                     <img src={(cls as any).teacherPhoto} alt="" className="w-4 h-4 rounded-full object-cover border border-border-subtle" />
                                                 ) : (
                                                     <GraduationCap className="w-3.5 h-3.5 text-muted opacity-30" />
@@ -1186,9 +1300,9 @@ export default function AttendancePage() {
                                                 <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {(cls as any).teacherName || getTeacherName(cls.teacher_id)}</p>
                                             </div>
                                             {cls.notes && (
-                                                <div className="flex items-center gap-1 px-2 py-0.5 bg-#f5f3ff border border-#ede9fe rounded-full">
-                                                    <Info className="w-3 h-3 text-#a78bfa" />
-                                                    <p className="text-[9px] font-bold text-#5b21b6 truncate max-w-[200px]">{cls.notes}</p>
+                                                <div className="flex items-center gap-1 px-2 py-0.5 bg-[#f5f3ff] border border-[#ede9fe] rounded-full">
+                                                    <Info className="w-3 h-3 text-[#a78bfa]" />
+                                                    <p className="text-[9px] font-bold text-[#5b21b6] truncate max-w-[200px]">{cls.notes}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -1198,6 +1312,7 @@ export default function AttendancePage() {
                                             const hasAnyAtt = Object.values(att).some(v => v !== 'none');
                                             return (
                                                 <>
+
                                                     <button onClick={() => {
                                                         const n: Record<string, State> = { ...att };
                                                         students.forEach(s => {
@@ -1235,6 +1350,18 @@ export default function AttendancePage() {
                                 <div className="xl:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 touch-pan-x relative z-30 -mx-3 px-3 md:-mx-6 md:px-6">
                                     {mounted && filteredSchedule.map(s => {
                                         const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                        const isInd = s.type === 'individual';
+                                        const getFirstName = (name: string) => name?.trim().split(' ')[0] || '';
+                                        const indStudent = isInd ? getStudents().find(st => st.id === s.student_id) : null;
+                                        const indPartner = isInd && s.couple_partner_id ? getStudents().find(st => st.id === s.couple_partner_id) : null;
+                                        
+                                        let displayTitle = s.title || (s.group_id ? GROUP_MAP[s.group_id] : (isInd ? t.indSession : t.untitledClass));
+                                        if (isInd && (indStudent || indPartner)) {
+                                            const pName = indStudent ? getFirstName(indStudent.full_name) : '';
+                                            const sName = indPartner ? getFirstName(indPartner.full_name) : '';
+                                            displayTitle = sName ? `${pName} & ${sName}` : pName;
+                                        }
+
                                         return (
                                             <button key={s.id} onClick={() => setSelectedClass(s.id)}
                                                 className={cn(
@@ -1246,7 +1373,26 @@ export default function AttendancePage() {
                                                     borderColor: classColor,
                                                     boxShadow: `0 4px 12px ${classColor}30`
                                                 } : {}}>
-                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
+                                                <div className="flex items-center gap-2">
+                                                    {isInd && (indStudent || indPartner) && (
+                                                        <div className="flex items-center -space-x-2 mr-1">
+                                                            {indPartner && (
+                                                                <div className="w-5 h-5 rounded-full border border-white/20 overflow-hidden bg-white/10">
+                                                                    {indPartner.photo_url ? <img src={indPartner.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[6px]">{getInitials(indPartner.full_name)}</div>}
+                                                                </div>
+                                                            )}
+                                                            {indStudent && (
+                                                                <div className="w-6 h-6 rounded-full border border-white/40 overflow-hidden bg-white/20 relative z-10">
+                                                                    {indStudent.photo_url ? <img src={indStudent.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px]">{getInitials(indStudent.full_name)}</div>}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex flex-col items-start">
+                                                        {isInd && <span className="text-[6px] uppercase opacity-60 leading-none mb-0.5">ინდ. გაკვეთილი</span>}
+                                                        <span>{displayTitle}</span>
+                                                    </div>
+                                                </div>
                                             </button>
                                         );
                                     })}
@@ -1268,6 +1414,7 @@ export default function AttendancePage() {
 
                                     const sInf = studentStatuses[st.id] || { score: 3, label: null, isExpired: true, activeSub: null, color: 'red' };
                                     const { label, isExpired, activeSub, color: statusColor, remaining } = sInf;
+                                    const partner = (st as any).couple_partner;
 
                                     return (
                                         <div key={st.id}
@@ -1275,38 +1422,58 @@ export default function AttendancePage() {
                                             className={cn(
                                                 'w-full flex items-center justify-between gap-3 p-4 md:p-6 rounded-none md:rounded-[2rem] transition-all group border-b md:border md:relative overflow-hidden cursor-pointer',
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
-                                                    isSel ? 'bg-#f5f3ff/50 border-#ddd6fe' :
+                                                    isSel ? 'bg-[#f5f3ff]/50 border-[#ddd6fe]' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
-                                                isExpired && 'opacity-90'
+                                                isExpired && 'opacity-90',
+                                                (cls?.type === 'individual') && 'ring-1 ring-orange-500/20 bg-orange-500/[0.02]'
                                             )}>
 
                                             {/* Avatar + Info Area (Fills space) */}
                                             <div className="flex items-center gap-3.5 md:gap-5 relative z-10 flex-1 min-w-0">
-                                                {/* Photo */}
-                                                <div
-                                                    className={cn(
-                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative",
-                                                        isExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
-                                                        remaining === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
-                                                        remaining <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
-                                                        "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                                                {/* Photo Section */}
+                                                <div className="flex items-center -space-x-4">
+                                                    {/* Partner Photo (Background) */}
+                                                    {partner && (
+                                                        <div className={cn(
+                                                            "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] border-white/40 shadow-lg bg-white/20 overflow-hidden relative z-0 scale-90 -translate-x-2",
+                                                            isExpired ? "border-red-500/40" : "border-orange-500/40"
+                                                        )}>
+                                                            {partner.photo_url ? (
+                                                                <img src={partner.photo_url} alt="" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-muted/20">
+                                                                    <User className="w-5 h-5 text-muted opacity-40" />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
-                                                >
-                                                    <span className={cn(
-                                                        `w-full h-full rounded-full flex items-center justify-center transition-transform duration-300`,
-                                                        !mounted ? "bg-surface" : (
-                                                            isExpired ? "bg-red-500" :
-                                                            remaining === 1 ? "bg-yellow-400" :
-                                                            remaining <= 3 ? "bg-amber-500" :
-                                                            "bg-emerald-500"
-                                                        )
-                                                    )}>
-                                                        {st.photo_url ? (
-                                                            <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <span className="text-[11px] md:text-sm font-black text-white">{getInitials(st.full_name)}</span>
+
+                                                    {/* Main Student Photo (Foreground) */}
+                                                    <div
+                                                        className={cn(
+                                                            "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative z-10 shadow-xl",
+                                                            isExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
+                                                            remaining === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
+                                                            remaining <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
+                                                            "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
                                                         )}
-                                                    </span>
+                                                    >
+                                                        <span className={cn(
+                                                            `w-full h-full rounded-full flex items-center justify-center transition-transform duration-300`,
+                                                            !mounted ? "bg-surface" : (
+                                                                isExpired ? "bg-red-500" :
+                                                                remaining === 1 ? "bg-yellow-400" :
+                                                                remaining <= 3 ? "bg-amber-500" :
+                                                                "bg-emerald-500"
+                                                            )
+                                                        )}>
+                                                            {st.photo_url ? (
+                                                                <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <span className="text-[11px] md:text-sm font-black text-white">{getInitials(st.full_name)}</span>
+                                                            )}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
                                                 {/* Text Info */}
@@ -1316,7 +1483,7 @@ export default function AttendancePage() {
                                                             'text-[13px] md:text-[15px] font-black truncate tracking-tight', 
                                                             state === 'present' ? 'text-emerald-600' : state === 'absent' ? 'text-red-500' : 'text-primary'
                                                         )}>
-                                                            {st.full_name}
+                                                            {partner ? `${st.full_name?.trim().split(' ')[0]} & ${partner.full_name?.trim().split(' ')[0]}` : (st.full_name?.trim().split(' ')[0] || st.full_name)}
                                                         </p>
                                                         {label && (
                                                             <span className={cn(
@@ -1380,32 +1547,39 @@ export default function AttendancePage() {
 
                                             {/* Attendance Toggle (Fixed Right) */}
                                             <div className="flex-none pl-1 relative z-20">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (isExpired && state === 'none') {
-                                                            setSelectedStudent(st.id);
+                                                {isExpired && state === 'none' ? (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIssueType('group');
                                                             setIssueModalOpen(true);
-                                                        } else {
-                                                            toggle(st.id);
-                                                        }
-                                                    }}
-                                                    className={cn(
-                                                        "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
-                                                        state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                            state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                                isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
-                                                                    "bg-surface border-border-subtle text-muted/30"
-                                                    )}
-                                                >
-                                                    {state === 'present' ? (
-                                                        <Check className="w-6 h-6 stroke-[3]" />
-                                                    ) : state === 'absent' ? (
-                                                        <X className="w-6 h-6 stroke-[3]" />
-                                                    ) : (
+                                                        }}
+                                                        className="w-11 h-11 md:w-14 md:h-14 rounded-2xl bg-red-500 border-2 border-red-500 text-white flex items-center justify-center transition-all active:scale-90 shadow-lg shadow-red-500/20"
+                                                    >
                                                         <Plus className="w-6 h-6 stroke-[3]" />
-                                                    )}
-                                                </button>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggle(st.id);
+                                                        }}
+                                                        className={cn(
+                                                            "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
+                                                            state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                                state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                                    "bg-surface border-border-subtle text-muted/30"
+                                                        )}
+                                                    >
+                                                        {state === 'present' ? (
+                                                            <Check className="w-6 h-6 stroke-[3]" />
+                                                        ) : state === 'absent' ? (
+                                                            <X className="w-6 h-6 stroke-[3]" />
+                                                        ) : (
+                                                            <Plus className="w-6 h-6 stroke-[3]" />
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -1469,7 +1643,7 @@ export default function AttendancePage() {
                                                                 setDrawerOpen(false);
                                                                 setEditModal(true);
                                                             }}
-                                                            className="p-3 rounded-xl bg-surface border border-border-subtle text-muted hover:text-#6d28d9 hover:border-#6d28d9/30 transition-all active:scale-90"
+                                                            className="p-3 rounded-xl bg-surface border border-border-subtle text-muted hover:text-[#6d28d9] hover:border-[#6d28d9]/30 transition-all active:scale-90"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
@@ -1526,14 +1700,72 @@ export default function AttendancePage() {
                                                         </div>
                                                     </div>
 
-                                                    <button onClick={() => setIssueModalOpen(true)}
-                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-[#6d28d9] hover:bg-indigo-600"
-                                                        style={{ 
-                                                            boxShadow: `0 8px 20px -4px #6d28d940`
-                                                        }}>
-                                                        <PlusCircle className="w-4 h-4" />
-                                                        <span>{t.issueSubscription || t.issuePlan}</span>
-                                                    </button>
+                                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                                        <button onClick={() => { setIssueType('group'); setIssueModalOpen(true); }}
+                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl text-white font-black text-[9px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-[#6d28d9] hover:bg-indigo-600"
+                                                            style={{ boxShadow: `0 8px 20px -4px #6d28d940` }}>
+                                                            <Plus className="w-4 h-4 stroke-[3]" />
+                                                            <span>{t.groupSubscription}</span>
+                                                        </button>
+                                                        <button onClick={() => { setIssueType('individual'); setIssueModalOpen(true); }}
+                                                            className="flex items-center justify-center gap-2 h-11 rounded-xl text-white font-black text-[9px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-amber-500 hover:bg-amber-600"
+                                                            style={{ boxShadow: `0 8px 20px -4px #f59e0b40` }}>
+                                                            <Plus className="w-4 h-4 stroke-[3]" />
+                                                            <span>{t.individualSubscription}</span>
+                                                            {activeSub?.plan_type === 'individual' && (activeSub as any).schedule_slots && (
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        import('@/lib/event-store').then(mod => {
+                                                                            const sub = activeSub!;
+                                                                            const sessionsTotal = sub.sessions_total;
+                                                                            const maxLessons = sessionsTotal || 999;
+                                                                            let lessonsCreated = 0;
+                                                                            let checkDate = new Date(sub.purchased_at + 'T00:00:00');
+                                                                            const endD = new Date(sub.expires_at + 'T00:00:00');
+                                                                            const newEvents: any[] = [];
+                                                                            let safetyLimit = 365;
+
+                                                                            while (lessonsCreated < maxLessons && checkDate <= endD && safetyLimit > 0) {
+                                                                                const jsDay = checkDate.getDay();
+                                                                                const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+                                                                                const slot = (sub as any).schedule_slots.find((s: any) => s.dayOfWeek === dayOfWeek);
+                                                                                if (slot) {
+                                                                                    newEvents.push({
+                                                                                        id: `ind-${sub.student_id}-${Date.now()}-${lessonsCreated}`,
+                                                                                        org_id: settings.studioSlug,
+                                                                                        title: selStudent.full_name,
+                                                                                        type: 'individual',
+                                                                                        hall_id: sub.hall_id || 'main',
+                                                                                        teacher_id: sub.teacher_id,
+                                                                                        student_id: sub.student_id,
+                                                                                        date: getLocalISODate(checkDate),
+                                                                                        start_time: slot.startTime,
+                                                                                        end_time: slot.endTime,
+                                                                                        color: sub.is_default ? '#6366f1' : '#f59e0b',
+                                                                                        recurring: 'none',
+                                                                                        reminder_30m: false,
+                                                                                        created_at: new Date().toISOString()
+                                                                                    });
+                                                                                    lessonsCreated++;
+                                                                                }
+                                                                                checkDate.setDate(checkDate.getDate() + 1);
+                                                                                safetyLimit--;
+                                                                            }
+                                                                            if (newEvents.length > 0) {
+                                                                                const current = mod.getEvents();
+                                                                                mod.saveEvents([...current, ...newEvents]);
+                                                                                alert('Calendar updated!');
+                                                                            }
+                                                                        });
+                                                                    }}
+                                                                    className="ml-auto p-1 bg-white/10 hover:bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter"
+                                                                >
+                                                                    Sync Cal
+                                                                </button>
+                                                            )}
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20 flex-shrink-0">
@@ -1558,7 +1790,7 @@ export default function AttendancePage() {
                                                     {activeTab === 'recent' && (
                                                         <div className="space-y-3 pb-24">
                                                             {studentCheckinsList.length > 0 ? studentCheckinsList.map((ch, i) => (
-                                                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-#6d28d9/30 transition-all">
+                                                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-[#6d28d9]/30 transition-all">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                                             style={{ 
@@ -1582,15 +1814,9 @@ export default function AttendancePage() {
                                                     )}
                                                     {activeTab === 'subs' && (
                                                         <div className="space-y-4 pb-24">
-                                                            {getStudentSubscriptions(selStudent.id).map((sub, idx) => {
+                                                            {(subs[selStudent.id] || []).map((sub, idx) => {
                                                                 const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
                                                                 const isActive = sub.status === 'active' && !isExpired;
-                                                                
-                                                                // Resolve all students for shared subscriptions
-                                                                const sIds = (sub.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
-                                                                const sharedStudents = sIds.map(id => getStudents().find(x => x.id === id)).filter(Boolean);
-                                                                const isShared = sharedStudents.length > 1;
-
                                                                 return (
                                                                     <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-[#6d28d9]/5 border-[#6d28d9]/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
                                                                         <div className="flex justify-between items-start mb-3">
@@ -1601,36 +1827,22 @@ export default function AttendancePage() {
                                                                             <button onClick={async (e) => { 
                                                                                 e.stopPropagation(); 
                                                                                 if (await confirm(t.confirmDelete)) { 
+                                                                                    // Optimistic Update
+                                                                                    setSubs(prev => {
+                                                                                        const next = { ...prev };
+                                                                                        if (next[selStudent.id]) {
+                                                                                            next[selStudent.id] = next[selStudent.id].filter(s => s.id !== sub.id);
+                                                                                        }
+                                                                                        return next;
+                                                                                    });
                                                                                     deleteSubscription(selStudent.id, sub.id); 
-                                                                                    setSubs(getSubscriptions());
                                                                                 } 
                                                                             }}
                                                                                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted/40 hover:text-red-500 transition-all">
                                                                                 <Trash2 className="w-3.5 h-3.5" />
                                                                             </button>
                                                                         </div>
-
-                                                                        <div className="flex items-center justify-between mb-3">
-                                                                            <p className="text-sm font-black text-primary leading-snug">{sub.plan}</p>
-                                                                            {isShared && (
-                                                                                <div className="flex -space-x-1.5 overflow-hidden">
-                                                                                    {sharedStudents.map((s, i) => (
-                                                                                        <div key={i} className="w-5 h-5 rounded-full border border-white bg-surface overflow-hidden shadow-sm" title={s?.full_name}>
-                                                                                            {s?.photo_url ? <img src={s.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-2.5 h-2.5 m-auto text-muted" />}
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-
-                                                                        {isShared && (
-                                                                            <div className="mb-3 px-2 py-1 bg-indigo-500/5 border border-indigo-500/10 rounded-lg">
-                                                                                <p className="text-[9px] font-bold text-indigo-600 truncate">
-                                                                                    👥 {sharedStudents.map(s => s?.first_name).join(' & ')}
-                                                                                </p>
-                                                                            </div>
-                                                                        )}
-
+                                                                        <p className="text-sm font-black text-primary leading-snug mb-3">{sub.plan}</p>
                                                                         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border-subtle/20">
                                                                             <div>
                                                                                 <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-0.5">{t.expiryDate}</p>
@@ -1677,7 +1889,7 @@ export default function AttendancePage() {
                             ) : (
                                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center opacity-40">
                                     <div className="w-24 h-24 rounded-[2.5rem] bg-surface flex items-center justify-center mb-8 shadow-inner border border-border-subtle">
-                                        <Scan className="w-10 h-10 text-#6d28d9 opacity-50" />
+                                        <Scan className="w-10 h-10 text-[#6d28d9] opacity-50" />
                                     </div>
                                     <p className="text-lg font-black text-primary tracking-tight">{t.scanCard}</p>
                                 </div>
@@ -1694,7 +1906,7 @@ export default function AttendancePage() {
                                 open={issueModalOpen} 
                                 onClose={() => setIssueModalOpen(false)} 
                                 initialStudentId={selStudent.id} 
-                                defaultType={cls.type === 'individual' ? 'individual' : 'group'}
+                                defaultType={issueType || (cls.type === 'individual' ? 'individual' : 'group')}
                                 onIssue={(data) => { 
                                     import('@/lib/subscription-store').then(mod => { 
                                         mod.saveSubscription(data.student_id, { ...data, id: `sub_${Date.now()}` } as any); 
@@ -1706,7 +1918,6 @@ export default function AttendancePage() {
                         </>
                     )}
                 </>
-            )}
-        </div>
-    );
+            </div>
+);
 }
