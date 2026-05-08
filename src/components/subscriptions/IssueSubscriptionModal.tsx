@@ -94,6 +94,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     // 📅 Scheduling State (for Individual)
     const [schedule, setSchedule] = useState<{ day: number; time: string; endTime: string; hallId: string }[]>([]);
     const [eventColor, setEventColor] = useState('#6d28d9');
+    const [individualHallId, setIndividualHallId] = useState('');
 
     // Current student balance
     const selectedStudent = students.find(s => s.id === studentId);
@@ -349,7 +350,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 amount_paid: paidNow,
                 teacher_id: teacherId || undefined,
                 teacher_comment: commentParts.join(' · '),
-                schedule: selectedType === 'individual' ? schedule : undefined,
+                schedule: selectedType === 'individual' ? schedule.map(s => ({ ...s, hallId: individualHallId })) : undefined,
                 color: selectedType === 'individual' ? eventColor : undefined,
             });
             console.log('✅ [IssueModal] onIssue called successfully');
@@ -770,7 +771,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                 if (isActive) {
                                                                     setSchedule(prev => prev.filter(s => s.day !== d.id));
                                                                 } else {
-                                                                    setSchedule(prev => [...prev, { day: d.id, time: '18:00', endTime: '19:00', hallId: activeHalls[0]?.id || '' }]);
+                                                                    setSchedule(prev => [...prev, { day: d.id, time: '18:00', endTime: '19:00', hallId: individualHallId }]);
                                                                 }
                                                             }}
                                                             className={cn(
@@ -814,25 +815,25 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                 }}
                                                                 className="w-20 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40"
                                                             />
-                                                            <select
-                                                                value={s.hallId}
-                                                                onChange={e => {
-                                                                    const next = [...schedule];
-                                                                    const i = next.findIndex(n => n.day === s.day);
-                                                                    if (i > -1) next[i].hallId = e.target.value;
-                                                                    setSchedule(next);
-                                                                }}
-                                                                className="flex-1 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[10px] font-bold text-primary outline-none focus:border-indigo-500/40"
-                                                            >
-                                                                <option value="">{t.selectHall}</option>
-                                                                {activeHalls.map(h => (
-                                                                    <option key={h.id} value={h.id}>{h.name}</option>
-                                                                ))}
-                                                            </select>
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            {schedule.length > 0 && (
+                                                <div className="space-y-1.5 animate-in fade-in duration-300">
+                                                    <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                                        <DoorOpen className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
+                                                    </label>
+                                                    <SearchSelect
+                                                        options={activeHalls.map(h => ({ id: h.id, label: h.name }))}
+                                                        value={individualHallId}
+                                                        onChange={setIndividualHallId}
+                                                        placeholder={t.selectHall}
+                                                        className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-2.5 [&>div]:px-3"
+                                                    />
+                                                </div>
+                                            )}
 
                                             {schedule.length === 0 && (
                                                 <p className="text-xs text-muted opacity-40 italic text-center py-2">
