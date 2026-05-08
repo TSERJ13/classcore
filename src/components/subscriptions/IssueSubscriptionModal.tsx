@@ -820,20 +820,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                 ))}
                                             </div>
 
-                                            {schedule.length > 0 && (
-                                                <div className="space-y-1.5 animate-in fade-in duration-300">
-                                                    <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                                        <DoorOpen className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
-                                                    </label>
-                                                    <SearchSelect
-                                                        options={activeHalls.map(h => ({ id: h.id, label: h.name }))}
-                                                        value={individualHallId}
-                                                        onChange={setIndividualHallId}
-                                                        placeholder={t.selectHall}
-                                                        className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-2.5 [&>div]:px-3"
-                                                    />
-                                                </div>
-                                            )}
+                                            </div>
 
                                             {schedule.length === 0 && (
                                                 <p className="text-xs text-muted opacity-40 italic text-center py-2">
@@ -843,25 +830,18 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         </div>
                                     </div>
 
-                                    {/* Hall Block Style */}
+                                    {/* Hall Selection (Individual) */}
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
-                                            <Building2 className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
+                                            <DoorOpen className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
                                         </label>
-                                        <select
-                                            value={teacherId || ''} // Reusing teacherId logic if needed, but usually individual has its own hall
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                const next = schedule.map(s => ({ ...s, hallId: val }));
-                                                setSchedule(next);
-                                            }}
-                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary outline-none transition-all"
-                                        >
-                                            <option value="">{l('აირჩიეთ დარბაზი', 'Выберите зал', 'Select Hall')}</option>
-                                            {activeHalls.map(h => (
-                                                <option key={h.id} value={h.id}>{h.name}</option>
-                                            ))}
-                                        </select>
+                                        <SearchSelect
+                                            options={activeHalls.map(h => ({ id: h.id, label: h.name }))}
+                                            value={individualHallId}
+                                            onChange={setIndividualHallId}
+                                            placeholder={t.selectHall}
+                                            className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
+                                        />
                                     </div>
 
                                 </div>
