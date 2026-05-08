@@ -139,7 +139,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setEventColor('#6d28d9');
             setIndividualHallId(activeHalls[0]?.id || 'h1');
         }
-    }, [open, initialStudentId, activeHalls]);
+    }, [open]);
 
     // 🌟 Auto-select default plan when type/oneTime changes or list updates
     useEffect(() => {
