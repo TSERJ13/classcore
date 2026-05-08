@@ -417,6 +417,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         onClick={() => { setSelectedType('group'); setStep('form'); }}
                                         className="w-full p-4 flex items-center justify-center gap-3 bg-surface hover:bg-emerald-500/5 transition-colors text-primary h-full"
@@ -426,7 +427,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         </div>
                                         <div className="text-center">
                                             <h3 className="text-sm font-black tracking-tight">{t.groupSubscription}</h3>
-                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ჯგუფური', 'Групповой', 'Group')}</p>
+                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ჯგუფური', 'Групპовой', 'Group')}</p>
                                         </div>
                                     </button>
                                 </div>
