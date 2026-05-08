@@ -1715,7 +1715,7 @@ export default function AttendancePage() {
                                 defaultType={issueDefaultType}
                                 onIssue={(data) => { 
                                     import('@/lib/subscription-store').then(mod => { 
-                                        const subId = `sub_${Date.now()}`;
+                                        const subId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
                                         // Handle multi-student subscriptions (e.g. Individual for 2 people)
                                         const studentIds = data.student_id.split(',').map(id => id.trim()).filter(Boolean);
                                         

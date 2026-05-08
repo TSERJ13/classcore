@@ -301,12 +301,15 @@ export function generateScheduledIndividualEvents(params: {
         if (slot) {
             const dateStr = getLocalISODate(current);
             const startTime = slot.time;
-            let endTime = '19:00';
-            try {
-                const [h, m] = startTime.split(':').map(Number);
-                const endH = (h + 1).toString().padStart(2, '0');
-                endTime = `${endH}:${m.toString().padStart(2, '0')}`;
-            } catch {}
+            let endTime = (slot as any).endTime || '19:00';
+            
+            if (!(slot as any).endTime) {
+                try {
+                    const [h, m] = startTime.split(':').map(Number);
+                    const endH = ((h + 1) % 24).toString().padStart(2, '0');
+                    endTime = `${endH}:${m.toString().padStart(2, '0')}`;
+                } catch {}
+            }
             events.push({
                 id: `ind_${Date.now()}_${count}_${Math.random().toString(36).substr(2, 4)}`,
                 org_id: getActiveSlug() || '',

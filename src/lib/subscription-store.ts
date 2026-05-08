@@ -205,25 +205,30 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
         console.error('saveSubscription: invalid studentId', studentId);
         return;
     }
+
+    const studentIds = studentId.split(',').map(id => id.trim()).filter(Boolean);
     const data = getSubscriptions();
     clearCache();
-    if (!data[studentId]) data[studentId] = [];
     
-    // Ensure ID exists (AID + 10 digits)
+    // Ensure ID exists
     if (!info.id) {
-        (info as any).id = `AID${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+        (info as any).id = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     }
 
-    const idx = data[studentId].findIndex(s => s.id === info.id);
-    if (idx > -1) {
-        data[studentId][idx] = info;
-    } else {
-        data[studentId].push(info);
-    }
+    studentIds.forEach(id => {
+        if (!data[id]) data[id] = [];
+        const idx = data[id].findIndex(s => s.id === info.id);
+        if (idx > -1) {
+            data[id][idx] = { ...info, student_id: studentId }; // Keep original multi-id in field
+        } else {
+            data[id].push({ ...info, student_id: studentId });
+        }
+    });
+
     localStorage.setItem(getSubsKey(), JSON.stringify(data));
     markLocalUpdate();
 
-    // 🚀 Update memory cache so subsequent reads see the change immediately
+    // 🚀 Update memory cache
     const slugForCache = getActiveSlug() || '';
     if (slugForCache) {
         _subsMemoryCache = data;

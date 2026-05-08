@@ -137,8 +137,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setPlanId(''); // 🌟 Clear so default-pick effect runs fresh on each open
             setSchedule([]);
             setEventColor('#6d28d9');
+            setIndividualHallId(activeHalls[0]?.id || 'h1');
         }
-    }, [open, initialStudentId]);
+    }, [open, initialStudentId, activeHalls]);
 
     // 🌟 Auto-select default plan when type/oneTime changes or list updates
     useEffect(() => {

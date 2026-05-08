@@ -35,20 +35,23 @@ export default function SubscriptionsPage() {
     }, []);
 
     // Flatten and sort subscriptions (newest first)
-    const allSubs: SubscriptionInfo[] = [];
+    const subMap = new Map<string, SubscriptionInfo>();
     if (subsData && typeof subsData === 'object') {
         Object.keys(subsData).forEach(key => {
             const subsArray = subsData[key];
             if (Array.isArray(subsArray)) {
                 subsArray.forEach(sub => {
                     if (sub && typeof sub === 'object') {
-                        // Use the student_id from inside the sub if it exists (handles shared IDs)
-                        allSubs.push({ ...sub, student_id: sub.student_id || key });
+                        const sid = sub.id || `temp_${Math.random()}`;
+                        if (!subMap.has(sid)) {
+                            subMap.set(sid, { ...sub, student_id: sub.student_id || key });
+                        }
                     }
                 });
             }
         });
     }
+    const allSubs = Array.from(subMap.values());
 
     const sortedSubs = [...allSubs].sort((a, b) => {
         const dateA = new Date(a?.purchased_at || 0).getTime();
@@ -124,13 +127,19 @@ export default function SubscriptionsPage() {
                     borderCls
                 )}>
                 <div className="flex items-center lg:items-start gap-3 lg:gap-4">
-                    {firstStudent?.photo_url ? (
-                        <img src={firstStudent.photo_url} alt={studentName} className="w-10 h-10 lg:w-12 lg:h-12 object-cover rounded-xl lg:rounded-2xl border border-border-subtle/50 shadow-sm flex-shrink-0" />
-                    ) : (
-                        <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 font-bold border border-indigo-500/20 text-sm flex-shrink-0 shadow-sm">
-                            {initial}
-                        </div>
-                    )}
+                    <div className="flex -space-x-3 lg:-space-x-4">
+                        {matchedStudents.map((st, i) => (
+                            <div key={st.id} className="relative z-[1]" style={{ zIndex: matchedStudents.length - i }}>
+                                {st.photo_url ? (
+                                    <img src={st.photo_url} alt={st.full_name} className="w-10 h-10 lg:w-12 lg:h-12 object-cover rounded-xl lg:rounded-2xl border-2 border-card shadow-sm flex-shrink-0" />
+                                ) : (
+                                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 font-bold border-2 border-card text-sm flex-shrink-0 shadow-sm">
+                                        {st.full_name?.charAt(0) || '?'}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                     <div className="flex-1 min-w-0 pr-12 lg:pr-16">
                         <div className="flex flex-wrap items-center gap-1.5 lg:gap-2 mb-0.5 lg:mb-1.5">
                             <h3 className="text-xs lg:text-sm font-black text-primary truncate max-w-full leading-none group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{studentName}</h3>
