@@ -179,32 +179,17 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     })), [groups]);
 
     const teacherOptions = useMemo(() => {
-        const sIds = studentId.split(',').map(id => id.trim()).filter(Boolean);
-        const primaryStudent = students.find(s => s.id === sIds[0]);
-
-        const suggestedTeachers = primaryStudent?.enrolled_group_ids?.map(gid => {
-            const g = groups.find(x => x.id === gid);
-            if (!g?.teacherId) return null;
-            const t = settings.staff.find(s => s.id === g.teacherId);
-            if (!t) return null;
-            return { value: t.id, label: `${t.first_name} ${t.last_name || ''}` };
-        }).filter(Boolean) || [];
-
         const allStaff = settings.staff.map(t => ({
             value: t.id,
             label: `${t.first_name} ${t.last_name || ''}`,
             subLabel: t.specialty?.join(', ') || t.role
         }));
 
-        // Combine and unique
-        const combined = [
+        return [
             { value: '', label: l('არჩეული არ არის', 'Не выбран', 'Not selected') },
-            ...suggestedTeachers,
-            ...allStaff.filter(s => !suggestedTeachers.find(st => st.value === s.value))
+            ...allStaff
         ];
-
-        return combined;
-    }, [settings.staff, studentId, students, groups]);
+    }, [settings.staff]);
 
     // Update planId when category changes
     useEffect(() => {
