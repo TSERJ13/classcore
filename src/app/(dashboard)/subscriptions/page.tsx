@@ -56,6 +56,10 @@ export default function SubscriptionsPage() {
         return dateB - dateA;
     });
 
+    if (typeof window !== 'undefined' && sortedSubs.length > 0) {
+        console.log('📊 [SubscriptionsPage] Total Subs:', sortedSubs.length, sortedSubs);
+    }
+
     const filtered = sortedSubs.filter(s => {
         if (!s) return false;
         
@@ -69,7 +73,10 @@ export default function SubscriptionsPage() {
         else if (isActuallyExpired) effectiveStatus = 'expired';
 
         const matchesTab = effectiveStatus === tab;
-        const matchesCategory = category === 'group' ? s.plan_type !== 'individual' : s.plan_type === 'individual';
+        
+        // Robust Category Matching: Check both plan_type and category fields
+        const isInd = s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual';
+        const matchesCategory = category === 'individual' ? isInd : !isInd;
         
         // Handle shared student search
         const sIds = (s.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
