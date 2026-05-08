@@ -1,4 +1,5 @@
 'use client';
+// v2.2 - Stabilized Individual Workflow
 
 import { useState, useEffect, useMemo } from 'react';
 import { Save, Plus, UserPlus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette } from 'lucide-react';
@@ -65,7 +66,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [studentId, setStudentId] = useState('');
     const [step, setStep] = useState<'type_selection' | 'form'>('type_selection');
     const [selectedType, setSelectedType] = useState<'group' | 'individual' | 'rental'>('group');
-    const [isOneTime, setIsOneTime] = useState(false);
 
     const availablePlans = plans.filter(p => p.type === selectedType);
 
@@ -152,7 +152,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         if (!stillValid && auto) {
             setPlanId(auto.id);
         }
-    }, [open, selectedType, isOneTime, availablePlans]);
+    }, [open, selectedType, availablePlans]);
 
     // Reset balance usage and auto-fill discount when student changes
     useEffect(() => {
@@ -209,7 +209,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         } else if (availablePlans.length === 0) {
             setPlanId('');
         }
-    }, [selectedType, isOneTime, planId]);
+    }, [selectedType, planId]);
 
     // Auto-fill when plan changes
     useEffect(() => {
@@ -417,28 +417,17 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Group Column */}
-                                <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm">
                                     <button
-                                        onClick={() => { setSelectedType('group'); setIsOneTime(false); setStep('form'); }}
-                                        className="flex-1 p-4 flex flex-col items-center justify-center gap-2 bg-surface hover:bg-emerald-500/5 transition-colors text-primary"
+                                        onClick={() => { setSelectedType('group'); setStep('form'); }}
+                                        className="w-full p-4 flex items-center justify-center gap-3 bg-surface hover:bg-emerald-500/5 transition-colors text-primary h-full"
                                     >
-                                        <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                        <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-xs font-black tracking-tight">{t.groupSubscription}</h3>
+                                            <h3 className="text-sm font-black tracking-tight">{t.groupSubscription}</h3>
+                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ჯგუფური', 'Групповой', 'Group')}</p>
                                         </div>
-                                    </button>
-                                    <div className="h-px bg-border-subtle w-full" />
-                                    <button
-                                        onClick={() => { setSelectedType('group'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-3 lg:p-4 flex items-center justify-center gap-2 text-[9px] lg:text-[10px] font-bold text-muted hover:text-emerald-600 bg-surface/50 hover:bg-emerald-500/10 transition-colors tracking-widest group/btn"
-                                    >
-                                        <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover/btn:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                                        </div>
-                                        <span>{t.groupOneTime}</span>
                                     </button>
                                 </div>
 
@@ -497,43 +486,45 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         />
                                     </div>
 
-                                    {studentId.split(',').length < 2 ? (
-                                        <button 
-                                            type="button"
-                                            onClick={() => setStudentId(prev => prev + ', ')}
-                                            className="w-full py-2.5 border-2 border-dashed border-indigo-500/20 rounded-xl text-[10px] font-bold text-indigo-500 hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 group"
-                                        >
-                                            <div className="w-5 h-5 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <UserPlus className="w-3 h-3" />
-                                            </div>
-                                            {l('მეორე ადამიანის დამატება', 'Добавить второго человека', 'Add second person')}
-                                        </button>
-                                    ) : (
-                                        <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-                                            <div className="flex items-center justify-between px-1">
-                                                <label className="text-[9px] font-black text-indigo-500/60 tracking-wider uppercase">{l('მეორე ადამიანი', 'Второй человек', 'Second person')}</label>
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => {
+                                    {selectedType === 'individual' && (
+                                        studentId.split(',').length < 2 ? (
+                                            <button 
+                                                type="button"
+                                                onClick={() => setStudentId(prev => prev + ', ')}
+                                                className="w-full py-2.5 border-2 border-dashed border-indigo-500/20 rounded-xl text-[10px] font-bold text-indigo-500 hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 group"
+                                            >
+                                                <div className="w-5 h-5 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                    <UserPlus className="w-3 h-3" />
+                                                </div>
+                                                {l('მეორე ადამიანის დამატება', 'Добавить второго человека', 'Add second person')}
+                                            </button>
+                                        ) : (
+                                            <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                                <div className="flex items-center justify-between px-1">
+                                                    <label className="text-[9px] font-black text-indigo-500/60 tracking-wider uppercase">{l('მეორე ადამიანი', 'Второй человек', 'Second person')}</label>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const parts = studentId.split(',').map(id => id.trim()).filter(Boolean);
+                                                            setStudentId(parts[0] || '');
+                                                        }}
+                                                        className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-tighter"
+                                                    >
+                                                        {t.delete || 'X'}
+                                                    </button>
+                                                </div>
+                                                <SearchSelect
+                                                    options={studentOptions.filter(o => o.value !== studentId.split(',')[0].trim())}
+                                                    value={studentId.split(',')[1]?.trim() || ''}
+                                                    onChange={val => {
                                                         const parts = studentId.split(',').map(id => id.trim()).filter(Boolean);
-                                                        setStudentId(parts[0] || '');
+                                                        parts[1] = val;
+                                                        setStudentId(parts.join(', '));
                                                     }}
-                                                    className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-tighter"
-                                                >
-                                                    {t.delete || 'X'}
-                                                </button>
+                                                    placeholder={l('აირჩიეთ მეორე სტუდენტი...', 'Выберите второго студента...', 'Select second student...')}
+                                                />
                                             </div>
-                                            <SearchSelect
-                                                options={studentOptions.filter(o => o.value !== studentId.split(',')[0].trim())}
-                                                value={studentId.split(',')[1]?.trim() || ''}
-                                                onChange={val => {
-                                                    const parts = studentId.split(',').map(id => id.trim()).filter(Boolean);
-                                                    parts[1] = val;
-                                                    setStudentId(parts.join(', '));
-                                                }}
-                                                placeholder={l('აირჩიეთ მეორე სტუდენტი...', 'Выберите второго студента...', 'Select second student...')}
-                                            />
-                                        </div>
+                                        )
                                     )}
                                 </div>
 
