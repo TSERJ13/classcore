@@ -736,11 +736,11 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                     return (
                                                         <button key={d.id} type="button" 
                                                             onClick={() => {
-                                                                if (isActive) {
-                                                                    setSchedule(prev => prev.filter(s => s.day !== d.id));
-                                                                } else {
-                                                                    setSchedule(prev => [...prev, { day: d.id, time: '18:00', endTime: '19:00', hallId: individualHallId }]);
-                                                                }
+                                                                 if (isActive) {
+                                                                     setSchedule(prev => prev.filter(s => s.day !== d.id));
+                                                                 } else {
+                                                                     setSchedule(prev => [...prev, { day: d.id, time: '18:00', endTime: '19:00', hallId: individualHallId }]);
+                                                                 }
                                                             }}
                                                             className={cn(
                                                                 "flex-1 h-9 rounded-lg text-[10px] font-black transition-all border shrink-0",
@@ -788,8 +788,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                 ))}
                                             </div>
 
-                                            </div>
-
                                             {schedule.length === 0 && (
                                                 <p className="text-xs text-muted opacity-40 italic text-center py-2">
                                                     {l('აირჩიეთ მინიმუმ ერთი დღე', 'Выберите хотя бы один день', 'Select at least one day')}
@@ -804,14 +802,13 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             <Building2 className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
                                         </label>
                                         <SearchSelect
-                                            options={activeHalls.map(h => ({ id: h.id, label: h.name }))}
+                                            options={activeHalls.map(h => ({ value: h.id, label: h.name }))}
                                             value={individualHallId}
                                             onChange={setIndividualHallId}
                                             placeholder={t.selectHall}
                                             className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
                                         />
                                     </div>
-
                                 </div>
                             )}
 
