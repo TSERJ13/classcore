@@ -67,11 +67,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [selectedType, setSelectedType] = useState<'group' | 'individual' | 'rental'>('group');
     const [isOneTime, setIsOneTime] = useState(false);
 
-    const availablePlans = plans.filter(p => {
-        if (p.type !== selectedType) return false;
-        const pOneTime = p.session_count === 1;
-        return isOneTime ? pOneTime : !pOneTime;
-    });
+    const availablePlans = plans.filter(p => p.type === selectedType);
 
     const [planId, setPlanId] = useState('');
     const [groupId, setGroupId] = useState('');
@@ -446,53 +442,33 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
 
-                                {/* Individual Column */}
-                                <div className="flex flex-col border-2 border-indigo-500/20 rounded-3xl overflow-hidden bg-card hover:border-indigo-500/40 transition-all group shadow-sm">
+                                <div className="flex flex-col border-2 border-indigo-500/20 rounded-3xl overflow-hidden bg-card hover:border-indigo-500/40 transition-all group shadow-sm h-full">
                                     <button
-                                        onClick={() => { setSelectedType('individual'); setIsOneTime(false); setStep('form'); }}
-                                        className="flex-1 p-4 flex flex-col items-center justify-center gap-2 bg-surface hover:bg-indigo-500/5 transition-colors text-primary"
+                                        onClick={() => { setSelectedType('individual'); setStep('form'); }}
+                                        className="flex-1 p-6 flex flex-col items-center justify-center gap-3 bg-surface hover:bg-indigo-500/5 transition-colors text-primary"
                                     >
-                                        <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                        <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-xs font-black tracking-tight">{t.individualSubscription}</h3>
+                                            <h3 className="text-sm font-black tracking-tight">{t.individualSubscription}</h3>
+                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('პერსონალური', 'Персональный', 'Personal')}</p>
                                         </div>
-                                    </button>
-                                    <div className="h-px bg-border-subtle w-full" />
-                                    <button
-                                        onClick={() => { setSelectedType('individual'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-3 lg:p-4 flex items-center justify-center gap-2 text-[9px] lg:text-[10px] font-bold text-muted hover:text-indigo-600 bg-surface/50 hover:bg-indigo-500/10 transition-colors tracking-widest group/btn"
-                                    >
-                                        <div className="w-5 h-5 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover/btn:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                                        </div>
-                                        <span>{t.individualOneTime}</span>
                                     </button>
                                 </div>
 
-                                {/* Rental Column */}
-                                <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm">
+                                <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm h-full">
                                     <button
-                                        onClick={() => { setSelectedType('rental'); setIsOneTime(false); setStep('form'); }}
-                                        className="flex-1 p-4 flex flex-col items-center justify-center gap-2 bg-surface hover:bg-amber-500/5 transition-colors text-primary"
+                                        onClick={() => { setSelectedType('rental'); setStep('form'); }}
+                                        className="flex-1 p-6 flex flex-col items-center justify-center gap-3 bg-surface hover:bg-amber-500/5 transition-colors text-primary"
                                     >
-                                        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                        <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-xs font-black tracking-tight">{t.rentalSubscription}</h3>
+                                            <h3 className="text-sm font-black tracking-tight">{t.rentalSubscription}</h3>
+                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('დარბაზის იჯარა', 'Аренда зала', 'Hall Rental')}</p>
                                         </div>
-                                    </button>
-                                    <div className="h-px bg-border-subtle w-full" />
-                                    <button
-                                        onClick={() => { setSelectedType('rental'); setIsOneTime(true); setStep('form'); }}
-                                        className="w-full p-3 lg:p-4 flex items-center justify-center gap-2 text-[9px] lg:text-[10px] font-bold text-muted hover:text-amber-600 bg-surface/50 hover:bg-amber-500/10 transition-colors tracking-widest group/btn"
-                                    >
-                                        <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover/btn:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                                        </div>
-                                        <span>{t.rentalOneTime}</span>
                                     </button>
                                 </div>
                             </div>
