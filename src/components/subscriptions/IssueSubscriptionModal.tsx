@@ -475,36 +475,36 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
                                     <SearchSelect
                                         options={studentOptions}
-                                        value={studentId.split(',')[0] || ''}
+                                        value=""
                                         onChange={val => {
                                             const currentIds = studentId ? studentId.split(',').map(id => id.trim()).filter(Boolean) : [];
-                                            let nextIds = [];
-                                            if (currentIds.includes(val)) {
-                                                nextIds = currentIds.filter(id => id !== val);
-                                            } else {
-                                                nextIds = [...currentIds, val].slice(0, 2); // Limit to 2 for couple subscriptions
+                                            if (!currentIds.includes(val)) {
+                                                const nextIds = [...currentIds, val].slice(0, 2); // Limit to 2 for couple subscriptions
+                                                setStudentId(nextIds.join(', '));
                                             }
-                                            setStudentId(nextIds.join(', '));
                                         }}
-                                        placeholder={t.selectClient}
+                                        placeholder={studentId ? l('კიდევ ერთი...', 'Добавить еще...', 'Add another...') : t.selectClient}
                                     />
                                     {studentId && (
-                                        <div className="mt-2 flex flex-wrap gap-1.5 px-1">
+                                        <div className="mt-2 flex flex-wrap gap-1.5 px-1 bg-surface/30 p-2 rounded-xl border border-border-subtle/30 animate-in fade-in duration-200">
                                             {studentId.split(',').map(id => id.trim()).filter(Boolean).map(id => {
                                                 const s = students.find(x => x.id === id);
                                                 if (!s) return null;
                                                 return (
-                                                    <div key={id} className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full pl-1.5 pr-1 py-1 animate-in zoom-in-95 duration-200">
-                                                        <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-indigo-200">
-                                                            {s.photo_url ? <img src={s.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-2.5 h-2.5 text-indigo-500 m-auto mt-0.5" />}
+                                                    <div key={id} className="flex items-center gap-2 bg-white border border-indigo-500/20 rounded-full pl-1.5 pr-1 py-1 shadow-sm transition-all hover:border-indigo-500/40">
+                                                        <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-indigo-50">
+                                                            {s.photo_url ? <img src={s.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-2.5 h-2.5 text-indigo-400 m-auto mt-0.5" />}
                                                         </div>
                                                         <span className="text-[10px] font-bold text-indigo-700 truncate max-w-[120px]">{s.first_name} {s.last_name}</span>
                                                         <button 
-                                                            onClick={() => {
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
                                                                 const nextIds = studentId.split(',').map(i => i.trim()).filter(i => i !== id);
                                                                 setStudentId(nextIds.join(', '));
                                                             }}
-                                                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-indigo-500/20 text-indigo-500 transition-colors"
+                                                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-500/10 text-muted hover:text-red-500 transition-colors"
                                                         >
                                                             <X className="w-3 h-3" />
                                                         </button>
