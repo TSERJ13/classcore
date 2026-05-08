@@ -53,8 +53,8 @@ export function SearchSelect({
     const selectedOption = options.find(o => o.value === value);
 
     const layoutMap: Record<string, string> = {
-        'a': 'ა', 'b': 'ბ', 'g': 'გ', 'd': 'დ', 'e': 'ე', 'v': 'ვ', 'z': 'ზ', 't': 'თ', 'i': 'ი', 'k': 'კ', 'l': 'ლ', 'm': 'მ', 'n': 'ნ', 'o': 'ო', 'p': 'პ', 'r': 'რ', 's': 'ს', 'u': 'უ', 'f': 'ფ', 'q': 'ქ', 'y': 'ყ', 'sh': 'შ', 'ch': 'ჩ', 'ts': 'ც', 'dz': 'ძ', 'ts': 'წ', 'ch': 'ჭ', 'kh': 'ხ', 'j': 'ჯ', 'h': 'ჰ',
-        'w': 'წ', 'W': 'ჭ', 'R': 'ღ', 'T': 'თ', 'U': 'უ', 'I': 'ი', 'O': 'ო', 'P': 'პ', 'J': 'ჟ', 'S': 'შ', 'L': 'ლ', 'Z': 'ძ', 'C': 'ჩ', 'V': 'ვ', 'B': 'ბ', 'N': 'ნ', 'M': 'მ'
+        'q': 'ქ', 'w': 'წ', 'e': 'ე', 'r': 'რ', 't': 'ტ', 'y': 'ყ', 'u': 'უ', 'i': 'ი', 'o': 'ო', 'p': 'პ', 'a': 'ა', 's': 'ს', 'd': 'დ', 'f': 'ფ', 'g': 'გ', 'h': 'ჰ', 'j': 'ჟ', 'k': 'კ', 'l': 'ლ', 'z': 'ზ', 'x': 'ხ', 'c': 'ც', 'v': 'ვ', 'b': 'ბ', 'n': 'ნ', 'm': 'მ',
+        'W': 'ჭ', 'R': 'ღ', 'T': 'თ', 'S': 'შ', 'D': 'ძ', 'C': 'ჩ', 'Z': 'ძ', 'J': 'ჟ'
     };
 
     const reverseLayoutMap: Record<string, string> = Object.fromEntries(Object.entries(layoutMap).map(([k, v]) => [v, k]));
@@ -65,7 +65,7 @@ export function SearchSelect({
         if (!query) return options;
 
         // Create variations of the query based on keyboard layouts
-        const mappedQuery = query.split('').map(char => layoutMap[char] || char).join('');
+        const mappedQuery = query.split('').map(char => layoutMap[char] || layoutMap[char.toLowerCase()] || char).join('');
         const mappedQueryRev = query.split('').map(char => reverseLayoutMap[char] || char).join('');
         
         const queries = [query, mappedQuery, mappedQueryRev];

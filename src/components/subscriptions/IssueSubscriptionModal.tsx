@@ -513,8 +513,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                 </button>
                                             </div>
                                             <SearchSelect
-                                                options={studentOptions.filter(o => o.value !== studentId.split(',')[0])}
-                                                value={studentId.split(',')[1] || ''}
+                                                options={studentOptions.filter(o => o.value !== studentId.split(',')[0].trim())}
+                                                value={studentId.split(',')[1]?.trim() || ''}
                                                 onChange={val => {
                                                     const parts = studentId.split(',').map(id => id.trim()).filter(Boolean);
                                                     parts[1] = val;
