@@ -97,7 +97,6 @@ export function getEvents(): CalendarEvent[] {
         }
 
         // 4. AUTO-PURGE ORPHANS: 
-        // If an event belongs to a group that is in the deletion tombstone, purge it now.
         const deletedGroupsKey = `cc_deleted_groups_${activeSlug}`;
         const rawDeleted = localStorage.getItem(deletedGroupsKey);
         const deletedGroupIds = rawDeleted ? JSON.parse(rawDeleted) : [];
@@ -125,16 +124,12 @@ export function saveEvents(events: CalendarEvent[]) {
     if (typeof window === 'undefined') return;
     const activeSlug = getActiveSlug() || 'default';
     
-    // 🚀 FIXED: No more dynamic import here to prevent race conditions in sync loops
     safeSetItem(getEventsKey(), JSON.stringify(events), activeSlug);
     markLocalUpdate();
     
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
         const finalOrgId = getEffectiveOrgId(activeSlug);
-        
-        // 1. Sync to settings blob (Legacy/Backup)
         pushStudioStateToCloud(activeSlug, [], { [getEventsKey()]: events });
-        
         if (finalOrgId) {
             import('./master-sync').then(mod => {
                 mod.pushCollectionToCloud('calendar_events', events, finalOrgId, activeSlug);
@@ -169,18 +164,13 @@ export function getEventsByDate(dateStr: string) {
     const targetTime = targetDate.getTime();
 
     return getEvents().filter(e => {
-        // Direct match
         if (e.date === dateStr) return true;
-
-        // Recurring Weekly Match
         if (e.recurring === 'weekly') {
             const evDate = new Date(`${e.date}T00:00:00`);
-            // Must be same day of week, and the target date must be ON or AFTER the original event date
             if (evDate.getDay() === targetDay && targetTime >= evDate.getTime()) {
                 return true;
             }
         }
-
         return false;
     }).sort((a, b) => a.start_time.localeCompare(b.start_time));
 }
@@ -204,10 +194,7 @@ export function deleteGroupEvents(groupId: string) {
 
 /** Upsert recurring weekly events for a group based on schedule slots */
 export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string, teacherId: string, hallId: string, slots: { dayOfWeek: number; startTime: string; endTime: string }[], color?: string, secondaryTeacherId?: string) {
-    // Remove old recurring events for this group
     const cleaned = getEvents().filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));
-
-    // 🌟 Resolve fallback hall_id from actual halls list (first hall) if none provided
     let finalHallId = hallId;
     if (!finalHallId || finalHallId === 'h1') {
         try {
@@ -227,25 +214,16 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
         if (!finalHallId) finalHallId = 'h1';
     }
 
-    // Find the most recent Monday as anchor
     const today = new Date();
-
-    // Add new events: one per slot, anchored to the next occurrence of that weekday
     const newEvents: CalendarEvent[] = slots.map((slot, i) => {
-        // Find the date of the next occurrence of slot.dayOfWeek starting from this week's Monday
         const monday = new Date(today);
-        const day = today.getDay(); // 0=Sun
+        const day = today.getDay();
         const diffToMonday = day === 0 ? -6 : 1 - day;
         monday.setDate(today.getDate() + diffToMonday);
-
-        // offset from Monday: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
-        // dayOfWeek from our picker: 0=Mon, 1=Tue, ..., 6=Sun
         const targetDate = new Date(monday);
         targetDate.setDate(monday.getDate() + slot.dayOfWeek);
-
         const dateStr = getLocalISODate(targetDate);
         const id = `grp_${groupId}_slot${i}_${slot.dayOfWeek}`;
-
         return {
             id,
             org_id: getActiveSlug() || '',
@@ -270,7 +248,7 @@ export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string,
     return updated;
 }
 
-export function addIndividualLesson(studentId: string, title: string, teacherId: string, date: string, start: string, end: string, hallId = 'h1', orgId = ''): CalendarEvent {
+export function addIndividualLesson(studentId: string, title: string, teacherId: string, date: string, start: string, end: string, hallId = 'h1', orgId = '', color = '#10b981'): CalendarEvent {
     const events = getEvents();
     const newEvent: CalendarEvent = {
         id: `ind_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -283,13 +261,75 @@ export function addIndividualLesson(studentId: string, title: string, teacherId:
         date,
         start_time: start,
         end_time: end,
-        color: '#10b981', // emerald for individual
+        color,
         recurring: 'none' as const,
         reminder_30m: false,
         created_at: new Date().toISOString(),
     };
-
     const updated = [...events, newEvent];
     saveEvents(updated);
     return newEvent;
+}
+
+/**
+ * 🚀 AUTO-GENERATE INDIVIDUAL EVENTS
+ */
+export function generateScheduledIndividualEvents(params: {
+    studentId: string;
+    studentName: string;
+    planName: string;
+    teacherId: string;
+    startDate: string;
+    endDate: string;
+    sessionsTotal: number | null;
+    schedule: { day: number; time: string; hallId: string }[];
+    color?: string;
+}) {
+    if (!params.schedule || params.schedule.length === 0) return [];
+    const events: CalendarEvent[] = [];
+    const maxSessions = params.sessionsTotal || 100;
+    const end = new Date(params.endDate);
+    let current = new Date(params.startDate);
+    let count = 0;
+    const oneYearLater = new Date(current);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    const stopDate = end < oneYearLater ? end : oneYearLater;
+
+    while (current <= stopDate && count < maxSessions) {
+        const dayOfWeek = current.getDay();
+        const slot = params.schedule.find(s => s.day === dayOfWeek);
+        if (slot) {
+            const dateStr = getLocalISODate(current);
+            const startTime = slot.time;
+            let endTime = '19:00';
+            try {
+                const [h, m] = startTime.split(':').map(Number);
+                const endH = (h + 1).toString().padStart(2, '0');
+                endTime = `${endH}:${m.toString().padStart(2, '0')}`;
+            } catch {}
+            events.push({
+                id: `ind_${Date.now()}_${count}_${Math.random().toString(36).substr(2, 4)}`,
+                org_id: getActiveSlug() || '',
+                title: `${params.studentName} (${params.planName})`,
+                type: 'individual',
+                hall_id: slot.hallId || 'h1',
+                teacher_id: params.teacherId,
+                student_id: params.studentId,
+                date: dateStr,
+                start_time: startTime,
+                end_time: endTime,
+                color: params.color || '#6d28d9',
+                recurring: 'none',
+                reminder_30m: false,
+                created_at: new Date().toISOString()
+            });
+            count++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    if (events.length > 0) {
+        const allEvents = getEvents();
+        saveEvents([...allEvents, ...events]);
+    }
+    return events;
 }

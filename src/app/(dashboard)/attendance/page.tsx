@@ -1703,11 +1703,30 @@ export default function AttendancePage() {
                                 defaultType={cls.type === 'individual' ? 'individual' : 'group'}
                                 onIssue={(data) => { 
                                     import('@/lib/subscription-store').then(mod => { 
-                                        mod.saveSubscription(data.student_id, { ...data, id: `sub_${Date.now()}` } as any); 
+                                        const subId = `sub_${Date.now()}`;
+                                        mod.saveSubscription(data.student_id, { ...data, id: subId } as any); 
+                                        
+                                        if (data.plan_type === 'individual' && (data as any).schedule?.length > 0) {
+                                            import('@/lib/event-store').then(eventMod => {
+                                                eventMod.generateScheduledIndividualEvents({
+                                                    studentId: data.student_id,
+                                                    studentName: selStudent.full_name,
+                                                    planName: data.plan,
+                                                    teacherId: data.teacher_id || '',
+                                                    startDate: data.purchased_at,
+                                                    endDate: data.expires_at,
+                                                    sessionsTotal: data.sessions_total,
+                                                    schedule: (data as any).schedule,
+                                                    color: (data as any).color
+                                                });
+                                            });
+                                        }
+
                                         refreshSubs();
                                         if (typeof window !== 'undefined') {
                                             window.dispatchEvent(new Event('cc_subscription_update'));
                                             window.dispatchEvent(new Event('cc_attendance_update'));
+                                            window.dispatchEvent(new Event('cc_calendar_events_update'));
                                         }
                                     }); 
                                     setIssueModalOpen(false); 

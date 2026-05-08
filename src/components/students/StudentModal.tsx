@@ -1274,14 +1274,31 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                     onIssue={(data) => {
                         Promise.all([
                             import('@/lib/subscription-store'),
-                            import('@/lib/utils')
-                        ]).then(([mod, utilsMod]) => {
+                            import('@/lib/utils'),
+                            import('@/lib/event-store')
+                        ]).then(([mod, utilsMod, eventMod]) => {
+                            const subId = utilsMod.makeEntityId('SUB');
                             mod.saveSubscription(data.student_id, {
                                 ...data,
-                                id: utilsMod.makeEntityId('SUB')
+                                id: subId
                             } as any);
+
+                            // 📅 Automatic Scheduling for Individual plans
+                            if (data.plan_type === 'individual' && (data as any).schedule?.length > 0) {
+                                eventMod.generateScheduledIndividualEvents({
+                                    studentId: data.student_id,
+                                    studentName: student.full_name,
+                                    planName: data.plan,
+                                    teacherId: data.teacher_id || '',
+                                    startDate: data.purchased_at,
+                                    endDate: data.expires_at,
+                                    sessionsTotal: data.sessions_total,
+                                    schedule: (data as any).schedule,
+                                    color: (data as any).color
+                                });
+                            }
+
                             setIssueModalOpen(false);
-                            // Refresh sales/visits if needed
                             setSales(getStudentSales(student.id));
                         });
                     }}
