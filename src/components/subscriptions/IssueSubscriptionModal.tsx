@@ -473,20 +473,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 </div>
                                 <div className="space-y-1.5 relative">
                                     <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
-                                    <SearchSelect
-                                        options={studentOptions}
-                                        value=""
-                                        onChange={val => {
-                                            const currentIds = studentId ? studentId.split(',').map(id => id.trim()).filter(Boolean) : [];
-                                            if (!currentIds.includes(val)) {
-                                                const nextIds = [...currentIds, val].slice(0, 2); // Limit to 2 for couple subscriptions
-                                                setStudentId(nextIds.join(', '));
-                                            }
-                                        }}
-                                        placeholder={studentId ? l('კიდევ ერთი...', 'Добавить еще...', 'Add another...') : t.selectClient}
-                                    />
+                                    
                                     {studentId && (
-                                        <div className="mt-2 flex flex-wrap gap-1.5 px-1 bg-surface/30 p-2 rounded-xl border border-border-subtle/30 animate-in fade-in duration-200">
+                                        <div className="mb-2 flex flex-wrap gap-1.5 px-1 bg-surface/30 p-2 rounded-xl border border-border-subtle/30 animate-in fade-in duration-200">
                                             {studentId.split(',').map(id => id.trim()).filter(Boolean).map(id => {
                                                 const s = students.find(x => x.id === id);
                                                 if (!s) return null;
@@ -513,6 +502,19 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                             })}
                                         </div>
                                     )}
+
+                                    <SearchSelect
+                                        options={studentOptions}
+                                        value=""
+                                        onChange={val => {
+                                            const currentIds = studentId ? studentId.split(',').map(id => id.trim()).filter(Boolean) : [];
+                                            if (!currentIds.includes(val)) {
+                                                const nextIds = [...currentIds, val].slice(0, 2); // Limit to 2 for couple subscriptions
+                                                setStudentId(nextIds.join(', '));
+                                            }
+                                        }}
+                                        placeholder={studentId ? l('კიდევ ერთი...', 'Добавить еще...', 'Add another...') : t.selectClient}
+                                    />
                                 </div>
 
                                 <div className="space-y-1.5">
