@@ -417,32 +417,35 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                             <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm h-full">
                                     <button
-                                        onClick={() => { setSelectedType('group'); setStep('form'); }}
-                                        className="w-full p-4 flex items-center justify-center gap-3 bg-surface hover:bg-emerald-500/5 transition-colors text-primary h-full"
+                                        type="button"
+                                        onClick={() => { console.log('Pick GROUP'); setSelectedType('group'); setStep('form'); }}
+                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-emerald-500/5 transition-colors text-primary h-full min-h-[160px]"
                                     >
-                                        <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                        <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                                         </div>
                                         <div className="text-center">
                                             <h3 className="text-sm font-black tracking-tight">{t.groupSubscription}</h3>
-                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ჯგუფური', 'Групპовой', 'Group')}</p>
+                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ჯგუფური', 'Групповой', 'Group')}</p>
                                         </div>
                                     </button>
                                 </div>
 
                                 <div className="flex flex-col border-2 border-orange-500/20 rounded-3xl overflow-hidden bg-card hover:border-orange-500/40 transition-all group shadow-sm h-full">
                                     <button
+                                        type="button"
                                         onClick={() => { 
+                                            console.log('Pick IND');
                                             setSelectedType('individual'); 
                                             setStep('form'); 
                                         }}
-                                        className="w-full p-6 flex flex-col items-center justify-center gap-3 bg-surface hover:bg-orange-500/5 transition-colors text-primary h-full"
+                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-orange-500/5 transition-colors text-primary h-full min-h-[160px]"
                                     >
-                                        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                        <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                         </div>
                                         <div className="text-center">
                                             <h3 className="text-sm font-black tracking-tight">{t.individualSubscription}</h3>
@@ -453,11 +456,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
                                 <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm h-full">
                                     <button
-                                        onClick={() => { setSelectedType('rental'); setStep('form'); }}
-                                        className="w-full p-6 flex flex-col items-center justify-center gap-3 bg-surface hover:bg-amber-500/5 transition-colors text-primary h-full"
+                                        type="button"
+                                        onClick={() => { console.log('Pick RENTAL'); setSelectedType('rental'); setStep('form'); }}
+                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-amber-500/5 transition-colors text-primary h-full min-h-[160px]"
                                     >
-                                        <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                        <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                         </div>
                                         <div className="text-center">
                                             <h3 className="text-sm font-black tracking-tight">{t.rentalSubscription}</h3>
