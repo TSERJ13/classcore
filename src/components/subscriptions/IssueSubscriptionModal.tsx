@@ -183,7 +183,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         const allStaff = settings.staff.map(t => ({
             value: t.id,
             label: `${t.first_name} ${t.last_name || ''}`,
-            subLabel: t.specialty?.join(', ') || t.role
+            subLabel: t.specialty?.join(', ') || undefined
         }));
 
         return [
