@@ -4,7 +4,7 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
 
 /**
  * MASTER SYNC BRIDGE v4.0 (IO-OPTIMIZED)
- * - Debounced writes: max 1 write per 15 seconds per record
+ * - Debounced writes: max 1 write per 1 second per record
  * - Batched upserts: multiple changes grouped into single DB call
  */
 
@@ -44,8 +44,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
 }
 
 /**
- * DEBOUNCED sync — queues a write and only executes after 15s of inactivity.
- * Prevents IO exhaustion from rapid successive updates.
+ * DEBOUNCED sync — queues a write and only executes after a delay.
  */
 export async function syncRecordToCloud(table: string, record: any, orgId: string): Promise<boolean> {
     if (!orgId || !record?.id) return false;
@@ -70,30 +69,44 @@ async function _flushRecord(table: string, record: any, orgId: string): Promise<
     // ATTEMPT 1: Full payload
     let { error } = await supabase.from(table).upsert(payload, { onConflict: conflictCol });
     
-    // ATTEMPT 2: If "column not found" error, retry with only minimal core fields + data blob
-    if (error && error.message?.includes('column')) {
-        // Extract the offending column name from error message
-        const colMatch = error.message.match(/'([^']+)' column/);
-        const badCol = colMatch?.[1];
-        console.warn(`⚠️ [MasterSync] '${table}' missing column '${badCol}' — retrying with minimal fields`);
+    // ATTEMPT 2: Fallback for missing columns or type mismatches (e.g. UUID)
+    const isTypeError = error && (error.message?.includes('invalid input syntax') || error.message?.includes('type uuid'));
+    const isMissingColumn = error && error.message?.includes('column');
+
+    if (isTypeError || isMissingColumn) {
+        if (isTypeError) {
+            console.warn(`⚠️ [MasterSync] '${table}' type mismatch (likely UUID). Retrying with minimal fields.`);
+        } else {
+            const colMatch = error.message?.match(/'([^']+)' column/);
+            console.warn(`⚠️ [MasterSync] '${table}' missing column '${colMatch?.[1]}' — retrying with minimal fields`);
+        }
         
-        // Minimal payload: id, org_id, name (if present), and stuff everything else into data
+        // Minimal payload: id, org_id, and stuff everything else into data
         const minimal: any = {
             id: record.id,
             org_id: orgId,
             data: { ...record }
         };
-        // Keep common identifying fields if they exist
-        ['name', 'student_id', 'title', 'date', 'price'].forEach(field => {
-            if (record[field] !== undefined) minimal[field] = record[field];
+        
+        // Only keep fields if they are simple strings and likely to exist
+        ['name', 'title', 'date'].forEach(field => {
+            if (record[field] !== undefined && typeof record[field] === 'string') {
+                minimal[field] = record[field];
+            }
         });
+
+        // 🚨 IMPORTANT: If student_id contains a comma, it's a shared ID. 
+        // If the DB expects a UUID, it will fail. So we only include it if it looks like a single ID.
+        if (record.student_id && typeof record.student_id === 'string' && !record.student_id.includes(',')) {
+            minimal.student_id = record.student_id;
+        }
         
         const retry = await supabase.from(table).upsert(minimal, { onConflict: conflictCol });
         if (retry.error) {
             console.error(`❌ [MasterSync] Retry failed for ${table}: ${retry.error.message}`);
             return false;
         }
-        console.log(`✅ [MasterSync] Flushed ${table}:${record.id} (minimal fallback)`);
+        console.log(`✅ [MasterSync] Flushed ${table}:${record.id} (minimal fallback successful)`);
         return true;
     }
     
