@@ -459,6 +459,7 @@ export default function AttendancePage() {
     const [manualSmsOpen, setManualSmsOpen] = useState(false);
     const [freezeDays, setFreezeDays] = useState('7');
     const [issueModalOpen, setIssueModalOpen] = useState(false);
+    const [issueDefaultType, setIssueDefaultType] = useState<'group' | 'individual' | 'rental'>('group');
     
     // Shop state in drawer
     const [studentSales, setStudentSales] = useState<ShopSale[]>([]);
@@ -1391,6 +1392,7 @@ export default function AttendancePage() {
                                                         e.stopPropagation();
                                                         if (isExpired && state === 'none') {
                                                             setSelectedStudent(st.id);
+                                                            setIssueDefaultType(cls.type === 'individual' ? 'individual' : 'group');
                                                             setIssueModalOpen(true);
                                                         } else {
                                                             toggle(st.id);
@@ -1532,14 +1534,24 @@ export default function AttendancePage() {
                                                         </div>
                                                     </div>
 
-                                                    <button onClick={() => setIssueModalOpen(true)}
-                                                        className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-[#6d28d9] hover:bg-indigo-600"
-                                                        style={{ 
-                                                            boxShadow: `0 8px 20px -4px #6d28d940`
-                                                        }}>
-                                                        <PlusCircle className="w-4 h-4" />
-                                                        <span>{t.issueSubscription || t.issuePlan}</span>
-                                                    </button>
+                                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                                        <button 
+                                                            onClick={() => { setIssueDefaultType('group'); setIssueModalOpen(true); }}
+                                                            className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-emerald-500 hover:bg-emerald-600"
+                                                            style={{ boxShadow: `0 8px 20px -4px #10b98140` }}
+                                                        >
+                                                            <PlusCircle className="w-3.5 h-3.5" />
+                                                            <span>{t.groupShort || 'GROUP'}</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => { setIssueDefaultType('individual'); setIssueModalOpen(true); }}
+                                                            className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-indigo-500 hover:bg-indigo-600"
+                                                            style={{ boxShadow: `0 8px 20px -4px #6366f140` }}
+                                                        >
+                                                            <PlusCircle className="w-3.5 h-3.5" />
+                                                            <span>{t.individualShort || 'IND'}</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20 flex-shrink-0">
@@ -1700,17 +1712,22 @@ export default function AttendancePage() {
                                 open={issueModalOpen} 
                                 onClose={() => setIssueModalOpen(false)} 
                                 initialStudentId={selStudent.id} 
-                                defaultType={cls.type === 'individual' ? 'individual' : 'group'}
+                                defaultType={issueDefaultType}
                                 onIssue={(data) => { 
                                     import('@/lib/subscription-store').then(mod => { 
                                         const subId = `sub_${Date.now()}`;
-                                        mod.saveSubscription(data.student_id, { ...data, id: subId } as any); 
+                                        // Handle multi-student subscriptions (e.g. Individual for 2 people)
+                                        const studentIds = data.student_id.split(',').map(id => id.trim()).filter(Boolean);
+                                        
+                                        studentIds.forEach(id => {
+                                            mod.saveSubscription(id, { ...data, id: subId } as any); 
+                                        });
                                         
                                         if (data.plan_type === 'individual' && (data as any).schedule?.length > 0) {
                                             import('@/lib/event-store').then(eventMod => {
                                                 eventMod.generateScheduledIndividualEvents({
                                                     studentId: data.student_id,
-                                                    studentName: selStudent.full_name,
+                                                    studentName: studentIds.map(id => getStudents().find(s => s.id === id)?.full_name).filter(Boolean).join(' & '),
                                                     planName: data.plan,
                                                     teacherId: data.teacher_id || '',
                                                     startDate: data.purchased_at,

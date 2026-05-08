@@ -330,9 +330,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
 
         try {
-            if (typeof window !== 'undefined') {
-                window.alert(l('აბონემენტი წარმატებით გაფორმდა!', 'Абонемент успешно оформлен!', 'Subscription issued successfully!'));
-            }
             onIssue({
                 student_id: studentId,
                 plan: plan.name,
