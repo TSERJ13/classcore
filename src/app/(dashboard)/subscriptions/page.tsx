@@ -37,12 +37,13 @@ export default function SubscriptionsPage() {
     // Flatten and sort subscriptions (newest first)
     const allSubs: SubscriptionInfo[] = [];
     if (subsData && typeof subsData === 'object') {
-        Object.keys(subsData).forEach(studentId => {
-            const subsArray = subsData[studentId];
+        Object.keys(subsData).forEach(key => {
+            const subsArray = subsData[key];
             if (Array.isArray(subsArray)) {
                 subsArray.forEach(sub => {
                     if (sub && typeof sub === 'object') {
-                        allSubs.push({ ...sub, student_id: studentId });
+                        // Use the student_id from inside the sub if it exists (handles shared IDs)
+                        allSubs.push({ ...sub, student_id: sub.student_id || key });
                     }
                 });
             }
@@ -69,13 +70,18 @@ export default function SubscriptionsPage() {
 
         const matchesTab = effectiveStatus === tab;
         const matchesCategory = category === 'group' ? s.plan_type !== 'individual' : s.plan_type === 'individual';
-        const st = Array.isArray(students) ? students.find(x => x && x.id === s.student_id) : null;
-
+        
+        // Handle shared student search
+        const sIds = (s.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
+        const matchedStudents = sIds.map(id => students.find(x => x.id === id)).filter(Boolean);
+        
         const searchLower = search?.toLowerCase() || '';
-        const nameMatch = st?.full_name?.toLowerCase().includes(searchLower) ||
-            st?.first_name?.toLowerCase().includes(searchLower) ||
-            st?.last_name?.toLowerCase().includes(searchLower);
-        const idMatch = s.student_id?.toLowerCase().includes(searchLower);
+        const nameMatch = matchedStudents.some(st => 
+            st.full_name?.toLowerCase().includes(searchLower) ||
+            st.first_name?.toLowerCase().includes(searchLower) ||
+            st.last_name?.toLowerCase().includes(searchLower)
+        );
+        const idMatch = sIds.some(id => id.toLowerCase().includes(searchLower));
 
         const matchesSearch = !search || nameMatch || idMatch || s.plan?.toLowerCase().includes(searchLower);
         return matchesTab && matchesCategory && matchesSearch;
@@ -91,8 +97,12 @@ export default function SubscriptionsPage() {
     );
 
     const renderSub = (s: SubscriptionInfo) => {
-        const st = students.find(x => x.id === s.student_id);
-        const studentName = st?.full_name || `${st?.first_name || ''} ${st?.last_name || ''}`.trim() || 'უცნობი სტუდენტი';
+        const sIds = (s.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
+        const matchedStudents = sIds.map(id => students.find(x => x.id === id)).filter(Boolean);
+        const studentName = matchedStudents.length > 0 
+            ? matchedStudents.map(st => st.full_name).join(' & ') 
+            : 'უცნობი სტუდენტი';
+        const firstStudent = matchedStudents[0];
         const initial = studentName.charAt(0);
 
         const isIndividual = s.plan_type === 'individual';
@@ -107,8 +117,8 @@ export default function SubscriptionsPage() {
                     borderCls
                 )}>
                 <div className="flex items-center lg:items-start gap-3 lg:gap-4">
-                    {st?.photo_url ? (
-                        <img src={st.photo_url} alt={studentName} className="w-10 h-10 lg:w-12 lg:h-12 object-cover rounded-xl lg:rounded-2xl border border-border-subtle/50 shadow-sm flex-shrink-0" />
+                    {firstStudent?.photo_url ? (
+                        <img src={firstStudent.photo_url} alt={studentName} className="w-10 h-10 lg:w-12 lg:h-12 object-cover rounded-xl lg:rounded-2xl border border-border-subtle/50 shadow-sm flex-shrink-0" />
                     ) : (
                         <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 font-bold border border-indigo-500/20 text-sm flex-shrink-0 shadow-sm">
                             {initial}

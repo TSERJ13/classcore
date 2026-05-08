@@ -1704,7 +1704,11 @@ export default function AttendancePage() {
                                 onIssue={(data) => { 
                                     import('@/lib/subscription-store').then(mod => { 
                                         mod.saveSubscription(data.student_id, { ...data, id: `sub_${Date.now()}` } as any); 
-                                        setSubs(mod.getSubscriptions()); 
+                                        refreshSubs();
+                                        if (typeof window !== 'undefined') {
+                                            window.dispatchEvent(new Event('cc_subscription_update'));
+                                            window.dispatchEvent(new Event('cc_attendance_update'));
+                                        }
                                     }); 
                                     setIssueModalOpen(false); 
                                 }} 
