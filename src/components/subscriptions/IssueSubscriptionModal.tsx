@@ -266,13 +266,24 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const handleIssue = () => {
         const studentIds = studentId.split(',').map(id => id.trim()).filter(Boolean);
         const finalEndDate = endDate || '2099-12-31';
-        if (studentIds.length === 0 || !planId || !startDate || !finalEndDate) return;
+
+        console.log('🚀 [IssueModal] handleIssue START', { studentId, studentIds, planId, startDate, finalEndDate });
+        if (studentIds.length === 0 || !planId || !startDate || !finalEndDate) {
+            console.error('❌ [IssueModal] Validation failed', { studentIds, planId, startDate, finalEndDate });
+            return;
+        }
 
         const plan = plans.find(p => p.id === planId);
-        if (!plan) return;
+        if (!plan) {
+            console.error('❌ [IssueModal] Plan not found', planId);
+            return;
+        }
 
         const isGroupPlan = plan.type === 'group';
-        if (isGroupPlan && !groupId) return;
+        if (isGroupPlan && !groupId) {
+            console.error('❌ [IssueModal] Group plan missing groupId');
+            return;
+        }
 
         const subType = plan.period === 'unlimited' ? 'monthly' : 'sessions';
         const sessionsTotal = unlimited ? null : (typeof sessions === 'number' ? sessions : 12);
@@ -304,23 +315,28 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
         const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
 
-        onIssue({
-            student_id: studentId,
-            plan: plan.name,
-            sessions_used: 0,
-            sessions_total: sessionsTotal,
-            status: 'active',
-            purchased_at: startDate,
-            expires_at: finalEndDate,
-            type: subType,
-            plan_type: plan.type,
-            group_id: isGroupPlan ? groupId : undefined,
-            category: plan.type === 'individual' ? 'Individual' : (selectedGroup ? selectedGroup.type : undefined),
-            payment_method: payMethod,
-            amount_paid: paidNow,
-            teacher_id: teacherId || undefined,
-            teacher_comment: commentParts.join(' · '),
-        });
+        try {
+            onIssue({
+                student_id: studentId,
+                plan: plan.name,
+                sessions_used: 0,
+                sessions_total: sessionsTotal,
+                status: 'active',
+                purchased_at: startDate,
+                expires_at: finalEndDate,
+                type: subType,
+                plan_type: plan.type,
+                group_id: isGroupPlan ? groupId : undefined,
+                category: plan.type === 'individual' ? 'Individual' : (selectedGroup ? selectedGroup.type : undefined),
+                payment_method: payMethod,
+                amount_paid: paidNow,
+                teacher_id: teacherId || undefined,
+                teacher_comment: commentParts.join(' · '),
+            });
+            console.log('✅ [IssueModal] onIssue called successfully');
+        } catch (err) {
+            console.error('❌ [IssueModal] onIssue failed:', err);
+        }
 
         // Log to history
         logSubscription({

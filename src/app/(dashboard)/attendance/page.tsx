@@ -488,11 +488,17 @@ export default function AttendancePage() {
         const todayStr = getLocalISODate();
         
         // 1. Check for specific group sub
-        let activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+        let activeSub = getSubscription(studentId, selClass?.group_id);
         
-        // 2. If nothing found, check for a general sub (group_id: undefined)
+        // 2. If nothing found, check for ANY active sub (could be individual or general group)
         if (!activeSub) {
-            activeSub = getSubscription(studentId, undefined, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+            activeSub = getSubscription(studentId, undefined);
+        }
+        
+        // 3. Last resort: check for ANY active sub of any type that hasn't expired
+        if (!activeSub) {
+            const all = getStudentSubscriptions(studentId);
+            activeSub = all.find(s => s.status === 'active' && s.expires_at >= todayStr) || null;
         }
         
         if (activeSub) {
