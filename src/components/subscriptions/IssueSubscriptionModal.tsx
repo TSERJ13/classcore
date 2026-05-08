@@ -106,11 +106,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         }
     }, [price, discount, discountType]);
 
-    const appliedBalance = useBalance ? Math.min(studentBalance, totalDue) : 0;
+    const sBalance = typeof studentBalance === 'number' ? studentBalance : 0;
+    const appliedBalance = useBalance ? Math.min(sBalance, totalDue) : 0;
     const remaining = Math.max(0, totalDue - appliedBalance);
     const actualPaid = typeof amountPaid === 'number' ? amountPaid : remaining;
     const overpayment = Math.max(0, actualPaid - remaining);
-    const newBalance = Math.round((studentBalance - appliedBalance + overpayment) * 100) / 100;
+    const newBalance = Math.round((sBalance - appliedBalance + overpayment) * 100) / 100;
 
     // Reset when opened
     useEffect(() => {
@@ -264,7 +265,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     const handleIssue = () => {
         const studentIds = studentId.split(',').map(id => id.trim()).filter(Boolean);
-        if (studentIds.length === 0 || !planId || !startDate || !endDate) return;
+        const finalEndDate = endDate || '2099-12-31';
+        if (studentIds.length === 0 || !planId || !startDate || !finalEndDate) return;
 
         const plan = plans.find(p => p.id === planId);
         if (!plan) return;
@@ -309,11 +311,11 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             sessions_total: sessionsTotal,
             status: 'active',
             purchased_at: startDate,
-            expires_at: endDate,
+            expires_at: finalEndDate,
             type: subType,
             plan_type: plan.type,
             group_id: isGroupPlan ? groupId : undefined,
-            category: selectedGroup ? selectedGroup.type : (plan.type === 'individual' ? 'Individual' : undefined),
+            category: plan.type === 'individual' ? 'Individual' : (selectedGroup ? selectedGroup.type : undefined),
             payment_method: payMethod,
             amount_paid: paidNow,
             teacher_id: teacherId || undefined,
