@@ -52,15 +52,35 @@ export function SearchSelect({
 
     const selectedOption = options.find(o => o.value === value);
 
+    const layoutMap: Record<string, string> = {
+        'a': 'ა', 'b': 'ბ', 'g': 'გ', 'd': 'დ', 'e': 'ე', 'v': 'ვ', 'z': 'ზ', 't': 'თ', 'i': 'ი', 'k': 'კ', 'l': 'ლ', 'm': 'მ', 'n': 'ნ', 'o': 'ო', 'p': 'პ', 'r': 'რ', 's': 'ს', 'u': 'უ', 'f': 'ფ', 'q': 'ქ', 'y': 'ყ', 'sh': 'შ', 'ch': 'ჩ', 'ts': 'ც', 'dz': 'ძ', 'ts': 'წ', 'ch': 'ჭ', 'kh': 'ხ', 'j': 'ჯ', 'h': 'ჰ',
+        'w': 'წ', 'W': 'ჭ', 'R': 'ღ', 'T': 'თ', 'U': 'უ', 'I': 'ი', 'O': 'ო', 'P': 'პ', 'J': 'ჟ', 'S': 'შ', 'L': 'ლ', 'Z': 'ძ', 'C': 'ჩ', 'V': 'ვ', 'B': 'ბ', 'N': 'ნ', 'M': 'მ'
+    };
+
+    const reverseLayoutMap: Record<string, string> = Object.fromEntries(Object.entries(layoutMap).map(([k, v]) => [v, k]));
+
     const filteredOptions = useMemo(() => {
         if (allowCustom) return options;
         const query = search.toLowerCase().trim();
         if (!query) return options;
-        return options.filter(o =>
-            (o.label || '').toLowerCase().includes(query) ||
-            (o.subLabel || '').toLowerCase().includes(query) ||
-            (o.value || '').toLowerCase().includes(query)
-        );
+
+        // Create variations of the query based on keyboard layouts
+        const mappedQuery = query.split('').map(char => layoutMap[char] || char).join('');
+        const mappedQueryRev = query.split('').map(char => reverseLayoutMap[char] || char).join('');
+        
+        const queries = [query, mappedQuery, mappedQueryRev];
+
+        return options.filter(o => {
+            const label = (o.label || '').toLowerCase();
+            const subLabel = (o.subLabel || '').toLowerCase();
+            const value = (o.value || '').toLowerCase();
+            
+            return queries.some(q => 
+                label.includes(q) || 
+                subLabel.includes(q) || 
+                value.includes(q)
+            );
+        });
     }, [options, search, allowCustom]);
 
     useEffect(() => {

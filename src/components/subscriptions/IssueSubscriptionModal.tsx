@@ -471,50 +471,59 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         &larr; {t.backToType}
                                     </button>
                                 </div>
-                                <div className="space-y-1.5 relative">
-                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
-                                    
-                                    {studentId && (
-                                        <div className="mb-2 flex flex-wrap gap-1.5 px-1 bg-surface/30 p-2 rounded-xl border border-border-subtle/30 animate-in fade-in duration-200">
-                                            {studentId.split(',').map(id => id.trim()).filter(Boolean).map(id => {
-                                                const s = students.find(x => x.id === id);
-                                                if (!s) return null;
-                                                return (
-                                                    <div key={id} className="flex items-center gap-2 bg-white border border-indigo-500/20 rounded-full pl-1.5 pr-1 py-1 shadow-sm transition-all hover:border-indigo-500/40">
-                                                        <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-indigo-50">
-                                                            {s.photo_url ? <img src={s.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-2.5 h-2.5 text-indigo-400 m-auto mt-0.5" />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-indigo-700 truncate max-w-[120px]">{s.first_name} {s.last_name}</span>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                const nextIds = studentId.split(',').map(i => i.trim()).filter(i => i !== id);
-                                                                setStudentId(nextIds.join(', '));
-                                                            }}
-                                                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-500/10 text-muted hover:text-red-500 transition-colors"
-                                                        >
-                                                            <X className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.selectClient}</label>
+                                        <SearchSelect
+                                            options={studentOptions}
+                                            value={studentId.split(',')[0] || ''}
+                                            onChange={val => {
+                                                const parts = studentId.split(',').map(id => id.trim()).filter(Boolean);
+                                                parts[0] = val;
+                                                setStudentId(parts.join(', '));
+                                            }}
+                                            placeholder={t.selectClient}
+                                        />
+                                    </div>
+
+                                    {studentId.split(',').length < 2 ? (
+                                        <button 
+                                            type="button"
+                                            onClick={() => setStudentId(prev => prev + ', ')}
+                                            className="w-full py-2.5 border-2 border-dashed border-indigo-500/20 rounded-xl text-[10px] font-bold text-indigo-500 hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 group"
+                                        >
+                                            <div className="w-5 h-5 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                <UserPlus className="w-3 h-3" />
+                                            </div>
+                                            {l('მეორე ადამიანის დამატება', 'Добавить второго человека', 'Add second person')}
+                                        </button>
+                                    ) : (
+                                        <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                            <div className="flex items-center justify-between px-1">
+                                                <label className="text-[9px] font-black text-indigo-500/60 tracking-wider uppercase">{l('მეორე ადამიანი', 'Второй человек', 'Second person')}</label>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const parts = studentId.split(',').map(id => id.trim()).filter(Boolean);
+                                                        setStudentId(parts[0] || '');
+                                                    }}
+                                                    className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-tighter"
+                                                >
+                                                    {t.delete || 'X'}
+                                                </button>
+                                            </div>
+                                            <SearchSelect
+                                                options={studentOptions.filter(o => o.value !== studentId.split(',')[0])}
+                                                value={studentId.split(',')[1] || ''}
+                                                onChange={val => {
+                                                    const parts = studentId.split(',').map(id => id.trim()).filter(Boolean);
+                                                    parts[1] = val;
+                                                    setStudentId(parts.join(', '));
+                                                }}
+                                                placeholder={l('აირჩიეთ მეორე სტუდენტი...', 'Выберите второго студента...', 'Select second student...')}
+                                            />
                                         </div>
                                     )}
-
-                                    <SearchSelect
-                                        options={studentOptions}
-                                        value=""
-                                        onChange={val => {
-                                            const currentIds = studentId ? studentId.split(',').map(id => id.trim()).filter(Boolean) : [];
-                                            if (!currentIds.includes(val)) {
-                                                const nextIds = [...currentIds, val].slice(0, 2); // Limit to 2 for couple subscriptions
-                                                setStudentId(nextIds.join(', '));
-                                            }
-                                        }}
-                                        placeholder={studentId ? l('კიდევ ერთი...', 'Добавить еще...', 'Add another...') : t.selectClient}
-                                    />
                                 </div>
 
                                 <div className="space-y-1.5">
