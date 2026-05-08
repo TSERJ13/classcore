@@ -1541,15 +1541,15 @@ export default function AttendancePage() {
                                                             style={{ boxShadow: `0 8px 20px -4px #10b98140` }}
                                                         >
                                                             <PlusCircle className="w-3.5 h-3.5" />
-                                                            <span>{t.groupShort || 'GROUP'}</span>
+                                                            <span>{t.groupSubscription}</span>
                                                         </button>
                                                         <button 
                                                             onClick={() => { setIssueDefaultType('individual'); setIssueModalOpen(true); }}
-                                                            className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-indigo-500 hover:bg-indigo-600"
-                                                            style={{ boxShadow: `0 8px 20px -4px #6366f140` }}
+                                                            className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all bg-orange-500 hover:bg-orange-600"
+                                                            style={{ boxShadow: `0 8px 20px -4px #f9731640` }}
                                                         >
                                                             <PlusCircle className="w-3.5 h-3.5" />
-                                                            <span>{t.individualShort || 'IND'}</span>
+                                                            <span>{t.individualSubscription}</span>
                                                         </button>
                                                     </div>
                                                 </div>
