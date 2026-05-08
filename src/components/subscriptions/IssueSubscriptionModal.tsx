@@ -10,6 +10,7 @@ import { getStudents, updateStudent } from '@/lib/student-store';
 import { getPlans } from '@/lib/plan-store';
 import { getGroups } from '@/lib/group-store';
 import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
+import { generateTimeOptions } from '@/lib/date-utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { SearchSelect } from '@/components/ui/SearchSelect';
@@ -181,6 +182,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         label: p.is_default ? `⭐ ${p.name}` : p.name,
         subLabel: `${formatCurrency(p.price, settings?.currency)} (${p.type})`
     })), [availablePlans, settings?.currency]);
+
+    const timeOptions = useMemo(() => generateTimeOptions(), []);
 
     const groupOptions = useMemo(() => groups.map(g => ({
         value: g.id,
@@ -759,29 +762,31 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                         <span className="text-[10px] font-black text-primary w-12 pl-1 truncate">
                                                             {[l('კვი', 'Вს', 'Sun'), l('ორ', 'Пн', 'Mon'), l('სამ', 'Вт', 'Tue'), l('ოთხ', 'Ср', 'Wed'), l('ხუთ', 'Чт', 'Thu'), l('პარ', 'Пт', 'Fri'), l('შაბ', 'Сб', 'Sat')][s.day]}
                                                         </span>
-                                                        <div className="flex-1 flex items-center gap-2">
-                                                            <input 
-                                                                type="time" 
+                                                        <div className="flex-1 flex items-center gap-1.5">
+                                                            <SearchSelect 
+                                                                options={timeOptions}
                                                                 value={s.time}
-                                                                onChange={e => {
+                                                                allowCustom
+                                                                onChange={val => {
                                                                     const next = [...schedule];
                                                                     const i = next.findIndex(n => n.day === s.day);
-                                                                    if (i > -1) next[i].time = e.target.value;
+                                                                    if (i > -1) next[i].time = val;
                                                                     setSchedule(next);
                                                                 }}
-                                                                className="w-20 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40"
+                                                                className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
                                                             />
                                                             <span className="text-muted/20 font-black text-[10px]">-</span>
-                                                            <input 
-                                                                type="time" 
+                                                            <SearchSelect 
+                                                                options={timeOptions}
                                                                 value={s.endTime || '19:00'}
-                                                                onChange={e => {
+                                                                allowCustom
+                                                                onChange={val => {
                                                                     const next = [...schedule];
                                                                     const i = next.findIndex(n => n.day === s.day);
-                                                                    if (i > -1) next[i].endTime = e.target.value;
+                                                                    if (i > -1) next[i].endTime = val;
                                                                     setSchedule(next);
                                                                 }}
-                                                                className="w-20 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40"
+                                                                className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
                                                             />
                                                         </div>
                                                     </div>
