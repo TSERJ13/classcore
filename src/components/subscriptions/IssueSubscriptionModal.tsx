@@ -117,7 +117,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const overpayment = Math.max(0, actualPaid - remaining);
     const newBalance = Math.round((sBalance - appliedBalance + overpayment) * 100) / 100;
 
-    const activeBranch = settings.branches?.find(b => b.id === settings.activeBranchId);
+    const activeBranchId = settings?.activeBranchId;
+    const branches = settings?.branches || [];
+    const activeBranch = branches.find(b => b.id === activeBranchId);
     const activeHalls = activeBranch?.halls || [];
     const hallOptions = activeHalls.map(h => ({ value: h.id, label: h.name, color: h.color }));
 
@@ -174,14 +176,14 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         value: s.id,
         label: s.full_name,
         subLabel: s.phone || undefined,
-        badge: (s.balance ?? 0) > 0 ? `💰 ${formatCurrency(s.balance || 0, settings.currency)}` : undefined
-    })), [students, settings.currency]);
+        badge: (s.balance ?? 0) > 0 ? `💰 ${formatCurrency(s.balance || 0, settings?.currency)}` : undefined
+    })), [students, settings?.currency]);
 
     const planOptions = useMemo(() => availablePlans.map(p => ({
         value: p.id,
         label: p.is_default ? `⭐ ${p.name}` : p.name,
-        subLabel: `${formatCurrency(p.price, settings.currency)} (${p.type})`
-    })), [availablePlans, settings.currency]);
+        subLabel: `${formatCurrency(p.price, settings?.currency)} (${p.type})`
+    })), [availablePlans, settings?.currency]);
 
     const groupOptions = useMemo(() => groups.map(g => ({
         value: g.id,
@@ -190,7 +192,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     })), [groups]);
 
     const teacherOptions = useMemo(() => {
-        const allStaff = settings.staff.map(t => ({
+        const staff = settings?.staff || [];
+        const allStaff = staff.map(t => ({
             value: t.id,
             label: `${t.first_name} ${t.last_name || ''}`,
             subLabel: t.specialty?.join(', ') || undefined
@@ -200,7 +203,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             { value: '', label: l('არჩეული არ არის', 'Не выбран', 'Not selected') },
             ...allStaff
         ];
-    }, [settings.staff]);
+    }, [settings?.staff]);
 
     // Update planId when category changes
     useEffect(() => {
@@ -247,11 +250,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             }
 
             if (plan.coach) {
-                const tc = settings.staff.find(s => s.full_name === plan.coach || `${s.first_name} ${s.last_name}` === plan.coach);
+                const staff = settings?.staff || [];
+                const tc = staff.find(s => s.full_name === plan.coach || `${s.first_name} ${s.last_name}` === plan.coach);
                 if (tc) setTeacherId(tc.id);
             }
         }
-    }, [planId, groups, studentId, settings.staff]);
+    }, [planId, groups, studentId, settings?.staff]);
 
     // Sync amountPaid default to remaining when totalDue changes
     useEffect(() => {
