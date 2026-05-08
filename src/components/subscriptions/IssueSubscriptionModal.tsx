@@ -187,7 +187,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             if (!g?.teacherId) return null;
             const t = settings.staff.find(s => s.id === g.teacherId);
             if (!t) return null;
-            return { value: t.id, label: `${t.first_name} ${t.last_name || ''} (${g.name})` };
+            return { value: t.id, label: `${t.first_name} ${t.last_name || ''}` };
         }).filter(Boolean) || [];
 
         const allStaff = settings.staff.map(t => ({
