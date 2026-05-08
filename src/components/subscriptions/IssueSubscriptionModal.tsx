@@ -117,9 +117,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const overpayment = Math.max(0, actualPaid - remaining);
     const newBalance = Math.round((sBalance - appliedBalance + overpayment) * 100) / 100;
 
-    // Pre-calculate active branch and halls for safe access
-    const activeBranch = settings.branches.find(b => b.id === settings.activeBranchId);
+    const activeBranch = settings.branches?.find(b => b.id === settings.activeBranchId);
     const activeHalls = activeBranch?.halls || [];
+    const hallOptions = activeHalls.map(h => ({ value: h.id, label: h.name, color: h.color }));
 
     // Reset when opened
     useEffect(() => {
@@ -721,60 +721,70 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                 </div>
                             </div>
 
-                            {/* 📅 SCHEDULE SELECTOR (Only for Individual) */}
+                            {/* ─── INDIVIDUAL SPECIFIC: Color, Schedule, Hall ─── */}
                             {selectedType === 'individual' && (
-                                <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[9px] font-black text-indigo-500 tracking-widest px-1 flex items-center gap-2 uppercase">
-                                            <Calendar className="w-3 h-3" /> {l('გაკვეთილების გრაფიკი', 'График занятий', 'Lesson Schedule')}
+                                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                                    
+                                    {/* Group Color Style */}
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                            <Palette className="w-3 h-3" /> {l('ჯგუფის ფერი', 'Цвет группы', 'Group Color')}
+                                        </label>
+                                        <label className="flex items-center gap-3 bg-surface border border-border-subtle rounded-xl p-2 cursor-pointer hover:border-indigo-500/40 transition-colors">
+                                            <span className="w-8 h-8 rounded-lg border border-black/10 flex-shrink-0 overflow-hidden relative">
+                                                <input type="color" value={eventColor} onChange={e => setEventColor(e.target.value)}
+                                                    className="absolute -inset-2 w-12 h-12 cursor-pointer opacity-0" />
+                                                <div className="w-full h-full pointer-events-none shadow-inner" style={{ backgroundColor: eventColor }} />
+                                            </span>
+                                            <span className="text-xs text-muted font-medium select-none truncate">{t.chooseAnotherColor}</span>
                                         </label>
                                     </div>
 
-                                    <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
-                                        {/* Day Selector */}
-                                        <div className="flex items-center justify-between gap-1">
-                                            {[
-                                                { id: 1, label: l('ორ', 'Пн', 'Mon') },
-                                                { id: 2, label: l('სამ', 'Вт', 'Tue') },
-                                                { id: 3, label: l('ოთხ', 'Ср', 'Wed') },
-                                                { id: 4, label: l('ხუთ', 'Чт', 'Thu') },
-                                                { id: 5, label: l('პარ', 'Пт', 'Fri') },
-                                                { id: 6, label: l('შაბ', 'Сб', 'Sat') },
-                                                { id: 0, label: l('კვი', 'Вс', 'Sun') },
-                                            ].map(d => {
-                                                const isActive = schedule.some(s => s.day === d.id);
-                                                return (
-                                                    <button
-                                                        key={d.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            if (isActive) {
-                                                                setSchedule(prev => prev.filter(s => s.day !== d.id));
-                                                            } else {
-                                                                const hallId = settings.branches?.find(b => b.id === settings.activeBranchId)?.halls?.[0]?.id || '';
-                                                                setSchedule(prev => [...prev, { day: d.id, time: '18:00', hallId }]);
-                                                            }
-                                                        }}
-                                                        className={cn(
-                                                            "flex-1 h-9 rounded-lg text-[10px] font-black transition-all border shrink-0",
-                                                            isActive 
-                                                                ? "bg-indigo-600 text-white border-indigo-600 shadow-md" 
-                                                                : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
-                                                        )}
-                                                    >
-                                                        {d.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
+                                    {/* Schedule Builder Style */}
+                                    <div className="space-y-4">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                            <Calendar className="w-3 h-3" /> {l('განრიგი', 'Расписание', 'Schedule')}
+                                        </label>
 
-                                        {/* Schedule Details */}
-                                        {schedule.length > 0 && (
+                                        <div className="bg-surface/50 border border-border-subtle rounded-2xl p-4 space-y-4">
+                                            <label className="text-[10px] text-muted block tracking-wider font-black opacity-40">{l('აირჩიეთ დღეები და დროები', 'Выберите дни и время', 'Select days and times')}</label>
+                                            
+                                            <div className="flex items-center justify-between gap-1">
+                                                {[
+                                                    { id: 1, label: l('ორ', 'Пн', 'Mon') },
+                                                    { id: 2, label: l('სამ', 'Вт', 'Tue') },
+                                                    { id: 3, label: l('ოთხ', 'Ср', 'Wed') },
+                                                    { id: 4, label: l('ხუთ', 'Чт', 'Thu') },
+                                                    { id: 5, label: l('პარ', 'Пт', 'Fri') },
+                                                    { id: 6, label: l('შაბ', 'Сб', 'Sat') },
+                                                    { id: 0, label: l('კვი', 'Вс', 'Sun') },
+                                                ].map(d => {
+                                                    const isActive = schedule.some(s => s.day === d.id);
+                                                    return (
+                                                        <button key={d.id} type="button" 
+                                                            onClick={() => {
+                                                                if (isActive) {
+                                                                    setSchedule(prev => prev.filter(s => s.day !== d.id));
+                                                                } else {
+                                                                    setSchedule(prev => [...prev, { day: d.id, time: '18:00', hallId: activeHalls[0]?.id || '' }]);
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                "flex-1 h-9 rounded-lg text-[10px] font-black transition-all border shrink-0",
+                                                                isActive ? "text-white shadow-md shadow-indigo-500/20" : "bg-card border-border-subtle text-muted hover:border-indigo-500/40"
+                                                            )}
+                                                            style={isActive ? { backgroundColor: eventColor, borderColor: eventColor } : {}}>
+                                                            {d.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
                                             <div className="space-y-2">
                                                 {schedule.sort((a, b) => (a.day === 0 ? 7 : a.day) - (b.day === 0 ? 7 : b.day)).map((s, idx) => (
-                                                    <div key={idx} className="flex flex-row items-center gap-2 bg-card/30 p-2 rounded-xl border border-border-subtle/20 animate-in slide-in-from-left-2">
-                                                        <span className="text-[10px] font-black text-indigo-600 w-12 pl-1 truncate">
-                                                            {[l('კვი', 'Вс', 'Sun'), l('ორშ', 'Пн', 'Mon'), l('სამ', 'Вт', 'Tue'), l('ოთხ', 'Ср', 'Wed'), l('ხუთ', 'Чт', 'Thu'), l('პარ', 'Пт', 'Fri'), l('შაბ', 'Сб', 'Sat')][s.day]}
+                                                    <div key={idx} className="flex flex-row items-center gap-2 bg-card/30 p-2 rounded-xl border border-border-subtle/20">
+                                                        <span className="text-[10px] font-black text-primary w-12 pl-1 truncate">
+                                                            {[l('კვი', 'Вს', 'Sun'), l('ორ', 'Пн', 'Mon'), l('სამ', 'Вт', 'Tue'), l('ოთხ', 'Ср', 'Wed'), l('ხუთ', 'Чт', 'Thu'), l('პარ', 'Пт', 'Fri'), l('შაბ', 'Сб', 'Sat')][s.day]}
                                                         </span>
                                                         <div className="flex-1 flex items-center gap-2">
                                                             <input 
@@ -786,7 +796,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                     if (i > -1) next[i].time = e.target.value;
                                                                     setSchedule(next);
                                                                 }}
-                                                                className="flex-1 bg-surface/50 border border-border-subtle/50 rounded-lg px-2 py-1 text-[11px] font-bold outline-none focus:border-indigo-500/40"
+                                                                className="flex-1 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[11px] font-bold text-primary outline-none focus:border-indigo-500/40"
                                                             />
                                                             <select
                                                                 value={s.hallId}
@@ -796,10 +806,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                     if (i > -1) next[i].hallId = e.target.value;
                                                                     setSchedule(next);
                                                                 }}
-                                                                className="flex-1 bg-surface/50 border border-border-subtle/50 rounded-lg px-2 py-1 text-[10px] font-bold outline-none focus:border-indigo-500/40"
+                                                                className="flex-1 bg-surface border border-border-subtle rounded-lg px-2 py-1.5 text-[10px] font-bold text-primary outline-none focus:border-indigo-500/40"
                                                             >
                                                                 <option value="">{t.selectHall}</option>
-                                                                {settings.branches?.find(b => b.id === settings.activeBranchId)?.halls?.map(h => (
+                                                                {activeHalls.map(h => (
                                                                     <option key={h.id} value={h.id}>{h.name}</option>
                                                                 ))}
                                                             </select>
@@ -807,40 +817,36 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                     </div>
                                                 ))}
                                             </div>
-                                        )}
 
-                                        {/* Color Selector */}
-                                        <div className="pt-2 border-t border-border-subtle/30">
-                                            <label className="text-[9px] font-black text-muted tracking-widest uppercase mb-2 block">{l('ფერი კალენდარში', 'Цвет в календаре', 'Calendar Color')}</label>
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex flex-wrap gap-1.5 flex-1">
-                                                    {['#6d28d9', '#db2777', '#dc2626', '#ea580c', '#059669', '#0284c7', '#4f46e5'].map(c => (
-                                                        <button
-                                                            key={c}
-                                                            type="button"
-                                                            onClick={() => setEventColor(c)}
-                                                            className={cn(
-                                                                "w-7 h-7 rounded-lg transition-all border-2",
-                                                                eventColor === c ? "scale-110 shadow-md" : "border-transparent opacity-60 hover:opacity-100"
-                                                            )}
-                                                            style={{ backgroundColor: c, borderColor: eventColor === c ? 'white' : 'transparent' }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                                <div className="w-px h-6 bg-border-subtle" />
-                                                <label className="w-8 h-8 rounded-lg border-2 border-border-subtle bg-white cursor-pointer p-0.5 overflow-hidden relative group">
-                                                    <input 
-                                                        type="color" 
-                                                        value={eventColor} 
-                                                        onChange={e => setEventColor(e.target.value)}
-                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                                    />
-                                                    <div className="w-full h-full rounded-md shadow-inner" style={{ backgroundColor: eventColor }} />
-                                                    <Palette className="w-3 h-3 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white mix-blend-difference pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                </label>
-                                            </div>
+                                            {schedule.length === 0 && (
+                                                <p className="text-xs text-muted opacity-40 italic text-center py-2">
+                                                    {l('აირჩიეთ მინიმუმ ერთი დღე', 'Выберите хотя бы один день', 'Select at least one day')}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
+
+                                    {/* Hall Block Style */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                            <Building2 className="w-3 h-3" /> {l('დარბაზი', 'Зал', 'Hall')}
+                                        </label>
+                                        <select
+                                            value={teacherId || ''} // Reusing teacherId logic if needed, but usually individual has its own hall
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                const next = schedule.map(s => ({ ...s, hallId: val }));
+                                                setSchedule(next);
+                                            }}
+                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[13px] sm:text-sm text-primary outline-none transition-all"
+                                        >
+                                            <option value="">{l('აირჩიეთ დარბაზი', 'Выберите зал', 'Select Hall')}</option>
+                                            {activeHalls.map(h => (
+                                                <option key={h.id} value={h.id}>{h.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                 </div>
                             )}
 
