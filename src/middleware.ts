@@ -84,7 +84,12 @@ export async function middleware(request: NextRequest) {
 
         // 5. Portal Enforcement (Redirect generic /dashboard to specific /[slug]/dashboard)
         if (user || hasStaffCookie) {
-            const activeSlug = request.cookies.get('cc_active_slug')?.value || user?.user_metadata?.studio_slug;
+            const activeSlug = (() => {
+                const raw = request.cookies.get('cc_active_slug')?.value || user?.user_metadata?.studio_slug;
+                // Never treat system paths as valid slugs
+                const invalidSlugs = ['api', '_next', 'auth', 'login', 'superadmin', 'favicon.ico', 'manifest.webmanifest'];
+                return (raw && !invalidSlugs.includes(raw)) ? raw : user?.user_metadata?.studio_slug;
+            })();
             const genericDashboardPaths = ['/dashboard', '/settings', '/billing', '/analytics', '/history', '/attendance', '/students', '/teachers', '/halls', '/groups', '/calendar', '/shop', '/sms-manager', '/subscriptions', '/trash'];
             
             if (activeSlug && genericDashboardPaths.some(p => pathname === p || pathname.startsWith(p + '/'))) {

@@ -93,9 +93,10 @@ export function recordCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string
+    customDate?: string,
+    planType?: 'group' | 'individual' | 'rental'
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, planType);
 }
 
 /**
@@ -109,9 +110,10 @@ export function forceCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string
+    customDate?: string,
+    planType?: 'group' | 'individual' | 'rental'
 ): CheckinResult {
-    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate);
+    return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, planType);
 }
 
 /** Refund a checkin: increments sessions back */
@@ -171,10 +173,11 @@ function _writeCheckin(
     classId?: string,
     groupId?: string,
     subId?: string,
-    customDate?: string
+    customDate?: string,
+    planType?: 'group' | 'individual' | 'rental'
 ): CheckinResult {
     // Only deduct sessions if the student has an active subscription
-    const subResult = incrementSessionsUsed(studentId, subId);
+    const subResult = incrementSessionsUsed(studentId, subId, planType);
     const hasSubscription = subResult !== null;
 
     const next = hasSubscription ? getSessionsRemaining(studentId, groupId) : -1;

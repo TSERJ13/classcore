@@ -561,7 +561,7 @@ export function pauseActiveSubscription(studentId: string, subId: string, days: 
     return newSub;
 }
 
-export function incrementSessionsUsed(studentId: string, subId?: string): SubscriptionInfo | null {
+export function incrementSessionsUsed(studentId: string, subId?: string, planType?: 'group' | 'individual' | 'rental'): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
 
     let active: SubscriptionInfo | null = null;
@@ -569,7 +569,7 @@ export function incrementSessionsUsed(studentId: string, subId?: string): Subscr
         const subs = getStudentSubscriptions(studentId);
         active = subs.find(s => s.id === subId) || null;
     } else {
-        active = getSubscription(studentId);
+        active = getSubscription(studentId, undefined, planType);
     }
 
     if (!active) return null;

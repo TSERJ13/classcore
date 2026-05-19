@@ -233,27 +233,32 @@ export default function AttendancePage() {
     const filteredSchedule = useMemo(() => {
         const dayOfWeek = (selectedDate.getDay() + 6) % 7;
         
-        let targetSchedule = rawSchedule;
-        if (targetSchedule.length === 0) {
-            targetSchedule = groups
-                .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
-                .map(g => {
-                    const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
-                    return {
-                        id: `virtual-${g.id}`,
-                        group_id: g.id,
-                        title: g.name,
-                        type: 'group',
-                        color: g.color || '#6d28d9',
-                        start_time: slot?.startTime || '00:00',
-                        end_time: slot?.endTime || '23:59',
-                        teacher_id: g.teacher_id || '',
-                        hall_id: g.hall_id || ''
-                    };
-                }) as any;
-        }
+        const virtualGroups = groups
+            .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
+            .map(g => {
+                const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
+                return {
+                    id: `virtual-${g.id}`,
+                    group_id: g.id,
+                    title: g.name,
+                    type: 'group_class',
+                    color: g.color || '#6d28d9',
+                    start_time: slot?.startTime || '00:00',
+                    end_time: slot?.endTime || '23:59',
+                    teacher_id: g.teacher_id || '',
+                    hall_id: g.hall_id || ''
+                };
+            });
 
-        return targetSchedule.filter(ev => {
+        // Merge rawSchedule (actual events) with virtual group slots
+        // But only add virtual slots for groups that don't already have an entry in rawSchedule
+        const existingGroupIds = new Set(rawSchedule.map(e => e.group_id).filter(Boolean));
+        const combined = [
+            ...rawSchedule,
+            ...virtualGroups.filter(vg => !existingGroupIds.has(vg.group_id))
+        ];
+
+        return combined.filter(ev => {
             if (profile?.role === 'teacher' || profile?.role === 'coach') {
                 return profile.assigned_group_ids?.includes(ev.group_id || '');
             }
@@ -271,7 +276,10 @@ export default function AttendancePage() {
                   const allS = getStudents();
                   const { getStudentPhoto } = require('@/lib/student-store');
                   studentPhotos = sIds.map(id => getStudentPhoto(id)).filter(Boolean) as string[];
-                  studentNames = sIds.map(id => allS.find(x => x.id === id)?.full_name).filter(Boolean).join(' & ');
+                  studentNames = sIds.map(id => {
+                      const full = allS.find(x => x.id === id)?.full_name || '';
+                      return full.trim().split(' ')[0];
+                  }).filter(Boolean).join(' & ');
               }
 
               return {
@@ -722,7 +730,7 @@ export default function AttendancePage() {
 
             // 4. Second scan (deduct!)
             const checkinCount = getCheckinCountToday(studentId);
-            const result = recordCheckin(studentId, studentName, 'nfc', selectedClass, selClass?.group_id, choiceSubId, dateKey);
+            const result = recordCheckin(studentId, studentName, 'nfc', selectedClass, selClass?.group_id, choiceSubId, dateKey, selClass?.type);
             const newAtt = { ...att, [studentId!]: 'present' as State };
             saveAttendance(newAtt);
             setScanError('');
@@ -811,7 +819,7 @@ export default function AttendancePage() {
             }
 
             // Mark present: deduct session
-            recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
+            recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, selClass?.type);
             next = 'present';
 
             const usedSub = choiceSubId ? (subs[id] || []).find(s => s.id === choiceSubId) : activeSub;

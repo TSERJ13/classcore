@@ -68,7 +68,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         if (userLoading && !activeSlug) return;
 
         // 🛡️ RECOVERY: If no slug found, try to recover from profile or identity
-        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings", "dashboard"].includes(activeSlug)) {
+        if (!activeSlug || ["api", "auth", "login", "superadmin", "subscriptions", "settings", "dashboard", "_next", "favicon.ico"].includes(activeSlug)) {
              if (profile && profile.studio_slug) {
                  activeSlug = profile.studio_slug;
              } else if (user && !userLoading) {
@@ -215,7 +215,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
                 const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
                 const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
-                const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events);
+                const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events || settings.calendar_events);
+                console.log(`📅 [StudioContext] Calendar Events Resolved: ${finalEvents.length} (Cloud: ${state.calendar_events?.length || 0})`);
                 
                 setLoadingStep('ინტერფეისის მომზადება...');
 

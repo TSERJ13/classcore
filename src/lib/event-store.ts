@@ -129,6 +129,7 @@ export function saveEvents(events: CalendarEvent[]) {
     
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
         const finalOrgId = getEffectiveOrgId(activeSlug);
+        console.log(`📡 [EventStore] Saving ${events.length} events for ${activeSlug} (Org: ${finalOrgId})`);
         pushStudioStateToCloud(activeSlug, [], { [getEventsKey()]: events });
         if (finalOrgId) {
             import('./master-sync').then(mod => {
@@ -310,10 +311,14 @@ export function generateScheduledIndividualEvents(params: {
                     endTime = `${endH}:${m.toString().padStart(2, '0')}`;
                 } catch {}
             }
+
+            // Extract first names only (e.g. "Makar Ivanov & Elene Petrova" -> "Makar & Elene")
+            const displayNames = params.studentName.split('&').map(name => name.trim().split(' ')[0]).join(' & ');
+
             events.push({
                 id: `ind_${Date.now()}_${count}_${Math.random().toString(36).substr(2, 4)}`,
                 org_id: getActiveSlug() || '',
-                title: `${params.studentName} (${params.planName})`,
+                title: `${displayNames} (${params.planName})`,
                 type: 'individual',
                 hall_id: slot.hallId || 'h1',
                 teacher_id: params.teacherId,
@@ -332,6 +337,7 @@ export function generateScheduledIndividualEvents(params: {
     }
     if (events.length > 0) {
         const allEvents = getEvents();
+        console.log(`📅 [Calendar] Saving ${events.length} new individual events.`);
         saveEvents([...allEvents, ...events]);
     }
     return events;

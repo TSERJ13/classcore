@@ -68,7 +68,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 
                 const staffSess = getStaffSession();
                 const urlSlug = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : null;
-                const excluded = ['dashboard', 'auth', 'admin', 'login', 'superadmin', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager', 'subscriptions', 'trash'];
+                const excluded = ['api', 'dashboard', 'auth', 'admin', 'login', 'superadmin', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager', 'subscriptions', 'trash', 'sa-login', 'sa-admin', 'registration', 'forgot-password', 'reset-password', 'checkin', 'nfc-checkin', 'privacy', 'terms', 'terms-and-conditions', '_next', 'favicon.ico', 'manifest.webmanifest'];
                 
                 // 🚨 RESILIENCE: Use the statically imported getActiveSlug from settings-store
                 const fallbackSlug = getActiveSlug();
