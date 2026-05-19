@@ -46,13 +46,18 @@ export async function GET(req: Request) {
 
         const orgId = studio.org_id;
 
-        // 2. Fetch students, subscriptions, attendance, groups
-        const [studentsRes, subsRes, attRes, groupsRes] = await Promise.all([
+        // 2. Fetch students, subscriptions, attendance, groups, settings
+        const [studentsRes, subsRes, attRes, groupsRes, settingsRes] = await Promise.all([
             supabase.from('students').select('id, first_name, last_name, full_name, phone, status, data').eq('org_id', orgId),
             supabase.from('subscriptions').select('id, student_id, sessions_total, sessions_used, expires_at, starts_at, data').eq('org_id', orgId),
             supabase.from('attendance').select('id, student_id, date, status, data').eq('org_id', orgId),
             supabase.from('groups').select('id, name, data').eq('org_id', orgId),
+            supabase.from('studio_settings').select('staff_data').eq('org_id', orgId).maybeSingle(),
         ]);
+
+        const staffData = settingsRes.data?.staff_data || {};
+        const portalTournaments = staffData.portal_tournaments || [];
+        const portalNews = staffData.portal_news || [];
 
         const result: any = {
             studio: {
@@ -63,6 +68,8 @@ export async function GET(req: Request) {
             subscriptions: subsRes.data || [],
             attendance: attRes.data || [],
             groups: groupsRes.data || [],
+            tournaments: portalTournaments,
+            news: portalNews,
         };
 
         // 3. If phone provided, find matching student (login)
