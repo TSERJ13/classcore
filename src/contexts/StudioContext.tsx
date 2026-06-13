@@ -1,6 +1,7 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings } from '@/lib/settings-store';
+import { setMemoryStudentsCache } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { getActiveSlug, getScopedKey, safeSetItem } from '@/lib/utils';
 import type { StudioSettings, Branch } from '@/types';
@@ -234,7 +235,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 };
 
                 if (typeof window !== 'undefined') {
-                    // 🛡️ ANTI-WIPE GUARD
+                    // 🧠 ALWAYS cache the cloud students in memory FIRST. localStorage
+                    // can be over its 5MB quota (base64 photos/logo), in which case the
+                    // writes below are silently skipped — and getStudents() then reads
+                    // an empty localStorage. The in-memory cache is the reliable source
+                    // getStudents() falls back to, so the roster shows regardless.
+                    try {
+                        const cloudStudents = unwrap(state.students) || [];
+                        if (cloudStudents.length > 0) {
+                            setMemoryStudentsCache(cloudStudents as any, activeSlug || 'default');
+                        }
+                    } catch (e) { console.warn('memory cache set failed', e); }
+
                     // Root cause of "data disappears then reappears": a transient
                     // empty cloud response (slow query / error / org mismatch) was
                     // written straight over good local data, blanking the screen
