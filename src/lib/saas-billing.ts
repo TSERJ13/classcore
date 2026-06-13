@@ -4,6 +4,16 @@ export const SAAS_PRICE_GEL = 49;
 export const TRIAL_DAYS = 30;
 export const GRACE_DAYS = 2;
 
+// Canonical platform pricing — the SINGLE source of truth for what each studio
+// plan costs per month. Keyed by the real plan names; 'basic'/'enterprise' are
+// legacy aliases. Use platformPrice() everywhere instead of inline literals.
+export const PLATFORM_PLAN_PRICES: Record<string, number> = {
+    trial: 0, pro: SAAS_PRICE_GEL, custom: 0, special: 0, basic: SAAS_PRICE_GEL, enterprise: 0,
+};
+export function platformPrice(plan?: string | null): number {
+    return PLATFORM_PLAN_PRICES[plan || 'trial'] ?? 0;
+}
+
 export type BillingStatus = 'trial' | 'active' | 'overdue' | 'suspended';
 
 export interface BillingState {

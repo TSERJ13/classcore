@@ -311,7 +311,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
         preferred_language: 'ka' as 'ka' | 'ru' | 'en',
         discount_type: 'percent' as 'percent' | 'fixed',
         discount_value: 0 as number | '',
-        contact_person: undefined as 'self' | 'parent' | undefined,
+        contact_person: '' as string,
     });
 
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -385,7 +385,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                     preferred_language: 'ka',
                     discount_type: 'percent',
                     discount_value: 0,
-                    contact_person: undefined,
+                    contact_person: '',
                 });
                 setPhotoPreview('');
             }
@@ -434,7 +434,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
             import('@/lib/utils').then(({ calculateAge }) => {
                 const age = calculateAge(form.birth_date);
                 if (age !== null) {
-                    set('contact_person', age < 18 ? 'parent' : 'self');
+                    set('contact_person', age < 18 ? l('მშობელი', 'Родитель', 'Parent') : l('თავად', 'Сამ', 'Self'));
                 }
             });
         }
@@ -826,80 +826,63 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                 </div>
 
                                 <div className="space-y-4">
-                                     <div className="space-y-1.5">
-                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
-                                         <div className="grid grid-cols-2 gap-4">
-                                             {[
-                                                 { id: 'male', label: t.male, color: 'text-indigo-600', iconColor: 'text-indigo-500', bg: 'bg-indigo-500/5', activeBg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: MaleIcon },
-                                                 { id: 'female', label: t.female, color: 'text-pink-600', iconColor: 'text-pink-500', bg: 'bg-pink-500/5', activeBg: 'bg-pink-500/10', border: 'border-pink-500/20', icon: FemaleIcon }
-                                             ].map((g) => {
-                                                 const isSelected = form.gender === g.id;
-                                                 const Icon = g.icon;
-                                                 return (
-                                                     <button
-                                                         key={g.id}
-                                                         type="button"
-                                                         onClick={() => set('gender', g.id as any)}
-                                                         className={cn(
-                                                             "flex items-center justify-center gap-3 px-6 rounded-2xl border transition-all duration-300 h-14 relative overflow-hidden",
-                                                             isSelected 
-                                                                 ? cn(g.border, g.activeBg, "shadow-md scale-[1.02] ring-2 ring-offset-2", g.id === 'male' ? "ring-indigo-500/20" : "ring-pink-500/20") 
-                                                                 : "border-border-subtle bg-surface hover:border-indigo-500/20"
-                                                         )}
-                                                     >
-                                                         <Icon className={cn("w-6 h-6 shrink-0", isSelected ? g.iconColor : "text-muted/40")} />
-                                                         <span className={cn(
-                                                             "text-[10px] font-black uppercase tracking-widest leading-none",
-                                                             isSelected ? g.color : "text-muted/60"
-                                                         )}>
-                                                             {g.label}
-                                                         </span>
-                                                     </button>
-                                                 )
-                                             })}
-                                         </div>
-                                     </div>
-                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <StandardDatePicker
-                                        label={t.birthDate}
-                                        value={form.birth_date}
-                                        onChange={v => set('birth_date', v)}
-                                    />
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.preferredLanguage}</label>
-                                        <SearchSelect
-                                            options={[
-                                                { value: 'ka', label: t.georgian as string },
-                                                { value: 'ru', label: t.russian as string },
-                                                { value: 'en', label: t.english as string }
-                                            ]}
-                                            value={form.preferred_language || 'ka'}
-                                            onChange={val => set('preferred_language', val)}
-                                            className="[&>div]:min-h-[48px]"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-4 relative z-20">
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.contactPerson}</label>
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.gender}</label>
+                                            <div className="flex bg-surface border border-border-subtle rounded-xl p-1 h-[48px] w-full">
+                                                {[
+                                                    { id: 'male', label: l('მამრ.', 'Муж.', 'Male'), color: 'text-indigo-600', activeBg: 'bg-indigo-500/10', icon: MaleIcon },
+                                                    { id: 'female', label: l('მდედრ.', 'Жен.', 'Female'), color: 'text-pink-600', activeBg: 'bg-pink-500/10', icon: FemaleIcon }
+                                                ].map((g) => {
+                                                    const isSelected = form.gender === g.id;
+                                                    const Icon = g.icon;
+                                                    return (
+                                                        <button
+                                                            key={g.id}
+                                                            type="button"
+                                                            onClick={() => set('gender', g.id as any)}
+                                                            className={cn(
+                                                                "flex-1 flex items-center justify-center gap-1.5 rounded-lg text-xs font-black transition-all",
+                                                                isSelected 
+                                                                    ? cn(g.activeBg, g.color, "shadow-sm") 
+                                                                    : "text-muted hover:text-primary"
+                                                            )}
+                                                        >
+                                                            <Icon className="w-3.5 h-3.5 shrink-0" />
+                                                            <span className="uppercase tracking-wider">
+                                                                {g.label}
+                                                            </span>
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.preferredLanguage}</label>
                                             <SearchSelect
                                                 options={[
-                                                    { value: 'self', label: t.self as string },
-                                                    { value: 'parent', label: t.parent as string }
+                                                    { value: 'ka', label: t.georgian as string },
+                                                    { value: 'ru', label: t.russian as string },
+                                                    { value: 'en', label: t.english as string }
                                                 ]}
-                                                value={form.contact_person || ''}
-                                                onChange={val => set('contact_person', val as any)}
-                                                className="[&>div]:min-h-[42px] [&>div]:rounded-xl"
+                                                value={form.preferred_language || 'ka'}
+                                                onChange={val => set('preferred_language', val)}
+                                                searchable={false}
+                                                className="[&>div]:!h-[48px] [&>div]:rounded-xl"
                                             />
                                         </div>
-                                        
-                                        <div className="space-y-1.5 flex flex-col">
-                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('შეღავათი', 'Льγοτα', 'Discount')}</label>
-                                            <div className="flex gap-1 items-center bg-surface border border-border-subtle rounded-xl px-1 h-[42px] shadow-sm focus-within:border-indigo-500/40 hover:border-indigo-500/40 transition-all">
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 relative z-10">
+                                        <StandardDatePicker
+                                            label={t.birthDate}
+                                            value={form.birth_date}
+                                            onChange={v => set('birth_date', v)}
+                                            inputClassName="!rounded-xl !h-[48px] !py-0 !pl-11"
+                                        />
+                                        <div className="space-y-1.5 flex flex-col justify-end">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('შეღავათი', 'Льгота', 'Discount')}</label>
+                                            <div className="flex gap-1 items-center bg-surface border border-border-subtle rounded-xl px-1 h-[48px] shadow-sm focus-within:border-indigo-500/40 hover:border-indigo-500/40 transition-all w-full">
                                                 <input 
                                                     type="number"
                                                     value={form.discount_value || ''}
@@ -930,34 +913,53 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                             </div>
                                         </div>
                                     </div>
+
+                                    <div className="grid grid-cols-5 gap-4 items-end">
+                                        <div className="col-span-2 space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase truncate block" title={t.contactPerson}>
+                                                {t.contactPerson}
+                                            </label>
+                                            <div className="relative group/input h-[48px]">
+                                                <Contact className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                                <input value={form.contact_person ?? ''} 
+                                                    onChange={e => set('contact_person', e.target.value)}
+                                                    placeholder={t.contactPerson}
+                                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-11 pr-4 py-3 h-[48px] text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                            </div>
+                                        </div>
+                                        <div className="col-span-3 space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.phone || 'Phone'} (SMS) *</label>
+                                            <div className="relative group/input h-[48px]">
+                                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
+                                                <input value={formatPhoneDisplay(form.phone ?? '')} 
+                                                    onChange={e => {
+                                                        const cleaned = cleanPhone(e.target.value);
+                                                        if (cleaned.length <= 9) set('phone', cleaned);
+                                                    }}
+                                                    placeholder="555 XX XX XX"
+                                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl pl-11 pr-4 py-3 h-[48px] text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm font-mono" />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {form.contact_person === 'parent' && (
+                                {(() => {
+                                    if (!form.contact_person) return false;
+                                    const val = form.contact_person.toLowerCase().trim();
+                                    const isSelf = ['self', 'თავად', 'сам', 'сами'].includes(val);
+                                    return !isSelf;
+                                })() && (
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{l('მშობლის სახელი და გვარი', 'Имя и фамилия родителя', 'Parent full name')}</label>
                                         <div className="relative group/input">
                                             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
-                                        <input value={form.parent_name ?? ''} 
-                                            onChange={e => set('parent_name', smartCapitalize(e.target.value))}
-                                            placeholder={l('სახელი და გვარი', 'Имя и фамилия', 'First and last name')}
-                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
+                                            <input value={form.parent_name ?? ''} 
+                                                onChange={e => set('parent_name', smartCapitalize(e.target.value))}
+                                                placeholder={l('სახელი და გვარი', 'Имя и фамилия', 'First and last name')}
+                                                className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                                         </div>
                                     </div>
                                 )}
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.phone || 'Phone'} (SMS) *</label>
-                                    <div className="relative group/input">
-                                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within/input:text-indigo-500 transition-colors" />
-                                        <input value={formatPhoneDisplay(form.phone ?? '')} 
-                                            onChange={e => {
-                                                const cleaned = cleanPhone(e.target.value);
-                                                if (cleaned.length <= 9) set('phone', cleaned);
-                                            }}
-                                            placeholder="555 XX XX XX"
-                                            className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl pl-11 pr-4 py-3 text-[13px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm font-mono" />
-                                    </div>
-                                </div>
 
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">{t.email}</label>

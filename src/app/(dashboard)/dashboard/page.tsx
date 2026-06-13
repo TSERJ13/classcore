@@ -18,6 +18,9 @@ import { getHallName } from '@/lib/hall-store';
 import { addNotification } from '@/lib/notification-store';
 import type { Student } from '@/types';
 import { getGroups } from '@/lib/group-store';
+import { getTeachers } from '@/lib/teacher-store';
+import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
+import { pctChange } from '@/lib/studio-stats';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
@@ -219,9 +222,13 @@ export default function DashboardPage() {
         newStudents3m: 0,
         leftStudents3m: 0,
         revenueChange: 0,
-        activeChange: 0
+        activeChange: 0,
+        subsThisMonth: 0,
+        subsLastMonth: 0,
+        subsChange: 0,
+        todayExpected: 0,
     });
-    const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string; photo?: string | null }[]>([]);
+    const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
     
@@ -245,49 +252,77 @@ export default function DashboardPage() {
         let studentsList = getStudents();
         const allSubsListRaw = Object.values(getSubscriptions()).flat();
         
-        const isTeacher = profile?.role === 'teacher' || profile?.role === 'coach';
-        const assignedIds = profile?.assigned_group_ids || [];
-        
-        if (isTeacher) {
-            studentsList = studentsList.filter(s => 
-                s.enrolled_group_ids?.some(gid => assignedIds.includes(gid))
+        const isTeacher = isTeacherRole(profile?.role);
+        // Robust visible-group resolution (groups they teach + assignments).
+        const visibleGroupIds = getVisibleGroupIds(profile as any, getTeachers() as any, getGroups() as any);
+
+        if (isTeacher && visibleGroupIds) {
+            studentsList = studentsList.filter(s =>
+                s.enrolled_group_ids?.some(gid => visibleGroupIds.includes(gid))
             );
         }
-        const allSubsList = isTeacher ? allSubsListRaw.filter(sub => assignedIds.includes(sub.group_id || '')) : allSubsListRaw;
+        const allSubsList = (isTeacher && visibleGroupIds)
+            ? allSubsListRaw.filter(sub => visibleGroupIds.includes(sub.group_id || ''))
+            : allSubsListRaw;
         const students = studentsList.length;
         const now = new Date();
         const currentMonth = now.toISOString().split('-').slice(0, 2).join('-');
-        let activeSubStudentIds = new Set<string>();
+        // Previous month string (YYYY-MM)
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
+        let activeSubStudentIds = new Set<string>();
         studentsList.forEach(s => {
             const sub = (s as any).subscription || getSubscription(s.id);
             if (sub && sub.status === 'active') activeSubStudentIds.add(s.id);
         });
         const studentsWithActiveSub = activeSubStudentIds.size;
+
         const checkins = getTodayCheckins();
         const attendance = checkins.length;
         const todayStr = getLocalISODate(new Date());
 
-        const monthSalesRevenue = sales.filter(s => s.date?.startsWith(currentMonth)).reduce((sum, s) => sum + s.price * s.quantity, 0);
-        const monthSubRevenue = allSubsList.filter(sub => sub.purchased_at?.startsWith(currentMonth)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
+        // ── Revenue: this month vs last month ────────────────────────────────
+        const revInMonth = (mPrefix: string) =>
+            sales.filter(s => s.date?.startsWith(mPrefix)).reduce((sum, s) => sum + s.price * s.quantity, 0) +
+            allSubsList.filter(sub => sub.purchased_at?.startsWith(mPrefix)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
+        const monthlyRevenue = revInMonth(currentMonth);
+        const prevMonthRevenue = revInMonth(prevMonth);
+        const revenueChange = pctChange(monthlyRevenue, prevMonthRevenue) ?? 0;
 
-        let totalCheckins = 0;
-        let daysWithCheckins = 0;
-        const daysInMonth = new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]), 0).getDate();
+        // ── Subscriptions purchased: this month vs last month ────────────────
+        const subsThisMonth = allSubsList.filter(sub => sub.purchased_at?.startsWith(currentMonth)).length;
+        const subsLastMonth = allSubsList.filter(sub => sub.purchased_at?.startsWith(prevMonth)).length;
+        const subsChange = pctChange(subsThisMonth, subsLastMonth) ?? 0;
+
+        // ── Attendance rate: % of all students who attended at least once this month ──
+        const attendedStudentIds = new Set<string>();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         for (let d = 1; d <= daysInMonth; d++) {
             const dStr = `${currentMonth}-${String(d).padStart(2, '0')}`;
-            const key = getScopedKey(`cc_checkins_${dStr}`);
             try {
-                const recs = JSON.parse(localStorage.getItem(key) || '[]');
-                if (recs.length > 0) {
-                    totalCheckins += recs.length;
-                    daysWithCheckins++;
-                }
-            } catch (e) { }
+                const raw = localStorage.getItem(getScopedKey(`cc_checkins_${dStr}`));
+                if (!raw) continue;
+                const recs = JSON.parse(raw);
+                if (Array.isArray(recs)) recs.forEach((r: any) => { if (r?.studentId) attendedStudentIds.add(r.studentId); });
+            } catch { /* ignore */ }
         }
-        const avgDailyCheckins = daysWithCheckins > 0 ? totalCheckins / daysWithCheckins : 0;
-        const denominator = studentsWithActiveSub > 0 ? studentsWithActiveSub : (studentsList.length > 0 ? studentsList.length : 1);
-        const attendanceRateMonth = denominator > 0 ? Math.round((avgDailyCheckins / denominator) * 100) : 0;
+        // Restrict to visible students for teachers
+        const visibleStudentIdSet = new Set(studentsList.map(s => s.id));
+        const attendedVisible = isTeacher
+            ? Array.from(attendedStudentIds).filter(id => visibleStudentIdSet.has(id)).length
+            : attendedStudentIds.size;
+        const attendanceRateMonth = students > 0 ? Math.round((attendedVisible / students) * 100) : 0;
+
+        // ── Today: expected (enrolled in a group scheduled today) vs attended ──
+        let todayExpected = 0;
+        try {
+            const todayEvents = getTodayEvents().filter((ev: any) => !isTeacher || !visibleGroupIds || (ev.group_id && visibleGroupIds.includes(ev.group_id)));
+            const todayGroupIds = new Set(todayEvents.map((ev: any) => ev.group_id).filter(Boolean));
+            if (todayGroupIds.size > 0) {
+                todayExpected = studentsList.filter(s => s.enrolled_group_ids?.some(gid => todayGroupIds.has(gid))).length;
+            }
+        } catch { /* ignore */ }
 
         setLiveStats(prev => ({
             ...prev,
@@ -296,7 +331,12 @@ export default function DashboardPage() {
             activeSubs: studentsWithActiveSub,
             attendance,
             attendanceRateMonth,
-            monthlyRevenue: monthSalesRevenue + monthSubRevenue,
+            monthlyRevenue,
+            revenueChange,
+            subsThisMonth,
+            subsLastMonth,
+            subsChange,
+            todayExpected,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0),
         }));
 
@@ -304,41 +344,13 @@ export default function DashboardPage() {
         import('@/lib/event-store').then(mod => {
             const dateStr = getLocalISODate(selectedDate);
             const events = mod.getEventsByDate(dateStr).filter(ev => {
-                if (isTeacher && ev.group_id && !assignedIds.includes(ev.group_id)) return false;
+                if (isTeacher && visibleGroupIds && ev.group_id && !visibleGroupIds.includes(ev.group_id)) return false;
                 return true;
             });
 
             const allStudents = getStudents();
             const groups = getGroups();
-
-            // 🌟 If no events for this date, fall back to group schedule_slots
-            // Day of week: Mon=0..Sun=6 (project convention)
-            const dayOfWeek = (selectedDate.getDay() + 6) % 7;
-            
-            let scheduleSource = events;
-            if (events.length === 0) {
-                // Build virtual events from group schedule_slots
-                const virtualEvents = groups
-                    .filter((g: any) => Array.isArray(g.schedule_slots) && g.schedule_slots.some((s: any) => s.dayOfWeek === dayOfWeek))
-                    .filter((g: any) => !isTeacher || assignedIds.includes(g.id))
-                    .map((g: any) => {
-                        const slot = g.schedule_slots.find((s: any) => s.dayOfWeek === dayOfWeek);
-                        return {
-                            id: `virtual-${g.id}`,
-                            group_id: g.id,
-                            title: g.name,
-                            type: 'group',
-                            color: g.color || '#6d28d9',
-                            start_time: slot?.startTime || '00:00',
-                            end_time: slot?.endTime || '23:59',
-                            teacher_id: g.teacher_id || g.teacherId || '',
-                            hall_id: g.hall_id || ''
-                        };
-                    });
-                scheduleSource = virtualEvents as any;
-            }
-
-            const scheduleWithDetails = scheduleSource.map((ev: any) => {
+            const scheduleWithDetails = events.map(ev => {
                 const g = groups.find(x => x.id === ev.group_id);
                 const tid = ev.teacher_id || g?.teacherId;
                 return {
@@ -348,96 +360,17 @@ export default function DashboardPage() {
                     hallName: getHallName(ev.hall_id),
                     studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length
                 };
-            }).sort((a: any, b: any) => (a.start_time || '').localeCompare(b.start_time || ''));
+            });
             setLiveSchedule(scheduleWithDetails);
         });
 
         // 3. Activity Refresh
         const activityList: any[] = [];
-        const allStudents = getStudents();
-
-        // A. Check-ins (Today)
         checkins.forEach((c: CheckinRecord) => {
-            const student = allStudents.find(s => s.id === c.studentId);
             const name = c.studentName || t.studentLabelGeneric;
-            activityList.push({ 
-                name, 
-                action: 'check-in', 
-                group: t.groupSession, 
-                time: c.time, 
-                avatar: name[0], 
-                photo: student?.photo_url || null, 
-                color: 'from-emerald-500 to-teal-600',
-                timestamp: new Date(`${todayStr}T${c.time}`).getTime()
-            });
+            activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], color: 'from-indigo-500 to-blue-600' });
         });
-
-        // B. New Subscriptions (Recent 24h)
-        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-        allSubsList.forEach(sub => {
-            const ts = new Date(sub.purchased_at || 0).getTime();
-            if (ts > oneDayAgo) {
-                const student = allStudents.find(s => s.id === sub.student_id);
-                const name = student?.full_name || t.studentLabelGeneric;
-                activityList.push({
-                    name,
-                    action: 'subscription',
-                    group: sub.plan || t.subscriptions,
-                    time: new Date(ts).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }),
-                    avatar: name[0],
-                    photo: student?.photo_url || null,
-                    color: 'from-indigo-500 to-blue-600',
-                    timestamp: ts
-                });
-            }
-        });
-
-        // C. Sales (Recent 24h)
-        sales.forEach(sale => {
-            const ts = new Date(sale.date || 0).getTime();
-            if (ts > oneDayAgo) {
-                const student = allStudents.find(s => s.id === sale.studentId);
-                const name = student?.full_name || t.studentLabelGeneric;
-                activityList.push({
-                    name,
-                    action: 'sale',
-                    group: `${sale.name} (x${sale.quantity})`,
-                    time: new Date(ts).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }),
-                    avatar: name[0],
-                    photo: student?.photo_url || null,
-                    color: 'from-violet-500 to-purple-600',
-                    timestamp: ts
-                });
-            }
-        });
-
-        // D. Recent Deletions (Recent 24h)
-        try {
-            const { getTrash } = require('@/lib/trash-store');
-            const trashItems = (getTrash() || []) as any[];
-            const recentTrash = trashItems.filter((it: any) => {
-                const ts = new Date(it.deleted_at || it.deletedAt || 0).getTime();
-                return ts > oneDayAgo;
-            });
-            
-            recentTrash.forEach((item: any) => {
-                const name = item.name || item.label || item.title || 'წაშლილი';
-                const ts = new Date(item.deleted_at || item.deletedAt || Date.now()).getTime();
-                activityList.push({
-                    name,
-                    action: 'deleted',
-                    group: item.entity_type === 'subscription' ? 'აბონემენტი' : item.entity_type === 'student' ? 'სტუდენტი' : (item.entity_type || 'ჩანაწერი'),
-                    time: new Date(ts).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' }),
-                    avatar: name[0] || '✕',
-                    color: 'from-red-500 to-rose-600',
-                    timestamp: ts
-                });
-            });
-        } catch (e) { }
-
-        // Sort by timestamp descending
-        activityList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        setLiveActivity(activityList.slice(0, 10));
+        setLiveActivity(activityList.slice(0, 8));
 
     }, [profile, selectedDate, settings.studioName, t]);
 
@@ -535,7 +468,7 @@ export default function DashboardPage() {
         };
     }, [settings?.studioSlug]);
 
-    // Loading is handled by DashboardHydrationGuard at layout level
+    if (!isLoaded || (loading && !isDemo)) return null;
 
     return (
         <div className="space-y-6 animate-fade-in relative max-w-7xl mx-auto">
@@ -644,120 +577,107 @@ export default function DashboardPage() {
 
             {/* ─── Statistics ─── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch overflow-x-auto pb-2 scrollbar-none no-scrollbar">
-                {/* 1. Student Dynamics (Active vs New/Churn) */}
+                {/* 1. Students: total + active subscription */}
                 <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px] min-w-[160px] flex-shrink-0 lg:flex-shrink">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
-                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.studentDynamicsMonth}</p>
+                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{l('სტუდენტები', 'Студенты', 'Students')}</p>
                     </div>
                     <div className="flex-none h-[90px] w-full flex items-center justify-center">
                         <PieChart
                             size={90}
                             thickness={10}
                             data={[
-                                { label: t.activeLabel, value: liveStats.activeStudents, color: '#6366f1' },
-                                { label: t.newLabel, value: liveStats.newThisMonth, color: '#10b981' },
-                                { label: t.churnLabel, value: liveStats.churnThisMonth, color: '#ef4444' }
+                                { label: l('აქტიური აბონემენტი', 'Активный абонемент', 'Active sub'), value: liveStats.activeSubs, color: '#6366f1' },
+                                { label: l('აბონემენტის გარეშე', 'Без абонемента', 'No sub'), value: Math.max(0, liveStats.totalStudents - liveStats.activeSubs), color: '#e2e8f0' }
                             ]}
                             centerLabel={
                                 <div className="space-y-0.5 text-center">
-                                    <span className="text-xl font-black text-[#1e293b] dark:text-white block leading-none">{liveStats.activeStudents}</span>
-                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.activeLabel}</span>
+                                    <span className="text-2xl font-black text-[#1e293b] dark:text-white block leading-none">{liveStats.totalStudents}</span>
+                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{l('სულ', 'Всего', 'Total')}</span>
                                 </div>
                             }
                         />
                     </div>
-                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2">
-                        <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full animate-in fade-in zoom-in-50 duration-500",
-                            liveStats.activeChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
-                        )}>
-                            {liveStats.activeChange >= 0 ? (
-                                <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
-                            ) : (
-                                <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
-                            )}
-                            <p className={cn("text-[8px] font-black", liveStats.activeChange >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                                {Math.abs(liveStats.activeChange)}%
-                            </p>
-                        </div>
+                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2.5">
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                            <p className="text-[8px] font-bold text-primary opacity-60">{t.activeLabel}</p>
+                            <p className="text-[8px] font-bold text-indigo-500">{l('აქტიური', 'Активн.', 'Active')}: {liveStats.activeSubs}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
+                            <p className="text-[8px] font-bold text-muted opacity-70">{l('გარეშე', 'Без', 'None')}: {Math.max(0, liveStats.totalStudents - liveStats.activeSubs)}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* 2. Financial Overview (Revenue vs Debt) */}
+                {/* 2. Revenue: this month vs last month */}
                 <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
-                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.financialOverview}</p>
+                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{l('შემოსავალი (თვე)', 'Доход (месяц)', 'Revenue (month)')}</p>
                     </div>
                     <div className="flex-none h-[90px] w-full flex items-center justify-center">
                         <PieChart
                             size={90}
                             thickness={10}
                             data={[
-                                { label: t.revenue, value: liveStats.monthlyRevenue, color: '#10b981' },
-                                { label: t.debtLabel, value: liveStats.totalDebt, color: '#ef4444' }
+                                { label: l('ეს თვე', 'Этот месяц', 'This month'), value: Math.max(0, liveStats.monthlyRevenue), color: '#10b981' },
+                                { label: l('წინა თვე', 'Прошлый', 'Last month'), value: Math.max(0, liveStats.prevMonthRevenue), color: '#e2e8f0' }
                             ]}
                             centerLabel={
                                 <div className="space-y-0.5 text-center">
                                     <span className="text-lg font-black text-[#1e293b] dark:text-white block leading-none">{formatCurrency(liveStats.monthlyRevenue, settings.currency).split('.')[0]}</span>
-                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.income}</span>
+                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{l('ეს თვე', 'Этот мес.', 'This mo.')}</span>
                                 </div>
                             }
                         />
                     </div>
-                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
+                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2.5">
                         <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full animate-in fade-in zoom-in-50 duration-500",
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
                             liveStats.revenueChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
                         )}>
-                            {liveStats.revenueChange >= 0 ? (
-                                <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} />
-                            ) : (
-                                <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />
-                            )}
-                            <p className={cn("text-[8px] font-black", liveStats.revenueChange >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                                {Math.abs(liveStats.revenueChange)}%
-                            </p>
+                            {liveStats.revenueChange >= 0 ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />}
+                            <p className={cn("text-[8px] font-black", liveStats.revenueChange >= 0 ? "text-emerald-500" : "text-rose-500")}>{Math.abs(liveStats.revenueChange)}%</p>
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[8px] font-bold text-emerald-500">{t.income}</p>
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
+                            <p className="text-[8px] font-bold text-muted opacity-70">{l('წინა', 'Прош.', 'Prev')}: {formatCurrency(liveStats.prevMonthRevenue, settings.currency).split('.')[0]}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* 3. Subscription Status (Active vs Expiring) */}
+                {/* 3. Subscriptions purchased: this month vs last month */}
                 <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
                     <div className="h-8 mb-3 flex items-start justify-center w-full">
-                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.subscriptionStats}</p>
+                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{l('გამოწერილი აბონემენტი', 'Куплено абонементов', 'Subscriptions sold')}</p>
                     </div>
                     <div className="flex-none h-[90px] w-full flex items-center justify-center">
                         <PieChart
                             size={90}
                             thickness={10}
                             data={[
-                                { label: t.stable, value: Math.max(0, liveStats.activeSubs - liveStats.expiringSoon), color: '#10b981' },
-                                { label: t.expiring, value: liveStats.expiringSoon, color: '#f59e0b' }
+                                { label: l('ეს თვე', 'Этот месяц', 'This month'), value: liveStats.subsThisMonth, color: '#8b5cf6' },
+                                { label: l('წინა თვე', 'Прошлый', 'Last month'), value: liveStats.subsLastMonth, color: '#e2e8f0' }
                             ]}
                             centerLabel={
                                 <div className="space-y-0.5 text-center">
-                                    <span className="text-xl font-black text-primary block leading-none">{liveStats.activeSubs}</span>
-                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.statsTotal}</span>
+                                    <span className="text-2xl font-black text-primary block leading-none">{liveStats.subsThisMonth}</span>
+                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{l('ეს თვე', 'Этот мес.', 'This mo.')}</span>
                                 </div>
                             }
                         />
                     </div>
-                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-3">
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <p className="text-[8px] font-bold text-emerald-500">{t.activeLabel}: {liveStats.activeSubs}</p>
+                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2.5">
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
+                            liveStats.subsChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
+                        )}>
+                            {liveStats.subsChange >= 0 ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />}
+                            <p className={cn("text-[8px] font-black", liveStats.subsChange >= 0 ? "text-emerald-500" : "text-rose-500")}>{Math.abs(liveStats.subsChange)}%</p>
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <p className="text-[8px] font-bold text-amber-500">{t.expiring}: {liveStats.expiringSoon}</p>
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
+                            <p className="text-[8px] font-bold text-muted opacity-70">{l('წინა', 'Прош.', 'Prev')}: {liveStats.subsLastMonth}</p>
                         </div>
                     </div>
                 </div>
@@ -783,7 +703,7 @@ export default function DashboardPage() {
                         />
                     </div>
                     <div className="mt-auto pt-2 text-center w-full">
-                        <p className="text-[8px] font-bold text-muted/60 tracking-widest">{t.thisMonthAverage}</p>
+                        <p className="text-[8px] font-bold text-muted/60 tracking-widest">{l('სრული სიიდან', 'Из всего списка', 'Of all students')}</p>
                     </div>
                 </div>
             </div>
@@ -954,12 +874,8 @@ export default function DashboardPage() {
                                 const badge = actionBadge(item.action, t);
                                 return (
                                     <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-surface transition-colors">
-                                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden`}>
-                                            {item.photo ? (
-                                                <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span className="text-[10px] font-bold text-white">{item.avatar}</span>
-                                            )}
+                                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                            <span className="text-[10px] font-bold text-white">{item.avatar}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-primary/85 truncate">{item.name}</p>
@@ -991,17 +907,17 @@ export default function DashboardPage() {
                         <p className="text-[11px] text-muted mt-0.5">
                             {t.ofStudents
                                 .replace('{count}', String(liveStats.attendance))
-                                .replace('{total}', String(liveStats.activeStudents || liveStats.totalStudents))
+                                .replace('{total}', String(liveStats.todayExpected || 0))
                             }
                         </p>
                     </div>
                     <span className="text-2xl font-black text-primary">
-                        {((liveStats.activeStudents || liveStats.totalStudents) > 0 ? Math.round((liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents)) * 100) + '%' : '0%')}
+                        {((liveStats.todayExpected || 0) > 0 ? Math.round((liveStats.attendance / (liveStats.todayExpected || 0)) * 100) + '%' : '0%')}
                     </span>
                 </div>
                 <div className="w-full bg-surface rounded-full h-3 overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full relative overflow-hidden transition-all duration-1000"
-                        style={{ width: ((liveStats.activeStudents || liveStats.totalStudents) > 0 ? (liveStats.attendance / (liveStats.activeStudents || liveStats.totalStudents) * 100) + '%' : '0%') }}>
+                        style={{ width: ((liveStats.todayExpected || 0) > 0 ? (liveStats.attendance / (liveStats.todayExpected || 0) * 100) + '%' : '0%') }}>
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
                     </div>
                 </div>
@@ -1013,7 +929,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-surface-hover border border-border-subtle" />
-                            <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{Math.max(0, liveStats.activeStudents - liveStats.attendance)}</span></span>
+                            <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{Math.max(0, liveStats.todayExpected - liveStats.attendance)}</span></span>
                         </div>
                     </div>
                     <div className="text-[10px] font-bold text-muted tracking-tight">

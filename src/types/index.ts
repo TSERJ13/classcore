@@ -276,7 +276,7 @@ export interface Student {
     // branch
     branch_id?: string;
     gender?: 'male' | 'female';
-    contact_person?: 'self' | 'parent';
+    contact_person?: string;
     discount_type?: 'fixed' | 'percent';
     discount_value?: number;
     created_at: string;

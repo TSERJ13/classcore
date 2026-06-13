@@ -258,7 +258,7 @@ function _writeCheckin(
                 const student = getStudents().find(s => s.id === studentId);
                 const phone = student?.phone;
                 if (phone) {
-                    const lang = settings.primary_lang || settings.language || 'ka';
+                    const lang = student?.preferred_language || settings.primary_lang || settings.language || 'ka';
                     const text = (settings.sms_templates as any)?.[lang]?.low_visits || (lang === 'ka' ? `გამარჯობა ${studentName}, თქვენ დაგიმთავრდათ ვიზიტები სტუდიაში: ${settings.studioName}. გთხოვთ განაახლოთ აბონემენტი.` : `Hello ${studentName}, you have run out of visits at ${settings.studioName}. Please renew your subscription.`);
                     
                     fetch('/api/sms/send', {

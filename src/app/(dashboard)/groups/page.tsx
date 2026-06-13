@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays, Search, Pencil, RefreshCw } from 'lucide-react';
+import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays, Search, Pencil } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { getGroups, saveGroups, deleteGroup, type Group, slotsToDisplay } from '@/lib/group-store';
-import { getStudents } from '@/lib/student-store';
+import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
@@ -27,28 +27,13 @@ export default function GroupsPage() {
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [groups, setGroups] = useState<Group[]>([]);
-    const [allStudents, setAllStudents] = useState<any[]>([]);
 
     const { settings, updateStaff } = useStudio();
     useEffect(() => {
-        function load() {
-            const students = getStudents();
-            setAllStudents(students);
-            const rawGroups = getGroups();
-            // Compute real enrolled count from student data
-            const enriched = rawGroups.map(g => ({
-                ...g,
-                enrolled: students.filter(s => (s.enrolled_group_ids || []).includes(g.id)).length
-            }));
-            setGroups(enriched);
-        }
+        function load() { setGroups(getGroups()); }
         load();
         window.addEventListener('cc_groups_update', load);
-        window.addEventListener('cc_student_update', load);
-        return () => {
-            window.removeEventListener('cc_groups_update', load);
-            window.removeEventListener('cc_student_update', load);
-        };
+        return () => window.removeEventListener('cc_groups_update', load);
     }, [settings.activeBranchId]);
 
     const [editing, setEditing] = useState<Group | null>(null);
@@ -126,22 +111,6 @@ export default function GroupsPage() {
 
         setGroups(updated);
         saveGroups(updated);
-        
-        // 🌟 Auto-sync this group to calendar immediately
-        const savedGroup = updated.find(g => g.id === gid);
-        if (savedGroup && savedGroup.schedule_slots && savedGroup.schedule_slots.length > 0) {
-            import('@/lib/event-store').then(mod => {
-                mod.syncGroupScheduleToCalendar(
-                    savedGroup.id,
-                    savedGroup.name,
-                    savedGroup.teacherId || '',
-                    savedGroup.hall_id || 'h1',
-                    savedGroup.schedule_slots || [],
-                    savedGroup.color,
-                    savedGroup.secondaryTeacherId || ''
-                );
-            });
-        }
     }
 
     function handleDelete(id: string) {
@@ -195,8 +164,7 @@ export default function GroupsPage() {
                     );
                 })()}
 
-
-
+                {/* Add Group Action */}
                 {/* Add Group Action */}
                 <button onClick={() => { setEditing(null); setModalOpen(true); }}
                     className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
@@ -210,8 +178,9 @@ export default function GroupsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
                 {groups.filter(g => {
-                    if (profile?.role === 'teacher' || profile?.role === 'coach') {
-                        return profile.assigned_group_ids?.includes(g.id);
+                    if (isTeacherRole(profile?.role)) {
+                        const visible = getVisibleGroupIds(profile as any, (settings.staff || []) as any, groups as any);
+                        return !visible || visible.includes(g.id);
                     }
                     return true;
                 }).map(group => {

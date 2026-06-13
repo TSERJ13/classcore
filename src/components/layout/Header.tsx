@@ -470,7 +470,7 @@ export function Header() {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={toggle}
-                            className="md:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
+                            className="lg:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
                             aria-label="Menu"
                         >
                             <Menu className="w-6 h-6" />
@@ -781,7 +781,7 @@ export function Header() {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-black text-primary truncate">{s.full_name || `${s.first_name} ${s.last_name}`}</p>
-                                                            <p className="text-[10px] font-bold text-muted tracking-widest opacity-60">ID: {(s.id || '').toUpperCase()}</p>
+                                                            <p className="text-[10px] font-bold text-muted tracking-widest opacity-60">ID: {s.id}</p>
                                                         </div>
                                                         {unreadCounts[s.id] && (
                                                             <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] font-black text-white shadow-lg shadow-red-500/20">+{unreadCounts[s.id]}</span>
@@ -801,10 +801,7 @@ export function Header() {
                                                         onClick={() => setSelectedChatId(g.id)}
                                                         className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
                                                     >
-                                                        <div className={cn(
-                                                            "w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black border shadow-sm",
-                                                            g.color ? "" : "bg-violet-500/10 text-violet-500 border-violet-500/20"
-                                                        )} style={g.color ? { backgroundColor: g.color + '20', color: g.color, borderColor: g.color + '40' } : {}}>
+                                                        <div className="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-500 font-black border border-violet-500/20">
                                                             {g.name[0]}
                                                         </div>
                                                         <div className="flex-1 min-w-0">

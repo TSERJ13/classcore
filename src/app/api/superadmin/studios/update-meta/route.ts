@@ -2,9 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
+    let slug = '';
+    let patch: any = null;
+    let billingPatch: any = null;
+    
     try {
-        const { slug: rawSlug, patch, billingPatch } = await req.json();
-        const slug = rawSlug?.toLowerCase().trim();
+        const body = await req.json();
+        slug = body.slug?.toLowerCase().trim() || '';
+        patch = body.patch;
+        billingPatch = body.billingPatch;
         
         if (!slug) return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
 
@@ -20,22 +26,19 @@ export async function POST(req: Request) {
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // 1. Fetch current blob
-        const { data, error } = await supabase
+        // ===== 1. UPDATE studio_settings (operational blob) =====
+        const { data: settingsRow, error: fetchError } = await supabase
             .from('studio_settings')
             .select('staff_data')
             .eq('studio_slug', slug)
-            .maybeSingle(); // Use maybeSingle to handle missing records gracefully
+            .maybeSingle();
 
-        if (error) throw error;
+        if (fetchError) throw fetchError;
         
         let currentData: any = {};
-        let isNewSettings = false;
 
-        if (!data) {
-            console.log(`⚠️ [UpdateMeta] Studio settings for "${slug}" missing. Creating new entry.`);
-            
-            // Try to fetch OrgID from master table
+        if (!settingsRow) {
+            console.log(`⚠️ [UpdateMeta] Creating new studio_settings for "${slug}"`);
             const { data: masterRow } = await supabase
                 .from('studios')
                 .select('org_id, studio_name')
@@ -50,33 +53,27 @@ export async function POST(req: Request) {
                         studioSlug: slug,
                         orgId: masterRow?.org_id
                     },
-                    cc_sa_meta: {}
+                    cc_sa_meta: {},
+                    cc_saas_billing: {}
                 },
-                org_id: masterRow?.org_id // For root level parity
+                org_id: masterRow?.org_id
             };
-            isNewSettings = true;
         } else {
-            currentData = data.staff_data || {};
+            currentData = settingsRow.staff_data || {};
         }
         
-        // Ensure structure is v3
-        if (!currentData._operations) {
-            currentData._operations = {};
-        }
+        // Ensure structure
+        if (!currentData._operations) currentData._operations = {};
+        if (!currentData._operations.cc_sa_meta) currentData._operations.cc_sa_meta = {};
+        if (!currentData._operations.cc_studio_settings) currentData._operations.cc_studio_settings = {};
+        if (!currentData._operations.cc_saas_billing) currentData._operations.cc_saas_billing = {};
 
-        // Apply meta patch
+        // Apply meta patch to operational blob
         if (patch) {
-            if (!currentData._operations.cc_sa_meta) {
-                currentData._operations.cc_sa_meta = {};
-            }
             currentData._operations.cc_sa_meta = { ...currentData._operations.cc_sa_meta, ...patch };
-
-            if (!currentData._operations.cc_studio_settings) {
-                currentData._operations.cc_studio_settings = {};
-            }
             currentData._operations.cc_studio_settings = { ...currentData._operations.cc_studio_settings, ...patch };
 
-            // If owner_info is provided in patch, we should also try to update the owner in the staff list
+            // Update owner in staff list if owner_info provided
             if (patch.owner_info && Array.isArray(currentData._staff)) {
                 const ownerIndex = currentData._staff.findIndex((s: any) => s.role === 'owner');
                 if (ownerIndex !== -1) {
@@ -90,41 +87,18 @@ export async function POST(req: Request) {
                     };
                 }
             }
-
-            // Legacy array format backwards compatibility
-            if (Array.isArray(currentData)) {
-                const configObj = currentData.find((s: any) => s.id === '__studio_config__');
-                if (configObj && configObj.studio_data) {
-                    const legacyKey = `cc_studio_settings_${slug}`;
-                    if (configObj.studio_data[legacyKey]) {
-                        configObj.studio_data[legacyKey] = { ...configObj.studio_data[legacyKey], ...patch };
-                    } else {
-                        configObj.studio_data.plan = patch.plan || configObj.studio_data.plan;
-                        configObj.studio_data.suspended = patch.suspended !== undefined ? patch.suspended : configObj.studio_data.suspended;
-                    }
-                }
-            }
         }
 
         // Apply billing patch
         if (billingPatch) {
-            if (!currentData._operations.cc_saas_billing) {
-                currentData._operations.cc_saas_billing = {};
-            }
-            currentData._operations.cc_saas_billing = { ...currentData._operations.cc_saas_billing, ...billingPatch };
-            
-            // Legacy billing merge
-            if (Array.isArray(currentData)) {
-                const configObj = currentData.find((s: any) => s.id === '__studio_config__');
-                if (configObj && configObj.studio_data) {
-                    const billingKey = `cc_saas_billing_${slug}`;
-                    configObj.studio_data[billingKey] = { ...(configObj.studio_data[billingKey] || {}), ...billingPatch };
-                }
-            }
+            currentData._operations.cc_saas_billing = { 
+                ...currentData._operations.cc_saas_billing, 
+                ...billingPatch 
+            };
         }
 
-        // 3. Save back to operational blob (Using upsert to handle missing records)
-        const { error: updateError } = await supabase
+        // Save updated operational blob
+        const { error: updateSettingsError } = await supabase
             .from('studio_settings')
             .upsert({ 
                 studio_slug: slug,
@@ -132,40 +106,75 @@ export async function POST(req: Request) {
                 updated_at: new Date().toISOString()
             }, { onConflict: 'studio_slug' });
 
-        if (updateError) throw updateError;
+        if (updateSettingsError) throw updateSettingsError;
 
-        // 🚀 4. Propagate to Master Record (studios table) for performant listing & fallbacks
+        // ===== 2. UPDATE studios.settings JSONB (for fast listing) =====
         if (patch) {
-            console.log(`📡 [UpdateMeta] Propagating master metadata for: ${slug}`, {
-                name: patch.studioName,
-                owner: patch.owner_info?.email
-            });
+            // Fetch current settings JSONB from studios table
+            const { data: studioRow } = await supabase
+                .from('studios')
+                .select('settings')
+                .eq('studio_slug', slug)
+                .maybeSingle();
+
+            const currentStudioSettings = studioRow?.settings || {};
             
+            // Build the merged settings update
+            const settingsUpdate: any = { ...currentStudioSettings };
+            if (patch.plan !== undefined) settingsUpdate.plan = patch.plan;
+            if (patch.suspended !== undefined) settingsUpdate.suspended = patch.suspended;
+            if (patch.is_deleted !== undefined) settingsUpdate.is_deleted = patch.is_deleted;
+
+            // Build top-level updates
+            const topLevelUpdate: any = {
+                settings: settingsUpdate
+            };
+            if (patch.studioName) topLevelUpdate.studio_name = patch.studioName;
+            if (patch.logoDataUrl) topLevelUpdate.logo_url = patch.logoDataUrl;
+            if (patch.owner_info) topLevelUpdate.owner_info = patch.owner_info;
+            if (patch.is_deleted !== undefined) topLevelUpdate.is_deleted = patch.is_deleted;
+
             const { error: masterError } = await supabase
                 .from('studios')
-                .update({
-                    studio_name: patch.studioName || undefined,
-                    logo_url: patch.logoDataUrl || undefined,
-                    owner_info: patch.owner_info || undefined,
-                    plan: patch.plan || undefined,
-                    suspended: patch.suspended !== undefined ? patch.suspended : undefined,
-                    is_deleted: patch.is_deleted !== undefined ? patch.is_deleted : undefined
-                })
+                .update(topLevelUpdate)
                 .eq('studio_slug', slug);
 
             if (masterError) {
                 console.error(`❌ [UpdateMeta] Master update failed for ${slug}:`, masterError);
+                // Don't throw — settings_data was already saved
+            } else {
+                console.log(`✅ [UpdateMeta] Master updated for ${slug}:`, { plan: patch.plan, suspended: patch.suspended });
             }
+        }
+
+        // ===== 3. If billingPatch, also update studios.settings with billing info =====
+        if (billingPatch) {
+            const { data: studioRow2 } = await supabase
+                .from('studios')
+                .select('settings')
+                .eq('studio_slug', slug)
+                .maybeSingle();
+
+            const currentStudioSettings2 = studioRow2?.settings || {};
+            const updatedSettings2 = {
+                ...currentStudioSettings2,
+                billing: {
+                    ...(currentStudioSettings2.billing || {}),
+                    ...billingPatch
+                }
+            };
+
+            await supabase
+                .from('studios')
+                .update({ settings: updatedSettings2 })
+                .eq('studio_slug', slug);
         }
 
         return NextResponse.json({ success: true });
     } catch (err: any) {
-        console.error('❌ [UpdateMeta] CRITICAL ERROR:', {
+        console.error('❌ [UpdateMeta] ERROR:', {
             slug,
             message: err.message,
-            stack: err.stack,
-            patch: JSON.stringify(patch),
-            billingPatch: JSON.stringify(billingPatch)
         });
         return NextResponse.json({ error: err.message || 'Unknown server error' }, { status: 500 });
     }

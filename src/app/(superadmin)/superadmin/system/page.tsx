@@ -136,7 +136,7 @@ export default function SystemPage() {
                     <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-2xl p-5 shadow-sm">
                         <div className="flex items-center gap-3 mb-4"><Database className="w-5 h-5 text-indigo-600" /><h2 className="text-sm font-black text-primary uppercase">{t.sa_system_stats_title}</h2></div>
                         <div className="grid grid-cols-3 gap-4">
-                            <div className="text-center"><p className="text-2xl font-black text-[#1e293b] tabular-nums">{stats.totalKeys}</p><p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mt-1">{t.sa_system_stats_totalKeys}</p></div>
+                            <div className="text-center"><p className="text-2xl font-black text-[#1e293b] dark:text-white tabular-nums">{stats.totalKeys}</p><p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mt-1">{t.sa_system_stats_totalKeys}</p></div>
                             <div className="text-center"><p className="text-2xl font-black text-indigo-600 tabular-nums">{stats.ccKeys}</p><p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mt-1">{t.sa_system_stats_ccKeys}</p></div>
                             <div className="text-center"><p className="text-2xl font-black text-amber-600 tabular-nums">{(stats.totalBytes / 1024).toFixed(1)}KB</p><p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mt-1">{t.sa_system_stats_used}</p></div>
                         </div>

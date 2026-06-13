@@ -18,6 +18,7 @@ import type { Student } from '@/types';
 
 import { getSubscriptions, getSubscription } from '@/lib/subscription-store';
 import { getGroups } from '@/lib/group-store';
+import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 import type { Group } from '@/lib/group-store';
 
 function StatusBadge({ status, t }: { status: string; t: ReturnType<typeof useT>['t'] }) {
@@ -86,6 +87,11 @@ export default function StudentsPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Teachers only see students enrolled in the groups they teach.
+    const teacherVisibleGroupIds = isTeacherRole(profile?.role)
+        ? getVisibleGroupIds(profile as any, (settings.staff || []) as any, getGroups() as any)
+        : null;
+
     const filtered = students.filter(s => {
         const fullName = s.full_name || '';
         const matchesSearch = fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -96,20 +102,19 @@ export default function StudentsPage() {
         const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && isActive) || (statusFilter === 'inactive' && !isActive);
         const matchesGender = genderFilter === 'all' || s.gender === genderFilter;
 
-        const st = s as Student & { enrolled_group_ids?: string[]; classes?: string[]; group_id?: string };
+        const st = s as Student & { enrolled_group_ids?: string[]; classes?: string[] };
         const enrolledGroupIds = st.enrolled_group_ids || [];
         // Also check legacy `classes` field: cls1 → g1, cls2 → g2, etc.
         const classesAsGroupIds = (st.classes || []).map((c: string) => {
             const m = c.match(/^cls(\d+)$/);
             return m ? `g${m[1]}` : c;
         });
-        // Also check `group_id` (single group field)
-        const singleGroupId = st.group_id ? [st.group_id] : [];
-        const allGroupIds = [...enrolledGroupIds, ...classesAsGroupIds, ...singleGroupId];
-        // If groupFilter is null, undefined, or empty string -> show ALL students
-        const matchesGroup = !groupFilter || groupFilter === '' || allGroupIds.includes(groupFilter);
+        const allGroupIds = [...enrolledGroupIds, ...classesAsGroupIds];
+        const matchesGroup = !groupFilter || allGroupIds.includes(groupFilter);
+        // Teacher scope: must share at least one visible group
+        const matchesTeacherScope = !teacherVisibleGroupIds || allGroupIds.some(id => teacherVisibleGroupIds.includes(id));
 
-        return matchesSearch && matchesStatus && matchesGroup && matchesGender;
+        return matchesSearch && matchesStatus && matchesGroup && matchesGender && matchesTeacherScope;
     }).sort((a, b) => {
         if (sortBy === 'none') {
             const nameA = a.full_name || '';

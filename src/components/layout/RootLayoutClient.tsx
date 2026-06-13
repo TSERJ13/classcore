@@ -10,7 +10,18 @@ import { CacheBuster } from '@/components/CacheBuster';
 
 export function RootLayoutClient({ children, activeLang, activeSlug, studioName }: any) {
     const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
+    useEffect(() => { 
+        setMounted(true); 
+        // 🚀 FORCE-UPDATE SERVICE WORKERS (Bust aggressive PWA cache)
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then((registrations) => {
+                for (const registration of registrations) {
+                    registration.unregister();
+                    console.log('🧹 [RootLayoutClient] Service Worker unregistered to bust cache');
+                }
+            }).catch(e => console.error('SW unregister failed:', e));
+        }
+    }, []);
 
     return (
         <html lang={activeLang || 'ka'} suppressHydrationWarning>

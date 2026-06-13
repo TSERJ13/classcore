@@ -281,7 +281,7 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     window.dispatchEvent(new Event('cc_student_update'));
 }
 
-export function deleteStudent(studentId: string): void {
+export async function deleteStudent(studentId: string): Promise<void> {
     const patches = getStudentPatches();
     delete patches[studentId];
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
@@ -295,7 +295,7 @@ export function deleteStudent(studentId: string): void {
         const session = typeof window !== 'undefined' ? getStaffSession() : null;
 
         if (finalOrgId) {
-            deleteRecordFromCloud('students', studentId, finalOrgId);
+            await deleteRecordFromCloud('students', studentId, finalOrgId);
         }
         
         const student = getStudents().find(s => s.id === studentId);

@@ -20,9 +20,23 @@ export default function KillSwitchGate({ children }: Props) {
         const imp = localStorage.getItem('cc_sa_impersonate');
         if (imp) { setImpersonating(true); return; }
 
-        if (settings.studioSlug) {
-            setBilling(getBillingState(settings.studioSlug));
-        }
+        const checkBilling = () => {
+            if (settings.studioSlug) {
+                setBilling(getBillingState(settings.studioSlug));
+            }
+        };
+
+        checkBilling();
+
+        window.addEventListener('cc_billing_update', checkBilling);
+        window.addEventListener('cc_data_hydrated', checkBilling);
+        window.addEventListener('cc_subscription_update', checkBilling);
+
+        return () => {
+            window.removeEventListener('cc_billing_update', checkBilling);
+            window.removeEventListener('cc_data_hydrated', checkBilling);
+            window.removeEventListener('cc_subscription_update', checkBilling);
+        };
     }, [settings.studioSlug]);
 
     // SuperAdmin bypass

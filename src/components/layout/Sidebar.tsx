@@ -96,14 +96,14 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                         className={cn(
                             "flex items-center gap-1.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all group/branch-btn w-fit max-w-full",
                             isMobile ? "py-0.5 px-2" : "py-1.5",
-                            isHovered && "border-violet-700/40 bg-violet-700/10"
+                            isHovered && "border-#6d28d9/40 bg-#6d28d9/10"
                         )}
                     >
-                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3.5 h-3.5", isHovered ? "text-violet-400" : "text-white/40")} />
-                        <span className={cn("font-black tracking-tight truncate max-w-[120px]", isHovered ? "text-violet-400" : "text-white/60", isMobile ? "text-[9px]" : "text-[11px]")}>
+                        <Building2 className={cn("transition-colors", isMobile ? "w-2.5 h-2.5" : "w-3.5 h-3.5", isHovered ? "text-#a78bfa" : "text-white/40")} />
+                        <span className={cn("font-black tracking-tight truncate max-w-[120px]", isHovered ? "text-#a78bfa" : "text-white/60", isMobile ? "text-[9px]" : "text-[11px]")}>
                             {activeBranch?.id === 'main' ? t.mainBranch : activeBranch?.name}
                         </span>
-                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-3 h-3", isHovered && "rotate-90 text-violet-400")} />
+                        <ChevronRight className={cn("transition-all text-white/20", isMobile ? "w-1.5 h-1.5" : "w-3 h-3", isHovered && "rotate-90 text-#a78bfa")} />
                     </button>
                 </div>
             </div>
@@ -125,12 +125,12 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                                 className={cn(
                                     "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all",
                                     branch.id === activeBranchId
-                                        ? "bg-violet-700/20 text-white"
+                                        ? "bg-#6d28d9/10 text-#a78bfa"
                                         : "hover:bg-white/5 text-white/50 hover:text-white"
                                 )}
                             >
                                 <span className="text-[11px] font-black truncate">{branch.name}</span>
-                                {branch.id === activeBranchId && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                {branch.id === activeBranchId && <Check className="w-3 h-3" strokeWidth={3} />}
                             </button>
                         ))}
 
@@ -140,7 +140,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                                     setBranchModalOpen(true);
                                     setIsHovered(false);
                                 }}
-                                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-violet-700/10 text-violet-400 hover:bg-violet-700/20 transition-all border border-violet-700/20 mt-1"
+                                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-#6d28d9/10 text-#a78bfa hover:bg-#6d28d9/20 transition-all border border-#6d28d9/20 mt-1"
                             >
                                 <Plus className="w-3 h-3" />
                                 <span className="text-[10px] font-black uppercase tracking-widest">{t.newBranch || 'New Branch'}</span>
@@ -352,7 +352,7 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
 
     return (
         <>
-            <div className={cn('hidden md:block transition-[width] duration-300 ease-in-out flex-shrink-0', expanded ? 'w-[280px]' : 'w-[72px]')}>
+            <div className={cn('hidden lg:block transition-[width] duration-300 ease-in-out flex-shrink-0', expanded ? 'w-[280px]' : 'w-[72px]')}>
                 <div className={cn('fixed left-0 top-0 bottom-0 z-40 h-full overflow-visible transition-[width] duration-300 ease-in-out', expanded ? 'w-[280px]' : 'w-[72px]')}>
                     <SidebarContent
                         exp={expanded} isMobile={false} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
@@ -373,9 +373,9 @@ export function Sidebar({ defaultExpanded = null, defaultRole = null }: { defaul
                 </div>
             </div>
 
-            <div className={cn('fixed inset-0 bg-black/20 z-[90] md:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
+            <div className={cn('fixed inset-0 bg-black/20 z-[90] lg:hidden transition-opacity duration-300', isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')} onClick={close} />
 
-            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] md:hidden transition-transform duration-300 ease-in-out w-[230px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+            <div className={cn('fixed left-0 top-0 bottom-0 z-[100] lg:hidden transition-transform duration-300 ease-in-out w-[230px]', isOpen ? 'translate-x-0' : '-translate-x-full')}>
                 <SidebarContent
                     exp={true} isMobile={true} mounted={mounted} defaultExpanded={defaultExpanded} settings={settings}
                     activeBranchId={activeBranchId} setActiveBranch={setActiveBranch} t={t} lang={lang}

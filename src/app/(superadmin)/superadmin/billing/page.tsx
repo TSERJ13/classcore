@@ -6,6 +6,7 @@ import { TrendingUp, CreditCard, Users, ShoppingBag } from 'lucide-react';
 import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
+import { PLATFORM_PLAN_PRICES, platformPrice } from '@/lib/saas-billing';
 
 interface BillingRecord { slug: string; name: string; logoUrl: string | null; plan: string; studentCount: number; activeSubsCount: number; subsRevenue: number; shopRevenue: number; totalRevenue: number; currency: string; }
 
@@ -14,7 +15,7 @@ const PLAN_COLORS: Record<string, string> = {
     basic: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-blue-500/20', 
     enterprise: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20' 
 };
-const PLATFORM_PRICES: Record<string, number> = { trial: 0, basic: 49, enterprise: 0 };
+const PLATFORM_PRICES: Record<string, number> = PLATFORM_PLAN_PRICES;
 
 export default function BillingPage() {
     const { lang: saLang, t } = useT();
@@ -37,9 +38,9 @@ export default function BillingPage() {
                         plan: s.plan || 'trial',
                         studentCount: s.studentCount || 0,
                         activeSubsCount: s.activeSubsCount || 0,
-                        subsRevenue: s.revenue || 0,
-                        shopRevenue: 0, 
-                        totalRevenue: s.revenue || 0,
+                        subsRevenue: s.subsRevenue ?? s.revenue ?? 0,
+                        shopRevenue: s.shopRevenue ?? 0,
+                        totalRevenue: s.revenue ?? 0,
                         currency: s.currency || 'GEL'
                     }));
                     setRecords(mapped); 
@@ -100,7 +101,7 @@ export default function BillingPage() {
                                 </span>
                                 <p className="text-2xl font-black text-[#1e293b] dark:text-white mt-3 tabular-nums">{planCounts[plan] || 0}</p>
                                 <p className="text-[10px] text-muted mt-0.5 uppercase tracking-widest font-black opacity-40">{t.sa_studios_studiosLabel}</p>
-                                <p className="text-xs font-black text-muted mt-1 opacity-60">{`${(planCounts[plan] || 0) * (plan === 'pro' ? 49 : 0)} ₾/${t.sa_billing_monthShort}`}</p>
+                                <p className="text-xs font-black text-muted mt-1 opacity-60">{`${(planCounts[plan] || 0) * platformPrice(plan)} ₾/${t.sa_billing_monthShort}`}</p>
                             </div>
                         ))}
                     </div>

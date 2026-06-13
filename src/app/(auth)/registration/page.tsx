@@ -100,6 +100,24 @@ export default function RegistrationPage() {
 
             if (authError) throw authError;
 
+            // Persist the studio + owner info to the master tables immediately
+            // (service-role, server-side) so the SuperAdmin panel shows complete
+            // owner details right away — not only after the first login.
+            try {
+                await fetch('/api/auth/register-studio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        slug: studioSlug,
+                        studioName,
+                        lang,
+                        owner: { first_name: firstName, last_name: lastName, email, phone: fullPhone },
+                    }),
+                });
+            } catch (e) {
+                console.error('register-studio persist failed (will recover on first login):', e);
+            }
+
             // SCORCHED EARTH CLEANUP: Wiping all local data to ensure a clean slate for the new studio
             if (typeof window !== 'undefined') {
                 Object.keys(localStorage).forEach(key => {

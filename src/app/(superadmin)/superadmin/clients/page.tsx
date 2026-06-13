@@ -80,7 +80,7 @@ export default function GlobalClientsPage() {
         <div className="space-y-8 animate-fade-up pb-20">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-black text-[#1e293b] tracking-tight uppercase">
+                    <h1 className="text-3xl font-black text-[#1e293b] dark:text-white tracking-tight uppercase">
                         {t.sa_clients_title}
                     </h1>
                     <p className="text-[10px] text-zinc-500 mt-1 font-black uppercase tracking-widest opacity-60">

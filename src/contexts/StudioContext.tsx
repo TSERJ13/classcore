@@ -68,7 +68,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         if (userLoading && !activeSlug) return;
 
         // 🛡️ RECOVERY: If no slug found, try to recover from profile or identity
-        if (!activeSlug || ["api", "auth", "login", "superadmin", "subscriptions", "settings", "dashboard", "_next", "favicon.ico"].includes(activeSlug)) {
+        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings", "dashboard"].includes(activeSlug)) {
              if (profile && profile.studio_slug) {
                  activeSlug = profile.studio_slug;
              } else if (user && !userLoading) {
@@ -88,32 +88,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 setIsSyncing(true);
                 isHydratingRef.current = true;
             }
-
-            // 🚀 PHASE 1: INSTANT LOCAL HYDRATION
-            // Load from localStorage cache first so UI appears immediately
-            if (!isAuto && typeof window !== 'undefined' && activeSlug) {
-                try {
-                    const localStudents = localStorage.getItem(getScopedKey('cc_student_data', activeSlug));
-                    const localSubs = localStorage.getItem(getScopedKey('cc_student_subscriptions', activeSlug));
-                    const localGroups = localStorage.getItem(getScopedKey('cc_groups', activeSlug));
-                    const localEvents = localStorage.getItem(getScopedKey('cc_calendar_events', activeSlug));
-                    
-                    // If we have ANY cached data, unlock UI immediately
-                    if (localStudents || localSubs || localGroups || localEvents) {
-                        console.log('⚡ [StudioContext] Phase 1: Instant load from localStorage cache');
-                        setIsLoaded(true);
-                        setFirstSyncDone(true);
-                        // Dispatch events so pages can render with cached data
-                        window.dispatchEvent(new Event('cc_data_hydrated'));
-                        window.dispatchEvent(new Event('cc_subscription_update'));
-                        window.dispatchEvent(new Event('cc_student_update'));
-                    }
-                } catch (e) {
-                    // Silent fail - we'll load from cloud
-                }
-            }
-
-            // 🚀 PHASE 2: CLOUD SYNC (background)
             const { createClient } = await import("@/lib/supabase/client");
             const sb = createClient();
             const { data: { session } } = await sb.auth.getSession();
@@ -201,12 +175,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     const dbArr = Array.isArray(db) ? db : [];
                     const backupArr = Array.isArray(backup) ? backup : Object.values(backup || {});
                     if (dbArr.length === 0) return backupArr;
-                    // 🌟 DB WINS: backup is fallback for missing fields, but DB values override
-                    const merged = dbArr.map(item => {
-                        const backupItem = backupArr.find((b: any) => b.id === item.id) || {};
-                        // backup first, then item (DB) so DB wins for any conflicting field
-                        return { ...backupItem, ...item };
-                    });
+                    const merged = dbArr.map(item => ({ ...item, ...(backupArr.find((b: any) => b.id === item.id) || {}) }));
                     backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
                     return merged;
                 };
@@ -215,8 +184,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
                 const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
                 const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
-                const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events || settings.calendar_events);
-                console.log(`📅 [StudioContext] Calendar Events Resolved: ${finalEvents.length} (Cloud: ${state.calendar_events?.length || 0})`);
+                const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events);
                 
                 setLoadingStep('ინტერფეისის მომზადება...');
 
@@ -238,152 +206,127 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     return next;
                 });
 
-                // 🚀 SCORCHED EARTH v1.1.18: Recursive Data Extraction
-                // Supabase returns rows like {id, data: {...}}, we need the 'data' part.
-                const extract = (arr: any[]) => arr.map(item => item.data || item);
-                
-                const studentsArray = extract(unwrap(state.students));
-                const studentsMap: Record<string, any> = {};
-                studentsArray.forEach((s: any) => { if (s && s.id) studentsMap[s.id] = s; });
-
-                const groupsArray = extract(unwrap(state.groups));
-                const hallsArray = extract(unwrap(state.halls));
-                const teachersArray = extract(unwrap(state.staff)); // Fixed: API returns 'staff'
-                const subsRaw = unwrap(state.subscriptions);
-                const eventsArray = extract(unwrap(state.calendar_events)); // Fixed: API returns 'calendar_events'
-                const plansArray = extract(unwrap(state.subscription_plans)); // Fixed: API returns 'subscription_plans'
-                const productsArray = extract(unwrap(state.products));
-                const salesRaw = unwrap(state.sales);
-                const attendanceRaw = unwrap(state.attendance);
-
-                // 🚀 Multi-Cache Hydration (Immediate UI Availability)
-                if (activeSlug) {
-                    const [studMod, grpMod, hallMod, subMod, teaMod, evtMod, planMod] = await Promise.all([
-                        import('@/lib/student-store'),
-                        import('@/lib/group-store'),
-                        import('@/lib/hall-store'),
-                        import('@/lib/subscription-store'),
-                        import('@/lib/teacher-store'),
-                        import('@/lib/event-store'),
-                        import('@/lib/plan-store')
-                    ]);
-
-                    if (studentsArray.length > 0) studMod.setMemoryStudentsCache(studentsMap, activeSlug);
-                    if (groupsArray.length > 0) grpMod.setGroupsMemoryCache(groupsArray, activeSlug);
-                    if (hallsArray.length > 0) hallMod.setHallsMemoryCache(hallsArray, activeSlug);
-                    if (teachersArray.length > 0) teaMod.setTeachersMemoryCache(teachersArray, activeSlug);
-                    if (eventsArray.length > 0) evtMod.setEventsMemoryCache(eventsArray, activeSlug);
-                    if (plansArray.length > 0) planMod.setPlansMemoryCache(plansArray, activeSlug);
-
-                    if (subsRaw.length > 0) {
-                        const subMap: Record<string, any[]> = {};
-                        subsRaw.forEach(row => {
-                            const sid = row.student_id;
-                            if (sid) { 
-                                if (!subMap[sid]) subMap[sid] = []; 
-                                subMap[sid].push(row.data || row); 
-                            }
-                        });
-                        subMod.setSubscriptionsMemoryCache(subMap, activeSlug);
-                    }
-                }
-
+                // 🚀 SCORCHED EARTH v1.1.16: Unified Atomic Hydration
                 const mapping: any = {
-                    cc_teachers: teachersArray,
+                    cc_teachers: unwrap(finalStaff),
                     cc_branches: state.branches || [],
-                    cc_halls: hallsArray,
-                    cc_groups: groupsArray,
-                    cc_student_data: studentsMap,
-                    cc_student_subscriptions: subsRaw.reduce((acc: any, row: any) => {
-                        const sid = row.student_id;
-                        if (sid) { if (!acc[sid]) acc[sid] = []; acc[sid].push(row.data || row); }
+                    cc_halls: unwrap(finalHalls),
+                    cc_groups: unwrap(finalGroups),
+                    cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                    cc_student_subscriptions: (unwrap(state.subscriptions) || [])
+                        .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
+                        .reduce((acc: any, sub: any) => {
+                            const sId = sub.student_id;
+                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                            return acc;
+                        }, {}),
+                    cc_calendar_events: unwrap(finalEvents),
+                    cc_subscription_plans: unwrap(finalPlans),
+                    cc_shop_products: unwrap(state.products),
+                    cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
+                        const sId = sale.student_id;
+                        if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
                         return acc;
                     }, {}),
-                    cc_calendar_events: eventsArray,
-                    cc_subscription_plans: plansArray,
-                    cc_shop_products: productsArray,
-                    cc_shop_sales: salesRaw.reduce((acc: any, row: any) => {
-                        const sid = row.student_id;
-                        if (sid) { if (!acc[sid]) acc[sid] = []; acc[sid].push(row.data || row); }
-                        return acc;
-                    }, {}),
-                    cc_expenses: extract(unwrap(state.expenses)),
-                    cc_global_trash: extract(unwrap(state.trash)),
+                    cc_expenses: unwrap(state.expenses),
+                    cc_global_trash: unwrap(state.trash),
                     cc_sa_meta: { plan: finalPlan, manualBlock: !!updates.manual_block, suspended: !!updates.suspended }
                 };
 
-                // 🚀 EARLY UNLOCK: Mark as loaded NOW (memory caches are ready)
-                // localStorage writes happen in background — UI can render immediately
-                setIsLoaded(true);
-                setFirstSyncDone(true);
-                window.dispatchEvent(new Event('cc_data_hydrated'));
-                window.dispatchEvent(new Event('cc_subscription_update'));
-                window.dispatchEvent(new Event('cc_student_update'));
-                window.dispatchEvent(new Event('cc_settings_update'));
-
                 if (typeof window !== 'undefined') {
+                    // 🛡️ ANTI-WIPE GUARD
+                    // Root cause of "data disappears then reappears": a transient
+                    // empty cloud response (slow query / error / org mismatch) was
+                    // written straight over good local data, blanking the screen
+                    // until the next sync. We now refuse to overwrite a non-empty
+                    // local collection with an empty cloud result.
+                    const isEmpty = (v: any) => {
+                        if (v == null) return true;
+                        if (Array.isArray(v)) return v.length === 0;
+                        if (typeof v === 'object') return Object.keys(v).length === 0;
+                        return false;
+                    };
+                    const localHasData = (scopedKey: string) => {
+                        try {
+                            const raw = localStorage.getItem(scopedKey);
+                            if (!raw) return false;
+                            return !isEmpty(JSON.parse(raw));
+                        } catch { return false; }
+                    };
+                    const guardedWrite = async (key: string, data: any) => {
+                        if (data === null || data === undefined) return;
+                        const scoped = getScopedKey(key, activeSlug || 'default');
+                        if (isEmpty(data) && localHasData(scoped)) {
+                            console.warn(`🛡️ [Hydration] Empty cloud result for ${key} — preserving local data.`);
+                            return;
+                        }
+                        await safeSetItem(scoped, JSON.stringify(data), activeSlug || 'default');
+                    };
+
                     // 🚀 SEQUENTIAL SAVING for mobile stability
                     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                    
+
                     if (isMobile) {
                         for (const [key, data] of Object.entries(mapping)) {
-                            if (data !== null && data !== undefined) {
-                                await safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
-                            }
+                            await guardedWrite(key, data);
                         }
                     } else {
-                        await Promise.all(Object.entries(mapping).map(async ([key, data]) => {
-                            if (data !== null && data !== undefined) {
-                                await safeSetItem(getScopedKey(key, activeSlug || 'default'), JSON.stringify(data), activeSlug || 'default');
-                            }
-                        }));
+                        await Promise.all(Object.entries(mapping).map(([key, data]) => guardedWrite(key, data)));
                     }
 
                     // Attendance mapping
+                    // (1) grouped-by-student store (all-time history)
+                    // (2) 🔧 per-day cc_checkins_{date} store — this is what the
+                    //     attendance page + "+" button actually READ. Previously it
+                    //     was never populated from the cloud, so a reload on a second
+                    //     device would NOT show today's check-ins from the first.
                     const groupedAtt: Record<string, any[]> = {};
-                    const attendanceArchive: Record<string, any> = {};
+                    const perDay: Record<string, any[]> = {};
                     (unwrap(state.attendance) || []).forEach(a => {
-                        const sId = a.student_id;
-                        if (!sId) return;
-                        
-                        // 1. Grouped by student for Student Profile
-                        if (!groupedAtt[sId]) groupedAtt[sId] = [];
-                        groupedAtt[sId].push(a);
+                        if (!a.student_id) return;
+                        if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
+                        groupedAtt[a.student_id].push(a);
 
-                        // 2. Hydrate Attendance Archive for Attendance Page checks
-                        const date = a.date;
-                        const classId = a.class_id || 'none';
-                        if (date && sId) {
-                            if (!attendanceArchive[date]) attendanceArchive[date] = {};
-                            if (!attendanceArchive[date][classId]) attendanceArchive[date][classId] = {};
-                            attendanceArchive[date][classId][sId] = 'present';
-                        }
+                        // Rebuild the per-day check-in record the UI expects
+                        const blob = (a.data && typeof a.data === 'object') ? a.data : {};
+                        const date = a.date || blob.date;
+                        if (!date) return;
+                        const rec = {
+                            id: a.id || blob.id,
+                            studentId: a.student_id,
+                            studentName: blob.studentName || '',
+                            date,
+                            time: blob.time || '',
+                            via: blob.via || 'manual',
+                            sessionsRemaining: typeof blob.sessionsRemaining === 'number' ? blob.sessionsRemaining : -1,
+                            classId: blob.classId || a.class_id,
+                            groupId: blob.groupId || a.group_id,
+                        };
+                        if (!rec.id) return;
+                        if (!perDay[date]) perDay[date] = [];
+                        if (!perDay[date].some(r => r.id === rec.id)) perDay[date].push(rec);
                     });
-                    
-                    await safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
-                    
-                    // 🛡️ MERGE attendance archive: cloud data + local marks (local wins on conflict)
-                    const archiveKey = getScopedKey('cc_attendance_archive', activeSlug);
-                    let existingArchive: Record<string, any> = {};
-                    try {
-                        const existing = localStorage.getItem(archiveKey);
-                        if (existing) existingArchive = JSON.parse(existing);
-                    } catch (e) {}
-                    
-                    // Deep merge: for each date -> class -> student, cloud fills in, local overrides
-                    for (const [date, classes] of Object.entries(attendanceArchive)) {
-                        if (!existingArchive[date]) existingArchive[date] = {};
-                        for (const [classId, students] of Object.entries(classes as any)) {
-                            if (!existingArchive[date][classId]) existingArchive[date][classId] = {};
-                            // Cloud fills in students that aren't in local
-                            for (const [studentId, status] of Object.entries(students as any)) {
-                                if (!existingArchive[date][classId][studentId]) {
-                                    existingArchive[date][classId][studentId] = status;
+                    if (!isEmpty(groupedAtt) || !localHasData(getScopedKey('cc_attendance_data', activeSlug))) {
+                        await safeSetItem(getScopedKey('cc_attendance_data', activeSlug), JSON.stringify(groupedAtt), activeSlug);
+                    }
+                    // 🔀 MERGE (union by id) per day rather than overwrite, so a
+                    // just-added local check-in that hasn't reached the cloud yet
+                    // is never dropped during a background re-sync.
+                    for (const [date, recs] of Object.entries(perDay)) {
+                        const dayKey = getScopedKey(`cc_checkins_${date}`, activeSlug);
+                        let merged = recs;
+                        try {
+                            const existingRaw = localStorage.getItem(dayKey);
+                            if (existingRaw) {
+                                const existing = JSON.parse(existingRaw);
+                                if (Array.isArray(existing)) {
+                                    const seen = new Set(recs.map(r => r.id));
+                                    merged = [...recs, ...existing.filter((e: any) => !seen.has(e.id))];
                                 }
                             }
-                        }
+                        } catch { /* use cloud recs */ }
+                        await safeSetItem(dayKey, JSON.stringify(merged), activeSlug);
                     }
-                    await safeSetItem(archiveKey, JSON.stringify(existingArchive), activeSlug);
 
                     window.dispatchEvent(new Event('cc_data_hydrated'));
                     window.dispatchEvent(new Event('cc_settings_update'));
@@ -398,6 +341,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                      'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
                      'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
                         .forEach(e => window.dispatchEvent(new Event(e)));
+
+                    // 📡 GO LIVE: subscribe to realtime changes for this org so a
+                    // check-in (or roster/subscription edit) on another device shows
+                    // up here instantly — no reload required.
+                    if (resolvedOrgId) {
+                        const { startRealtimeSync } = await import('@/lib/realtime-sync');
+                        startRealtimeSync(resolvedOrgId, activeSlug || undefined);
+                    }
                 }
 
             } else {
@@ -431,31 +382,26 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     }, [user?.id, profile?.studio_slug, hydrate]);
 
     useEffect(() => {
-        // 🛡️ IO-OPTIMIZED: Increased from 5min to 10min to reduce DB load
-        const interval = setInterval(() => hydrate(true), 600000);
+        const interval = setInterval(() => hydrate(true), 300000);
         return () => clearInterval(interval);
     }, [hydrate]);
 
-    // 🛡️ Debounced metadata push - prevents rapid successive cloud writes
-    const metadataPushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const pendingMetadata = useRef<any>(null);
+    // 📡 Tear down the realtime channel when the provider unmounts (logout / app close).
+    useEffect(() => {
+        return () => {
+            import('@/lib/realtime-sync').then(({ stopRealtimeSync }) => stopRealtimeSync());
+        };
+    }, []);
 
     const updateSettings = useCallback((updates: Partial<StudioSettings>) => {
         setSettings(prev => {
             const next = { ...prev, ...updates };
             import('@/lib/settings-store').then(mod => mod.saveSettings(updates, prev, prev.studioSlug));
             if (prev.studioSlug && prev.orgId) {
-                // 🛡️ DEBOUNCED: Queue metadata push, only send after 10s of inactivity
-                pendingMetadata.current = { ...next, settings: next };
-                if (metadataPushTimer.current) clearTimeout(metadataPushTimer.current);
-                metadataPushTimer.current = setTimeout(() => {
-                    if (pendingMetadata.current) {
-                        import('@/lib/master-sync').then(mod => {
-                            mod.pushFullStudioMetadata(prev.studioSlug, updates.studioName || prev.studioName, pendingMetadata.current);
-                            pendingMetadata.current = null;
-                        });
-                    }
-                }, 10000);
+                const metadata = { ...next, settings: next };
+                import('@/lib/master-sync').then(mod => {
+                    mod.pushFullStudioMetadata(prev.studioSlug, updates.studioName || prev.studioName, metadata);
+                });
             }
             return next;
         });

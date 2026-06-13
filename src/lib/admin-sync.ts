@@ -1,5 +1,3 @@
-import { getStudioRegistry } from './settings-store';
-
 export async function syncGlobalAdminRegistry(force = false) {
     try {
         // 🛡️ CACHE LAYER: 10-second stale-while-revalidate (Reduced from 5m for debugging)
@@ -23,28 +21,24 @@ export async function syncGlobalAdminRegistry(force = false) {
         if (data && data.studios && Array.isArray(data.studios)) {
             const studios: any[] = data.studios;
             const cloudSlugs: string[] = studios.map(s => s.slug).filter(Boolean);
-            const localRegistry = getStudioRegistry();
-            
-            // 🚨 STRICT CLOUD TRUTH: We ONLY keep what is verified in the cloud.
-            const nextList = [...new Set(cloudSlugs)];
-            
-            // 🚨 HARD WIPE: Clean up orphans and ghosts
-            const listToClean = localRegistry.filter(slug => !nextList.includes(slug) && slug !== 'demo.classcore.ge');
-            
-            listToClean.forEach(slug => {
-                console.log(`🧹 [Sync] Purging ghost studio: ${slug}`);
-                localStorage.removeItem(`cc_studio_settings_${slug}`);
-                localStorage.removeItem(`cc_sa_meta_${slug}`);
-                localStorage.removeItem(`cc_student_data_${slug}`);
-                localStorage.removeItem(`cc_groups_${slug}`);
-                localStorage.removeItem(`cc_halls_${slug}`);
-                localStorage.removeItem(`cc_saas_billing_${slug}`);
-                localStorage.removeItem(`cc_active_branch_${slug}`);
-                localStorage.removeItem(`cc_org_id_override_${slug}`);
-            });
 
-            // Update Registry with Cloud Truth
-            localStorage.setItem('cc_studios_list', JSON.stringify([...new Set(nextList)]));
+            // 🛡️ SAFETY: only reconcile if the cloud actually returned studios.
+            // A transient empty/failed response must NEVER trigger a purge.
+            if (cloudSlugs.length === 0) {
+                console.warn('🛡️ [AdminSync] Cloud returned 0 studios — skipping reconcile to avoid data loss.');
+                return studios;
+            }
+
+            const nextList = [...new Set(cloudSlugs)];
+
+            // 🛡️ NON-DESTRUCTIVE: previously we hard-deleted every localStorage key
+            // for any slug missing from the cloud list. A single API hiccup could
+            // wipe a live studio's students/groups ("disappears then reappears").
+            // We now only update the registry pointer. Orphan data keys are inert —
+            // they're never read unless the slug is in the registry — so leaving
+            // them is safe and reversible. Real deletions go through the explicit
+            // superadmin delete-studio flow, not this background sync.
+            localStorage.setItem('cc_studios_list', JSON.stringify(nextList));
             localStorage.setItem('cc_sa_studios_data', JSON.stringify(studios));
             localStorage.setItem('cc_sa_last_sync', now.toString());
 

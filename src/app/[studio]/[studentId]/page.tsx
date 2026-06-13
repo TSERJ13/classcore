@@ -73,6 +73,13 @@ export default function StudentPortalPage() {
         }
     }, [studentId, router]);
 
+    // Sync portal language with student's preferred language
+    useEffect(() => {
+        if (studentData?.preferred_language) {
+            setLang(studentData.preferred_language as any, 'session');
+        }
+    }, [studentData?.preferred_language, setLang]);
+
     useEffect(() => {
         const load = async () => {
             try {

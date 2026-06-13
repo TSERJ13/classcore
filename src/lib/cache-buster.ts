@@ -4,7 +4,7 @@
  * to ensure no legacy mock data persists in users' browsers.
  */
 
-const CURRENT_CACHE_VERSION = 'v2.4.0-stable';
+const CURRENT_CACHE_VERSION = 'v2.4.2-stable';
 const VERSION_KEY = 'cc_system_version';
 
 export function checkCacheVersion(): void {

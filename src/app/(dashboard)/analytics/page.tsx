@@ -28,6 +28,7 @@ import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
 import { getExpenses, saveExpenses, MonthlyExpenses } from '@/lib/expense-store';
 import { getStudentCheckins } from '@/lib/checkin-store';
+import { buildPlanPrices, subRevenue as calcSubRevenue, pctChange, generateInsights } from '@/lib/studio-stats';
 
 // ─── Month Navigator ─────────────────────────────────────────────────────────
 
@@ -258,29 +259,32 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
     const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
     const monthName = months[monthIdx - 1];
 
-    const revenueGrowth = prevStats?.totalRevenue > 0
-        ? Math.round((currentStats.totalRevenue / prevStats.totalRevenue - 1) * 100)
-        : 0;
-    const attendanceGrowth = prevStats?.attendanceRate > 0
-        ? Math.round((currentStats.attendanceRate / prevStats.attendanceRate - 1) * 100)
-        : 0;
+    // Guarded: returns null when there is no valid baseline (avoids NaN/Infinity
+    // and the misleading "stable" label for a genuine first revenue month).
+    const revenueGrowth = pctChange(currentStats?.totalRevenue || 0, prevStats?.totalRevenue || 0);
+    const attendanceGrowth = pctChange(currentStats?.attendanceRate || 0, prevStats?.attendanceRate || 0);
+    const firstRevenue = (prevStats?.totalRevenue || 0) <= 0 && (currentStats?.totalRevenue || 0) > 0;
 
     const insights = [
         {
             icon: '📈',
             title: t.revenueTrend,
-            text: revenueGrowth > 0
+            text: (revenueGrowth != null && revenueGrowth > 0)
                 ? l(`შემოსავალი გაიზარდა ${revenueGrowth}%-ით წინა თვესთან შედარებით. გირჩევთ ამ ტემპის შენარჩუნებას.`, `Доход вырос на ${revenueGrowth}% по сравнению с прошлым месяцем. Рекомендуем поддерживать этот темп.`, `Revenue grew by ${revenueGrowth}% compared to last month. Maintain this momentum.`)
-                : revenueGrowth < 0
+                : (revenueGrowth != null && revenueGrowth < 0)
                     ? l(`შემოსავალი შემცირდა ${Math.abs(revenueGrowth)}%-ით. გაზარდეთ მარკეტინგული აქტივობა ახალი სტუდენტების მოსაზიდად.`, `Доход снизился на ${Math.abs(revenueGrowth)}%. Увеличьте маркетинговую активность для привлечения новых студентов.`, `Revenue decreased by ${Math.abs(revenueGrowth)}%. Increase marketing to attract new students.`)
-                    : l('შემოსავალი სტაბილურია. სცადეთ ახალი ჯგუფების შეთავაზება ზრდის სტიმულირებისთვის.', 'Доход стабилен. Попробуйте предложить новые группы для стимулирования роста.', 'Revenue is stable. Consider offering new groups to stimulate growth.'),
+                    : firstRevenue
+                        ? l('ამ პერიოდის პირველი შემოსავალი დაფიქსირდა. წინა თვის შესადარებელი მონაცემი არ არის.', 'Зафиксирован первый доход за период. Нет данных прошлого месяца для сравнения.', 'First revenue recorded for this period. No prior month to compare against.')
+                        : l('წინა თვის შესადარებელი მონაცემი არ არის.', 'Нет данных прошлого месяца для сравнения.', 'No prior-month data to compare against yet.'),
         },
         {
             icon: '🎯',
             title: t.attendanceAnalysis,
-            text: attendanceGrowth > 0
+            text: (attendanceGrowth != null && attendanceGrowth > 0)
                 ? l(`დასწრება გაიზარდა ${attendanceGrowth}%-ით. ეს მიუთითებს სტუდენტების კმაყოფილებაზე და მოტივაციაზე.`, `Посещаемость выросла на ${attendanceGrowth}%. Это свидетельствует об удовлетворённости студентов.`, `Attendance grew by ${attendanceGrowth}%. This indicates high student satisfaction and motivation.`)
-                : l('სტაბილური დასწრება. განიხილეთ სპეციალური პროგრამები დასწრების გასაუმჯობესებლად.', 'Стабильная посещаемость. Рассмотрите специальные программы для улучшения посещаемости.', 'Stable attendance. Consider special programs to improve turnout.'),
+                : (attendanceGrowth != null && attendanceGrowth < 0)
+                    ? l(`დასწრება ${Math.abs(attendanceGrowth)}%-ით შემცირდა. გადახედე ცხრილსა და მასწავლებლების დატვირთვას.`, `Посещаемость снизилась на ${Math.abs(attendanceGrowth)}%. Проверьте расписание и нагрузку преподавателей.`, `Attendance dropped ${Math.abs(attendanceGrowth)}%. Review the schedule and teacher load.`)
+                    : l('სტაბილური დასწრება. განიხილეთ სპეციალური პროგრამები დასწრების გასაუმჯობესებლად.', 'Стабильная посещаемость. Рассмотрите специальные программы для улучшения посещаемости.', 'Stable attendance. Consider special programs to improve turnout.'),
         },
         {
             icon: '💡',
@@ -548,9 +552,8 @@ export default function AnalyticsPage() {
 
             const prefix = getScopedKey('cc_checkins_');
 
-            // Plan prices map
-            const planPrices: Record<string, number> = {};
-            plans.forEach(p => { planPrices[p.name] = p.price; });
+            // Plan prices map (keyed by BOTH name and id — fixes silent zeros)
+            const planPrices: Record<string, number> = buildPlanPrices(plans);
 
             // Active subscriptions count
             const activeSubStudentIds = new Set(
@@ -563,9 +566,9 @@ export default function AnalyticsPage() {
             const filteredSubs = allSubs.filter(sub => sub.purchased_at?.startsWith(monthStr));
 
             const totalRevenue = filteredSales.reduce((sum, s) => sum + (s.price * s.quantity), 0) +
-                filteredSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                filteredSubs.reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
 
-            const subRevenue = filteredSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+            const subRevenue = filteredSubs.reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
             const prodRevenue = filteredSales.reduce((sum, s) => sum + s.price * s.quantity, 0);
 
             // Attendance Rate
@@ -600,7 +603,7 @@ export default function AnalyticsPage() {
                 for (let day = d; day <= rangeEnd; day++) {
                     const currentDayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
                     rangeValue += filteredSales.filter(s => s.date === currentDayStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
-                    rangeValue += filteredSubs.filter(s => s.purchased_at === currentDayStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                    rangeValue += filteredSubs.filter(s => s.purchased_at === currentDayStr).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
                     
                     try { 
                         const dayCheckins = JSON.parse(localStorage.getItem(getScopedKey(`cc_checkins_${currentDayStr}`)) || '[]').length;
@@ -631,7 +634,7 @@ export default function AnalyticsPage() {
                 const teacherSubRevenue = subsForTeacher.reduce((sum, sub) => {
                     const plan = plans.find(p => p.name === sub.plan);
                     const groupId = (sub as any).group_id || (plan && plan.group_id);
-                    const amount = (sub.amount_paid || planPrices[sub.plan] || 0);
+                    const amount = (calcSubRevenue(sub, planPrices));
                     
                     const group = groups.find(g => g.id === groupId);
                     if (group) {
@@ -707,7 +710,7 @@ export default function AnalyticsPage() {
                     if (isLinked) return true;
                     return groupStudents.find(s => s.id === sub.student_id);
                 });
-                return { name: g.name, students: groupStudentsCount, revenue: groupSubs.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0), growth: '+0%' };
+                return { name: g.name, students: groupStudentsCount, revenue: groupSubs.reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0), growth: '+0%' };
             }).filter(g => g.students > 0 || g.revenue > 0).sort((a: any, b: any) => b.students - a.students).slice(0, 5);
 
             const finalGroups = groupStats.length > 0 ? groupStats : events.slice(0, 5).map(ev => ({ name: ev.title, students: 0, revenue: 0, growth: '+0%' }));
@@ -720,7 +723,7 @@ export default function AnalyticsPage() {
             const lastYearStr = lastYearDate.toISOString().substring(0, 7);
 
             const getMonthRevenue = (m: string) => {
-                const sRev = allSubs.filter(sub => sub.purchased_at?.startsWith(m)).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                const sRev = allSubs.filter(sub => sub.purchased_at?.startsWith(m)).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
                 const pRev = sales.filter(s => s.date?.startsWith(m)).reduce((sum, s) => sum + s.price * s.quantity, 0);
                 return sRev + pRev;
             };
@@ -797,18 +800,28 @@ export default function AnalyticsPage() {
 
             const occupancyStats = groups.map(g => ({ name: g.name, rate: g.capacity > 0 ? Math.round((g.enrolled / g.capacity) * 100) : 0, enrolled: g.enrolled, capacity: g.capacity })).sort((a,b) => b.rate - a.rate);
 
-            // Suggestions
-            const todayStr = getLocalISODate();
-            const newStudentsToday = students.filter(s => (s as any).created_at === todayStr).length;
-            const revenueToday = filteredSales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) +
-                                filteredSubs.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+            // ── REAL INSIGHTS (correct math, only emitted when the signal exists) ──
+            // Subscriptions expiring within 7 days or already overdue.
+            const nowMs = Date.now();
+            const expiringSoon = allSubs.filter(sub => {
+                if (sub.status !== 'active' || !sub.expires_at) return false;
+                const days = (new Date(sub.expires_at).getTime() - nowMs) / (1000 * 3600 * 24);
+                return days <= 7;
+            }).length;
 
-            const suggestions: string[] = [];
-            if (newStudentsToday > 0) suggestions.push(l(`გილოცავ! დღეს ${newStudentsToday} ახალი სტუდენტი დაგემატა! 🚀`, `Поздравляем! Сегодня добавилось ${newStudentsToday} новых студентов! 🚀`, `Congrats! ${newStudentsToday} new students joined today! 🚀`));
-            if (revenueToday > 0) suggestions.push(l(`დღევანდელი შემოსავალი: ${formatCurrency(revenueToday, settings.currency)}! შესანიშნავი შედეგია! 💰`, `Доход за сегодня: ${formatCurrency(revenueToday, settings.currency)}! Отличный результат! 💰`, `Today's revenue: ${formatCurrency(revenueToday, settings.currency)}! Great result! 💰`));
+            const suggestions: string[] = generateInsights({
+                currentRevenue: totalRevenue,
+                prevRevenue: prevMonthRevenue,
+                attendanceRate,
+                prevAttendanceRate: prevMonthAttendance,
+                activeSubs: activeSubCount,
+                totalStudents: students.length,
+                churnRiskStudents,
+                occupancyStats,
+                expiringSoon,
+                formatCurrency: (n: number) => formatCurrency(n, settings.currency),
+            }, l);
             const rDiff = totalRevenue - prevMonthRevenue;
-            if (rDiff > 0) suggestions.push(l(`ამ თვეში შემოსავალი ${formatCurrency(rDiff, settings.currency)}-ით მეტია წინა თვესთან შედარებით! 📈`, `В этом месяце доход на ${formatCurrency(rDiff, settings.currency)} больше, чем в прошлом! 📈`, `Revenue is ${formatCurrency(rDiff, settings.currency)} higher than last month! 📈`));
-            else if (rDiff < 0) suggestions.push(l(`შემოსავალი ${formatCurrency(Math.abs(rDiff), settings.currency)}-ით ჩამორჩება წინა თვის მაჩვენებელს. 📉`, `Доход на ${formatCurrency(Math.abs(rDiff), settings.currency)} ниже, чем в прошлом месяце. 📉`, `Revenue is ${formatCurrency(Math.abs(rDiff), settings.currency)} lower than last month. 📉`));
 
             const totalGrossRevenue = subRevenue + prodRevenue;
 
@@ -834,13 +847,13 @@ export default function AnalyticsPage() {
                 })),
                 topPayers: students.map(s => {
                     const studentUnits = Object.values(allSubsMap[s.id] || []);
-                    const totalSpent = studentUnits.reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                    const totalSpent = studentUnits.reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
                     return { id: s.id, name: `${s.first_name || ''} ${s.last_name || s.full_name || ''}`, totalSpent };
                 }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 10),
                 branchStats: settings.branches.map(b => {
                     const branchStudents = students.filter(s => s.branch_id === b.id || (!s.branch_id && b.id === 'main'));
                     const branchRevenue = filteredSales.filter(s => s.studentId && students.find(st => st.id === s.studentId && (st.branch_id === b.id || (!st.branch_id && b.id === 'main')))).reduce((sum, s) => sum + s.price * s.quantity, 0) +
-                        filteredSubs.filter(sub => students.find(st => st.id === sub.student_id && (st.branch_id === b.id || (!st.branch_id && b.id === 'main')))).reduce((sum, sub) => sum + (sub.amount_paid || planPrices[sub.plan] || 0), 0);
+                        filteredSubs.filter(sub => students.find(st => st.id === sub.student_id && (st.branch_id === b.id || (!st.branch_id && b.id === 'main')))).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
                     return { name: b.name, students: branchStudents.length, revenue: branchRevenue };
                 })
             });

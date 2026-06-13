@@ -239,13 +239,6 @@ export default function StudiosPage() {
             if (!cloud || !cloud.slug) return null;
             const slug = cloud.slug;
             const s = loadSettings(slug);
-            const meta = (() => { 
-                try { 
-                    const raw = localStorage.getItem(`cc_sa_meta_${slug}`);
-                    return raw ? JSON.parse(raw) : {}; 
-                } catch { return {}; } 
-            })();
-            const billing = getBillingState(slug);
             
             const studentCount = (cloud?.studentCount !== undefined) ? cloud.studentCount : 0;
             const subsCount = (cloud?.groupCount !== undefined) ? cloud.groupCount : 0;
@@ -271,23 +264,26 @@ export default function StudiosPage() {
                 logoUrl: cloud?.logoUrl || s?.logoDataUrl, 
                 studentCount, 
                 subsCount, 
-                suspended: cloud?.suspended || meta.suspended || false, 
-                isDeleted: meta.deleted || false, 
-                notes: meta.notes || cloud?.notes || '', 
-                plan: (cloud?.plan || meta.plan || 'trial') as any,
-                nextDue: cloud?.nextDueDate || billing.nextDueDate, 
-                status: cloud?.status || billing.status, 
-                daysOverdue: cloud?.daysOverdue || billing.daysOverdue,
+                // Cloud is source of truth for plan/suspended/billing
+                suspended: cloud?.suspended || false, 
+                isDeleted: cloud?.deleted || false, 
+                notes: cloud?.notes || '', 
+                plan: (cloud?.plan || 'trial') as any,
+                nextDue: cloud?.nextDueDate || null, 
+                status: cloud?.billingStatus || 'trial', 
+                daysOverdue: 0,
                 ownerPhone,
                 ownerEmail,
                 ownerName,
-                isLocalOnly: false
-            };
+                isLocalOnly: false,
+                // Extra cloud billing fields
+                accountBalance: cloud?.accountBalance || 0,
+                lastPaidDate: cloud?.lastPaidDate || null,
+                daysLeft: cloud?.daysLeft || 30,
+            } as any;
         }).filter(Boolean) as StudioRecord[];
 
-        // 🚨 STRICT CLOUD TRUTH: We ignore local storage orphans. 
-        // Only cloud-verified studios are displayed.
-
+        // Cloud is the single source of truth — only show cloud-verified studios
         setStudios(loaded.filter(Boolean) as StudioRecord[]);
     };
 
@@ -350,42 +346,33 @@ export default function StudiosPage() {
         if (mounted) loadData();
     }, [cloudStudios, mounted]);
 
-    const toggleSuspend = (slug: string) => {
+    const toggleSuspend = async (slug: string) => {
         const studio = studios.find(s => s.slug === slug);
         if (!studio) return;
         const next = !studio.suspended;
-        saveMeta(slug, { suspended: next });
+        // Optimistic UI update
         setStudios(prev => prev.map(s => s.slug === slug ? { ...s, suspended: next } : s));
-        syncStudio(slug);
-    };
-
-    const syncStudio = async (slug: string) => {
         try {
-            // 🚨 CRITICAL FIX: Safe server-side merge
-            // Superadmin has incomplete data locally. Using pushStudioStateToCloud would OVERWRITE 
-            // the studio's entire database with missing data. 
-            // We only send the specific chunks we care about (billing and meta).
-            
-            const metaPatch = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}');
-            const billingPatch = JSON.parse(localStorage.getItem(`cc_saas_billing_${slug}`) || 'null');
-
-            // Find other saas settings like payments just in case we want to merge them later,
-            // but the main fix is just billing and meta.
             const res = await fetch('/api/superadmin/studios/update-meta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slug, patch: metaPatch, billingPatch: billingPatch })
+                body: JSON.stringify({ slug, patch: { suspended: next } })
             });
-
             if (!res.ok) {
                 const data = await res.json();
                 throw new Error(data.error);
             }
-
-            console.log('📡 [Superadmin] Safe Immediate sync successful for:', slug);
+            console.log(`✅ [Admin] Suspended=${next} saved to cloud for ${slug}`);
         } catch (err) {
-            console.error('📡 [Superadmin] Sync failed:', err);
+            console.error('❌ [Admin] toggleSuspend failed:', err);
+            // Revert optimistic update
+            setStudios(prev => prev.map(s => s.slug === slug ? { ...s, suspended: !next } : s));
         }
+    };
+
+    const syncStudio = async (slug: string) => {
+        // Kept for legacy callers — does nothing harmful now since all actions go direct to API
+        console.log('[Admin] syncStudio called for:', slug);
     };
 
     const setPlan = async (slug: string, plan: string) => {
@@ -449,12 +436,20 @@ export default function StudiosPage() {
         router.push('/dashboard');
     };
 
-    const updateBalance = (slug: string, delta: number) => {
-        const state = getBillingState(slug);
-        const current = state.accountBalance || 0;
-        updateBillingState(slug, { accountBalance: Math.max(0, current + delta) });
-        syncStudio(slug);
-        loadData(); // refresh list
+    const updateBalance = async (slug: string, newBalance: number) => {
+        // Optimistic UI
+        setStudios(prev => prev.map(s => s.slug === slug ? { ...s, accountBalance: newBalance } as any : s));
+        try {
+            const res = await fetch('/api/superadmin/studios/update-meta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug, billingPatch: { accountBalance: newBalance } })
+            });
+            if (!res.ok) throw new Error('Failed to update balance');
+            console.log(`✅ [Admin] Balance=${newBalance} saved for ${slug}`);
+        } catch (err) {
+            console.error('❌ [Admin] updateBalance failed:', err);
+        }
     };
 
     const manualActivate = (slug: string) => {
@@ -938,14 +933,15 @@ export default function StudiosPage() {
             </div>
 
             <div className="bg-white/95 border border-black/10 dark:border-border-subtle rounded-[2.5rem] shadow-sm overflow-x-auto no-scrollbar">
-                <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center min-w-[1000px]">
+                <div className="grid grid-cols-[1.5fr_0.4fr_0.9fr_1.0fr_0.6fr_0.6fr_0.8fr_1.6fr_0.8fr_auto] gap-4 px-8 py-5 border-b border-black/5 dark:border-border-subtle/50 text-[10px] font-black text-muted uppercase tracking-widest bg-black/[0.02] dark:bg-zinc-500/5 items-center min-w-[1000px]">
                     <span>{t.sa_studios_colStudio}</span>
                     <span className="text-center">{t.sa_studios_colStud}</span>
                     <span className="text-left px-2">{t.sa_studios_colOwner}</span>
                     <span className="text-left px-2">{t.sa_studios_colContact}</span>
                     <span className="text-center">{t.sa_studios_colPlan}</span>
                     <span className="text-center">{t.sa_studios_colBal}</span>
-                    <span className="text-center">{t.sa_studios_colAdd}</span>
+                    <span className="text-center">{lang === 'ka' ? 'დარჩენილია' : 'Days Left'}</span>
+                    <span className="text-center">{lang === 'ka' ? 'გახანგრძლივება' : 'Extend'}</span>
                     <span className="text-center">{t.sa_studios_colStatus}</span>
                     <span className="text-right">{t.sa_studios_colActions}</span>
                 </div>
@@ -965,7 +961,7 @@ export default function StudiosPage() {
                                     "group border-b border-black/5 dark:border-border-subtle/30 last:border-0 hover:bg-black/[0.01] dark:hover:bg-zinc-500/2 transition-colors",
                                     studio.isLocalOnly && "border-l-4 border-l-amber-500 bg-amber-500/[0.02]"
                                 )}>
-                                    <div className="grid grid-cols-[1.8fr_0.5fr_1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-4 items-center px-8 py-6 min-w-[1000px]">
+                                    <div className="grid grid-cols-[1.5fr_0.4fr_0.9fr_1.0fr_0.6fr_0.6fr_0.8fr_1.6fr_0.8fr_auto] gap-4 items-center px-8 py-6 min-w-[1000px]">
                                          <div className="flex items-center gap-4 min-w-0">
                                              <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 bg-black/5 dark:bg-surface flex items-center justify-center border border-black/5 dark:border-border-subtle shadow-inner group-hover:border-indigo-500/30 transition-all">
                                                  {studio.logoUrl ? <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6 text-zinc-300 opacity-40" />}
@@ -1033,17 +1029,16 @@ export default function StudiosPage() {
                                         <div className="text-center">
                                             <button 
                                                 onClick={() => {
-                                                    const currentBal = Math.round(getBillingState(studio.slug).accountBalance || 0);
+                                                    const currentBal = Math.round((studio as any).accountBalance || 0);
                                                     setModal({
                                                         type: 'input',
                                                         title: t.sa_studios_colBal,
                                                         message: 'GEL',
                                                         inputVal: String(currentBal),
-                                                        onConfirm: (val) => {
+                                                        onConfirm: async (val) => {
                                                             const num = Number(val);
                                                             if (!isNaN(num)) {
-                                                                updateBillingState(studio.slug, { accountBalance: num });
-                                                                loadData();
+                                                                await updateBalance(studio.slug, num);
                                                             }
                                                             setModal({ type: null, title: '', message: '' });
                                                         }
@@ -1052,34 +1047,70 @@ export default function StudiosPage() {
                                                 className="px-2 py-1 bg-black/5 dark:bg-zinc-500/5 border border-black/5 dark:border-border-subtle/50 rounded-lg hover:border-indigo-500/30 transition-all group/bal"
                                             >
                                                 <span className="text-xs font-black text-primary dark:text-white tabular-nums">
-                                                    {Math.round(getBillingState(studio.slug).accountBalance || 0)}₾
+                                                    {Math.round((studio as any).accountBalance || 0)}₾
                                                 </span>
                                             </button>
                                         </div>
 
-                                        <div className="text-center">
-                                            <button 
-                                                onClick={() => {
-                                                    setModal({
-                                                        type: 'input',
-                                                        title: t.sa_studios_colAdd,
-                                                        message: t.sa_studios_colAdd,
-                                                        inputVal: '30',
-                                                        onConfirm: (val) => {
-                                                            const days = Number(val);
-                                                            if (!isNaN(days) && days !== 0) {
-                                                                extendSubscriptionByDays(studio.slug, days);
-                                                                loadData();
-                                                            }
-                                                            setModal({ type: null, title: '', message: '' });
-                                                        }
-                                                    });
-                                                }}
-                                                className="px-2.5 py-1 bg-black/5 dark:bg-zinc-500/5 border border-black/5 dark:border-border-subtle/50 rounded-lg hover:border-indigo-500/30 transition-all font-black text-[9px] uppercase tracking-widest text-muted"
-                                            >
-                                                + {t.day}
-                                            </button>
-                                        </div>
+                                         <div className="text-center">
+                                             <span className={cn(
+                                                 "px-2 py-1 rounded-xl text-xs font-black uppercase tracking-wider",
+                                                 diffDays > 5 
+                                                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                                                     : diffDays > 0 
+                                                     ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                                                     : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                                             )}>
+                                                 {diffDays > 0 ? `${diffDays} ${lang === 'ka' ? 'დღე' : 'd'}` : (lang === 'ka' ? 'გავიდა' : 'Expired')}
+                                             </span>
+                                         </div>
+
+                                         <div className="flex items-center justify-center gap-1">
+                                             {[
+                                                 { label: '1M', labelKa: '1თვ', days: 30 },
+                                                 { label: '3M', labelKa: '3თვ', days: 90 },
+                                                 { label: '6M', labelKa: '6თვ', days: 180 },
+                                                 { label: '1Y', labelKa: '1წ', days: 365 },
+                                             ].map(opt => (
+                                                 <button 
+                                                     key={opt.label}
+                                                     onClick={async () => {
+                                                         setModal({
+                                                             type: 'confirm',
+                                                             title: lang === 'ka' ? `${opt.labelKa}-ით გახანგრძლივება` : `Extend by ${opt.label}`,
+                                                             message: lang === 'ka' 
+                                                                 ? `ნამდვილად გსურთ ${studio.name}-სთვის გამოწერის ${opt.labelKa}-ით (+${opt.days} დღე) გახანგრძლივება?` 
+                                                                 : `Are you sure you want to extend subscription for ${studio.name} by ${opt.label} (+${opt.days} days)?`,
+                                                             onConfirm: async () => {
+                                                                 // Calculate new lastPaidDate based on current
+                                                                 const currentLastPaid = (studio as any).lastPaidDate 
+                                                                     ? new Date((studio as any).lastPaidDate)
+                                                                     : new Date();
+                                                                 if (currentLastPaid < new Date()) currentLastPaid.setTime(new Date().getTime());
+                                                                 currentLastPaid.setDate(currentLastPaid.getDate() + opt.days);
+                                                                 const res = await fetch('/api/superadmin/studios/update-meta', {
+                                                                     method: 'POST',
+                                                                     headers: { 'Content-Type': 'application/json' },
+                                                                     body: JSON.stringify({ 
+                                                                         slug: studio.slug, 
+                                                                         billingPatch: { lastPaidDate: currentLastPaid.toISOString() } 
+                                                                     })
+                                                                 });
+                                                                 if (res.ok) {
+                                                                     await syncFromCloud();
+                                                                 } else {
+                                                                     console.error('❌ Extend subscription failed');
+                                                                 }
+                                                                 setModal({ type: null, title: '', message: '' });
+                                                             }
+                                                         });
+                                                     }}
+                                                     className="px-1.5 py-0.5 bg-indigo-500/5 hover:bg-indigo-500 hover:text-white border border-indigo-500/10 hover:border-indigo-500 rounded-md transition-all font-black text-[9px] text-indigo-500"
+                                                 >
+                                                     +{lang === 'ka' ? opt.labelKa : opt.label}
+                                                 </button>
+                                             ))}
+                                         </div>
 
                                         <div className="flex items-center justify-center">
                                             <button onClick={() => toggleSuspend(studio.slug)} className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border', studio.suspended ? 'bg-rose-500/5 text-rose-500 border-rose-500/20' : 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20')}>
