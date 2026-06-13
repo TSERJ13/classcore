@@ -212,9 +212,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     cc_branches: state.branches || [],
                     cc_halls: unwrap(finalHalls),
                     cc_groups: unwrap(finalGroups),
-                    cc_student_data: (unwrap(state.students) || [])
-                        .filter((s: any) => !allDeleted.has(s.id) && !allDeleted.has(`student_${s.id}`))
-                        .reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                    cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
                     cc_student_subscriptions: (unwrap(state.subscriptions) || [])
                         .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
                         .reduce((acc: any, sub: any) => {
