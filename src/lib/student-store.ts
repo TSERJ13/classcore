@@ -291,18 +291,26 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
 }
 
 export function deleteStudent(studentId: string): void {
-    const patches = getStudentPatches();
-    delete patches[studentId];
-    localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
-    markLocalUpdate();
-
-    // 🧠 CRITICAL: also remove from the in-memory cache. When localStorage is
-    // over quota the setItem above silently fails, so getStudents() reads from
-    // the memory cache — and if we don't delete here, the student "comes back".
+    // 1️⃣ Remove from the in-memory cache FIRST. This can't throw, and the
+    // memory cache is what getStudents() actually reads when localStorage is
+    // full — so the student disappears from the UI immediately.
     const activeSlugNow = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
     if (_memoryStudentsCache && (!activeSlugNow || _memoryCacheSlug === activeSlugNow)) {
         delete _memoryStudentsCache[studentId];
     }
+
+    // 2️⃣ Remove from localStorage patches — but WRAP it. When localStorage is
+    // over quota this setItem throws QuotaExceededError; previously that
+    // exception aborted the whole function BEFORE the cloud delete ran, so the
+    // row survived in the cloud and came back on the next refresh.
+    try {
+        const patches = getStudentPatches();
+        delete patches[studentId];
+        localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
+    } catch (e) {
+        console.warn('[deleteStudent] local patch write skipped (storage full) — cloud delete still runs', e);
+    }
+    markLocalUpdate();
 
     // 🪦 Local tombstone: getStudents() filters ids in cc_deleted_students. This
     // guarantees the student stays gone even if a cloud row lingers and a
