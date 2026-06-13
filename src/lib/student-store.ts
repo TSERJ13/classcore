@@ -296,6 +296,14 @@ export function deleteStudent(studentId: string): void {
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
     markLocalUpdate();
 
+    // 🧠 CRITICAL: also remove from the in-memory cache. When localStorage is
+    // over quota the setItem above silently fails, so getStudents() reads from
+    // the memory cache — and if we don't delete here, the student "comes back".
+    const activeSlugNow = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
+    if (_memoryStudentsCache && (!activeSlugNow || _memoryCacheSlug === activeSlugNow)) {
+        delete _memoryStudentsCache[studentId];
+    }
+
     // 🪦 Local tombstone: getStudents() filters ids in cc_deleted_students. This
     // guarantees the student stays gone even if a cloud row lingers and a
     // hydration re-adds it before the trash table has propagated.
