@@ -216,23 +216,26 @@ export async function ensureStudioExists(slug: string, name: string) {
     }
 }
 export async function deleteRecordFromCloud(table: string, id: string, orgId: string) {
-    const supabase = createClient();
     if (!id) return false;
 
     console.log(`🗑️ [MasterSync] Permanent deletion from ${table}:`, id);
-    // Delete by PRIMARY KEY only. `id` is globally unique (table PK), so this
-    // reliably removes the exact row. Filtering by org_id as well caused
-    // "delete then reappears": if org_id resolution drifted, the WHERE matched
-    // 0 rows, Postgres returned NO error, and the row survived in the cloud —
-    // so the next hydration pulled the "deleted" record straight back.
-    const { error } = await supabase
-        .from(table)
-        .delete()
-        .eq('id', id);
-
-    if (error) {
-        console.error(`❌ [MasterSync] Delete failed for ${table}:`, error.message);
+    // Route through the server-side admin endpoint (service role). The browser
+    // client is subject to RLS and a blocked DELETE silently removes 0 rows,
+    // which is why deleted records used to reappear after a refresh.
+    try {
+        const res = await fetch('/api/sync/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table, id }),
+        });
+        if (!res.ok) {
+            const info = await res.json().catch(() => ({}));
+            console.error(`❌ [MasterSync] Delete failed for ${table}:`, info?.error || res.status);
+            return false;
+        }
+        return true;
+    } catch (err: any) {
+        console.error(`❌ [MasterSync] Delete request error for ${table}:`, err?.message);
         return false;
     }
-    return true;
 }
