@@ -215,6 +215,7 @@ export default function DashboardPage() {
         attendance: 0,
         attendanceRateMonth: 0,
         monthlyRevenue: 0,
+        prevMonthRevenue: 0,
         todayRevenue: 0,
         totalDebt: 0,
         expiringSoon: 0,

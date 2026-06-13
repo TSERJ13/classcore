@@ -20,31 +20,59 @@ export default function PromosPage() {
     const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
     const [newPromo, setNewPromo] = useState({ code: '', discount: 10, type: 'percent' as const, singleUse: false, maxUses: 0 });
     const [done, setDone] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+
+    const mapRow = (r: any): PromoCode => ({
+        code: r.code,
+        discount: r.discount ?? 0,
+        type: r.type === 'fixed' ? 'fixed' : 'percent',
+        singleUse: !!r.single_use,
+        maxUses: r.max_uses ?? 0,
+        usedCount: r.used_count ?? 0,
+    });
+
+    const loadPromos = async () => {
+        try {
+            const res = await fetch('/api/superadmin/promos', { cache: 'no-store' });
+            const data = await res.json();
+            if (Array.isArray(data.promos)) setPromoCodes(data.promos.map(mapRow));
+        } catch (e) {
+            console.error('Failed to load promo codes:', e);
+        }
+    };
 
     useEffect(() => {
         setMounted(true);
-        const saved = localStorage.getItem('cc_sa_promo_codes');
-        if (saved) setPromoCodes(JSON.parse(saved));
+        loadPromos();
     }, []);
 
-    const save = (updated: PromoCode[]) => {
-        setPromoCodes(updated);
-        localStorage.setItem('cc_sa_promo_codes', JSON.stringify(updated));
+    const addPromo = async () => {
+        if (!newPromo.code || saving) return;
+        setSaving(true);
+        try {
+            await fetch('/api/superadmin/promos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newPromo),
+            });
+            await loadPromos();
+            setNewPromo({ code: '', discount: 10, type: 'percent', singleUse: false, maxUses: 0 });
+            setDone('added');
+            setTimeout(() => setDone(null), 3000);
+        } catch (e) {
+            console.error('Failed to add promo:', e);
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const addPromo = () => {
-        if (!newPromo.code) return;
-        const entry: PromoCode = { ...newPromo, code: newPromo.code.toUpperCase(), usedCount: 0 };
-        const updated = [...promoCodes, entry];
-        save(updated);
-        setNewPromo({ code: '', discount: 10, type: 'percent', singleUse: false, maxUses: 0 });
-        setDone('added');
-        setTimeout(() => setDone(null), 3000);
-    };
-
-    const deletePromo = (code: string) => {
-        const updated = promoCodes.filter(p => p.code !== code);
-        save(updated);
+    const deletePromo = async (code: string) => {
+        try {
+            await fetch(`/api/superadmin/promos?code=${encodeURIComponent(code)}`, { method: 'DELETE' });
+            await loadPromos();
+        } catch (e) {
+            console.error('Failed to delete promo:', e);
+        }
     };
 
     if (!mounted) return null;
