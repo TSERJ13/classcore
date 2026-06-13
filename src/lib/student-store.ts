@@ -246,6 +246,15 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     try {
         localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
         markLocalUpdate();
+        
+        // 🚨 CRITICAL: Also update memory cache so getStudents() returns fresh data
+        if (_memoryStudentsCache && _memoryCacheSlug === activeSlug) {
+            _memoryStudentsCache[studentId] = patches[studentId];
+            if (oldId && oldId !== studentId && _memoryStudentsCache[oldId]) {
+                delete _memoryStudentsCache[oldId];
+            }
+        }
+        
         console.log('✅ [StudentStore] Local storage updated for:', studentId);
         
         // 🔥 NEW ATOMIC SYNC: Push this student directly to the native table
@@ -281,11 +290,23 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     window.dispatchEvent(new Event('cc_student_update'));
 }
 
-export async function deleteStudent(studentId: string): Promise<void> {
+export function deleteStudent(studentId: string): void {
     const patches = getStudentPatches();
     delete patches[studentId];
     localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
     markLocalUpdate();
+
+    // 🪦 Local tombstone: getStudents() filters ids in cc_deleted_students. This
+    // guarantees the student stays gone even if a cloud row lingers and a
+    // hydration re-adds it before the trash table has propagated.
+    try {
+        const delKey = getScopedKey(BASE_DELETED_STUDENTS_KEY);
+        const raw = localStorage.getItem(delKey);
+        const arr: string[] = raw ? JSON.parse(raw) : [];
+        const set = new Set(Array.isArray(arr) ? arr : []);
+        set.add(studentId);
+        localStorage.setItem(delKey, JSON.stringify(Array.from(set)));
+    } catch { /* ignore */ }
 
     const slug = (typeof window !== 'undefined' ? getActiveSlugLowLevel() : null) || 'demo';
     if (slug !== 'demo') {
@@ -295,7 +316,11 @@ export async function deleteStudent(studentId: string): Promise<void> {
         const session = typeof window !== 'undefined' ? getStaffSession() : null;
 
         if (finalOrgId) {
-            await deleteRecordFromCloud('students', studentId, finalOrgId);
+            deleteRecordFromCloud('students', studentId, finalOrgId);
+        } else {
+            // org_id couldn't be resolved, but the cloud delete only needs the
+            // primary key — fire it anyway so the row doesn't survive and return.
+            deleteRecordFromCloud('students', studentId, '');
         }
         
         const student = getStudents().find(s => s.id === studentId);
@@ -415,29 +440,26 @@ export function getStudentUid(studentId: string): string {
 
 // StudentPatch type is now imported from @/types
 
-export function getStudentPatches(): Record<string, Student> {
+export function getStudentPatches(): Record<string, StudentPatch> {
     if (typeof window === 'undefined') return {};
     try {
-        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
         const key = getStudentDataKey();
         let stored = localStorage.getItem(key);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            // If non-empty, return it
+            if (parsed && Object.keys(parsed).length > 0) return parsed;
+        }
         
-        // 🚀 CRITICAL FIX: If localStorage is empty, check memory cache
-        // Otherwise we overwrite the entire database with just ONE student when editing!
-        if (!stored && activeSlug && _memoryCacheSlug === activeSlug && _memoryStudentsCache) {
-            console.log('💾 [StudentStore] getStudentPatches: Using in-memory cache as base');
-            return { ..._memoryStudentsCache };
+        // 🚨 CRITICAL FALLBACK: localStorage empty/missing → use memory cache
+        // This prevents updateStudent from accidentally wiping all other students
+        const activeSlug = localStorage.getItem('cc_active_studio_slug');
+        if (activeSlug && _memoryCacheSlug === activeSlug && _memoryStudentsCache) {
+            console.log('💾 [StudentStore] getStudentPatches() falling back to memory cache:', Object.keys(_memoryStudentsCache).length, 'students');
+            return { ..._memoryStudentsCache } as any;
         }
-
-        const parsed = JSON.parse(stored ?? '{}');
-        if (Array.isArray(parsed)) {
-            return parsed.reduce((acc: any, s: any) => {
-                const id = s.id || s.studentId;
-                if (id) acc[id] = s;
-                return acc;
-            }, {});
-        }
-        return parsed || {};
+        
+        return {};
     } catch {
         return {};
     }
@@ -451,14 +473,6 @@ export function saveStudentPatch(studentId: string, patch: StudentPatch): void {
 
 export function getStudentPatch(studentId: string): StudentPatch {
     return getStudentPatches()[studentId] ?? {};
-}
-
-export function getStudentPhoto(id: string): string | null {
-    return getStudents().find(s => s.id === id)?.photo_url || null;
-}
-
-export function getStudentName(id: string): string {
-    return getStudents().find(s => s.id === id)?.full_name || id;
 }
 
 /**

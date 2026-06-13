@@ -3,221 +3,236 @@ import { createClient } from '@/lib/supabase/client';
 import { type StaffMember, type Branch, type StudioSettings } from '@/types';
 
 /**
- * MASTER SYNC BRIDGE v4.0 (IO-OPTIMIZED)
- * - Debounced writes: max 1 write per 1 second per record
- * - Batched upserts: multiple changes grouped into single DB call
+ * MASTER SYNC BRIDGE v3.5 (EXTREME DIAGNOSTICS)
+ * Hardened Cloud Anchor resolution with RLS-bypass simulation.
  */
 
-// ─── Debounce Registry ────────────────────────────────────────────────────────
-const pendingWrites: Map<string, { table: string; record: any; orgId: string; timer: ReturnType<typeof setTimeout> }> = new Map();
-const DEBOUNCE_MS = 1000; // 1 second - responsive but avoids rapid-fire IO
-
-export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string) {
-    console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token });
+export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false) {
+    console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token, isClientPortal });
+    
     try {
         const response = await fetch('/api/sync/state', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                'Authorization': token ? `Bearer ${token}` : ''
             },
-            body: JSON.stringify({ slug, orgId, isClientPortal, studentId })
+            body: JSON.stringify({ slug, orgId, isClientPortal })
         });
+        
         if (!response.ok) {
-            if (typeof window !== 'undefined') {
-                (window as any)._portalDebug = { 
-                    ...((window as any)._portalDebug || {}),
-                    status: 'CloudFetchError',
-                    httpStatus: response.status
-                };
-            }
-            console.error('❌ [MasterSync] API fetch failed:', response.statusText); return null; 
+            console.error('❌ [MasterSync] API fetch failed:', response.statusText);
+            return null;
         }
+
         const data = await response.json();
-        if (data.error) { console.error('❌ [MasterSync] API error:', data.error); return null; }
-        console.log('📊 [MasterSync] Hydration Complete:', { students: data.students?.length || 0, staff: data.staff?.length || 0 });
+        
+        if (data.error) {
+            console.error('❌ [MasterSync] API returned error:', data.error);
+            return null;
+        }
+        
+        console.log('📊 [MasterSync] Cloud Extraction Complete (Admin Bypass):', {
+            students: data.students?.length || 0,
+            staff: data.staff?.length || 0,
+            groups: data.groups?.length || 0,
+            events: data.calendar_events?.length || 0,
+            settingsFound: !!data.settingsRecord
+        });
+
         return data;
     } catch (e) {
-        console.error('❌ [MasterSync] Fetch failed:', e);
+        console.error('❌ [MasterSync] Collective fetch failed:', e);
         return null;
     }
 }
 
-/**
- * DEBOUNCED sync — queues a write and only executes after a delay.
- */
-export async function syncRecordToCloud(table: string, record: any, orgId: string): Promise<boolean> {
-    if (!orgId || !record?.id) return false;
-    const key = `${table}:${record.id}`;
-    const existing = pendingWrites.get(key);
-    if (existing) clearTimeout(existing.timer);
-
-    const timer = setTimeout(async () => {
-        pendingWrites.delete(key);
-        await _flushRecord(table, record, orgId);
-    }, DEBOUNCE_MS);
-
-    pendingWrites.set(key, { table, record, orgId, timer });
-    return true; // Optimistically return true
-}
-
-async function _flushRecord(table: string, record: any, orgId: string): Promise<boolean> {
+export async function syncRecordToCloud(table: string, record: any, orgId: string) {
     const supabase = createClient();
+    if (!orgId) return false;
+
     const payload = { ...record, org_id: orgId };
     const conflictCol = table === 'studio_settings' ? 'org_id' : 'id';
-    
-    // ATTEMPT 1: Full payload
-    let { error } = await supabase.from(table).upsert(payload, { onConflict: conflictCol });
-    
-    // ATTEMPT 2: Fallback for missing columns or type mismatches (e.g. UUID)
-    const isTypeError = error && (error.message?.includes('invalid input syntax') || error.message?.includes('type uuid'));
-    const isMissingColumn = error && error.message?.includes('column');
+    const { error } = await supabase
+        .from(table)
+        .upsert(payload, { onConflict: conflictCol });
 
-    if (isTypeError || isMissingColumn) {
-        if (isTypeError) {
-            console.warn(`⚠️ [MasterSync] '${table}' type mismatch (likely UUID). Retrying with minimal fields.`);
-        } else {
-            const colMatch = error.message?.match(/'([^']+)' column/);
-            console.warn(`⚠️ [MasterSync] '${table}' missing column '${colMatch?.[1]}' — retrying with minimal fields`);
-        }
-        
-        // Minimal payload: id, org_id, and stuff everything else into data
-        const minimal: any = {
-            id: record.id,
-            org_id: orgId,
-            data: { ...record }
-        };
-        
-        // Only keep fields if they are simple strings and likely to exist
-        ['name', 'title', 'date'].forEach(field => {
-            if (record[field] !== undefined && typeof record[field] === 'string') {
-                minimal[field] = record[field];
-            }
-        });
-
-        // 🚨 IMPORTANT: If student_id contains a comma, it's a shared ID. 
-        // If the DB expects a UUID, it will fail. So we only include it if it looks like a single ID.
-        if (record.student_id && typeof record.student_id === 'string' && !record.student_id.includes(',')) {
-            minimal.student_id = record.student_id;
-        }
-        
-        const retry = await supabase.from(table).upsert(minimal, { onConflict: conflictCol });
-        if (retry.error) {
-            console.error(`❌ [MasterSync] Retry failed for ${table}: ${retry.error.message}`);
-            return false;
-        }
-        console.log(`✅ [MasterSync] Flushed ${table}:${record.id} (minimal fallback successful)`);
-        return true;
+    if (error) {
+        console.error(`❌ [MasterSync] Upsert failed for ${table}:`, error.message);
+        return false;
     }
-    
-    if (error) { console.error(`❌ [MasterSync] Upsert failed for ${table}:`, error.message); return false; }
-    console.log(`✅ [MasterSync] Flushed ${table}:${record.id}`);
     return true;
 }
-
-export async function flushAllPending(): Promise<void> {
-    const promises: Promise<boolean>[] = [];
-    for (const [key, pending] of pendingWrites.entries()) {
-        clearTimeout(pending.timer);
-        pendingWrites.delete(key);
-        promises.push(_flushRecord(pending.table, pending.record, pending.orgId));
-    }
-    await Promise.all(promises);
-}
-
-if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => { flushAllPending(); });
-}
-
 export async function pushFullStudioMetadata(slug: string, name: string, metadata: any, token?: string) {
     if (!slug || slug === 'demo.classcore.ge') return;
+
     const settingsObj = metadata.settings || metadata;
     const logoUrl = metadata.logo_url || settingsObj.logoDataUrl;
     const orgId = metadata.orgId || settingsObj.orgId || metadata.org_id;
-    if (!orgId || orgId === 'demo') { console.warn('⚠️ [MasterSync] Skipping push: No OrgID.'); return; }
+
+    if (!orgId || orgId === 'demo') {
+        console.warn('⚠️ [MasterSync] Skipping push: No OrgID resolved.');
+        return;
+    }
+
+    console.log(`📤 [MasterSync] Pushing Metadata for ${slug} via API:`, { 
+        name, 
+        logo: logoUrl ? (logoUrl.startsWith('data:') ? `BASE64 (${Math.round(logoUrl.length/1024)}KB)` : logoUrl) : 'NONE' 
+    });
+
+    // 🚀 SCORCHED EARTH v4.1: Strip large collections to prevent payload limit errors
     const sanitizedSettings = { ...settingsObj };
-    ['staff','students','groups','halls','calendar_events','subscription_plans','attendance','sales','expenses','products','trash','subscriptions'].forEach(k => delete sanitizedSettings[k]);
+    const collectionsToStrip = ['staff', 'students', 'groups', 'halls', 'calendar_events', 'subscription_plans', 'attendance', 'sales', 'expenses', 'products', 'trash', 'subscriptions'];
+    collectionsToStrip.forEach(key => delete sanitizedSettings[key]);
+
     try {
         const res = await fetch('/api/sync/metadata', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
-            body: JSON.stringify({ slug, name, logoUrl, orgId, settings: sanitizedSettings })
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            },
+            body: JSON.stringify({
+                slug,
+                name,
+                logoUrl,
+                orgId,
+                settings: sanitizedSettings
+            })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Sync failed');
-        console.log(`✅ [MasterSync] Metadata Pushed for ${slug}`);
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Sync failed');
+        }
+
+        console.log(`✅ [MasterSync] Metadata Pushed Successfully for ${slug}`);
     } catch (err: any) {
-        console.error('❌ [MasterSync] Metadata Push Failed:', err.message);
+        console.error('❌ [MasterSync] API Metadata Push Failed:', err.message);
     }
 }
 
 export async function pushCollectionToCloud(table: string, items: any[], orgId: string, slug?: string) {
     const supabase = createClient();
     if (!orgId || !items || items.length === 0) return false;
+
+    console.log(`📡 [MasterSync] Bulk Pushing ${items.length} records to ${table}...`);
+    
+    // Chunking to avoid large payload errors
     const chunkSize = 50;
     for (let i = 0; i < items.length; i += chunkSize) {
         const chunk = items.slice(i, i + chunkSize).map(item => {
-            const row: any = { ...item, org_id: orgId, data: item };
+            const row: any = {
+                ...item,
+                org_id: orgId,
+                data: item // 🔥 ALWAYS PRESERVE FULL DATA BLOB FOR HYDRATION PARITY
+            };
+            
+            // 🕒 TIME TRANSFORMATION for calendar_events (Legacy DB Support)
             if (table === 'calendar_events') {
-                if (typeof row.start_time === 'string' && row.start_time.includes(':') && row.start_time.length <= 5) row.start_time = `2024-01-01T${row.start_time}:00Z`;
-                if (typeof row.end_time === 'string' && row.end_time.includes(':') && row.end_time.length <= 5) row.end_time = `2024-01-01T${row.end_time}:00Z`;
+                if (typeof row.start_time === 'string' && row.start_time.includes(':') && row.start_time.length <= 5) {
+                    row.start_time = `2024-01-01T${row.start_time}:00Z`;
+                }
+                if (typeof row.end_time === 'string' && row.end_time.includes(':') && row.end_time.length <= 5) {
+                    row.end_time = `2024-01-01T${row.end_time}:00Z`;
+                }
             }
-            if (table === 'staff') delete row.photo_url;
+            
+            if (table === 'staff') {
+                delete row.photo_url;
+            }
+            
             return row;
         });
+
+        // 🚀 BYPASS RLS: Call our secure bulk sync API instead of direct Supabase upsert
         try {
             const apiRes = await fetch('/api/sync/bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ table, rows: chunk, slug: slug || 'unknown' })
+                body: JSON.stringify({
+                    table,
+                    rows: chunk,
+                    slug: slug || 'unknown'
+                })
             });
-            if (!apiRes.ok) throw new Error((await apiRes.json()).error || 'Bulk push failed');
-            console.log(`✅ [MasterSync] Bulk Pushed ${chunk.length} to ${table}`);
+
+            if (!apiRes.ok) {
+                const errData = await apiRes.json();
+                throw new Error(errData.error || 'API Bulk push failed');
+            }
+            
+            console.log(`✅ [MasterSync] Bulk Pushed ${chunk.length} records to ${table}`);
         } catch (error: any) {
-            console.error(`❌ [MasterSync] Bulk push failed for ${table}:`, error.message);
+            console.error(`❌ [MasterSync] Bulk push failed for ${table} chunk:`, error.message);
         }
     }
+    
     return true;
 }
 
 export async function ensureStudioExists(slug: string, name: string) {
     const supabase = createClient();
+    console.log('🛡️ [MasterSync] Verifying Cloud Anchor for:', slug);
+    
     try {
+        // 1. Aggressive Discovery
         const { data: studios } = await supabase.from('studios').select('org_id').eq('studio_slug', slug);
-        if (studios && studios.length > 0) return studios[0].org_id;
+        if (studios && studios.length > 0) {
+            console.log('🛡️ [MasterSync] Cloud Anchor Resolved:', studios[0].org_id);
+            return studios[0].org_id;
+        }
+
+        // 2. Try to fetch again after a short delay if we're authenticated
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-            const { data: retry } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
-            if (retry) return retry.org_id;
+             const { data: retry } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
+             if (retry) return retry.org_id;
         }
-        const { data: created, error: createError } = await supabase.from('studios').upsert({ studio_slug: slug, studio_name: name || 'Studio' }, { onConflict: 'studio_slug' }).select('org_id').maybeSingle();
+
+        // 3. Create if missing (Only if we cannot find it anywhere else)
+
+        console.log('🛡️ [MasterSync] Anchor missing. Creating new cloud silo...');
+        const { data: created, error: createError } = await supabase
+            .from('studios')
+            .upsert({
+                studio_slug: slug,
+                studio_name: name || 'Studio'
+            }, { onConflict: 'studio_slug' })
+            .select('org_id')
+            .maybeSingle();
+        
         if (createError) {
+            // If it failed due to uniqueness, try one last lookup
             const { data: final } = await supabase.from('studios').select('org_id').eq('studio_slug', slug).maybeSingle();
             if (final) return final.org_id;
             throw createError;
         }
         return created?.org_id;
+
     } catch (err) {
         console.error('❌ [MasterSync] Anchor failed:', err);
         return null;
     }
 }
-
 export async function deleteRecordFromCloud(table: string, id: string, orgId: string) {
-    if (!orgId || !id) return false;
-    const key = `${table}:${id}`;
-    const existing = pendingWrites.get(key);
-    if (existing) { clearTimeout(existing.timer); pendingWrites.delete(key); }
-    try {
-        const res = await fetch('/api/sync/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ table, id, orgId })
-        });
-        if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
-        console.log(`✅ [MasterSync] Deleted ${id} from ${table}`);
-        return true;
-    } catch (error: any) {
+    const supabase = createClient();
+    if (!id) return false;
+
+    console.log(`🗑️ [MasterSync] Permanent deletion from ${table}:`, id);
+    // Delete by PRIMARY KEY only. `id` is globally unique (table PK), so this
+    // reliably removes the exact row. Filtering by org_id as well caused
+    // "delete then reappears": if org_id resolution drifted, the WHERE matched
+    // 0 rows, Postgres returned NO error, and the row survived in the cloud —
+    // so the next hydration pulled the "deleted" record straight back.
+    const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
+
+    if (error) {
         console.error(`❌ [MasterSync] Delete failed for ${table}:`, error.message);
         return false;
     }
+    return true;
 }
