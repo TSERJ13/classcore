@@ -27,6 +27,41 @@ export const INITIAL_STUDENTS: Student[] = [];
 let _memoryStudentsCache: Record<string, Student> | null = null;
 let _memoryCacheSlug: string | null = null;
 
+// ─────────────────────────────────────────────────────────────────────────
+// 🪶 localStorage de-bloat: base64 photos are the reason localStorage blows
+// past its 5MB quota (which broke saving → broke delete). We keep the FULL
+// students (with photos) in the in-memory cache + cloud, and write only a
+// LIGHT copy (no base64) to localStorage. getStudents() merges the photos back
+// from the memory cache, so the UI still shows them.
+// ─────────────────────────────────────────────────────────────────────────
+function isBase64(v: any): boolean {
+    return typeof v === 'string' && v.startsWith('data:');
+}
+function lightCopyStudent(s: any): any {
+    if (!s || typeof s !== 'object') return s;
+    if (!isBase64(s.photo_url)) return s;
+    const c = { ...s };
+    delete c.photo_url; // dropped from localStorage only; full version stays in memory + cloud
+    return c;
+}
+function lightPatches(patches: Record<string, any>): Record<string, any> {
+    const out: Record<string, any> = {};
+    for (const k in patches) out[k] = lightCopyStudent(patches[k]);
+    return out;
+}
+/** Write student patches to localStorage WITHOUT base64 photos, never throwing. */
+function writeStudentPatches(patches: Record<string, any>): void {
+    try {
+        localStorage.setItem(getStudentDataKey(), JSON.stringify(lightPatches(patches)));
+    } catch (e) {
+        // Even the light version didn't fit — clear the key so stale bloat is gone;
+        // the memory cache + cloud remain the source of truth.
+        try { localStorage.removeItem(getStudentDataKey()); } catch { /* noop */ }
+        console.warn('[student-store] light student write still failed; cleared key', e);
+    }
+}
+
+
 export function setMemoryStudentsCache(students: Student[] | Record<string, Student>, slug: string) {
     if (Array.isArray(students)) {
         _memoryStudentsCache = students.reduce((acc, s) => {
@@ -153,6 +188,17 @@ export function getStudents(): Student[] {
             return s as Student;
         });
 
+        // 🖼️ Re-attach base64 photos from the in-memory cache. localStorage holds
+        // a light copy without photos (to stay under quota), so merge them back.
+        if (_memoryStudentsCache && _memoryCacheSlug === activeSlug) {
+            for (const s of finalStudents as any[]) {
+                if (!isBase64(s.photo_url)) {
+                    const mem = _memoryStudentsCache[s.id];
+                    if (mem && isBase64((mem as any).photo_url)) s.photo_url = (mem as any).photo_url;
+                }
+            }
+        }
+
         // Filter out deleted IDs
         const nonDeleted = finalStudents.filter(s => !deletedIds.has(s.id));
 
@@ -204,10 +250,15 @@ export function getStudentsAllBranches(): Student[] {
             patches = parsed || {};
         }
 
-        return Object.entries(patches).map(([id, p]: [string, any]) => ({
-            ...(p as Student),
-            id: p.id || id
-        }));
+        const allBranchSlug = localStorage.getItem('cc_active_studio_slug');
+        return Object.entries(patches).map(([id, p]: [string, any]) => {
+            const student: any = { ...(p as Student), id: p.id || id };
+            if (!isBase64(student.photo_url) && _memoryStudentsCache && _memoryCacheSlug === allBranchSlug) {
+                const mem = _memoryStudentsCache[student.id];
+                if (mem && isBase64((mem as any).photo_url)) student.photo_url = (mem as any).photo_url;
+            }
+            return student;
+        });
     } catch (e) {
         console.error('Failed to get students from all branches', e);
         return [];
@@ -244,7 +295,7 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
     }
 
     try {
-        localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
+        writeStudentPatches(patches);
         markLocalUpdate();
         
         // 🚨 CRITICAL: Also update memory cache so getStudents() returns fresh data
@@ -306,7 +357,7 @@ export function deleteStudent(studentId: string): void {
     try {
         const patches = getStudentPatches();
         delete patches[studentId];
-        localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
+        writeStudentPatches(patches);
     } catch (e) {
         console.warn('[deleteStudent] local patch write skipped (storage full) — cloud delete still runs', e);
     }
@@ -484,7 +535,7 @@ export function getStudentPatches(): Record<string, StudentPatch> {
 export function saveStudentPatch(studentId: string, patch: StudentPatch): void {
     const patches = getStudentPatches();
     patches[studentId] = { ...patches[studentId], ...patch };
-    localStorage.setItem(getStudentDataKey(), JSON.stringify(patches));
+    writeStudentPatches(patches);
 }
 
 export function getStudentPatch(studentId: string): StudentPatch {

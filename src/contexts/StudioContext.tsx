@@ -213,7 +213,15 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     cc_branches: state.branches || [],
                     cc_halls: unwrap(finalHalls),
                     cc_groups: unwrap(finalGroups),
-                    cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => ({ ...acc, [s.id]: s }), {}),
+                    cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => {
+                        // Keep localStorage light: drop base64 photos here (they stay in
+                        // the in-memory cache set above, and getStudents() merges them back).
+                        const lite = (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:'))
+                            ? { ...s, photo_url: undefined }
+                            : s;
+                        acc[s.id] = lite;
+                        return acc;
+                    }, {}),
                     cc_student_subscriptions: (unwrap(state.subscriptions) || [])
                         .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
                         .reduce((acc: any, sub: any) => {
