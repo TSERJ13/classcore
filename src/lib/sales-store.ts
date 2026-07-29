@@ -2,6 +2,7 @@
  * sales-store.ts
  * Manages shop sales history linked to students.
  */
+import { pushStudioStateToCloud } from './sync-store';
 
 export interface ShopSale {
     id: string;
