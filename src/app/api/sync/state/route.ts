@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getAuthenticatedOrgId } from '@/lib/sync-auth';
 
 // Use Service Role to BYPASS all RLS policies!
 const supabaseAdmin = createClient(
@@ -18,33 +17,13 @@ export async function GET(req: Request) {
         const isClientPortal = searchParams.get('isClientPortal') === 'true';
 
         // 1. Auth Logic (Strict for Admins, Lenient for Portals)
+        let callerOrgId: string | null = null;
         if (!isClientPortal) {
-            const authHeader = req.headers.get('Authorization');
-            const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-            
-            let user = null;
-            if (token) {
-                const { data } = await supabaseAdmin.auth.getUser(token);
-                user = data.user;
-            } else {
-                const cookieStore = cookies();
-                const supabaseAuth = createServerClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                    {
-                        cookies: {
-                            get(name: string) { return cookieStore.get(name)?.value; },
-                            set() {}, remove() {}
-                        }
-                    }
-                );
-                const { data } = await supabaseAuth.auth.getUser();
-                user = data.user;
-            }
-
-            if (!user) {
+            const auth = await getAuthenticatedOrgId(req);
+            if (!auth) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
+            callerOrgId = auth.orgId;
         }
 
         // 2. Resolve target OrgID
@@ -64,6 +43,10 @@ export async function GET(req: Request) {
 
         if (!targetOrgId) {
             return NextResponse.json({ error: 'Could not resolve OrgID' }, { status: 404 });
+        }
+
+        if (!isClientPortal && targetOrgId !== callerOrgId) {
+            return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 
         // 3. Fetch Data
@@ -113,35 +96,16 @@ export async function POST(req: Request) {
         }
 
         const { slug, orgId, isClientPortal, studentId } = await req.json();
-        const authHeader = req.headers.get('Authorization');
-        const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
         // 1. Verify User Session (Bypass for Portals)
+        let callerOrgId: string | null = null;
         if (!isClientPortal) {
-            let user = null;
-            if (token) {
-                const { data } = await supabaseAdmin.auth.getUser(token);
-                user = data.user;
-            } else {
-                const cookieStore = cookies();
-                const supabaseAuth = createServerClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                    {
-                        cookies: {
-                            get(name: string) { return cookieStore.get(name)?.value; },
-                            set() {}, remove() {}
-                        }
-                    }
-                );
-                const { data } = await supabaseAuth.auth.getUser();
-                user = data.user;
-            }
-
-            if (!user) {
+            const auth = await getAuthenticatedOrgId(req);
+            if (!auth) {
                 console.error('❌ [SyncAPI] Unauthorized: No valid token or session.');
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
+            callerOrgId = auth.orgId;
         }
 
         // 2. Resolve target OrgID
@@ -162,6 +126,10 @@ export async function POST(req: Request) {
         if (!targetOrgId) {
             console.error('❌ [SyncAPI] Could not resolve OrgID for slug:', slug);
             return NextResponse.json({ error: 'Could not resolve OrgID' }, { status: 404 });
+        }
+
+        if (!isClientPortal && targetOrgId !== callerOrgId) {
+            return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 
         console.log(`📡 [SyncAPI] Fetching Full State for OrgID: ${targetOrgId} (${slug || 'No Slug'})`);

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getAuthenticatedOrgId } from '@/lib/sync-auth';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,21 +12,8 @@ export async function POST(req: Request) {
         const { slug, name, logoUrl, settings, orgId } = await req.json();
 
         // 1. Verify User Session
-        const cookieStore = cookies();
-        const supabaseAuth = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                cookies: {
-                    get(name: string) { return cookieStore.get(name)?.value; },
-                    set(name: string, value: string, options: CookieOptions) { },
-                    remove(name: string, options: CookieOptions) { }
-                }
-            }
-        );
-
-        const { data: { user } } = await supabaseAuth.auth.getUser();
-        if (!user) {
+        const auth = await getAuthenticatedOrgId(req);
+        if (!auth) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -41,6 +27,10 @@ export async function POST(req: Request) {
         if (!slug || !resolvedOrgId) {
             console.error('❌ [SyncAPI] Missing Slug or OrgID:', { slug, resolvedOrgId });
             return NextResponse.json({ error: 'Slug and OrgID are required' }, { status: 400 });
+        }
+
+        if (resolvedOrgId !== auth.orgId) {
+            return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 
         console.log(`🚀 [SyncAPI] Pushing Metadata for Slug: ${slug} (Org: ${resolvedOrgId})`);

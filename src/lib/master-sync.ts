@@ -226,7 +226,7 @@ export async function deleteRecordFromCloud(table: string, id: string, orgId: st
         const res = await fetch('/api/sync/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ table, id }),
+            body: JSON.stringify({ table, id, orgId }),
         });
         if (!res.ok) {
             const info = await res.json().catch(() => ({}));

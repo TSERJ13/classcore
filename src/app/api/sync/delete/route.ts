@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { getAuthenticatedOrgId } from '@/lib/sync-auth';
 
 /**
  * Server-side delete using the SERVICE ROLE key (bypasses RLS).
@@ -38,11 +39,20 @@ const ALLOWED_TABLES = new Set([
 
 export async function POST(req: Request) {
     try {
+        const auth = await getAuthenticatedOrgId(req);
+        if (!auth || !auth.orgId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
-        const { table, id, ids } = body as { table?: string; id?: string; ids?: string[] };
+        const { table, id, ids, orgId } = body as { table?: string; id?: string; ids?: string[]; orgId?: string };
 
         if (!table || !ALLOWED_TABLES.has(table)) {
             return NextResponse.json({ error: 'Invalid or missing table' }, { status: 400 });
+        }
+
+        if (!orgId || orgId !== auth.orgId) {
+            return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 
         const idList = ids && Array.isArray(ids) ? ids : (id ? [id] : []);
@@ -50,9 +60,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'id or ids required' }, { status: 400 });
         }
 
+        // Scope the delete to the caller's own org — defense in depth even if
+        // the auth check above is ever bypassed, this can't touch other orgs' rows.
         const { error } = await supabaseAdmin
             .from(table)
             .delete()
+            .eq('org_id', auth.orgId)
             .in('id', idList);
 
         if (error) {

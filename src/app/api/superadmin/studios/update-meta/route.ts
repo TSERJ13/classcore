@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/superadmin-auth';
 
 export async function POST(req: Request) {
     let slug = '';
     let patch: any = null;
     let billingPatch: any = null;
-    
+
     try {
+        const auth = await requireSuperAdmin(req);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
         slug = body.slug?.toLowerCase().trim() || '';
         patch = body.patch;

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/superadmin-auth';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -13,8 +14,13 @@ function admin() {
 const noStore = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
 
 // List all promo codes
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        const auth = await requireSuperAdmin(req);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: noStore });
+        }
+
         const { data, error } = await admin()
             .from('promo_codes')
             .select('*')
@@ -29,6 +35,11 @@ export async function GET() {
 // Create / upsert a promo code
 export async function POST(req: NextRequest) {
     try {
+        const auth = await requireSuperAdmin(req);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
         const code = String(body.code || '').toUpperCase().trim();
         if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 });
@@ -52,6 +63,11 @@ export async function POST(req: NextRequest) {
 // Delete a promo code: /api/superadmin/promos?code=XYZ
 export async function DELETE(req: NextRequest) {
     try {
+        const auth = await requireSuperAdmin(req);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const code = new URL(req.url).searchParams.get('code');
         if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 });
         const { error } = await admin().from('promo_codes').delete().eq('code', code.toUpperCase());
