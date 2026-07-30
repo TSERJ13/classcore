@@ -7,17 +7,17 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
  * Hardened Cloud Anchor resolution with RLS-bypass simulation.
  */
 
-export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false) {
+export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string) {
     console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token, isClientPortal });
-    
+
     try {
         const response = await fetch('/api/sync/state', {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': token ? `Bearer ${token}` : ''
             },
-            body: JSON.stringify({ slug, orgId, isClientPortal })
+            body: JSON.stringify({ slug, orgId, isClientPortal, studentId })
         });
         
         if (!response.ok) {
