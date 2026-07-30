@@ -16,7 +16,7 @@ export interface CheckinRecord {
     studentName: string;
     date: string;        // YYYY-MM-DD
     time: string;        // HH:MM
-    via: 'nfc' | 'qr' | 'manual';
+    via: 'nfc' | 'qr' | 'manual' | 'archive';
     sessionsRemaining: number;
     classId?: string;
     groupId?: string;

@@ -119,14 +119,15 @@ export function saveGroups(groups: Group[]): void {
     const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
     if (settings.orgId && settings.orgId !== 'demo') {
+        const orgId = settings.orgId;
         // 1. Native table sync
         groups.forEach(g => {
             syncRecordToCloud('groups', {
                 id: g.id,
-                org_id: settings.orgId,
+                org_id: orgId,
                 name: g.name,
                 data: g
-            }, settings.orgId).catch(() => {});
+            }, orgId).catch(() => {});
         });
 
         // 2. 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Update the settings blob too

@@ -90,7 +90,7 @@ export function getHistory(): Notification[] {
     }
 }
 
-export function addNotification(input: string | { title: string; message: string; type?: string; time?: string }, dotColor: string = 'bg-indigo-400'): void {
+export function addNotification(input: string | { title: string; message: string; type?: string; time?: string; duration?: number }, dotColor: string = 'bg-indigo-400'): void {
     const notifs = getNotifications();
     let text = '';
     let time = 'ახლახანს';

@@ -41,18 +41,18 @@ export function saveTeachers(teachers: Teacher[]) {
     }
 }
 
-export function getTeacher(id: string): Teacher | null {
+export function getTeacher(id: string | undefined): Teacher | null {
     const teachers = getTeachers();
     return teachers.find(t => t.id === id) || null;
 }
 
-export function getTeacherName(id: string): string {
+export function getTeacherName(id: string | undefined): string {
     const t = getTeacher(id);
     if (!t) return '';
     return t.full_name || `${t.first_name || ''} ${t.last_name || ''}`.trim() || t.email || '';
 }
 
-export function getTeacherPhoto(id: string): string | null {
+export function getTeacherPhoto(id: string | undefined): string | null {
     const t = getTeacher(id);
     return t?.photo_url || null;
 }

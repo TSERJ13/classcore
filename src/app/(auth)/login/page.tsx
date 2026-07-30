@@ -218,7 +218,7 @@ export default function LoginPage() {
                                             </div>
                                             {l('პაროლი', 'Пароль', 'Security Key')}
                                         </label>
-                                        <Link href="/forgot-password" size="sm" className="text-[11px] font-black text-indigo-600 px-1 hover:underline">
+                                        <Link href="/forgot-password" className="text-[11px] font-black text-indigo-600 px-1 hover:underline">
                                             {l('დაგავიწყდათ?', 'Забыли?', 'Recovery')}
                                         </Link>
                                     </div>

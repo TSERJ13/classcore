@@ -10,7 +10,7 @@ import {
 import MainPortal from '@/components/ui/MainPortal';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
-import { cn, getInitials, isExpiringSoon, formatCurrency, smartCapitalize, cleanPhone, formatPhoneDisplay } from '@/lib/utils';
+import { cn, getInitials, isExpiringSoon, formatCurrency, getCurrencySymbol, smartCapitalize, cleanPhone, formatPhoneDisplay } from '@/lib/utils';
 import { addNotification } from '@/lib/notification-store';
 import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 import { generateStudentCode, generateQRDataUrl } from '@/lib/qr';
@@ -371,13 +371,13 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                     preferred_language: student.preferred_language ?? 'ka',
                     discount_type: student.discount_type ?? 'percent',
                     discount_value: student.discount_value ?? 0,
-                    contact_person: student.contact_person,
+                    contact_person: student.contact_person ?? '',
                 });
                 setPhotoPreview(student.photo_url ?? '');
             } else {
                 const newCode = generateStudentCode();
                 setForm({
-                    id: '', first_name: '', last_name: '', phone: '', email: '', birth_date: '', notes: '', dance_style: '',
+                    id: '', first_name: '', last_name: '', phone: '', email: '', birth_date: '', notes: '', parent_name: '', dance_style: '',
                     medical_cert_expires_at: '', photo_url: '', qr_code: newCode, nfc_uid: '', passport_url: '', passport_expires_at: '',
                     social_links: { facebook: '', instagram: '', telegram: '', whatsapp: '' },
                     enrolled_group_ids: [],
@@ -893,7 +893,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                                 <div className="flex gap-1 bg-black/5 p-1 rounded-lg shrink-0">
                                                     {[
                                                         { value: 'percent', label: '%' },
-                                                        { value: 'fixed', label: settings.currencySymbol || '₾' }
+                                                        { value: 'fixed', label: getCurrencySymbol(settings.currency) }
                                                     ].map(opt => (
                                                         <button
                                                             key={opt.value}

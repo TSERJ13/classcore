@@ -18,6 +18,7 @@ export interface StaffPermissions {
     canViewShop: boolean;
     canViewAnalytics: boolean;
     canViewSMS: boolean;
+    canViewBilling: boolean;
     // Legacy / Admin
     canAddStudents?: boolean;
     canDeleteRecords?: boolean;
@@ -402,6 +403,7 @@ export interface Teacher {
         canViewShop: boolean;
         canViewAnalytics: boolean;
         canViewSMS: boolean;
+        canViewBilling: boolean;
     };
     created_at: string;
 }

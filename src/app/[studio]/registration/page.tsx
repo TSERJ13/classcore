@@ -30,16 +30,17 @@ export default function StudentRegistrationPage() {
                     return;
                 }
 
-                // 2. Cloud Fallback for public visitors
+                // 2. Cloud Fallback for public visitors (isClientPortal=true: this page
+                // has no login, so it must use the unauthenticated portal read path)
                 console.log('📡 [Registration] Branding missing locally. Fetching from cloud for:', studio);
-                const { fetchStudioDataFromCloud } = await import('@/lib/sync-store');
-                const cloudData = await fetchStudioDataFromCloud(studio);
-                
-                if (cloudData && cloudData.cc_studio_settings) {
-                    const branding = cloudData.cc_studio_settings;
+                const { fetchFullStudioState } = await import('@/lib/master-sync');
+                const cloudData = await fetchFullStudioState(studio, undefined, undefined, true);
+                const branding = cloudData?.settingsRecord?.staff_data || cloudData?.settingsRecord?.settings || {};
+
+                if (cloudData && (branding.studioName || cloudData.studio?.studio_name)) {
                     setSettings((prev: any) => ({
                         ...prev,
-                        studioName: branding.studioName || studio,
+                        studioName: cloudData.studio?.studio_name || branding.studioName || studio,
                         logoDataUrl: branding.logoDataUrl || null,
                         branches: branding.branches || prev.branches
                     }));

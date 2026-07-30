@@ -52,7 +52,7 @@ export async function GET(req: Request) {
 
         // ── Pull supporting rows ONCE (org_id only / minimal cols), aggregate in JS ──
         // A failure on any single table must not blank the whole panel.
-        const safe = async (q: Promise<any>) => { try { const r = await q; return r.data || []; } catch { return []; } };
+        const safe = async (q: PromiseLike<any>) => { try { const r = await q; return r.data || []; } catch { return []; } };
 
         const [students, groups, subs, sales, profileData] = await Promise.all([
             safe(supabase.from('students').select('org_id, status')),

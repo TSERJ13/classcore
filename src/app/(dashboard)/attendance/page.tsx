@@ -490,7 +490,7 @@ export default function AttendancePage() {
 
     // 2. Pre-calculate statuses for ALL visible students once
     const studentStatuses = useMemo(() => {
-        const statuses: Record<string, { activeSub: any; isExpired: boolean; score: number; label: string | null }> = {};
+        const statuses: Record<string, { activeSub: any; isExpired: boolean; score: number; label: string | null; color: string; remaining: number }> = {};
         students.forEach(s => {
             statuses[s.id] = getSubStatus(s.id);
         });
