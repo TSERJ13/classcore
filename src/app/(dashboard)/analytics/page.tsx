@@ -329,17 +329,17 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
 
                     {/* Stats Summary */}
                     <div className="px-6 py-4 grid grid-cols-2 gap-3 border-b border-border-subtle">
-                        <div className={cn("p-3 rounded-xl border", revenueGrowth >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20")}>
+                        <div className={cn("p-3 rounded-xl border", revenueGrowth == null ? "bg-surface/40 border-border-subtle" : revenueGrowth >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20")}>
                             <p className="text-[10px] font-bold text-muted opacity-60 mb-0.5">{t.totalRevenue || 'Revenue'}</p>
-                            <p className={cn("text-lg font-black", revenueGrowth >= 0 ? "text-emerald-600" : "text-red-500")}>
-                                {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth}%
+                            <p className={cn("text-lg font-black", revenueGrowth == null ? "text-muted opacity-50" : revenueGrowth >= 0 ? "text-emerald-600" : "text-red-500")}>
+                                {revenueGrowth == null ? '—' : `${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth}%`}
                             </p>
                             <p className="text-[9px] text-muted opacity-50">{t.vsLastMonth}</p>
                         </div>
-                        <div className={cn("p-3 rounded-xl border", attendanceGrowth >= 0 ? "bg-violet-500/5 border-violet-500/20" : "bg-amber-500/5 border-amber-500/20")}>
+                        <div className={cn("p-3 rounded-xl border", attendanceGrowth == null ? "bg-surface/40 border-border-subtle" : attendanceGrowth >= 0 ? "bg-violet-500/5 border-violet-500/20" : "bg-amber-500/5 border-amber-500/20")}>
                             <p className="text-[10px] font-bold text-muted opacity-60 mb-0.5">{t.attendanceRate || 'Attendance'}</p>
-                            <p className={cn("text-lg font-black", attendanceGrowth >= 0 ? "text-violet-600" : "text-amber-500")}>
-                                {attendanceGrowth >= 0 ? '+' : ''}{attendanceGrowth}%
+                            <p className={cn("text-lg font-black", attendanceGrowth == null ? "text-muted opacity-50" : attendanceGrowth >= 0 ? "text-violet-600" : "text-amber-500")}>
+                                {attendanceGrowth == null ? '—' : `${attendanceGrowth >= 0 ? '+' : ''}${attendanceGrowth}%`}
                             </p>
                             <p className="text-[9px] text-muted opacity-50">{t.vsLastMonth}</p>
                         </div>
