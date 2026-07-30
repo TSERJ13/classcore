@@ -8,7 +8,7 @@ import { createClient as createSSRClient } from '@/lib/supabase/server';
  * only thing standing between an authenticated user and another studio's data.
  * Returns null if there is no valid session at all.
  */
-export async function getAuthenticatedOrgId(req: Request): Promise<{ userId: string; orgId: string | null } | null> {
+export async function getAuthenticatedOrgId(req: Request): Promise<{ userId: string; email?: string; orgId: string | null } | null> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const admin = createAdminClient(supabaseUrl, serviceKey, {
@@ -36,6 +36,5 @@ export async function getAuthenticatedOrgId(req: Request): Promise<{ userId: str
         const { data } = await admin.from('studios').select('org_id').ilike('studio_slug', studioSlug).maybeSingle();
         orgId = data?.org_id || null;
     }
-
-    return { userId: user.id, orgId };
+    return { userId: user.id, email: user.email, orgId };
 }

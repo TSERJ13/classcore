@@ -42,7 +42,7 @@ type State = 'present' | 'absent' | 'none';
 import { getStudentsByClass } from '@/lib/student-data';
 
 const THEME_CLASSES: Record<string, string> = {
-    indigo: 'border-#6d28d9 text-#6d28d9 hover:bg-#6d28d9/10',
+    indigo: 'border-[#6d28d9] text-[#6d28d9] hover:bg-[#6d28d9]/10',
     violet: 'border-violet-500 text-violet-500 hover:bg-violet-500/10',
     emerald: 'border-emerald-500 text-emerald-500 hover:bg-emerald-500/10',
     rose: 'border-rose-500 text-rose-500 hover:bg-rose-500/10',
@@ -57,7 +57,7 @@ const SCAN_MAP: Record<string, string> = {
     '04A32B1C': '1', '04B71E2D': '2', '04C85F3E': '3', '04D96A4F': '4',
 };
 
-const AVATAR_COLORS = ['from-#6d28d9 to-violet-600', 'from-emerald-500 to-teal-600', 'from-rose-500 to-pink-600', 'from-amber-500 to-orange-600'];
+const AVATAR_COLORS = ['from-[#6d28d9] to-violet-600', 'from-emerald-500 to-teal-600', 'from-rose-500 to-pink-600', 'from-amber-500 to-orange-600'];
 function avatarColor(id: string) { return AVATAR_COLORS[parseInt(id) % AVATAR_COLORS.length]; }
 
 // ─── Popup ─────────────────────────────────────────────────────────────────────
@@ -101,11 +101,11 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                     'w-[calc(100vw-4rem)] max-w-[280px] sm:w-full sm:max-w-sm rounded-[2.5rem] border overflow-hidden bg-card transition-all',
                     data.phase === 'success' && 'border-emerald-500/10',
                     data.phase === 'confirm' && 'border-amber-500/10',
-                    data.phase === 'double-success' && 'border-#6d28d9/10',
+                    data.phase === 'double-success' && 'border-[#6d28d9]/10',
                 )}>
                     {autoClose && !hasMultipleSubs && (
                         <div className="h-1 bg-surface relative overflow-hidden">
-                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-#6d28d9')}
+                            <div className={cn('h-full transition-all ease-linear', data.phase === 'success' ? 'bg-emerald-500' : 'bg-[#6d28d9]')}
                                 style={{ width: `${progress}%`, transitionDuration: '1s' }} />
                         </div>
                     )}
@@ -118,7 +118,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                 <div className={cn('absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-4 border-card',
                                     data.phase === 'success' && 'bg-emerald-500',
                                     data.phase === 'confirm' && 'bg-amber-500',
-                                    data.phase === 'double-success' && 'bg-#6d28d9',
+                                    data.phase === 'double-success' && 'bg-[#6d28d9]',
                                 )}>
                                     {data.phase === 'success' && <Check className="w-4 h-4 text-white" strokeWidth={4} />}
                                     {data.phase === 'confirm' && <AlertTriangle className="w-4 h-4 text-white" strokeWidth={3} />}
@@ -130,7 +130,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                             <h2 className="text-2xl font-black text-primary tracking-tight">{data.studentName}</h2>
                             {data.phase === 'success' && <><p className="text-[11px] font-black text-emerald-600 tracking-widest mt-2 bg-emerald-500/10 px-3 py-1 rounded-full inline-block">✅ {t.attendanceSheet} OK</p></>}
                             {data.phase === 'confirm' && <p className="text-[11px] font-black text-amber-600 tracking-widest mt-2 bg-amber-500/10 px-3 py-1 rounded-full inline-block">⚠️ {t.alreadyCheckedIn}</p>}
-                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-#5b21b6 tracking-widest mt-2 bg-#6d28d9/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
+                            {data.phase === 'double-success' && <p className="text-[11px] font-black text-[#5b21b6] tracking-widest mt-2 bg-[#6d28d9]/10 px-3 py-1 rounded-full inline-block">✅ ×2 {data.isMonthly ? t.days : t.visit}</p>}
                         </div>
 
                         {hasMultipleSubs && subscriptions && onSelectSub ? (
@@ -143,11 +143,11 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                             <button
                                                 key={s.id}
                                                 onClick={() => onSelectSub(s.id)}
-                                                className="w-full text-left p-3 rounded-2xl bg-surface border border-border-subtle hover:border-#6d28d9/50 hover:bg-#6d28d9/5 transition-all group"
+                                                className="w-full text-left p-3 rounded-2xl bg-surface border border-border-subtle hover:border-[#6d28d9]/50 hover:bg-[#6d28d9]/5 transition-all group"
                                             >
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-[11px] font-black text-primary truncate max-w-[140px]">{s.plan}</span>
-                                                    <span className="text-[10px] font-black text-#5b21b6 tabular-nums">
+                                                    <span className="text-[10px] font-black text-[#5b21b6] tabular-nums">
                                                         {s.type === 'monthly' ? '∞' : rem}
                                                     </span>
                                                 </div>
@@ -791,7 +791,7 @@ export default function AttendancePage() {
         <div className="flex flex-col flex-1 min-h-[100dvh] bg-card animate-fade-up overflow-x-hidden relative max-w-full">
             {!mounted ? (
                 <div className="flex-1 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-2xl border-4 border-#6d28d9/20 border-t-#6d28d9 animate-spin" />
+                    <div className="w-12 h-12 rounded-2xl border-4 border-[#6d28d9]/20 border-t-#6d28d9 animate-spin" />
                 </div>
             ) : (
                 <>
@@ -843,7 +843,7 @@ export default function AttendancePage() {
                         <div className="flex items-center justify-between bg-surface/50 h-11 relative overflow-hidden group">
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
                             >
                                 <ChevronLeft className="w-6 h-6" />
                             </button>
@@ -865,7 +865,7 @@ export default function AttendancePage() {
 
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-#5b21b6 transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
                             >
                                 <ChevronRight className="w-6 h-6" />
                             </button>
@@ -991,9 +991,9 @@ export default function AttendancePage() {
                                                 <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {(cls as any).teacherName || getTeacherName(cls.teacher_id)}</p>
                                             </div>
                                             {cls.notes && (
-                                                <div className="flex items-center gap-1 px-2 py-0.5 bg-#f5f3ff border border-#ede9fe rounded-full">
-                                                    <Info className="w-3 h-3 text-#a78bfa" />
-                                                    <p className="text-[9px] font-bold text-#5b21b6 truncate max-w-[200px]">{cls.notes}</p>
+                                                <div className="flex items-center gap-1 px-2 py-0.5 bg-[#f5f3ff] border border-[#ede9fe] rounded-full">
+                                                    <Info className="w-3 h-3 text-[#a78bfa]" />
+                                                    <p className="text-[9px] font-bold text-[#5b21b6] truncate max-w-[200px]">{cls.notes}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -1080,7 +1080,7 @@ export default function AttendancePage() {
                                             className={cn(
                                                 'w-full flex items-center justify-between gap-3 p-4 md:p-6 rounded-none md:rounded-[2rem] transition-all group border-b md:border md:relative overflow-hidden cursor-pointer',
                                                 isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
-                                                    isSel ? 'bg-#f5f3ff/50 border-#ddd6fe' :
+                                                    isSel ? 'bg-[#f5f3ff]/50 border-[#ddd6fe]' :
                                                         'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
                                                 isExpired && 'opacity-90'
                                             )}>
@@ -1274,7 +1274,7 @@ export default function AttendancePage() {
                                                                 setDrawerOpen(false);
                                                                 setEditModal(true);
                                                             }}
-                                                            className="p-3 rounded-xl bg-surface border border-border-subtle text-muted hover:text-#6d28d9 hover:border-#6d28d9/30 transition-all active:scale-90"
+                                                            className="p-3 rounded-xl bg-surface border border-border-subtle text-muted hover:text-[#6d28d9] hover:border-[#6d28d9]/30 transition-all active:scale-90"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
@@ -1364,7 +1364,7 @@ export default function AttendancePage() {
                                                     {activeTab === 'recent' && (
                                                         <div className="space-y-3 pb-24">
                                                             {getStudentCheckins(selStudent.id).length > 0 ? getStudentCheckins(selStudent.id).map((ch, i) => (
-                                                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-#6d28d9/30 transition-all">
+                                                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-[#6d28d9]/30 transition-all">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                                             style={{ 
@@ -1392,7 +1392,7 @@ export default function AttendancePage() {
                                                                 const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
                                                                 const isActive = sub.status === 'active' && !isExpired;
                                                                 return (
-                                                                    <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-#6d28d9/5 border-#6d28d9/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
+                                                                    <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-[#6d28d9]/5 border-[#6d28d9]/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
                                                                         <div className="flex justify-between items-start mb-3">
                                                                             <div className="flex items-center gap-2">
                                                                                 <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{ (sub.status || "active").toUpperCase()}</span>
@@ -1463,7 +1463,7 @@ export default function AttendancePage() {
                             ) : (
                                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center opacity-40">
                                     <div className="w-24 h-24 rounded-[2.5rem] bg-surface flex items-center justify-center mb-8 shadow-inner border border-border-subtle">
-                                        <Scan className="w-10 h-10 text-#6d28d9 opacity-50" />
+                                        <Scan className="w-10 h-10 text-[#6d28d9] opacity-50" />
                                     </div>
                                     <p className="text-lg font-black text-primary tracking-tight">{t.scanCard}</p>
                                 </div>

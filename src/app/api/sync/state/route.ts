@@ -2,6 +2,32 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthenticatedOrgId } from '@/lib/sync-auth';
 
+function applySecurityFilters(payload: any, callerStaff: any) {
+    if (!callerStaff || callerStaff.role === 'owner') return payload;
+    const p = callerStaff.permissions;
+    if (p) {
+        if (!p.canViewBilling) {
+            payload.sales = [];
+            payload.expenses = [];
+            payload.subscriptions = [];
+        }
+        if (!p.canViewStudents) {
+            payload.students = [];
+        }
+        if (!p.canViewAttendance) {
+            payload.attendance = [];
+        }
+    }
+    const allowedBranches = callerStaff.allowedBranchIds;
+    if (Array.isArray(allowedBranches) && allowedBranches.length > 0) {
+        const allowed = new Set(allowedBranches);
+        if (payload.groups) payload.groups = payload.groups.filter((g: any) => !g.branch_id || allowed.has(g.branch_id));
+        if (payload.calendar_events) payload.calendar_events = payload.calendar_events.filter((e: any) => !e.branch_id || allowed.has(e.branch_id));
+        if (payload.students) payload.students = payload.students.filter((s: any) => !s.branch_id || allowed.has(s.branch_id));
+    }
+    return payload;
+}
+
 // Use Service Role to BYPASS all RLS policies!
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,12 +44,14 @@ export async function GET(req: Request) {
 
         // 1. Auth Logic (Strict for Admins, Lenient for Portals)
         let callerOrgId: string | null = null;
+        let callerEmail: string | undefined = undefined;
         if (!isClientPortal) {
             const auth = await getAuthenticatedOrgId(req);
             if (!auth) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
             callerOrgId = auth.orgId;
+            callerEmail = auth.email;
         }
 
         // 2. Resolve target OrgID
@@ -99,6 +127,7 @@ export async function POST(req: Request) {
 
         // 1. Verify User Session (Bypass for Portals)
         let callerOrgId: string | null = null;
+        let callerEmail: string | undefined = undefined;
         if (!isClientPortal) {
             const auth = await getAuthenticatedOrgId(req);
             if (!auth) {
@@ -106,6 +135,7 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
             callerOrgId = auth.orgId;
+            callerEmail = auth.email;
         }
 
         // 2. Resolve target OrgID
