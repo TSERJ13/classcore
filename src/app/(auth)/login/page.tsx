@@ -34,11 +34,12 @@ export default function LoginPage() {
 
         if (user && !loading) {
             if (profile?.is_activated === false) {
-                const { createClient } = require('@/lib/supabase/client');
-                const supabase = createClient();
-                supabase.auth.signOut().then(() => {
+                (async () => {
+                    const { createClient } = await import('@/lib/supabase/client');
+                    const supabase = createClient();
+                    await supabase.auth.signOut();
                     setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще не активирован.', 'Account not activated.'));
-                });
+                })();
                 return;
             }
             window.location.href = '/dashboard';
