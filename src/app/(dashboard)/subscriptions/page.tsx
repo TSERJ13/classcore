@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -264,11 +265,11 @@ export default function SubscriptionsPage() {
 
                     <div className="flex items-center gap-2 sm:gap-3">
                         {/* Prices Action */}
-                        <button onClick={() => window.location.href = '/subscriptions/plans'}
+                        <Link href="/subscriptions/plans"
                             className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 px-3 sm:px-5 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
                             <DollarSign strokeWidth={3} className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                             <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
-                        </button>
+                        </Link>
 
                         {/* Primary Action Button */}
                         <button onClick={() => setIssuing(true)}
