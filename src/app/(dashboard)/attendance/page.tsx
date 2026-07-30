@@ -433,7 +433,7 @@ export default function AttendancePage() {
         if (activeSub) {
             const hasExpiredByDate = activeSub.expires_at < todayStr;
             const isUnlimited = activeSub.sessions_total === null;
-            const remaining = isUnlimited ? Infinity : (activeSub.sessions_total - (activeSub.sessions_used ?? 0));
+            const remaining = isUnlimited ? Infinity : ((activeSub.sessions_total ?? 0) - (activeSub.sessions_used ?? 0));
             const hasUsedAllSessions = !isUnlimited && activeSub.sessions_total !== null && remaining <= 0;
             
             if (hasExpiredByDate || hasUsedAllSessions) {

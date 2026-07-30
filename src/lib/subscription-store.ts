@@ -24,6 +24,9 @@ export interface SubscriptionInfo {
     payment_method?: 'cash' | 'card' | 'transfer';
     amount_paid?: number;
     teacher_id?: string;
+    // Individual lesson schedule slots
+    schedule?: Array<{ day: number; time: string; endTime: string; hallId?: string }>;
+    color?: string;
 }
 
 type SubMap = Record<string, SubscriptionInfo[]>;

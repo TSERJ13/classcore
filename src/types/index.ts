@@ -216,6 +216,7 @@ export interface CalendarEvent {
     recurring?: 'none' | 'weekly';
     reminder_30m?: boolean;
     created_at: string;
+    coach?: string;       // legacy fallback teacher name (pre-teacher_id era)
 }
 
 export type UserRole = 'admin' | 'coach' | 'student';

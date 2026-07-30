@@ -513,7 +513,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                                         {s.photo_url && <img src={s.photo_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
                                                         <span className="text-[10px] font-bold text-indigo-600">{s.full_name}</span>
                                                         <button onClick={() => {
-                                                            const nextIds = form.student_id.split(',').map(i => i.trim()).filter(i => i !== id);
+                                                            const nextIds = (form.student_id?.split(',') ?? []).map(i => i.trim()).filter(i => i !== id);
                                                             const finalIds = nextIds.join(', ');
                                                             setF('student_id', finalIds);
                                                             const names = nextIds.map(i => getStudents().find(x => x.id === i)?.full_name).filter(Boolean);
