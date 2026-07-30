@@ -155,79 +155,100 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
 
 // ── Nav Items ──
 function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRole }: any) {
+    const { lang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+
+    const sections = [
+        { label: l('მთავარი', 'Главное', 'Main'), items: ['/dashboard', '/attendance', '/subscriptions', '/students', '/calendar'] },
+        { label: l('მართვა', 'Управление', 'Management'), items: ['/groups', '/teachers', '/halls'] },
+        { label: l('ინსტრუმენტები', 'Инструменты', 'Tools'), items: ['/shop', '/history', '/analytics', '/sms-manager'] },
+        { label: l('სისტემა', 'Система', 'System'), items: ['/billing', '/settings'] }
+    ];
+
     return (
-        <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-0.5">
-            {ALL_ITEMS.filter(item => {
-                const role = profile?.role || defaultRole;
-                if (role === 'owner' || role === 'manager' || role === 'admin' || !role) return true;
+        <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-4">
+            {sections.map((section, sIdx) => {
+                const sectionItems = ALL_ITEMS.filter(item => section.items.includes(item.href)).filter(item => {
+                    const role = profile?.role || defaultRole;
+                    if (role === 'owner' || role === 'manager' || role === 'admin' || !role) return true;
 
-                const mapping: Record<string, string> = {
-                    '/attendance': 'canViewAttendance',
-                    '/subscriptions': 'canViewSubscriptions',
-                    '/students': 'canViewStudents',
-                    '/calendar': 'canViewCalendar',
-                    '/groups': 'canViewGroups',
-                    '/teachers': 'canViewTeachers',
-                    '/halls': 'canViewHalls',
-                    '/shop': 'canViewShop',
-                    '/analytics': 'canViewAnalytics',
-                    '/sms-manager': 'canViewSMS',
-                    '/billing': 'canViewBilling',
-                };
+                    const mapping: Record<string, string> = {
+                        '/attendance': 'canViewAttendance',
+                        '/subscriptions': 'canViewSubscriptions',
+                        '/students': 'canViewStudents',
+                        '/calendar': 'canViewCalendar',
+                        '/groups': 'canViewGroups',
+                        '/teachers': 'canViewTeachers',
+                        '/halls': 'canViewHalls',
+                        '/shop': 'canViewShop',
+                        '/analytics': 'canViewAnalytics',
+                        '/sms-manager': 'canViewSMS',
+                        '/billing': 'canViewBilling',
+                    };
 
-                const permKey = mapping[item.href];
-                if (permKey) return !!(profile as any)?.[permKey];
+                    const permKey = mapping[item.href];
+                    if (permKey) return !!(profile as any)?.[permKey];
 
-                const adminOnly = ['/billing', '/settings'];
-                if (adminOnly.includes(item.href)) {
-                    return (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role);
-                }
+                    const adminOnly = ['/billing', '/settings'];
+                    if (adminOnly.includes(item.href)) {
+                        return (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role);
+                    }
 
-                if (isMobile || (typeof window !== 'undefined' && window.innerWidth < 1024)) {
-                    const ESSENTIAL_MOBILE = ['/dashboard', '/attendance', '/students', '/settings'];
-                    return ESSENTIAL_MOBILE.includes(item.href);
-                }
+                    return true;
+                });
 
-                return true;
-            }).map(({ href, labelKey, icon: Icon }, i) => {
-                const active = pathname === href || pathname.startsWith(href + '/');
+                if (sectionItems.length === 0) return null;
+
                 return (
-                    <div key={href} className="relative group w-full">
-                        {i > 0 && [5, 8, 11].includes(i) && (
+                    <div key={sIdx} className="space-y-0.5">
+                        {exp && (
+                            <div className="px-3 pt-1 pb-1">
+                                <span className="text-[10px] font-black text-[var(--sidebar-text-muted)] opacity-50 tracking-wider uppercase">{section.label}</span>
+                            </div>
+                        )}
+                        {!exp && sIdx > 0 && (
                             <div className="h-px bg-[var(--sidebar-border)] my-1.5 transition-all duration-300 mx-1.5" />
                         )}
-                        <Link
-                            href={href}
-                            onClick={close}
-                            className={cn(
-                                'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full nav-item-dynamic',
-                                isMobile ? 'h-8 pl-2 gap-1.5' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
-                                active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
-                            )}
-                        >
-                            {!exp && active && (
-                                <span className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]', theme.text.replace('text-', 'bg-'))} />
-                            )}
-                            <div className={cn(
-                                "flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-300",
-                                isMobile ? "w-6 h-6" : "w-7 h-7 lg:w-8 h-8",
-                                !active && "group-hover/link:bg-white/5",
-                                active && "bg-white/10"
-                            )}>
-                                <Icon className={cn('transition-all duration-200', isMobile ? "w-3.5 h-3.5" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && (ALL_ITEMS[i] as any).color)} strokeWidth={active ? 3 : 2} />
-                            </div>
-                            {exp && (
-                                <span className={cn(
-                                    "truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", 
-                                    isMobile ? "text-[8.1px]" : href === '/dashboard' ? "text-[16px]" : "text-[14.5px]"
-                                )}>
-                                    {t[labelKey]}
-                                </span>
-                            )}
-                            {exp && active && (
-                                <span className={cn('absolute right-3 w-1.5 h-1.5 rounded-full flex-shrink-0', theme.text.replace('text-', 'bg-'))} />
-                            )}
-                        </Link>
+                        {sectionItems.map((item) => {
+                            const { href, labelKey, icon: Icon, color } = item;
+                            const active = pathname === href || pathname.startsWith(href + '/');
+                            return (
+                                <div key={href} className="relative group w-full">
+                                    <Link
+                                        href={href}
+                                        onClick={close}
+                                        className={cn(
+                                            'flex items-center rounded-xl transition-[background-color,color] duration-200 relative group/link w-full nav-item-dynamic',
+                                            isMobile ? 'h-8 pl-2 gap-2' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
+                                            active ? `${theme.bg} ${theme.text}` : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
+                                        )}
+                                    >
+                                        {!exp && active && (
+                                            <span className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]', theme.text.replace('text-', 'bg-'))} />
+                                        )}
+                                        <div className={cn(
+                                            "flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-300",
+                                            isMobile ? "w-6 h-6" : "w-7 h-7 lg:w-8 h-8",
+                                            !active && "group-hover/link:bg-white/5",
+                                            active && "bg-white/10"
+                                        )}>
+                                            <Icon className={cn('transition-all duration-200', isMobile ? "w-4 h-4" : "w-[21px] h-[21px]", active ? 'scale-110' : 'group-hover/link:scale-110 opacity-70 group-hover/link:opacity-100', !active && color)} strokeWidth={active ? 3 : 2} />
+                                        </div>
+                                        {exp && (
+                                            <span className={cn(
+                                                "truncate font-black transition-all duration-300 opacity-100 max-w-[170px] tracking-tight nav-item-text-dynamic", 
+                                                isMobile ? "text-[12px]" : href === '/dashboard' ? "text-[16px]" : "text-[14.5px]"
+                                            )}>
+                                                {t[labelKey]}
+                                            </span>
+                                        )}
+                                        {exp && active && (
+                                            <span className={cn('absolute right-3 w-1.5 h-1.5 rounded-full flex-shrink-0', theme.text.replace('text-', 'bg-'))} />
+                                        )}
+                                    </Link>
+                                </div>
+                            );
+                        })}
                     </div>
                 );
             })}

@@ -148,11 +148,11 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         const auto = defaultPlan || firstActive || availablePlans[0];
 
         // If current plan is invalid OR this is fresh open (planId empty), pick auto
-        const stillValid = planId && availablePlans.find(p => p.id === planId);
+        const stillValid = planId && availablePlans.find(p => String(p.id) === String(planId));
         if (!stillValid && auto) {
-            setPlanId(auto.id);
+            setPlanId(String(auto.id));
         }
-    }, [open, selectedType, availablePlans]);
+    }, [open, selectedType, availablePlans, planId]);
 
     // Reset balance usage and auto-fill discount when student changes
     useEffect(() => {
@@ -177,7 +177,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     })), [students, settings?.currency]);
 
     const planOptions = useMemo(() => availablePlans.map(p => ({
-        value: p.id,
+        value: String(p.id),
         label: p.is_default ? `⭐ ${p.name}` : p.name,
         subLabel: `${formatCurrency(p.price, settings?.currency)} (${p.type})`
     })), [availablePlans, settings?.currency]);
@@ -206,12 +206,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     // Update planId when category changes
     useEffect(() => {
-        if (availablePlans.length > 0 && !availablePlans.find(p => p.id === planId)) {
-            setPlanId(availablePlans[0].id);
+        if (availablePlans.length > 0 && !availablePlans.find(p => String(p.id) === String(planId))) {
+            setPlanId(String(availablePlans[0].id));
         } else if (availablePlans.length === 0) {
             setPlanId('');
         }
-    }, [selectedType, planId]);
+    }, [selectedType, availablePlans, planId]);
 
     // Auto-fill when plan changes
     useEffect(() => {

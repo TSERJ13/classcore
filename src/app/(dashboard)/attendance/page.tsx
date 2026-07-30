@@ -1037,24 +1037,33 @@ export default function AttendancePage() {
                                         })())}
                                     </div>
                                 </div>
-                                <div className="xl:hidden w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 flex-shrink-0 px-3 touch-pan-x relative z-30">
-                                    {mounted && filteredSchedule.map(s => {
-                                        const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
-                                        return (
-                                            <button key={s.id} onClick={() => setSelectedClass(s.id)}
-                                                className={cn(
-                                                    'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
-                                                    selectedClass === s.id ? 'text-white shadow-lg' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
-                                                )}
-                                                style={selectedClass === s.id ? { 
-                                                    backgroundColor: classColor, 
-                                                    borderColor: classColor,
-                                                    boxShadow: `0 4px 12px ${classColor}30`
-                                                } : {}}>
-                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
-                                            </button>
-                                        );
-                                    })}
+                                {/* Horizontal Scroll Hint Wrapper */}
+                                <div className="xl:hidden relative w-full flex-shrink-0 z-30 group/scroll">
+                                    <div className="w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 px-3 touch-pan-x">
+                                        {mounted && filteredSchedule.map(s => {
+                                            const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                            return (
+                                                <button key={s.id} onClick={() => setSelectedClass(s.id)}
+                                                    className={cn(
+                                                        'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
+                                                        selectedClass === s.id ? 'text-white shadow-lg' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
+                                                    )}
+                                                    style={selectedClass === s.id ? { 
+                                                        backgroundColor: classColor, 
+                                                        borderColor: classColor,
+                                                        boxShadow: `0 4px 12px ${classColor}30`
+                                                    } : {}}>
+                                                    {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
+                                                </button>
+                                            );
+                                        })}
+                                        {/* Spacer to prevent last item from being covered by the gradient */}
+                                        <div className="w-6 flex-shrink-0" />
+                                    </div>
+                                    {/* Fade Gradient + Arrow Indicator */}
+                                    <div className="absolute right-0 top-0 bottom-1.5 w-16 bg-gradient-to-l from-card to-transparent pointer-events-none flex items-center justify-end pr-1.5">
+                                        <ChevronRight className="w-4 h-4 text-muted/60 animate-[pulse_2s_ease-in-out_infinite]" />
+                                    </div>
                                 </div>
                             </div>
 

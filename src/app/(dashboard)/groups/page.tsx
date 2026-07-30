@@ -12,7 +12,8 @@ import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
-import { cn } from '@/lib/utils';
+import { getSubscriptions } from '@/lib/subscription-store';
+import { cn, getLocalISODate } from '@/lib/utils';
 
 const typeColor: Record<string, string> = {
     Dance: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
@@ -27,14 +28,29 @@ export default function GroupsPage() {
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [groups, setGroups] = useState<Group[]>([]);
+    const [subs, setSubs] = useState<Record<string, any[]>>({});
 
     const { settings, updateStaff } = useStudio();
     useEffect(() => {
-        function load() { setGroups(getGroups()); }
+        function load() { 
+            setGroups(getGroups()); 
+            setSubs(getSubscriptions());
+        }
         load();
         window.addEventListener('cc_groups_update', load);
-        return () => window.removeEventListener('cc_groups_update', load);
+        window.addEventListener('cc_subscription_update', load);
+        return () => {
+            window.removeEventListener('cc_groups_update', load);
+            window.removeEventListener('cc_subscription_update', load);
+        };
     }, [settings.activeBranchId]);
+
+    const todayStr = getLocalISODate();
+    const groupsWithEnrollments = groups.map(g => {
+        const subList = Object.values(subs).flat();
+        const enrolledCount = subList.filter(s => s.group_id === g.id && s.status === 'active' && s.expires_at >= todayStr).length;
+        return { ...g, enrolled: enrolledCount };
+    });
 
     const [editing, setEditing] = useState<Group | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -131,8 +147,8 @@ export default function GroupsPage() {
             <div className="flex flex-row items-center justify-between gap-3 sm:gap-4">
                 {/* Metrics Bar */}
                 {(() => {
-                    const totalStudents = groups.reduce((s, g) => s + (g.enrolled || 0), 0);
-                    const avgFill = groups.length > 0 ? Math.round(groups.reduce((s, g) => s + (((g.enrolled || 0) / (g.capacity || 1)) * 100), 0) / groups.length) : 0;
+                    const totalStudents = groupsWithEnrollments.reduce((s, g) => s + (g.enrolled || 0), 0);
+                    const avgFill = groupsWithEnrollments.length > 0 ? Math.round(groupsWithEnrollments.reduce((s, g) => s + (((g.enrolled || 0) / (g.capacity || 1)) * 100), 0) / groupsWithEnrollments.length) : 0;
 
                     return (
                         <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-6 overflow-x-auto no-scrollbar flex-1 sm:flex-none py-1">
@@ -177,9 +193,9 @@ export default function GroupsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
-                {groups.filter(g => {
+                {groupsWithEnrollments.filter(g => {
                     if (isTeacherRole(profile?.role)) {
-                        const visible = getVisibleGroupIds(profile as any, (settings.staff || []) as any, groups as any);
+                        const visible = getVisibleGroupIds(profile as any, (settings.staff || []) as any, groupsWithEnrollments as any);
                         return !visible || visible.includes(g.id);
                     }
                     return true;
