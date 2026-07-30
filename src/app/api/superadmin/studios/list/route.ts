@@ -55,17 +55,17 @@ export async function GET(req: Request) {
                 .order('created_at', { ascending: false });
             if (error) {
                 console.error('⚠️ [SuperAdmin API] studios fetch (full):', error.message);
-                // Fallback: retry without columns that might not exist yet
+                // Fallback: retry with absolute bare minimum columns that we know existed in v1
                 planMissing = true;
                 const { data: fallbackData, error: fallbackError } = await supabase
                     .from('studios')
-                    .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, suspended, is_deleted')
+                    .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id')
                     .order('created_at', { ascending: false });
                 if (fallbackError) {
                     console.error('⚠️ [SuperAdmin API] studios fetch (fallback):', fallbackError.message);
                 } else {
                     stdList = fallbackData || [];
-                    console.warn('⚠️ [SuperAdmin API] Using fallback select (plan column missing) — run: ALTER TABLE studios ADD COLUMN IF NOT EXISTS plan text DEFAULT \'trial\'');
+                    console.warn('⚠️ [SuperAdmin API] Using fallback select (columns missing) — run: ALTER TABLE studios ADD COLUMN IF NOT EXISTS plan text DEFAULT \'trial\', ADD COLUMN IF NOT EXISTS suspended boolean DEFAULT false, ADD COLUMN IF NOT EXISTS is_deleted boolean DEFAULT false;');
                 }
             } else {
                 stdList = data || [];
