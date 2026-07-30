@@ -370,6 +370,143 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         const { startRealtimeSync } = await import('@/lib/realtime-sync');
                         startRealtimeSync(resolvedOrgId, activeSlug || undefined);
                     }
+
+                    // 🚀 TRIGGER HEAVY BACKGROUND SYNC (Lazy Hydration)
+                    setTimeout(async () => {
+                        try {
+                            const { fetchHeavyStudioState } = await import("@/lib/master-sync");
+                            console.log('⏳ [StudioContext] Starting Heavy Background Sync...');
+                            const heavyState = await fetchHeavyStudioState(activeSlug || "default", resolvedOrgId, token);
+                            
+                            if (heavyState) {
+                                const { safeSetItem } = await import("@/lib/utils");
+                                const { getScopedKey } = await import("@/lib/utils");
+                                
+                                const unwrap = (arr: any) => {
+                                    if (!Array.isArray(arr)) return [];
+                                    return arr.map(i => {
+                                        if (!i) return i;
+                                        if (i.data && typeof i.data === 'object') {
+                                            return { ...i, ...i.data };
+                                        }
+                                        return i;
+                                    });
+                                };
+
+                                // Save Heavy Blobs
+                                if (heavyState.students) {
+                                    const cloudStudents = unwrap(heavyState.students);
+                                    const { setMemoryStudentsCache } = await import('@/lib/student-store');
+                                    if (cloudStudents.length > 0) {
+                                        setMemoryStudentsCache(cloudStudents as any, activeSlug || 'default');
+                                    }
+                                    const map: any = {};
+                                    cloudStudents.forEach((s: any) => {
+                                        const lite = (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:'))
+                                            ? { ...s, photo_url: undefined }
+                                            : s;
+                                        map[s.id] = lite;
+                                    });
+                                    await safeSetItem(getScopedKey('cc_student_data', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                }
+                                if (heavyState.attendance) {
+                                    // 🔧 Attendance logic needs to populate cc_attendance_data AND cc_checkins_...
+                                    const groupedAtt: Record<string, any[]> = {};
+                                    const perDay: Record<string, any[]> = {};
+                                    unwrap(heavyState.attendance).forEach((a: any) => {
+                                        if (!a.student_id) return;
+                                        if (!groupedAtt[a.student_id]) groupedAtt[a.student_id] = [];
+                                        groupedAtt[a.student_id].push(a);
+
+                                        const blob = (a.data && typeof a.data === 'object') ? a.data : {};
+                                        const date = a.date || blob.date;
+                                        if (!date) return;
+                                        const rec = {
+                                            id: a.id || blob.id,
+                                            studentId: a.student_id,
+                                            studentName: blob.studentName || '',
+                                            date,
+                                            time: blob.time || '',
+                                            via: blob.via || 'manual',
+                                            sessionsRemaining: typeof blob.sessionsRemaining === 'number' ? blob.sessionsRemaining : -1,
+                                            classId: blob.classId || a.class_id,
+                                            groupId: blob.groupId || a.group_id,
+                                        };
+                                        if (!rec.id) return;
+                                        if (!perDay[date]) perDay[date] = [];
+                                        if (!perDay[date].some(r => r.id === rec.id)) perDay[date].push(rec);
+                                    });
+                                    await safeSetItem(getScopedKey('cc_attendance_data', activeSlug || 'default'), JSON.stringify(groupedAtt), activeSlug || 'default');
+                                    for (const [date, recs] of Object.entries(perDay)) {
+                                        const dayKey = getScopedKey(`cc_checkins_${date}`, activeSlug || 'default');
+                                        let merged = recs;
+                                        try {
+                                            const existingRaw = localStorage.getItem(dayKey);
+                                            if (existingRaw) {
+                                                const existing = JSON.parse(existingRaw);
+                                                if (Array.isArray(existing)) {
+                                                    const seen = new Set(recs.map(r => r.id));
+                                                    merged = [...recs, ...existing.filter((e: any) => !seen.has(e.id))];
+                                                }
+                                            }
+                                        } catch { /* use cloud recs */ }
+                                        await safeSetItem(dayKey, JSON.stringify(merged), activeSlug || 'default');
+                                    }
+                                }
+                                if (heavyState.sales) {
+                                    const map: any = {};
+                                    unwrap(heavyState.sales).forEach((s: any) => {
+                                        const sId = s.student_id;
+                                        if (sId) { if (!map[sId]) map[sId] = []; map[sId].push(s); }
+                                    });
+                                    await safeSetItem(getScopedKey('cc_shop_sales', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                }
+                                if (heavyState.expenses) {
+                                    const map: any = {};
+                                    unwrap(heavyState.expenses).forEach((e: any) => map[e.id] = e);
+                                    await safeSetItem(getScopedKey('cc_expenses', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                }
+                                if (heavyState.calendar_events) {
+                                    const map: any = {};
+                                    unwrap(heavyState.calendar_events).forEach((e: any) => map[e.id] = e);
+                                    await safeSetItem(getScopedKey('cc_calendar_events', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                }
+                                if (heavyState.trash) {
+                                    const map: any = {};
+                                    unwrap(heavyState.trash).forEach((t: any) => map[t.id || t.entity_id] = t);
+                                    await safeSetItem(getScopedKey('cc_global_trash', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                }
+                                if (heavyState.subscriptions) {
+                                    const map: any = {};
+                                    const allDeleted = new Set((heavyState.trash || []).map((t: any) => t?.entity_id || t?.id).filter(Boolean));
+                                    unwrap(heavyState.subscriptions)
+                                        .filter((sub: any) => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
+                                        .forEach((s: any) => {
+                                            const sId = s.student_id;
+                                            if (sId) { if (!map[sId]) map[sId] = []; map[sId].push(s); }
+                                        });
+                                    await safeSetItem(getScopedKey('cc_student_subscriptions', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                }
+                                
+                                if (heavyState.products) {
+                                    const map: any = {};
+                                    unwrap(heavyState.products).forEach((p: any) => map[p.id] = p);
+                                    await safeSetItem(getScopedKey('cc_shop_products', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                }
+
+                                // Merge into settings context for products/plans
+                                setSettings(prev => ({
+                                    ...prev,
+                                    subscription_plans: heavyState.subscription_plans?.length ? unwrap(heavyState.subscription_plans) : prev.subscription_plans
+                                }));
+
+                                console.log('✅ [StudioContext] Heavy Background Sync Complete!');
+                                window.dispatchEvent(new Event('cc_heavy_data_ready'));
+                            }
+                        } catch (err) {
+                            console.error('❌ [StudioContext] Heavy Background Sync Failed:', err);
+                        }
+                    }, 500);
                 }
 
             } else {
