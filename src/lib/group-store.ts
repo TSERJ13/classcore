@@ -296,7 +296,9 @@ export function deleteGroup(id: string): void {
         saveSettings({ groups: updated } as any, settings, activeSlug || '');
         
         const studioName = (settings as any).studioName || 'Studio';
-        pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
+        import('./master-sync').then(({ pushFullStudioMetadata }) => {
+            pushFullStudioMetadata(activeSlug || '', studioName, updatedSettings);
+        });
     }
 
     if (slug) {

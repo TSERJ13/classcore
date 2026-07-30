@@ -890,6 +890,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 const EMPTY_EV = { title: '', type: 'group_class' as EventType, hall_id: 'h1', teacher_id: '', group_id: '', date: '', start_time: '09:00', end_time: '10:30', notes: '', recurring: 'none' as 'none' | 'weekly', reminder_30m: false };
 
 function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, halls, groups, canEdit }: { defaultDate: string; defaultTime?: string; onClose: () => void; onAdd: (evs: CalendarEvent[]) => void; teachers: any[]; halls: any[]; groups: Group[]; canEdit: boolean }) {
+    const { settings } = useStudio();
     const defaultStart = defaultTime || '09:00';
 
     // Helper to add 1 hour to a string time HH:mm
@@ -961,6 +962,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
     }
 
     const { lang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const timeOptions = generateTimeOptions(15);
     const dayOptions = generateDayOptions();
     const monthOptions = generateMonthOptions(lang);
