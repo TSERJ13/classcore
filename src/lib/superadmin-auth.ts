@@ -1,13 +1,6 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient as createSSRClient } from '@/lib/supabase/server';
-
-/**
- * Mirrors the client-side allow-list in src/app/(auth)/sa-login/page.tsx.
- * That page only used this list for redirect UX — it never gated the API
- * routes themselves, so every /api/superadmin/* endpoint was reachable by
- * anyone. This is the server-side enforcement.
- */
-const SUPER_ADMIN_EMAILS = ['adminclasscore@gmail.com', 'support@classcore.ge'];
+import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
 export async function getSuperAdminEmail(req: Request): Promise<string | null> {
     const authHeader = req.headers.get('Authorization');
@@ -30,8 +23,7 @@ export async function getSuperAdminEmail(req: Request): Promise<string | null> {
     }
 
     if (!email) return null;
-    const normalized = email.toLowerCase();
-    return SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === normalized) ? normalized : null;
+    return isSuperAdminEmail(email) ? email.toLowerCase() : null;
 }
 
 export async function requireSuperAdmin(req: Request): Promise<

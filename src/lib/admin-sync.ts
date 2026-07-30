@@ -16,8 +16,25 @@ export async function syncGlobalAdminRegistry(force = false) {
             cache: 'no-store',
             headers: { 'Pragma': 'no-cache' }
         });
+
+        if (res.status === 401) {
+            console.error('🔒 [AdminSync] Not authorized as superadmin — log in at /sa-login with a superadmin account.');
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('cc_sync_pull_error', { detail: { type: 'admin', status: 401 } }));
+            }
+            return null;
+        }
+
         const data = await res.json();
-        
+
+        if (!res.ok) {
+            console.error('❌ [AdminSync] studios/list failed:', res.status, data?.error);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('cc_sync_pull_error', { detail: { type: 'admin', status: res.status } }));
+            }
+            return [];
+        }
+
         if (data && data.studios && Array.isArray(data.studios)) {
             const studios: any[] = data.studios;
             const cloudSlugs: string[] = studios.map(s => s.slug).filter(Boolean);

@@ -7,11 +7,7 @@ import { AppLogo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
-
-const SUPER_ADMIN_EMAILS = [
-    'adminclasscore@gmail.com',
-    'support@classcore.ge'
-];
+import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
 export default function LoginPage() {
     const { t, lang } = useT();
@@ -95,7 +91,7 @@ export default function LoginPage() {
 
                 setLoginStatus(l('შესვლა...', 'Вход...', 'Logging in...'));
                 setIsSuccess(true);
-                const isSuperAdmin = signedInUser?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === signedInUser.email?.toLowerCase());
+                const isSuperAdmin = isSuperAdminEmail(signedInUser?.email);
                 
                 if (signedInUser && !signedInUser.email_confirmed_at && !isSuperAdmin) {
                     await supabase.auth.signOut();

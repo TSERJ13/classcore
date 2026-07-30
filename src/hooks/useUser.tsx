@@ -3,10 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { getStaffSession, setStaffSession, loadSettings, getActiveSlug } from '@/lib/settings-store';
-
-const SUPER_ADMIN_EMAILS = [
-    'adminclasscore@gmail.com', 'support@classcore.ge'
-];
+import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
 import React, { createContext, useContext, ReactNode } from 'react';
 
@@ -81,7 +78,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 }
 
                 const currentUserEmail = u?.email;
-                const isSuperAdmin = currentUserEmail ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === currentUserEmail.toLowerCase()) : false;
+                const isSuperAdmin = isSuperAdminEmail(currentUserEmail);
                 
                 const currentUserIdentity = u?.email || staffSess?.staff?.email || staffSess?.staff?.phone || (staffSess as any)?.staff?.phone_number;
                 let currentSlug = u?.user_metadata?.studio_slug || staffSess?.slug || (urlSlug && !excluded.includes(urlSlug) ? urlSlug : null) || fallbackSlug;

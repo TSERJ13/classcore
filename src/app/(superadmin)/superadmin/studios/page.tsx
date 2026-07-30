@@ -221,10 +221,20 @@ export default function StudiosPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [isInitialSyncDone, setIsInitialSyncDone] = useState(false);
     const [cloudStudios, setCloudStudios] = useState<any[]>([]);
+    const [authError, setAuthError] = useState(false);
 
     const syncFromCloud = async () => {
         setIsSyncing(true);
         const data = await syncGlobalAdminRegistry();
+        if (data === null) {
+            // Not authorized as a superadmin -- distinct from "cloud returned
+            // zero studios" so this doesn't render as a silent empty list.
+            setAuthError(true);
+            setIsInitialSyncDone(true);
+            setIsSyncing(false);
+            return;
+        }
+        setAuthError(false);
         if (data && Array.isArray(data)) {
             setCloudStudios(data);
         }
@@ -893,6 +903,17 @@ export default function StudiosPage() {
                     </div>
                 </div>
             </div>
+
+            {authError && (
+                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center gap-3">
+                    <ShieldAlert className="w-5 h-5 shrink-0" />
+                    <span>
+                        {lang === 'ka'
+                            ? 'ავტორიზაცია ვერ დადასტურდა — ეს გვერდი მოითხოვს რეალურ superadmin login-ს /sa-login-ზე (adminclasscore@gmail.com ან support@classcore.ge). თუ ხედავ ამ გვერდს staff/owner სესიით, მონაცემები აღარ ჩაიტვირთება.'
+                            : 'Not authorized — this page needs a real superadmin login at /sa-login (adminclasscore@gmail.com or support@classcore.ge). Being here via a staff/owner session is not enough to load data anymore.'}
+                    </span>
+                </div>
+            )}
 
             {/* Tab Switcher */}
             <div className="flex gap-2 p-1.5 bg-black/5 dark:bg-zinc-500/5 border border-black/5 dark:border-border-subtle rounded-3xl w-fit">
