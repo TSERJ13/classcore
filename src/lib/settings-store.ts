@@ -99,35 +99,43 @@ export async function validateStaffLogin(email: string, password: string): Promi
 
         if (cloudResults.length > 0) {
             console.log(`📡 Cloud Found ${cloudResults.length} studios!`);
-            
-            // Find a studio where password matches
-            const matchingResult = cloudResults.find(r => r.staff.password === password);
 
-            if (!matchingResult) {
-                console.warn('❌ Password mismatch for all cloud studios.');
-                return { error: 'არასწორი პაროლი' };
-            }
-
-            console.log('✅ Password verified for:', matchingResult.slug, '. Hydrating local store...');
-            
             // Reclaim the entire registry in the background
             cloudResults.forEach(r => addToRegistry(r.slug));
 
-            // CRITICAL: Cache the orgId override immediately to ensure consistent key scoping
-            if (matchingResult.staff.org_id) {
-                localStorage.setItem(`cc_org_id_override_${matchingResult.slug}`, matchingResult.staff.org_id);
+            // For each studio found, fetch full staff list and check password
+            for (const result of cloudResults) {
+                const cloudStaff = await fetchStaffFromCloud(result.slug);
+                if (!cloudStaff) continue;
+
+                const matchingStaff = cloudStaff.find((s: any) =>
+                    (s.email?.toLowerCase().trim() === cleanEmail ||
+                     s.full_name?.toLowerCase().trim() === cleanEmail ||
+                     s.first_name?.toLowerCase().trim() === cleanEmail) &&
+                    s.password === password
+                );
+
+                if (!matchingStaff) continue;
+
+                console.log('✅ Password verified for:', result.slug, '. Hydrating local store...');
+
+                // CRITICAL: Cache the orgId override immediately to ensure consistent key scoping
+                if (result.staff.org_id) {
+                    localStorage.setItem(`cc_org_id_override_${result.slug}`, result.staff.org_id);
+                }
+
+                // Hydrate local store with full cloud staff
+                const existing = loadSettings(result.slug);
+                saveSettings({
+                    staff: cloudStaff,
+                    orgId: result.staff.org_id || existing.orgId
+                }, undefined, result.slug);
+
+                return { staff: matchingStaff as import('@/types').StaffMember, slug: result.slug };
             }
 
-            // Hydrate local store with cloud data for the current matching studio
-            const cloudStaff = await fetchStaffFromCloud(matchingResult.slug);
-            if (cloudStaff) {
-                const existing = loadSettings(matchingResult.slug);
-                saveSettings({ 
-                    staff: cloudStaff, 
-                    orgId: matchingResult.staff.org_id || existing.orgId 
-                }, undefined, matchingResult.slug);
-            }
-            return matchingResult;
+            console.warn('❌ Password mismatch for all cloud studios.');
+            return { error: 'არასწორი პაროლი' };
         } else {
             console.warn('❌ Staff not found in cloud registry for:', cleanEmail);
             return { error: 'მომხმარებელი ამ მონაცემებით ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია' };

@@ -41,7 +41,7 @@ export function GlobalRFIDScanner() {
         
         if (!studentId) {
             const students = getStudents();
-            const student = students.find(s => s.card_uid?.toUpperCase().replace(/[:\-\s]/g, '') === clean);
+            const student = students.find(s => s.nfc_uid?.toUpperCase().replace(/[:\-\s]/g, '') === clean);
             studentId = student?.id ?? null;
         }
 
