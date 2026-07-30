@@ -2298,6 +2298,30 @@ export default function CalendarPage() {
                     ))}
                 </div>
 
+                {/* Teacher Filters Block */}
+                {teachers.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
+                        <button
+                            onClick={() => setFilterTeacher('all')}
+                            className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                                filterTeacher === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60')}
+                        >
+                            <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            {lang === 'ka' ? 'ყველა' : 'All'}
+                        </button>
+                        {teachers.map((tc: any) => (
+                            <button key={tc.id}
+                                onClick={() => setFilterTeacher(filterTeacher === tc.id ? 'all' : tc.id)}
+                                className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                                    filterTeacher === tc.id ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60 hover:bg-white/5')}
+                            >
+                                <User className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                {tc.full_name}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 <div className="flex items-center gap-2">
                     {/* PDF Export */}
                     <button onClick={exportPDF}
