@@ -53,7 +53,11 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
 
     const activeBranch = settings.branches.find((b: any) => b.id === activeBranchId) || settings.branches[0];
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-    const getInitial = (name: string) => name?.trim().charAt(0).toUpperCase() || 'S';
+    const getInitial = (name: string) => {
+        if (!name) return 'S';
+        if (name === 'S_T Dance Studio' || name.toUpperCase().includes('ST DANCE')) return 'ST';
+        return name.trim().charAt(0).toUpperCase();
+    };
 
     return (
         <div className={cn("relative border-b border-[var(--sidebar-border)] bg-white/[0.01] px-4", isMobile ? "py-2.5" : "py-3 md:py-6")}>
