@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
-import { Trash2, Download, RefreshCw, AlertTriangle, Database, CheckCircle, Sync } from 'lucide-react';
+import { Trash2, Download, RefreshCw, AlertTriangle, Database, CheckCircle } from 'lucide-react';
 import { getStudioRegistry } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';

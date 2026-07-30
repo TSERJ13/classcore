@@ -298,9 +298,12 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
         writeStudentPatches(patches);
         markLocalUpdate();
         
-        // 🚨 CRITICAL: Also update memory cache so getStudents() returns fresh data
+        // 🚨 CRITICAL: Also update memory cache so getStudents() returns fresh data.
+        // Merge onto whatever full record is already cached -- patches[studentId]
+        // is only the accumulated diff, not a full Student, and this cache is read
+        // back verbatim (not re-merged with base data) when localStorage is empty.
         if (_memoryStudentsCache && _memoryCacheSlug === activeSlug) {
-            _memoryStudentsCache[studentId] = patches[studentId];
+            _memoryStudentsCache[studentId] = { ...(_memoryStudentsCache[studentId] || {}), ...patches[studentId] } as Student;
             if (oldId && oldId !== studentId && _memoryStudentsCache[oldId]) {
                 delete _memoryStudentsCache[oldId];
             }

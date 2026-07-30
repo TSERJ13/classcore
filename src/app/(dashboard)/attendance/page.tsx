@@ -242,7 +242,7 @@ export default function AttendancePage() {
                         color: g.color || '#6d28d9',
                         start_time: slot?.startTime || '00:00',
                         end_time: slot?.endTime || '23:59',
-                        teacher_id: g.teacher_id || '',
+                        teacher_id: g.teacherId || '',
                         hall_id: g.hall_id || ''
                     };
                 }) as any;
@@ -433,7 +433,7 @@ export default function AttendancePage() {
         if (activeSub) {
             const hasExpiredByDate = activeSub.expires_at < todayStr;
             const isUnlimited = activeSub.sessions_total === null;
-            const remaining = isUnlimited ? Infinity : (activeSub.sessions_total - (activeSub.sessions_used ?? 0));
+            const remaining = isUnlimited ? Infinity : ((activeSub.sessions_total ?? 0) - (activeSub.sessions_used ?? 0));
             const hasUsedAllSessions = !isUnlimited && activeSub.sessions_total !== null && remaining <= 0;
             
             if (hasExpiredByDate || hasUsedAllSessions) {
@@ -490,7 +490,7 @@ export default function AttendancePage() {
 
     // 2. Pre-calculate statuses for ALL visible students once
     const studentStatuses = useMemo(() => {
-        const statuses: Record<string, { activeSub: any; isExpired: boolean; score: number; label: string | null }> = {};
+        const statuses: Record<string, { activeSub: any; isExpired: boolean; score: number; label: string | null; color: string; remaining: number }> = {};
         students.forEach(s => {
             statuses[s.id] = getSubStatus(s.id);
         });

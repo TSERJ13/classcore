@@ -51,7 +51,7 @@ export default function PlansManagementPage() {
     const [showForm, setShowForm] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const [form, setForm] = useState(EMPTY_PLAN);
-    const [localPausePrices, setLocalPausePrices] = useState<Record<string, number>>({});
+    const [localPausePrices, setLocalPausePrices] = useState<{ '7': number; '14': number; '30': number; '60': number }>({ '7': 0, '14': 0, '30': 0, '60': 0 });
     const [savingPause, setSavingPause] = useState(false);
     const [savedPause, setSavedPause] = useState(false);
     const [savingPlan, setSavingPlan] = useState(false);

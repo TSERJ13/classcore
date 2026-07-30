@@ -4,7 +4,7 @@ import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { setMemoryStudentsCache } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { getActiveSlug, getScopedKey, safeSetItem } from '@/lib/utils';
-import type { StudioSettings, Branch } from '@/types';
+import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -24,11 +24,9 @@ interface StudioContextType {
     setLogo: (url: string | null) => void;
     setNotification: (key: string, val: boolean) => void;
     setSecurity: (key: string, val: any) => void;
-    setCurrency: (cur: string) => void;
-    setLanguage: (lang: string) => void;
+    setCurrency: (cur: 'GEL' | 'USD' | 'EUR') => void;
+    setLanguage: (lang: 'ka' | 'ru' | 'en') => void;
     setTimezone: (tz: string) => void;
-    setGoogleCalendar: (id: string) => void;
-    setPausePrice: (p: number) => void;
     updateStaff: (id: string, data: any) => void;
     removeStaff: (id: string) => void;
     removeBranch: (id: string) => void;
@@ -36,6 +34,9 @@ interface StudioContextType {
     setCustomRoles: (roles: any) => void;
     addStaff: (member: any) => void;
     setOwnerInfo: (info: any) => void;
+    setSmsTemplates: (templates: any) => void;
+    setWizardCompleted: (val: boolean) => void;
+    logSubscription: (entry: Omit<SubscriptionLog, 'id' | 'date'>) => void;
     saveSettings: (updates: any, prev?: any, slug?: string) => void;
 }
 
@@ -104,7 +105,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const { data: studioData } = await sb.from('studios').select('org_id').eq('studio_slug', activeSlug).maybeSingle();
                 if (studioData?.org_id) {
                     currentOrgId = studioData.org_id;
-                    await safeSetItem(`cc_org_id_override_${activeSlug}`, currentOrgId, activeSlug);
+                    await safeSetItem(`cc_org_id_override_${activeSlug}`, currentOrgId!, activeSlug);
                     console.log(`✅ [StudioContext] OrgID Resolved via Discovery: ${currentOrgId}`);
                 }
             }
@@ -475,11 +476,9 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     };
     const setNotification = (key: string, val: boolean) => updateSettings({ notifications: { ...settings.notifications, [key]: val } });
     const setSecurity = (key: string, val: any) => updateSettings({ security: { ...settings.security, [key]: val } });
-    const setCurrency = (cur: string) => updateSettings({ currency: cur });
-    const setLanguage = (lang: string) => updateSettings({ language: lang });
+    const setCurrency = (cur: 'GEL' | 'USD' | 'EUR') => updateSettings({ currency: cur });
+    const setLanguage = (lang: 'ka' | 'ru' | 'en') => updateSettings({ language: lang });
     const setTimezone = (tz: string) => updateSettings({ timezone: tz });
-    const setGoogleCalendar = (id: string) => updateSettings({ googleCalendarId: id });
-    const setPausePrice = (p: number) => updateSettings({ pausePrices: { ...settings.pausePrices, monthly: p } });
     const updateStaff = (id: string, data: any) => updateSettings({ staff: settings.staff?.map((s: any) => s.id === id ? { ...s, ...data } : s) });
     const removeStaff = (id: string) => updateSettings({ staff: settings.staff?.filter((s: any) => s.id !== id) });
     const addStaff = (member: any) => updateSettings({ staff: [...(settings.staff || []), member] });
@@ -487,6 +486,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const updateBranch = (id: string, data: any) => updateSettings({ branches: settings.branches.map(b => b.id === id ? { ...b, ...data } : b) });
     const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });
     const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
+    const setSmsTemplates = (templates: any) => updateSettings({ sms_templates: templates });
+    const setWizardCompleted = (val: boolean) => updateSettings({ isWizardCompleted: val });
+    const logSubscription = (entry: Omit<SubscriptionLog, 'id' | 'date'>) => {
+        const newLog: SubscriptionLog = {
+            ...entry,
+            id: `sublog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            date: new Date().toISOString(),
+        };
+        updateSettings({ subscriptionLogs: [newLog, ...(settings.subscriptionLogs || [])] });
+    };
 
     const setActiveBranch = useCallback((branchId: string) => {
         setSettings(prev => {
@@ -516,7 +525,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         <StudioContext.Provider value={{
             settings, updateSettings, isLoaded, loadingStep, firstSyncDone, isSyncing,
             activeBranchId, setActiveBranch, addBranch, refreshData,
-            setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings
+            setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, updateStaff, removeStaff, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, setSmsTemplates, setWizardCompleted, logSubscription, saveSettings
         }}>
             {children}
         </StudioContext.Provider>

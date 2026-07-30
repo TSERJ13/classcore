@@ -12,6 +12,7 @@ import { getBillingState } from '@/lib/saas-billing';
 import { useT } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
+import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
     const { user, loading, logout } = useUser();
@@ -32,13 +33,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
 
-    const SUPER_ADMIN_EMAILS = [
-        'adminclasscore@gmail.com',
-        'support@classcore.ge', 
-        'admin@classcore.ge',
-        'sergi.tsivtsivadze@gmail.com'
-    ];
-    const isSuperAdmin = (user?.email ? SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase()) : false) || (process.env.NODE_ENV === 'development');
+    const isSuperAdmin = isSuperAdminEmail(user?.email) || (process.env.NODE_ENV === 'development');
 
     useEffect(() => {
         const updateCount = () => {

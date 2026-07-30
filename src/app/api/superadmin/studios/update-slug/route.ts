@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/superadmin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     try {
+        const auth = await requireSuperAdmin(req);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { oldSlug, newSlug } = await req.json();
-        
+
         if (!oldSlug || !newSlug) {
             return NextResponse.json({ error: 'Missing oldSlug or newSlug' }, { status: 400 });
         }

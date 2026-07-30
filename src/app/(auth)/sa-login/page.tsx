@@ -6,11 +6,7 @@ import { Mail, Lock, ShieldCheck } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
-
-const SUPER_ADMIN_EMAILS = [
-    'adminclasscore@gmail.com',
-    'support@classcore.ge'
-];
+import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
 export default function SALoginPage() {
     const [mounted, setMounted] = useState(false);
@@ -26,7 +22,7 @@ export default function SALoginPage() {
         if (!mounted) return;
         if (user && user.email) {
             const email = user.email.toLowerCase();
-            const isAdmin = SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email);
+            const isAdmin = isSuperAdminEmail(email);
             if (isAdmin) {
                 window.location.href = '/superadmin';
             } else {
@@ -54,7 +50,7 @@ export default function SALoginPage() {
             email = email + '@classcore.ge';
         }
 
-        if (!SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === email)) {
+        if (!isSuperAdminEmail(email)) {
             setError('Access restricted to SuperAdmin personnel only. Connection logged.');
             setLoading(false);
             return;

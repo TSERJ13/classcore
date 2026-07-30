@@ -107,6 +107,7 @@ export interface Translations {
     clear: string;
     // Statuses
     expired: string;
+    expiredRecently: string;
     paused: string;
     inactive: string;
     onLeave: string;
@@ -265,7 +266,6 @@ export interface Translations {
     balletShoes: string;
     smsTemplateExpiration: string;
     default: string;
-    setAsDefault: string;
     // Hall-rental extra
     paid: string;
     // Billing
@@ -1314,4 +1314,40 @@ export interface Translations {
     sa_search_studios: string;
     sa_search_students: string;
     sa_search_payments: string;
+
+    // SuperAdmin -- misc labels used across studios/billing/clients/promos/system pages
+    sa_lastSync: string;
+    sa_studios_studiosLabel: string;
+    sa_studios_studioLabel: string;
+    sa_studios_planLabel: string;
+    noDataYet: string;
+    sa_studios_statusActive: string;
+    sa_studios_statusBlocked: string;
+    sa_studios_manageBtn: string;
+    sa_activity_update: string;
+    sa_studios_discountLabel: string;
+    sa_studios_limitLabel: string;
+    sa_studios_cabinetCode: string;
+    sa_studios_regDate: string;
+    navSectionBilling: string;
+    navSectionShop: string;
+    navSectionAnalytics: string;
+    navSectionSchedule: string;
+    navSectionNotifications: string;
+    done: string;
+
+    calStudent: string;
+    callShort: string;
+    dataNotFoundDesc: string;
+    greeting: string;
+    hallDescription: string;
+    imageError: string;
+    indSession: string;
+    phone: string;
+    saveChanges: string;
+    saved: string;
+    saving: string;
+    selectHall: string;
+    untitledClass: string;
+    uploadProductPhoto: string;
 }

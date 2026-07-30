@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { hasAnySession } from '@/lib/session-check';
 
 const LOG_FILE = path.join(process.cwd(), '.sms-logs.json');
 
@@ -31,6 +32,10 @@ function saveLog(logEntry: any) {
 export async function POST(req: Request) {
     let to, text, studentName;
     try {
+        if (!(await hasAnySession())) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
         to = body.to;
         text = body.text;

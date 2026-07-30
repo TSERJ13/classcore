@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/superadmin-auth';
 
 export async function POST(req: Request) {
     let slug = '';
     let patch: any = null;
     let billingPatch: any = null;
-    
+
     try {
+        const auth = await requireSuperAdmin(req);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
         slug = body.slug?.toLowerCase().trim() || '';
         patch = body.patch;
@@ -125,10 +131,16 @@ export async function POST(req: Request) {
             if (patch.suspended !== undefined) settingsUpdate.suspended = patch.suspended;
             if (patch.is_deleted !== undefined) settingsUpdate.is_deleted = patch.is_deleted;
 
-            // Build top-level updates
+            // Build top-level updates.
+            // IMPORTANT: studios.plan is the canonical source read by list/route.ts (row.plan).
+            // studios.settings.plan is a JSONB copy kept for any clients that read it directly.
+            // Both must be kept in sync — register-studio/route.ts writes plan as a top-level
+            // column, so update-meta must also write it top-level, not only into settings JSONB.
             const topLevelUpdate: any = {
                 settings: settingsUpdate
             };
+            if (patch.plan !== undefined) topLevelUpdate.plan = patch.plan;
+            if (patch.suspended !== undefined) topLevelUpdate.suspended = patch.suspended;
             if (patch.studioName) topLevelUpdate.studio_name = patch.studioName;
             if (patch.logoDataUrl) topLevelUpdate.logo_url = patch.logoDataUrl;
             if (patch.owner_info) topLevelUpdate.owner_info = patch.owner_info;

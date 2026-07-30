@@ -18,6 +18,7 @@ import type { Student } from '@/types';
 
 import { getSubscriptions, getSubscription } from '@/lib/subscription-store';
 import { getGroups } from '@/lib/group-store';
+import { moveToTrash } from '@/lib/trash-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 import type { Group } from '@/lib/group-store';
 
@@ -46,7 +47,7 @@ const FemaleIcon = (props: any) => (
 export default function StudentsPage() {
     const { t, lang } = useT();
     const { user, profile } = useUser();
-    const { settings, addToTrash, firstSyncDone, isSyncing } = useStudio();
+    const { settings, firstSyncDone, isSyncing } = useStudio();
     const { confirm } = useConfirm();
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
@@ -180,12 +181,7 @@ export default function StudentsPage() {
         // 2. Trash bin logic
         const student = students.find(s => s.id === id);
         if (student) {
-            addToTrash({
-                id: `trash_${student.id}_${Date.now()}`,
-                type: 'student',
-                data: student,
-                branchId: settings.activeBranchId || 'main'
-            });
+            moveToTrash('student', student, settings.activeBranchId || 'main');
         }
 
         // 3. Cloud & Local Store sync

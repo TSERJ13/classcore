@@ -24,6 +24,9 @@ export interface SubscriptionInfo {
     payment_method?: 'cash' | 'card' | 'transfer';
     amount_paid?: number;
     teacher_id?: string;
+    // Individual lesson schedule slots
+    schedule?: Array<{ day: number; time: string; endTime: string; hallId?: string }>;
+    color?: string;
 }
 
 type SubMap = Record<string, SubscriptionInfo[]>;
@@ -379,15 +382,16 @@ export function deleteSubscription(studentId: string, subId: string): void {
     let primaryKey = studentId;
 
     // Scan all keys to find the subscription
-    Object.keys(data).forEach(key => {
+    for (const key of Object.keys(data)) {
         const found = data[key].find(s => s.id === subId);
         if (found) {
             subToDelete = found;
             primaryKey = key;
             data[key] = data[key].filter(s => s.id !== subId);
             if (data[key].length === 0) delete data[key];
+            break;
         }
-    });
+    }
 
     if (!subToDelete) return;
 

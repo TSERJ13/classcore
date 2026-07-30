@@ -513,7 +513,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                                         {s.photo_url && <img src={s.photo_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
                                                         <span className="text-[10px] font-bold text-indigo-600">{s.full_name}</span>
                                                         <button onClick={() => {
-                                                            const nextIds = form.student_id.split(',').map(i => i.trim()).filter(i => i !== id);
+                                                            const nextIds = (form.student_id?.split(',') ?? []).map(i => i.trim()).filter(i => i !== id);
                                                             const finalIds = nextIds.join(', ');
                                                             setF('student_id', finalIds);
                                                             const names = nextIds.map(i => getStudents().find(x => x.id === i)?.full_name).filter(Boolean);
@@ -887,9 +887,10 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
 /* ─── Add Event Form ─────────────────────────────────────────── */
 
-const EMPTY_EV = { title: '', type: 'group_class' as EventType, hall_id: 'h1', teacher_id: '', group_id: '', date: '', start_time: '09:00', end_time: '10:30', notes: '', recurring: 'none' as 'none' | 'weekly', reminder_30m: false };
+const EMPTY_EV = { title: '', type: 'group_class' as EventType, hall_id: 'h1', teacher_id: '', group_id: '', student_id: '', date: '', start_time: '09:00', end_time: '10:30', notes: '', recurring: 'none' as 'none' | 'weekly', reminder_30m: false };
 
 function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, halls, groups, canEdit }: { defaultDate: string; defaultTime?: string; onClose: () => void; onAdd: (evs: CalendarEvent[]) => void; teachers: any[]; halls: any[]; groups: Group[]; canEdit: boolean }) {
+    const { settings } = useStudio();
     const defaultStart = defaultTime || '09:00';
 
     // Helper to add 1 hour to a string time HH:mm
@@ -961,6 +962,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
     }
 
     const { lang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const timeOptions = generateTimeOptions(15);
     const dayOptions = generateDayOptions();
     const monthOptions = generateMonthOptions(lang);
@@ -2295,6 +2297,30 @@ export default function CalendarPage() {
                         </button>
                     ))}
                 </div>
+
+                {/* Teacher Filters Block */}
+                {teachers.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
+                        <button
+                            onClick={() => setFilterTeacher('all')}
+                            className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                                filterTeacher === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60')}
+                        >
+                            <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            {lang === 'ka' ? 'ყველა' : 'All'}
+                        </button>
+                        {teachers.map((tc: any) => (
+                            <button key={tc.id}
+                                onClick={() => setFilterTeacher(filterTeacher === tc.id ? 'all' : tc.id)}
+                                className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
+                                    filterTeacher === tc.id ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60 hover:bg-white/5')}
+                            >
+                                <User className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                {tc.full_name}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 <div className="flex items-center gap-2">
                     {/* PDF Export */}

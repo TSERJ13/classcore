@@ -203,8 +203,7 @@ export default function StudentPortalPage() {
                 if (typeof window !== 'undefined') {
                     const students = getStudents();
                     const student = students.find(st => 
-                        (st.id && st.id.trim().toLowerCase() === targetId) || 
-                        (st.student_id && st.student_id.trim().toLowerCase() === targetId)
+                        st.id && st.id.trim().toLowerCase() === targetId
                     );
                     if (student) {
                         setStudentData(prev => prev || student);

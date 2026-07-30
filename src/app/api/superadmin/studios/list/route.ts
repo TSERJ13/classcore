@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/superadmin-auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -12,12 +13,17 @@ const PLAN_PRICE: Record<string, number> = {
     trial: 0, pro: 49, custom: 0, special: 0, basic: 49, enterprise: 0,
 };
 
-export async function GET() {
+export async function GET(req: Request) {
     const responseHeaders = {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
     };
+
+    const auth = await requireSuperAdmin(req);
+    if (!auth.authorized) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: responseHeaders });
+    }
     try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -37,16 +43,45 @@ export async function GET() {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         // ── Master table ─────────────────────────────────────────────────────
-        const { data: stdData, error: stdError } = await supabase
-            .from('studios')
-            .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, plan, suspended, is_deleted')
-            .order('created_at', { ascending: false });
-        if (stdError) console.error('⚠️ [SuperAdmin API] studios fetch:', stdError.message);
-        const stdList = stdData || [];
+        // Two-attempt fetch: if the full select fails (e.g. schema mismatch like
+        // "column studios.plan does not exist"), retry without the optional columns
+        // so a single missing column never blanks the entire superadmin panel.
+        let stdList: any[] = [];
+        let planMissing = false;
+        {
+            const { data, error } = await supabase
+                .from('studios')
+                .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, plan, suspended, is_deleted')
+                .order('created_at', { ascending: false });
+            if (error) {
+                console.error('⚠️ [SuperAdmin API] studios fetch (full):', error.message);
+                // Fallback: retry without columns that might not exist yet
+                planMissing = true;
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('studios')
+                    .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, suspended, is_deleted')
+                    .order('created_at', { ascending: false });
+                if (fallbackError) {
+                    console.error('⚠️ [SuperAdmin API] studios fetch (fallback):', fallbackError.message);
+                } else {
+                    stdList = fallbackData || [];
+                    console.warn('⚠️ [SuperAdmin API] Using fallback select (plan column missing) — run: ALTER TABLE studios ADD COLUMN IF NOT EXISTS plan text DEFAULT \'trial\'');
+                }
+            } else {
+                stdList = data || [];
+            }
+        }
 
         // ── Pull supporting rows ONCE (org_id only / minimal cols), aggregate in JS ──
-        // A failure on any single table must not blank the whole panel.
-        const safe = async (q: Promise<any>) => { try { const r = await q; return r.data || []; } catch { return []; } };
+        // A failure on any single table (including Supabase-level errors) must not
+        // blank the whole panel.
+        const safe = async (q: PromiseLike<any>) => {
+            try {
+                const r = await q;
+                if ((r as any).error) console.warn('⚠️ [SuperAdmin API] safe():', (r as any).error.message);
+                return (r as any).data || [];
+            } catch { return []; }
+        };
 
         const [students, groups, subs, sales, profileData] = await Promise.all([
             safe(supabase.from('students').select('org_id, status')),
@@ -122,7 +157,8 @@ export async function GET() {
                 }
             }
 
-            const plan = row.plan || 'trial';
+            // If plan column was missing in DB, default every row to 'trial'
+            const plan = (planMissing ? 'trial' : null) ?? row.plan ?? 'trial';
             const subsRevenue = Math.round(agg.subsRevenue);
             const shopRevenue = Math.round(agg.shopRevenue);
 

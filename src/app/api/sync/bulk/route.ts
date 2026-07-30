@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { getAuthenticatedOrgId } from '@/lib/sync-auth';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,11 +53,23 @@ async function tryUpsert(table: string, rows: any[], includeData: boolean) {
 
 export async function POST(req: Request) {
     try {
+        const auth = await getAuthenticatedOrgId(req);
+        if (!auth || !auth.orgId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
         const { table, rows, slug } = body;
 
         if (!table || !rows || !Array.isArray(rows)) {
             return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+        }
+
+        // Every row must belong to the caller's own org — reject the whole
+        // batch rather than silently dropping rows, so a mismatch is visible.
+        const foreignRow = rows.find((r: any) => r.org_id && r.org_id !== auth.orgId);
+        if (foreignRow) {
+            return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 
         console.log(`📡 [BulkSync] Pushing ${rows.length} rows to ${table} for ${slug}`);

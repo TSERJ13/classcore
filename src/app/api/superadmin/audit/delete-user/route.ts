@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/superadmin-auth';
 
 export async function POST(request: Request) {
     try {
+        const auth = await requireSuperAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { userId, slug } = await request.json();
 
         if (!userId) {

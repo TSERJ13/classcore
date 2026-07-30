@@ -18,6 +18,7 @@ export interface StaffPermissions {
     canViewShop: boolean;
     canViewAnalytics: boolean;
     canViewSMS: boolean;
+    canViewBilling: boolean;
     // Legacy / Admin
     canAddStudents?: boolean;
     canDeleteRecords?: boolean;
@@ -215,6 +216,7 @@ export interface CalendarEvent {
     recurring?: 'none' | 'weekly';
     reminder_30m?: boolean;
     created_at: string;
+    coach?: string;       // legacy fallback teacher name (pre-teacher_id era)
 }
 
 export type UserRole = 'admin' | 'coach' | 'student';
@@ -402,6 +404,7 @@ export interface Teacher {
         canViewShop: boolean;
         canViewAnalytics: boolean;
         canViewSMS: boolean;
+        canViewBilling: boolean;
     };
     created_at: string;
 }

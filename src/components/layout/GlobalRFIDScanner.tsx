@@ -41,7 +41,7 @@ export function GlobalRFIDScanner() {
         
         if (!studentId) {
             const students = getStudents();
-            const student = students.find(s => s.card_uid?.toUpperCase().replace(/[:\-\s]/g, '') === clean);
+            const student = students.find(s => s.nfc_uid?.toUpperCase().replace(/[:\-\s]/g, '') === clean);
             studentId = student?.id ?? null;
         }
 
@@ -73,8 +73,8 @@ export function GlobalRFIDScanner() {
                     studentName: student.full_name,
                     photo: student.photo_url,
                     phase: 'info',
-                    sessionsRemaining: sub.type === 'monthly' ? 30 : Math.max(0, sub.sessions_total - (sub.sessions_used || 0)),
-                    planName: sub.plan_name || 'Active Plan'
+                    sessionsRemaining: sub.type === 'monthly' || sub.sessions_total === null ? Infinity : Math.max(0, sub.sessions_total - (sub.sessions_used || 0)),
+                    planName: sub.plan || 'Active Plan'
                 });
 
                 // Clear after 5 seconds if no second scan
@@ -174,7 +174,7 @@ export function GlobalRFIDScanner() {
                         <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
                             <p className="text-sm font-bold opacity-80 mb-1">{popup.planName}</p>
                             <p className="text-3xl font-black tabular-nums tracking-tighter">
-                                {popup.sessionsRemaining} <span className="text-sm opacity-60 font-bold tracking-widest">დარჩენილი</span>
+                                {popup.sessionsRemaining === Infinity ? '∞' : popup.sessionsRemaining} <span className="text-sm opacity-60 font-bold tracking-widest">დარჩენილი</span>
                             </p>
                         </div>
                         <p className="text-xs font-bold text-muted animate-pulse">
@@ -187,7 +187,7 @@ export function GlobalRFIDScanner() {
                     <div className="mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
                         <p className="font-black text-lg tracking-widest uppercase">ვიზიტი დაფიქსირდა!</p>
                         <p className="text-sm font-bold mt-1 opacity-80">
-                            {popup.sessionsRemaining} <span className="opacity-60">დარჩენილი</span>
+                            {popup.sessionsRemaining === Infinity ? '∞' : popup.sessionsRemaining} <span className="opacity-60">დარჩენილი</span>
                         </p>
                     </div>
                 )}

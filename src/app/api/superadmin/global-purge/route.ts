@@ -1,11 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/superadmin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     try {
-        const { pattern, slugs: targetSlugs, secret } = await request.json();
+        const auth = await requireSuperAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { pattern, slugs: targetSlugs } = await request.json();
 
         // Security check: Strictly require the service role key for global purge
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -7,11 +7,7 @@ import { AppLogo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
-
-const SUPER_ADMIN_EMAILS = [
-    'adminclasscore@gmail.com',
-    'support@classcore.ge'
-];
+import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
 export default function LoginPage() {
     const { t, lang } = useT();
@@ -38,11 +34,12 @@ export default function LoginPage() {
 
         if (user && !loading) {
             if (profile?.is_activated === false) {
-                const { createClient } = require('@/lib/supabase/client');
-                const supabase = createClient();
-                supabase.auth.signOut().then(() => {
+                (async () => {
+                    const { createClient } = await import('@/lib/supabase/client');
+                    const supabase = createClient();
+                    await supabase.auth.signOut();
                     setError(l('თქვენი ექაუნთი ჯერ არ არის გააქტიურებული.', 'Ваш аккаунт еще не активирован.', 'Account not activated.'));
-                });
+                })();
                 return;
             }
             window.location.href = '/dashboard';
@@ -95,7 +92,7 @@ export default function LoginPage() {
 
                 setLoginStatus(l('შესვლა...', 'Вход...', 'Logging in...'));
                 setIsSuccess(true);
-                const isSuperAdmin = signedInUser?.email && SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === signedInUser.email?.toLowerCase());
+                const isSuperAdmin = isSuperAdminEmail(signedInUser?.email);
                 
                 if (signedInUser && !signedInUser.email_confirmed_at && !isSuperAdmin) {
                     await supabase.auth.signOut();
@@ -222,7 +219,7 @@ export default function LoginPage() {
                                             </div>
                                             {l('პაროლი', 'Пароль', 'Security Key')}
                                         </label>
-                                        <Link href="/forgot-password" size="sm" className="text-[11px] font-black text-indigo-600 px-1 hover:underline">
+                                        <Link href="/forgot-password" className="text-[11px] font-black text-indigo-600 px-1 hover:underline">
                                             {l('დაგავიწყდათ?', 'Забыли?', 'Recovery')}
                                         </Link>
                                     </div>

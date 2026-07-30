@@ -284,10 +284,10 @@ function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, act
                             "flex items-center justify-center transition-all duration-300 w-full bg-white/[0.03] border border-white/5 rounded-xl p-1",
                             exp ? (isMobile ? "gap-1 flex-row h-10" : "gap-1 flex-row h-12") : "flex-col gap-1 w-full h-auto py-2"
                         )}>
-                            <LanguageSwitcher 
-                                compact={!exp} 
-                                mode="session" 
-                                align="center" 
+                            <LanguageSwitcher
+                                compact={!exp}
+                                mode="session"
+                                align="left"
                                 className={cn(
                                     exp 
                                         ? "flex-1 hover:bg-white/5 rounded-xl h-10 px-2 transition-all" 

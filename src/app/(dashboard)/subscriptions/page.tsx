@@ -83,7 +83,7 @@ export default function SubscriptionsPage() {
         
         // Handle shared student search
         const sIds = (s.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
-        const matchedStudents = sIds.map(id => students.find(x => x.id === id)).filter(Boolean);
+        const matchedStudents = sIds.map(id => students.find(x => x.id === id)).filter((s): s is NonNullable<typeof s> => s != null);
         
         const searchLower = search?.toLowerCase() || '';
         const nameMatch = matchedStudents.some(st => 
@@ -108,7 +108,7 @@ export default function SubscriptionsPage() {
 
     const renderSub = (s: SubscriptionInfo) => {
         const sIds = (s.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
-        const matchedStudents = sIds.map(id => students.find(x => x.id === id)).filter(Boolean);
+        const matchedStudents = sIds.map(id => students.find(x => x.id === id)).filter((s): s is NonNullable<typeof s> => s != null);
         const studentName = matchedStudents.length > 0 
             ? matchedStudents.map(st => st.full_name).join(' & ') 
             : 'უცნობი სტუდენტი';
