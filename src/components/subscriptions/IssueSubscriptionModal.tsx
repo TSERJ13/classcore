@@ -9,6 +9,7 @@ import type { SubscriptionInfo } from '@/lib/subscription-store';
 import { getStudents, updateStudent } from '@/lib/student-store';
 import { getPlans } from '@/lib/plan-store';
 import { getGroups } from '@/lib/group-store';
+import { getHalls } from '@/lib/hall-store';
 import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
 import { generateTimeOptions } from '@/lib/date-utils';
 import { useStudio } from '@/contexts/StudioContext';
@@ -115,10 +116,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const overpayment = Math.max(0, actualPaid - remaining);
     const newBalance = Math.round((sBalance - appliedBalance + overpayment) * 100) / 100;
 
-    const activeBranchId = settings?.activeBranchId;
-    const branches = settings?.branches || [];
-    const activeBranch = branches.find(b => b.id === activeBranchId);
-    const activeHalls = activeBranch?.halls || [];
+    const activeHalls = useMemo(() => getHalls(), [open]);
     const hallOptions = activeHalls.map(h => ({ value: h.id, label: h.name, color: h.color }));
 
     // Reset when opened

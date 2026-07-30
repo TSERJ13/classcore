@@ -107,6 +107,7 @@ export interface Translations {
     clear: string;
     // Statuses
     expired: string;
+    expiredRecently: string;
     paused: string;
     inactive: string;
     onLeave: string;
@@ -265,7 +266,6 @@ export interface Translations {
     balletShoes: string;
     smsTemplateExpiration: string;
     default: string;
-    setAsDefault: string;
     // Hall-rental extra
     paid: string;
     // Billing

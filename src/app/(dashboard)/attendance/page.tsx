@@ -242,7 +242,7 @@ export default function AttendancePage() {
                         color: g.color || '#6d28d9',
                         start_time: slot?.startTime || '00:00',
                         end_time: slot?.endTime || '23:59',
-                        teacher_id: g.teacher_id || '',
+                        teacher_id: g.teacherId || '',
                         hall_id: g.hall_id || ''
                     };
                 }) as any;
