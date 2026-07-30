@@ -1335,4 +1335,19 @@ export interface Translations {
     navSectionSchedule: string;
     navSectionNotifications: string;
     done: string;
+
+    calStudent: string;
+    callShort: string;
+    dataNotFoundDesc: string;
+    greeting: string;
+    hallDescription: string;
+    imageError: string;
+    indSession: string;
+    phone: string;
+    saveChanges: string;
+    saved: string;
+    saving: string;
+    selectHall: string;
+    untitledClass: string;
+    uploadProductPhoto: string;
 }
