@@ -7,7 +7,7 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
  * Hardened Cloud Anchor resolution with RLS-bypass simulation.
  */
 
-export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string) {
+export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string, chunk?: 'core' | 'heavy') {
     console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token, isClientPortal });
 
     try {
@@ -17,7 +17,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
                 'Content-Type': 'application/json',
                 'Authorization': token ? `Bearer ${token}` : ''
             },
-            body: JSON.stringify({ slug, orgId, isClientPortal, studentId })
+            body: JSON.stringify({ slug, orgId, isClientPortal, studentId, chunk })
         });
         
         if (!response.ok) {
@@ -238,4 +238,8 @@ export async function deleteRecordFromCloud(table: string, id: string, orgId: st
         console.error(`❌ [MasterSync] Delete request error for ${table}:`, err?.message);
         return false;
     }
+}
+
+export async function fetchHeavyStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string) {
+    return fetchFullStudioState(slug, orgId, token, isClientPortal, studentId, 'heavy');
 }

@@ -110,7 +110,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 }
             }
 
-            const state = await fetchFullStudioState(activeSlug || "default", currentOrgId, token);
+            const state = await fetchFullStudioState(activeSlug || "default", currentOrgId, token, false, undefined, 'core');
                     
             if (state) {
                 const resolvedOrgId = state.org_id || currentOrgId || state.studio?.org_id;
