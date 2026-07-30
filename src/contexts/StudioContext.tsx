@@ -4,7 +4,7 @@ import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { setMemoryStudentsCache } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { getActiveSlug, getScopedKey, safeSetItem } from '@/lib/utils';
-import type { StudioSettings, Branch } from '@/types';
+import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -36,6 +36,9 @@ interface StudioContextType {
     setCustomRoles: (roles: any) => void;
     addStaff: (member: any) => void;
     setOwnerInfo: (info: any) => void;
+    setSmsTemplates: (templates: any) => void;
+    setWizardCompleted: (val: boolean) => void;
+    logSubscription: (entry: Omit<SubscriptionLog, 'id' | 'date'>) => void;
     saveSettings: (updates: any, prev?: any, slug?: string) => void;
 }
 
@@ -487,6 +490,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const updateBranch = (id: string, data: any) => updateSettings({ branches: settings.branches.map(b => b.id === id ? { ...b, ...data } : b) });
     const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });
     const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
+    const setSmsTemplates = (templates: any) => updateSettings({ sms_templates: templates });
+    const setWizardCompleted = (val: boolean) => updateSettings({ isWizardCompleted: val });
+    const logSubscription = (entry: Omit<SubscriptionLog, 'id' | 'date'>) => {
+        const newLog: SubscriptionLog = {
+            ...entry,
+            id: `sublog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            date: new Date().toISOString(),
+        };
+        updateSettings({ subscriptionLogs: [newLog, ...(settings.subscriptionLogs || [])] });
+    };
 
     const setActiveBranch = useCallback((branchId: string) => {
         setSettings(prev => {
@@ -516,7 +529,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         <StudioContext.Provider value={{
             settings, updateSettings, isLoaded, loadingStep, firstSyncDone, isSyncing,
             activeBranchId, setActiveBranch, addBranch, refreshData,
-            setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings
+            setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, setGoogleCalendar, setPausePrice, updateStaff, removeStaff, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, setSmsTemplates, setWizardCompleted, logSubscription, saveSettings
         }}>
             {children}
         </StudioContext.Provider>

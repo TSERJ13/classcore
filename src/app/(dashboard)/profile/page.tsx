@@ -15,17 +15,19 @@ import { cn, formatCurrency, getLocalISODate } from '@/lib/utils';
 import { getBillingState, getPaymentLogs, SAAS_PRICE_GEL } from '@/lib/saas-billing';
 import { addNotification } from '@/lib/notification-store';
 import { type StaffPermissions, type UserRole, type Branch, type StaffMember, ensureUniqueSlug, removeFromRegistry, cleanupRegistry, saveSettings } from '@/lib/settings-store';
+import { getTrash, removeFromTrash, cleanupOldTrash, type TrashItem } from '@/lib/trash-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { compactSlugify } from '@/lib/utils';
+import { compactSlugify, getScopedKey } from '@/lib/utils';
 
 export default function ProfilePage() {
     const { t, lang } = useT();
-    const { settings, addStaff, removeStaff, updateStaff, restoreFromTrash, clearOldTrash, addBranch, updateBranch, removeBranch, setActiveBranch, setSettings } = useStudio();
+    const { settings, addStaff, removeStaff, updateStaff, addBranch, updateBranch, removeBranch, setActiveBranch } = useStudio();
     const { profile, user } = useUser();
     const confirm = useConfirm();
     const [mounted, setMounted] = useState(false);
     const [activeSection, setActiveSection] = useState<'branches' | 'team' | 'history' | 'trash'>('branches');
+    const [trash, setTrash] = useState<TrashItem[]>([]);
 
     // Modals & Editing
     const [isAddingStaff, setIsAddingStaff] = useState(false);
@@ -35,7 +37,10 @@ export default function ProfilePage() {
 
     useEffect(() => {
         setMounted(true);
-        clearOldTrash();
+        cleanupOldTrash();
+        setTrash(getTrash());
+        const handler = () => setTrash(getTrash());
+        window.addEventListener('cc_trash_update', handler);
 
         // Check for persisted tab (e.g. from Settings shortcut)
         const savedTab = localStorage.getItem('cc_profile_tab');
@@ -43,7 +48,44 @@ export default function ProfilePage() {
             setActiveSection(savedTab as any);
             localStorage.removeItem('cc_profile_tab'); // Clean up
         }
+        return () => window.removeEventListener('cc_trash_update', handler);
     }, []);
+
+    // Mirrors the restore logic in the dedicated /trash page -- same
+    // TrashItem shape, same cc_global_trash storage key.
+    const handleRestoreFromTrash = (item: TrashItem) => {
+        const typeMap: Record<string, { key: string; event: string }> = {
+            'student': { key: 'cc_student_data', event: 'cc_student_update' },
+            'teacher': { key: 'cc_teachers', event: 'cc_teacher_update' },
+            'subscription': { key: 'cc_student_subscriptions', event: 'cc_subscription_update' },
+            'group': { key: 'cc_groups', event: 'cc_group_update' }
+        };
+        const config = typeMap[item.type];
+        if (!config) return;
+
+        const storageKey = getScopedKey(config.key);
+        const raw = localStorage.getItem(storageKey);
+
+        if (item.type === 'student') {
+            const existing = JSON.parse(raw || '{}');
+            existing[item.data.id] = item.data;
+            localStorage.setItem(storageKey, JSON.stringify(existing));
+        } else if (item.type === 'subscription') {
+            const existing = JSON.parse(raw || '{}');
+            const studentId = item.data.student_id;
+            if (studentId) {
+                if (!existing[studentId]) existing[studentId] = [];
+                existing[studentId].push(item.data);
+                localStorage.setItem(storageKey, JSON.stringify(existing));
+            }
+        } else {
+            const existing = JSON.parse(raw || '[]');
+            localStorage.setItem(storageKey, JSON.stringify([...existing, item.data]));
+        }
+
+        removeFromTrash(item.id);
+        window.dispatchEvent(new Event(config.event));
+    };
 
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
@@ -424,7 +466,7 @@ export default function ProfilePage() {
                                     <h3 className="text-xl font-black text-primary tracking-tight">{l('სანაგვე', 'Корзина', 'Recycle Hub')}</h3>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {(settings.trash || []).map(item => (
+                                    {trash.map(item => (
                                         <div key={item.id} className="bg-surface/40 border border-border-subtle p-5 rounded-[2rem] flex flex-col justify-between hover:border-indigo-500/20 transition-all group/trash group">
                                             <div className="flex items-center gap-4 mb-6">
                                                 <div className="w-10 h-10 rounded-xl bg-card border border-border-subtle flex items-center justify-center text-[11px] font-black text-muted">
@@ -432,12 +474,12 @@ export default function ProfilePage() {
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-[11px] font-black text-primary truncate tracking-tighter">
-                                                        {item.type === 'staff' ? item.data.first_name : item.id}
+                                                        {item.data?.full_name || item.data?.name || item.data?.first_name || item.id}
                                                     </p>
                                                     <p className="text-[8px] font-bold text-red-500/60 tracking-widest">{item.type}</p>
                                                 </div>
                                             </div>
-                                            <button onClick={() => restoreFromTrash(item.id)} className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[9px] font-black tracking-widest shadow-lg shadow-indigo-600/10 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                                            <button onClick={() => handleRestoreFromTrash(item)} className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[9px] font-black tracking-widest shadow-lg shadow-indigo-600/10 hover:scale-[1.02] active:scale-[0.98] transition-all">
                                                 {l('აღდგენა', 'Восстановить', 'Restore')}
                                             </button>
                                         </div>
