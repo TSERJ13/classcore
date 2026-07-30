@@ -43,16 +43,45 @@ export async function GET(req: Request) {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         // ── Master table ─────────────────────────────────────────────────────
-        const { data: stdData, error: stdError } = await supabase
-            .from('studios')
-            .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, plan, suspended, is_deleted')
-            .order('created_at', { ascending: false });
-        if (stdError) console.error('⚠️ [SuperAdmin API] studios fetch:', stdError.message);
-        const stdList = stdData || [];
+        // Two-attempt fetch: if the full select fails (e.g. schema mismatch like
+        // "column studios.plan does not exist"), retry without the optional columns
+        // so a single missing column never blanks the entire superadmin panel.
+        let stdList: any[] = [];
+        let planMissing = false;
+        {
+            const { data, error } = await supabase
+                .from('studios')
+                .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, plan, suspended, is_deleted')
+                .order('created_at', { ascending: false });
+            if (error) {
+                console.error('⚠️ [SuperAdmin API] studios fetch (full):', error.message);
+                // Fallback: retry without columns that might not exist yet
+                planMissing = true;
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('studios')
+                    .select('studio_slug, owner_info, studio_name, logo_url, created_at, org_id, suspended, is_deleted')
+                    .order('created_at', { ascending: false });
+                if (fallbackError) {
+                    console.error('⚠️ [SuperAdmin API] studios fetch (fallback):', fallbackError.message);
+                } else {
+                    stdList = fallbackData || [];
+                    console.warn('⚠️ [SuperAdmin API] Using fallback select (plan column missing) — run: ALTER TABLE studios ADD COLUMN IF NOT EXISTS plan text DEFAULT \'trial\'');
+                }
+            } else {
+                stdList = data || [];
+            }
+        }
 
         // ── Pull supporting rows ONCE (org_id only / minimal cols), aggregate in JS ──
-        // A failure on any single table must not blank the whole panel.
-        const safe = async (q: PromiseLike<any>) => { try { const r = await q; return r.data || []; } catch { return []; } };
+        // A failure on any single table (including Supabase-level errors) must not
+        // blank the whole panel.
+        const safe = async (q: PromiseLike<any>) => {
+            try {
+                const r = await q;
+                if ((r as any).error) console.warn('⚠️ [SuperAdmin API] safe():', (r as any).error.message);
+                return (r as any).data || [];
+            } catch { return []; }
+        };
 
         const [students, groups, subs, sales, profileData] = await Promise.all([
             safe(supabase.from('students').select('org_id, status')),
@@ -128,7 +157,8 @@ export async function GET(req: Request) {
                 }
             }
 
-            const plan = row.plan || 'trial';
+            // If plan column was missing in DB, default every row to 'trial'
+            const plan = (planMissing ? 'trial' : null) ?? row.plan ?? 'trial';
             const subsRevenue = Math.round(agg.subsRevenue);
             const shopRevenue = Math.round(agg.shopRevenue);
 
