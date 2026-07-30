@@ -135,11 +135,17 @@ export default function TeachersPage() {
                             <div className="flex items-start gap-4">
                                 {/* Avatar with Status Dot */}
                                 <div className="relative flex-shrink-0">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-base font-black text-white shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-transform overflow-hidden">
-                                        {teacher.photo_url ? (
-                                            <img src={teacher.photo_url} alt="" className="w-full h-full object-cover" />
-                                        ) : (
-                                            getInitials(`${teacher.first_name || ''} ${teacher.last_name || teacher.full_name || ''}`)
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-base font-black text-white shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-transform overflow-hidden relative">
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            {getInitials(`${teacher.first_name || ''} ${teacher.last_name || teacher.full_name || ''}`)}
+                                        </div>
+                                        {teacher.photo_url && (
+                                            <img 
+                                                src={teacher.photo_url} 
+                                                alt="" 
+                                                className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-300" 
+                                                onLoad={(e) => e.currentTarget.classList.remove('opacity-0')}
+                                            />
                                         )}
                                     </div>
                                     <div className={cn(

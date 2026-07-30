@@ -401,13 +401,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                         setMemoryStudentsCache(cloudStudents as any, activeSlug || 'default');
                                     }
                                     const map: any = {};
+                                    const photoMap: any = {};
                                     cloudStudents.forEach((s: any) => {
-                                        const lite = (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:'))
-                                            ? { ...s, photo_url: undefined }
-                                            : s;
-                                        map[s.id] = lite;
+                                        if (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:')) {
+                                            photoMap[s.id] = s.photo_url;
+                                            map[s.id] = { ...s, photo_url: undefined };
+                                        } else {
+                                            map[s.id] = s;
+                                        }
                                     });
                                     await safeSetItem(getScopedKey('cc_student_data', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                    await safeSetItem(`cc_student_photos_${activeSlug || 'default'}`, JSON.stringify(photoMap), activeSlug || 'default');
                                 }
                                 if (heavyState.attendance) {
                                     // 🔧 Attendance logic needs to populate cc_attendance_data AND cc_checkins_...

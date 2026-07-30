@@ -331,18 +331,22 @@ export default function StudentsPage() {
                                 className="group bg-card border-2 border-border-subtle hover:border-[#6d28d9]/40 rounded-[2rem] transition-all duration-300 cursor-pointer overflow-hidden p-5 relative flex flex-col">
                                 <div className="flex items-start gap-4">
                                     {/* Avatar */}
-                                    <div className="w-14 h-14 rounded-2xl flex-shrink-0 overflow-hidden border-2 border-surface group-hover:border-[#6d28d9]/20 transition-all">
-                                        {student.photo_url ? (
-                                            <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className={cn(
-                                                "w-full h-full flex items-center justify-center text-sm font-black text-white transition-all duration-500",
-                                                student.gender === 'female' 
-                                                    ? 'bg-gradient-to-br from-pink-500 to-rose-600' 
-                                                    : 'bg-gradient-to-br from-[#6d28d9] to-[#4338ca]'
-                                            )}>
-                                                {getInitials(student.full_name)}
-                                            </div>
+                                    <div className="w-14 h-14 rounded-2xl flex-shrink-0 overflow-hidden border-2 border-surface group-hover:border-[#6d28d9]/20 transition-all relative">
+                                        <div className={cn(
+                                            "absolute inset-0 flex items-center justify-center text-sm font-black text-white transition-all duration-500",
+                                            student.gender === 'female' 
+                                                ? 'bg-gradient-to-br from-pink-500 to-rose-600' 
+                                                : 'bg-gradient-to-br from-[#6d28d9] to-[#4338ca]'
+                                        )}>
+                                            {getInitials(student.full_name)}
+                                        </div>
+                                        {student.photo_url && (
+                                            <img 
+                                                src={student.photo_url} 
+                                                alt={student.full_name} 
+                                                className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-300" 
+                                                onLoad={(e) => e.currentTarget.classList.remove('opacity-0')}
+                                            />
                                         )}
                                     </div>
 

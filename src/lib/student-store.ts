@@ -188,14 +188,35 @@ export function getStudents(): Student[] {
             return s as Student;
         });
 
-        // 🖼️ Re-attach base64 photos from the in-memory cache. localStorage holds
-        // a light copy without photos (to stay under quota), so merge them back.
-        if (_memoryStudentsCache && _memoryCacheSlug === activeSlug) {
-            for (const s of finalStudents as any[]) {
-                if (!isBase64(s.photo_url)) {
+        // 🖼️ Re-attach base64 photos from the in-memory cache OR localStorage photos cache.
+        // localStorage holds a light copy of cc_student_data without photos (to stay under quota),
+        // so we merge them back. cc_student_photos serves as a persistent fallback for Stale-While-Revalidate.
+        let lsPhotos: Record<string, string> | null = null;
+        for (const s of finalStudents as any[]) {
+            if (!isBase64(s.photo_url)) {
+                let p = null;
+                // 1. Try Memory Cache (latest from cloud)
+                if (_memoryStudentsCache && _memoryCacheSlug === activeSlug) {
                     const mem = _memoryStudentsCache[s.id];
-                    if (mem && isBase64((mem as any).photo_url)) s.photo_url = (mem as any).photo_url;
+                    if (mem && isBase64((mem as any).photo_url)) {
+                        p = (mem as any).photo_url;
+                    }
                 }
+                // 2. Try LocalStorage Photos Cache (persisted across reloads for instant paint)
+                if (!p) {
+                    if (lsPhotos === null) {
+                        try {
+                            lsPhotos = JSON.parse(localStorage.getItem(`cc_student_photos_${activeSlug}`) || '{}');
+                        } catch {
+                            lsPhotos = {};
+                        }
+                    }
+                    if (lsPhotos![s.id] && isBase64(lsPhotos![s.id])) {
+                        p = lsPhotos![s.id];
+                    }
+                }
+                
+                if (p) s.photo_url = p;
             }
         }
 

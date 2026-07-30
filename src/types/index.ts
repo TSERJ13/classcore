@@ -102,6 +102,9 @@ export interface StudioSettings {
     isWizardCompleted?: boolean;
     logoDataUrl: string | null;   // base64 image or null
     plan?: 'trial' | 'pro' | 'custom';
+    trialStartDate?: string;
+    lastPaidDate?: string;
+    accountBalance?: number;
     currency: 'GEL' | 'USD' | 'EUR';
     language: 'ka' | 'ru' | 'en';
     timezone: string;
