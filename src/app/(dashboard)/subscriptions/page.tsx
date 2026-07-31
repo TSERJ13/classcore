@@ -286,14 +286,11 @@ export default function SubscriptionsPage() {
                 </div>
 
                     {/* Mobile Floating Action Buttons */}
-                    <div 
-                        className="sm:hidden sticky z-50 flex flex-col items-end gap-3 pointer-events-none" 
-                        style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))', marginTop: 'auto', right: '1rem', transform: 'translateY(-1rem)' }}
-                    >
+                    <div className="sm:hidden fixed right-4 flex flex-col items-end gap-3 z-50" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
                         {/* FAB Overlay (Mobile only, shown when open) */}
                         {fabOpen && (
                             <div 
-                                className="fixed inset-0 z-[-1] pointer-events-auto" 
+                                className="fixed inset-0 z-[-1]" 
                                 onClick={() => setFabOpen(false)}
                             />
                         )}
@@ -301,7 +298,7 @@ export default function SubscriptionsPage() {
                         {/* Speed Dial Menu (Mobile) */}
                         <div className={cn(
                             "flex flex-col items-center gap-3 transition-all duration-300 origin-bottom",
-                            fabOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-90 translate-y-10 pointer-events-none"
+                            fabOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-10 pointer-events-none"
                         )}>
                             {/* Prices Action */}
                             <Link href="/subscriptions/plans"
@@ -319,7 +316,7 @@ export default function SubscriptionsPage() {
 
                         {/* Mobile Speed Dial Trigger */}
                         <button onClick={() => setFabOpen(!fabOpen)} 
-                            className="flex items-center justify-center w-14 h-14 bg-[#6d28d9] text-white rounded-2xl shadow-xl active:scale-95 transition-all pointer-events-auto">
+                            className="flex items-center justify-center w-14 h-14 bg-[#6d28d9] text-white rounded-2xl shadow-xl active:scale-95 transition-all">
                             <Plus className={cn("w-6 h-6 transition-transform duration-300", fabOpen && "rotate-45")} />
                         </button>
                     </div>
