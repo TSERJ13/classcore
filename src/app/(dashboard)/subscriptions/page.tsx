@@ -286,7 +286,7 @@ export default function SubscriptionsPage() {
                 </div>
 
                     {/* Mobile Floating Action Buttons */}
-                    <div className="sm:hidden fixed right-4 flex flex-col items-end gap-3 z-50 transition-all duration-300" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+                    <div className="sm:hidden fixed right-4 flex flex-col items-end gap-3 z-50" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
                         {/* FAB Overlay (Mobile only, shown when open) */}
                         {fabOpen && (
                             <div 
