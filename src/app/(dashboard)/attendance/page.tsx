@@ -35,7 +35,7 @@ import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
-
+let _renderStartTime = 0;
 
 type State = 'present' | 'absent' | 'none';
 
@@ -198,6 +198,16 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
+    if (_renderStartTime === 0 && typeof window !== 'undefined') {
+        _renderStartTime = performance.now();
+        console.log(`[Perf] 🚀 AttendancePage FIRST RENDER START: ${_renderStartTime.toFixed(2)}ms`);
+        
+        // 3. activeSlug resolution
+        const slugStart = performance.now();
+        const activeSlug = localStorage.getItem('cc_active_studio_slug');
+        console.log(`[Perf] 🏎️ activeSlug resolved to '${activeSlug}' at ${(performance.now() - _renderStartTime).toFixed(2)}ms (took ${(performance.now() - slugStart).toFixed(2)}ms)`);
+    }
+
     const { t, lang, l } = useLanguage();
     const confirm = useConfirm();
     const [mounted, setMounted] = useState(false);
@@ -369,7 +379,10 @@ export default function AttendancePage() {
     const [subs, setSubs] = useState<ReturnType<typeof getSubscriptions>>({});
 
     const refreshSubs = useCallback(() => {
-        setSubs(getSubscriptions());
+        const start = performance.now();
+        const data = getSubscriptions();
+        console.log(`[Perf] 🔄 refreshSubs() called at ${(performance.now() - _renderStartTime).toFixed(2)}ms. Took ${(performance.now() - start).toFixed(2)}ms`);
+        setSubs(data);
     }, []);
 
     useEffect(() => {
@@ -469,7 +482,10 @@ export default function AttendancePage() {
 
     // 1. Get base students list
     const students = useMemo(() => {
+        const start = performance.now();
+        console.log(`[Perf] 👥 getStudents() useMemo Triggered at ${(start - _renderStartTime).toFixed(2)}ms. Dependencies resolved: { studentPatches: ${Object.keys(studentPatches).length}, cls: ${cls?.id}, selectedClass: ${selectedClass}, subs: ${Object.keys(subs).length} }`);
         const base = getStudents();
+        console.log(`[Perf] 👥 getStudents() took ${(performance.now() - start).toFixed(2)}ms`);
         return base
             .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
             .filter(s => {
@@ -499,7 +515,8 @@ export default function AttendancePage() {
 
     // 3. Filter and Sort using pre-calculated statuses
     const filtered = useMemo(() => {
-        return students
+        const start = performance.now();
+        const res = students
             .filter(s => !search || s.full_name.toLowerCase().includes(search.toLowerCase()))
             .sort((a, b) => {
                 const sA = studentStatuses[a.id]?.score ?? 2;
@@ -507,6 +524,8 @@ export default function AttendancePage() {
                 if (sA !== sB) return sA - sB;
                 return (a.full_name || '').localeCompare(b.full_name || '');
             });
+        console.log(`[Perf] 🎯 Filter/Sort completed at ${(performance.now() - _renderStartTime).toFixed(2)}ms (took ${(performance.now() - start).toFixed(2)}ms). Rendering ${res.length} students.`);
+        return res;
     }, [students, search, studentStatuses]);
 
     const handleQuickSell = (productId: string) => {
