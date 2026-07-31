@@ -273,6 +273,7 @@ export default function DashboardPage() {
         const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
+        const todayStr = getLocalISODate(new Date());
         let activeSubStudentIds = new Set<string>();
         studentsList.forEach(s => {
             let isActive = false;
@@ -296,7 +297,6 @@ export default function DashboardPage() {
 
         const checkins = getTodayCheckins();
         const attendance = checkins.length;
-        const todayStr = getLocalISODate(new Date());
 
         // ── Revenue: this month vs last month ────────────────────────────────
         const revInMonth = (mPrefix: string) =>
