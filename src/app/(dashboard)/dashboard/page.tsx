@@ -23,7 +23,7 @@ import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 import { pctChange } from '@/lib/studio-stats';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
-import { PieChart, GaugeChart } from '@/components/ui/PieChart';
+
 import { getScopedKey } from '@/lib/settings-store';
 import { AppLogo } from '@/components/ui/Logo';
 
@@ -219,6 +219,7 @@ export default function DashboardPage() {
         todayRevenue: 0,
         totalDebt: 0,
         expiringSoon: 0,
+        oneSessionLeft: 0,
         inactiveSubs: 0,
         newStudents3m: 0,
         leftStudents3m: 0,
@@ -274,8 +275,22 @@ export default function DashboardPage() {
 
         let activeSubStudentIds = new Set<string>();
         studentsList.forEach(s => {
-            const sub = (s as any).subscription || getSubscription(s.id);
-            if (sub && sub.status === 'active') activeSubStudentIds.add(s.id);
+            let isActive = false;
+            const subsList = allSubsList.filter(sub => sub.student_id === s.id);
+            for (const sub of subsList) {
+                const isUnlimited = sub.sessions_total === null;
+                const remaining = isUnlimited ? Infinity : ((sub.sessions_total ?? 0) - (sub.sessions_used ?? 0));
+                const hasExpiredByDate = sub.expires_at < todayStr;
+                const hasUsedAllSessions = !isUnlimited && remaining <= 0;
+                
+                if (!hasExpiredByDate && !hasUsedAllSessions) {
+                    isActive = true;
+                    break;
+                }
+            }
+            if (isActive) {
+                activeSubStudentIds.add(s.id);
+            }
         });
         const studentsWithActiveSub = activeSubStudentIds.size;
 
@@ -325,6 +340,33 @@ export default function DashboardPage() {
             }
         } catch { /* ignore */ }
 
+        // ── Needs Attention ───────────────────────────────────────────────────
+        const expiringSoonStudents = new Set<string>();
+        const oneSessionStudents = new Set<string>();
+        
+        const nextWeek = new Date(now);
+        nextWeek.setDate(now.getDate() + 7);
+        const nextWeekStr = getLocalISODate(nextWeek);
+        
+        studentsList.forEach(s => {
+            const subsList = allSubsList.filter(sub => sub.student_id === s.id);
+            for (const sub of subsList) {
+                const isUnlimited = sub.sessions_total === null;
+                const remaining = isUnlimited ? Infinity : ((sub.sessions_total ?? 0) - (sub.sessions_used ?? 0));
+                const hasExpiredByDate = sub.expires_at < todayStr;
+                const hasUsedAllSessions = !isUnlimited && remaining <= 0;
+                
+                if (!hasExpiredByDate && !hasUsedAllSessions) {
+                    if (sub.expires_at <= nextWeekStr) {
+                        expiringSoonStudents.add(s.id);
+                    }
+                    if (remaining === 1) {
+                        oneSessionStudents.add(s.id);
+                    }
+                }
+            }
+        });
+
         setLiveStats(prev => ({
             ...prev,
             totalStudents: students,
@@ -338,6 +380,8 @@ export default function DashboardPage() {
             subsLastMonth,
             subsChange,
             todayExpected,
+            expiringSoon: expiringSoonStudents.size,
+            oneSessionLeft: oneSessionStudents.size,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0),
         }));
 
@@ -576,138 +620,58 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ─── Statistics ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch overflow-x-auto pb-2 scrollbar-none no-scrollbar">
-                {/* 1. Students: total + active subscription */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px] min-w-[160px] flex-shrink-0 lg:flex-shrink">
-                    <div className="h-8 mb-3 flex items-start justify-center w-full">
-                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{l('სტუდენტები', 'Студенты', 'Students')}</p>
-                    </div>
-                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
-                        <PieChart
-                            size={90}
-                            thickness={10}
-                            data={[
-                                { label: l('აქტიური აბონემენტი', 'Активный абонемент', 'Active sub'), value: liveStats.activeSubs, color: '#6366f1' },
-                                { label: l('აბონემენტის გარეშე', 'Без абонемента', 'No sub'), value: Math.max(0, liveStats.totalStudents - liveStats.activeSubs), color: '#e2e8f0' }
-                            ]}
-                            centerLabel={
-                                <div className="space-y-0.5 text-center">
-                                    <span className="text-2xl font-black text-[#1e293b] dark:text-white block leading-none">{liveStats.totalStudents}</span>
-                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{l('სულ', 'Всего', 'Total')}</span>
-                                </div>
-                            }
-                        />
-                    </div>
-                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2.5">
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                            <p className="text-[8px] font-bold text-indigo-500">{l('აქტიური', 'Активн.', 'Active')}: {liveStats.activeSubs}</p>
+            {/* ─── Statistics (2x2 Grid) ─── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch pb-2">
+                {stats.map((stat, idx) => (
+                    <div key={idx} className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col items-start transition-all relative overflow-hidden group hover:border-border-subtle/60">
+                        <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-${stat.color}-500/10 to-transparent rounded-bl-[4rem] -mr-4 -mt-4 transition-transform group-hover:scale-110`} />
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-3 ${colorMap[stat.color].bg} ${colorMap[stat.color].text}`}>
+                            <stat.icon className="w-4 h-4" />
                         </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
-                            <p className="text-[8px] font-bold text-muted opacity-70">{l('გარეშე', 'Без', 'None')}: {Math.max(0, liveStats.totalStudents - liveStats.activeSubs)}</p>
+                        <p className="text-[10px] sm:text-xs font-bold text-muted mb-1">{stat.label}</p>
+                        <div className="flex items-end gap-2 mt-auto">
+                            <span className="text-xl sm:text-2xl font-black text-primary leading-none">{stat.value}</span>
+                            {stat.change && (
+                                <span className={cn(
+                                    "text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 mb-0.5",
+                                    stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? "text-emerald-500 bg-emerald-500/10" : 
+                                    stat.change.startsWith('-') ? "text-rose-500 bg-rose-500/10" : "text-muted bg-surface"
+                                )}>
+                                    {stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? <ArrowUpRight className="w-2.5 h-2.5" /> : 
+                                     stat.change.startsWith('-') ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
+                                    {stat.change.replace('+', '')}
+                                </span>
+                            )}
                         </div>
                     </div>
-                </div>
-
-                {/* 2. Revenue: this month vs last month */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
-                    <div className="h-8 mb-3 flex items-start justify-center w-full">
-                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{l('შემოსავალი (თვე)', 'Доход (месяц)', 'Revenue (month)')}</p>
-                    </div>
-                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
-                        <PieChart
-                            size={90}
-                            thickness={10}
-                            data={[
-                                { label: l('ეს თვე', 'Этот месяц', 'This month'), value: Math.max(0, liveStats.monthlyRevenue), color: '#10b981' },
-                                { label: l('წინა თვე', 'Прошлый', 'Last month'), value: Math.max(0, liveStats.prevMonthRevenue), color: '#e2e8f0' }
-                            ]}
-                            centerLabel={
-                                <div className="space-y-0.5 text-center">
-                                    <span className="text-lg font-black text-[#1e293b] dark:text-white block leading-none">{formatCurrency(liveStats.monthlyRevenue, settings.currency).split('.')[0]}</span>
-                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{l('ეს თვე', 'Этот мес.', 'This mo.')}</span>
-                                </div>
-                            }
-                        />
-                    </div>
-                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2.5">
-                        <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-                            liveStats.revenueChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
-                        )}>
-                            {liveStats.revenueChange >= 0 ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />}
-                            <p className={cn("text-[8px] font-black", liveStats.revenueChange >= 0 ? "text-emerald-500" : "text-rose-500")}>{Math.abs(liveStats.revenueChange)}%</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
-                            <p className="text-[8px] font-bold text-muted opacity-70">{l('წინა', 'Прош.', 'Prev')}: {formatCurrency(liveStats.prevMonthRevenue, settings.currency).split('.')[0]}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 3. Subscriptions purchased: this month vs last month */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
-                    <div className="h-8 mb-3 flex items-start justify-center w-full">
-                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{l('გამოწერილი აბონემენტი', 'Куплено абонементов', 'Subscriptions sold')}</p>
-                    </div>
-                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
-                        <PieChart
-                            size={90}
-                            thickness={10}
-                            data={[
-                                { label: l('ეს თვე', 'Этот месяц', 'This month'), value: liveStats.subsThisMonth, color: '#8b5cf6' },
-                                { label: l('წინა თვე', 'Прошлый', 'Last month'), value: liveStats.subsLastMonth, color: '#e2e8f0' }
-                            ]}
-                            centerLabel={
-                                <div className="space-y-0.5 text-center">
-                                    <span className="text-2xl font-black text-primary block leading-none">{liveStats.subsThisMonth}</span>
-                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{l('ეს თვე', 'Этот мес.', 'This mo.')}</span>
-                                </div>
-                            }
-                        />
-                    </div>
-                    <div className="mt-auto pt-4 flex flex-wrap justify-center gap-2.5">
-                        <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-                            liveStats.subsChange >= 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-rose-500/10 border border-rose-500/20"
-                        )}>
-                            {liveStats.subsChange >= 0 ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" strokeWidth={3} /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" strokeWidth={3} />}
-                            <p className={cn("text-[8px] font-black", liveStats.subsChange >= 0 ? "text-emerald-500" : "text-rose-500")}>{Math.abs(liveStats.subsChange)}%</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
-                            <p className="text-[8px] font-bold text-muted opacity-70">{l('წინა', 'Прош.', 'Prev')}: {liveStats.subsLastMonth}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4. Attendance Rate */}
-                <div className="bg-card border border-border-subtle rounded-[1.5rem] p-4 flex flex-col items-center transition-all h-full min-h-[220px]">
-                    <div className="h-8 mb-3 flex items-start justify-center w-full">
-                        <p className="text-[9px] sm:text-[10px] font-black text-muted tracking-[0.2em] text-center leading-tight line-clamp-2">{t.attendanceRate}</p>
-                    </div>
-                    <div className="flex-none h-[90px] w-full flex items-center justify-center">
-                        <GaugeChart
-                            size={90}
-                            thickness={10}
-                            value={liveStats.attendanceRateMonth}
-                            total={100}
-                            color="#8b5cf6"
-                            centerLabel={
-                                <div className="space-y-0.5 text-center">
-                                    <span className="text-xl font-black text-primary block leading-none">{liveStats.attendanceRateMonth}%</span>
-                                    <span className="text-[8px] text-muted font-bold block tracking-tighter opacity-40">{t.average}</span>
-                                </div>
-                            }
-                        />
-                    </div>
-                    <div className="mt-auto pt-2 text-center w-full">
-                        <p className="text-[8px] font-bold text-muted/60 tracking-widest">{l('სრული სიიდან', 'Из всего списка', 'Of all students')}</p>
-                    </div>
-                </div>
+                ))}
             </div>
+
+            {/* ─── Needs Attention ─── */}
+            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0) && (
+                <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4 mb-6 animate-fade-in">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg bg-rose-500/10 flex items-center justify-center">
+                            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+                        </div>
+                        <h3 className="text-xs font-bold text-rose-600 tracking-wide uppercase">{l('საჭიროებს ყურადღებას', 'Требует внимания', 'Needs Attention')}</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {liveStats.expiringSoon > 0 && (
+                            <Link href="/subscriptions" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-rose-500/10 rounded-xl p-3 transition-colors">
+                                <span className="text-rose-500 font-black text-lg w-6 text-center">{liveStats.expiringSoon}</span>
+                                <span className="text-[11px] font-medium text-rose-600/80">{l('სტუდენტს ეწურება აბონემენტი ამ კვირაში', 'студентов заканчивается абонемент на этой неделе', 'students subscriptions expire this week')}</span>
+                            </Link>
+                        )}
+                        {liveStats.oneSessionLeft > 0 && (
+                            <Link href="/subscriptions" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-rose-500/10 rounded-xl p-3 transition-colors">
+                                <span className="text-amber-500 font-black text-lg w-6 text-center">{liveStats.oneSessionLeft}</span>
+                                <span className="text-[11px] font-medium text-amber-600/80">{l('სტუდენტს დარჩა 1 გაკვეთილი', 'студентов остался 1 урок', 'students have 1 lesson left')}</span>
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ─── Main 3-column grid ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -731,53 +695,49 @@ export default function DashboardPage() {
                     {/* Quick actions */}
                     <div className="bg-card border border-border-subtle rounded-2xl p-4">
                         <p className="text-[10px] font-bold text-muted tracking-widest mb-3">{t.quickActions}</p>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                             {[
                                 {
-                                    label: t.addStudentShort || 'კლიენტის ჩაწერა',
+                                    label: t.addStudentShort || 'ახალი',
                                     icon: UserPlus,
-                                    color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+                                    color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20 hover:bg-indigo-500/20',
                                     onClick: () => setShowAddStudent(true)
                                 },
                                 {
                                     label: t.attendance || 'დასწრება',
                                     icon: CalendarCheck,
-                                    color: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+                                    color: 'text-violet-400 bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/20',
                                     href: '/attendance'
                                 },
                                 {
                                     label: t.issuePlan || 'აბონემენტი',
                                     icon: CreditCard,
-                                    color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+                                    color: 'text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20',
                                     onClick: () => setShowIssueSub(true)
                                 },
                                 {
                                     label: t.shop || 'მაღაზია',
                                     icon: ShoppingBag,
-                                    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+                                    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20',
                                     href: '/shop'
                                 },
                             ].map((a, idx) => {
                                 const Icon = a.icon;
                                 const content = (
-                                    <div className="flex flex-col items-center justify-start p-3 gap-2 w-full h-full text-center">
-                                        <div className={`w-10 h-10 rounded-[1rem] border flex items-center justify-center flex-shrink-0 ${a.color} group-hover:scale-110 transition-transform`}>
+                                    <div className="flex flex-col items-center justify-center p-2 gap-1.5 w-[72px] h-[72px] flex-shrink-0">
+                                        <div className={`w-10 h-10 rounded-[1rem] border flex items-center justify-center transition-all ${a.color}`}>
                                             <Icon className="w-5 h-5" />
                                         </div>
-                                        <div className="flex flex-1 items-start justify-center mt-1">
-                                            <span className="text-[9px] sm:text-[10px] font-black tracking-wider text-primary/70 group-hover:text-primary transition-colors leading-tight">{a.label}</span>
-                                        </div>
+                                        <span className="text-[9px] font-black tracking-wide text-primary/70 truncate w-full text-center">{a.label}</span>
                                     </div>
                                 );
 
                                 return a.href ? (
-                                    <Link key={idx} href={a.href}
-                                        className="flex flex-col h-full rounded-2xl bg-surface hover:bg-surface/80 border border-border-subtle hover:border-border-subtle/20 transition-all group overflow-hidden">
+                                    <Link key={idx} href={a.href} className="group">
                                         {content}
                                     </Link>
                                 ) : (
-                                    <button key={idx} onClick={a.onClick}
-                                        className="flex flex-col h-full rounded-2xl bg-surface hover:bg-surface/80 border border-border-subtle hover:border-border-subtle/20 transition-all group overflow-hidden">
+                                    <button key={idx} onClick={a.onClick} className="group">
                                         {content}
                                     </button>
                                 );
@@ -890,62 +850,15 @@ export default function DashboardPage() {
                                 );
                             })
                         ) : (
-                            <div className="p-10 text-center">
-                                <p className="text-xs text-muted/40 font-medium">
-                                    {t.noActivityToday || 'აქტივობები არ არის'}
+                            <div className="p-12 text-center flex flex-col items-center justify-center h-full">
+                                <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4 text-muted/30">
+                                    <ClipboardList className="w-8 h-8" />
+                                </div>
+                                <p className="text-xs text-muted font-medium max-w-[200px]">
+                                    {t.noActivityToday || 'დღეს აქტივობა არ დაფიქსირებულა'}
                                 </p>
                             </div>
                         )}
-                    </div>
-                </div>
-            </div>
-
-            {/* ─── Attendance progress bar ─── */}
-            <div className="bg-card border border-border-subtle rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-3">
-                    <div>
-                        <p className="text-sm font-semibold text-primary">{t.todayAttendance}</p>
-                        <p className="text-[11px] text-muted mt-0.5">
-                            {t.ofStudents
-                                .replace('{count}', String(liveStats.attendance))
-                                .replace('{total}', String(liveStats.todayExpected || 0))
-                            }
-                        </p>
-                    </div>
-                    <span className="text-2xl font-black text-primary">
-                        {((liveStats.todayExpected || 0) > 0 ? Math.round((liveStats.attendance / (liveStats.todayExpected || 0)) * 100) + '%' : '0%')}
-                    </span>
-                </div>
-                <div className="w-full bg-surface rounded-full h-3 overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full relative overflow-hidden transition-all duration-1000"
-                        style={{ width: ((liveStats.todayExpected || 0) > 0 ? (liveStats.attendance / (liveStats.todayExpected || 0) * 100) + '%' : '0%') }}>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                    </div>
-                </div>
-                <div className="flex items-center justify-between mt-3 px-1">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                            <span className="text-[10px] font-bold text-primary">{t.present}: <span className="text-indigo-400">{liveStats.attendance}</span></span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-surface-hover border border-border-subtle" />
-                            <span className="text-[10px] font-bold text-muted">{t.absent}: <span className="text-primary/60">{Math.max(0, liveStats.todayExpected - liveStats.attendance)}</span></span>
-                        </div>
-                    </div>
-                    <div className="text-[10px] font-bold text-muted tracking-tight">
-                        {t.activeSubscriptions}: {liveStats.activeStudents}
-                    </div>
-                </div>
-                {/* Subscription breakdown */}
-                <div className="mt-3 pt-3 border-t border-border-subtle/50 flex items-center gap-6">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] font-bold text-muted">{t.activeSubscriptions}: <span className="text-emerald-500">{liveStats.activeSubs}</span></span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-rose-400/60" />
-                        <span className="text-[10px] font-bold text-muted">{t.inactive || 'Inactive'}: <span className="text-rose-400/80">{Math.max(0, liveStats.totalStudents - liveStats.activeSubs)}</span></span>
                     </div>
                 </div>
             </div>

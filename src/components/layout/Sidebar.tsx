@@ -85,11 +85,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                         <span className={cn("font-black text-white truncate tracking-tight leading-tight !normal-case", isMobile ? "text-[12.5px]" : "text-[16px]")}>
                             {settings?.studioName || profile?.studio_name || 'S_T Dance Studio'}
                         </span>
-                        {settings?.plan === 'pro' && (
-                            <div className="flex-shrink-0 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg px-2 py-0.5 ml-1">
-                                <span className="text-[9px] font-black tracking-widest uppercase">PRO</span>
-                            </div>
-                        )}
+
                     </div>
 
                     <button
