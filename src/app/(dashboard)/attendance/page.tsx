@@ -8,7 +8,7 @@ import {
     ShoppingCart, PlusCircle, Package, ArrowRight, TrendingUp, Trash2,
     GraduationCap
 } from 'lucide-react';
-import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge } from '@/lib/utils';
+import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge, formatDate } from '@/lib/utils';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, refundCheckin, deleteCheckin, getSessionsRemaining } from '@/lib/checkin-store';
@@ -151,7 +151,7 @@ function ScanPopup({ data, onClose, onConfirm, t, subscriptions, onSelectSub }: 
                                                         {s.type === 'monthly' ? '∞' : rem}
                                                     </span>
                                                 </div>
-                                                <p className="text-[8px] font-bold text-muted opacity-40 mt-0.5">{s.expires_at}</p>
+                                                <p className="text-[8px] font-bold text-muted opacity-40 mt-0.5">{formatDate(s.expires_at)}</p>
                                             </button>
                                         );
                                     })}
@@ -1423,8 +1423,8 @@ export default function AttendancePage() {
                                                                     <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-[#6d28d9]/5 border-[#6d28d9]/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
                                                                         <div className="flex justify-between items-start mb-3">
                                                                             <div className="flex items-center gap-2">
-                                                                                <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{ (sub.status || "active").toUpperCase()}</span>
-                                                                                <span className="text-[9px] font-bold text-muted opacity-40">{sub.purchased_at}</span>
+                                                                                <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{isExpired ? l('ვადაგასულია', 'ИСТЁКШИЙ', 'EXPIRED') : (sub.status === 'active' ? l('აქტიური', 'АКТИВНЫЙ', 'ACTIVE') : (sub.status || "active").toUpperCase())}</span>
+                                                                                <span className="text-[9px] font-bold text-muted opacity-40">{formatDate(sub.purchased_at)}</span>
                                                                             </div>
                                                                             <button onClick={async (e) => { 
                                                                                 e.stopPropagation(); 
@@ -1448,7 +1448,7 @@ export default function AttendancePage() {
                                                                         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border-subtle/20">
                                                                             <div>
                                                                                 <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-0.5">{t.expiryDate}</p>
-                                                                                <p className="text-xs font-black text-primary tabular-nums">{sub.expires_at || '—'}</p>
+                                                                                <p className="text-xs font-black text-primary tabular-nums">{sub.expires_at ? formatDate(sub.expires_at) : '—'}</p>
                                                                             </div>
                                                                             <div>
                                                                                 <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-0.5">{t.balance}</p>

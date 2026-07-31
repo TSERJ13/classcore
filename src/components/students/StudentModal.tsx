@@ -10,7 +10,7 @@ import {
 import MainPortal from '@/components/ui/MainPortal';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
-import { cn, getInitials, isExpiringSoon, formatCurrency, getCurrencySymbol, smartCapitalize, cleanPhone, formatPhoneDisplay } from '@/lib/utils';
+import { cn, getInitials, isExpiringSoon, formatCurrency, getCurrencySymbol, smartCapitalize, cleanPhone, formatPhoneDisplay, formatDate } from '@/lib/utils';
 import { addNotification } from '@/lib/notification-store';
 import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 import { generateStudentCode, generateQRDataUrl } from '@/lib/qr';
@@ -208,7 +208,7 @@ function SubscriptionCard({ student }: { student: Student }) {
                         <div className="flex items-center gap-4 pt-1 border-t border-black/5">
                             <div className="flex-1">
                                 <p className="text-[8px] font-black text-muted tracking-widest opacity-40 mb-1">{t.expiryDate}</p>
-                                <p className="text-[10px] font-bold text-primary opacity-60">{sub.expires_at}</p>
+                                <p className="text-[10px] font-bold text-primary opacity-60">{formatDate(sub.expires_at)}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 {!isDefault && (

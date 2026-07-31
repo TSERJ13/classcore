@@ -13,7 +13,7 @@ import {
     CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity
 } from 'lucide-react';
 const UserIcon = User;
-import { cn, getLocalISODate, formatCurrency, getScopedKey, safeSetItem } from '@/lib/utils';
+import { cn, getLocalISODate, formatCurrency, getScopedKey, safeSetItem, formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { getSubscription, renewSubscription, getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { useT } from '@/contexts/LanguageContext';
@@ -675,7 +675,7 @@ export default function StudentPortalPage() {
                                             </div>
                                             <div className="flex items-center gap-2 text-[10px] font-bold text-muted">
                                                 <Calendar className="w-3.5 h-3.5 opacity-40 text-indigo-500" />
-                                                <span>{t.expiryDate}: <span className="text-primary font-black">{sub.expires_at}</span></span>
+                                                <span>{t.expiryDate}: <span className="text-primary font-black">{formatDate(sub.expires_at)}</span></span>
                                             </div>
                                         </div>
                                     </div>

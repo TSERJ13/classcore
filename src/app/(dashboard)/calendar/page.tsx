@@ -11,7 +11,7 @@ import {
     Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw,
     Users, User, Home
 } from 'lucide-react';
-import { cn, getLocalISODate, getActiveSlug } from '@/lib/utils';
+import { cn, getLocalISODate, getActiveSlug, formatDate } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import type { CalendarEvent, EventType } from '@/types';
 import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar } from '@/lib/event-store';
@@ -215,7 +215,7 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
                               style={{ backgroundColor: `${ev.color || '#6d28d9'}15`, color: ev.color || '#6d28d9' }}>1</span>
                         <div>
                             <p>მხოლოდ ეს გაკვეთილი</p>
-                            <p className="text-[10px] font-medium text-muted opacity-50">{ev.date} → {newDate}</p>
+                            <p className="text-[10px] font-medium text-muted opacity-50">{formatDate(ev.date)} → {formatDate(newDate)}</p>
                         </div>
                     </button>
                     <button onClick={onAllOccurrences}
@@ -775,7 +775,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                                 <span className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 flex-shrink-0">1</span>
                                 <div>
                                     <p>{t.calDeleteOnly}</p>
-                                    <p className="text-[10px] font-medium text-muted opacity-50">{ev.date} · {ev.start_time}–{ev.end_time}</p>
+                                    <p className="text-[10px] font-medium text-muted opacity-50">{formatDate(ev.date)} · {ev.start_time}–{ev.end_time}</p>
                                 </div>
                             </button>
                             <button onClick={onDeleteAll}
@@ -831,7 +831,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                 </div>
 
                 <div className="space-y-2.5 text-xs text-muted">
-                    <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-40" />{ev.date} · {ev.start_time} – {ev.end_time}</div>
+                    <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-40" />{formatDate(ev.date)} · {ev.start_time} – {ev.end_time}</div>
                     {hall && <div className="flex items-center gap-2"><DoorOpen className="w-3.5 h-3.5" style={{ color }} /><span style={{ color }}>{hall.name}</span></div>}
                     {teacher && (
                         <div className="flex items-center gap-2">

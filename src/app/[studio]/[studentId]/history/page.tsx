@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Clock, CreditCard, ShoppingBag, Calendar } from 'lucide-react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { useT } from '@/contexts/LanguageContext';
 import { getStudents } from '@/lib/student-store';
@@ -60,7 +60,7 @@ export default function PaymentHistoryPage() {
                                         <p className="text-xs font-black text-primary tracking-tight">{s.plan}</p>
                                         <div className="flex items-center gap-1.5 opacity-40">
                                             <Clock className="w-3 h-3 text-muted" />
-                                            <p className="text-[9px] font-bold text-muted">{s.purchased_at}</p>
+                                            <p className="text-[9px] font-bold text-muted">{formatDate(s.purchased_at)}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -73,7 +73,7 @@ export default function PaymentHistoryPage() {
                             <div className="pt-4 border-t border-border-subtle/50 flex justify-between items-center opacity-60">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="w-3.5 h-3.5 text-muted" />
-                                    <span className="text-[10px] font-bold text-muted">{t.ends}: {s.expires_at}</span>
+                                    <span className="text-[10px] font-bold text-muted">{t.ends}: {formatDate(s.expires_at)}</span>
                                 </div>
                                 {s.sessions_total && (
                                     <span className="text-[10px] font-black text-indigo-500 tracking-widest">{s.sessions_total} {t.sessions}</span>
