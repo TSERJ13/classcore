@@ -443,7 +443,7 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
             if (isCleaning) return; // Skip — another cleanup in progress
             
             isCleaning = true;
-            console.warn('⚠️ [Storage] Quota near limit. Compressing images only (cloud is source of truth)...');
+            console.warn(`⚠️ [Storage] Quota near limit for key: ${key}. Compressing images only (cloud is source of truth)...`);
             
             try {
                 // 🛡️ SAFE STRATEGY: Only compress images in THIS write, never delete other data
@@ -455,12 +455,8 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
                         if (depth > 5 || !obj || typeof obj !== 'object') return obj;
                         
                         if (Array.isArray(obj)) {
-                            // Compress in small batches to avoid blocking main thread
-                            const next = [];
-                            for (const item of obj) {
-                                next.push(await compressRecursive(item, depth + 1));
-                            }
-                            return next;
+                            // Compress in parallel using Promise.all to avoid blocking main thread sequentially
+                            return Promise.all(obj.map(item => compressRecursive(item, depth + 1)));
                         }
                         
                         const next: any = {};

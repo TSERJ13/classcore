@@ -164,9 +164,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     if (!Array.isArray(arr)) return [];
                     return arr.map(i => {
                         if (!i) return i;
-                        // 🚀 UNIVERSAL MERGE: Combine top-level columns with nested data blob
+                        // 🚀 UNIVERSAL MERGE: Combine top-level columns with nested data blob, removing redundant .data
                         if (i.data && typeof i.data === 'object') {
-                            return { ...i, ...i.data };
+                            const { data, ...rest } = i;
+                            return { ...rest, ...data };
                         }
                         return i;
                     });
@@ -387,7 +388,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     return arr.map(i => {
                                         if (!i) return i;
                                         if (i.data && typeof i.data === 'object') {
-                                            return { ...i, ...i.data };
+                                            const { data, ...rest } = i;
+                                            return { ...rest, ...data };
                                         }
                                         return i;
                                     });
