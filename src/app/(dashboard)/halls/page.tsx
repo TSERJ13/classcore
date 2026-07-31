@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MobileFAB } from '@/components/ui/MobileFAB';
 import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
@@ -120,12 +121,12 @@ export default function HallsPage() {
 
                 {/* Add Hall Action */}
                 <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
+                    className="hidden sm:flex flex-shrink-0 items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
                     <div className="relative flex items-center">
                         <DoorOpen className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                         <Plus className="absolute -top-1 -right-2.5 w-3.5 h-3.5 bg-[#6d28d9] rounded-full border border-white/20" />
                     </div>
-                    <span className="hidden sm:inline uppercase">{t.addHall}</span>
+                    <span className="hidden sm:inline uppercase ml-1.5">{t.addHall}</span>
                 </button>
             </div>
 
@@ -200,6 +201,13 @@ export default function HallsPage() {
             </div>
 
             <HallModal open={modalOpen} hall={editing} onClose={() => setModalOpen(false)} onSave={handleSave} onDelete={handleDelete} />
+
+            <MobileFAB icon={
+                <div className="relative flex items-center">
+                    <DoorOpen className="w-6 h-6 text-white" />
+                    <Plus className="absolute -top-1 -right-2 w-4 h-4 bg-[#6d28d9] rounded-full border border-white/20" />
+                </div>
+            } onClick={openAdd} />
         </>
     );
 }

@@ -10,7 +10,8 @@ import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useStudio } from '@/contexts/StudioContext';
-import { cn, formatCurrency, getScopedKey } from '@/lib/utils';
+import { cn, formatCurrency, getScopedKey, getLocalISODate } from '@/lib/utils';
+import { MobileFAB } from '@/components/ui/MobileFAB';
 import { recordSale, getSales, deleteSale, updateSale, type ShopSale } from '@/lib/sales-store';
 import { getProducts, saveProducts, deleteProduct } from '@/lib/product-store';
 import { getStudentsAllBranches } from '@/lib/student-store';
@@ -178,6 +179,12 @@ export default function ShopPage() {
 
     const totalSalesValue = getSales().reduce((acc, s) => acc + s.price, 0);
 
+    const openAddProduct = () => {
+        setEditingProduct(null);
+        setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
+        setIsAddOpen(true);
+    };
+
     return (
         <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* Header: Stats + Add in one row */}
@@ -203,18 +210,14 @@ export default function ShopPage() {
 
                 {/* Add Product Action */}
                 <button
-                    onClick={() => {
-                        setEditingProduct(null);
-                        setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
-                        setIsAddOpen(true);
-                    }}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation"
+                    onClick={openAddProduct}
+                    className="hidden sm:flex flex-shrink-0 items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation"
                 >
                     <div className="relative flex items-center">
                         <ShoppingBag className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                         <Plus className="absolute -top-1 -right-2.5 w-3.5 h-3.5 bg-[#6d28d9] rounded-full border border-white/20" />
                     </div>
-                    <span className="hidden sm:inline uppercase">{t.addNew}</span>
+                    <span className="hidden sm:inline uppercase ml-1.5">{t.addNew}</span>
                 </button>
             </div>
 
@@ -618,6 +621,13 @@ export default function ShopPage() {
                     </div>
                 </MainPortal>
             )}
+
+            <MobileFAB icon={
+                <div className="relative flex items-center">
+                    <ShoppingBag className="w-6 h-6 text-white" />
+                    <Plus className="absolute -top-1 -right-2 w-4 h-4 bg-[#6d28d9] rounded-full border border-white/20" />
+                </div>
+            } onClick={openAddProduct} />
         </div>
     );
 }

@@ -8,6 +8,7 @@ import {
     ChevronRight, Edit2, Zap, CalendarDays, BarChart2, Trash2, MessageSquare
 } from 'lucide-react';
 import { cn, getInitials, formatCurrency } from '@/lib/utils';
+import { MobileFAB } from '@/components/ui/MobileFAB';
 import { TeacherModal } from '@/components/teachers/TeacherModal';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
@@ -121,7 +122,7 @@ export default function TeachersPage() {
 
                 {/* Add Teacher Action */}
                 <button onClick={openAdd}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
+                    className="hidden sm:flex flex-shrink-0 items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
                     <UserPlus className="w-5 h-5" />
                     <span className="hidden sm:inline uppercase">{t.addTeacher}</span>
                 </button>
@@ -227,6 +228,8 @@ export default function TeachersPage() {
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
+
+            <MobileFAB icon={<UserPlus className="w-6 h-6" />} onClick={openAdd} />
         </>
     );
 }

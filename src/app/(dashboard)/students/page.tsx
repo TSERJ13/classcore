@@ -6,6 +6,8 @@ import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, getInitials, isExpiringSoon, calculateAge, formatDate, formatPhoneDisplay, cleanPhone } from '@/lib/utils';
+import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
+import { MobileFAB } from '@/components/ui/MobileFAB';
 import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
 import StudentModal from '@/components/students/StudentModal';
 import { getStudents } from '@/lib/student-store';
@@ -218,7 +220,7 @@ export default function StudentsPage() {
                         </div>
 
                         {/* Add Button */}
-                        <div className="flex flex-shrink-0 items-center h-12">
+                        <div className="hidden sm:flex flex-shrink-0 items-center h-12">
                             <button onClick={openAdd}
                                 className="flex-shrink-0 flex items-center justify-center gap-2 bg-[#6d28d9] hover:bg-[#5b21b6] transition-all text-white text-[11px] sm:text-xs font-black tracking-widest w-12 h-12 sm:w-auto px-0 sm:px-6 rounded-[1.25rem] active:scale-95 touch-manipulation">
                                 <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -534,6 +536,8 @@ export default function StudentsPage() {
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
+
+            <MobileFAB icon={<UserPlus className="w-6 h-6" />} onClick={openAdd} />
 
             {smsRecipient && (
                 <ManualSmsModal

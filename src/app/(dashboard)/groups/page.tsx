@@ -13,7 +13,8 @@ import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
 import { getSubscriptions } from '@/lib/subscription-store';
-import { cn, getLocalISODate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { MobileFAB } from '@/components/ui/MobileFAB';
 
 const typeColor: Record<string, string> = {
     Dance: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
@@ -45,7 +46,7 @@ export default function GroupsPage() {
         };
     }, [settings.activeBranchId]);
 
-    const todayStr = getLocalISODate();
+    const todayStr = new Date().toISOString().split('T')[0];
     const groupsWithEnrollments = groups.map(g => {
         const subList = Object.values(subs).flat();
         const enrolledCount = subList.filter(s => s.group_id === g.id && s.status === 'active' && s.expires_at >= todayStr).length;
@@ -181,14 +182,13 @@ export default function GroupsPage() {
                 })()}
 
                 {/* Add Group Action */}
-                {/* Add Group Action */}
                 <button onClick={() => { setEditing(null); setModalOpen(true); }}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
+                    className="hidden sm:flex flex-shrink-0 items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
                     <div className="relative">
                         <Users className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                         <Plus className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-[#6d28d9] rounded-full border border-white/20" />
                     </div>
-                    <span className="hidden sm:inline uppercase">{t.addToGroup}</span>
+                    <span className="hidden sm:inline uppercase">{t.addGroup}</span>
                 </button>
             </div>
 
@@ -224,7 +224,7 @@ export default function GroupsPage() {
                                             {group.type}
                                         </span>
                                     </div>
-                                                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2">
                                         <div className="flex -space-x-3 overflow-hidden">
                                             <div className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center shrink-0 overflow-hidden relative z-10">
                                                 {teacher?.photo_url ? (
@@ -329,14 +329,20 @@ export default function GroupsPage() {
                 </div>
             )}
 
-
             <GroupModal
                 open={modalOpen}
                 group={editing || undefined}
-                onClose={() => setModalOpen(false)}
+                onClose={() => { setEditing(null); setModalOpen(false); }}
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
+
+            <MobileFAB icon={
+                <div className="relative">
+                    <Users className="w-6 h-6 text-white" />
+                    <Plus className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#6d28d9] rounded-full border border-white/20" />
+                </div>
+            } onClick={() => { setEditing(null); setModalOpen(true); }} />
         </div>
     );
 }
