@@ -443,9 +443,14 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
             if (isCleaning) return; // Skip — another cleanup in progress
             
             isCleaning = true;
-            console.warn(`⚠️ [Storage] Quota near limit for key: ${key}. Compressing images only (cloud is source of truth)...`);
-            
             try {
+                if (value.length > 1000000) {
+                    console.warn(`⚠️ [Storage] Payload for ${key} is extremely large (${Math.round(value.length/1024)}KB). Skipping compression and local save to avoid freezing UI.`);
+                    return;
+                }
+                
+                console.warn(`⚠️ [Storage] Quota near limit for key: ${key}. Compressing images only (cloud is source of truth)...`);
+                
                 // 🛡️ SAFE STRATEGY: Only compress images in THIS write, never delete other data
                 let thinnedValue = value;
                 // 🛡️ RECOVERY STRATEGY: Instead of deleting, we compress to 80KB
