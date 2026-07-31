@@ -24,12 +24,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <KillSwitchGate>
                 <MobileMenuProvider>
                     <GlobalRFIDScanner />
-                    <div className="dashboard-root relative flex min-h-[100dvh] bg-surface overflow-x-hidden w-full isolation-auto">
+                    <div className="dashboard-root relative flex h-[100dvh] bg-surface overflow-hidden w-full isolation-auto">
                         <Sidebar defaultExpanded={defaultExpanded} defaultRole={defaultRole} />
-                        <div className="dashboard-stabilized-view flex-1 flex flex-col min-w-0 transition-all duration-300 relative overflow-x-hidden">
+                        <div className="dashboard-stabilized-view flex-1 flex flex-col min-w-0 transition-all duration-300 relative overflow-hidden h-[100dvh]">
                             <Header />
-                            <main className="dashboard-main-lock flex-1 relative w-full overflow-x-hidden max-w-full">
-                                <div className="w-full h-full p-2.5 sm:p-4 animate-fade-in">
+                            <main className="dashboard-main-lock flex-1 relative w-full overflow-y-auto overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)]">
+                                <div className="w-full min-h-full p-2.5 sm:p-4 animate-fade-in pb-28 lg:pb-8">
                                     {children}
                                 </div>
                             </main>
