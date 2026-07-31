@@ -56,15 +56,15 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                 </div>
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle flex-shrink-0 bg-white/90 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner">
+                    <div className="flex items-center gap-4 min-w-0 flex-1 pr-2">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner flex-shrink-0">
                             <CreditCard className="w-5 h-5" />
                         </div>
-                        <div>
-                            <h2 className="text-base font-bold text-primary leading-tight">
+                        <div className="min-w-0 flex-1">
+                            <h2 className="text-base font-bold text-primary leading-tight truncate">
                                 {t.editSubscription}
                             </h2>
-                            <p className="text-xs text-muted mt-0.5 font-medium opacity-70 tracking-tight">
+                            <p className="text-xs text-muted mt-0.5 font-medium opacity-70 tracking-tight truncate">
                                 ID: {form.id}
                             </p>
                         </div>
@@ -88,7 +88,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
 
                     <div className="grid grid-cols-2 gap-4">
                         {/* Status */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 min-w-0">
                             <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.studentStatus}</label>
                             <SearchSelect
                                 options={[
@@ -103,7 +103,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                         </div>
 
                         {/* Type */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 min-w-0">
                             <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.subscriptionType}</label>
                             <SearchSelect
                                 options={[
@@ -124,7 +124,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     {isSessionBased && (
                         <div className="grid grid-cols-2 gap-4">
                             {/* Sessions Used */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 min-w-0">
                                 <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.used}</label>
                                 <input
                                     type="number"
@@ -134,7 +134,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                                 />
                             </div>
                             {/* Sessions Total */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 min-w-0">
                                 <label className="text-[10px] font-black text-muted tracking-widest px-1">{t.total}</label>
                                 <input
                                     type="number"

@@ -365,15 +365,15 @@ export default function StudentsPage() {
                                                     <a href={`tel:${student.phone}`} onClick={e => e.stopPropagation()} className="text-muted hover:text-primary transition-colors">
                                                         {formatPhoneDisplay(student.phone)}
                                                     </a>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
                                                     <button 
                                                         onClick={(e) => { e.stopPropagation(); setSmsRecipient(student); }}
-                                                        className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90 shadow-sm"
+                                                        className="w-6 h-6 ml-1 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90 shadow-sm"
                                                         title={t.sendSms}
                                                     >
-                                                        <MessageCircle className="w-3.5 h-3.5" />
+                                                        <MessageCircle className="w-3 h-3" />
                                                     </button>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
                                                     {student.social_links && Object.entries(student.social_links).map(([platform, link]) => {
                                                         if (!link) return null;
                                                         const icons: Record<string, { color: string, icon: React.ReactNode }> = {
@@ -452,7 +452,7 @@ export default function StudentsPage() {
                                         <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                     <button onClick={(e) => { e.stopPropagation(); handleDelete(student.id); }}
-                                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm">
+                                        className="hidden sm:flex w-8 h-8 items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm">
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 </div>

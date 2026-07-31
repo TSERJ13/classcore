@@ -286,11 +286,14 @@ export default function SubscriptionsPage() {
                 </div>
 
                     {/* Mobile Floating Action Buttons */}
-                    <div className="sm:hidden fixed right-4 flex flex-col items-end gap-3 z-50" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+                    <div 
+                        className="sm:hidden sticky z-50 flex flex-col items-end gap-3 pointer-events-none" 
+                        style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))', marginTop: 'auto', right: '1rem', transform: 'translateY(-1rem)' }}
+                    >
                         {/* FAB Overlay (Mobile only, shown when open) */}
                         {fabOpen && (
                             <div 
-                                className="fixed inset-0 z-[-1]" 
+                                className="fixed inset-0 z-[-1] pointer-events-auto" 
                                 onClick={() => setFabOpen(false)}
                             />
                         )}
@@ -316,7 +319,7 @@ export default function SubscriptionsPage() {
 
                         {/* Mobile Speed Dial Trigger */}
                         <button onClick={() => setFabOpen(!fabOpen)} 
-                            className="flex items-center justify-center w-14 h-14 bg-[#6d28d9] text-white rounded-2xl shadow-xl active:scale-95 transition-all">
+                            className="flex items-center justify-center w-14 h-14 bg-[#6d28d9] text-white rounded-2xl shadow-xl active:scale-95 transition-all pointer-events-auto">
                             <Plus className={cn("w-6 h-6 transition-transform duration-300", fabOpen && "rotate-45")} />
                         </button>
                     </div>
