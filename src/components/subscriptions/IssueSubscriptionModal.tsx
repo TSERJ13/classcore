@@ -409,7 +409,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-32">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden w-full px-4 sm:px-5 py-4 space-y-5 sm:space-y-6 overscroll-contain pb-32">
 
                     {step === 'type_selection' ? (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -887,7 +887,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 {/* Footer */}
                 {step === 'form' && (
                     <div className="px-5 py-4 border-t border-border-subtle bg-white/90 backdrop-blur-md sticky bottom-0 z-10 pb-10 sm:pb-8 flex-shrink-0">
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
                             <button onClick={onClose} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-widest transition-all text-center">
                                 {t.cancel}
                             </button>
