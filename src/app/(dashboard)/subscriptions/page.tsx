@@ -268,41 +268,55 @@ export default function SubscriptionsPage() {
                         </div>
                     </div>
 
-                    {/* Floating Action Buttons */}
-                    <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 flex flex-col items-end gap-3 z-50">
-                        
+                    <div className="hidden sm:flex items-center gap-2 sm:gap-3">
+                        {/* Prices Action */}
+                        <Link href="/subscriptions/plans"
+                            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 px-3 sm:px-5 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
+                            <DollarSign strokeWidth={3} className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                            <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
+                        </Link>
+
+                        {/* Primary Action Button */}
+                        <button onClick={() => setIssuing(true)}
+                            className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation shadow-sm">
+                            <FolderPlus className="w-5 h-5 flex-shrink-0" />
+                            <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
+                        </button>
+                    </div>
+                </div>
+
+                    {/* Mobile Floating Action Buttons */}
+                    <div className="sm:hidden fixed bottom-20 right-4 flex flex-col items-end gap-3 z-50">
                         {/* FAB Overlay (Mobile only, shown when open) */}
                         {fabOpen && (
                             <div 
-                                className="fixed inset-0 z-[-1] sm:hidden" 
+                                className="fixed inset-0 z-[-1]" 
                                 onClick={() => setFabOpen(false)}
                             />
                         )}
 
-                        {/* Speed Dial Menu (Mobile) / Independent Buttons (Desktop) */}
+                        {/* Speed Dial Menu (Mobile) */}
                         <div className={cn(
-                            "flex flex-col items-center sm:items-start gap-3 transition-all duration-300 origin-bottom sm:flex-row sm:opacity-100 sm:scale-100 sm:translate-y-0 sm:pointer-events-auto",
-                            fabOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-90 translate-y-10 pointer-events-none sm:pointer-events-auto"
+                            "flex flex-col items-center gap-3 transition-all duration-300 origin-bottom",
+                            fabOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-90 translate-y-10 pointer-events-none"
                         )}>
                             {/* Prices Action */}
                             <Link href="/subscriptions/plans"
                                 onClick={() => setFabOpen(false)}
-                                className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-14 w-14 sm:h-12 sm:w-auto sm:px-5 rounded-2xl sm:rounded-[1.25rem] tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 group">
-                                <DollarSign strokeWidth={3} className="w-6 h-6 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
-                                <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
+                                className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-14 w-14 rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 group">
+                                <DollarSign strokeWidth={3} className="w-6 h-6 text-emerald-500 flex-shrink-0" />
                             </Link>
 
                             {/* Primary Action Button */}
                             <button onClick={() => { setIssuing(true); setFabOpen(false); }}
-                                className="flex-shrink-0 flex items-center justify-center gap-2 h-14 w-14 sm:h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-2xl sm:rounded-[1.25rem] tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 touch-manipulation group">
-                                <FolderPlus className="w-6 h-6 sm:w-5 sm:h-5 flex-shrink-0" />
-                                <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
+                                className="flex-shrink-0 flex items-center justify-center gap-2 h-14 w-14 px-0 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 touch-manipulation group">
+                                <FolderPlus className="w-6 h-6 flex-shrink-0" />
                             </button>
                         </div>
 
                         {/* Mobile Speed Dial Trigger */}
                         <button onClick={() => setFabOpen(!fabOpen)} 
-                            className="sm:hidden flex items-center justify-center w-14 h-14 bg-primary text-white rounded-2xl shadow-xl active:scale-95 transition-all">
+                            className="flex items-center justify-center w-14 h-14 bg-[#6d28d9] text-white rounded-2xl shadow-xl active:scale-95 transition-all">
                             <Plus className={cn("w-6 h-6 transition-transform duration-300", fabOpen && "rotate-45")} />
                         </button>
                     </div>
