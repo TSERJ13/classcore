@@ -209,10 +209,6 @@ export default function SubscriptionsPage() {
                         className="w-10 h-10 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 transition-all shadow-sm active:scale-90">
                         <Edit2 className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDelete(s.student_id, s.id); }}
-                        className="w-10 h-10 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 transition-all shadow-sm active:scale-90">
-                        <Trash2 className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
-                    </button>
                 </div>
             </div>
         );
@@ -249,21 +245,20 @@ export default function SubscriptionsPage() {
 
     return (
         <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-20">
-            {/* Primary Controls */}
             <div className="flex flex-col gap-6">
-                <div className="flex flex-row items-center justify-between gap-4">
-                    <div className="flex flex-row items-center gap-3 overflow-x-auto no-scrollbar pb-1">
-                        {/* Status Tabs */}
-                        <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 w-fit">
+                <div className="flex flex-col gap-4">
+                    <div className="w-full">
+                        {/* Status Tabs Segmented Control */}
+                        <div className="flex w-full bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12">
                         {[
-                                { id: 'active', label: { ka: 'აქტიური', en: 'Active', ru: 'Активные' }[lang] || 'Active', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
-                                { id: 'paused', label: { ka: 'შეჩერებული', en: 'Suspended', ru: 'Приостановлен.' }[lang] || 'Suspended', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
-                                { id: 'expired', label: { ka: 'ვადაგასული', en: 'Expired', ru: 'Истекшие' }[lang] || 'Expired', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
+                                { id: 'active', label: { ka: 'აქტიური', en: 'Active', ru: 'Активные' }[lang] || 'Active', icon: Zap, activeColor: 'bg-emerald-500', hoverColor: 'hover:text-emerald-600' },
+                                { id: 'paused', label: { ka: 'შეჩერებული', en: 'Suspended', ru: 'Приостановлен.' }[lang] || 'Suspended', icon: Pause, activeColor: 'bg-amber-500', hoverColor: 'hover:text-amber-600' },
+                                { id: 'expired', label: { ka: 'ვადაგასული', en: 'Expired', ru: 'Истекшие' }[lang] || 'Expired', icon: AlertCircle, activeColor: 'bg-red-500', hoverColor: 'hover:text-red-600' },
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
-                                        'flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-full rounded-xl text-[10px] font-black tracking-widest transition-all min-w-fit sm:min-w-[100px]',
-                                        tab === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-white/50', v.hoverColor)
+                                        'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                                        tab === v.id ? cn(v.activeColor, 'text-white shadow-sm') : cn('text-muted hover:bg-black/5 dark:hover:bg-white/5', v.hoverColor)
                                     )}>
                                     <v.icon className="w-3.5 h-3.5 flex-shrink-0" />
                                     <span className="whitespace-nowrap">{v.label}</span>
@@ -272,18 +267,19 @@ export default function SubscriptionsPage() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    {/* Floating Action Buttons */}
+                    <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 flex flex-col items-end gap-3 z-50">
                         {/* Prices Action */}
                         <Link href="/subscriptions/plans"
-                            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 px-3 sm:px-5 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
-                            <DollarSign strokeWidth={3} className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-12 w-12 sm:w-auto sm:px-5 rounded-2xl sm:rounded-[1.25rem] tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 group">
+                            <DollarSign strokeWidth={3} className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
                             <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </Link>
 
                         {/* Primary Action Button */}
                         <button onClick={() => setIssuing(true)}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation">
-                            <FolderPlus className="w-5 h-5 flex-shrink-0" />
+                            className="flex-shrink-0 flex items-center justify-center gap-2 h-14 w-14 sm:h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-2xl sm:rounded-[1.25rem] tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 touch-manipulation group">
+                            <FolderPlus className="w-6 h-6 sm:w-5 sm:h-5 flex-shrink-0" />
                             <span className="hidden sm:inline uppercase">{t.issueSubscription}</span>
                         </button>
                     </div>

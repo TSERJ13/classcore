@@ -59,22 +59,22 @@ export default function MonitorPage() {
                     <p className="text-[10px] text-muted mt-2 font-black uppercase tracking-widest leading-none opacity-40">{t.sa_monitor_desc}</p>
                 </div>
 
-                <div className="flex gap-2 p-1.5 bg-white/95 border border-black/10 dark:border-border-subtle rounded-2xl shadow-sm">
+                <div className="flex w-full bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 mt-4 md:mt-0 md:w-fit md:min-w-[400px]">
                     <button 
                         onClick={() => setTab('chats')}
-                        className={cn('flex items-center gap-2.5 px-7 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest',
-                            tab === 'chats' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-muted hover:text-primary dark:hover:text-white')}
+                        className={cn('flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                            tab === 'chats' ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted hover:bg-black/5 dark:hover:bg-white/5')}
                     >
-                        <MessageSquare className="w-4 h-4" />
-                        {t.sa_monitor_chatsTab}
+                        <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="whitespace-nowrap uppercase">{t.sa_monitor_chatsTab}</span>
                     </button>
                     <button 
                         onClick={() => setTab('sms')}
-                        className={cn('flex items-center gap-2.5 px-7 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest',
-                            tab === 'sms' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-muted hover:text-primary dark:hover:text-white')}
+                        className={cn('flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                            tab === 'sms' ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted hover:bg-black/5 dark:hover:bg-white/5')}
                     >
-                        <Smartphone className="w-4 h-4" />
-                        {t.sa_monitor_smsTab}
+                        <Smartphone className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="whitespace-nowrap uppercase">{t.sa_monitor_smsTab}</span>
                     </button>
                 </div>
             </div>

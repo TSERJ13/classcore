@@ -7,7 +7,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import { THEMES } from '@/lib/settings-store';
 import { MessageSquare, Save, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield } from 'lucide-react';
 import { addNotification } from '@/lib/notification-store';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
 
 export default function SmsManagerPage() {
@@ -161,38 +161,46 @@ export default function SmsManagerPage() {
             </div>
 
             {/* Tabs */}
-            <div className="grid grid-cols-2 md:flex p-1 bg-surface rounded-xl border border-border-subtle gap-1 w-full md:w-fit">
+            <div className="flex flex-col sm:flex-row w-full bg-surface border border-border-subtle rounded-[1.25rem] p-1 sm:h-12 gap-1 sm:gap-0">
                 <button
                     onClick={() => setTab('text')}
-                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
-                        ${tab === 'text' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
+                    className={cn(
+                        'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 h-10 sm:h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                        tab === 'text' ? `${theme.bg} ${theme.text} shadow-sm` : 'text-muted hover:bg-black/5 dark:hover:bg-white/5'
+                    )}
                 >
-                    <Settings2 className="w-4 h-4" />
-                    {t.manageTexts}
+                    <Settings2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{t.manageTexts}</span>
                 </button>
                 <button
                     onClick={() => setTab('personal')}
-                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
-                        ${tab === 'personal' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
+                    className={cn(
+                        'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 h-10 sm:h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                        tab === 'personal' ? `${theme.bg} ${theme.text} shadow-sm` : 'text-muted hover:bg-black/5 dark:hover:bg-white/5'
+                    )}
                 >
-                    <User className="w-4 h-4" />
-                    {l('პერსონალური', 'Личное', 'Personal')}
+                    <User className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{l('პერსონალური', 'Личное', 'Personal')}</span>
                 </button>
                 <button
                     onClick={() => setTab('holiday')}
-                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
-                        ${tab === 'holiday' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
+                    className={cn(
+                        'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 h-10 sm:h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                        tab === 'holiday' ? `${theme.bg} ${theme.text} shadow-sm` : 'text-muted hover:bg-black/5 dark:hover:bg-white/5'
+                    )}
                 >
-                    <PartyPopper className="w-4 h-4" />
-                    {l('მილოცვა', 'Поздравление', 'Holiday')}
+                    <PartyPopper className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{l('მილოცვა', 'Поздравление', 'Holiday')}</span>
                 </button>
                 <button
                     onClick={() => setTab('stats')}
-                    className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2
-                        ${tab === 'stats' ? `${theme.bg} ${theme.text} shadow-sm border border-border-subtle` : 'text-muted/60 hover:text-primary hover:bg-surface'}`}
+                    className={cn(
+                        'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 h-10 sm:h-full rounded-xl text-[10px] font-black tracking-widest transition-all',
+                        tab === 'stats' ? `${theme.bg} ${theme.text} shadow-sm` : 'text-muted hover:bg-black/5 dark:hover:bg-white/5'
+                    )}
                 >
-                    <BarChart3 className="w-4 h-4" />
-                    {t.logsStats}
+                    <BarChart3 className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{t.logsStats}</span>
                 </button>
             </div>
 
