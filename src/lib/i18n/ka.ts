@@ -680,7 +680,7 @@ export const ka: Translations = {
     groupOneTime: 'ჯგუფური ერთჯერადი',
     individualSubscription: 'ინდივიდუალური აბონემენტი',
     individualOneTime: 'ინდივიდუალური ერთჯერადი',
-    rentalSubscription: 'აბონემენტი იჯარაზე',
+    rentalSubscription: 'დარბაზის იჯარა',
     rentalOneTime: 'ერთჯერადი იჯარა',
     backToType: 'უკან დაბრუნება (ტიპის შეცვლა)',
     selectClient: 'კლიენტი',

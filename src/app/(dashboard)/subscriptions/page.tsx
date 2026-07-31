@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { getSubscriptions, deleteSubscription, saveSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getStudents } from '@/lib/student-store';
 import { useStudio } from '@/contexts/StudioContext';
@@ -98,14 +98,20 @@ export default function SubscriptionsPage() {
         return matchesTab && matchesCategory && matchesSearch;
     });
 
-    const renderEmpty = () => (
-        <div className="p-16 text-center border-2 border-dashed border-border-subtle/50 rounded-3xl space-y-3">
-            <div className="w-12 h-12 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-2">
-                <CreditCard className="w-6 h-6 text-muted/30" />
+    const renderEmpty = () => {
+        let emptyText = lang === 'ka' ? 'აბონემენტი არ არის' : lang === 'ru' ? 'Нет абонемента' : 'No Subscriptions';
+        if (tab === 'active') emptyText = lang === 'ka' ? 'აქტიური აბონემენტი არ არის' : 'Нет активных абонементов';
+        if (tab === 'paused') emptyText = lang === 'ka' ? 'შეჩერებული აბონემენტი არ არის' : 'Нет приостановленных абонементов';
+        if (tab === 'expired') emptyText = lang === 'ka' ? 'ვადაგასული აბონემენტი არ არის' : 'Нет истекших абонементов';
+        return (
+            <div className="p-16 text-center border-2 border-dashed border-border-subtle/50 rounded-3xl space-y-3">
+                <div className="w-12 h-12 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-2">
+                    <CreditCard className="w-6 h-6 text-muted/30" />
+                </div>
+                <p className="text-sm font-medium text-muted">{emptyText}</p>
             </div>
-            <p className="text-sm font-medium text-muted">{lang === 'ka' ? 'აბონემენტი არ არის' : lang === 'ru' ? 'Нет абонемента' : 'No Subscriptions'}</p>
-        </div>
-    );
+        );
+    };
 
     const renderSub = (s: SubscriptionInfo) => {
         const sIds = (s.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
@@ -116,16 +122,22 @@ export default function SubscriptionsPage() {
         const firstStudent = matchedStudents[0];
         const initial = studentName.charAt(0);
 
-        const isIndividual = s.plan_type === 'individual';
-        const borderCls = isIndividual
-            ? 'border-2 border-amber-500/30 hover:border-amber-500/60 shadow-amber-500/5'
-            : 'border-2 border-indigo-500/30 hover:border-indigo-500/60 shadow-indigo-500/5';
+        const getPlanTheme = (plan: string) => {
+            const p = (plan || '').toLowerCase();
+            if (p.includes('minimum') || p.includes('მინიმუმ')) return { badge: 'bg-slate-500/10 text-slate-600 border-slate-500/20', border: 'border-2 border-slate-500/30 hover:border-slate-500/60 shadow-slate-500/5' };
+            if (p.includes('premium') || p.includes('პრემიუმ')) return { badge: 'bg-amber-500/10 text-amber-600 border-amber-500/20', border: 'border-2 border-amber-500/30 hover:border-amber-500/60 shadow-amber-500/5' };
+            if (p.includes('pro') || p.includes('პრო')) return { badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', border: 'border-2 border-emerald-500/30 hover:border-emerald-500/60 shadow-emerald-500/5' };
+            if (p.includes('vip') || p.includes('ვიპ')) return { badge: 'bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20', border: 'border-2 border-fuchsia-500/30 hover:border-fuchsia-500/60 shadow-fuchsia-500/5' };
+            if (p.includes('individual') || p.includes('ინდივიდუალური')) return { badge: 'bg-rose-500/10 text-rose-600 border-rose-500/20', border: 'border-2 border-rose-500/30 hover:border-rose-500/60 shadow-rose-500/5' };
+            return { badge: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20', border: 'border-2 border-indigo-500/30 hover:border-indigo-500/60 shadow-indigo-500/5' };
+        };
+        const theme = getPlanTheme(s.plan || '');
 
         return (
             <div key={s.id}
                 className={cn(
                     "group bg-card rounded-[1.5rem] lg:rounded-[2.5rem] p-4 lg:p-6 transition-all duration-300 shadow-sm relative overflow-hidden flex flex-col hover:shadow-xl",
-                    borderCls
+                    theme.border
                 )}>
                 <div className="flex items-center lg:items-start gap-3 lg:gap-4">
                     <div className="flex -space-x-3 lg:-space-x-4">
@@ -148,7 +160,7 @@ export default function SubscriptionsPage() {
                         <div className="flex items-center gap-2 mb-1 lg:mb-2.5">
                             <span className={cn(
                                 "text-[8px] lg:text-[10px] font-black px-1.5 lg:px-2 py-0.5 border rounded-lg tracking-wider leading-none shadow-sm uppercase",
-                                isIndividual ? "bg-amber-500/10 text-amber-600 border-amber-500/20" : "bg-indigo-500/10 text-indigo-600 border-indigo-500/20"
+                                theme.badge
                             )}>
                                 {(s.plan || 'სტანდარტული')}
                             </span>
@@ -156,7 +168,7 @@ export default function SubscriptionsPage() {
                         <div className="flex flex-row flex-wrap items-center gap-x-4 lg:gap-x-6 gap-y-1.5 mt-1 lg:mt-2 border-t lg:border-none border-border-subtle/30 pt-1.5 lg:pt-0">
                             <div className="flex items-center gap-1.5 text-[9px] lg:text-xs text-muted font-bold">
                                 <Clock className="w-3.5 h-3.5 text-indigo-500 opacity-50" />
-                                <span className="opacity-70">{s.purchased_at || '—'}</span>
+                                <span className="opacity-70">{s.purchased_at ? formatDate(s.purchased_at) : '—'}</span>
                                 <span className="mx-1 opacity-20">→</span>
                                 <span className={cn(
                                     "px-1.5 py-0.5 rounded-md",
@@ -167,7 +179,7 @@ export default function SubscriptionsPage() {
                                         const exp = new Date(s.expires_at);
                                         const diff = exp.getTime() - new Date().getTime();
                                         const days = Math.max(0, Math.ceil(diff / (1000 * 86400)));
-                                        return exp.getFullYear() > 2050 || days > 365 ? '∞' : s.expires_at;
+                                        return exp.getFullYear() > 2050 || days > 365 ? '∞' : formatDate(s.expires_at);
                                     })()}
                                 </span>
                             </div>
@@ -194,14 +206,14 @@ export default function SubscriptionsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="absolute top-4 lg:top-6 right-4 lg:right-6 flex items-center gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-all lg:translate-x-2 lg:group-hover:translate-x-0">
+                <div className="absolute top-3 lg:top-6 right-3 lg:right-6 flex items-center gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-all lg:translate-x-2 lg:group-hover:translate-x-0">
                     <button onClick={(e) => { e.stopPropagation(); setEditing(s); }}
-                        className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 transition-all shadow-sm active:scale-90">
-                        <Edit2 className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
+                        className="w-10 h-10 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 transition-all shadow-sm active:scale-90">
+                        <Edit2 className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); handleDelete(s.student_id, s.id); }}
-                        className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 transition-all shadow-sm active:scale-90">
-                        <Trash2 className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
+                        className="w-10 h-10 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 transition-all shadow-sm active:scale-90">
+                        <Trash2 className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
                     </button>
                 </div>
             </div>
@@ -246,18 +258,17 @@ export default function SubscriptionsPage() {
                         {/* Status Tabs */}
                         <div className="flex bg-surface border border-border-subtle rounded-[1.25rem] p-1 h-12 w-fit">
                         {[
-                                { id: 'active', shortLabel: { ka: 'აქტ.', en: 'Act.', ru: 'Акт.' }[lang] || 'Act.', fullLabel: { ka: 'აქტიური', en: 'Active', ru: 'Активные' }[lang] || 'Active', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
-                                { id: 'paused', shortLabel: { ka: 'შეჩ.', en: 'Susp.', ru: 'Приоз.' }[lang] || 'Susp.', fullLabel: { ka: 'შეჩერებული', en: 'Suspended', ru: 'Приостановлен.' }[lang] || 'Suspended', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
-                                { id: 'expired', shortLabel: { ka: 'ვად.', en: 'Exp.', ru: 'Ист.' }[lang] || 'Exp.', fullLabel: { ka: 'ვადაგასული', en: 'Expired', ru: 'Истекшие' }[lang] || 'Expired', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
+                                { id: 'active', label: { ka: 'აქტიური', en: 'Active', ru: 'Активные' }[lang] || 'Active', icon: Zap, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-indigo-600' },
+                                { id: 'paused', label: { ka: 'შეჩერებული', en: 'Suspended', ru: 'Приостановлен.' }[lang] || 'Suspended', icon: Pause, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-amber-600' },
+                                { id: 'expired', label: { ka: 'ვადაგასული', en: 'Expired', ru: 'Истекшие' }[lang] || 'Expired', icon: AlertCircle, activeColor: 'bg-[#6d28d9]', hoverColor: 'hover:text-red-600' },
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(
-                                        'flex items-center justify-center gap-1 sm:gap-1.5 px-3 sm:px-4 h-full rounded-xl text-[10px] font-black tracking-widest transition-all min-w-fit sm:min-w-[100px]',
+                                        'flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-full rounded-xl text-[10px] font-black tracking-widest transition-all min-w-fit sm:min-w-[100px]',
                                         tab === v.id ? cn(v.activeColor, 'text-white') : cn('text-muted hover:bg-white/50', v.hoverColor)
                                     )}>
                                     <v.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                                    <span className="whitespace-nowrap sm:hidden">{v.shortLabel}</span>
-                                    <span className="whitespace-nowrap hidden sm:inline">{v.fullLabel}</span>
+                                    <span className="whitespace-nowrap">{v.label}</span>
                                 </button>
                             ))}
                         </div>
