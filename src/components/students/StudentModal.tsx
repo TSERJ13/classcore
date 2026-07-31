@@ -696,7 +696,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                         >
                             <PlusCircle className="w-4 h-4 sm:w-4 sm:h-4" strokeWidth={2.5} />
                             <span className="uppercase hidden sm:inline">{t.issueSubscription}</span>
-                            <span className="uppercase sm:hidden">{lang === 'ka' ? 'აბონემენტი' : lang === 'ru' ? 'Абонемент' : 'Subscription'}</span>
+                            <span className="uppercase sm:hidden">{l('აბონემენტი', 'Абонемент', 'Subscription')}</span>
                         </button>
 
                         <button

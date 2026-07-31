@@ -188,7 +188,7 @@ export default function GroupsPage() {
                         <Users className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                         <Plus className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-[#6d28d9] rounded-full border border-white/20" />
                     </div>
-                    <span className="hidden sm:inline uppercase">{t.addGroup}</span>
+                    <span className="hidden sm:inline uppercase">{t.addToGroup}</span>
                 </button>
             </div>
 
