@@ -692,35 +692,39 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                         <button
                             onClick={() => setIssueModalOpen(true)}
                             title={t.issueSubscription}
-                            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all rounded-xl shadow-sm active:scale-95 shrink-0"
+                            className="h-8 sm:h-9 px-2 sm:px-3 flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all rounded-xl shadow-sm active:scale-95 shrink-0 text-[9px] font-black tracking-widest"
                         >
-                            <PlusCircle className="w-5 h-5" strokeWidth={2.5} />
+                            <PlusCircle className="w-4 h-4 sm:w-4 sm:h-4" strokeWidth={2.5} />
+                            <span className="uppercase hidden sm:inline">{t.issueSubscription}</span>
+                            <span className="uppercase sm:hidden">{lang === 'ka' ? 'აბონემენტი' : lang === 'ru' ? 'Абонемент' : 'Subscription'}</span>
                         </button>
 
                         <button
                             onClick={() => setActiveTab('visits')}
                             title={t.visits}
                             className={cn(
-                                "w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
+                                "h-8 sm:h-9 px-2 sm:px-3 flex items-center justify-center gap-1.5 sm:gap-2 border transition-all rounded-xl shrink-0 text-[9px] font-black tracking-widest",
                                 activeTab === 'visits'
                                     ? "bg-violet-500 text-white border-violet-500"
                                     : "bg-violet-500/10 text-violet-400 hover:text-violet-300 border-violet-500/20"
                             )}
                         >
-                            <CalendarCheck className="w-4 h-4" strokeWidth={2.5} />
+                            <CalendarCheck className="w-3.5 h-3.5" strokeWidth={2.5} />
+                            <span className="uppercase">{t.visits}</span>
                         </button>
 
                         <button
                             onClick={() => setActiveTab('sales')}
                             title={t.purchases}
                             className={cn(
-                                "w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border transition-all rounded-xl shrink-0",
+                                "h-8 sm:h-9 px-2 sm:px-3 flex items-center justify-center gap-1.5 sm:gap-2 border transition-all rounded-xl shrink-0 text-[9px] font-black tracking-widest",
                                 activeTab === 'sales'
                                     ? "bg-amber-500 text-white border-amber-500"
                                     : "bg-amber-500/10 text-amber-400 hover:text-amber-300 border-amber-500/20"
                             )}
                         >
-                            <ShoppingBag className="w-4 h-4" strokeWidth={2.5} />
+                            <ShoppingBag className="w-3.5 h-3.5" strokeWidth={2.5} />
+                            <span className="uppercase">{t.purchases}</span>
                         </button>
                     </div>
                 )}

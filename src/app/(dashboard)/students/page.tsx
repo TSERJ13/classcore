@@ -443,8 +443,8 @@ export default function StudentsPage() {
                                         </div>
                                     </div>
 
-                                {/* Actions hover */}
-                                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                {/* Actions always visible for mobile UX */}
+                                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1.5 sm:gap-2">
                                     <button onClick={(e) => { e.stopPropagation(); openEdit(student); }}
                                         className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-[#5b21b6] hover:border-[#6d28d9]/40 hover:bg-[#6d28d9]/5 transition-all shadow-sm">
                                         <Edit2 className="w-3.5 h-3.5" />
