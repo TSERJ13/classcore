@@ -154,12 +154,10 @@ export default function SubscriptionsPage() {
                         ))}
                     </div>
                     <div className="flex-1 min-w-0 pr-12 lg:pr-16">
-                        <div className="flex flex-wrap items-center gap-1.5 lg:gap-2 mb-0.5 lg:mb-1.5">
+                        <div className="flex flex-wrap items-center gap-2 mb-1 lg:mb-2.5 pr-8">
                             <h3 className="text-xs lg:text-sm font-black text-primary truncate max-w-full leading-none group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{studentName}</h3>
-                        </div>
-                        <div className="flex items-center gap-2 mb-1 lg:mb-2.5">
                             <span className={cn(
-                                "text-[8px] lg:text-[10px] font-black px-1.5 lg:px-2 py-0.5 border rounded-lg tracking-wider leading-none shadow-sm uppercase",
+                                "text-[8px] lg:text-[10px] font-black px-1.5 lg:px-2 py-0.5 border rounded-lg tracking-wider leading-none shadow-sm uppercase shrink-0",
                                 theme.badge
                             )}>
                                 {(s.plan || 'სტანდარტული')}
@@ -206,7 +204,7 @@ export default function SubscriptionsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="absolute top-3 lg:top-6 right-3 lg:right-6 flex items-center gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-all lg:translate-x-2 lg:group-hover:translate-x-0">
+                <div className="absolute top-3 lg:top-4 right-3 lg:right-4 flex flex-col items-center gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-all lg:translate-x-2 lg:group-hover:translate-x-0">
                     <button onClick={(e) => { e.stopPropagation(); setEditing(s); }}
                         className="w-10 h-10 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 transition-all shadow-sm active:scale-90">
                         <Edit2 className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
