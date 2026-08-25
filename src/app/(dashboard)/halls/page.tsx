@@ -8,14 +8,14 @@ import { MobileFAB } from '@/components/ui/MobileFAB';
 import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
-import { getHalls, saveHalls } from '@/lib/hall-store';
+import { getHalls, saveHalls, deleteHall } from '@/lib/hall-store';
 import { getGroups } from '@/lib/group-store';
 import { useMemo } from 'react';
 import { useStudio } from '@/contexts/StudioContext';
 
 
 export default function HallsPage() {
-    const { t } = useT();
+    const { t, lang } = useT();
     const { settings } = useStudio();
     const [halls, setHalls] = useState<Hall[]>([]);
     const [modalOpen, setModalOpen] = useState(false);
@@ -65,9 +65,8 @@ export default function HallsPage() {
     }
 
     function handleDelete(id: string) {
-        const updated = halls.filter(h => h.id !== id);
-        setHalls(updated);
-        saveHalls(updated as any);
+        deleteHall(id);
+        setHalls(getHalls() as unknown as Hall[]);
     }
 
     const hallStats = useMemo(() => {
@@ -160,8 +159,19 @@ export default function HallsPage() {
                                 {/* Actions - always visible at opacity-60, prominent on hover */}
                                 <div className="absolute top-4 right-4 sm:top-5 sm:right-5 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
                                     <button onClick={(e) => { e.stopPropagation(); openEdit(hall); }}
-                                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-violet-600 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all shadow-sm">
+                                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-violet-600 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all shadow-sm"
+                                        title={t.edit || 'Edit'}>
                                         <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if (window.confirm(lang === 'ka' ? `ნამდვილად გსურთ "${hall.name}" დარბაზის წაშლა?` : `Delete hall "${hall.name}"?`)) {
+                                                handleDelete(hall.id);
+                                            }
+                                        }}
+                                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm"
+                                        title={t.delete || 'Delete'}>
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
