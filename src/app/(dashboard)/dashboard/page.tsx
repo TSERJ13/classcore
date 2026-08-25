@@ -693,9 +693,9 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Quick actions */}
-                    <div className="bg-card border border-border-subtle rounded-2xl p-4">
-                        <p className="text-[10px] font-bold text-muted tracking-widest mb-3">{t.quickActions}</p>
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    <div className="bg-card border border-border-subtle rounded-2xl p-3 sm:p-4">
+                        <p className="text-[10px] font-bold text-muted tracking-widest mb-2.5">{t.quickActions}</p>
+                        <div className="grid grid-cols-4 gap-1 w-full">
                             {[
                                 {
                                     label: t.addStudentShort || 'ახალი',
@@ -724,20 +724,20 @@ export default function DashboardPage() {
                             ].map((a, idx) => {
                                 const Icon = a.icon;
                                 const content = (
-                                    <div className="flex flex-col items-center justify-center p-2 gap-1.5 w-[72px] h-[72px] flex-shrink-0">
-                                        <div className={`w-10 h-10 rounded-[1rem] border flex items-center justify-center transition-all ${a.color}`}>
-                                            <Icon className="w-5 h-5" />
+                                    <div className="flex flex-col items-center justify-center p-1 gap-1 w-full">
+                                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-[0.9rem] border flex items-center justify-center transition-all ${a.color}`}>
+                                            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                                         </div>
-                                        <span className="text-[9px] font-black tracking-wide text-primary/70 truncate w-full text-center">{a.label}</span>
+                                        <span className="text-[9px] font-bold tracking-tight text-primary/80 truncate w-full text-center">{a.label}</span>
                                     </div>
                                 );
 
                                 return a.href ? (
-                                    <Link key={idx} href={a.href} className="group">
+                                    <Link key={idx} href={a.href} className="group w-full flex justify-center">
                                         {content}
                                     </Link>
                                 ) : (
-                                    <button key={idx} onClick={a.onClick} className="group">
+                                    <button key={idx} onClick={a.onClick} className="group w-full flex justify-center">
                                         {content}
                                     </button>
                                 );
