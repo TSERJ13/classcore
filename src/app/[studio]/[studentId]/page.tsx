@@ -10,7 +10,7 @@ import {
     QrCode, Copy, Check, Info, CalendarDays,
     Send, ChevronRight, Download, Users,
     ExternalLink, BellOff, BellRing,
-    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity
+    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity, History
 } from 'lucide-react';
 const UserIcon = User;
 import { cn, getLocalISODate, formatCurrency, getScopedKey, safeSetItem, formatDate } from '@/lib/utils';
@@ -32,7 +32,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { AppLogo as Logo } from '@/components/ui/Logo';
 
-type ActiveTab = 'info' | 'schedule' | 'shop';
+type ActiveTab = 'info' | 'schedule' | 'history' | 'shop';
 
 
 export default function StudentPortalPage() {
@@ -140,8 +140,10 @@ export default function StudentPortalPage() {
             );
             if (localMatch && isMounted) {
                 setStudentData(localMatch as Student);
-                const s = getSubscription(localMatch.id || studentId, undefined, undefined, true);
-                setSub(s || null);
+                const s = getSubscription(localMatch.id || studentId, undefined, undefined, false);
+                const todayStr = getLocalISODate();
+                const isValidActive = s && s.status === 'active' && s.expires_at >= todayStr && (s.sessions_total === null || (s.sessions_total - (s.sessions_used || 0)) > 0);
+                setSub(isValidActive ? s : null);
                 setIsLoading(false); // Render portal in 0ms!
 
                 const patch = getStudentPatch(studentId);
@@ -227,8 +229,10 @@ export default function StudentPortalPage() {
 
                 if (foundStudent && isMounted) {
                     setStudentData(foundStudent as Student);
-                    const s = getSubscription(foundStudent.id || studentId, undefined, undefined, true);
-                    setSub(s || null);
+                    const s = getSubscription(foundStudent.id || studentId, undefined, undefined, false);
+                    const todayStr = getLocalISODate();
+                    const isValidActive = s && s.status === 'active' && s.expires_at >= todayStr && (s.sessions_total === null || (s.sessions_total - (s.sessions_used || 0)) > 0);
+                    setSub(isValidActive ? s : null);
 
                     const patch = getStudentPatch(studentId);
                     const nfcUid = patch.nfc_uid || foundStudent.nfc_uid;
@@ -571,10 +575,11 @@ export default function StudentPortalPage() {
             </div>
 
             {/* Tab Navigation */}
-            <div className="grid grid-cols-3 gap-1 bg-surface/50 p-1.5 rounded-2xl border border-border-subtle mb-8 backdrop-blur-sm sticky top-4 z-40">
+            <div className="grid grid-cols-4 gap-1 bg-surface/50 p-1.5 rounded-2xl border border-border-subtle mb-8 backdrop-blur-sm sticky top-4 z-40">
                 {([
                     { id: 'info', icon: Info, label: t.info },
                     { id: 'schedule', icon: CalendarDays, label: t.schedule },
+                    { id: 'history', icon: History, label: l('ისტორია', 'История', 'History') },
                     { id: 'shop', icon: ShoppingBag, label: t.shop },
                 ] as const).map(({ id, icon: Icon, label }) => (
                     <button
@@ -1159,6 +1164,82 @@ export default function StudentPortalPage() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'history' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                        {/* Subscriptions History Section */}
+                        <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 space-y-6 shadow-xl shadow-indigo-500/5">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-base font-black text-primary tracking-tight flex items-center gap-2">
+                                    <CreditCard className="w-5 h-5 text-indigo-500" />
+                                    {l('აბონემენტების ისტორია', 'История абонементов', 'Subscription History')}
+                                </h3>
+                                <span className="text-[10px] font-bold text-muted/60 tracking-widest uppercase">
+                                    {getStudentSubscriptions(studentId).length} {l('ჩანაწერი', 'запись', 'records')}
+                                </span>
+                            </div>
+
+                            {(() => {
+                                const allStudentSubs = getStudentSubscriptions(studentId);
+                                if (allStudentSubs.length === 0) {
+                                    return (
+                                        <div className="py-10 text-center space-y-3 opacity-40">
+                                            <CreditCard className="w-10 h-10 mx-auto text-muted stroke-[1]" />
+                                            <p className="text-xs font-bold text-muted">{t.historyEmpty || 'აბონემენტების ისტორია ცარიელია'}</p>
+                                        </div>
+                                    );
+                                }
+                                const todayStr = getLocalISODate();
+                                return (
+                                    <div className="space-y-4">
+                                        {allStudentSubs.map(s => {
+                                            const isActive = s.status === 'active' && s.expires_at >= todayStr && (s.sessions_total === null || (s.sessions_total - (s.sessions_used || 0)) > 0);
+                                            const rem = s.sessions_total !== null ? Math.max(0, s.sessions_total - (s.sessions_used || 0)) : null;
+                                            return (
+                                                <div key={s.id} className="bg-surface/50 border border-border-subtle/70 rounded-3xl p-5 space-y-3 transition-all hover:border-indigo-500/20">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
+                                                                <CreditCard className="w-5 h-5" />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-sm font-black text-primary tracking-tight">{s.plan}</h4>
+                                                                <div className="flex items-center gap-1.5 opacity-60">
+                                                                    <Clock className="w-3 h-3 text-muted" />
+                                                                    <p className="text-[10px] font-bold text-muted">{formatDate(s.purchased_at || s.expires_at)}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className={cn("px-3 py-1 rounded-xl text-[10px] font-black tracking-wider block mb-1", isActive ? "bg-emerald-500 text-white" : "bg-rose-500/10 text-rose-500 border border-rose-500/20")}>
+                                                                {isActive ? t.active : t.expired}
+                                                            </span>
+                                                            {s.amount_paid ? (
+                                                                <span className="text-xs font-black text-indigo-600 tabular-nums">{formatCurrency(s.amount_paid, settings.currency)}</span>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center pt-3 border-t border-border-subtle/50 text-[10px] font-bold text-muted">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-60" />
+                                                            <span>{t.expiryDate}: <span className="text-primary font-black">{formatDate(s.expires_at)}</span></span>
+                                                        </div>
+                                                        {rem !== null ? (
+                                                            <span className="text-indigo-500 font-black">{rem} / {s.sessions_total} {t.sessions}</span>
+                                                        ) : (
+                                                            <span className="text-emerald-500 font-black">{l('უპატივცემულო / ულიმიტო', 'Безлимит', 'Unlimited')}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
                 )}
 
