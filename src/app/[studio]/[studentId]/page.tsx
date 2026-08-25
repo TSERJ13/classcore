@@ -32,7 +32,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { AppLogo as Logo } from '@/components/ui/Logo';
 
-type ActiveTab = 'info' | 'schedule' | 'shop' | 'chat';
+type ActiveTab = 'info' | 'schedule' | 'shop';
 
 
 export default function StudentPortalPage() {
@@ -571,12 +571,11 @@ export default function StudentPortalPage() {
             </div>
 
             {/* Tab Navigation */}
-            <div className="grid grid-cols-4 gap-1 bg-surface/50 p-1.5 rounded-2xl border border-border-subtle mb-8 backdrop-blur-sm sticky top-4 z-40">
+            <div className="grid grid-cols-3 gap-1 bg-surface/50 p-1.5 rounded-2xl border border-border-subtle mb-8 backdrop-blur-sm sticky top-4 z-40">
                 {([
                     { id: 'info', icon: Info, label: t.info },
                     { id: 'schedule', icon: CalendarDays, label: t.schedule },
                     { id: 'shop', icon: ShoppingBag, label: t.shop },
-                    { id: 'chat', icon: MessageSquare, label: l('ჩათი', 'Чат', 'Chat') },
                 ] as const).map(({ id, icon: Icon, label }) => (
                     <button
                         key={id}
@@ -1219,82 +1218,6 @@ export default function StudentPortalPage() {
                             </div>
                         )}
                         <p className="text-center text-[9px] font-bold text-muted tracking-[0.2em] opacity-20 pt-4">{t.buyInStudio}</p>
-                    </div>
-                )}
-
-                {activeTab === 'chat' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-[calc(100vh-320px)] bg-card/30 rounded-[2.5rem] border border-border-subtle overflow-hidden">
-                        {studentData?.enrolled_group_ids && studentData.enrolled_group_ids.length > 0 && (
-                            <div className="flex gap-2 p-4 border-b border-border-subtle bg-card/50 overflow-x-auto no-scrollbar">
-                                <button onClick={() => setSelectedChatId('studio')} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === 'studio' ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
-                                    <ShieldCheck className="w-3 h-3" />
-                                    {lang === 'ka' ? 'სტუდია' : (t.administration || 'Studio')}
-                                </button>
-                                {studentData.enrolled_group_ids.map(gid => {
-                                    const group = groups.find((g: any) => g.id === gid);
-                                    if (!group) return null;
-                                    const teacher = teachers.find(tc => tc.id === group.teacher_id);
-                                    return (
-                                        <React.Fragment key={gid}>
-                                            <button onClick={() => setSelectedChatId(gid)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === gid ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
-                                                <Users className="w-3 h-3" />
-                                                {group.name}
-                                            </button>
-                                            {teacher && (
-                                                <button onClick={() => setSelectedChatId(`teach_${teacher.id}`)} className={cn("px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all flex items-center gap-2", selectedChatId === `teach_${teacher.id}` ? "bg-indigo-600 text-white" : "bg-surface text-muted hover:text-primary")}>
-                                                    <UserIcon className="w-3 h-3" />
-                                                    {teacher.full_name}
-                                                </button>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-surface/5">
-                            {chatMessages.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
-                                    <div className="w-16 h-16 bg-surface border border-border-subtle rounded-3xl flex items-center justify-center text-indigo-500">
-                                        <MessageSquare className="w-8 h-8" />
-                                    </div>
-                                    <p className="text-xs font-bold px-10">{selectedChatId === 'studio' ? t.chatWelcome : t.chatStartHint}</p>
-                                </div>
-                            ) : (
-                                chatMessages.map((m, idx) => (
-                                    <div key={m.id || idx} className={cn("flex flex-col", m.sender === 'student' ? "items-end" : "items-start")}>
-                                        <div className={cn("max-w-[85%] p-4 rounded-3xl text-[13px] font-medium leading-relaxed shadow-sm", m.sender === 'student' ? "bg-indigo-600 text-white rounded-br-none" : "bg-card border border-border-subtle text-primary rounded-bl-none")}>
-                                            {m.text}
-                                        </div>
-                                        <span className="text-[9px] font-bold text-muted/40 tracking-widest mt-1 px-1">
-                                            {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                        </span>
-                                    </div>
-                                ))
-                            )}
-                            {isSyncingChat && (
-                                <div className="flex items-center gap-2 text-muted/40 font-bold text-[10px] tracking-widest px-1">
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    {t.loading}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="p-4 bg-card/80 backdrop-blur-md border-t border-border-subtle">
-                            <div className="relative flex items-center">
-                                <input
-                                    value={chatInput}
-                                    onChange={(e) => setChatInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                    placeholder={(t.sendMessageToStart || 'Message') + '...'}
-                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/40 rounded-2xl px-5 py-4 pr-14 text-sm font-medium outline-none transition-all placeholder:text-muted/40"
-                                />
-                                <button onClick={handleSendMessage} disabled={!chatInput.trim() || isSyncingChat} className="absolute right-2 p-3 bg-indigo-600 text-white rounded-xl disabled:opacity-20 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20">
-                                    <Send className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <p className="text-center text-[9px] font-bold text-muted/30 tracking-[0.2em] mt-3 uppercase">{settings.studioName} Secure Messenger</p>
-                        </div>
                     </div>
                 )}
             </div>
