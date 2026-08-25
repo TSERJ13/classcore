@@ -54,9 +54,10 @@ export default function UnifiedHistoryPage() {
         };
     }, []);
 
-    const filteredAudit = auditHistory.filter(item => {
+    const filteredAudit = (Array.isArray(auditHistory) ? auditHistory : []).filter(item => {
+        if (!item) return false;
         const { label } = getActionMeta(item.action || '', lang);
-        const searchLower = search.toLowerCase();
+        const searchLower = (search || '').toLowerCase();
         return (
             (item.details || "").toLowerCase().includes(searchLower) ||
             (item.studentName || "").toLowerCase().includes(searchLower) ||
@@ -66,10 +67,11 @@ export default function UnifiedHistoryPage() {
         );
     });
 
-    const filteredTrash = trashItems.filter(item => {
+    const filteredTrash = (Array.isArray(trashItems) ? trashItems : []).filter(item => {
+        if (!item) return false;
         const data = item.data || {};
         const name = (data.name || data.fullName || data.first_name || item.type || "").toLowerCase();
-        return name.includes(search.toLowerCase());
+        return name.includes((search || '').toLowerCase());
     });
 
     const exportToCSV = () => {

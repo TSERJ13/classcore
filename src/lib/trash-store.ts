@@ -25,7 +25,9 @@ export function getTrash(): TrashItem[] {
     try {
         const key = getScopedKey(TRASH_KEY);
         const saved = localStorage.getItem(key);
-        return saved ? JSON.parse(saved) : [];
+        if (!saved) return [];
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
     } catch { return []; }
 }
 
