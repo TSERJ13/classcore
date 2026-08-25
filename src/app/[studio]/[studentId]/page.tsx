@@ -115,6 +115,7 @@ export default function StudentPortalPage() {
     const [shopProducts, setShopProducts] = useState<Product[]>([]);
     const [isQrExpanded, setIsQrExpanded] = useState(false);
     const [scheduleView, setScheduleView] = useState<'daily' | 'weekly'>('daily');
+    const [quarterOffset, setQuarterOffset] = useState(0);
 
     const [chatMessages, setChatMessages] = useState<any[]>([]);
     const [chatInput, setChatInput] = useState('');
@@ -547,6 +548,231 @@ export default function StudentPortalPage() {
         );
     }
 
+    const renderAttendanceHistoryCard = () => {
+        const todayStr = getLocalISODate();
+        const checkins = getStudentCheckins(studentId);
+        const checkinDates = new Set(checkins.map(c => c.date));
+
+        const enrolledGroups = getGroups().filter(g => 
+            studentData?.enrolled_group_ids?.includes(g.id) || 
+            studentData?.group_id === g.id
+        );
+        const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
+
+        // Calculate 3-month window dates based on quarterOffset
+        const now = new Date();
+        const targetMonth = now.getMonth() + (quarterOffset * 3);
+        const windowEnd = new Date(now.getFullYear(), targetMonth + 1, 0); // Last day of target month
+        const windowStart = new Date(windowEnd.getFullYear(), windowEnd.getMonth() - 2, 1); // First day of 3 months prior
+
+        // Adjust start date to Monday of that week for clean grid alignment
+        const dayOf = windowStart.getDay();
+        const diff = windowStart.getDate() - dayOf + (dayOf === 0 ? -6 : 1);
+        const startDate = new Date(windowStart);
+        startDate.setDate(diff);
+        startDate.setHours(0,0,0,0);
+
+        const curr = new Date(startDate);
+        const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean; isScheduled: boolean }[] = [];
+        let lastMonth = '';
+        
+        let scheduledCount = 0;
+        let attendedCount = 0;
+        let missedCount = 0;
+
+        while (curr <= windowEnd) {
+            const dStr = getLocalISODate(curr);
+            const dayOfWeek = (curr.getDay() + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
+            const monthName = curr.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short' });
+            
+            // Check if student has a scheduled lesson on this day
+            const hasScheduledGroup = enrolledGroups.some(g => {
+                if (g.schedule_slots && Array.isArray(g.schedule_slots)) {
+                    return g.schedule_slots.some((s: any) => s.dayOfWeek === dayOfWeek);
+                }
+                if (g.schedule_days && Array.isArray(g.schedule_days)) {
+                    return g.schedule_days.includes(dayOfWeek);
+                }
+                return false;
+            });
+            const hasIndividualEvent = myEvents.some(e => e.date === dStr);
+            const isScheduledDay = hasScheduledGroup || hasIndividualEvent;
+
+            let status: 'present' | 'absent' | 'none' = 'none';
+
+            if (checkinDates.has(dStr)) {
+                status = 'present';
+                if (dStr <= todayStr && isScheduledDay) {
+                    scheduledCount++;
+                    attendedCount++;
+                } else if (dStr <= todayStr) {
+                    attendedCount++;
+                }
+            } else if (dStr <= todayStr && isScheduledDay) {
+                status = 'absent';
+                scheduledCount++;
+                missedCount++;
+            }
+
+            days.push({ 
+                date: dStr, 
+                status, 
+                month: monthName,
+                isStartOfMonth: monthName !== lastMonth,
+                isScheduled: isScheduledDay
+            });
+            lastMonth = monthName;
+            curr.setDate(curr.getDate() + 1);
+        }
+
+        const weeks: typeof days[] = [];
+        let currentWeek: typeof days = [];
+        
+        days.forEach(d => {
+            currentWeek.push(d);
+            if (currentWeek.length === 7) {
+                weeks.push(currentWeek);
+                currentWeek = [];
+            }
+        });
+        if (currentWeek.length > 0) {
+            while (currentWeek.length < 7) currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false, isScheduled: false });
+            weeks.push(currentWeek);
+        }
+
+        const attendanceRate = scheduledCount > 0 ? Math.round((attendedCount / scheduledCount) * 100) : (attendedCount > 0 ? 100 : 0);
+
+        const startMonthLabel = windowStart.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short' });
+        const endMonthLabel = windowEnd.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', year: 'numeric' });
+        const periodLabel = `${startMonthLabel} - ${endMonthLabel}`;
+
+        return (
+            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden space-y-6">
+                {/* Header & Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border-subtle/50">
+                    <div>
+                        <h3 className="text-base font-black text-primary tracking-tight flex items-center gap-2">
+                            <Activity className="w-5 h-5 text-indigo-500" />
+                            {l('დასწრების ისტორია', 'История посещений', 'Attendance History')}
+                        </h3>
+                        <p className="text-[10px] font-bold text-muted opacity-60 tracking-wider mt-0.5">{periodLabel}</p>
+                    </div>
+
+                    {/* Quarter Navigation Buttons */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setQuarterOffset(prev => prev - 1)}
+                            className="px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-indigo-500/30 text-xs font-bold text-primary flex items-center gap-1 transition-all active:scale-95 shadow-sm"
+                            title={l('წინა 3 თვე', 'Пред. 3 месяца', 'Prev 3 Months')}
+                        >
+                            <ChevronLeft className="w-4 h-4 text-indigo-500" />
+                            <span className="text-[10px] font-black">{l('წინა 3 თვე', 'Пред. 3 мес.', 'Prev 3 mos.')}</span>
+                        </button>
+                        {quarterOffset < 0 && (
+                            <button
+                                onClick={() => setQuarterOffset(prev => prev + 1)}
+                                className="px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-indigo-500/30 text-xs font-bold text-primary flex items-center gap-1 transition-all active:scale-95 shadow-sm"
+                                title={l('შემდეგი 3 თვე', 'След. 3 месяца', 'Next 3 Months')}
+                            >
+                                <span className="text-[10px] font-black">{l('შემდეგი 3 თვე', 'След. 3 мес.', 'Next 3 mos.')}</span>
+                                <ChevronRight className="w-4 h-4 text-indigo-500" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-4 text-[10px] font-black text-muted/70">
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-4 h-4 rounded-md bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm shadow-emerald-500/20">✓</div>
+                        <span>{l('დასწრება', 'Был', 'Attended')}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-4 h-4 rounded-md bg-rose-500/15 border border-rose-500/40 text-rose-500 flex items-center justify-center text-[9px] font-black">✕</div>
+                        <span>{l('გაცდენა (მის დღეს)', 'Пропуск (в его день)', 'Missed (Lesson Day)')}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 opacity-50">
+                        <div className="w-4 h-4 rounded-md bg-surface border border-border-subtle" />
+                        <span>{l('უგაკვეთილო დღე', 'Нет урока', 'No Lesson')}</span>
+                    </div>
+                </div>
+
+                {/* Grid Display */}
+                <div className="overflow-x-auto no-scrollbar py-2">
+                    <div className="flex gap-1 min-w-max">
+                        <div className="flex gap-2">
+                            {/* Day Labels */}
+                            <div className="flex flex-col gap-1.5 pt-5 pr-1">
+                                {['M', '', 'W', '', 'F', '', ''].map((label, i) => (
+                                    <div key={i} className="h-5 flex items-center">
+                                        <span className="text-[8px] font-black text-muted opacity-30 uppercase">{label}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Weeks Columns */}
+                            <div className="flex gap-1.5 flex-1">
+                                {weeks.map((week, wIdx) => {
+                                    const monthLabel = week.find(d => d.isStartOfMonth)?.month;
+                                    return (
+                                        <div key={wIdx} className="flex flex-col gap-1.5">
+                                            <div className="h-4 flex items-center justify-center">
+                                                {monthLabel && <span className="text-[9px] font-black text-muted opacity-50 uppercase whitespace-nowrap">{monthLabel}</span>}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                {week.map((day, dIdx) => (
+                                                    <div
+                                                        key={dIdx}
+                                                        title={day.date ? `${day.date}: ${day.status === 'present' ? 'Attended' : day.status === 'absent' ? 'Missed' : 'No Class'}` : ''}
+                                                        className={cn(
+                                                            "w-5 h-5 rounded-md transition-all duration-300 flex items-center justify-center text-[10px] font-black",
+                                                            day.date === '' ? "opacity-0" :
+                                                            day.status === 'present' ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" :
+                                                            day.status === 'absent' ? "bg-rose-500/15 border border-rose-500/40 text-rose-500" :
+                                                            "bg-surface/40 border border-border-subtle/30 opacity-40"
+                                                        )}
+                                                    >
+                                                        {day.status === 'present' ? '✓' : day.status === 'absent' ? '✕' : ''}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Attendance Rate & Stats Footer */}
+                <div className="bg-surface/60 border border-border-subtle/80 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center justify-center shrink-0">
+                            <span className="text-lg font-black text-indigo-600 tabular-nums leading-none">{attendanceRate}%</span>
+                            <span className="text-[8px] font-black text-muted opacity-50 uppercase mt-0.5">{l('დასწრება', 'Явка', 'Rate')}</span>
+                        </div>
+                        <div>
+                            <p className="text-xs font-black text-primary tracking-tight">{l('დასწრებადობის პროცენტი', 'Процент посещаемости', 'Attendance Percentage')}</p>
+                            <p className="text-[10px] font-bold text-muted opacity-70 mt-0.5">
+                                {attendedCount} {l('დასწრება', 'посещений', 'attended')} • {missedCount} {l('გაცდენა', 'пропусков', 'missed')} {scheduledCount > 0 ? `(${l('სულ', 'всего', 'total')} ${scheduledCount} ${l('გაკვეთილი', 'уроков', 'lessons')})` : ''}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full sm:w-36 flex flex-col gap-1.5">
+                        <div className="h-2.5 bg-card rounded-full overflow-hidden p-0.5 border border-border-subtle">
+                            <div
+                                className={cn("h-full rounded-full transition-all duration-700", attendanceRate >= 80 ? "bg-emerald-500" : attendanceRate >= 50 ? "bg-amber-500" : "bg-rose-500")}
+                                style={{ width: `${Math.min(100, Math.max(0, attendanceRate))}%` }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-card animate-fade-up max-w-lg mx-auto pb-24 md:pb-10 pt-6 px-4 relative overflow-x-hidden">
             <div className="flex items-center justify-between mb-8 mt-2 px-1">
@@ -713,174 +939,8 @@ export default function StudentPortalPage() {
                             </div>
                         )}
 
-                        {/* Contribution Graph (GitHub Style) */}
-                        <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-black text-primary tracking-tight flex items-center gap-2">
-                                    <Activity className="w-4 h-4 text-indigo-500" />
-                                    {l('დასწრების ისტორია', 'История посещений', 'Attendance History')}
-                                </h3>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" />
-                                        <span className="text-[9px] font-bold text-muted opacity-40 uppercase">{l('იყო', 'Был', 'Present')}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="w-2.5 h-2.5 bg-rose-500 rounded-sm" />
-                                        <span className="text-[9px] font-bold text-muted opacity-40 uppercase">{l('არა', 'Нет', 'Absent')}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="overflow-x-auto no-scrollbar pb-2">
-                                <div className="flex gap-1 min-w-max">
-                                    {(() => {
-                                        const today = new Date();
-                                        const checkins = getStudentCheckins(studentId);
-                                        const checkinDates = new Set(checkins.map(c => c.date));
-                                        
-                                        const enrolledGroups = getGroups().filter(g => studentData?.enrolled_group_ids?.includes(g.id));
-                                        const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
-                                        
-                                        // Find the first subscription date
-                                        const allSubs = getStudentSubscriptions(studentId);
-                                        let startDate = new Date();
-                                        if (allSubs.length > 0) {
-                                            const dates = allSubs
-                                                .map(s => s.purchased_at || s.expires_at)
-                                                .filter(Boolean)
-                                                .map(d => new Date(d));
-                                            
-                                            if (dates.length > 0) {
-                                                const minTime = Math.min(...dates.map(d => d.getTime()));
-                                                startDate = new Date(minTime);
-                                            } else {
-                                                startDate.setMonth(startDate.getMonth() - 2); // Default to 3 months window
-                                            }
-                                        } else {
-                                            startDate.setMonth(startDate.getMonth() - 2);
-                                        }
-
-                                        // Adjust to start of the week (Monday)
-                                        const dayOf = startDate.getDay();
-                                        const diff = startDate.getDate() - dayOf + (dayOf === 0 ? -6 : 1);
-                                        startDate.setDate(diff);
-                                        startDate.setHours(0,0,0,0);
-
-                                        // End date is 3 months from start date
-                                        const endDate = new Date(startDate);
-                                        endDate.setMonth(endDate.getMonth() + 3);
-
-                                        const curr = new Date(startDate);
-                                        const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean }[] = [];
-                                        let lastMonth = '';
-                                        
-                                        while (curr <= endDate) {
-                                            const dStr = getLocalISODate(curr);
-                                            const dayOfWeek = (curr.getDay() + 6) % 7; // Mon=0
-                                            const monthName = curr.toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { month: 'short' });
-                                            
-                                            let status: 'present' | 'absent' | 'none' = 'none';
-                                            
-                                            if (checkinDates.has(dStr)) {
-                                                status = 'present';
-                                            } else if (curr <= today) {
-                                                const hasScheduledGroup = enrolledGroups.some(g => g.schedule_slots?.some((s: any) => s.dayOfWeek === dayOfWeek));
-                                                const hasIndividualEvent = myEvents.some(e => e.date === dStr);
-                                                
-                                                if (hasScheduledGroup || hasIndividualEvent) {
-                                                    status = 'absent';
-                                                }
-                                            }
-
-                                            days.push({ 
-                                                date: dStr, 
-                                                status, 
-                                                month: monthName,
-                                                isStartOfMonth: monthName !== lastMonth
-                                            });
-                                            lastMonth = monthName;
-                                            curr.setDate(curr.getDate() + 1);
-                                        }
-
-                                        const weeks: typeof days[] = [];
-                                        let currentWeek: typeof days = [];
-                                        
-                                        days.forEach(d => {
-                                            currentWeek.push(d);
-                                            if (currentWeek.length === 7) {
-                                                weeks.push(currentWeek);
-                                                currentWeek = [];
-                                            }
-                                        });
-                                        if (currentWeek.length > 0) {
-                                            while (currentWeek.length < 7) currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false });
-                                            weeks.push(currentWeek);
-                                        }
-
-                                        return (
-                                            <div className="flex gap-2">
-                                                {/* Day Labels */}
-                                                <div className="flex flex-col gap-1.5 pt-5 pr-1">
-                                                    {['M', '', 'W', '', 'F', '', ''].map((label, i) => (
-                                                        <div key={i} className="h-4 flex items-center">
-                                                            <span className="text-[8px] font-black text-muted opacity-30 uppercase">{label}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-
-                                                <div className="flex gap-1.5 flex-1">
-                                                    {weeks.map((week, wIdx) => {
-                                                        const monthLabel = week.find(d => d.isStartOfMonth)?.month;
-                                                        return (
-                                                            <div key={wIdx} className="flex flex-col gap-1.5">
-                                                                <div className="h-4 flex items-center justify-center">
-                                                                    {monthLabel && <span className="text-[9px] font-black text-muted opacity-40 uppercase whitespace-nowrap">{monthLabel}</span>}
-                                                                </div>
-                                                                <div className="flex flex-col gap-1.5">
-                                                                    {week.map((day, dIdx) => (
-                                                                        <div
-                                                                            key={dIdx}
-                                                                            title={day.date}
-                                                                            className={cn(
-                                                                                "w-4 h-4 rounded-[4px] transition-all duration-500",
-                                                                                day.date === '' ? "opacity-0" :
-                                                                                day.status === 'present' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" :
-                                                                                day.status === 'absent' ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.1)]" :
-                                                                                "bg-indigo-500/5 border border-indigo-500/5"
-                                                                            )}
-                                                                        />
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-
-                            <div className="mt-6 flex items-center justify-between border-t border-border-subtle/50 pt-4">
-                                <p className="text-[10px] font-bold text-muted opacity-40 uppercase tracking-widest">
-                                    {l('სტუდენტია: ', 'Студент с: ', 'Joined: ')}
-                                    {(() => {
-                                        const allSubs = getStudentSubscriptions(studentId);
-                                        if (allSubs.length > 0) {
-                                            const dates = allSubs.map(s => s.purchased_at).filter(Boolean).map(d => new Date(d));
-                                            if (dates.length > 0) return new Date(Math.min(...dates.map(d => d.getTime()))).toLocaleDateString();
-                                        }
-                                        return '—';
-                                    })()}
-                                </p>
-                                <div className="flex gap-1.5">
-                                     {[0,1,2,3,4].map(i => (
-                                         <div key={i} className={cn("w-3 h-3 rounded-sm", i === 0 ? "bg-indigo-500/5" : i === 4 ? "bg-emerald-500" : "bg-emerald-500/" + (i*20))} />
-                                     ))}
-                                </div>
-                            </div>
-                        </div>
+                        {/* Attendance History Card */}
+                        {renderAttendanceHistoryCard()}
 
 
                         {/* QR Card */}
@@ -1240,6 +1300,9 @@ export default function StudentPortalPage() {
                                 );
                             })()}
                         </div>
+
+                        {/* Attendance History Card */}
+                        {renderAttendanceHistoryCard()}
                     </div>
                 )}
 
