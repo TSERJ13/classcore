@@ -48,6 +48,21 @@ export function getBillingState(slug: string): BillingState {
         const plan = meta.plan || settings.plan || 'trial';
         const manualBlock = meta.manualBlock === true || meta.suspended === true;
 
+        // If SuperAdmin assigned a non-trial plan (pro, custom, special, basic, enterprise)
+        if (plan && plan !== 'trial') {
+            return {
+                status: 'active',
+                plan,
+                trialStartDate: settings.trialStartDate || new Date().toISOString(),
+                lastPaidDate: settings.lastPaidDate || new Date().toISOString(),
+                daysLeftInTrial: 0,
+                daysOverdue: 0,
+                nextDueDate: null,
+                accountBalance: settings.accountBalance || 0,
+                manualBlock
+            };
+        }
+
         const trialStart = settings.trialStartDate ? new Date(settings.trialStartDate) : new Date();
         if (!settings.trialStartDate) {
             // First time — set trial start

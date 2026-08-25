@@ -141,6 +141,84 @@ function syncGroupedStore(rec: { id: string; studentId: string } & Partial<Check
     try { localStorage.setItem(key, JSON.stringify(grouped)); } catch { /* quota */ }
 }
 
+/** Remove a remotely-deleted subscription from localStorage on Device B */
+function applyRemoteSubscriptionDelete(subId: string) {
+    if (typeof window === 'undefined') return;
+    try {
+        const key = getScopedKey('cc_student_subscriptions', _activeSlug || undefined);
+        const deletedKey = getScopedKey('cc_deleted_subscriptions', _activeSlug || undefined);
+
+        // 1. Add to local deleted list to prevent resurrection
+        let deletedList: string[] = [];
+        try {
+            const rawDel = localStorage.getItem(deletedKey);
+            deletedList = rawDel ? JSON.parse(rawDel) : [];
+            if (!Array.isArray(deletedList)) deletedList = [];
+        } catch { deletedList = []; }
+
+        if (!deletedList.includes(subId)) {
+            deletedList.push(subId);
+            localStorage.setItem(deletedKey, JSON.stringify(deletedList));
+        }
+
+        // 2. Remove from cc_student_subscriptions in localStorage
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (!data || typeof data !== 'object') return;
+
+        let changed = false;
+        for (const studentId of Object.keys(data)) {
+            if (Array.isArray(data[studentId])) {
+                const prevLen = data[studentId].length;
+                data[studentId] = data[studentId].filter((s: any) => s.id !== subId);
+                if (data[studentId].length !== prevLen) changed = true;
+                if (data[studentId].length === 0) {
+                    delete data[studentId];
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote subscription deletion:', e);
+    }
+}
+
+/** Upsert a remotely created/updated subscription into localStorage on Device B */
+function applyRemoteSubscriptionUpsert(row: any) {
+    if (typeof window === 'undefined') return;
+    const sub = (row.data && typeof row.data === 'object') ? { ...row.data, id: row.id, student_id: row.student_id } : row;
+    const studentId = sub.student_id || sub.studentId;
+    if (!sub.id || !studentId) return;
+
+    try {
+        const key = getScopedKey('cc_student_subscriptions', _activeSlug || undefined);
+        const raw = localStorage.getItem(key);
+        let data: Record<string, any[]> = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+            if (!data || typeof data !== 'object') data = {};
+        } catch { data = {}; }
+
+        const list = data[studentId] || [];
+        const idx = list.findIndex((s: any) => s.id === sub.id);
+        if (idx >= 0) {
+            list[idx] = { ...list[idx], ...sub };
+        } else {
+            list.push(sub);
+        }
+        data[studentId] = list;
+
+        localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote subscription upsert:', e);
+    }
+}
+
 function emit(...events: string[]) {
     if (typeof window === 'undefined') return;
     events.forEach(e => window.dispatchEvent(new Event(e)));
@@ -183,8 +261,23 @@ export function startRealtimeSync(orgId: string | null | undefined, slug: string
             removeRemoteCheckin(payload.old);
             emit('cc_attendance_update', 'cc_checkin_update');
         })
-        // ── Subscriptions: sessions used / new abonements should refresh live
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions', filter }, () => {
+        // ── Subscriptions: live real-time sync for deletions, creations & edits across devices
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'subscriptions', filter }, (payload) => {
+            if (payload.old?.id) {
+                applyRemoteSubscriptionDelete(payload.old.id);
+            }
+            emit('cc_subscription_update');
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'subscriptions', filter }, (payload) => {
+            if (payload.new) {
+                applyRemoteSubscriptionUpsert(payload.new);
+            }
+            emit('cc_subscription_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'subscriptions', filter }, (payload) => {
+            if (payload.new) {
+                applyRemoteSubscriptionUpsert(payload.new);
+            }
             emit('cc_subscription_update');
         })
         // ── Students: roster edits from another device
