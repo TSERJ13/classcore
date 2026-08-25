@@ -11,6 +11,7 @@ import { getStudents } from '@/lib/student-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { SubscriptionModal } from '@/components/subscriptions/SubscriptionModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
+import MainPortal from '@/components/ui/MainPortal';
 
 export default function SubscriptionsPage() {
     const { t, lang } = useT();
@@ -334,40 +335,42 @@ export default function SubscriptionsPage() {
             </div>
 
             {/* Mobile Floating Action Buttons */}
-            <div className="sm:hidden fixed right-4 flex flex-col items-end gap-3 z-50 bottom-[calc(88px+env(safe-area-inset-bottom,0px))]">
-                {/* FAB Overlay (Mobile only, shown when open) */}
-                {fabOpen && (
-                    <div 
-                        className="fixed inset-0 z-[-1]" 
-                        onClick={() => setFabOpen(false)}
-                    />
-                )}
+            <MainPortal>
+                <div className="sm:hidden fixed right-4 flex flex-col items-end gap-3 z-[9999]" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+                    {/* FAB Overlay (Mobile only, shown when open) */}
+                    {fabOpen && (
+                        <div 
+                            className="fixed inset-0 z-[-1]" 
+                            onClick={() => setFabOpen(false)}
+                        />
+                    )}
 
-                {/* Speed Dial Menu (Mobile) */}
-                <div className={cn(
-                    "flex flex-col items-center gap-3 transition-all duration-300 origin-bottom",
-                    fabOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-10 pointer-events-none"
-                )}>
-                    {/* Prices Action */}
-                    <Link href="/subscriptions/plans"
-                        onClick={() => setFabOpen(false)}
-                        className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-14 w-14 rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 group">
-                        <DollarSign strokeWidth={3} className="w-6 h-6 text-emerald-500 flex-shrink-0" />
-                    </Link>
+                    {/* Speed Dial Menu (Mobile) */}
+                    <div className={cn(
+                        "flex flex-col items-center gap-3 transition-all duration-300 origin-bottom",
+                        fabOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-10 pointer-events-none"
+                    )}>
+                        {/* Prices Action */}
+                        <Link href="/subscriptions/plans"
+                            onClick={() => setFabOpen(false)}
+                            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-14 w-14 rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 group">
+                            <DollarSign strokeWidth={3} className="w-6 h-6 text-emerald-500 flex-shrink-0" />
+                        </Link>
 
-                    {/* Primary Action Button */}
-                    <button onClick={() => { setIssuing(true); setFabOpen(false); }}
-                        className="flex-shrink-0 flex items-center justify-center gap-2 h-14 w-14 px-0 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 touch-manipulation group">
-                        <FolderPlus className="w-6 h-6 flex-shrink-0" />
+                        {/* Primary Action Button */}
+                        <button onClick={() => { setIssuing(true); setFabOpen(false); }}
+                            className="flex-shrink-0 flex items-center justify-center gap-2 h-14 w-14 px-0 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 touch-manipulation group">
+                            <FolderPlus className="w-6 h-6 flex-shrink-0" />
+                        </button>
+                    </div>
+
+                    {/* Mobile Speed Dial Trigger */}
+                    <button onClick={() => setFabOpen(!fabOpen)} 
+                        className="flex items-center justify-center w-14 h-14 bg-[#6d28d9] text-white rounded-2xl shadow-xl active:scale-95 transition-all">
+                        <Plus className={cn("w-6 h-6 transition-transform duration-300", fabOpen && "rotate-45")} />
                     </button>
                 </div>
-
-                {/* Mobile Speed Dial Trigger */}
-                <button onClick={() => setFabOpen(!fabOpen)} 
-                    className="flex items-center justify-center w-14 h-14 bg-[#6d28d9] text-white rounded-2xl shadow-xl active:scale-95 transition-all">
-                    <Plus className={cn("w-6 h-6 transition-transform duration-300", fabOpen && "rotate-45")} />
-                </button>
-            </div>
+            </MainPortal>
 
             <SubscriptionModal
                 open={!!editing}
