@@ -128,42 +128,47 @@ export default function StudentPortalPage() {
     const [authError, setAuthError] = useState('');
 
     useEffect(() => {
-        const loadPortal = async () => {
-            if (hasLoadedRef.current) return;
-            try {
-                if (!studentId || !studio) return;
+        let isMounted = true;
 
-                setSyncing(true);
+        const loadPortal = async () => {
+            if (!studentId || !studio) {
+                if (isMounted) setIsLoading(false);
+                return;
+            }
+
+            try {
+                if (isMounted) setSyncing(true);
                 const unwrap = (i: any) => (i?.data && typeof i.data === 'object') ? { ...i, ...i.data } : i;
                 const targetId = studentId.trim().toLowerCase();
 
+                let foundStudent: any = null;
+
                 try {
                     const cloudData = await fetchFullStudioState(studio, undefined, undefined, true, studentId);
-                    if (cloudData) {
-                            // 🚀 SCORCHED EARTH v4.2: Ultra-Robust Hydration
-                            const settingsBlob = cloudData.settingsRecord?.staff_data || cloudData.studio?.settings;
-                            const mapping: any = {
-                                cc_student_data: [
-                                    ...(cloudData.students || []),
-                                    ...(settingsBlob?.students || [])
-                                ].map(unwrap),
-                                cc_groups: (cloudData.groups || settingsBlob?.groups || []).map(unwrap),
-                                cc_halls: (cloudData.halls || settingsBlob?.halls || []).map(unwrap),
-                                cc_teachers: (cloudData.staff || settingsBlob?.staff || []).map(unwrap),
-                                cc_attendance_archive: (cloudData.attendance || settingsBlob?.attendance || []).map(unwrap),
-                                cc_subscription_plans: (cloudData.plans || settingsBlob?.subscription_plans || []).map(unwrap),
-                                cc_student_subscriptions: [
-                                    ...(cloudData.subscriptions || []),
-                                    ...(settingsBlob?.subscriptions || [])
-                                ].map(unwrap).reduce((acc: any, sub: any) => {
-                                    const sId = sub.student_id;
-                                    if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
-                                    return acc;
-                                }, {}),
-                                cc_shop_products: (cloudData.products || settingsBlob?.shop_products || []).map(unwrap),
-                                cc_calendar_events: (cloudData.events || settingsBlob?.calendar_events || []).map(unwrap),
-                                [`cc_studio_settings_${studio}`]: settingsBlob
-                            };
+                    if (cloudData && isMounted) {
+                        const settingsBlob = cloudData.settingsRecord?.staff_data || cloudData.studio?.settings;
+                        const mapping: any = {
+                            cc_student_data: [
+                                ...(cloudData.students || []),
+                                ...(settingsBlob?.students || [])
+                            ].map(unwrap),
+                            cc_groups: (cloudData.groups || settingsBlob?.groups || []).map(unwrap),
+                            cc_halls: (cloudData.halls || settingsBlob?.halls || []).map(unwrap),
+                            cc_teachers: (cloudData.staff || settingsBlob?.staff || []).map(unwrap),
+                            cc_attendance_archive: (cloudData.attendance || settingsBlob?.attendance || []).map(unwrap),
+                            cc_subscription_plans: (cloudData.plans || settingsBlob?.subscription_plans || []).map(unwrap),
+                            cc_student_subscriptions: [
+                                ...(cloudData.subscriptions || []),
+                                ...(settingsBlob?.subscriptions || [])
+                            ].map(unwrap).reduce((acc: any, sub: any) => {
+                                const sId = sub.student_id;
+                                if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                                return acc;
+                            }, {}),
+                            cc_shop_products: (cloudData.products || settingsBlob?.shop_products || []).map(unwrap),
+                            cc_calendar_events: (cloudData.events || settingsBlob?.calendar_events || []).map(unwrap),
+                            [`cc_studio_settings_${studio}`]: settingsBlob
+                        };
 
                         for (const [rawKey, data] of Object.entries(mapping)) {
                             if (data) {
@@ -175,62 +180,60 @@ export default function StudentPortalPage() {
                         setGroups((cloudData.groups || []).map(unwrap));
                         setHalls((cloudData.halls || []).map(unwrap));
                         setTeachers((cloudData.staff || []).map(unwrap));
-                        setSettings(settingsBlob || null);
-                        
-                        setSettings(settingsBlob || null);
-                        
+                        if (settingsBlob) setSettings(settingsBlob);
+
                         const unwrappedStudents = mapping.cc_student_data;
-                        const found = unwrappedStudents.find((s: any) => 
+                        foundStudent = unwrappedStudents.find((s: any) => 
                             (s.id && s.id.trim().toLowerCase() === targetId) || 
                             (s.student_id && s.student_id.trim().toLowerCase() === targetId)
                         );
-                        
-                        if (found) {
-                            setStudentData(found as Student);
-                            const s = getSubscription(found.id, undefined, undefined, true);
-                            setSub(s || null);
-                        } else {
-                            console.warn('Student not found in cloud data');
-                        }
                     }
                 } catch (err) {
                     console.error('Cloud hydration error:', err);
                 } finally {
-                    setSyncing(false);
+                    if (isMounted) setSyncing(false);
                 }
 
-                // Fallback to local if cloud was slow/empty and we still don't have student data
-                if (typeof window !== 'undefined') {
+                // Fallback to local store if cloud query didn't find student or timed out
+                if (!foundStudent && typeof window !== 'undefined') {
                     const students = getStudents();
-                    const student = students.find(st => 
+                    foundStudent = students.find(st => 
                         st.id && st.id.trim().toLowerCase() === targetId
                     );
-                    if (student) {
-                        setStudentData(prev => prev || student);
-                        const s = getSubscription(studentId, undefined, undefined, true);
-                        setSub(prev => prev || s || null);
-                        
-                        const patch = getStudentPatch(studentId);
-                        const nfcUid = patch.nfc_uid || student.nfc_uid;
-                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                        const studioSlug = studio || 'studio';
-                        const finalQrData = nfcUid ? nfcUid : `${origin}/${studioSlug}/${studentId}`;
-                        generateQRDataUrl(finalQrData).then(setQrDataUrl);
-                        
-                        if (student.preferred_language) {
-                            // Don't use setLang here to avoid re-triggering the effect
-                        }
-                        logAction('portal_visit', studio, { studentId });
-                        hasLoadedRef.current = true;
-                    }
+                }
+
+                if (foundStudent && isMounted) {
+                    setStudentData(foundStudent as Student);
+                    const s = getSubscription(foundStudent.id || studentId, undefined, undefined, true);
+                    setSub(s || null);
+
+                    const patch = getStudentPatch(studentId);
+                    const nfcUid = patch.nfc_uid || foundStudent.nfc_uid;
+                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                    const studioSlug = studio || 'studio';
+                    const finalQrData = nfcUid ? nfcUid : `${origin}/${studioSlug}/${studentId}`;
+                    generateQRDataUrl(finalQrData).then(url => {
+                        if (isMounted) setQrDataUrl(url);
+                    });
+                    
+                    logAction('portal_visit', studio, { studentId });
+                    hasLoadedRef.current = true;
                 }
             } catch (err) {
                 console.error('Portal load error:', err);
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                    setSyncing(false);
+                }
             }
         };
+
         loadPortal();
+
+        return () => {
+            isMounted = false;
+        };
     }, [studentId, studio]);
 
     useEffect(() => {

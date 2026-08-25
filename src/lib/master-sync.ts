@@ -8,7 +8,10 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
  */
 
 export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string, chunk?: 'core' | 'heavy') {
-    console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token, isClientPortal });
+    console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token, isClientPortal, studentId });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout protection
 
     try {
         const response = await fetch('/api/sync/state', {
@@ -17,8 +20,10 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
                 'Content-Type': 'application/json',
                 'Authorization': token ? `Bearer ${token}` : ''
             },
-            body: JSON.stringify({ slug, orgId, isClientPortal, studentId, chunk })
+            body: JSON.stringify({ slug, orgId, isClientPortal, studentId, chunk }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
             console.error('❌ [MasterSync] API fetch failed:', response.statusText);
@@ -32,7 +37,7 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
             return null;
         }
         
-        console.log('📊 [MasterSync] Cloud Extraction Complete (Admin Bypass):', {
+        console.log('📊 [MasterSync] Cloud Extraction Complete:', {
             students: data.students?.length || 0,
             staff: data.staff?.length || 0,
             groups: data.groups?.length || 0,
@@ -41,8 +46,13 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
         });
 
         return data;
-    } catch (e) {
-        console.error('❌ [MasterSync] Collective fetch failed:', e);
+    } catch (e: any) {
+        clearTimeout(timeoutId);
+        if (e?.name === 'AbortError') {
+            console.warn('⚠️ [MasterSync] Hydration request timed out after 4s (falling back to cached data)');
+        } else {
+            console.error('❌ [MasterSync] Collective fetch failed:', e);
+        }
         return null;
     }
 }
