@@ -130,6 +130,29 @@ export default function StudentPortalPage() {
     useEffect(() => {
         let isMounted = true;
 
+        // 🚀 1. INSTANT 0-MS LOCAL RENDER
+        if (studentId && studio && typeof window !== 'undefined') {
+            const targetId = studentId.trim().toLowerCase();
+            const localStudents = getStudents();
+            const localMatch = localStudents.find(st => 
+                (st.id && st.id.trim().toLowerCase() === targetId) ||
+                (st.student_id && st.student_id.trim().toLowerCase() === targetId)
+            );
+            if (localMatch && isMounted) {
+                setStudentData(localMatch as Student);
+                const s = getSubscription(localMatch.id || studentId, undefined, undefined, true);
+                setSub(s || null);
+                setIsLoading(false); // Render portal in 0ms!
+
+                const patch = getStudentPatch(studentId);
+                const nfcUid = patch.nfc_uid || localMatch.nfc_uid;
+                const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                const studioSlug = studio || 'studio';
+                const finalQrData = nfcUid ? nfcUid : `${origin}/${studioSlug}/${studentId}`;
+                generateQRDataUrl(finalQrData).then(url => { if (isMounted) setQrDataUrl(url); });
+            }
+        }
+
         const loadPortal = async () => {
             if (!studentId || !studio) {
                 if (isMounted) setIsLoading(false);
@@ -398,7 +421,7 @@ export default function StudentPortalPage() {
 
     const isExpiring = remaining != null && remaining <= 2;
 
-    if (isLoading || syncing) {
+    if (isLoading || (syncing && !studentData)) {
         return (
             <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
                 <div className="relative">

@@ -170,8 +170,10 @@ export async function POST(req: Request) {
         const isHeavy = !chunk || chunk === 'heavy';
 
         const responses = await Promise.all([
-            // 0: Students
-            isHeavy ? supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
+            // 0: Students (For client portal, fetch ONLY the single target student)
+            isHeavy ? (isClientPortal && studentId
+                ? supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId).or(`id.ilike.${studentId},student_id.ilike.${studentId}`)
+                : supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId)) : Promise.resolve({ data: [] }),
             // 1: Staff
             isCore ? (isClientPortal 
                 ? supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId).limit(5)
@@ -199,11 +201,11 @@ export async function POST(req: Request) {
             // 10: Trash
             (isHeavy && !isClientPortal) ? supabaseAdmin.from('trash').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
             // 11: Events
-            isHeavy ? supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
+            (isHeavy && !isClientPortal) ? supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
             // 12: Plans
             isHeavy ? supabaseAdmin.from('subscription_plans').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
             // 13: Products
-            isHeavy ? supabaseAdmin.from('products').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] })
+            (isHeavy && !isClientPortal) ? supabaseAdmin.from('products').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] })
         ]);
 
         const data = responses.map((r, idx) => {
