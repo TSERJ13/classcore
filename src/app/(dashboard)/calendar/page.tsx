@@ -11,7 +11,7 @@ import {
     Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw,
     Users, User, Home
 } from 'lucide-react';
-import { cn, getLocalISODate, getActiveSlug, formatDate } from '@/lib/utils';
+import { cn, getLocalISODate, getActiveSlug, formatDate, formatShortName } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import type { CalendarEvent, EventType } from '@/types';
 import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar } from '@/lib/event-store';
@@ -2316,7 +2316,7 @@ export default function CalendarPage() {
                                     filterTeacher === tc.id ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60 hover:bg-white/5')}
                             >
                                 <User className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                {tc.full_name}
+                                {formatShortName(tc.full_name)}
                             </button>
                         ))}
                     </div>

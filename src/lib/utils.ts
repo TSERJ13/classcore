@@ -20,6 +20,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Format full name to short name with last name initial.
+ * Example: "Sergi Tsivtsivadze" -> "Sergi T."
+ */
+export function formatShortName(fullName?: string): string {
+    if (!fullName || !fullName.trim()) return '';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length <= 1) return parts[0];
+    const firstName = parts[0];
+    const lastNameInitial = parts[1][0] ? `${parts[1][0].toUpperCase()}.` : '';
+    return `${firstName} ${lastNameInitial}`.trim();
+}
+
+/**
  * Generate a studio prefix from the studio name for unique IDs.
  * Examples:
  *   "S_T Dance Studio" → "STDS"
