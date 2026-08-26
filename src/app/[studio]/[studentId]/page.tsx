@@ -8,7 +8,7 @@ import {
     ArrowRight, ShieldCheck, Heart,
     MessageSquare, Smartphone, Clock,
     QrCode, Copy, Check, Info, CalendarDays,
-    Send, ChevronRight, Download, Users,
+    Send, ChevronRight, ChevronLeft, Download, Users,
     ExternalLink, BellOff, BellRing,
     CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity, History
 } from 'lucide-react';
