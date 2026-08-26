@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
         // Every row must belong to the caller's own org — reject the whole
         // batch rather than silently dropping rows, so a mismatch is visible.
-        const foreignRow = rows.find((r: any) => r.org_id && r.org_id !== auth.orgId);
+        const foreignRow = rows.find((r: any) => r.org_id && !auth.hasAccessToOrg(r.org_id));
         if (foreignRow) {
             return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }

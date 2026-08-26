@@ -45,8 +45,9 @@ export async function GET(req: Request) {
         // 1. Auth Logic (Strict for Admins, Lenient for Portals)
         let callerOrgId: string | null = null;
         let callerEmail: string | undefined = undefined;
+        let auth: any = null;
         if (!isClientPortal) {
-            const auth = await getAuthenticatedOrgId(req);
+            auth = await getAuthenticatedOrgId(req);
             if (!auth) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Could not resolve OrgID' }, { status: 404 });
         }
 
-        if (!isClientPortal && targetOrgId !== callerOrgId) {
+        if (!isClientPortal && (!auth || !auth.hasAccessToOrg(targetOrgId))) {
             return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 
@@ -128,8 +129,9 @@ export async function POST(req: Request) {
         // 1. Verify User Session (Bypass for Portals)
         let callerOrgId: string | null = null;
         let callerEmail: string | undefined = undefined;
+        let auth: any = null;
         if (!isClientPortal) {
-            const auth = await getAuthenticatedOrgId(req);
+            auth = await getAuthenticatedOrgId(req);
             if (!auth) {
                 console.error('❌ [SyncAPI] Unauthorized: No valid token or session.');
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -158,7 +160,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Could not resolve OrgID' }, { status: 404 });
         }
 
-        if (!isClientPortal && targetOrgId !== callerOrgId) {
+        if (!isClientPortal && !auth.hasAccessToOrg(targetOrgId)) {
             return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 

@@ -40,7 +40,7 @@ const ALLOWED_TABLES = new Set([
 export async function POST(req: Request) {
     try {
         const auth = await getAuthenticatedOrgId(req);
-        if (!auth || !auth.orgId) {
+        if (!auth) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Invalid or missing table' }, { status: 400 });
         }
 
-        if (!orgId || orgId !== auth.orgId) {
+        if (!orgId || !auth.hasAccessToOrg(orgId)) {
             return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 

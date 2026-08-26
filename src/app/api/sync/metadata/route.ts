@@ -29,7 +29,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Slug and OrgID are required' }, { status: 400 });
         }
 
-        if (resolvedOrgId !== auth.orgId) {
+        if (!auth.hasAccessToOrg(resolvedOrgId)) {
             return NextResponse.json({ error: 'Forbidden: org mismatch' }, { status: 403 });
         }
 
