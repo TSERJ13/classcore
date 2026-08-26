@@ -9,7 +9,7 @@ import {
     X,
     FileSpreadsheet, FileText, CalendarDays, LayoutGrid, Calendar,
     Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw,
-    Users, User, Home
+    Users, User, Home, SlidersHorizontal
 } from 'lucide-react';
 import { cn, getLocalISODate, getActiveSlug, formatDate, formatShortName } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -1528,6 +1528,7 @@ export default function CalendarPage() {
     }, [events]);
     const [filterHall, setFilterHall] = useState<string>('all');
     const [filterTeacher, setFilterTeacher] = useState<string>('all');
+    const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
     const [selectedEv, setSelectedEv] = useState<CalendarEvent | null>(null);
     const [addDate, setAddDate] = useState<string | null>(null);
     const [addTime, setAddTime] = useState<string | null>(null);
@@ -2268,8 +2269,38 @@ export default function CalendarPage() {
                 </div>
             </div>
 
-            {/* ── Bottom Header Row: Hall filters + PDF + Add Action */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* ── Mobile Trigger Button (Collapses actions & filters into Bottom Sheet) ── */}
+            <div className="flex md:hidden items-center justify-between gap-2 w-full">
+                <button
+                    onClick={() => setIsFilterSheetOpen(true)}
+                    className="flex-1 flex items-center justify-between h-11 px-4 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 rounded-2xl transition-all shadow-sm active:scale-95 group"
+                >
+                    <div className="flex items-center gap-2.5">
+                        <SlidersHorizontal className="w-4 h-4 text-[#6d28d9]" />
+                        <span className="text-[11px] font-black text-primary">
+                            {lang === 'ka' ? 'ფილტრები და ქმედებები' : 'Filters & Actions'}
+                        </span>
+                    </div>
+                    {(filterHall !== 'all' || filterTeacher !== 'all') ? (
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#6d28d9] animate-pulse" />
+                    ) : (
+                        <ChevronRight className="w-4 h-4 text-muted opacity-40" />
+                    )}
+                </button>
+
+                {canEdit && (
+                    <button
+                        onClick={() => setAddDate(toDateStr(new Date()))}
+                        className="flex items-center justify-center w-11 h-11 bg-[#6d28d9] hover:bg-indigo-600 text-white rounded-2xl shadow-md shadow-[#6d28d9]/20 active:scale-95 transition-all flex-shrink-0"
+                        title={t.addEvent}
+                    >
+                        <CalendarPlus className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
+
+            {/* ── Desktop Header Row: Hall filters + PDF + Add Action ── */}
+            <div className="hidden md:flex flex-wrap items-center justify-between gap-3">
                 {/* Hall Filters Block */}
                 <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
                     <button
@@ -2325,7 +2356,8 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-2">
                     {/* PDF Export */}
                     <button onClick={exportPDF}
-                        className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-muted hover:text-[#6d28d9] rounded-2xl transition-all shadow-sm group">
+                        className="flex items-center justify-center w-11 h-11 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-muted hover:text-[#6d28d9] rounded-2xl transition-all shadow-sm group"
+                        title={lang === 'ka' ? 'კალენდრის გადმოწერა' : 'Download Calendar'}>
                         <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
                     </button>
 
@@ -2334,11 +2366,163 @@ export default function CalendarPage() {
                         <button onClick={() => setAddDate(toDateStr(new Date()))}
                             className="flex items-center justify-center gap-2 h-11 px-5 bg-[#6d28d9] hover:bg-indigo-600 active:scale-95 text-white text-[10px] font-black tracking-widest rounded-2xl shadow-lg shadow-[#6d28d9]/20 transition-all">
                             <CalendarPlus className="w-4 h-4" />
-                            <span className="hidden sm:inline">{t.addEvent}</span>
+                            <span>{t.addEvent}</span>
                         </button>
                     )}
                 </div>
             </div>
+
+            {/* ── Bottom Sheet Drawer Modal ── */}
+            {isFilterSheetOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200" onClick={() => setIsFilterSheetOpen(false)}>
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs" />
+                    <div 
+                        className="relative z-10 w-full max-w-lg bg-card border-t sm:border border-border-subtle rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl p-6 space-y-6 animate-in slide-in-from-bottom duration-300 max-h-[85vh] overflow-y-auto"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Sheet Handle & Header */}
+                        <div className="flex flex-col items-center">
+                            <div className="w-12 h-1.5 bg-border-subtle rounded-full mb-4 opacity-60" />
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2.5">
+                                    <SlidersHorizontal className="w-5 h-5 text-[#6d28d9]" />
+                                    <h3 className="text-base font-black text-primary tracking-tight">
+                                        {lang === 'ka' ? 'ფილტრები და ქმედებები' : 'Filters & Actions'}
+                                    </h3>
+                                </div>
+                                <button 
+                                    onClick={() => setIsFilterSheetOpen(false)}
+                                    className="w-8 h-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center text-muted hover:text-primary transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Quick Actions Section */}
+                        <div className="space-y-2.5">
+                            <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">
+                                {lang === 'ka' ? 'სწრაფი ქმედებები' : 'Quick Actions'}
+                            </label>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                {canEdit && (
+                                    <button
+                                        onClick={() => {
+                                            setIsFilterSheetOpen(false);
+                                            setAddDate(toDateStr(new Date()));
+                                        }}
+                                        className="flex items-center justify-center gap-2.5 p-3.5 bg-[#6d28d9] hover:bg-indigo-600 text-white text-xs font-black tracking-wider rounded-2xl shadow-lg shadow-[#6d28d9]/20 transition-all active:scale-95"
+                                    >
+                                        <CalendarPlus className="w-4 h-4" />
+                                        <span>{t.addEvent}</span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setIsFilterSheetOpen(false);
+                                        exportPDF();
+                                    }}
+                                    className="flex items-center justify-center gap-2.5 p-3.5 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 text-primary text-xs font-bold rounded-2xl transition-all active:scale-95 shadow-sm"
+                                >
+                                    <Download className="w-4 h-4 text-[#6d28d9]" />
+                                    <span>{lang === 'ka' ? 'გადმოწერა' : 'Download'}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Hall Filters Section */}
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">
+                                    {lang === 'ka' ? 'დარბაზების ფილტრი' : 'Halls Filter'}
+                                </label>
+                                {filterHall !== 'all' && (
+                                    <button onClick={() => setFilterHall('all')} className="text-[10px] font-black text-[#6d28d9]">
+                                        {lang === 'ka' ? 'გასუფთავება' : 'Reset'}
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setFilterHall('all')}
+                                    className={cn(
+                                        'px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all shadow-sm',
+                                        filterHall === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-surface border-border-subtle text-muted'
+                                    )}
+                                >
+                                    {lang === 'ka' ? 'ყველა დარბაზი' : t.allHalls}
+                                </button>
+                                {halls.map((h: any) => (
+                                    <button
+                                        key={h.id}
+                                        onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
+                                        className={cn(
+                                            'flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all shadow-sm',
+                                            filterHall === h.id ? 'text-white' : 'bg-surface'
+                                        )}
+                                        style={{
+                                            backgroundColor: filterHall === h.id ? h.color : `${h.color}15`,
+                                            borderColor: h.color + '40',
+                                            color: filterHall === h.id ? 'white' : h.color,
+                                        }}
+                                    >
+                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: filterHall === h.id ? 'white' : h.color }} />
+                                        {(t as any)[h.name] || h.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Teacher Filters Section */}
+                        {teachers.length > 0 && (
+                            <div className="space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-black text-muted tracking-widest uppercase opacity-40">
+                                        {lang === 'ka' ? 'ტრენერების ფილტრი' : 'Teachers Filter'}
+                                    </label>
+                                    {filterTeacher !== 'all' && (
+                                        <button onClick={() => setFilterTeacher('all')} className="text-[10px] font-black text-[#6d28d9]">
+                                            {lang === 'ka' ? 'გასუფთავება' : 'Reset'}
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <button
+                                        onClick={() => setFilterTeacher('all')}
+                                        className={cn(
+                                            'px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all shadow-sm',
+                                            filterTeacher === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-surface border-border-subtle text-muted'
+                                        )}
+                                    >
+                                        {lang === 'ka' ? 'ყველა ტრენერი' : 'All Teachers'}
+                                    </button>
+                                    {teachers.map((tc: any) => (
+                                        <button
+                                            key={tc.id}
+                                            onClick={() => setFilterTeacher(filterTeacher === tc.id ? 'all' : tc.id)}
+                                            className={cn(
+                                                'flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all shadow-sm',
+                                                filterTeacher === tc.id ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-surface border-border-subtle text-muted'
+                                            )}
+                                        >
+                                            <User className="w-3.5 h-3.5 opacity-60" />
+                                            {formatShortName(tc.full_name)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Done / Close Button */}
+                        <button
+                            onClick={() => setIsFilterSheetOpen(false)}
+                            className="w-full py-3.5 bg-[#6d28d9] text-white text-xs font-black tracking-wider rounded-2xl transition-all active:scale-95 shadow-md shadow-[#6d28d9]/20"
+                        >
+                            {lang === 'ka' ? 'მზადაა' : 'Done'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ═══ DAY VIEW ════════════════════════════════════════════ */}
             {view === 'day' && (
