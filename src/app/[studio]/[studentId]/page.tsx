@@ -559,97 +559,61 @@ export default function StudentPortalPage() {
         );
         const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
 
-        // Calculate 3-month window dates based on quarterOffset
+        // Student subscriptions to verify active subscription status on past dates
+        const studentSubs = getStudentSubscriptions(studentId);
+        
+        // Earliest active date (student registration or first subscription purchase date)
+        let earliestStudentDate = studentData?.created_at ? getLocalISODate(new Date(studentData.created_at)) : '';
+        if (studentSubs.length > 0) {
+            const subDates = studentSubs.map(s => s.purchased_at).filter(Boolean).sort();
+            if (subDates.length > 0 && (!earliestStudentDate || subDates[0] < earliestStudentDate)) {
+                earliestStudentDate = subDates[0];
+            }
+        }
+
+        const hadActiveSubOnDate = (dateStr: string) => {
+            if (!studentSubs || studentSubs.length === 0) return false;
+            return studentSubs.some(s => {
+                const purchaseDate = s.purchased_at ? getLocalISODate(new Date(s.purchased_at)) : '';
+                const expiryDate = s.expires_at || '';
+                if (purchaseDate && dateStr < purchaseDate) return false;
+                if (expiryDate && dateStr > expiryDate) return false;
+                return true;
+            });
+        };
+
+        // Calculate 3 months for current quarterOffset
         const now = new Date();
-        const targetMonth = now.getMonth() + (quarterOffset * 3);
-        const windowEnd = new Date(now.getFullYear(), targetMonth + 1, 0); // Last day of target month
-        const windowStart = new Date(windowEnd.getFullYear(), windowEnd.getMonth() - 2, 1); // First day of 3 months prior
-
-        // Adjust start date to Monday of that week for clean grid alignment
-        const dayOf = windowStart.getDay();
-        const diff = windowStart.getDate() - dayOf + (dayOf === 0 ? -6 : 1);
-        const startDate = new Date(windowStart);
-        startDate.setDate(diff);
-        startDate.setHours(0,0,0,0);
-
-        const curr = new Date(startDate);
-        const days: { date: string; status: 'present' | 'absent' | 'none'; month: string; isStartOfMonth: boolean; isScheduled: boolean }[] = [];
-        let lastMonth = '';
+        const targetMonthIndex = now.getMonth() + (quarterOffset * 3);
         
-        let scheduledCount = 0;
-        let attendedCount = 0;
-        let missedCount = 0;
-
-        while (curr <= windowEnd) {
-            const dStr = getLocalISODate(curr);
-            const dayOfWeek = (curr.getDay() + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
-            const monthName = curr.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short' });
-            
-            // Check if student has a scheduled lesson on this day
-            const hasScheduledGroup = enrolledGroups.some(g => {
-                if (g.schedule_slots && Array.isArray(g.schedule_slots)) {
-                    return g.schedule_slots.some((s: any) => s.dayOfWeek === dayOfWeek);
-                }
-                if (g.schedule_days && Array.isArray(g.schedule_days)) {
-                    return g.schedule_days.includes(dayOfWeek);
-                }
-                return false;
-            });
-            const hasIndividualEvent = myEvents.some(e => e.date === dStr);
-            const isScheduledDay = hasScheduledGroup || hasIndividualEvent;
-
-            let status: 'present' | 'absent' | 'none' = 'none';
-
-            if (checkinDates.has(dStr)) {
-                status = 'present';
-                if (dStr <= todayStr && isScheduledDay) {
-                    scheduledCount++;
-                    attendedCount++;
-                } else if (dStr <= todayStr) {
-                    attendedCount++;
-                }
-            } else if (dStr <= todayStr && isScheduledDay) {
-                status = 'absent';
-                scheduledCount++;
-                missedCount++;
-            }
-
-            days.push({ 
-                date: dStr, 
-                status, 
-                month: monthName,
-                isStartOfMonth: monthName !== lastMonth,
-                isScheduled: isScheduledDay
-            });
-            lastMonth = monthName;
-            curr.setDate(curr.getDate() + 1);
+        // Array of 3 month Date objects
+        const monthsToDisplay: Date[] = [];
+        for (let i = 2; i >= 0; i--) {
+            monthsToDisplay.push(new Date(now.getFullYear(), targetMonthIndex - i, 1));
         }
 
-        const weeks: typeof days[] = [];
-        let currentWeek: typeof days = [];
-        
-        days.forEach(d => {
-            currentWeek.push(d);
-            if (currentWeek.length === 7) {
-                weeks.push(currentWeek);
-                currentWeek = [];
-            }
-        });
-        if (currentWeek.length > 0) {
-            while (currentWeek.length < 7) currentWeek.push({ date: '', status: 'none', month: '', isStartOfMonth: false, isScheduled: false });
-            weeks.push(currentWeek);
-        }
+        let totalScheduledCount = 0;
+        let totalAttendedCount = 0;
+        let totalMissedWithSubCount = 0;
+        let totalNoSubCount = 0;
 
-        const attendanceRate = scheduledCount > 0 ? Math.round((attendedCount / scheduledCount) * 100) : (attendedCount > 0 ? 100 : 0);
+        const weekdayLabels = lang === 'ka' 
+            ? ['ორშ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი']
+            : lang === 'ru'
+            ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+            : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
-        const startMonthLabel = windowStart.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short' });
-        const endMonthLabel = windowEnd.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', year: 'numeric' });
-        const periodLabel = `${startMonthLabel} - ${endMonthLabel}`;
+        // Format Period Label (e.g. "ივნ - აგვ 2026")
+        const firstM = monthsToDisplay[0];
+        const lastM = monthsToDisplay[2];
+        const startLabel = firstM.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short' });
+        const endLabel = lastM.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', year: 'numeric' });
+        const periodLabel = `${startLabel} - ${endLabel}`;
 
         return (
-            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden space-y-6">
-                {/* Header & Controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border-subtle/50">
+            <div className="bg-card border border-border-subtle rounded-[2.5rem] p-5 sm:p-7 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                {/* Header & Small Arrow Navigation */}
+                <div className="flex items-center justify-between pb-3 border-b border-border-subtle/50">
                     <div>
                         <h3 className="text-base font-black text-primary tracking-tight flex items-center gap-2">
                             <Activity className="w-5 h-5 text-indigo-500" />
@@ -658,23 +622,21 @@ export default function StudentPortalPage() {
                         <p className="text-[10px] font-bold text-muted opacity-60 tracking-wider mt-0.5">{periodLabel}</p>
                     </div>
 
-                    {/* Quarter Navigation Buttons */}
-                    <div className="flex items-center gap-2">
+                    {/* Sleek Small Icon Arrow Navigation */}
+                    <div className="flex items-center gap-1.5">
                         <button
                             onClick={() => setQuarterOffset(prev => prev - 1)}
-                            className="px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-indigo-500/30 text-xs font-bold text-primary flex items-center gap-1 transition-all active:scale-95 shadow-sm"
+                            className="w-8 h-8 rounded-full bg-surface border border-border-subtle hover:border-indigo-500/40 text-primary flex items-center justify-center transition-all active:scale-90 shadow-sm"
                             title={l('წინა 3 თვე', 'Пред. 3 месяца', 'Prev 3 Months')}
                         >
                             <ChevronLeft className="w-4 h-4 text-indigo-500" />
-                            <span className="text-[10px] font-black">{l('წინა 3 თვე', 'Пред. 3 мес.', 'Prev 3 mos.')}</span>
                         </button>
                         {quarterOffset < 0 && (
                             <button
                                 onClick={() => setQuarterOffset(prev => prev + 1)}
-                                className="px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-indigo-500/30 text-xs font-bold text-primary flex items-center gap-1 transition-all active:scale-95 shadow-sm"
+                                className="w-8 h-8 rounded-full bg-surface border border-border-subtle hover:border-indigo-500/40 text-primary flex items-center justify-center transition-all active:scale-90 shadow-sm"
                                 title={l('შემდეგი 3 თვე', 'След. 3 месяца', 'Next 3 Months')}
                             >
-                                <span className="text-[10px] font-black">{l('შემდეგი 3 თვე', 'След. 3 мес.', 'Next 3 mos.')}</span>
                                 <ChevronRight className="w-4 h-4 text-indigo-500" />
                             </button>
                         )}
@@ -682,93 +644,168 @@ export default function StudentPortalPage() {
                 </div>
 
                 {/* Legend */}
-                <div className="flex flex-wrap items-center gap-4 text-[10px] font-black text-muted/70">
+                <div className="flex flex-wrap items-center gap-3.5 text-[10px] font-black text-muted/80 bg-surface/50 p-3 rounded-2xl border border-border-subtle/50">
                     <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-md bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm shadow-emerald-500/20">✓</div>
-                        <span>{l('დასწრება', 'Был', 'Attended')}</span>
+                        <div className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm shadow-emerald-500/30">✓</div>
+                        <span>{l('მოვიდა', 'Пришел', 'Attended')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-md bg-rose-500/15 border border-rose-500/40 text-rose-500 flex items-center justify-center text-[9px] font-black">✕</div>
-                        <span>{l('გაცდენა (მის დღეს)', 'Пропуск (в его день)', 'Missed (Lesson Day)')}</span>
+                        <div className="w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm shadow-rose-500/30">✕</div>
+                        <span>{l('გაცდენა (აბონემენტით)', 'Пропуск (с аб.)', 'Missed (with sub)')}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 opacity-50">
-                        <div className="w-4 h-4 rounded-md bg-surface border border-border-subtle" />
-                        <span>{l('უგაკვეთილო დღე', 'Нет урока', 'No Lesson')}</span>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-4 h-4 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-500 flex items-center justify-center text-[9px] font-black">✕</div>
+                        <span>{l('აბონემენტის გარეშე', 'Без абонемента', 'No sub')}</span>
                     </div>
                 </div>
 
-                {/* Grid Display */}
-                <div className="overflow-x-auto no-scrollbar py-2">
-                    <div className="flex gap-1 min-w-max">
-                        <div className="flex gap-2">
-                            {/* Day Labels */}
-                            <div className="flex flex-col gap-1.5 pt-5 pr-1">
-                                {['M', '', 'W', '', 'F', '', ''].map((label, i) => (
-                                    <div key={i} className="h-5 flex items-center">
-                                        <span className="text-[8px] font-black text-muted opacity-30 uppercase">{label}</span>
-                                    </div>
-                                ))}
-                            </div>
+                {/* 3 Monthly Calendars */}
+                <div className="space-y-6">
+                    {monthsToDisplay.map((mDate, mIdx) => {
+                        const monthYearLabel = mDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', year: 'numeric' });
+                        const year = mDate.getFullYear();
+                        const month = mDate.getMonth();
 
-                            {/* Weeks Columns */}
-                            <div className="flex gap-1.5 flex-1">
-                                {weeks.map((week, wIdx) => {
-                                    const monthLabel = week.find(d => d.isStartOfMonth)?.month;
-                                    return (
-                                        <div key={wIdx} className="flex flex-col gap-1.5">
-                                            <div className="h-4 flex items-center justify-center">
-                                                {monthLabel && <span className="text-[9px] font-black text-muted opacity-50 uppercase whitespace-nowrap">{monthLabel}</span>}
+                        // Days in month
+                        const daysInMonth = new Date(year, month + 1, 0).getDate();
+                        
+                        // First day of month (0 = Sun, 1 = Mon...) -> Convert to Mon=0
+                        const firstDayRaw = new Date(year, month, 1).getDay();
+                        const startingEmptySlots = (firstDayRaw + 6) % 7;
+
+                        const monthDays: Array<{
+                            dayNum: number;
+                            dateStr: string;
+                            isScheduled: boolean;
+                            status: 'attended' | 'missed_with_sub' | 'no_sub' | 'none' | 'future';
+                        }> = [];
+
+                        for (let d = 1; d <= daysInMonth; d++) {
+                            const dateObj = new Date(year, month, d);
+                            const dStr = getLocalISODate(dateObj);
+                            const dayOfWeek = (dateObj.getDay() + 6) % 7; // Mon=0
+
+                            const hasScheduledGroup = enrolledGroups.some(g => {
+                                if (g.schedule_slots && Array.isArray(g.schedule_slots)) {
+                                    return g.schedule_slots.some((s: any) => s.dayOfWeek === dayOfWeek);
+                                }
+                                if (g.schedule_days && Array.isArray(g.schedule_days)) {
+                                    return g.schedule_days.includes(dayOfWeek);
+                                }
+                                return false;
+                            });
+                            const hasIndividualEvent = myEvents.some(e => e.date === dStr);
+                            const isScheduledDay = hasScheduledGroup || hasIndividualEvent;
+
+                            let status: 'attended' | 'missed_with_sub' | 'no_sub' | 'none' | 'future' = 'none';
+
+                            if (dStr > todayStr) {
+                                status = isScheduledDay ? 'future' : 'none';
+                            } else if (checkinDates.has(dStr)) {
+                                status = 'attended';
+                                if (isScheduledDay) totalScheduledCount++;
+                                totalAttendedCount++;
+                            } else if (isScheduledDay && (!earliestStudentDate || dStr >= earliestStudentDate)) {
+                                totalScheduledCount++;
+                                if (hadActiveSubOnDate(dStr)) {
+                                    status = 'missed_with_sub';
+                                    totalMissedWithSubCount++;
+                                } else {
+                                    status = 'no_sub';
+                                    totalNoSubCount++;
+                                }
+                            }
+
+                            monthDays.push({
+                                dayNum: d,
+                                dateStr: dStr,
+                                isScheduled: isScheduledDay,
+                                status
+                            });
+                        }
+
+                        return (
+                            <div key={mIdx} className="bg-surface/40 border border-border-subtle/70 rounded-3xl p-4 space-y-3">
+                                <h4 className="text-xs font-black text-primary capitalize tracking-tight px-1 flex items-center justify-between">
+                                    <span>{monthYearLabel}</span>
+                                </h4>
+
+                                {/* Weekday Labels Header */}
+                                <div className="grid grid-cols-7 gap-1 text-center">
+                                    {weekdayLabels.map((wLabel, i) => (
+                                        <span key={i} className="text-[9px] font-black text-muted opacity-40 uppercase py-1">{wLabel}</span>
+                                    ))}
+                                </div>
+
+                                {/* Monthly Calendar Grid */}
+                                <div className="grid grid-cols-7 gap-1.5">
+                                    {/* Empty offset slots */}
+                                    {Array.from({ length: startingEmptySlots }).map((_, i) => (
+                                        <div key={`empty-${i}`} className="h-8 rounded-xl" />
+                                    ))}
+
+                                    {/* Days */}
+                                    {monthDays.map((dayItem) => {
+                                        return (
+                                            <div
+                                                key={dayItem.dayNum}
+                                                title={dayItem.dateStr}
+                                                className={cn(
+                                                    "h-8 rounded-xl flex items-center justify-center text-[11px] font-black transition-all relative",
+                                                    dayItem.status === 'attended' ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-500/20" :
+                                                    dayItem.status === 'missed_with_sub' ? "bg-rose-500 text-white shadow-md shadow-rose-500/25 ring-2 ring-rose-500/20" :
+                                                    dayItem.status === 'no_sub' ? "bg-rose-500/15 border border-rose-500/40 text-rose-500" :
+                                                    dayItem.isScheduled ? "bg-surface border border-indigo-500/30 text-indigo-500" :
+                                                    "bg-surface/20 text-muted opacity-30"
+                                                )}
+                                            >
+                                                <span>{dayItem.dayNum}</span>
+                                                {dayItem.status === 'no_sub' && (
+                                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[8px] font-black">✕</span>
+                                                )}
                                             </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                {week.map((day, dIdx) => (
-                                                    <div
-                                                        key={dIdx}
-                                                        title={day.date ? `${day.date}: ${day.status === 'present' ? 'Attended' : day.status === 'absent' ? 'Missed' : 'No Class'}` : ''}
-                                                        className={cn(
-                                                            "w-5 h-5 rounded-md transition-all duration-300 flex items-center justify-center text-[10px] font-black",
-                                                            day.date === '' ? "opacity-0" :
-                                                            day.status === 'present' ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" :
-                                                            day.status === 'absent' ? "bg-rose-500/15 border border-rose-500/40 text-rose-500" :
-                                                            "bg-surface/40 border border-border-subtle/30 opacity-40"
-                                                        )}
-                                                    >
-                                                        {day.status === 'present' ? '✓' : day.status === 'absent' ? '✕' : ''}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        );
+                    })}
                 </div>
 
                 {/* Attendance Rate & Stats Footer */}
-                <div className="bg-surface/60 border border-border-subtle/80 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                        <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center justify-center shrink-0">
-                            <span className="text-lg font-black text-indigo-600 tabular-nums leading-none">{attendanceRate}%</span>
-                            <span className="text-[8px] font-black text-muted opacity-50 uppercase mt-0.5">{l('დასწრება', 'Явка', 'Rate')}</span>
-                        </div>
-                        <div>
-                            <p className="text-xs font-black text-primary tracking-tight">{l('დასწრებადობის პროცენტი', 'Процент посещаемости', 'Attendance Percentage')}</p>
-                            <p className="text-[10px] font-bold text-muted opacity-70 mt-0.5">
-                                {attendedCount} {l('დასწრება', 'посещений', 'attended')} • {missedCount} {l('გაცდენა', 'пропусков', 'missed')} {scheduledCount > 0 ? `(${l('სულ', 'всего', 'total')} ${scheduledCount} ${l('გაკვეთილი', 'уроков', 'lessons')})` : ''}
-                            </p>
-                        </div>
-                    </div>
+                {(() => {
+                    const totalMissed = totalMissedWithSubCount + totalNoSubCount;
+                    const attendanceRate = totalScheduledCount > 0 
+                        ? Math.round((totalAttendedCount / totalScheduledCount) * 100) 
+                        : (totalAttendedCount > 0 ? 100 : 0);
 
-                    {/* Progress Bar */}
-                    <div className="w-full sm:w-36 flex flex-col gap-1.5">
-                        <div className="h-2.5 bg-card rounded-full overflow-hidden p-0.5 border border-border-subtle">
-                            <div
-                                className={cn("h-full rounded-full transition-all duration-700", attendanceRate >= 80 ? "bg-emerald-500" : attendanceRate >= 50 ? "bg-amber-500" : "bg-rose-500")}
-                                style={{ width: `${Math.min(100, Math.max(0, attendanceRate))}%` }}
-                            />
+                    return (
+                        <div className="bg-surface/70 border border-border-subtle/80 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-4 w-full sm:w-auto">
+                                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center justify-center shrink-0">
+                                    <span className="text-lg font-black text-indigo-600 tabular-nums leading-none">{attendanceRate}%</span>
+                                    <span className="text-[8px] font-black text-muted opacity-50 uppercase mt-0.5">{l('დასწრება', 'Явка', 'Rate')}</span>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black text-primary tracking-tight">{l('დასწრებადობის პროცენტი', 'Процент посещаемости', 'Attendance Percentage')}</p>
+                                    <p className="text-[10px] font-bold text-muted opacity-70 mt-0.5">
+                                        {totalAttendedCount} {l('დასწრება', 'посещений', 'attended')} • {totalMissed} {l('გაცდენა', 'пропусков', 'missed')} {totalScheduledCount > 0 ? `(${l('სულ', 'всего', 'total')} ${totalScheduledCount} ${l('გაკვეთილი', 'уроков', 'lessons')})` : ''}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="w-full sm:w-36 flex flex-col gap-1.5">
+                                <div className="h-2.5 bg-card rounded-full overflow-hidden p-0.5 border border-border-subtle">
+                                    <div
+                                        className={cn("h-full rounded-full transition-all duration-700", attendanceRate >= 80 ? "bg-emerald-500" : attendanceRate >= 50 ? "bg-amber-500" : "bg-rose-500")}
+                                        style={{ width: `${Math.min(100, Math.max(0, attendanceRate))}%` }}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    );
+                })()}
             </div>
         );
     };
