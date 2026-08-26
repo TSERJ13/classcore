@@ -282,6 +282,26 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             console.warn(`🛡️ [Hydration] Empty cloud result for ${key} — preserving local data.`);
                             return;
                         }
+                        // 🛡️ Race-condition guard: don't overwrite local array with shorter cloud
+                        // array if the local data was edited within the last 2 minutes.
+                        // This prevents the "iPad 4→3 plans" bug where a background hydration
+                        // fetches a stale cloud snapshot before the new item finishes syncing.
+                        if (Array.isArray(data)) {
+                            try {
+                                const raw = localStorage.getItem(scoped);
+                                if (raw) {
+                                    const local = JSON.parse(raw);
+                                    if (Array.isArray(local) && local.length > data.length) {
+                                        const guardKey = `cc_local_edit_guard_${scoped}`;
+                                        const editedAt = localStorage.getItem(guardKey);
+                                        if (editedAt && Date.now() - parseInt(editedAt) < 120_000) {
+                                            console.warn(`🛡️ [Hydration] Local ${key} is newer (${local.length} > ${data.length}), edit < 2min — preserving local.`);
+                                            return;
+                                        }
+                                    }
+                                }
+                            } catch { /* ignore */ }
+                        }
                         await safeSetItem(scoped, JSON.stringify(data), activeSlug || 'default');
                     };
 

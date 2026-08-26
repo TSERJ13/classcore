@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,13 +10,14 @@ import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
 import { getHalls, saveHalls, deleteHall } from '@/lib/hall-store';
 import { getGroups } from '@/lib/group-store';
-import { useMemo } from 'react';
 import { useStudio } from '@/contexts/StudioContext';
+import { useConfirm } from '@/contexts/ConfirmContext';
 
 
 export default function HallsPage() {
     const { t, lang } = useT();
     const { settings } = useStudio();
+    const confirm = useConfirm();
     const [halls, setHalls] = useState<Hall[]>([]);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Hall | null>(null);
@@ -163,11 +164,10 @@ export default function HallsPage() {
                                         title={t.edit || 'Edit'}>
                                         <Edit2 className="w-4 h-4" />
                                     </button>
-                                    <button onClick={(e) => { 
+                                    <button onClick={async (e) => { 
                                             e.stopPropagation(); 
-                                            if (window.confirm(lang === 'ka' ? `ნამდვილად გსურთ "${hall.name}" დარბაზის წაშლა?` : `Delete hall "${hall.name}"?`)) {
-                                                handleDelete(hall.id);
-                                            }
+                                            const ok = await confirm(lang === 'ka' ? `"${hall.name}" დარბაზის წაშლა?` : `Delete hall "${hall.name}"?`);
+                                            if (ok) handleDelete(hall.id);
                                         }}
                                         className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all shadow-sm"
                                         title={t.delete || 'Delete'}>

@@ -9,7 +9,7 @@ import {
     X,
     FileSpreadsheet, FileText, CalendarDays, LayoutGrid, Calendar,
     Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw,
-    Users, User, Home, SlidersHorizontal
+    Users, User, Home, SlidersHorizontal, Plus
 } from 'lucide-react';
 import { cn, getLocalISODate, getActiveSlug, formatDate, formatShortName } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -1532,6 +1532,9 @@ export default function CalendarPage() {
     const [selectedEv, setSelectedEv] = useState<CalendarEvent | null>(null);
     const [addDate, setAddDate] = useState<string | null>(null);
     const [addTime, setAddTime] = useState<string | null>(null);
+    const [fabOpen, setFabOpen] = useState(false);
+    const [fabHallOpen, setFabHallOpen] = useState(false);
+    const [fabTeacherOpen, setFabTeacherOpen] = useState(false);
 
     // ── Drag & Drop state ──────────────────────────────────────
     const dragInfo = useRef<DragInfo | null>(null);
@@ -2270,7 +2273,7 @@ export default function CalendarPage() {
             </div>
 
             {/* ── Mobile Trigger Button (Collapses actions & filters into Bottom Sheet) ── */}
-            <div className="flex md:hidden items-center justify-between gap-2 w-full">
+            <div className="hidden items-center justify-between gap-2 w-full">
                 <button
                     onClick={() => setIsFilterSheetOpen(true)}
                     className="flex-1 flex items-center justify-between h-11 px-4 bg-surface border border-border-subtle hover:border-[#6d28d9]/40 rounded-2xl transition-all shadow-sm active:scale-95 group"
@@ -2524,7 +2527,180 @@ export default function CalendarPage() {
                 </div>
             )}
 
-            {/* ═══ DAY VIEW ════════════════════════════════════════════ */}
+            {/* ── Mobile FAB Speed-Dial ── */}
+            <div className="md:hidden">
+                {/* Backdrop */}
+                {fabOpen && (
+                    <div
+                        className="fixed inset-0 z-[45] bg-black/20 backdrop-blur-[2px]"
+                        onClick={() => { setFabOpen(false); setFabHallOpen(false); setFabTeacherOpen(false); }}
+                    />
+                )}
+
+                {/* Hall filter sub-panel */}
+                {fabOpen && fabHallOpen && (
+                    <div className="fixed bottom-[160px] right-4 z-[60] bg-card border border-border-subtle rounded-2xl shadow-2xl p-3 w-56 animate-in fade-in zoom-in-95 duration-150">
+                        <p className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest mb-2 px-1">დარბაზები</p>
+                        <button
+                            onClick={() => { setFilterHall('all'); setFabHallOpen(false); }}
+                            className={cn('w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all mb-1', filterHall === 'all' ? 'bg-[#6d28d9] text-white' : 'text-muted hover:bg-surface')}
+                        >
+                            ყველა დარბაზი
+                        </button>
+                        {halls.map((h: any) => (
+                            <button
+                                key={h.id}
+                                onClick={() => { setFilterHall(filterHall === h.id ? 'all' : h.id); setFabHallOpen(false); }}
+                                className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all mb-1 hover:bg-surface"
+                                style={{ color: h.color }}
+                            >
+                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
+                                {h.name}
+                                {filterHall === h.id && <span className="ml-auto text-[#6d28d9]">✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Teacher filter sub-panel */}
+                {fabOpen && fabTeacherOpen && teachers.length > 0 && (
+                    <div className="fixed bottom-[160px] right-4 z-[60] bg-card border border-border-subtle rounded-2xl shadow-2xl p-3 w-56 animate-in fade-in zoom-in-95 duration-150">
+                        <p className="text-[9px] font-black text-muted opacity-40 uppercase tracking-widest mb-2 px-1">ტრენერები</p>
+                        <button
+                            onClick={() => { setFilterTeacher('all'); setFabTeacherOpen(false); }}
+                            className={cn('w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all mb-1', filterTeacher === 'all' ? 'bg-[#6d28d9] text-white' : 'text-muted hover:bg-surface')}
+                        >
+                            ყველა ტრენერი
+                        </button>
+                        {teachers.map((tc: any) => (
+                            <button
+                                key={tc.id}
+                                onClick={() => { setFilterTeacher(filterTeacher === tc.id ? 'all' : tc.id); setFabTeacherOpen(false); }}
+                                className={cn('w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all mb-1 hover:bg-surface', filterTeacher === tc.id ? 'bg-[#6d28d9]/10 text-[#6d28d9]' : 'text-muted')}
+                            >
+                                <User className="w-3.5 h-3.5 opacity-60" />
+                                {formatShortName(tc.full_name)}
+                                {filterTeacher === tc.id && <span className="ml-auto text-[#6d28d9]">✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Speed-dial action items */}
+                <div
+                    className="fixed bottom-[76px] right-4 z-[55] flex flex-col items-end gap-2.5"
+                    style={{ pointerEvents: fabOpen ? 'auto' : 'none' }}
+                >
+                    {/* Teacher filter */}
+                    <div
+                        className="flex items-center gap-2.5 transition-all duration-200"
+                        style={{
+                            opacity: fabOpen ? 1 : 0,
+                            transform: fabOpen ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.8)',
+                            transitionDelay: fabOpen ? '0ms' : '0ms'
+                        }}
+                    >
+                        <span className="bg-card border border-border-subtle text-primary text-[11px] font-black px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap flex items-center gap-1.5">
+                            ტრენერის ფილტრი
+                            {filterTeacher !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-[#6d28d9]" />}
+                        </span>
+                        <button
+                            onClick={() => { setFabHallOpen(false); setFabTeacherOpen(v => !v); }}
+                            className={cn(
+                                'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95',
+                                filterTeacher !== 'all'
+                                    ? 'bg-[#6d28d9] text-white shadow-[#6d28d9]/30'
+                                    : 'bg-card border border-border-subtle text-[#6d28d9]'
+                            )}
+                        >
+                            <User className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Hall filter */}
+                    <div
+                        className="flex items-center gap-2.5 transition-all duration-200"
+                        style={{
+                            opacity: fabOpen ? 1 : 0,
+                            transform: fabOpen ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.8)',
+                            transitionDelay: fabOpen ? '50ms' : '0ms'
+                        }}
+                    >
+                        <span className="bg-card border border-border-subtle text-primary text-[11px] font-black px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap flex items-center gap-1.5">
+                            დარბაზის ფილტრი
+                            {filterHall !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-[#6d28d9]" />}
+                        </span>
+                        <button
+                            onClick={() => { setFabTeacherOpen(false); setFabHallOpen(v => !v); }}
+                            className={cn(
+                                'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95',
+                                filterHall !== 'all'
+                                    ? 'bg-[#6d28d9] text-white shadow-[#6d28d9]/30'
+                                    : 'bg-card border border-border-subtle text-[#6d28d9]'
+                            )}
+                        >
+                            <DoorOpen className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Download / PDF */}
+                    <div
+                        className="flex items-center gap-2.5 transition-all duration-200"
+                        style={{
+                            opacity: fabOpen ? 1 : 0,
+                            transform: fabOpen ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.8)',
+                            transitionDelay: fabOpen ? '100ms' : '0ms'
+                        }}
+                    >
+                        <span className="bg-card border border-border-subtle text-primary text-[11px] font-black px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap">ჩამოტვირთვა</span>
+                        <button
+                            onClick={() => { setFabOpen(false); exportPDF(); }}
+                            className="w-12 h-12 rounded-full bg-card border border-border-subtle text-[#6d28d9] flex items-center justify-center shadow-lg transition-all active:scale-95"
+                        >
+                            <Download className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Add Event */}
+                    {canEdit && (
+                        <div
+                            className="flex items-center gap-2.5 transition-all duration-200"
+                            style={{
+                                opacity: fabOpen ? 1 : 0,
+                                transform: fabOpen ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.8)',
+                                transitionDelay: fabOpen ? '150ms' : '0ms'
+                            }}
+                        >
+                            <span className="bg-card border border-border-subtle text-primary text-[11px] font-black px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap">გაკვეთილის დამატება</span>
+                            <button
+                                onClick={() => { setFabOpen(false); setAddDate(toDateStr(new Date())); }}
+                                className="w-12 h-12 rounded-full bg-[#6d28d9] text-white flex items-center justify-center shadow-lg shadow-[#6d28d9]/30 transition-all active:scale-95"
+                            >
+                                <CalendarPlus className="w-5 h-5" />
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Main FAB trigger */}
+                <button
+                    onClick={() => { setFabOpen(v => !v); setFabHallOpen(false); setFabTeacherOpen(false); }}
+                    className={cn(
+                        'fixed bottom-[76px] right-4 z-[56] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 active:scale-95',
+                        fabOpen
+                            ? 'bg-card border-2 border-[#6d28d9] text-[#6d28d9] rotate-45'
+                            : 'bg-[#6d28d9] text-white shadow-[#6d28d9]/40'
+                    )}
+                    style={{
+                        boxShadow: fabOpen ? '0 8px 30px rgba(109,40,217,0.2)' : '0 8px 30px rgba(109,40,217,0.4)'
+                    }}
+                >
+                    {(filterHall !== 'all' || filterTeacher !== 'all') && !fabOpen && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full border-2 border-card animate-pulse" />
+                    )}
+                    <Plus className="w-6 h-6 transition-transform duration-300" />
+                </button>
+            </div>
             {view === 'day' && (
                 <div className="flex-1 bg-surface/50 border border-border-subtle rounded-3xl overflow-hidden shadow-xl shadow-black/5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-subtle/50 bg-surface/30">

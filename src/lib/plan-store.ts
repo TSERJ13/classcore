@@ -26,7 +26,10 @@ import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud } from './master-sync';
 
 const BASE_PLANS_KEY = 'cc_subscription_plans';
-function getPlansKey(slug?: string) { return getScopedKey(BASE_PLANS_KEY, slug); }
+function getPlansKey(slug?: string) {
+    const s = slug || getActiveSlug() || 'demo.classcore.ge';
+    return getScopedKey(BASE_PLANS_KEY, s);
+}
 
 const INITIAL_PLANS: Plan[] = [];
 
@@ -66,10 +69,13 @@ export function getPlans(): Plan[] {
 
 export async function savePlans(plans: Plan[]): Promise<void> {
     if (typeof window === 'undefined') return;
-    const activeSlug = getActiveSlug() || '';
+    const activeSlug = getActiveSlug() || 'demo.classcore.ge';
     const key = getPlansKey(activeSlug);
     
     localStorage.setItem(key, JSON.stringify(plans));
+    // 🛡️ Race-condition guard: prevents background hydration from overwriting
+    // freshly-saved local plans with an older cloud snapshot (e.g. iPad 4→3 bug)
+    localStorage.setItem(`cc_local_edit_guard_${key}`, String(Date.now()));
     markLocalUpdate();
     
     // 🔥 ATOMIC SYNC: Push ALL plan fields to the cloud
@@ -117,11 +123,11 @@ export async function savePlans(plans: Plan[]): Promise<void> {
 export async function deletePlan(id: string): Promise<void> {
     const plans = getPlans();
     const next = plans.filter(p => p.id !== id);
-    const key = getPlansKey();
+    const activeSlug = getActiveSlug() || 'demo.classcore.ge';
+    const key = getPlansKey(activeSlug);
     localStorage.setItem(key, JSON.stringify(next));
     markLocalUpdate();
 
-    const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
     const orgId = getEffectiveOrgId(activeSlug);
     

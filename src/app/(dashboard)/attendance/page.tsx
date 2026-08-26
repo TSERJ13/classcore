@@ -16,7 +16,7 @@ import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/li
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { getSubscriptions, getSubscription, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
-import { getEventsByDate, getEvents } from '@/lib/event-store';
+import { getEventsByDate, getEvents, updateEvent } from '@/lib/event-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
@@ -407,6 +407,9 @@ export default function AttendancePage() {
     const [manualSmsOpen, setManualSmsOpen] = useState(false);
     const [freezeDays, setFreezeDays] = useState('7');
     const [issueModalOpen, setIssueModalOpen] = useState(false);
+    const [timeEditOpen, setTimeEditOpen] = useState(false);
+    const [timeEditStart, setTimeEditStart] = useState('');
+    const [timeEditEnd, setTimeEditEnd] = useState('');
     
     // Shop state in drawer
     const [studentSales, setStudentSales] = useState<ShopSale[]>([]);
@@ -837,6 +840,56 @@ export default function AttendancePage() {
                     />
 
 
+                    {/* ── Time Edit Modal ── */}
+                    {timeEditOpen && cls.id && (
+                        <>
+                            <div className="fixed inset-0 z-[80] bg-black/30 backdrop-blur-sm" onClick={() => setTimeEditOpen(false)} />
+                            <div className="fixed inset-x-4 bottom-6 z-[90] sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:w-80 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="bg-card border border-border-subtle rounded-[2rem] shadow-2xl p-6">
+                                    <div className="flex items-center justify-between mb-5">
+                                        <h3 className="text-sm font-black text-primary tracking-tight">დრო</h3>
+                                        <button onClick={() => setTimeEditOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full bg-surface hover:bg-surface/80 text-muted transition-colors">
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="flex-1">
+                                            <label className="text-[9px] font-black text-muted opacity-50 uppercase tracking-widest block mb-1.5">დასაწყისი</label>
+                                            <input
+                                                type="time"
+                                                value={timeEditStart}
+                                                onChange={e => setTimeEditStart(e.target.value)}
+                                                className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm font-black text-primary focus:outline-none focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9]/20 transition-all"
+                                            />
+                                        </div>
+                                        <div className="text-muted opacity-40 font-black mt-5">–</div>
+                                        <div className="flex-1">
+                                            <label className="text-[9px] font-black text-muted opacity-50 uppercase tracking-widest block mb-1.5">დასასრული</label>
+                                            <input
+                                                type="time"
+                                                value={timeEditEnd}
+                                                onChange={e => setTimeEditEnd(e.target.value)}
+                                                className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm font-black text-primary focus:outline-none focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9]/20 transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            if (timeEditStart && timeEditEnd && cls.id && !cls.id.startsWith('virtual-')) {
+                                                updateEvent(cls.id, { start_time: timeEditStart, end_time: timeEditEnd });
+                                                window.dispatchEvent(new Event('cc_calendar_events_update'));
+                                            }
+                                            setTimeEditOpen(false);
+                                        }}
+                                        className="w-full py-3 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-[0.98] text-white font-black text-sm rounded-xl transition-all"
+                                    >
+                                        შენახვა
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
                     {/* Desktop Status Floater (Top Right) */}
                     <div className="hidden lg:flex absolute top-6 right-8 z-50 items-center justify-end pointer-events-none">
                         {scanError && <span className="text-xs font-bold text-white bg-red-500 px-4 py-2.5 rounded-2xl animate-bounce">{scanError}</span>}
@@ -859,12 +912,12 @@ export default function AttendancePage() {
                         )}
 
                         {/* Stretched TALL Date Picker (Mobile) */}
-                        <div className="flex items-center justify-between bg-surface/50 h-11 relative overflow-hidden group">
+                        <div className="flex items-center justify-between h-11 relative overflow-hidden">
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                className="w-12 h-12 flex items-center justify-center text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
                             >
-                                <ChevronLeft className="w-6 h-6" />
+                                <ChevronLeft className="w-5 h-5" />
                             </button>
                             
                              <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
@@ -884,9 +937,9 @@ export default function AttendancePage() {
 
                             <button
                                 onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                className="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-card text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                className="w-12 h-12 flex items-center justify-center text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
                             >
-                                <ChevronRight className="w-6 h-6" />
+                                <ChevronRight className="w-5 h-5" />
                             </button>
                         </div>
                     </div>
@@ -1007,7 +1060,17 @@ export default function AttendancePage() {
                                                 ) : (
                                                     <GraduationCap className="w-3.5 h-3.5 text-muted opacity-30" />
                                                 )}
-                                                <p className="text-[10px] md:text-xs font-bold text-muted opacity-60">{cls.start_time}–{cls.end_time} · {(cls as any).teacherName || getTeacherName(cls.teacher_id)}</p>
+                                                <button
+                                                    onClick={() => {
+                                                        setTimeEditStart(cls.start_time || '');
+                                                        setTimeEditEnd(cls.end_time || '');
+                                                        setTimeEditOpen(true);
+                                                    }}
+                                                    className="text-[10px] md:text-xs font-bold text-muted opacity-60 hover:opacity-100 hover:text-[#6d28d9] transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                                                >
+                                                    <Clock className="w-3 h-3 shrink-0" />
+                                                    {cls.start_time}–{cls.end_time} · {(cls as any).teacherName || getTeacherName(cls.teacher_id)}
+                                                </button>
                                             </div>
                                             {cls.notes && (
                                                 <div className="flex items-center gap-1 px-2 py-0.5 bg-[#f5f3ff] border border-[#ede9fe] rounded-full">

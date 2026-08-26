@@ -141,6 +141,53 @@ function syncGroupedStore(rec: { id: string; studentId: string } & Partial<Check
     try { localStorage.setItem(key, JSON.stringify(grouped)); } catch { /* quota */ }
 }
 
+/** Upsert a remotely created/updated plan into localStorage on Device B */
+function applyRemotePlanUpsert(row: any) {
+    if (typeof window === 'undefined') return;
+    // Merge top-level columns with nested data blob (same unwrap pattern as StudioContext)
+    const plan = (row.data && typeof row.data === 'object')
+        ? { ...row.data, ...row, data: undefined }
+        : row;
+    if (!plan.id) return;
+
+    try {
+        const key = getScopedKey('cc_subscription_plans', _activeSlug || undefined);
+        const raw = localStorage.getItem(key);
+        let plans: any[] = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(plans)) plans = [];
+
+        const idx = plans.findIndex((p: any) => p.id === plan.id);
+        if (idx >= 0) {
+            plans[idx] = { ...plans[idx], ...plan };
+        } else {
+            plans.push(plan);
+        }
+        try { localStorage.setItem(key, JSON.stringify(plans)); } catch { /* quota */ }
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote plan upsert:', e);
+    }
+}
+
+/** Remove a remotely deleted plan from localStorage on Device B */
+function applyRemotePlanDelete(id: string) {
+    if (typeof window === 'undefined') return;
+    if (!id) return;
+
+    try {
+        const key = getScopedKey('cc_subscription_plans', _activeSlug || undefined);
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        let plans: any[] = JSON.parse(raw);
+        if (!Array.isArray(plans)) return;
+        const next = plans.filter((p: any) => p.id !== id);
+        if (next.length !== plans.length) {
+            try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* quota */ }
+        }
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote plan delete:', e);
+    }
+}
+
 /** Remove a remotely-deleted subscription from localStorage on Device B */
 function applyRemoteSubscriptionDelete(subId: string) {
     if (typeof window === 'undefined') return;
@@ -219,6 +266,95 @@ function applyRemoteSubscriptionUpsert(row: any) {
     }
 }
 
+/** Helper to upsert a row into a localStorage array key (supports branch-scoped keys like cc_groups, cc_halls, etc.) */
+function applyRemoteArrayUpsert(baseKey: string, row: any) {
+    if (typeof window === 'undefined') return;
+    const item = (row.data && typeof row.data === 'object')
+        ? { ...row.data, ...row, data: undefined }
+        : row;
+    if (!item.id) return;
+
+    try {
+        const branchId = item.branch_id || item.branchId || undefined;
+        const key = getScopedKey(baseKey, _activeSlug || undefined, branchId);
+        const raw = localStorage.getItem(key);
+        let list: any[] = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(list)) list = [];
+
+        const idx = list.findIndex((x: any) => x.id === item.id);
+        if (idx >= 0) {
+            list[idx] = { ...list[idx], ...item };
+        } else {
+            list.push(item);
+        }
+        try { localStorage.setItem(key, JSON.stringify(list)); } catch {}
+    } catch (e) {
+        console.warn(`⚠️ [Realtime] Failed to apply remote upsert for ${baseKey}:`, e);
+    }
+}
+
+/** Helper to delete a row from a localStorage array key */
+function applyRemoteArrayDelete(baseKey: string, id: string, row?: any) {
+    if (typeof window === 'undefined') return;
+    if (!id) return;
+
+    try {
+        const branchId = row?.branch_id || row?.branchId || undefined;
+        const key = getScopedKey(baseKey, _activeSlug || undefined, branchId);
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        let list: any[] = JSON.parse(raw);
+        if (!Array.isArray(list)) return;
+        const next = list.filter((x: any) => x.id !== id);
+        if (next.length !== list.length) {
+            try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+        }
+    } catch (e) {
+        console.warn(`⚠️ [Realtime] Failed to apply remote delete for ${baseKey}:`, e);
+    }
+}
+
+/** Upsert a student into cc_student_data map on Device B */
+function applyRemoteStudentUpsert(row: any) {
+    if (typeof window === 'undefined') return;
+    const s = (row.data && typeof row.data === 'object') ? { ...row.data, ...row, data: undefined } : row;
+    if (!s.id) return;
+
+    try {
+        const key = getScopedKey('cc_student_data', _activeSlug || undefined);
+        const raw = localStorage.getItem(key);
+        let data: Record<string, any> = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+            if (!data || typeof data !== 'object') data = {};
+        } catch { data = {}; }
+
+        data[s.id] = { ...(data[s.id] || {}), ...s };
+        try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote student upsert:', e);
+    }
+}
+
+/** Delete a student from cc_student_data map on Device B */
+function applyRemoteStudentDelete(id: string) {
+    if (typeof window === 'undefined') return;
+    if (!id) return;
+
+    try {
+        const key = getScopedKey('cc_student_data', _activeSlug || undefined);
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        let data: Record<string, any> = JSON.parse(raw);
+        if (data && data[id]) {
+            delete data[id];
+            try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+        }
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote student delete:', e);
+    }
+}
+
 function emit(...events: string[]) {
     if (typeof window === 'undefined') return;
     events.forEach(e => window.dispatchEvent(new Event(e)));
@@ -281,8 +417,105 @@ export function startRealtimeSync(orgId: string | null | undefined, slug: string
             emit('cc_subscription_update');
         })
         // ── Students: roster edits from another device
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter }, () => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'students', filter }, (payload) => {
+            if (payload.new) applyRemoteStudentUpsert(payload.new);
             emit('cc_student_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'students', filter }, (payload) => {
+            if (payload.new) applyRemoteStudentUpsert(payload.new);
+            emit('cc_student_update');
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'students', filter }, (payload) => {
+            if (payload.old?.id) applyRemoteStudentDelete(payload.old.id);
+            emit('cc_student_update');
+        })
+        // ── Groups: group edits across devices
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'groups', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_groups', payload.new);
+            emit('cc_groups_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_groups', payload.new);
+            emit('cc_groups_update');
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'groups', filter }, (payload) => {
+            if (payload.old?.id) applyRemoteArrayDelete('cc_groups', payload.old.id);
+            emit('cc_groups_update');
+        })
+        // ── Halls: hall edits across devices
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'halls', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_halls', payload.new);
+            emit('cc_halls_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'halls', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_halls', payload.new);
+            emit('cc_halls_update');
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'halls', filter }, (payload) => {
+            if (payload.old?.id) applyRemoteArrayDelete('cc_halls', payload.old.id);
+            emit('cc_halls_update');
+        })
+        // ── Calendar Events: schedule edits across devices
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calendar_events', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_calendar_events', payload.new);
+            emit('cc_calendar_events_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calendar_events', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_calendar_events', payload.new);
+            emit('cc_calendar_events_update');
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'calendar_events', filter }, (payload) => {
+            if (payload.old?.id) applyRemoteArrayDelete('cc_calendar_events', payload.old.id);
+            emit('cc_calendar_events_update');
+        })
+        // ── Staff / Teachers: staff edits across devices
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_teachers', payload.new);
+            emit('cc_teacher_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'staff', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_teachers', payload.new);
+            emit('cc_teacher_update');
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'staff', filter }, (payload) => {
+            if (payload.old?.id) applyRemoteArrayDelete('cc_teachers', payload.old.id);
+            emit('cc_teacher_update');
+        })
+        // ── Products: shop inventory edits across devices
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_shop_products', payload.new);
+            emit('cc_sales_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products', filter }, (payload) => {
+            if (payload.new) applyRemoteArrayUpsert('cc_shop_products', payload.new);
+            emit('cc_sales_update');
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'products', filter }, (payload) => {
+            if (payload.old?.id) applyRemoteArrayDelete('cc_shop_products', payload.old.id);
+            emit('cc_sales_update');
+        })
+        // ── Subscription Plans: tariff changes from another device (instant cross-device sync)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'subscription_plans', filter }, (payload) => {
+            if (payload.new) {
+                applyRemotePlanUpsert(payload.new);
+            }
+            emit('cc_subscription_plans_update');
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'subscription_plans', filter }, (payload) => {
+            if (payload.new) {
+                applyRemotePlanUpsert(payload.new);
+            }
+            emit('cc_subscription_plans_update');
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'subscription_plans', filter }, (payload) => {
+            if (payload.old?.id) {
+                applyRemotePlanDelete(payload.old.id);
+            }
+            emit('cc_subscription_plans_update');
+        })
+        // ── Trash: items moved to/from trash
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'trash', filter }, () => {
+            emit('cc_trash_update');
         })
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
