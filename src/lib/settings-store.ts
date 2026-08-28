@@ -53,14 +53,23 @@ function deleteCookie(name: string) {
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
 }
 
+export type LoginResult = 
+    | { type: 'single', staff: StaffMember, slug: string }
+    | { type: 'multiple', studios: { staff: StaffMember, slug: string, name: string, logoUrl: string | null }[] }
+    | { error: string };
+
 /** 
  * Validates staff credentials across all registered studios.
  * Returns the staff member and their studio slug if found, or an error object if cloud login fails.
  */
-export async function validateStaffLogin(email: string, password: string): Promise<{ staff: StaffMember, slug: string } | { error: string } | null> {
+export async function validateStaffLogin(email: string, password: string): Promise<LoginResult | null> {
     if (typeof window === 'undefined') return null;
 
     const cleanEmail = email.trim().toLowerCase();
+    
+    // Accumulator for all matching studios
+    const matchedStudios: { staff: StaffMember, slug: string, name: string, logoUrl: string | null }[] = [];
+
     const tryLogin = (settings: StudioSettings, slug: string) => {
         const staff = settings.staff?.find(s =>
             (s.email?.toLowerCase().trim() === cleanEmail || 
@@ -68,42 +77,44 @@ export async function validateStaffLogin(email: string, password: string): Promi
              s.first_name?.toLowerCase().trim() === cleanEmail) &&
             s.password === password
         );
-        return staff ? { staff, slug } : null;
+        if (staff) {
+            // Only add if not already in list
+            if (!matchedStudios.find(m => m.slug === slug)) {
+                matchedStudios.push({
+                    staff,
+                    slug,
+                    name: settings.studioName || slug,
+                    logoUrl: settings.logoDataUrl || null
+                });
+            }
+            return true;
+        }
+        return false;
     };
 
-    // 1. Try current active slug first (fastest)
-    const activeResult = tryLogin(loadSettings(getActiveSlug()), getActiveSlug());
-    if (activeResult) return activeResult;
-
-    // 2. Try registry list
+    // 1. Check all local registry list
     const list = getStudioRegistry();
     for (const slug of list) {
-        if (slug === getActiveSlug()) continue;
-        const result = tryLogin(loadSettings(slug), slug);
-        if (result) return result;
+        tryLogin(loadSettings(slug), slug);
     }
+    
+    // Also try active slug if not in registry
+    tryLogin(loadSettings(getActiveSlug()), getActiveSlug());
 
     // 3. One last try with demo slug
     if (!list.includes(DEFAULT_SETTINGS.studioSlug)) {
-        const demoResult = tryLogin(loadSettings(DEFAULT_SETTINGS.studioSlug), DEFAULT_SETTINGS.studioSlug);
-        if (demoResult) return demoResult;
+        tryLogin(loadSettings(DEFAULT_SETTINGS.studioSlug), DEFAULT_SETTINGS.studioSlug);
     }
 
-    // 4. CLOUD FALLBACK: If local check fails, we might be on a new machine.
-    console.log('🔍 Staff not found locally. Starting Cloud Fallback for:', cleanEmail);
-
-    // Search the global database for studios containing this staff email.
+    // 4. CLOUD FALLBACK
+    console.log('🔍 Starting Cloud Fallback for:', cleanEmail);
     try {
         const { findAllStudiosByStaffEmail, fetchStaffFromCloud } = await import('./sync-store');
         const cloudResults = await findAllStudiosByStaffEmail(cleanEmail);
 
         if (cloudResults.length > 0) {
             console.log(`📡 Cloud Found ${cloudResults.length} studios!`);
-
-            // Reclaim the entire registry in the background
-            cloudResults.forEach(r => addToRegistry(r.slug));
-
-            // For each studio found, fetch full staff list and check password
+            
             for (const result of cloudResults) {
                 const cloudStaff = await fetchStaffFromCloud(result.slug);
                 if (!cloudStaff) continue;
@@ -117,37 +128,45 @@ export async function validateStaffLogin(email: string, password: string): Promi
 
                 if (!matchingStaff) continue;
 
-                console.log('✅ Password verified for:', result.slug, '. Hydrating local store...');
-
-                // CRITICAL: Cache the orgId override immediately to ensure consistent key scoping
-                if (result.staff.org_id) {
-                    localStorage.setItem(`cc_org_id_override_${result.slug}`, result.staff.org_id);
+                // Only add if we don't already have it locally
+                if (!matchedStudios.find(m => m.slug === result.slug)) {
+                    // Hydrate local store so it exists for next time
+                    addToRegistry(result.slug);
+                    if (result.staff.org_id) {
+                        localStorage.setItem(`cc_org_id_override_${result.slug}`, result.staff.org_id);
+                    }
+                    const existing = loadSettings(result.slug);
+                    saveSettings({
+                        staff: cloudStaff,
+                        orgId: result.staff.org_id || existing.orgId
+                    }, undefined, result.slug);
+                    
+                    matchedStudios.push({
+                        staff: matchingStaff as import('@/types').StaffMember,
+                        slug: result.slug,
+                        name: result.name || result.slug, // Make sure sync-store returns name or we fallback to slug
+                        logoUrl: result.logoUrl || null
+                    });
                 }
-
-                // Hydrate local store with full cloud staff
-                const existing = loadSettings(result.slug);
-                saveSettings({
-                    staff: cloudStaff,
-                    orgId: result.staff.org_id || existing.orgId
-                }, undefined, result.slug);
-
-                return { staff: matchingStaff as import('@/types').StaffMember, slug: result.slug };
             }
-
-            console.warn('❌ Password mismatch for all cloud studios.');
-            return { error: 'არასწორი პაროლი' };
-        } else {
-            console.warn('❌ Staff not found in cloud registry for:', cleanEmail);
-            return { error: 'მომხმარებელი ამ მონაცემებით ვერ მოიძებნა. გთხოვთ გაიაროთ რეგისტრაცია' };
         }
-
     } catch (err: any) {
         console.error('❌ [Auth] Cloud Fallback Critical Error:', err);
-        const msg = err.message || 'Unknown';
-        return { error: `სისტემური შეცდომა სინქრონიზაციისას (${msg}). შეამოწმეთ ინტერნეტი ან სცადეთ მოგვიანებით.` };
+        // If we have local matches, don't fail just because cloud failed
+        if (matchedStudios.length === 0) {
+            return { error: `სისტემური შეცდომა სინქრონიზაციისას (${err.message}).` };
+        }
     }
 
-    return null;
+    if (matchedStudios.length === 0) {
+        return { error: 'მომხმარებელი ან პაროლი არასწორია.' };
+    }
+
+    if (matchedStudios.length === 1) {
+        return { type: 'single', staff: matchedStudios[0].staff, slug: matchedStudios[0].slug };
+    }
+
+    return { type: 'multiple', studios: matchedStudios };
 }
 
 /** Persists a staff session locally and synchronizes with a cookie for middleware awareness */

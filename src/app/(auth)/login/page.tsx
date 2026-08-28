@@ -18,6 +18,7 @@ export default function LoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [isActivated, setIsActivated] = useState(false);
     const [loginStatus, setLoginStatus] = useState<string | null>(null);
+    const [multipleStudios, setMultipleStudios] = useState<any[] | null>(null);
 
     const l = (ge: string, ru: string, en: string) => lang === 'ka' ? ge : lang === 'ru' ? ru : en;
 
@@ -74,18 +75,31 @@ export default function LoginPage() {
                     setLoginStatus(l('ავტორიზაცია...', 'Вход...', 'Authenticating...'));
                     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                     
-                    if (error) {
-                        setLoginStatus(l('პერსონალის შემოწმება...', 'Проверка персонала...', 'Checking staff...'));
-                        const staffResult = await validateStaffLogin(email, password);
-                        if (staffResult && 'staff' in staffResult) {
-                            setStaffSession(staffResult);
+                    // We ALWAYS check staff login to find all studios they belong to (Studio Switcher logic)
+                    setLoginStatus(l('სტუდიების შემოწმება...', 'Проверка студий...', 'Checking studios...'));
+                    const staffResult = await validateStaffLogin(email, password);
+                    
+                    if (staffResult && !('error' in staffResult)) {
+                        if (staffResult.type === 'single') {
+                            setStaffSession({ staff: staffResult.staff, slug: staffResult.slug });
                             setIsSuccess(true);
-                            setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+                            setTimeout(() => { window.location.href = `/${staffResult.slug}/dashboard`; }, 1500);
+                            return;
+                        } else if (staffResult.type === 'multiple') {
+                            setMultipleStudios(staffResult.studios);
+                            setIsSubmitting(false); // Stop loading to show switcher
                             return;
                         }
-                        throw error;
                     }
-                    signedInUser = data.user;
+
+                    if (error) {
+                        // If supabase failed and no valid staff result was found, throw
+                        if (!staffResult || 'error' in staffResult) {
+                            throw error;
+                        }
+                    } else {
+                        signedInUser = data.user;
+                    }
                 }
 
                 if (!signedInUser) throw new Error('USER_NOT_FOUND');
@@ -103,6 +117,7 @@ export default function LoginPage() {
                 }
 
                 setTimeout(() => {
+                    // Default fallback if somehow staffResult didn't trigger
                     window.location.href = isSuperAdmin ? '/superadmin' : '/dashboard';
                 }, 2000);
             })();
@@ -133,6 +148,25 @@ export default function LoginPage() {
             const settings = JSON.parse(localStorage.getItem('cc_studio_settings') || '{}');
             return settings.logoDataUrl;
         } catch { return null; }
+    };
+
+    const handleStudioSelect = async (studio: any) => {
+        setIsSubmitting(true);
+        setMultipleStudios(null); // Hide switcher
+        setLoginStatus(l('სესია მზადდება...', 'Подготовка сессии...', 'Preparing session...'));
+        
+        try {
+            const { setStaffSession } = await import('@/lib/settings-store');
+            setStaffSession({ staff: studio.staff, slug: studio.slug });
+            setIsSuccess(true);
+            setTimeout(() => {
+                window.location.href = `/${studio.slug}/dashboard`;
+            }, 1500);
+        } catch (err) {
+            console.error(err);
+            setError(l('შეცდომა სესიის შექმნისას.', 'Ошибка.', 'Error.'));
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -177,6 +211,41 @@ export default function LoginPage() {
                                 {l('ავტორიზაციაზე გადასვლა', 'Перейти к логину', 'Proceed to Portal')}
                                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                             </button>
+                        </div>
+                    ) : multipleStudios ? (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="text-center space-y-2 mb-6">
+                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">
+                                    {l('აირჩიეთ სტუდია', 'Выберите студию', 'Select Studio')}
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium">
+                                    {l('თქვენს ანგარიშზე ნაპოვნია რამდენიმე სტუდია', 'Найдено несколько студий', 'Multiple studios found')}
+                                </p>
+                            </div>
+                            
+                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 pb-2 scrollbar-thin scrollbar-thumb-slate-200">
+                                {multipleStudios.map((studio, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => handleStudioSelect(studio)}
+                                        className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 hover:bg-indigo-50/30 transition-all text-left group"
+                                    >
+                                        <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 overflow-hidden border border-slate-100">
+                                            {studio.logoUrl ? (
+                                                <img src={studio.logoUrl} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="text-lg font-black text-slate-300 uppercase">{studio.name.substring(0,2)}</div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                            <h4 className="text-sm font-black text-slate-900 truncate">{studio.name}</h4>
+                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider truncate">/{studio.slug}</p>
+                                        </div>
+                                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     ) : (
                         <>
