@@ -10,51 +10,62 @@ import { type StaffMember, type Branch, type StudioSettings } from '@/types';
 export async function fetchFullStudioState(slug: string, orgId?: string, token?: string, isClientPortal = false, studentId?: string, chunk?: 'core' | 'heavy') {
     console.log('🔍 [MasterSync] STARTING FULL HYDRATION FOR:', { slug, orgId, hasToken: !!token, isClientPortal, studentId });
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout protection
+    const doFetch = async (attempt: number) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout (was 4s)
 
-    try {
-        const response = await fetch('/api/sync/state', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : ''
-            },
-            body: JSON.stringify({ slug, orgId, isClientPortal, studentId, chunk }),
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-            console.error('❌ [MasterSync] API fetch failed:', response.statusText);
+        try {
+            const response = await fetch('/api/sync/state', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
+                body: JSON.stringify({ slug, orgId, isClientPortal, studentId, chunk }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                console.error(`❌ [MasterSync] API fetch failed (attempt ${attempt}):`, response.status, response.statusText);
+                return null;
+            }
+
+            const data = await response.json();
+            
+            if (data.error) {
+                console.error('❌ [MasterSync] API returned error:', data.error);
+                return null;
+            }
+            
+            console.log('📊 [MasterSync] Cloud Extraction Complete:', {
+                students: data.students?.length || 0,
+                staff: data.staff?.length || 0,
+                groups: data.groups?.length || 0,
+                events: data.calendar_events?.length || 0,
+                settingsFound: !!data.settingsRecord
+            });
+
+            return data;
+        } catch (e: any) {
+            clearTimeout(timeoutId);
+            if (e?.name === 'AbortError') {
+                console.warn(`⚠️ [MasterSync] Hydration request timed out on attempt ${attempt}`);
+            } else {
+                console.error('❌ [MasterSync] Collective fetch failed:', e);
+            }
             return null;
         }
+    };
 
-        const data = await response.json();
-        
-        if (data.error) {
-            console.error('❌ [MasterSync] API returned error:', data.error);
-            return null;
-        }
-        
-        console.log('📊 [MasterSync] Cloud Extraction Complete:', {
-            students: data.students?.length || 0,
-            staff: data.staff?.length || 0,
-            groups: data.groups?.length || 0,
-            events: data.calendar_events?.length || 0,
-            settingsFound: !!data.settingsRecord
-        });
-
-        return data;
-    } catch (e: any) {
-        clearTimeout(timeoutId);
-        if (e?.name === 'AbortError') {
-            console.warn('⚠️ [MasterSync] Hydration request timed out after 4s (falling back to cached data)');
-        } else {
-            console.error('❌ [MasterSync] Collective fetch failed:', e);
-        }
-        return null;
+    // Try up to 2 times
+    let result = await doFetch(1);
+    if (!result) {
+        console.log('🔄 [MasterSync] Retrying hydration (attempt 2)...');
+        await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
+        result = await doFetch(2);
     }
+    return result;
 }
 
 export async function syncRecordToCloud(table: string, record: any, orgId: string) {
