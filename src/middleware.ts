@@ -54,7 +54,8 @@ export async function middleware(request: NextRequest) {
     }
 
     // Fast path for logged-in staff/users
-    const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
+    const hasStaffToken = !!request.cookies.get('cc_staff_token')?.value;
+    const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true' || hasStaffToken;
     const hasSupabaseCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.includes('-auth-token'));
     
     if (hasStaffCookie || hasSupabaseCookie) {

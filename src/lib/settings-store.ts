@@ -125,11 +125,13 @@ export function setStaffSession(session: { staff: StaffMember, slug: string } | 
     if (typeof window === 'undefined') return;
     if (session) {
         localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(session));
+        setCookie(STAFF_COOKIE_NAME, 'true', 7);
+        setCookie('cc_active_slug', session.slug, 7);
         setCookie('cc_studio_name', encodeURIComponent(session.staff.org_id || ''), 7); // org_id often used as fallback name
         setActiveSlug(session.slug);
     } else {
         localStorage.removeItem(STAFF_SESSION_KEY);
-        deleteCookie(STAFF_COOKIE_NAME); // legacy cookie cleanup, harmless if already absent
+        deleteCookie(STAFF_COOKIE_NAME);
         deleteCookie('cc_active_slug');
         deleteCookie('cc_studio_name');
     }
@@ -146,7 +148,7 @@ export function setStaffSession(session: { staff: StaffMember, slug: string } | 
  */
 export async function activateStaffSession(studio: { _token?: string }): Promise<boolean> {
     if (typeof window === 'undefined') return false;
-    if (!studio._token) return false; // 'single' logins already set the cookie server-side
+    if (!studio._token) return true; // 'single' logins already set the cookie server-side on POST /api/auth/staff-login
     try {
         const res = await fetch('/api/auth/staff-select', {
             method: 'POST',

@@ -166,8 +166,8 @@ export default function LoginPage() {
             setStaffSession({ staff: studio.staff, slug: studio.slug });
             setIsSuccess(true);
             setTimeout(() => {
-                window.location.href = `/${studio.slug}/dashboard`;
-            }, 1500);
+                window.location.href = '/dashboard';
+            }, 800);
         } catch (err) {
             console.error(err);
             setError(l('შეცდომა სესიის შექმნისას.', 'Ошибка.', 'Error.'));
