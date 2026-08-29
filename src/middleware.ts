@@ -10,7 +10,13 @@ export async function middleware(request: NextRequest) {
     const publicRoutes = ['/', '/login', '/sa-login', '/sa-admin', '/registration', '/forgot-password', '/reset-password', '/checkin', '/nfc-checkin', '/privacy', '/terms', '/terms-and-conditions', '/auth/confirm', '/manifest.webmanifest', '/favicon.ico'];
     const isPublicStatic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
     const segments = pathname.split('/').filter(Boolean);
-    const isPortal = (segments.length === 2 || segments.length === 3) && !publicRoutes.includes('/' + segments[0]);
+    
+    // Studio dashboard paths that should NOT be treated as student portals
+    const studioPaths = ['dashboard', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager', 'subscriptions', 'trash', 'registration'];
+    // A portal URL is /{slug}/{studentId} — but NOT /{slug}/{studioPath}
+    const isPortal = (segments.length === 2 || segments.length === 3) 
+        && !publicRoutes.includes('/' + segments[0])
+        && !studioPaths.includes(segments[1]); // If second segment is a known studio page, it's NOT a portal
     const isPublic = isPublicStatic || isPortal;
 
     // Redirect /sa-admin to /sa-login for user-friendliness
