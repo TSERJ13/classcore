@@ -441,28 +441,29 @@ export default function DashboardPage() {
             ? new Set(studentsList.filter(s => (s.enrolled_group_ids || []).some(gid => visibleGroupIds.includes(gid))).map(s => s.id))
             : null;
 
+        const allStudents = getStudents();
+        const allGroups = getGroups();
+
         checkins.forEach((c: CheckinRecord) => {
             if (teacherStudentIds && c.studentId && !teacherStudentIds.has(c.studentId)) return;
-            const name = c.studentName || t.studentLabelGeneric;
-            activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], color: 'from-indigo-500 to-blue-600' });
+            const student = allStudents.find(s => s.id === c.studentId);
+            const name = (student?.full_name && student.full_name.trim() !== '' && student.full_name !== 'სტუდენტი')
+                ? student.full_name
+                : (c.studentName && c.studentName !== 'სტუდენტი' ? c.studentName : (student?.full_name || t.studentLabelGeneric));
+
+            const groupObj = c.groupId ? allGroups.find(g => g.id === c.groupId) : ((student?.enrolled_group_ids || []).length > 0 ? allGroups.find(g => g.id === (student?.enrolled_group_ids || [])[0]) : null);
+            const groupName = groupObj?.name || t.groupSession;
+
+            activityList.push({
+                name,
+                action: 'check-in',
+                group: groupName,
+                time: c.time,
+                avatar: name ? name[0] : 'S',
+                color: 'from-indigo-500 to-blue-600'
+            });
         });
 
-        if (activityList.length === 0) {
-            const targetStudents = teacherStudentIds
-                ? studentsList.filter(s => teacherStudentIds.has(s.id))
-                : studentsList;
-
-            targetStudents.slice(0, 5).forEach((s, idx) => {
-                activityList.push({
-                    name: s.full_name,
-                    action: 'registration',
-                    group: ((s.enrolled_group_ids || []).length > 0) ? (getGroups().find(g => g.id === (s.enrolled_group_ids || [])[0])?.name || t.groupSession) : t.groupSession,
-                    time: `${10 + idx}:00`,
-                    avatar: s.full_name[0] || 'S',
-                    color: 'from-emerald-500 to-teal-600'
-                });
-            });
-        }
         setLiveActivity(activityList.slice(0, 8));
 
     }, [profile, selectedDate, settings.studioName, t]);
