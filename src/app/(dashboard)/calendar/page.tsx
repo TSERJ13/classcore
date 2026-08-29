@@ -24,6 +24,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { getStudents } from '@/lib/student-store';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
+import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 
 /* ─── Constants ──────────────────────────────────────────────── */
 const PALETTES = [
@@ -1451,7 +1452,7 @@ async function exportExcel() {
 export default function CalendarPage() {
     const { t, lang } = useT();
     const { profile } = useUser();
-    const isTeacher = profile?.role === 'teacher';
+    const isTeacher = isTeacherRole(profile?.role);
     const canEdit = !isTeacher || !!profile?.canEditCalendar;
 
     // Day and Month names from i18n

@@ -38,23 +38,39 @@ export function getVisibleGroupIds(
 
     const ids = new Set<string>();
 
-    // Match the logged-in user to their staff record (by email, case-insensitive).
     const email = (profile?.email || '').toLowerCase().trim();
-    const me = (staff || []).find(s => (s.email || '').toLowerCase().trim() === email);
-    const myStaffId = me?.id || profile?.id;
+    const fullName = ((profile as any)?.full_name || (profile as any)?.first_name || '').toLowerCase().trim();
+    
+    // Match staff record by email, id, or name
+    const me = (staff || []).find(s => {
+        if (profile?.id && s.id === profile.id) return true;
+        if (email && (s.email || '').toLowerCase().trim() === email) return true;
+        const sName = ((s as any)?.full_name || (s as any)?.first_name || '').toLowerCase().trim();
+        return fullName && sName && (sName === fullName || sName.includes(fullName));
+    });
 
-    // 1) Groups where this teacher is primary or secondary.
+    const staffIds = new Set<string>([
+        profile?.id,
+        me?.id,
+        (profile as any)?.staff_id
+    ].filter(Boolean) as string[]);
+
+    // 1) Groups where this teacher is primary or secondary
     (groups || []).forEach(g => {
-        if (myStaffId && (g.teacherId === myStaffId || g.secondaryTeacherId === myStaffId)) {
+        const primary = g.teacherId || (g as any).teacher_id;
+        const secondary = g.secondaryTeacherId || (g as any).secondary_teacher_id;
+        if (staffIds.has(primary) || staffIds.has(secondary)) {
             ids.add(g.id);
         }
     });
 
-    // 2) Their staff record's explicit assignments.
+    // 2) Staff record's explicit assignments
     (me?.assigned_group_ids || []).forEach(id => ids.add(id));
+    ((me as any)?.assignedGroupIds || []).forEach((id: string) => ids.add(id));
 
-    // 3) Profile-level assignments (legacy / auth-provided).
+    // 3) Profile-level assignments
     (profile?.assigned_group_ids || []).forEach(id => ids.add(id));
+    ((profile as any)?.assignedGroupIds || []).forEach((id: string) => ids.add(id));
 
     return Array.from(ids);
 }

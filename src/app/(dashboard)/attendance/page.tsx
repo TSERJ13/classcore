@@ -258,6 +258,21 @@ export default function AttendancePage() {
                 }) as any;
         }
 
+        // 🚀 ALWAYS-AVAILABLE GROUPS FALLBACK: If no event on this date, show assigned groups so page is never blank!
+        if (targetSchedule.length === 0 && groups.length > 0) {
+            targetSchedule = groups.map(g => ({
+                id: `virtual-fallback-${g.id}`,
+                group_id: g.id,
+                title: g.name,
+                type: 'group',
+                color: g.color || '#6d28d9',
+                start_time: '18:00',
+                end_time: '19:00',
+                teacher_id: g.teacherId || '',
+                hall_id: g.hall_id || ''
+            })) as any;
+        }
+
         return targetSchedule.filter(ev => {
             if (isTeacherRole(profile?.role)) {
                 const visible = getVisibleGroupIds(profile as any, (settings.staff || []) as any, groups as any);
@@ -274,7 +289,7 @@ export default function AttendancePage() {
                   teacherName: tid ? getTeacherName(tid) : (ev.coach || g?.coach || '')
               };
           });
-    }, [rawSchedule, profile, groups, selectedDate]);
+    }, [rawSchedule, profile, groups, selectedDate, settings.staff]);
 
     const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);

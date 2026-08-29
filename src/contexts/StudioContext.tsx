@@ -146,19 +146,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 }
 
                 setLoadingStep('მონაცემების სინქრონიზაცია...');
-                const cloudSettings = state.settingsRecord?.staff_data || state.settingsRecord?.settings || {};
+                const settingsObj = (state.settingsRecord?.settings && typeof state.settingsRecord.settings === 'object') ? state.settingsRecord.settings : {};
+                const staffDataObj = (state.settingsRecord?.staff_data && typeof state.settingsRecord.staff_data === 'object') ? state.settingsRecord.staff_data : {};
+                const cloudSettings = { ...staffDataObj, ...settingsObj };
                 const updates = state.studio || {};
                 
                 // 🚀 SCORCHED EARTH v1.1.16: Force correct name casing for identity
-                const finalName = activeSlug === 'stdancestudio' ? 'S_T Dance Studio' : (updates.studio_name || cloudSettings.studioName || settings.studioName);
+                const rawName = updates.studio_name || cloudSettings.studioName || settings.studioName;
+                const finalName = activeSlug === 'stdancestudio' ? 'S_T Dance Studio' : ((rawName && !/^[0-9a-f-]{20,}$/i.test(rawName)) ? rawName : 'S_T Dance Studio');
 
                 // 💎 PLAN RESOLUTION: Admin plan from studios table MUST override everything
                 const finalPlan = updates.plan || cloudSettings.plan || settings.plan;
 
                 // 🖼️ LOGO RESOLUTION: 🛡️ PRESERVE LOCAL LOGO IF CLOUD IS EMPTY (Prevent ghosting)
                 const localLogo = settings.logoDataUrl;
-                const rawCloudLogo = cloudSettings.logoDataUrl || updates.logo_url;
-                const cloudLogo = rawCloudLogo === 'BASE64_BLOB' ? null : rawCloudLogo;
+                const rawCloudLogo = cloudSettings.logoDataUrl || staffDataObj.logoDataUrl || settingsObj.logoDataUrl || updates.logo_url;
+                const cloudLogo = (rawCloudLogo && rawCloudLogo !== 'BASE64_BLOB') ? rawCloudLogo : null;
                 const finalLogo = cloudLogo || localLogo;
 
                 if (cloudLogo) {
