@@ -36,9 +36,20 @@ export async function middleware(request: NextRequest) {
     // 3. Fast Path for Authenticated Users (Mitigate 504 Timeout)
     const hasStaffCookie = request.cookies.get('cc_staff_auth')?.value === 'true';
     const hasSupabaseCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.includes('-auth-token'));
+    const cachedSlug = request.cookies.get('cc_active_slug')?.value;
     
-    // If they have a session cookie, let them pass to the page (where full auth can be checked more stably)
+    // If they have a session cookie, still check if we need to redirect to a slug-prefixed URL
     if (hasStaffCookie || hasSupabaseCookie) {
+        // If we have a cached slug and the URL is a generic path (no slug), redirect to slug path
+        const genericDashboardPaths = ['/dashboard', '/settings', '/billing', '/analytics', '/history', '/attendance', '/students', '/teachers', '/halls', '/groups', '/calendar', '/shop', '/sms-manager', '/subscriptions', '/trash'];
+        const invalidSlugs = ['api', '_next', 'auth', 'login', 'superadmin', 'favicon.ico', 'manifest.webmanifest'];
+        
+        if (cachedSlug && !invalidSlugs.includes(cachedSlug) && genericDashboardPaths.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+            const targetPath = pathname === '/dashboard' ? `/${cachedSlug}/dashboard` : `/${cachedSlug}${pathname}`;
+            const url = request.nextUrl.clone();
+            url.pathname = targetPath;
+            return NextResponse.redirect(url);
+        }
         return response;
     }
 
