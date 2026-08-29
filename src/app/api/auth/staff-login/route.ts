@@ -31,8 +31,10 @@ const supabaseAdmin = createClient(
 );
 
 function safeStaff(row: any) {
-    const { password, ...rest } = row || {};
-    return rest;
+    const dataObj = (row.data && typeof row.data === 'object') ? row.data : {};
+    const { password, data, ...rest } = row || {};
+    const { password: _p, ...cleanData } = dataObj;
+    return { ...cleanData, ...rest };
 }
 
 export async function POST(req: Request) {
@@ -48,19 +50,56 @@ export async function POST(req: Request) {
         const cleanEmail = String(email).trim().toLowerCase();
 
         // Find every staff row across every org whose email/name matches.
-        // (Historically staff could also "log in" with their full name —
-        // kept for compatibility with existing accounts.)
-        const { data: candidates, error: staffErr } = await supabaseAdmin
+        let { data: candidates, error: staffErr } = await supabaseAdmin
             .from('staff')
             .select('*')
-            .or(`email.ilike.${cleanEmail},full_name.ilike.${cleanEmail},first_name.ilike.${cleanEmail}`);
+            .or(`email.ilike."${cleanEmail}",full_name.ilike."${cleanEmail}"`);
 
         if (staffErr) {
-            console.error('❌ [staff-login] staff lookup failed:', staffErr.message);
-            return NextResponse.json({ ok: false, error: 'Lookup failed' }, { status: 500 });
+            console.error('❌ [staff-login] staff query error, falling back to full list:', staffErr.message);
         }
 
-        const matches = (candidates || []).filter((s: any) => s.password === password);
+        if (!candidates || candidates.length === 0) {
+            const { data: allStaff } = await supabaseAdmin.from('staff').select('*');
+            if (allStaff) {
+                candidates = allStaff.filter((s: any) => {
+                    const e = (s.email || s.data?.email || '').toLowerCase().trim();
+                    const fn = (s.full_name || s.data?.full_name || s.data?.first_name || '').toLowerCase().trim();
+                    return e === cleanEmail || fn === cleanEmail || fn.includes(cleanEmail);
+                });
+            }
+        }
+
+        const matches = (candidates || []).filter((s: any) => {
+            const pass = s.password || s.data?.password;
+            return pass === password;
+        });
+
+        if (matches.length === 0) {
+            const { data: allSettings } = await supabaseAdmin.from('studio_settings').select('*');
+            if (allSettings) {
+                for (const setRow of allSettings) {
+                    const staffArr = setRow.settings?.staff || setRow.staff_data || [];
+                    if (Array.isArray(staffArr)) {
+                        for (const st of staffArr) {
+                            const e = (st.email || '').toLowerCase().trim();
+                            const fn = (st.full_name || st.first_name || '').toLowerCase().trim();
+                            if ((e === cleanEmail || fn === cleanEmail || fn.includes(cleanEmail)) && st.password === password) {
+                                matches.push({
+                                    id: st.id,
+                                    org_id: setRow.org_id,
+                                    email: st.email,
+                                    full_name: st.full_name || `${st.first_name || ''} ${st.last_name || ''}`.trim(),
+                                    role: st.role || 'teacher',
+                                    data: st
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (matches.length === 0) {
             return NextResponse.json({ ok: false, error: 'invalid' }, { status: 401 });
         }
