@@ -577,6 +577,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         }
     }, [user?.id, profile?.studio_slug, hydrate]);
 
+    // 🛡️ SAFETY FALLBACK: Ensure isLoaded becomes true within 3s no matter what
+    useEffect(() => {
+        if (isLoaded) return;
+        const timer = setTimeout(() => {
+            console.warn('⚠️ [StudioContext] Safety hydration timeout reached (3s) — setting isLoaded to true.');
+            setIsLoaded(true);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, [isLoaded]);
+
     useEffect(() => {
         const interval = setInterval(() => hydrate(true), 300000);
         return () => clearInterval(interval);

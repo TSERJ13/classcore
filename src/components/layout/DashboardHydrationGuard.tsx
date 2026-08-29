@@ -31,6 +31,16 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
         }
     }, [isLoaded, showContent]);
 
+    // 🛡️ SAFETY TIMEOUT: Never freeze user on loading screen for more than 3.5 seconds
+    useEffect(() => {
+        if (showContent) return;
+        const timer = setTimeout(() => {
+            console.warn('⚠️ [DashboardHydrationGuard] Safety timeout (3.5s) — displaying dashboard content.');
+            setShowContent(true);
+        }, 3500);
+        return () => clearTimeout(timer);
+    }, [showContent]);
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const slug = localStorage.getItem('cc_active_studio_slug');
