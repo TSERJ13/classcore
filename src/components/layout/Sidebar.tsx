@@ -52,9 +52,11 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
     }, [settings.branches, profile?.allowedBranchIds]);
 
     const activeBranch = settings.branches.find((b: any) => b.id === activeBranchId) || settings.branches[0];
-    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    const rawStudioName = settings?.studioName || profile?.studio_name || '';
+    const studioDisplayName = (rawStudioName && !/^[0-9a-f-]{20,}$/i.test(rawStudioName)) ? rawStudioName : (profile?.studio_name || 'S_T Dance Studio');
+
     const getInitial = (name: string) => {
-        if (!name) return 'S';
+        if (!name || /^[0-9a-f-]{20,}$/i.test(name)) return 'ST';
         if (name === 'S_T Dance Studio' || name.toUpperCase().includes('ST DANCE')) return 'ST';
         return name.trim().charAt(0).toUpperCase();
     };
@@ -73,7 +75,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                     {settings?.logoDataUrl ? (
                         <img src={settings.logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
                     ) : (
-                        <span className="text-lg font-black" style={{ color: theme.accentHex }}>{getInitial(settings?.studioName || '')}</span>
+                        <span className="text-lg font-black" style={{ color: theme.accentHex }}>{getInitial(studioDisplayName)}</span>
                     )}
                 </div>
 
@@ -83,7 +85,7 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
                 )}>
                     <div className="flex items-center justify-between gap-2 mb-1">
                         <span className={cn("font-black text-white truncate tracking-tight leading-tight !normal-case", isMobile ? "text-[12.5px]" : "text-[16px]")}>
-                            {settings?.studioName || profile?.studio_name || 'S_T Dance Studio'}
+                            {studioDisplayName}
                         </span>
 
                     </div>

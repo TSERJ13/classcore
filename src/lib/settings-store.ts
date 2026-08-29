@@ -121,13 +121,16 @@ export async function validateStaffLogin(email: string, password: string): Promi
  * see activateStaffSession() below, which must be called (and awaited)
  * for a 'multiple studios' login result before calling this function.
  */
-export function setStaffSession(session: { staff: StaffMember, slug: string } | null) {
+export function setStaffSession(session: { staff: StaffMember; slug: string; studioName?: string } | null) {
     if (typeof window === 'undefined') return;
     if (session) {
         localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(session));
         setCookie(STAFF_COOKIE_NAME, 'true', 7);
         setCookie('cc_active_slug', session.slug, 7);
-        setCookie('cc_studio_name', encodeURIComponent(session.staff.org_id || ''), 7); // org_id often used as fallback name
+        const nameToSet = session.studioName || (session.staff as any)?.studioName || (session.staff as any)?.studio_name;
+        if (nameToSet && !/^[0-9a-f-]{20,}$/i.test(nameToSet)) {
+            setCookie('cc_studio_name', encodeURIComponent(nameToSet), 7);
+        }
         setActiveSlug(session.slug);
     } else {
         localStorage.removeItem(STAFF_SESSION_KEY);

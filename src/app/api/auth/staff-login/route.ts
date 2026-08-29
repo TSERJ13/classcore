@@ -125,14 +125,19 @@ export async function POST(req: Request) {
         }
 
         if (resolved.length === 1) {
-            const { staff, slug } = resolved[0];
+            const { staff, slug, name } = resolved[0];
             const token = await createStaffToken({ staffId: staff.id, orgId: staff.org_id, slug });
             if (!token) return NextResponse.json({ ok: false, error: 'Server not configured for staff login.' }, { status: 500 });
 
-            const res = NextResponse.json({ ok: true, type: 'single', slug, staff: safeStaff(staff) });
+            const res = NextResponse.json({ ok: true, type: 'single', slug, studioName: name, staff: { ...safeStaff(staff), studioName: name } });
             res.cookies.set('cc_staff_token', token, {
                 httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7,
             });
+            if (name && !/^[0-9a-f-]{20,}$/i.test(name)) {
+                res.cookies.set('cc_studio_name', encodeURIComponent(name), {
+                    path: '/', maxAge: 60 * 60 * 24 * 7, sameSite: 'lax',
+                });
+            }
             return res;
         }
 
@@ -141,7 +146,7 @@ export async function POST(req: Request) {
         // (via /api/auth/staff-select) without re-entering the password.
         const studiosOut = await Promise.all(resolved.map(async ({ staff, slug, name }) => {
             const token = await createStaffToken({ staffId: staff.id, orgId: staff.org_id, slug });
-            return { slug, name, staff: safeStaff(staff), token };
+            return { slug, name, studioName: name, staff: { ...safeStaff(staff), studioName: name }, token };
         }));
 
         return NextResponse.json({ ok: true, type: 'multiple', studios: studiosOut });

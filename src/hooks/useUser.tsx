@@ -126,14 +126,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
                         } : {})
                     });
                 } else if (staffSess) {
-                    const { staff, slug } = staffSess;
+                    const { staff, slug, studioName } = staffSess as any;
                     const settings = loadSettings(slug);
                     const latestStaff = settings.staff?.find((s: any) => s.id === staff.id) || staff;
                     setUser({ id: latestStaff.id, email: latestStaff.email } as any);
+                    const resolvedStudioName = (settings.studioName && !/^[0-9a-f-]{20,}$/i.test(settings.studioName)) 
+                        ? settings.studioName 
+                        : (studioName || (latestStaff as any).studioName || (latestStaff as any).studio_name || (staff as any).studioName || 'ST Dance Studio');
+
                     setProfile({
                         ...(latestStaff.permissions || {}),
                         ...latestStaff,
-                        studio_name: settings.studioName,
+                        canViewAttendance: latestStaff.canViewAttendance ?? latestStaff.permissions?.canViewAttendance ?? true,
+                        studio_name: resolvedStudioName,
                         studio_slug: slug,
                         is_activated: true,
                     });
