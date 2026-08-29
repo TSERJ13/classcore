@@ -237,10 +237,16 @@ export default function AttendancePage() {
     
     const filteredSchedule = useMemo(() => {
         const dayOfWeek = (selectedDate.getDay() + 6) % 7;
-        
+        const isTeacher = isTeacherRole(profile?.role);
+        const visibleGroupIds = isTeacher ? (getVisibleGroupIds(profile as any, (settings.staff || []) as any, groups as any) || []) : null;
+
+        const availableGroups = (isTeacher && visibleGroupIds)
+            ? groups.filter(g => visibleGroupIds.includes(g.id))
+            : groups;
+
         let targetSchedule = rawSchedule;
         if (targetSchedule.length === 0) {
-            targetSchedule = groups
+            targetSchedule = availableGroups
                 .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
                 .map(g => {
                     const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
@@ -258,9 +264,9 @@ export default function AttendancePage() {
                 }) as any;
         }
 
-        // 🚀 ALWAYS-AVAILABLE GROUPS FALLBACK: If no event on this date, show assigned groups so page is never blank!
-        if (targetSchedule.length === 0 && groups.length > 0) {
-            targetSchedule = groups.map(g => ({
+        // 🚀 ALWAYS-AVAILABLE GROUPS FALLBACK: Show ONLY assigned groups for teachers!
+        if (targetSchedule.length === 0 && availableGroups.length > 0) {
+            targetSchedule = availableGroups.map(g => ({
                 id: `virtual-fallback-${g.id}`,
                 group_id: g.id,
                 title: g.name,
@@ -274,9 +280,8 @@ export default function AttendancePage() {
         }
 
         return targetSchedule.filter(ev => {
-            if (isTeacherRole(profile?.role)) {
-                const visible = getVisibleGroupIds(profile as any, (settings.staff || []) as any, groups as any);
-                return !visible || visible.includes(ev.group_id || '');
+            if (isTeacher && visibleGroupIds) {
+                return visibleGroupIds.includes(ev.group_id || '');
             }
             return true;
         }).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))

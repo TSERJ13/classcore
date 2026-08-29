@@ -15,6 +15,7 @@ import { useStudio } from '@/contexts/StudioContext';
 import type { Teacher } from '@/types';
 import type { StaffMember } from '@/lib/settings-store';
 import { getGroups } from '@/lib/group-store';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 
 
@@ -99,7 +100,7 @@ export default function TeachersPage() {
     const individualCount = teachers.filter(t => t.assigned_individual).length;
 
     return (
-        <>
+        <PermissionGuard permKey="canViewTeachers">
             <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
             <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
@@ -230,6 +231,6 @@ export default function TeachersPage() {
             />
 
             <MobileFAB icon={<UserPlus className="w-6 h-6" />} onClick={openAdd} />
-        </>
+        </PermissionGuard>
     );
 }

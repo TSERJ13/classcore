@@ -437,13 +437,22 @@ export default function DashboardPage() {
 
         // 3. Activity Refresh
         const activityList: any[] = [];
+        const teacherStudentIds = isTeacher && visibleGroupIds
+            ? new Set(studentsList.filter(s => (s.enrolled_group_ids || []).some(gid => visibleGroupIds.includes(gid))).map(s => s.id))
+            : null;
+
         checkins.forEach((c: CheckinRecord) => {
+            if (teacherStudentIds && c.studentId && !teacherStudentIds.has(c.studentId)) return;
             const name = c.studentName || t.studentLabelGeneric;
             activityList.push({ name, action: 'check-in', group: t.groupSession, time: c.time, avatar: name[0], color: 'from-indigo-500 to-blue-600' });
         });
 
         if (activityList.length === 0) {
-            studentsList.slice(0, 5).forEach((s, idx) => {
+            const targetStudents = teacherStudentIds
+                ? studentsList.filter(s => teacherStudentIds.has(s.id))
+                : studentsList;
+
+            targetStudents.slice(0, 5).forEach((s, idx) => {
                 activityList.push({
                     name: s.full_name,
                     action: 'registration',

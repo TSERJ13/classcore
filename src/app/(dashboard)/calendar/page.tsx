@@ -25,6 +25,7 @@ import { getStudents } from '@/lib/student-store';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 /* ─── Constants ──────────────────────────────────────────────── */
 const PALETTES = [
@@ -2221,7 +2222,8 @@ export default function CalendarPage() {
 
 
     return (
-        <div className="flex flex-col gap-3 animate-fade-up h-full pb-8">
+        <PermissionGuard permKey="canViewCalendar">
+            <div className="flex flex-col gap-3 animate-fade-up h-full pb-8">
             {/* ── Top Header Row: View Switcher & Navigation ── */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                 {/* View switcher - PROMOTED TO TOP ON MOBILE */}
@@ -3048,5 +3050,6 @@ export default function CalendarPage() {
                 </div>
             )}
         </div>
-    );
+    </PermissionGuard>
+);
 }
