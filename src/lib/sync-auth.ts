@@ -71,8 +71,15 @@ export async function getAuthenticatedOrgId(req: Request): Promise<AuthContext |
         if (!targetOrgId) return false;
         if (primaryOrgId === targetOrgId) return true;
         if (allowedOrgIds.includes(targetOrgId)) return true;
-        // Fallback for authenticated users during initial new-device hydration
-        if (allowedOrgIds.length === 0 && user) return true;
+        // NOTE: there used to be a fallback here that granted access to ANY
+        // org whenever allowedOrgIds came back empty ("new-device hydration").
+        // That is a cross-tenant data leak: any authenticated user whose org
+        // lookup transiently failed (or whose client sent a stale/wrong slug
+        // from a previous studio on the same device) was granted full read
+        // access to whatever studio_slug/orgId the client happened to send.
+        // Do not resurrect it — if a user's org membership can't be resolved,
+        // deny and let the client re-resolve identity from profile/user
+        // metadata instead of silently serving someone else's data.
         return false;
     };
 

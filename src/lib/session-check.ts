@@ -1,20 +1,43 @@
 import { cookies } from 'next/headers';
 import { createClient as createSSRClient } from '@/lib/supabase/server';
+import { verifyStaffToken } from '@/lib/staff-token';
 
 /**
- * Minimal gate for endpoints (SMS sending, SMS logs) that need to stop
- * completely anonymous internet abuse but are also called by staff logins,
- * which don't have a real Supabase session (see settings-store.ts
- * setStaffSession). Accepts either a real session or the same cc_staff_auth
- * cookie the rest of the app already treats as a valid signal. This does not
- * close the underlying staff-auth gap -- it only requires a caller to be
- * inside the app's own cookie/session flow rather than a bare HTTP client.
+ * Gate for endpoints (SMS sending, SMS logs) that need to stop completely
+ * anonymous internet abuse but are also called by staff logins, which
+ * don't have a real Supabase session (see settings-store.ts
+ * setStaffSession / activateStaffSession).
+ *
+ * This used to accept a bare, unsigned `cc_staff_auth=true` cookie that
+ * any visitor could set themselves in devtools — effectively no gate at
+ * all. It now verifies the signed staff session token (or a real Supabase
+ * session) and returns which org the caller may act on, so callers can
+ * scope data access instead of returning everything to anyone who passes
+ * this check.
  */
-export async function hasAnySession(): Promise<boolean> {
+export interface SessionOrgContext {
+    orgId: string | null;
+    slug: string | null;
+}
+
+export async function getSessionOrgContext(): Promise<SessionOrgContext | null> {
     const cookieStore = cookies();
-    if (cookieStore.get('cc_staff_auth')?.value === 'true') return true;
+    const staffToken = cookieStore.get('cc_staff_token')?.value;
+    const staffPayload = await verifyStaffToken(staffToken);
+    if (staffPayload) {
+        return { orgId: staffPayload.orgId, slug: staffPayload.slug };
+    }
 
     const supabase = await createSSRClient();
     const { data } = await supabase.auth.getUser();
-    return !!data.user;
+    if (data.user) {
+        const slug = (data.user.user_metadata as any)?.studio_slug || null;
+        return { orgId: null, slug };
+    }
+
+    return null;
+}
+
+export async function hasAnySession(): Promise<boolean> {
+    return (await getSessionOrgContext()) !== null;
 }

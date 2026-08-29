@@ -32,7 +32,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { AppLogo as Logo } from '@/components/ui/Logo';
 
-type ActiveTab = 'info' | 'schedule' | 'history' | 'shop';
+type ActiveTab = 'info' | 'schedule' | 'history' | 'shop' | 'chat';
 
 
 export default function StudentPortalPage() {
@@ -135,9 +135,8 @@ export default function StudentPortalPage() {
         if (studentId && studio && typeof window !== 'undefined') {
             const targetId = studentId.trim().toLowerCase();
             const localStudents = getStudents();
-            const localMatch = localStudents.find(st => 
-                (st.id && st.id.trim().toLowerCase() === targetId) ||
-                (st.student_id && st.student_id.trim().toLowerCase() === targetId)
+            const localMatch = localStudents.find(st =>
+                st.id && st.id.trim().toLowerCase() === targetId
             );
             if (localMatch && isMounted) {
                 setStudentData(localMatch as Student);
@@ -553,9 +552,8 @@ export default function StudentPortalPage() {
         const checkins = getStudentCheckins(studentId);
         const checkinDates = new Set(checkins.map(c => c.date));
 
-        const enrolledGroups = getGroups().filter(g => 
-            studentData?.enrolled_group_ids?.includes(g.id) || 
-            studentData?.group_id === g.id
+        const enrolledGroups = getGroups().filter(g =>
+            studentData?.enrolled_group_ids?.includes(g.id)
         );
         const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
 
@@ -688,9 +686,6 @@ export default function StudentPortalPage() {
                             const hasScheduledGroup = enrolledGroups.some(g => {
                                 if (g.schedule_slots && Array.isArray(g.schedule_slots)) {
                                     return g.schedule_slots.some((s: any) => s.dayOfWeek === dayOfWeek);
-                                }
-                                if (g.schedule_days && Array.isArray(g.schedule_days)) {
-                                    return g.schedule_days.includes(dayOfWeek);
                                 }
                                 return false;
                             });

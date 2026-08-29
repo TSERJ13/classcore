@@ -124,7 +124,13 @@ export default function SuperAdminDashboard() {
         try {
             const res = await fetch('/api/superadmin/global-purge', {
                 method: 'POST',
-                body: JSON.stringify({ secret: 'cc-master-purge-2026' }),
+                // NOTE: this endpoint is (correctly) authorized server-side via
+                // requireSuperAdmin() in /api/superadmin/global-purge, not by a
+                // client-supplied secret. A hardcoded 'cc-master-purge-2026'
+                // secret used to be sent here but was never actually checked
+                // by the server — removed so it doesn't look like real
+                // protection to a future reader.
+                body: JSON.stringify({}),
                 headers: { 'Content-Type': 'application/json' }
             });
             const data = await res.json();

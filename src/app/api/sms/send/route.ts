@@ -1,29 +1,39 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-import { hasAnySession } from '@/lib/session-check';
+import { createClient } from '@supabase/supabase-js';
+import { getSessionOrgContext } from '@/lib/session-check';
 
-const LOG_FILE = path.join(process.cwd(), '.sms-logs.json');
+export const dynamic = 'force-dynamic';
 
-function saveLog(logEntry: any) {
+/**
+ * Sends an SMS and logs it. Previously logs were appended to a shared
+ * repo-root JSON file with no org scoping (see /api/sms/logs/route.ts for
+ * the full writeup) and this endpoint was gated only by a forgeable
+ * cookie, so anyone could send SMS as "ClassCore" to any number, and every
+ * failed/succeeded send from every studio landed in one file readable by
+ * anyone with that same forged cookie.
+ *
+ * Now requires a real session and stamps every log row with the caller's
+ * own org_id in a Supabase `sms_logs` table (see the SQL migration in the
+ * accompanying report).
+ */
+
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+);
+
+async function saveLog(orgId: string | null, logEntry: any) {
     try {
-        let logs: any[] = [];
-        if (fs.existsSync(LOG_FILE)) {
-            const raw = fs.readFileSync(LOG_FILE, 'utf-8');
-            try {
-                logs = JSON.parse(raw);
-            } catch (e) {
-                logs = [];
-            }
-        }
-
-        // Keep only last 1000 logs to prevent file from growing indefinitely
-        if (logs.length > 1000) {
-            logs = logs.slice(0, 1000);
-        }
-
-        logs.unshift(logEntry); // Add to beginning
-        fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
+        await supabaseAdmin.from('sms_logs').insert({
+            org_id: orgId,
+            student_name: logEntry.studentName,
+            to_number: logEntry.to,
+            text: logEntry.text,
+            status: logEntry.status,
+            error: logEntry.error || null,
+            timestamp: logEntry.timestamp,
+        });
     } catch (e) {
         console.error('Failed to save SMS log', e);
     }
@@ -31,9 +41,16 @@ function saveLog(logEntry: any) {
 
 export async function POST(req: Request) {
     let to, text, studentName;
+    let orgId: string | null = null;
     try {
-        if (!(await hasAnySession())) {
+        const ctx = await getSessionOrgContext();
+        if (!ctx) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
+        orgId = ctx.orgId;
+        if (!orgId && ctx.slug) {
+            const { data } = await supabaseAdmin.from('studios').select('org_id').eq('studio_slug', ctx.slug).maybeSingle();
+            orgId = data?.org_id || null;
         }
 
         const body = await req.json();
@@ -42,8 +59,7 @@ export async function POST(req: Request) {
         studentName = body.studentName || 'უცნობი';
 
         if (!to || !text) {
-            saveLog({
-                id: Math.random().toString(36).substring(2, 10),
+            await saveLog(orgId, {
                 timestamp: new Date().toISOString(),
                 studentName,
                 to: to || 'Unknown',
@@ -58,8 +74,7 @@ export async function POST(req: Request) {
         const from = process.env.NEXT_PUBLIC_GOSMS_SENDER_ID || 'ClassCore';
 
         if (!apiKey) {
-            saveLog({
-                id: Math.random().toString(36).substring(2, 10),
+            await saveLog(orgId, {
                 timestamp: new Date().toISOString(),
                 studentName,
                 to,
@@ -89,8 +104,7 @@ export async function POST(req: Request) {
 
         if (!response.ok || !isSuccess) {
             console.error('GOSMS Error:', data);
-            saveLog({
-                id: data.message_id || (Array.isArray(data) && data[0]?.message_id) || Math.random().toString(36).substring(2, 10),
+            await saveLog(orgId, {
                 timestamp: new Date().toISOString(),
                 studentName,
                 to,
@@ -101,8 +115,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: data.error || 'Failed to send SMS' }, { status: response.status || 500 });
         }
 
-        saveLog({
-            id: data.message_id || (Array.isArray(data) && data[0]?.message_id) || Math.random().toString(36).substring(2, 10),
+        await saveLog(orgId, {
             timestamp: new Date().toISOString(),
             studentName,
             to,
@@ -113,8 +126,7 @@ export async function POST(req: Request) {
         return NextResponse.json(data);
     } catch (error) {
         console.error('SMS Send Error:', error);
-        saveLog({
-            id: Math.random().toString(36).substring(2, 10),
+        await saveLog(orgId, {
             timestamp: new Date().toISOString(),
             studentName: studentName || 'უცნობი',
             to: to || 'Unknown',

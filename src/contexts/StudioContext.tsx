@@ -63,7 +63,20 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const isHydratingRef = useRef(false);
     const hydrate = useCallback(async (isAuto = false) => {
         if (isHydratingRef.current && !isAuto) return;
-        
+
+        // 🛡️ Public marketing/legal/auth pages never need studio data, but
+        // this provider wraps the ENTIRE app (see RootLayoutClient), so it
+        // used to try to hydrate on every single page load regardless —
+        // including for anonymous visitors on "/", "/privacy", "/terms",
+        // "/checkin", etc. Skip entirely when there's no logged-in user.
+        if (typeof window !== 'undefined' && !user) {
+            const noSyncPaths = ['/', '/login', '/registration', '/forgot-password', '/reset-password', '/sa-login', '/privacy', '/terms', '/terms-and-conditions', '/checkin', '/nfc-checkin'];
+            if (noSyncPaths.includes(window.location.pathname)) {
+                setIsLoaded(true);
+                return;
+            }
+        }
+
         let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug || settings.studioSlug;
         
         // 🔒 AUTH CHECK: Wait for user if we don't have a slug yet

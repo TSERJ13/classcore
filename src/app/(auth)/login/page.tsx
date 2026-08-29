@@ -65,7 +65,7 @@ export default function LoginPage() {
                 setLoginStatus(l('კავშირის დამყარება...', 'Установка соединения...', 'Establishing connection...'));
                 const { createClient } = await import('@/lib/supabase/client');
                 const supabase = createClient();
-                const { setStaffSession, validateStaffLogin } = await import('@/lib/settings-store');
+                const { setStaffSession, validateStaffLogin, activateStaffSession } = await import('@/lib/settings-store');
                 setStaffSession(null);
 
                 const isEmail = email.includes('@');
@@ -156,7 +156,13 @@ export default function LoginPage() {
         setLoginStatus(l('სესია მზადდება...', 'Подготовка сессии...', 'Preparing session...'));
         
         try {
-            const { setStaffSession } = await import('@/lib/settings-store');
+            const { setStaffSession, activateStaffSession } = await import('@/lib/settings-store');
+            const activated = await activateStaffSession(studio);
+            if (!activated) {
+                setError(l('სესია ვეღარ დადასტურდა, გთხოვთ სცადოთ თავიდან შესვლა.', 'Не удалось подтвердить сессию, попробуйте войти снова.', 'Could not confirm the session, please log in again.'));
+                setIsSubmitting(false);
+                return;
+            }
             setStaffSession({ staff: studio.staff, slug: studio.slug });
             setIsSuccess(true);
             setTimeout(() => {

@@ -55,134 +55,109 @@ function deleteCookie(name: string) {
 
 export type LoginResult = 
     | { type: 'single', staff: StaffMember, slug: string }
-    | { type: 'multiple', studios: { staff: StaffMember, slug: string, name: string, logoUrl: string | null }[] }
+    | { type: 'multiple', studios: { staff: StaffMember, slug: string, name: string, logoUrl: string | null, _token?: string }[] }
     | { error: string };
 
-/** 
- * Validates staff credentials across all registered studios.
- * Returns the staff member and their studio slug if found, or an error object if cloud login fails.
+/**
+ * Validates staff credentials and establishes a signed, server-verified
+ * staff session (see /api/auth/staff-login and src/lib/staff-token.ts).
+ *
+ * This used to run entirely client-side: it fetched every staff member's
+ * PLAINTEXT password for a studio down to the browser (via
+ * fetchStaffFromCloud's `.select('*')`) and compared them in JS, and the
+ * resulting "you're logged in" signal was just an unsigned cookie anyone
+ * could set themselves without knowing any password. The password check
+ * now happens on the server, and a match returns a cryptographically
+ * signed token instead of a forgeable flag. See staff-login/route.ts for
+ * the full writeup.
  */
 export async function validateStaffLogin(email: string, password: string): Promise<LoginResult | null> {
     if (typeof window === 'undefined') return null;
 
-    const cleanEmail = email.trim().toLowerCase();
-    
-    // Accumulator for all matching studios
-    const matchedStudios: { staff: StaffMember, slug: string, name: string, logoUrl: string | null }[] = [];
-
-    const tryLogin = (settings: StudioSettings, slug: string) => {
-        const staff = settings.staff?.find(s =>
-            (s.email?.toLowerCase().trim() === cleanEmail || 
-             s.full_name?.toLowerCase().trim() === cleanEmail || 
-             s.first_name?.toLowerCase().trim() === cleanEmail) &&
-            s.password === password
-        );
-        if (staff) {
-            // Only add if not already in list
-            if (!matchedStudios.find(m => m.slug === slug)) {
-                matchedStudios.push({
-                    staff,
-                    slug,
-                    name: settings.studioName || slug,
-                    logoUrl: settings.logoDataUrl || null
-                });
-            }
-            return true;
-        }
-        return false;
-    };
-
-    // 1. Check all local registry list
-    const list = getStudioRegistry();
-    for (const slug of list) {
-        tryLogin(loadSettings(slug), slug);
-    }
-    
-    // Also try active slug if not in registry
-    tryLogin(loadSettings(getActiveSlug()), getActiveSlug());
-
-    // 3. One last try with demo slug
-    if (!list.includes(DEFAULT_SETTINGS.studioSlug)) {
-        tryLogin(loadSettings(DEFAULT_SETTINGS.studioSlug), DEFAULT_SETTINGS.studioSlug);
-    }
-
-    // 4. CLOUD FALLBACK
-    console.log('🔍 Starting Cloud Fallback for:', cleanEmail);
     try {
-        const { findAllStudiosByStaffEmail, fetchStaffFromCloud } = await import('./sync-store');
-        const cloudResults = await findAllStudiosByStaffEmail(cleanEmail);
+        const res = await fetch('/api/auth/staff-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
 
-        if (cloudResults.length > 0) {
-            console.log(`📡 Cloud Found ${cloudResults.length} studios!`);
-            
-            for (const result of cloudResults) {
-                const cloudStaff = await fetchStaffFromCloud(result.slug);
-                if (!cloudStaff) continue;
-
-                const matchingStaff = cloudStaff.find((s: any) =>
-                    (s.email?.toLowerCase().trim() === cleanEmail ||
-                     s.full_name?.toLowerCase().trim() === cleanEmail ||
-                     s.first_name?.toLowerCase().trim() === cleanEmail) &&
-                    s.password === password
-                );
-
-                if (!matchingStaff) continue;
-
-                // Only add if we don't already have it locally
-                if (!matchedStudios.find(m => m.slug === result.slug)) {
-                    // Hydrate local store so it exists for next time
-                    addToRegistry(result.slug);
-                    if (result.staff.org_id) {
-                        localStorage.setItem(`cc_org_id_override_${result.slug}`, result.staff.org_id);
-                    }
-                    const existing = loadSettings(result.slug);
-                    saveSettings({
-                        staff: cloudStaff,
-                        orgId: result.staff.org_id || existing.orgId
-                    }, undefined, result.slug);
-                    
-                    matchedStudios.push({
-                        staff: matchingStaff as import('@/types').StaffMember,
-                        slug: result.slug,
-                        name: result.name || result.slug, // Make sure sync-store returns name or we fallback to slug
-                        logoUrl: result.logoUrl || null
-                    });
-                }
-            }
+        if (!data.ok) {
+            if (data.error === 'invalid') return { error: 'მომხმარებელი ან პაროლი არასწორია.' };
+            return { error: data.error || 'სისტემური შეცდომა.' };
         }
+
+        if (data.type === 'single') {
+            return { type: 'single', staff: data.staff as StaffMember, slug: data.slug };
+        }
+
+        return {
+            type: 'multiple',
+            studios: (data.studios as any[]).map(s => ({
+                staff: s.staff as StaffMember,
+                slug: s.slug,
+                name: s.name,
+                logoUrl: s.staff?.photo_url || null,
+                // Carried through so setStaffSession -> /api/auth/staff-select
+                // can activate this studio's session without asking for the
+                // password again.
+                _token: s.token,
+            })) as any,
+        };
     } catch (err: any) {
-        console.error('❌ [Auth] Cloud Fallback Critical Error:', err);
-        // If we have local matches, don't fail just because cloud failed
-        if (matchedStudios.length === 0) {
-            return { error: `სისტემური შეცდომა სინქრონიზაციისას (${err.message}).` };
-        }
+        console.error('❌ [Auth] staff-login request failed:', err);
+        return { error: `სისტემური შეცდომა სინქრონიზაციისას (${err.message}).` };
     }
-
-    if (matchedStudios.length === 0) {
-        return { error: 'მომხმარებელი ან პაროლი არასწორია.' };
-    }
-
-    if (matchedStudios.length === 1) {
-        return { type: 'single', staff: matchedStudios[0].staff, slug: matchedStudios[0].slug };
-    }
-
-    return { type: 'multiple', studios: matchedStudios };
 }
 
-/** Persists a staff session locally and synchronizes with a cookie for middleware awareness */
+/**
+ * Persists a staff session locally (for UI display — which staff member,
+ * which studio) and keeps the active-slug cookie/localStorage in sync.
+ *
+ * This no longer sets a `cc_staff_auth` cookie: that was the forgeable
+ * "true" flag middleware/session-check used to trust. The real,
+ * server-verified session cookie (`cc_staff_token`, httpOnly, signed) is
+ * set by the server in /api/auth/staff-login or /api/auth/staff-select —
+ * see activateStaffSession() below, which must be called (and awaited)
+ * for a 'multiple studios' login result before calling this function.
+ */
 export function setStaffSession(session: { staff: StaffMember, slug: string } | null) {
     if (typeof window === 'undefined') return;
     if (session) {
         localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(session));
-        setCookie(STAFF_COOKIE_NAME, 'true', 7); // Set auth cookie for middleware
-        setCookie('cc_active_slug', session.slug, 7);
         setCookie('cc_studio_name', encodeURIComponent(session.staff.org_id || ''), 7); // org_id often used as fallback name
         setActiveSlug(session.slug);
     } else {
         localStorage.removeItem(STAFF_SESSION_KEY);
-        deleteCookie(STAFF_COOKIE_NAME); 
+        deleteCookie(STAFF_COOKIE_NAME); // legacy cookie cleanup, harmless if already absent
         deleteCookie('cc_active_slug');
         deleteCookie('cc_studio_name');
+    }
+}
+
+/**
+ * Activates the real, signed staff session cookie for one of the studios
+ * returned by a 'multiple' validateStaffLogin() result. Must be called
+ * (and awaited) BEFORE setStaffSession() for that studio's choice — it's
+ * what actually authenticates the browser; setStaffSession() only updates
+ * local UI state. Returns false if the token was invalid/expired, in
+ * which case the caller should treat this as a failed login, not silently
+ * proceed.
+ */
+export async function activateStaffSession(studio: { _token?: string }): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    if (!studio._token) return false; // 'single' logins already set the cookie server-side
+    try {
+        const res = await fetch('/api/auth/staff-select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: studio._token }),
+        });
+        const data = await res.json();
+        return !!data.ok;
+    } catch (err) {
+        console.error('❌ [Auth] staff-select request failed:', err);
+        return false;
     }
 }
 
