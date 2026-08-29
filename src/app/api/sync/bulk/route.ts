@@ -16,19 +16,19 @@ const supabaseAdmin = createClient(
 // 🛡️ MINIMAL columns that DEFINITELY exist in every table
 // Anything else is dropped to prevent "column not found" errors
 const MINIMAL_COLUMNS: Record<string, string[]> = {
-    students: ['id', 'org_id', 'first_name', 'last_name', 'full_name', 'phone', 'email'],
-    staff: ['id', 'org_id', 'full_name', 'email', 'phone', 'role'],
-    groups: ['id', 'org_id', 'name', 'teacher_id', 'hall_id'],
-    halls: ['id', 'org_id', 'name'],
-    branches: ['id', 'org_id', 'name', 'address'],
-    calendar_events: ['id', 'org_id', 'title', 'date', 'start_time', 'end_time'],
-    subscriptions: ['id', 'org_id', 'student_id'],
+    students: ['id', 'org_id', 'first_name', 'last_name', 'full_name', 'phone', 'email', 'data'],
+    staff: ['id', 'org_id', 'full_name', 'email', 'phone', 'role', 'data'],
+    groups: ['id', 'org_id', 'name', 'teacher_id', 'hall_id', 'data'],
+    halls: ['id', 'org_id', 'name', 'data'],
+    branches: ['id', 'org_id', 'name', 'address', 'data'],
+    calendar_events: ['id', 'org_id', 'title', 'date', 'start_time', 'end_time', 'group_id', 'branch_id', 'data'],
+    subscriptions: ['id', 'org_id', 'student_id', 'status', 'sessions_used', 'sessions_total', 'expires_at', 'plan', 'data'],
     subscription_plans: ['id', 'org_id', 'name', 'type', 'period', 'session_count', 'validity_days', 'price', 'coach', 'coach_name', 'group_id', 'is_active', 'is_default', 'data'],
-    attendance: ['id', 'org_id', 'student_id', 'date'],
-    products: ['id', 'org_id', 'name'],
-    sales: ['id', 'org_id', 'student_id'],
-    expenses: ['id', 'org_id'],
-    studio_settings: ['org_id'],
+    attendance: ['id', 'org_id', 'student_id', 'group_id', 'class_id', 'date', 'status', 'notes', 'data'],
+    products: ['id', 'org_id', 'name', 'price', 'category', 'data'],
+    sales: ['id', 'org_id', 'student_id', 'product_id', 'amount', 'date', 'data'],
+    expenses: ['id', 'org_id', 'category', 'amount', 'date', 'description', 'data'],
+    studio_settings: ['org_id', 'studio_slug', 'studio_name', 'staff_emails', 'staff_data', 'settings'],
 };
 
 function sanitizeRow(table: string, row: any, includeData: boolean): any {
