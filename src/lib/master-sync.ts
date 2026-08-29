@@ -69,10 +69,23 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
 }
 
 export async function syncRecordToCloud(table: string, record: any, orgId: string) {
-    const supabase = createClient();
     if (!orgId) return false;
 
     const payload = { ...record, org_id: orgId };
+    
+    // First try via server bulk sync API (admin service role, bypasses RLS)
+    try {
+        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : undefined;
+        const res = await fetch('/api/sync/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table, rows: [payload], slug: activeSlug })
+        });
+        if (res.ok) return true;
+    } catch { /* fallback to direct supabase */ }
+
+    // Fallback: direct Supabase browser client
+    const supabase = createClient();
     const conflictCol = table === 'studio_settings' ? 'org_id' : 'id';
     const { error } = await supabase
         .from(table)
