@@ -16,6 +16,7 @@ import { THEMES } from '@/lib/settings-store';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser } from '@/hooks/useUser';
+import { isOwnerOrAdmin } from '@/lib/access';
 
 type NavItem = {
     href: string;
@@ -172,7 +173,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
             {sections.map((section, sIdx) => {
                 const sectionItems = ALL_ITEMS.filter(item => section.items.includes(item.href)).filter(item => {
                     const role = profile?.role || defaultRole;
-                    if (role === 'owner' || role === 'manager' || role === 'admin' || !role) return true;
+                    if (isOwnerOrAdmin(role)) return true;
 
                     const mapping: Record<string, string> = {
                         '/attendance': 'canViewAttendance',
@@ -193,7 +194,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
 
                     const adminOnly = ['/billing', '/settings'];
                     if (adminOnly.includes(item.href)) {
-                        return (profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'admin' || !profile?.role);
+                        return isOwnerOrAdmin(profile?.role);
                     }
 
                     return true;

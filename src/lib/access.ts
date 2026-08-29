@@ -9,11 +9,15 @@
  */
 
 export function isTeacherRole(role?: string | null): boolean {
-    return role === 'teacher' || role === 'coach' || role === 'instructor';
+    if (!role) return false;
+    const r = role.toLowerCase().trim();
+    return r !== 'owner' && r !== 'admin';
 }
 
 export function isOwnerOrAdmin(role?: string | null): boolean {
-    return role === 'owner' || role === 'admin' || role === 'manager';
+    if (!role) return false;
+    const r = role.toLowerCase().trim();
+    return r === 'owner' || r === 'admin';
 }
 
 interface MinimalGroup { id: string; teacherId?: string; secondaryTeacherId?: string }

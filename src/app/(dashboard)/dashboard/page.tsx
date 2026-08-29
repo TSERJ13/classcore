@@ -256,7 +256,7 @@ export default function DashboardPage() {
         
         const isTeacher = isTeacherRole(profile?.role);
         // Robust visible-group resolution (groups they teach + assignments).
-        const visibleGroupIds = getVisibleGroupIds(profile as any, getTeachers() as any, getGroups() as any);
+        const visibleGroupIds = getVisibleGroupIds(profile as any, (settings.staff || getTeachers()) as any, getGroups() as any);
 
         if (isTeacher && visibleGroupIds) {
             studentsList = studentsList.filter(s =>
