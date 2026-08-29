@@ -14,7 +14,7 @@ const config = {
                 'md': '1025px', // Triggers desktop layout only on iPad Landscape and above
             },
             fontFamily: {
-                sans: ['Inter', 'sans-serif'],
+                sans: ['"Fira GO"', 'Inter', 'sans-serif'],
             },
         },
     },

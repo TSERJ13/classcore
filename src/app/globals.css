@@ -1,4 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import '@fontsource/firago/300.css';
+@import '@fontsource/firago/400.css';
+@import '@fontsource/firago/500.css';
+@import '@fontsource/firago/600.css';
+@import '@fontsource/firago/700.css';
+@import '@fontsource/firago/800.css';
+@import '@fontsource/firago/900.css';
+
+@import '@fontsource/inter/300.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/inter/800.css';
+@import '@fontsource/inter/900.css';
 
 @tailwind base;
 @tailwind components;
@@ -77,7 +91,7 @@
     body {
         background-color: var(--bg-base, #ffffff);
         color: var(--text-primary, #111827);
-        font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+        font-family: 'Fira GO', 'Inter', ui-sans-serif, system-ui, sans-serif;
         position: relative;
         overflow-x: hidden !important;
         overscroll-behavior-x: none;
