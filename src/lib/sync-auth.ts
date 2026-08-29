@@ -2,6 +2,8 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient as createSSRClient } from '@/lib/supabase/server';
 import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
+import { verifyStaffToken } from '@/lib/staff-token';
+
 export interface AuthContext {
     userId: string;
     email?: string;
@@ -35,7 +37,31 @@ export async function getAuthenticatedOrgId(req: Request): Promise<AuthContext |
         user = data.user;
     }
 
-    if (!user) return null;
+    if (!user) {
+        // 🛡️ STAFF FALLBACK: Authenticate staff members logged in via signed cc_staff_token cookie
+        const cookieHeader = req.headers.get('cookie') || '';
+        const cookies = Object.fromEntries(
+            cookieHeader.split(';').map(c => {
+                const [k, ...v] = c.trim().split('=');
+                return [k, decodeURIComponent(v.join('='))];
+            })
+        );
+        const staffCookie = cookies['cc_staff_token'];
+        const staffTokenPayload = await verifyStaffToken(staffCookie);
+
+        if (staffTokenPayload?.orgId) {
+            const staffOrgId = staffTokenPayload.orgId;
+            return {
+                userId: staffTokenPayload.staffId,
+                email: undefined,
+                orgId: staffOrgId,
+                allowedOrgIds: [staffOrgId],
+                isSuperAdmin: false,
+                hasAccessToOrg: (targetOrgId) => !targetOrgId || targetOrgId === staffOrgId
+            };
+        }
+        return null;
+    }
 
     const email = user.email?.toLowerCase().trim();
     const isSuperAdmin = isSuperAdminEmail(email);

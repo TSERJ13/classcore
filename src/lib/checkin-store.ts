@@ -131,6 +131,9 @@ export function refundCheckin(studentId: string, customDate?: string): void {
         existing.splice(idx, 1);
         localStorage.setItem(key, JSON.stringify(existing));
         markLocalUpdate();
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('cc_attendance_update'));
+        }
     }
 
     // 2. Try to find and remove in cloud global data
@@ -200,6 +203,9 @@ function _writeCheckin(
     const updated = [...existing, record];
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cc_attendance_update'));
+    }
     
     // 🔥 NEW ATOMIC SYNC: Push this check-in to the native table
     const activeSlug = getActiveSlug();
