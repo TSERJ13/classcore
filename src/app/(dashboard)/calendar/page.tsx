@@ -24,7 +24,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { getStudents } from '@/lib/student-store';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
-import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
+import { getVisibleGroupIds, isTeacherRole, isOwnerOrAdmin } from '@/lib/access';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 /* ─── Constants ──────────────────────────────────────────────── */
@@ -1454,7 +1454,8 @@ export default function CalendarPage() {
     const { t, lang } = useT();
     const { profile } = useUser();
     const isTeacher = isTeacherRole(profile?.role);
-    const canEdit = !isTeacher || !!profile?.canEditCalendar;
+    const isOwnerAdmin = isOwnerOrAdmin(profile?.role) || !profile?.role;
+    const canEdit = isOwnerAdmin || !!profile?.canEditCalendar;
 
     // Day and Month names from i18n
     const DAYS = [t.shortSun, t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat];
@@ -2842,6 +2843,7 @@ export default function CalendarPage() {
                                             const snappedMins = Math.floor(totalMins / 15) * 15;
                                             const h = 8 + Math.floor(snappedMins / 60);
                                             const m = snappedMins % 60;
+                                            if (!canEdit) return;
                                             setAddDate(dateStr);
                                             setAddTime(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
                                         }} />
@@ -2921,7 +2923,7 @@ export default function CalendarPage() {
                                     className={cn('border-b border-r border-border-subtle/40 p-2 cursor-pointer hover:bg-surface/40 transition-all min-h-[100px] flex flex-col',
                                         col === 6 ? 'border-r-0' : '',
                                         (isToday && hasMounted) ? 'bg-[#6d28d9]/5' : '')}
-                                    onClick={() => { setAddDate(dateStr); setAddTime(null); }}>
+                                    onClick={() => { if (!canEdit) return; setAddDate(dateStr); setAddTime(null); }}>
                                     <span className={cn('inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-black mb-1 shadow-sm',
                                         isToday ? 'bg-[#6d28d9] text-white' : 'text-primary/70 bg-surface/50')}>
                                         {d.getDate()}

@@ -518,12 +518,16 @@ export default function DashboardPage() {
     };
 
     const dateStr = getLocalizedDate(selectedDate, t);
+    const isTeacher = isTeacherRole(profile?.role);
+    const canViewRevenue = !isTeacher && (profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'manager' || !!profile?.canViewAnalytics || !!profile?.canViewBilling);
 
     const stats = [
-        { label: t.totalStudents, value: String(liveStats.totalStudents), change: (liveStats.activeChange >= 0 ? `+${liveStats.activeChange}%` : `${liveStats.activeChange}%`), sub: null, icon: Users, color: 'indigo' },
-        { label: t.activeSubscriptions, value: String(liveStats.activeSubs), change: (liveStats.newThisMonth >= 0 ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth)), sub: null, icon: CreditCard, color: 'emerald' },
-        { label: t.todayRevenue, value: formatCurrency(liveStats.todayRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
-        { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: formatCurrency(liveStats.monthlyRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
+        { label: isTeacher ? (l('ჯგუფის სტუდენტები', 'Студенты группы', 'Group Students')) : t.totalStudents, value: String(liveStats.totalStudents), change: (liveStats.activeChange >= 0 ? `+${liveStats.activeChange}%` : `${liveStats.activeChange}%`), sub: null, icon: Users, color: 'indigo' },
+        { label: isTeacher ? (l('აქტიური აბონემენტები', 'Активные абонементы', 'Active Subscriptions')) : t.activeSubscriptions, value: String(liveStats.activeSubs), change: (liveStats.newThisMonth >= 0 ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth)), sub: null, icon: CreditCard, color: 'emerald' },
+        ...(canViewRevenue ? [
+            { label: t.todayRevenue, value: formatCurrency(liveStats.todayRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
+            { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: formatCurrency(liveStats.monthlyRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
+        ] : [])
     ];
 
     const colorMap: Record<string, { bg: string; text: string; border: string; glow: string }> = {
@@ -675,7 +679,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ─── Statistics (2x2 Grid) ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch pb-2">
+            <div className={cn("grid gap-3 sm:gap-4 items-stretch pb-2", stats.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 lg:grid-cols-4")}>
                 {stats.map((stat, idx) => (
                     <div key={idx} className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col items-start transition-all relative overflow-hidden group hover:border-border-subtle/60">
                         <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-${stat.color}-500/10 to-transparent rounded-bl-[4rem] -mr-4 -mt-4 transition-transform group-hover:scale-110`} />
