@@ -533,6 +533,27 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
                 
                 // 🚀 ATOMIC CLOUD SYNC: If we have an orgId, push the full state to ensure persistence
                 if (finalOrgId && finalOrgId !== 'demo') {
+                    if (s.staff && Array.isArray(s.staff)) {
+                        import('./master-sync').then(({ syncRecordToCloud }) => {
+                            s.staff!.forEach((member: any) => {
+                                syncRecordToCloud('staff', {
+                                    id: member.id,
+                                    org_id: finalOrgId,
+                                    full_name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim(),
+                                    first_name: member.first_name,
+                                    last_name: member.last_name,
+                                    email: member.email,
+                                    phone: member.phone,
+                                    role: member.role || 'teacher',
+                                    salary_percentage: member.salary_percentage,
+                                    rate_per_hour: member.rate_per_hour,
+                                    rate_per_month: member.rate_per_month,
+                                    data: member
+                                }, finalOrgId).catch(() => {});
+                            });
+                        });
+                    }
+
                     import('./master-sync').then(({ pushFullStudioMetadata }) => {
                         pushFullStudioMetadata(finalSlug, next.studioName || 'Studio', next);
                     });

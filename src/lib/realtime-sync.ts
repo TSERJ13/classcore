@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/client';
 import { getScopedKey } from './utils';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+const STORAGE_KEY = 'cc_studio_settings';
+
 /**
  * realtime-sync.ts
  * ---------------------------------------------------------------------------
@@ -314,6 +316,55 @@ function applyRemoteArrayDelete(baseKey: string, id: string, row?: any) {
     }
 }
 
+/** Upsert a staff member into cc_studio_settings staff array on Device B */
+function applyRemoteStaffUpsert(row: any) {
+    if (typeof window === 'undefined') return;
+    const item = (row.data && typeof row.data === 'object')
+        ? { ...row.data, ...row, data: undefined }
+        : row;
+    if (!item.id) return;
+
+    try {
+        const slug = _activeSlug || (typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null) || 'default';
+        const key = getScopedKey(STORAGE_KEY, slug);
+        const raw = localStorage.getItem(key);
+        if (raw) {
+            const settings = JSON.parse(raw);
+            let staffList: any[] = Array.isArray(settings.staff) ? settings.staff : [];
+            const idx = staffList.findIndex((s: any) => s.id === item.id);
+            if (idx >= 0) {
+                staffList[idx] = { ...staffList[idx], ...item };
+            } else {
+                staffList.push(item);
+            }
+            settings.staff = staffList;
+            localStorage.setItem(key, JSON.stringify(settings));
+        }
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote staff upsert:', e);
+    }
+}
+
+/** Delete a staff member from cc_studio_settings staff array on Device B */
+function applyRemoteStaffDelete(id: string) {
+    if (typeof window === 'undefined' || !id) return;
+
+    try {
+        const slug = _activeSlug || (typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null) || 'default';
+        const key = getScopedKey(STORAGE_KEY, slug);
+        const raw = localStorage.getItem(key);
+        if (raw) {
+            const settings = JSON.parse(raw);
+            if (Array.isArray(settings.staff)) {
+                settings.staff = settings.staff.filter((s: any) => s.id !== id);
+                localStorage.setItem(key, JSON.stringify(settings));
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ [Realtime] Failed to apply remote staff delete:', e);
+    }
+}
+
 /** Upsert a student into cc_student_data map on Device B */
 function applyRemoteStudentUpsert(row: any) {
     if (typeof window === 'undefined') return;
@@ -470,16 +521,28 @@ export function startRealtimeSync(orgId: string | null | undefined, slug: string
         })
         // ── Staff / Teachers: staff edits across devices
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff', filter }, (payload) => {
-            if (payload.new) applyRemoteArrayUpsert('cc_teachers', payload.new);
+            if (payload.new) {
+                applyRemoteStaffUpsert(payload.new);
+                applyRemoteArrayUpsert('cc_teachers', payload.new);
+            }
             emit('cc_teacher_update');
+            emit('cc_settings_update');
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'staff', filter }, (payload) => {
-            if (payload.new) applyRemoteArrayUpsert('cc_teachers', payload.new);
+            if (payload.new) {
+                applyRemoteStaffUpsert(payload.new);
+                applyRemoteArrayUpsert('cc_teachers', payload.new);
+            }
             emit('cc_teacher_update');
+            emit('cc_settings_update');
         })
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'staff', filter }, (payload) => {
-            if (payload.old?.id) applyRemoteArrayDelete('cc_teachers', payload.old.id);
+            if (payload.old?.id) {
+                applyRemoteStaffDelete(payload.old.id);
+                applyRemoteArrayDelete('cc_teachers', payload.old.id);
+            }
             emit('cc_teacher_update');
+            emit('cc_settings_update');
         })
         // ── Products: shop inventory edits across devices
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products', filter }, (payload) => {

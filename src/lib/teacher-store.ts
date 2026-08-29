@@ -5,6 +5,9 @@
 import type { Teacher } from '@/types';
 import { loadSettings, saveSettings, type StaffMember } from './settings-store';
 
+import { getActiveSlug, getEffectiveOrgId } from './utils';
+import { deleteRecordFromCloud } from './master-sync';
+
 const INITIAL_TEACHERS: Teacher[] = [];
 
 // 🚀 MEMORY CACHE: Fallback when localStorage is full
@@ -19,12 +22,12 @@ export function setTeachersMemoryCache(teachers: Teacher[], slug: string) {
 export function getTeachers(): Teacher[] {
     if (typeof window === 'undefined') return INITIAL_TEACHERS;
     try {
-        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
+        const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         if (activeSlug && _teachersMemoryCache && _teachersMemoryCacheSlug === activeSlug) {
             return _teachersMemoryCache;
         }
         
-        const settings = loadSettings();
+        const settings = loadSettings(activeSlug);
         return (settings.staff || []) as unknown as Teacher[];
     } catch {
         return INITIAL_TEACHERS;
@@ -34,7 +37,8 @@ export function getTeachers(): Teacher[] {
 export function saveTeachers(teachers: Teacher[]) {
     if (typeof window === 'undefined') return;
     try {
-        saveSettings({ staff: teachers as unknown as StaffMember[] });
+        const activeSlug = getActiveSlug() || 'default';
+        saveSettings({ staff: teachers as unknown as StaffMember[] }, undefined, activeSlug);
         window.dispatchEvent(new CustomEvent('cc_teacher_update'));
     } catch (err: any) {
         console.error('Storage failed:', err);
@@ -66,21 +70,29 @@ export function getAllTeachersRaw(): Teacher[] {
 }
 
 export function updateTeacher(id: string, data: Partial<Teacher>) {
-    const settings = loadSettings();
+    const activeSlug = getActiveSlug() || 'default';
+    const settings = loadSettings(activeSlug);
     const list = settings.staff || [];
     const idx = list.findIndex(t => t.id === id);
     if (idx > -1) {
         list[idx] = { ...list[idx], ...data } as any;
-        saveSettings({ staff: list });
+        saveSettings({ staff: list }, settings, activeSlug);
         window.dispatchEvent(new CustomEvent('cc_teacher_update'));
     }
 }
 
 export function deleteTeacher(id: string) {
-    const settings = loadSettings();
+    const activeSlug = getActiveSlug() || 'default';
+    const settings = loadSettings(activeSlug);
     const list = settings.staff || [];
     const filtered = list.filter(t => t.id !== id);
-    saveSettings({ staff: filtered });
+    saveSettings({ staff: filtered }, settings, activeSlug);
+    
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
+    if (orgId && orgId !== 'demo') {
+        deleteRecordFromCloud('staff', id, orgId).catch(() => {});
+    }
+
     window.dispatchEvent(new CustomEvent('cc_teacher_update'));
 }
 
