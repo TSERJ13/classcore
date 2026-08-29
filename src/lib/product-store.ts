@@ -4,7 +4,7 @@
  */
 
 import { Product } from '@/types';
-import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, getEffectiveOrgId } from './utils';
 import { loadSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
@@ -38,7 +38,7 @@ export async function saveProducts(products: Product[]): Promise<void> {
     markLocalUpdate();
     
     const settings = loadSettings(activeSlug);
-    const orgId = settings.orgId;
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     
     if (orgId && orgId !== 'demo') {
         // 1. Individual record sync (for products table)
@@ -84,7 +84,7 @@ export async function deleteProduct(id: string): Promise<void> {
 
     const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
-    const orgId = settings.orgId;
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
 
     if (orgId && orgId !== 'demo') {
         deleteRecordFromCloud('products', id, orgId).catch(() => {});

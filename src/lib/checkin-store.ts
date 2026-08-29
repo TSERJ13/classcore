@@ -1,6 +1,6 @@
 import { incrementSessionsUsed, getSubscription, refundSessionsUsed } from './subscription-store';
 import { pushStudioStateToCloud } from './sync-store';
-import { getScopedKey, markLocalUpdate } from './utils';
+import { getScopedKey, markLocalUpdate, getEffectiveOrgId } from './utils';
 import { getStaffSession, getActiveSlug, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
 import { syncRecordToCloud } from './master-sync';
@@ -154,7 +154,7 @@ export function refundCheckin(studentId: string, customDate?: string): void {
         refundSessionsUsed(studentId);
 
         const settings = loadSettings(activeSlug || '');
-        const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+        const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
         
         if (orgId && orgId !== 'demo' && rToDeleteId) {
             import('./master-sync').then(({ deleteRecordFromCloud }) => {
@@ -204,7 +204,7 @@ function _writeCheckin(
     // 🔥 NEW ATOMIC SYNC: Push this check-in to the native table
     const activeSlug = getActiveSlug();
     const settings = loadSettings(activeSlug || '');
-    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     if (orgId && orgId !== 'demo') {
         const cloudRecord = {
             id: checkinId,
@@ -434,7 +434,7 @@ export function deleteCheckin(studentId: string, date: string, time: string, for
         // Standardized Cloud Sync
         const activeSlug = getActiveSlug();
         const settings = loadSettings(activeSlug || '');
-        const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+        const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
         if (orgId && orgId !== 'demo' && rToDelete.id) {
             import('./master-sync').then(({ deleteRecordFromCloud }) => {
                 deleteRecordFromCloud('attendance', rToDelete.id as string, orgId);

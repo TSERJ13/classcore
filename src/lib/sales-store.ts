@@ -16,7 +16,7 @@ export interface ShopSale {
     date: string;
 }
 
-import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, getEffectiveOrgId } from './utils';
 import { loadSettings, saveSettings } from './settings-store';
 import { syncRecordToCloud, deleteRecordFromCloud, pushFullStudioMetadata } from './master-sync';
 
@@ -57,9 +57,9 @@ export function recordSale(sale: Omit<ShopSale, 'id' | 'date' | 'time'>) {
     localStorage.setItem(getSalesKey(), JSON.stringify([newSale, ...existing]));
     markLocalUpdate();
     
-    const activeSlug = getActiveSlug();
+    const activeSlug = getActiveSlug() || undefined;
     const settings = loadSettings(activeSlug || '');
-    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     
     if (orgId && orgId !== 'demo') {
         const fullList = [newSale, ...existing];
@@ -86,9 +86,9 @@ export function deleteSale(id: string) {
     localStorage.setItem(getSalesKey(), JSON.stringify(updated));
     markLocalUpdate();
     
-    const activeSlug = getActiveSlug();
+    const activeSlug = getActiveSlug() || undefined;
     const settings = loadSettings(activeSlug || '');
-    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     
     if (orgId && orgId !== 'demo') {
         deleteRecordFromCloud('sales', id, orgId).catch(() => {});

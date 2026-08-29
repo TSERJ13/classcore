@@ -29,7 +29,7 @@ export interface Group {
     org_id?: string;
 }
 
-import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId } from './utils';
 import { loadSettings, saveSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
 import { deleteRecordFromCloud, syncRecordToCloud } from './master-sync';
@@ -118,8 +118,8 @@ export function saveGroups(groups: Group[]): void {
     // 🔥 NEW ATOMIC SYNC: Push all groups to the native table
     const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
-    if (settings.orgId && settings.orgId !== 'demo') {
-        const orgId = settings.orgId;
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
+    if (orgId && orgId !== 'demo') {
         // 1. Native table sync
         groups.forEach(g => {
             syncRecordToCloud('groups', {
@@ -284,9 +284,9 @@ export function deleteGroup(id: string): void {
     const updated = groups.filter(g => g.id !== id);
     
     const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
-    const activeSlug = getActiveSlug();
+    const activeSlug = getActiveSlug() || undefined;
     const settings = loadSettings(activeSlug || '');
-    const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
 
     if (orgId && orgId !== 'demo') {
         // 1. Native table delete

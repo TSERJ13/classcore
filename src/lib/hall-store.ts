@@ -15,7 +15,7 @@ export interface HallData {
 }
 import { loadSettings } from './settings-store';
 
-import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId } from './utils';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
 
@@ -83,7 +83,7 @@ export function saveHalls(halls: HallData[]): void {
     triggerInstantSync();
 
     const settings = loadSettings(activeSlug);
-    const orgId = settings.orgId;
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     
     if (orgId && orgId !== 'demo') {
         // 1. Dedicated Collection Sync (For high reliability)
@@ -92,7 +92,7 @@ export function saveHalls(halls: HallData[]): void {
         });
 
         // 2. FOOLPROOF SCHEMA-LESS FALLBACK (In settings blob)
-        const updatedSettings = { ...settings, halls: halls };
+        const updatedSettings = { ...settings, halls: halls, orgId };
         import('./settings-store').then(({ saveSettings }) => {
             saveSettings({ halls: halls } as any, settings, activeSlug);
             import('./master-sync').then(({ pushFullStudioMetadata }) => {
@@ -125,7 +125,7 @@ export function deleteHall(id: string): void {
     if (typeof window !== 'undefined') {
         const activeSlug = getActiveSlug() || '';
         const settings = loadSettings(activeSlug);
-        const orgId = settings.orgId || localStorage.getItem(`cc_org_id_${activeSlug}`);
+        const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
 
         if (orgId && orgId !== 'demo') {
             deleteRecordFromCloud('halls', id, orgId).catch(() => {});

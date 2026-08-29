@@ -2,7 +2,7 @@
  * trash-store.ts
  * Manages deleted items with a 30-day retention policy.
  */
-import { getScopedKey, getActiveSlug } from './utils';
+import { getScopedKey, getActiveSlug, getEffectiveOrgId } from './utils';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
 import { loadSettings } from './settings-store';
@@ -65,7 +65,7 @@ export function moveToTrash(type: TrashItem['type'], data: any, branchId: string
         // Cloud sync
         const activeSlug = getActiveSlug() || '';
         const settings = loadSettings(activeSlug);
-        const orgId = settings.orgId;
+        const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
         
         if (orgId && orgId !== 'demo') {
             syncRecordToCloud('trash', {
@@ -94,7 +94,7 @@ export function removeFromTrash(id: string) {
     // Cloud delete
     const activeSlug = getActiveSlug() || '';
     const settings = loadSettings(activeSlug);
-    const orgId = settings.orgId || (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) || localStorage.getItem(`cc_org_id_${activeSlug}`) : null);
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     if (orgId && orgId !== 'demo') {
         deleteRecordFromCloud('trash', id, orgId);
     }
