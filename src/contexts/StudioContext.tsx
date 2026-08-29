@@ -520,6 +520,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     await safeSetItem(getScopedKey('cc_shop_products', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
                                 }
 
+                                if (heavyState.subscription_plans) {
+                                    const plansList = unwrap(heavyState.subscription_plans);
+                                    if (plansList.length > 0) {
+                                        await safeSetItem(getScopedKey('cc_subscription_plans', activeSlug || 'default'), JSON.stringify(plansList), activeSlug || 'default');
+                                    }
+                                }
+
                                 // Merge into settings context for products/plans
                                 setSettings(prev => ({
                                     ...prev,

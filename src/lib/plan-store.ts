@@ -52,7 +52,10 @@ export function getPlans(): Plan[] {
 
         if (saved) {
             const parsed = JSON.parse(saved);
-            return Array.isArray(parsed) ? parsed : INITIAL_PLANS;
+            if (Array.isArray(parsed)) {
+                return parsed.map(item => (item && typeof item === 'object' && item.data && typeof item.data === 'object') ? { ...item, ...item.data } : item);
+            }
+            return INITIAL_PLANS;
         }
         
         // 🚀 Fall back to memory cache

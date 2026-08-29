@@ -204,8 +204,8 @@ export async function POST(req: Request) {
             (isHeavy && !isClientPortal) ? supabaseAdmin.from('trash').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
             // 11: Events
             (isHeavy && !isClientPortal) ? supabaseAdmin.from('calendar_events').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
-            // 12: Plans
-            isHeavy ? supabaseAdmin.from('subscription_plans').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
+            // 12: Plans (Critical core metadata)
+            isCore ? supabaseAdmin.from('subscription_plans').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
             // 13: Products
             (isHeavy && !isClientPortal) ? supabaseAdmin.from('products').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] })
         ]);
