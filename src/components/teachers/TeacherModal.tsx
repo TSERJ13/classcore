@@ -106,8 +106,16 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
         setSaving(true);
         try {
             await new Promise(r => setTimeout(r, 400));
-            const finalForm = { 
+            const finalForm = {
                 ...form,
+                // New teachers otherwise reach onSave()/addStaff() with no
+                // `id` at all. That's harmless in localStorage (a plain
+                // array), but the Supabase `staff` table has
+                // `id TEXT PRIMARY KEY NOT NULL`, so the cloud upsert was
+                // silently rejected and the teacher never left the device
+                // (and could never log in via /api/auth/staff-login, which
+                // looks the record up in that same table).
+                id: form.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
                 full_name: `${form.first_name.trim()} ${form.last_name.trim()}`
             };
 

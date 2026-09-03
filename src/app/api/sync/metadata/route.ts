@@ -58,7 +58,11 @@ export async function POST(req: Request) {
             .maybeSingle();
         const existingSettings = existingStudio?.settings || {};
 
+        // Same merge-not-replace fix as `staff_data` below: a partial
+        // `settings` push must not delete discovery-blob keys it didn't
+        // include.
         const finalSettings = {
+            ...existingSettings,
             ...discoverySettings,
             plan: existingSettings.plan || discoverySettings.plan || 'trial',
             suspended: existingSettings.suspended !== undefined ? existingSettings.suspended : discoverySettings.suspended,
@@ -84,9 +88,21 @@ export async function POST(req: Request) {
             .maybeSingle();
         const existingStaffData = existingSettingsRow?.staff_data || {};
 
+        // 🛡️ MERGE, DON'T REPLACE: `settings` here is often a small partial
+        // blob (e.g. expense-store.ts / salary-status-store.ts push just
+        // `{ cc_expenses_<branch>_<month>: {...} }`), not the full studio
+        // settings object. This used to spread ONLY `settings` into
+        // `staff_data` ("the Full Recovery Blob"), which meant every one of
+        // those partial pushes wiped out everything previously stored here —
+        // the staff list, students, branches, and everything else this
+        // record is the account-recovery / staff-login fallback for — down
+        // to just that one key plus studioName/_operations. Merging onto the
+        // existing row means a partial push can only ever add/update keys,
+        // never silently delete unrelated ones.
         const finalStaffData = {
+            ...existingStaffData,
             ...settings,
-            studioName: name === 'Studio' ? 'S_T Dance Studio' : name,
+            studioName: name === 'Studio' ? (existingStaffData.studioName || 'S_T Dance Studio') : name,
             _operations: existingStaffData._operations || undefined
         };
 

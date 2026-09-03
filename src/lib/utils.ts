@@ -277,6 +277,35 @@ export function getEffectiveOrgId(slug?: string): string | null {
     return null;
 }
 
+/**
+ * Small local tombstone list, keyed per-scope (e.g. `cc_deleted_calendar_events`).
+ * Mirrors the pattern subscription-store.ts already uses
+ * (`cc_deleted_subscriptions`) to stop a just-deleted record from
+ * reappearing when a hydration pass merges in a stale cloud/backup copy
+ * that raced the delete, or hasn't caught up with it yet.
+ */
+export function getLocallyDeletedIds(storageKey: string): Set<string> {
+    if (typeof window === 'undefined') return new Set();
+    try {
+        const raw = localStorage.getItem(storageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+        return new Set();
+    }
+}
+
+export function addLocallyDeletedId(storageKey: string, id: string) {
+    if (typeof window === 'undefined') return;
+    try {
+        const ids = getLocallyDeletedIds(storageKey);
+        ids.add(id);
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(ids)));
+    } catch (e) {
+        console.error('❌ [Utils] Failed to record locally-deleted id:', e);
+    }
+}
+
 export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;

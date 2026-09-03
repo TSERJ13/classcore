@@ -1,5 +1,6 @@
-import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, getEffectiveOrgId } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
+import { syncRecordToCloud } from './master-sync';
 
 export interface MonthlyExpenses {
     rent: number;
@@ -44,7 +45,38 @@ export function saveExpenses(month: string, branchId: string, expenses: MonthlyE
     // Sync
     const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        // Best-effort mirror into the settings recovery blob (legacy path —
+        // kept for backward compatibility with anything still reading
+        // `cc_expenses_*` out of studio_settings).
         pushStudioStateToCloud(activeSlug, [], { [key]: expenses });
+
+        // 🔥 REAL PERSISTENCE: previously this was the ONLY sync call, and
+        // it never wrote to Supabase's `public.expenses` table at all — it
+        // only reached the `studio_settings.settings` JSON blob, which is a
+        // best-effort discovery/recovery cache, not the source of truth any
+        // other device reads from. That meant expenses genuinely lived only
+        // in the browser that entered them and were lost if that device's
+        // storage was cleared or the studio was opened elsewhere.
+        //
+        // Write one upserted row per category into the real `expenses`
+        // table instead, keyed deterministically so re-saving the same
+        // month/branch/category updates the existing row rather than
+        // duplicating it.
+        const finalOrgId = getEffectiveOrgId(activeSlug);
+        if (finalOrgId) {
+            const date = `${month}-01`;
+            (Object.keys(expenses) as (keyof MonthlyExpenses)[]).forEach(category => {
+                syncRecordToCloud('expenses', {
+                    id: `exp_${branchId}_${month}_${category}`,
+                    org_id: finalOrgId,
+                    category,
+                    amount: expenses[category] || 0,
+                    branch_id: branchId,
+                    description: category,
+                    date
+                }, finalOrgId).catch(() => {});
+            });
+        }
     }
 
     // Trigger update

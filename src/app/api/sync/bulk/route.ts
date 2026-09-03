@@ -16,7 +16,7 @@ const supabaseAdmin = createClient(
 // 🛡️ MINIMAL columns that DEFINITELY exist in every table
 // Anything else is dropped to prevent "column not found" errors
 const MINIMAL_COLUMNS: Record<string, string[]> = {
-    students: ['id', 'org_id', 'first_name', 'last_name', 'full_name', 'phone', 'email', 'data'],
+    students: ['id', 'org_id', 'first_name', 'last_name', 'full_name', 'phone', 'email', 'birth_date', 'data'],
     staff: ['id', 'org_id', 'full_name', 'email', 'phone', 'role', 'data'],
     groups: ['id', 'org_id', 'name', 'teacher_id', 'hall_id', 'data'],
     halls: ['id', 'org_id', 'name', 'data'],

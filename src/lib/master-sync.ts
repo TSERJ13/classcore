@@ -68,17 +68,47 @@ export async function fetchFullStudioState(slug: string, orgId?: string, token?:
     return result;
 }
 
+/**
+ * Resolves the current Supabase access token (if any) for attaching to
+ * `/api/sync/*` requests as `Authorization: Bearer <token>`.
+ *
+ * These endpoints (`/api/sync/bulk`, `/api/sync/delete`, ...) resolve the
+ * caller via `getAuthenticatedOrgId()`, which falls back to reading the
+ * Supabase session from cookies when no bearer token is present. That
+ * cookie fallback depends on the request actually carrying fresh,
+ * server-readable auth cookies — which isn't reliable in every browser
+ * context (Safari's cross-site cookie restrictions, a session that just
+ * refreshed client-side but hasn't round-tripped through a cookie write
+ * yet, etc). Attaching the token explicitly — the same way
+ * `fetchFullStudioState` already does — makes auth resolution deterministic
+ * instead of depending on cookie propagation.
+ */
+async function getAuthToken(): Promise<string | undefined> {
+    if (typeof window === 'undefined') return undefined;
+    try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.access_token;
+    } catch {
+        return undefined;
+    }
+}
+
 export async function syncRecordToCloud(table: string, record: any, orgId: string) {
     if (!orgId) return false;
 
     const payload = { ...record, org_id: orgId };
-    
+
     // First try via server bulk sync API (admin service role, bypasses RLS)
     try {
         const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : undefined;
+        const token = await getAuthToken();
         const res = await fetch('/api/sync/bulk', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            },
             body: JSON.stringify({ table, rows: [payload], slug: activeSlug })
         });
         if (res.ok) return true;
@@ -120,11 +150,15 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
     collectionsToStrip.forEach(key => delete sanitizedSettings[key]);
 
     try {
+        // Same deal as syncRecordToCloud/deleteRecordFromCloud: resolve a
+        // token ourselves when the caller didn't pass one, instead of
+        // relying purely on cookies making it to the server.
+        const resolvedToken = token || await getAuthToken();
         const res = await fetch('/api/sync/metadata', {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : ''
+                'Authorization': resolvedToken ? `Bearer ${resolvedToken}` : ''
             },
             body: JSON.stringify({
                 slug,
@@ -181,9 +215,13 @@ export async function pushCollectionToCloud(table: string, items: any[], orgId: 
 
         // 🚀 BYPASS RLS: Call our secure bulk sync API instead of direct Supabase upsert
         try {
+            const token = await getAuthToken();
             const apiRes = await fetch('/api/sync/bulk', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
                 body: JSON.stringify({
                     table,
                     rows: chunk,
@@ -257,9 +295,13 @@ export async function deleteRecordFromCloud(table: string, id: string, orgId: st
     // client is subject to RLS and a blocked DELETE silently removes 0 rows,
     // which is why deleted records used to reappear after a refresh.
     try {
+        const token = await getAuthToken();
         const res = await fetch('/api/sync/delete', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            },
             body: JSON.stringify({ table, id, orgId }),
         });
         if (!res.ok) {

@@ -4,10 +4,13 @@
  */
 import type { CalendarEvent, EventType } from '@/types';
 import { pushStudioStateToCloud } from './sync-store';
-import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, getEffectiveOrgId } from './utils';
+import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, getEffectiveOrgId, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
 
 const BASE_EVENTS_KEY = 'cc_calendar_events';
 function getEventsKey() { return getScopedKey(BASE_EVENTS_KEY); }
+
+const BASE_DELETED_EVENTS_KEY = 'cc_deleted_calendar_events';
+function getDeletedEventsKey() { return getScopedKey(BASE_DELETED_EVENTS_KEY); }
 
 function toDateStr(d: Date) {
     return getLocalISODate(d);
@@ -112,6 +115,17 @@ export function getEvents(): CalendarEvent[] {
             }
         }
 
+        // 5. Never resurrect events the user just deleted: a background
+        // hydration pass (StudioContext) can merge in a slightly-stale
+        // cloud/backup snapshot that raced a delete. Filter those out here
+        // too, the same way subscription-store.ts guards
+        // `cc_deleted_subscriptions`.
+        const deletedEventIds = getLocallyDeletedIds(getDeletedEventsKey());
+        if (deletedEventIds.size > 0) {
+            const filtered = events.filter((e: CalendarEvent) => !deletedEventIds.has(e.id));
+            if (filtered.length !== events.length) return filtered;
+        }
+
         return events;
     } catch {
         return SEED_WEEK;
@@ -151,6 +165,22 @@ export function deleteEvent(id: string) {
     const events = getEvents();
     const updated = events.filter(e => e.id !== id);
     saveEvents(updated);
+    addLocallyDeletedId(getDeletedEventsKey(), id);
+
+    // saveEvents() only re-pushes the *surviving* events to the cloud — it
+    // never told Supabase to remove the deleted row, so it stayed in
+    // `calendar_events` and came back on the next hydration. Delete it for
+    // real, the same way subscription-store.ts does.
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        const finalOrgId = getEffectiveOrgId(activeSlug);
+        if (finalOrgId) {
+            import('./master-sync').then(mod => {
+                mod.deleteRecordFromCloud('calendar_events', id, finalOrgId).catch(() => {});
+            });
+        }
+    }
+
     return updated;
 }
 
@@ -188,8 +218,30 @@ export function updateEvent(id: string, updates: Partial<CalendarEvent>) {
 
 /** Remove all recurring weekly events that belong to a specific group */
 export function deleteGroupEvents(groupId: string) {
-    const events = getEvents().filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));
+    const before = getEvents();
+    const removed = before.filter(e => e.group_id === groupId && e.recurring === 'weekly');
+    const events = before.filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));
     saveEvents(events);
+    if (removed.length > 0) {
+        const deletedKey = getDeletedEventsKey();
+        removed.forEach(e => addLocallyDeletedId(deletedKey, e.id));
+    }
+
+    // Same resurrection issue as deleteEvent(): removing rows from the
+    // local list and re-pushing only the survivors never deletes the old
+    // rows in Supabase.
+    if (removed.length > 0) {
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            const finalOrgId = getEffectiveOrgId(activeSlug);
+            if (finalOrgId) {
+                import('./master-sync').then(mod => {
+                    removed.forEach(e => mod.deleteRecordFromCloud('calendar_events', e.id, finalOrgId).catch(() => {}));
+                });
+            }
+        }
+    }
+
     return events;
 }
 

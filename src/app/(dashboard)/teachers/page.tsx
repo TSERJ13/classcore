@@ -72,6 +72,11 @@ export default function TeachersPage() {
         } else {
             addStaff({
                 ...data,
+                // Defense in depth: TeacherModal always assigns an id now,
+                // but any other caller of this handler must not be allowed
+                // to add a staff member the cloud sync (which requires a
+                // non-null primary key) will silently drop.
+                id: data.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`),
                 status: data.status || 'active',
                 permissions: data.permissions || {
                     canViewAttendance: true,

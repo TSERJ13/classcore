@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { setMemoryStudentsCache } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
-import { getActiveSlug, getScopedKey, safeSetItem } from '@/lib/utils';
+import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds } from '@/lib/utils';
 import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
 
 interface StudioContextType {
@@ -189,6 +189,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     });
                 };
                 const allDeleted = new Set((state.trash || []).map((t: any) => t?.entity_id || t?.id).filter(Boolean));
+                // Events the user deleted on THIS device: guards against a
+                // hydration response merging back in a slightly-stale
+                // cloud/backup snapshot that raced the delete (mirrors the
+                // same local-tombstone check event-store.ts's getEvents()
+                // already applies, and the `allDeleted`/cloud-trash check
+                // subscriptions get below).
+                const deletedEventIds = getLocallyDeletedIds(getScopedKey('cc_deleted_calendar_events', activeSlug || 'default'));
 
                 const resolveRicher = (db: any[], backup: any) => {
                     const dbArr = Array.isArray(db) ? db : [];
@@ -203,7 +210,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
                 const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
                 const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
-                const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events);
+                const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events)
+                    .filter((e: any) => !deletedEventIds.has(e.id));
                 
                 setLoadingStep('ინტერფეისის მომზადება...');
 
@@ -509,9 +517,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     await safeSetItem(getScopedKey('cc_expenses', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
                                 }
                                 if (heavyState.calendar_events) {
-                                    const map: any = {};
-                                    unwrap(heavyState.calendar_events).forEach((e: any) => map[e.id] = e);
-                                    await safeSetItem(getScopedKey('cc_calendar_events', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                    // event-store.ts's getEvents() requires this key to hold a plain
+                                    // ARRAY (`Array.isArray(events)`, else it discards whatever was
+                                    // stored and falls back to the seed/empty list). This used to
+                                    // build an `{id: event}` map instead — the same shape used for
+                                    // collections that genuinely are id-keyed (e.g. students) — which
+                                    // meant every background heavy-sync silently wiped out calendar
+                                    // events shortly after they were hydrated.
+                                    const list = unwrap(heavyState.calendar_events)
+                                        .filter((e: any) => !deletedEventIds.has(e.id));
+                                    await safeSetItem(getScopedKey('cc_calendar_events', activeSlug || 'default'), JSON.stringify(list), activeSlug || 'default');
                                 }
                                 if (heavyState.trash) {
                                     const map: any = {};
@@ -531,9 +546,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 }
                                 
                                 if (heavyState.products) {
-                                    const map: any = {};
-                                    unwrap(heavyState.products).forEach((p: any) => map[p.id] = p);
-                                    await safeSetItem(getScopedKey('cc_shop_products', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                    // Same array-vs-map mismatch as calendar_events above:
+                                    // product-store.ts requires `cc_shop_products` to be an array
+                                    // (`Array.isArray(parsed) ? parsed : INITIAL_PRODUCTS`), so writing
+                                    // an `{id: product}` map here got silently discarded on next read.
+                                    const list = unwrap(heavyState.products);
+                                    await safeSetItem(getScopedKey('cc_shop_products', activeSlug || 'default'), JSON.stringify(list), activeSlug || 'default');
                                 }
 
                                 if (heavyState.subscription_plans) {

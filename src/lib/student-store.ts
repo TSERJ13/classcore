@@ -347,6 +347,10 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
                 full_name: studentToSync.full_name || '',
                 phone: studentToSync.phone || '',
                 email: studentToSync.email || '',
+                // `birth_date` is a `DATE` column — send null rather than ''
+                // when unset, since Postgres rejects an empty string as an
+                // invalid date literal and would fail the whole upsert.
+                birth_date: studentToSync.birth_date || null,
                 data: studentToSync
             }, finalOrgId).then(success => {
                 if (success) console.log('🟢 [StudentStore] Cloud Sync SUCCESS');
