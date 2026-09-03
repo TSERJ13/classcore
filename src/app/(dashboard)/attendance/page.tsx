@@ -264,24 +264,37 @@ export default function AttendancePage() {
                 }) as any;
         }
 
-        // 🚀 ALWAYS-AVAILABLE GROUPS FALLBACK: Show ONLY assigned groups for teachers!
-        if (targetSchedule.length === 0 && availableGroups.length > 0) {
-            targetSchedule = availableGroups.map(g => ({
-                id: `virtual-fallback-${g.id}`,
-                group_id: g.id,
-                title: g.name,
-                type: 'group',
-                color: g.color || '#6d28d9',
-                start_time: '18:00',
-                end_time: '19:00',
-                teacher_id: g.teacherId || '',
-                hall_id: g.hall_id || ''
-            })) as any;
-        }
+        // Staff IDs for the current teacher
+        const staffMe = (settings.staff || []).find(s => {
+            if (profile?.id && s.id === profile.id) return true;
+            if (profile?.email && s.email && s.email.toLowerCase() === profile.email.toLowerCase()) return true;
+            const pName = ((profile as any)?.full_name || (profile as any)?.first_name || '').toLowerCase().trim();
+            const sName = ((s as any)?.full_name || (s as any)?.first_name || '').toLowerCase().trim();
+            return pName && sName && (sName === pName || sName.includes(pName));
+        });
+        const teacherIds = new Set([profile?.id, staffMe?.id, (profile as any)?.staff_id].filter(Boolean) as string[]);
 
         return targetSchedule.filter(ev => {
             if (isTeacher && visibleGroupIds) {
-                return visibleGroupIds.includes(ev.group_id || '');
+                // If it's a group class:
+                if (ev.group_id) {
+                    const primary = ev.teacher_id || (ev as any).teacherId;
+                    return visibleGroupIds.includes(ev.group_id) || (primary && teacherIds.has(primary));
+                }
+                // If it's an individual lesson:
+                if (ev.type === 'individual') {
+                    const evTid = ev.teacher_id || (ev as any).teacherId;
+                    if (evTid && teacherIds.has(evTid)) return true;
+                    const evCoach = (ev.coach || '').toLowerCase().trim();
+                    const myName = (staffMe?.full_name || (profile as any)?.full_name || '').toLowerCase().trim();
+                    if (evCoach && myName && (evCoach.includes(myName) || myName.includes(evCoach))) return true;
+                    // If no teacher is explicitly attached, check if this teacher does individual lessons
+                    if (!evTid && (staffMe?.assigned_individual || (profile as any)?.assigned_individual)) return true;
+                    return false;
+                }
+                // Fallback for other events with teacher_id
+                const evTid = ev.teacher_id || (ev as any).teacherId;
+                return evTid ? teacherIds.has(evTid) : false;
             }
             return true;
         }).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
@@ -1070,11 +1083,25 @@ export default function AttendancePage() {
                                 <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1">{t.schedule}</p>
                             </div>
                             <div className="flex-1 p-3 space-y-1.5 flex-shrink-0 overflow-y-auto no-scrollbar">
-                                {mounted && filteredSchedule.map(s => {
-                                    const isCurrent = isCurrentClass(s.start_time);
-                                    const isActive = selectedClass === s.id;
-                                    const timeStr = `${s.start_time}–${s.end_time}`;
-                                    const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
+                                {mounted && (
+                                    filteredSchedule.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center p-4 py-8 text-center">
+                                            <div className="w-10 h-10 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center text-muted mb-2 shadow-sm">
+                                                <Calendar className="w-5 h-5 opacity-40" />
+                                            </div>
+                                            <p className="text-xs font-bold text-primary mb-0.5">
+                                                {isToday ? l('დღეს არ არის გაკვეთილები', 'Сегодня нет занятий', 'No classes today') : l('ამ დღეს გაკვეთილები არ არის', 'В этот день нет занятий', 'No classes on this day')}
+                                            </p>
+                                            <p className="text-[10px] text-muted">
+                                                {l('განრიგი ცარიელია', 'Расписание пусто', 'Schedule is empty')}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        filteredSchedule.map(s => {
+                                            const isCurrent = isCurrentClass(s.start_time);
+                                            const isActive = selectedClass === s.id;
+                                            const timeStr = `${s.start_time}–${s.end_time}`;
+                                            const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
                                     
                                     return (
                                         <button key={s.id} onClick={() => setSelectedClass(s.id)}
@@ -1126,13 +1153,40 @@ export default function AttendancePage() {
                                             </div>
                                         </button>
                                     );
-                                })}
+                                })))}
                             </div>
                         </div>
 
                         {/* Middle Panel: Student List */}
                         <div className="flex-1 flex flex-col bg-card border-r border-border-subtle overflow-hidden">
-                            <div className="p-3 md:p-6 border-b border-border-subtle/50 flex flex-col gap-3 md:gap-4 flex-shrink-0">
+                            {filteredSchedule.length === 0 ? (
+                                <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8 text-center animate-fade-up">
+                                    <div className="w-16 h-16 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 mb-4 shadow-sm">
+                                        <Calendar className="w-8 h-8 opacity-80" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-primary mb-1">
+                                        {isToday ? l('დღეს არ არის გაკვეთილები', 'Сегодня нет занятий', 'No classes scheduled today') : l('ამ დღეს გაკვეთილები არ არის', 'В этот день нет занятий', 'No classes scheduled on this date')}
+                                    </h3>
+                                    <p className="text-xs text-muted max-w-sm mb-6 leading-relaxed">
+                                        {isTeacherRole(profile?.role)
+                                            ? l('თქვენს ჯგუფებს ამ დღეს გაკვეთილი არ აქვთ ჩანიშნული.', 'У ваших групп на этот день не запланировано занятий.', 'No classes scheduled for your groups on this day.')
+                                            : l('არჩეულ თარიღზე განრიგში გაკვეთილები არ მოიძებნა.', 'На выбранную дату занятий не найдено.', 'No classes found in the schedule for the selected date.')
+                                        }
+                                    </p>
+                                    {!isToday && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedDate(new Date())}
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1.5"
+                                        >
+                                            <span>↩</span>
+                                            <span>{l('დღევანდელ დღეზე დაბრუნება', 'Вернуться к сегодняшнему дню', 'Back to Today')}</span>
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="p-3 md:p-6 border-b border-border-subtle/50 flex flex-col gap-3 md:gap-4 flex-shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div className="min-w-0 pr-2">
                                         <h2 className="text-lg md:text-xl font-black text-primary tracking-tight truncate">
@@ -1399,6 +1453,8 @@ export default function AttendancePage() {
                                     </div>
                                 )}
                             </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Right Panel: Student Details / Drawer */}
