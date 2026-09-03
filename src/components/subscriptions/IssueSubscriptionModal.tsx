@@ -268,9 +268,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             return;
         }
         if (startDate && days && typeof days === 'number') {
-            const d = new Date(startDate);
-            d.setDate(d.getDate() + days);
-            setEndDate(getLocalISODate(d));
+            const parts = startDate.split('-').map(Number);
+            if (parts.length === 3 && !parts.some(isNaN)) {
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                d.setDate(d.getDate() + days);
+                setEndDate(getLocalISODate(d));
+            }
         }
     }, [startDate, days, neverExpires]);
 
@@ -823,22 +826,18 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             {/* Validity Period */}
                             <div className="space-y-4">
                                 <label className="text-[9px] font-black text-muted tracking-widest px-1 border-b border-border-subtle pb-1.5 block">{t.periodDuration}</label>
-                                <div className="space-y-3">
-                                    <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle">
-                                        <StandardDatePicker
-                                            label="საწყისი თარიღი"
-                                            value={startDate}
-                                            onChange={v => setStartDate(v)}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5 bg-surface/30 p-3 rounded-xl border border-border-subtle relative">
-                                        <StandardDatePicker
-                                            label="დასრულების თარიღი"
-                                            value={endDate}
-                                            onChange={v => setEndDate(v)}
-                                            disabled={neverExpires}
-                                        />
-                                    </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <StandardDatePicker
+                                        label={l('საწყისი თარიღი', 'Дата начала', 'Start Date')}
+                                        value={startDate}
+                                        onChange={v => setStartDate(v)}
+                                    />
+                                    <StandardDatePicker
+                                        label={l('დასრულების თარიღი', 'Дата окончания', 'End Date')}
+                                        value={endDate}
+                                        onChange={v => setEndDate(v)}
+                                        disabled={neverExpires}
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
