@@ -416,6 +416,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
     },
     sms_templates: {
         ka: {
+            payment: 'გამარჯობა {name}, შეგახსენებთ, რომ გაქვთ გადასახდელი {plan}-ის საფასური. გთხოვთ დაფაროთ. პატივისცემით, {studio}.',
             expiration_day_0: 'გამარჯობა {name}, გენატრებათ ვარჯიში? თქვენი აბონემენტი ({plan}) იწურება დღეს. გთხოვთ განაახლოთ.',
             low_visits: 'გამარჯობა {name}, თქვენ დაგიმთავრდათ ვიზიტები სტუდიაში: {studio}. გთხოვთ განაახლოთ აბონემენტი.',
             birthday: 'გამარჯობა {name}, გილოცავთ დაბადების დღეს! საუკეთესო სურვილებით, {studio}.',
@@ -425,6 +426,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             sept_1: 'გილოცავთ სწავლის დაწყებას! გელით მეცადინეობებზე {studio}-ში.'
         },
         ru: {
+            payment: 'Здравствуйте {name}, напоминаем об оплате абонемента {plan}. Пожалуйста, внесите оплату. С уважением, {studio}.',
             expiration_day_0: 'Здравствуйте {name}, соскучились по тренировкам? Ваш абонемент ({plan}) истекает сегодня. Пожалуйста, обновите его.',
             low_visits: 'Здравствуйте {name}, у вас закончились визиты в студии: {studio}. Пожалуйста, обновите абонемент.',
             birthday: 'Здравствуйте {name}, с днем рождения! С наилучшими пожеланиями, {studio}.',
@@ -434,6 +436,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             sept_1: 'Поздравляем с началом учебного года! Ждем вас на занятиях в {studio}.'
         },
         en: {
+            payment: 'Hello {name}, this is a reminder regarding the payment for your {plan} plan. Best regards, {studio}.',
             expiration_day_0: 'Hello {name}, miss training? Your plan ({plan}) expires today. Please renew it.',
             low_visits: 'Hello {name}, you have run out of visits at {studio}. Please renew your subscription.',
             birthday: 'Happy Birthday {name}! Best wishes, {studio}.',

@@ -538,12 +538,15 @@ export default function StudentsPage() {
                 onDelete={handleDelete}
             />
 
-            <MobileFAB icon={<UserPlus className="w-6 h-6" />} onClick={openAdd} />
+            {!modalOpen && !smsRecipient && (
+                <MobileFAB icon={<UserPlus className="w-6 h-6" />} onClick={openAdd} />
+            )}
 
             {smsRecipient && (
                 <ManualSmsModal
                     open={!!smsRecipient}
                     onClose={() => setSmsRecipient(null)}
+                    student={smsRecipient}
                     studentName={smsRecipient.full_name}
                     studentPhone={smsRecipient.phone}
                 />

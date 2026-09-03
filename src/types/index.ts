@@ -136,6 +136,7 @@ export interface StudioSettings {
     };
     sms_templates: {
         ka: {
+            payment?: string;
             expiration_day_0: string;
             low_visits: string;
             birthday: string;
@@ -145,6 +146,7 @@ export interface StudioSettings {
             sept_1: string;
         };
         ru: {
+            payment?: string;
             expiration_day_0: string;
             low_visits: string;
             birthday: string;
@@ -154,6 +156,7 @@ export interface StudioSettings {
             sept_1: string;
         };
         en: {
+            payment?: string;
             expiration_day_0: string;
             low_visits: string;
             birthday: string;

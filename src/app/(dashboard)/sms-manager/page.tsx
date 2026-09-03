@@ -10,6 +10,8 @@ import { addNotification } from '@/lib/notification-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { formatSmsTemplate, resolveSmsRecipientName, sendSms } from '@/lib/sms-service';
+import { getSubscription } from '@/lib/subscription-store';
 
 export default function SmsManagerPage() {
     const { t, lang } = useT();
@@ -95,36 +97,68 @@ export default function SmsManagerPage() {
         if (!selectedStudent || !personalMsg) return;
         setIsSendingPersonal(true);
         const student = students.find(s => s.id === selectedStudent);
-        fetch('/api/sms/send', {
-            method: 'POST',
-            body: JSON.stringify({
-                to: student?.phone?.replace(/\s/g, ''),
-                text: personalMsg,
-                studentId: selectedStudent,
-                studentName: student?.name
-            })
-        }).then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    addNotification({ title: t.sentStatus, message: t.sentStatus, type: 'success', time: t.now });
-                    setPersonalMsg('');
-                    setSelectedStudent('');
-                } else {
-                    addNotification({ title: t.errorStatus, message: data.error || t.smsError, type: 'error', time: t.now });
-                }
-            })
-            .catch(() => addNotification({ title: t.errorStatus, message: t.smsError, type: 'error', time: t.now }))
-            .finally(() => setIsSendingPersonal(false));
+        if (!student) {
+            setIsSendingPersonal(false);
+            return;
+        }
+
+        const sub = getSubscription(student.id);
+        const planName = sub?.plan || (sub as any)?.plan_name || '';
+        const studioName = settings.studioName || 'Studio';
+        const formattedText = formatSmsTemplate(personalMsg, {
+            student,
+            planName,
+            studioName
+        });
+        const recipientName = resolveSmsRecipientName(student);
+
+        sendSms({
+            to: student.phone,
+            text: formattedText,
+            studentName: student.full_name || student.name || recipientName
+        }).then(data => {
+            if (data.success) {
+                addNotification({ title: t.sentStatus, message: t.sentStatus, type: 'success', time: t.now });
+                setPersonalMsg('');
+                setSelectedStudent('');
+            } else {
+                addNotification({ title: t.errorStatus, message: data.error || t.smsError, type: 'error', time: t.now });
+            }
+        }).catch(() => addNotification({ title: t.errorStatus, message: t.smsError, type: 'error', time: t.now }))
+          .finally(() => setIsSendingPersonal(false));
     };
 
-    const handleSendHoliday = () => {
+    const handleSendHoliday = async () => {
         if (!selectedHoliday) return;
-        const msg = (templates[lang] as any)[selectedHoliday];
-        const count = students.filter(s => s.phone).length;
-        if (confirm(`${l('ნამდვილად გსურთ გაგზავნოთ მილოცვა ', 'Вы действительно хотите отправить поздравление ', 'Are you sure you want to send the greeting to ')} ${count} ${l('სტუდენტზე?', 'студентам?', 'students?')}`)) {
-            addNotification({ title: t.sentStatus, message: `${count} ${l('შეტყობინება რიგშია', 'сообщений в очереди', 'messages queued')}`, type: 'success', time: t.now });
-            setSelectedHoliday(null);
+        const rawTpl = (templates[lang] as any)[selectedHoliday] || (templates.ka as any)[selectedHoliday];
+        if (!rawTpl) return;
+
+        const eligible = students.filter(s => s.phone);
+        const count = eligible.length;
+        if (!confirm(`${l('ნამდვილად გსურთ გაგზავნოთ მილოცვა ', 'Вы действительно хотите отправить поздравление ', 'Are you sure you want to send the greeting to ')} ${count} ${l('სტუდენტზე?', 'студентам?', 'students?')}`)) {
+            return;
         }
+
+        addNotification({ title: t.sentStatus, message: `${count} ${l('შეტყობინება იგზავნება...', 'сообщений отправляется...', 'messages sending...')}`, type: 'success', time: t.now });
+        const studioName = settings.studioName || 'Studio';
+
+        for (const student of eligible) {
+            const sub = getSubscription(student.id);
+            const planName = sub?.plan || (sub as any)?.plan_name || '';
+            const text = formatSmsTemplate(rawTpl, {
+                student,
+                planName,
+                studioName
+            });
+            await sendSms({
+                to: student.phone,
+                text,
+                studentName: student.full_name || student.name
+            });
+        }
+
+        setSelectedHoliday(null);
+        addNotification({ title: t.sentStatus, message: `${count} ${l('შეტყობინება წარმატებით გაიგზავნა', 'сообщений успешно отправлено', 'messages sent successfully')}`, type: 'success', time: t.now });
     };
 
     const handleTemplateChange = (key: keyof typeof templates['ka'], value: string) => {
@@ -328,9 +362,9 @@ export default function SmsManagerPage() {
                                 <p className="font-semibold text-blue-900 mb-1">{t.variablesGuide}:</p>
                                 <p>{l('ტექსტში შეგიძლიათ ჩასვათ სპეციალური სიტყვები, რომლებსაც სისტემა ავტომატურად ჩაანაცვლებს სტუდენტის მონაცემებით:', 'В тексте можно вставить специальные слова, которые система автоматически заменит данными ученика:', 'You can insert special words into the text, which the system will automatically replace with student data:')}</p>
                                 <ul className="list-disc pl-5 mt-2 space-y-1">
-                                    <li><code className="bg-blue-500/20 px-1 rounded text-blue-800 font-semibold">{"{name}"}</code> — {t.studentName}</li>
-                                    <li><code className="bg-blue-500/20 px-1 rounded text-blue-800 font-semibold">{"{plan}"}</code> — {t.subscription}</li>
-                                    <li><code className="bg-blue-500/20 px-1 rounded text-blue-800 font-semibold">{"{studio}"}</code> — {t.studio}</li>
+                                    <li><code className="bg-blue-500/20 px-1 rounded text-blue-800 font-semibold">{"{name}"}</code> — {l('სახელი (18 წლამდე ავტომატურად მშობლის სახელი, 18 წლიდან — სტუდენტის)', 'Имя (до 18 лет автоматически имя родителя, с 18 лет — ученика)', 'Name (parent name if under 18, student name if 18+)')}</li>
+                                    <li><code className="bg-blue-500/20 px-1 rounded text-blue-800 font-semibold">{"{plan}"}</code> — {l('აბონემენტის სახელი (მაგ. 12 გაკვეთილი)', 'Название абонемента (напр. 12 занятий)', 'Subscription Plan Name')}</li>
+                                    <li><code className="bg-blue-500/20 px-1 rounded text-blue-800 font-semibold">{"{studio}"}</code> — {l('სტუდიის სახელი', 'Название студии', 'Studio Name')}</li>
                                 </ul>
                             </div>
                         </div>
@@ -370,6 +404,13 @@ export default function SmsManagerPage() {
                                 </div>
                             </div>
                             <div className="p-5 space-y-8">
+
+                                <TemplateField
+                                    title={l('გადახდის შეხსენება', 'Напоминание об оплате', 'Payment Reminder')}
+                                    desc={l('იგზავნება გადახდის ან დავალიანების შეხსენებისას.', 'Отправляется для напоминания об оплате абонемента.', 'Sent as a payment or subscription fee reminder.')}
+                                    value={templates[langTab]?.payment || ''}
+                                    onChange={(val) => handleTemplateChange('payment' as any, val)}
+                                />
 
                                 <TemplateField
                                     title={l('აბონემენტის ვადის ამოწურვა (დღე 0)', 'Истечение срока абонемента (День 0)', 'Subscription Expiration (Day 0)')}

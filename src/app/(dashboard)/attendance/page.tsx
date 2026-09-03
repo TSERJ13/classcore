@@ -20,7 +20,8 @@ import { getEventsByDate, getEvents, updateEvent } from '@/lib/event-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
-import { loadSettings, getScopedKey } from '@/lib/settings-store';
+import { loadSettings, getScopedKey, DEFAULT_SETTINGS } from '@/lib/settings-store';
+import { formatSmsTemplate, sendSms } from '@/lib/sms-service';
 import type { Student, CalendarEvent } from '@/types';
 import StudentModal from '@/components/students/StudentModal';
 import { ArrowLeftRight } from 'lucide-react';
@@ -777,31 +778,31 @@ export default function AttendancePage() {
                             if (phone.length === 9) phone = '995' + phone;
                             if (!phone) return;
 
-                            const prefLang = student.preferred_language || 'ka';
-                            // Use proper loadSettings to get deep merged defaults
+                            const prefLang = (student.preferred_language || 'ka') as 'ka' | 'ru' | 'en';
                             const settings = loadSettings();
                             const templates = settings.sms_templates || {};
 
-                            // Safe extraction to prevent flat structure fallback bugs
-                            let tpl = t.smsTemplateExpiration;
+                            const defaultTpl = (DEFAULT_SETTINGS.sms_templates as any)[prefLang]?.expiration_day_0 ||
+                                               (DEFAULT_SETTINGS.sms_templates as any)['ka']?.expiration_day_0 ||
+                                               'გამარჯობა {name}, გენატრებათ ვარჯიში? თქვენი აბონემენტი ({plan}) იწურება დღეს. გთხოვთ განაახლოთ.';
+                            let tpl = defaultTpl;
                             const langTemplates = (templates as any)[prefLang];
-                            if (langTemplates && typeof langTemplates === 'object') {
-                                tpl = langTemplates.expiration_day_0 || tpl;
-                            } else if (templates.ka && typeof templates.ka === 'object') {
-                                tpl = templates.ka.expiration_day_0 || tpl;
+                            if (langTemplates && typeof langTemplates === 'object' && langTemplates.expiration_day_0) {
+                                tpl = langTemplates.expiration_day_0;
+                            } else if (templates.ka && typeof templates.ka === 'object' && templates.ka.expiration_day_0) {
+                                tpl = templates.ka.expiration_day_0;
                             }
 
                             const studioName = settings.studioName || 'Studio';
-                            let msg = tpl.replace(/{name}/g, student.full_name);
-                            msg = msg.replace(/{plan}/g, (usedSub as any).plan_name || '');
-                            msg = msg.replace(/{studio}/g, studioName);
+                            const planName = usedSub?.plan || (usedSub as any)?.plan_name || '';
+                            const msg = formatSmsTemplate(tpl, {
+                                student,
+                                planName,
+                                studioName
+                            });
 
-                            fetch('/api/sms/send', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ to: phone, text: msg, studentName: student.full_name })
-                            }).then(res => res.json()).then(data => {
-                                if (data.success || (Array.isArray(data) && data[0]?.success)) {
+                            sendSms({ to: phone, text: msg, studentName: student.full_name }).then(res => {
+                                if (res.success) {
                                     localStorage.setItem(smsKey, 'true');
                                 } else {
                                     localStorage.setItem(smsKey, 'failed');

@@ -92,6 +92,14 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
         return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
     }, [isLoaded, loadingStep, showContent]);
 
+    useEffect(() => {
+        if (isLoaded) {
+            import('@/lib/sms-service').then(({ runAutomatedSmsCheck }) => {
+                runAutomatedSmsCheck();
+            }).catch(() => {});
+        }
+    }, [isLoaded]);
+
     if (showContent) return <>{children}</>;
 
     const logoSrc = settings?.logoDataUrl || studioLogo;
