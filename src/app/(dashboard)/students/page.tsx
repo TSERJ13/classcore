@@ -12,6 +12,7 @@ import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
 import StudentModal from '@/components/students/StudentModal';
 import { getStudents } from '@/lib/student-store';
 import { useConfirm } from '@/contexts/ConfirmContext';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import type { Student } from '@/types';
 
 // removed
@@ -194,7 +195,7 @@ export default function StudentsPage() {
     }
 
     return (
-        <>
+        <PermissionGuard permKey="canViewStudents">
             <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
                 {/* Header / Actions - Responsive Layout */}
                 <div className="flex flex-col gap-3 w-full">
@@ -547,6 +548,6 @@ export default function StudentsPage() {
                     studentPhone={smsRecipient.phone}
                 />
             )}
-        </>
+        </PermissionGuard>
     );
 }

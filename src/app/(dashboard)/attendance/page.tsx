@@ -32,6 +32,7 @@ import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
@@ -830,7 +831,8 @@ export default function AttendancePage() {
     }
 
     return (
-        <div className="flex flex-col flex-1 min-h-[100dvh] bg-card animate-fade-up overflow-x-hidden relative max-w-full">
+        <PermissionGuard permKey="canViewAttendance">
+            <div className="flex flex-col flex-1 min-h-[100dvh] bg-card animate-fade-up overflow-x-hidden relative max-w-full">
             {!mounted ? (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="w-12 h-12 rounded-2xl border-4 border-[#6d28d9]/20 border-t-#6d28d9 animate-spin" />
@@ -1604,6 +1606,7 @@ export default function AttendancePage() {
                     )}
                 </>
             )}
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }

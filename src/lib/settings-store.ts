@@ -149,14 +149,15 @@ export function setStaffSession(session: { staff: StaffMember; slug: string; stu
  * which case the caller should treat this as a failed login, not silently
  * proceed.
  */
-export async function activateStaffSession(studio: { _token?: string }): Promise<boolean> {
+export async function activateStaffSession(studio: { _token?: string; staff?: StaffMember }): Promise<boolean> {
     if (typeof window === 'undefined') return false;
     if (!studio._token) return true; // 'single' logins already set the cookie server-side on POST /api/auth/staff-login
     try {
+        const lang = (studio.staff as any)?.preferred_language || (studio.staff as any)?.data?.preferred_language;
         const res = await fetch('/api/auth/staff-select', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: studio._token }),
+            body: JSON.stringify({ token: studio._token, lang }),
         });
         const data = await res.json();
         return !!data.ok;

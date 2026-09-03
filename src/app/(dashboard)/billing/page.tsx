@@ -7,6 +7,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { getBillingState, SAAS_PRICE_GEL, recordPayment } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 type Period = '1' | '3' | '6' | '12';
 
@@ -111,7 +112,8 @@ export default function BillingPage() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-20">
+        <PermissionGuard adminOnly={true}>
+            <div className="max-w-6xl mx-auto space-y-8 animate-fade-up pb-20">
             {/* Quick overview cards */}
             <div className="grid grid-cols-2 gap-3 sm:gap-6 pb-2">
                 <div className="bg-card border border-border-subtle rounded-3xl p-3 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center justify-between shadow-sm text-center sm:text-left">
@@ -364,6 +366,7 @@ export default function BillingPage() {
                     </div>
                 ))}
             </div>
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }

@@ -11,6 +11,7 @@ import { getStudents } from '@/lib/student-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { SubscriptionModal } from '@/components/subscriptions/SubscriptionModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import MainPortal from '@/components/ui/MainPortal';
 
 export default function SubscriptionsPage() {
@@ -246,7 +247,8 @@ export default function SubscriptionsPage() {
     };
 
     return (
-        <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-20">
+        <PermissionGuard permKey="canViewSubscriptions">
+            <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-20">
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-4">
                     <div className="w-full">
@@ -385,6 +387,7 @@ export default function SubscriptionsPage() {
                 onClose={() => setIssuing(false)}
                 onIssue={handleIssue}
             />
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }

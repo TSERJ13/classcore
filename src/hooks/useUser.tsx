@@ -142,6 +142,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
                         studio_slug: slug,
                         is_activated: true,
                     });
+
+                    const resolvedLang = latestStaff.preferred_language || (latestStaff as any).data?.preferred_language;
+                    if (resolvedLang && ['ka', 'en', 'ru'].includes(resolvedLang)) {
+                        if (typeof window !== 'undefined' && localStorage.getItem('cc_lang') !== resolvedLang) {
+                            localStorage.setItem('cc_lang', resolvedLang);
+                            document.cookie = `cc_lang=${resolvedLang}; path=/; max-age=31536000; SameSite=Lax`;
+                            window.dispatchEvent(new Event('cc_lang_change'));
+                        }
+                    }
                 }
 
                 setLoading(false);

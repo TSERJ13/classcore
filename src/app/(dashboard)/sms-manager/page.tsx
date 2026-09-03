@@ -9,6 +9,7 @@ import { MessageSquare, Save, Settings2, BarChart3, AlertCircle, RefreshCw, Send
 import { addNotification } from '@/lib/notification-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 export default function SmsManagerPage() {
     const { t, lang } = useT();
@@ -146,7 +147,8 @@ export default function SmsManagerPage() {
     }
 
     return (
-        <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
+        <PermissionGuard permKey="canViewSMS">
+            <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -547,7 +549,8 @@ export default function SmsManagerPage() {
                     </div>
                 )
             }
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }
 

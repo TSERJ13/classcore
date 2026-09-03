@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { AppLogo } from '@/components/ui/Logo';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -541,7 +542,8 @@ export default function SettingsPage() {
     }
 
     return (
-        <div key={settings.studioSlug || 'loading'} className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
+        <PermissionGuard adminOnly={true}>
+            <div key={settings.studioSlug || 'loading'} className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
             {isAdmin && (
                 <>
                     <Section title={t.studioSettings} icon={Building2} defaultOpen={true}>
@@ -1661,6 +1663,7 @@ export default function SettingsPage() {
                 </Section>
             )}
 
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }

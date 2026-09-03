@@ -38,6 +38,12 @@ export function LanguageProvider({ children, defaultLang }: { children: React.Re
         };
 
         syncFromStorage();
+        window.addEventListener('storage', syncFromStorage);
+        window.addEventListener('cc_lang_change', syncFromStorage);
+        return () => {
+            window.removeEventListener('storage', syncFromStorage);
+            window.removeEventListener('cc_lang_change', syncFromStorage);
+        };
     }, []);
 
     const setLang = useCallback((l: Lang, mode: 'persistent' | 'session' = 'persistent') => {

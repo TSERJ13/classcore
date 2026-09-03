@@ -71,29 +71,33 @@ export default function LoginPage() {
                 const isEmail = email.includes('@');
                 let signedInUser = null;
 
+                // 1. Check staff login (works with email, full_name, or username)
+                setLoginStatus(l('სტუდიების შემოწმება...', 'Проверка студий...', 'Checking studios...'));
+                const staffResult = await validateStaffLogin(email, password);
+                
+                if (staffResult && !('error' in staffResult)) {
+                    if (staffResult.type === 'single') {
+                        const staffLang = (staffResult.staff as any)?.preferred_language || (staffResult.staff as any)?.data?.preferred_language;
+                        if (staffLang && ['ka', 'en', 'ru'].includes(staffLang)) {
+                            localStorage.setItem('cc_lang', staffLang);
+                            document.cookie = `cc_lang=${staffLang}; path=/; max-age=31536000; SameSite=Lax`;
+                        }
+                        setStaffSession({ staff: staffResult.staff, slug: staffResult.slug });
+                        setIsSuccess(true);
+                        setTimeout(() => { window.location.href = `/${staffResult.slug}/dashboard`; }, 1500);
+                        return;
+                    } else if (staffResult.type === 'multiple') {
+                        setMultipleStudios(staffResult.studios);
+                        setIsSubmitting(false); // Stop loading to show switcher
+                        return;
+                    }
+                }
+
+                // 2. Owner / SuperAdmin Supabase Auth
                 if (isEmail) {
                     setLoginStatus(l('ავტორიზაცია...', 'Вход...', 'Authenticating...'));
                     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                    
-                    // We ALWAYS check staff login to find all studios they belong to (Studio Switcher logic)
-                    setLoginStatus(l('სტუდიების შემოწმება...', 'Проверка студий...', 'Checking studios...'));
-                    const staffResult = await validateStaffLogin(email, password);
-                    
-                    if (staffResult && !('error' in staffResult)) {
-                        if (staffResult.type === 'single') {
-                            setStaffSession({ staff: staffResult.staff, slug: staffResult.slug });
-                            setIsSuccess(true);
-                            setTimeout(() => { window.location.href = `/${staffResult.slug}/dashboard`; }, 1500);
-                            return;
-                        } else if (staffResult.type === 'multiple') {
-                            setMultipleStudios(staffResult.studios);
-                            setIsSubmitting(false); // Stop loading to show switcher
-                            return;
-                        }
-                    }
-
                     if (error) {
-                        // If supabase failed and no valid staff result was found, throw
                         if (!staffResult || 'error' in staffResult) {
                             throw error;
                         }
@@ -163,10 +167,15 @@ export default function LoginPage() {
                 setIsSubmitting(false);
                 return;
             }
+            const staffLang = (studio.staff as any)?.preferred_language || (studio.staff as any)?.data?.preferred_language;
+            if (staffLang && ['ka', 'en', 'ru'].includes(staffLang)) {
+                localStorage.setItem('cc_lang', staffLang);
+                document.cookie = `cc_lang=${staffLang}; path=/; max-age=31536000; SameSite=Lax`;
+            }
             setStaffSession({ staff: studio.staff, slug: studio.slug });
             setIsSuccess(true);
             setTimeout(() => {
-                window.location.href = '/dashboard';
+                window.location.href = `/${studio.slug}/dashboard`;
             }, 800);
         } catch (err) {
             console.error(err);

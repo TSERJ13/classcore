@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { getStudents } from '@/lib/student-store';
@@ -911,7 +912,8 @@ export default function AnalyticsPage() {
     const revenueMax = Math.max(...revenueChartData.map(d => d.value), 100);
 
     return (
-        <div className="max-w-[1440px] mx-auto space-y-8 animate-fade-up pb-20">
+        <PermissionGuard permKey="canViewAnalytics">
+            <div className="max-w-[1440px] mx-auto space-y-8 animate-fade-up pb-20">
             {/* Standard Header Actions */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                 <div className="flex items-center gap-3">
@@ -1812,6 +1814,7 @@ export default function AnalyticsPage() {
                 l={l}
                 settings={settings}
             />
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }

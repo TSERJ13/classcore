@@ -17,6 +17,7 @@ import { getProducts, saveProducts, deleteProduct } from '@/lib/product-store';
 import { getStudentsAllBranches } from '@/lib/student-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 const INITIAL_PRODUCTS: Product[] = [];
 
@@ -186,7 +187,8 @@ export default function ShopPage() {
     };
 
     return (
-        <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
+        <PermissionGuard permKey="canViewShop">
+            <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* Header: Stats + Add in one row */}
             <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
                 {/* Quick stats pills */}
@@ -628,6 +630,7 @@ export default function ShopPage() {
                     <Plus className="absolute -top-1 -right-2 w-4 h-4 bg-[#6d28d9] rounded-full border border-white/20" />
                 </div>
             } onClick={openAddProduct} />
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }

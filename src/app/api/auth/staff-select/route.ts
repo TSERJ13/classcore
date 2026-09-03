@@ -11,7 +11,7 @@ import { verifyStaffToken } from '@/lib/staff-token';
  */
 export async function POST(req: Request) {
     try {
-        const { token } = await req.json();
+        const { token, lang } = await req.json();
         const payload = await verifyStaffToken(token);
         if (!payload) {
             return NextResponse.json({ ok: false, error: 'Invalid or expired token' }, { status: 401 });
@@ -21,6 +21,11 @@ export async function POST(req: Request) {
         res.cookies.set('cc_staff_token', token, {
             httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7,
         });
+        if (lang && ['ka', 'en', 'ru'].includes(lang)) {
+            res.cookies.set('cc_lang', lang, {
+                path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax',
+            });
+        }
         return res;
     } catch (err: any) {
         console.error('❌ [staff-select] Error:', err);

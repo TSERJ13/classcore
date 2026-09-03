@@ -15,6 +15,7 @@ import { getHallName } from '@/lib/hall-store';
 import { getSubscriptions } from '@/lib/subscription-store';
 import { cn } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 const typeColor: Record<string, string> = {
     Dance: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
@@ -143,7 +144,8 @@ export default function GroupsPage() {
     }, []);
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
+        <PermissionGuard permKey="canViewGroups">
+            <div className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
             <div className="flex flex-row items-center justify-between gap-3 sm:gap-4">
                 {/* Metrics Bar */}
@@ -343,6 +345,7 @@ export default function GroupsPage() {
                     <Plus className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#6d28d9] rounded-full border border-white/20" />
                 </div>
             } onClick={() => { setEditing(null); setModalOpen(true); }} />
-        </div>
+            </div>
+        </PermissionGuard>
     );
 }

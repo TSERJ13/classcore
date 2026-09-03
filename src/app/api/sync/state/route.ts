@@ -4,21 +4,33 @@ import { getAuthenticatedOrgId } from '@/lib/sync-auth';
 
 function applySecurityFilters(payload: any, callerStaff: any) {
     if (!callerStaff || callerStaff.role === 'owner') return payload;
-    const p = callerStaff.permissions;
+    const p = callerStaff.permissions || callerStaff.data?.permissions;
     if (p) {
-        if (!p.canViewBilling) {
+        if (p.canViewBilling === false) {
             payload.sales = [];
             payload.expenses = [];
             payload.subscriptions = [];
         }
-        if (!p.canViewStudents) {
+        if (p.canViewStudents === false) {
             payload.students = [];
         }
-        if (!p.canViewAttendance) {
+        if (p.canViewAttendance === false) {
             payload.attendance = [];
         }
+        if (p.canViewCalendar === false) {
+            payload.calendar_events = [];
+        }
+        if (p.canViewGroups === false) {
+            payload.groups = [];
+        }
+        if (p.canViewTeachers === false) {
+            payload.staff = (payload.staff || []).filter((s: any) => s.id === callerStaff.id);
+        }
+        if (p.canViewShop === false) {
+            payload.products = [];
+        }
     }
-    const allowedBranches = callerStaff.allowedBranchIds;
+    const allowedBranches = callerStaff.allowedBranchIds || callerStaff.data?.allowedBranchIds;
     if (Array.isArray(allowedBranches) && allowedBranches.length > 0) {
         const allowed = new Set(allowedBranches);
         if (payload.groups) payload.groups = payload.groups.filter((g: any) => !g.branch_id || allowed.has(g.branch_id));
@@ -215,7 +227,12 @@ export async function POST(req: Request) {
             return r.data || [];
         });
         
-        return NextResponse.json({
+        let callerStaff = null;
+        if (!auth.isSuperAdmin) {
+            callerStaff = (data[1] || []).find((s: any) => s.id === auth.userId || (auth.email && (s.email || '').toLowerCase().trim() === auth.email.toLowerCase().trim()));
+        }
+
+        const payload = {
             studio: targetStudio || { studio_slug: slug, studio_name: (data[5] as any)?.studio_name || 'Studio', org_id: targetOrgId },
             settingsRecord: data[5] || null,
             students: data[0] || [],
@@ -232,7 +249,9 @@ export async function POST(req: Request) {
             subscription_plans: data[12] || [],
             products: data[13] || [],
             org_id: targetOrgId
-        });
+        };
+
+        return NextResponse.json(applySecurityFilters(payload, callerStaff));
 
     } catch (err: any) {
         console.error('❌ [API/Sync] Error:', err);

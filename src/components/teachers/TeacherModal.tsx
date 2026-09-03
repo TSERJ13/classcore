@@ -43,6 +43,7 @@ const EMPTY: Partial<Teacher> = {
     bio: '', rate_per_hour: undefined, rate_per_month: undefined,
     assigned_group_ids: [], assigned_individual: false, status: 'active',
     photo_url: '', salary_percentage: undefined,
+    preferred_language: 'ka',
     permissions: {
         canViewAttendance: true,
         canViewSubscriptions: true,
@@ -76,7 +77,9 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
 
     useEffect(() => {
         if (open) {
-            const initialForm = teacher ? { ...teacher } : { ...EMPTY, role: 'teacher', email: '', password: '' };
+            const initialForm = teacher 
+                ? { ...EMPTY, ...teacher, preferred_language: teacher.preferred_language || (teacher as any).data?.preferred_language || 'ka' } 
+                : { ...EMPTY, role: 'teacher', email: '', password: '', preferred_language: 'ka' };
             setForm(initialForm);
             setHasAccess(!!initialForm.email || !!initialForm.password);
             setShowPassword(false);
@@ -116,7 +119,8 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 // (and could never log in via /api/auth/staff-login, which
                 // looks the record up in that same table).
                 id: form.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
-                full_name: `${form.first_name.trim()} ${form.last_name.trim()}`
+                full_name: `${form.first_name.trim()} ${form.last_name.trim()}`,
+                preferred_language: form.preferred_language || 'ka'
             };
 
             // Only include email/password if access is explicitly enabled
@@ -337,6 +341,35 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                             >
                                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                             </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Access Language */}
+                                    <div className="space-y-1.5 pt-1">
+                                        <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">
+                                            {l('წვდომის ენა', 'Язык интерфейса', 'Interface Language')}
+                                        </label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { id: 'ka', label: 'ქართული', flag: '🇬🇪' },
+                                                { id: 'en', label: 'English', flag: '🇬🇧' },
+                                                { id: 'ru', label: 'Русский', flag: '🇷🇺' }
+                                            ].map(item => (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    onClick={() => setF('preferred_language', item.id)}
+                                                    className={cn(
+                                                        "flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-bold transition-all",
+                                                        (form.preferred_language || 'ka') === item.id
+                                                            ? "bg-[#6d28d9] text-white border-[#6d28d9] shadow-md shadow-indigo-500/20"
+                                                            : "bg-surface border-border-subtle text-muted hover:text-primary hover:border-indigo-500/40"
+                                                    )}
+                                                >
+                                                    <span className="text-sm">{item.flag}</span>
+                                                    <span className="truncate">{item.label}</span>
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
 

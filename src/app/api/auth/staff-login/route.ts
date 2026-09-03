@@ -138,6 +138,12 @@ export async function POST(req: Request) {
                     path: '/', maxAge: 60 * 60 * 24 * 7, sameSite: 'lax',
                 });
             }
+            const staffLang = staff.preferred_language || staff.data?.preferred_language;
+            if (staffLang && ['ka', 'en', 'ru'].includes(staffLang)) {
+                res.cookies.set('cc_lang', staffLang, {
+                    path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax',
+                });
+            }
             return res;
         }
 

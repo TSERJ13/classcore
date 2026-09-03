@@ -83,6 +83,7 @@ export interface StaffMember {
     assigned_group_ids?: string[];
     assigned_individual?: boolean;
     status: 'active' | 'on_leave' | 'inactive';
+    preferred_language?: string;
     created_at: string;
 }
 
@@ -409,6 +410,7 @@ export interface Teacher {
         canViewSMS: boolean;
         canViewBilling: boolean;
     };
+    preferred_language?: string;
     created_at: string;
 }
 

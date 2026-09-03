@@ -12,6 +12,7 @@ import { getHalls, saveHalls, deleteHall } from '@/lib/hall-store';
 import { getGroups } from '@/lib/group-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 
 export default function HallsPage() {
@@ -84,7 +85,7 @@ export default function HallsPage() {
     const totalWeekEvents = Object.values(hallStats).reduce((a, b) => a + b, 0);
 
     return (
-        <>
+        <PermissionGuard permKey="canViewHalls">
             <div className="space-y-8 animate-fade-up max-w-7xl mx-auto pb-10">
             {/* ── Top Header Row: Metrics & Add Action ── */}
             <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 lg:gap-8">
@@ -218,6 +219,6 @@ export default function HallsPage() {
                     <Plus className="absolute -top-1 -right-2 w-4 h-4 bg-[#6d28d9] rounded-full border border-white/20" />
                 </div>
             } onClick={openAdd} />
-        </>
+        </PermissionGuard>
     );
 }
