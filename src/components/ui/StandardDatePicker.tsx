@@ -1,9 +1,8 @@
 'use client';
 
-import { Calendar } from 'lucide-react';
-import { cn, formatDate } from '@/lib/utils';
+import { Calendar, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useRef } from 'react';
-import { DatePickerGrid } from '@/components/ui/DatePickerGrid';
 
 interface StandardDatePickerProps {
     value?: string;
@@ -15,7 +14,8 @@ interface StandardDatePickerProps {
     hideIcon?: boolean;
     inputClassName?: string;
     style?: React.CSSProperties;
-    variant?: 'native' | 'grid';
+    placeholder?: string;
+    variant?: string;
 }
 
 export function StandardDatePicker({
@@ -28,27 +28,10 @@ export function StandardDatePicker({
     hideIcon = false,
     inputClassName,
     style,
-    variant = 'native'
+    placeholder
 }: StandardDatePickerProps) {
     const inputRef = useRef<HTMLInputElement>(null);
-
-    if (variant === 'grid') {
-        return (
-            <div className={cn("space-y-1.5 w-full", className)} style={style}>
-                {label && (
-                    <label className="text-[10px] font-black text-muted tracking-widest opacity-40 ml-1 uppercase">
-                        {label} {required && '*'}
-                    </label>
-                )}
-                <DatePickerGrid
-                    value={value}
-                    onChange={onChange}
-                    disabled={disabled}
-                    className={inputClassName}
-                />
-            </div>
-        );
-    }
+    const cleanValue = value ? value.split('T')[0] : '';
 
     return (
         <div className={cn("space-y-1.5 w-full", className)} style={style}>
@@ -57,33 +40,49 @@ export function StandardDatePicker({
                     {label} {required && '*'}
                 </label>
             )}
-            <div className="relative group/datepicker">
-                <div 
-                    className={cn(
-                        "w-full flex items-center bg-surface border border-border-subtle group-focus-within/datepicker:border-[#6d28d9]/60 rounded-2xl pl-11 pr-4 h-[46px] text-[13px] sm:text-sm text-primary transition-all shadow-sm cursor-pointer",
-                        disabled && "opacity-50 cursor-not-allowed bg-muted/10",
-                        inputClassName
-                    )}
-                    onClick={() => {
-                        try { inputRef.current?.showPicker(); } 
-                        catch (e) { inputRef.current?.focus(); }
-                    }}
-                >
-                    {!hideIcon && (
-                        <Calendar className="absolute left-4 w-4 h-4 text-muted group-focus-within/datepicker:text-[#6d28d9] transition-colors pointer-events-none" />
-                    )}
-                    <span className={cn("truncate font-medium pointer-events-none", !value && "text-muted opacity-50")}>
-                        {value ? formatDate(value) : '—'}
-                    </span>
-                </div>
+            <div className="relative group/datepicker flex items-center w-full">
+                {!hideIcon && (
+                    <div className="absolute left-3.5 flex items-center pointer-events-none z-10 text-muted group-focus-within/datepicker:text-[#6d28d9] transition-colors">
+                        <Calendar className="w-4 h-4" />
+                    </div>
+                )}
                 <input
                     ref={inputRef}
                     type="date"
-                    value={value || ''}
+                    value={cleanValue}
                     onChange={(e) => onChange(e.target.value)}
                     disabled={disabled}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    placeholder={placeholder}
+                    onClick={(e) => {
+                        try {
+                            (e.target as any).showPicker?.();
+                        } catch {}
+                    }}
+                    className={cn(
+                        "w-full bg-surface border border-border-subtle rounded-xl text-xs sm:text-sm font-bold text-primary shadow-sm outline-none transition-all cursor-pointer dark:[color-scheme:dark]",
+                        hideIcon ? "pl-3.5" : "pl-10",
+                        cleanValue ? "pr-8" : "pr-3",
+                        "h-[48px]",
+                        "focus:border-[#6d28d9]/60 focus:ring-2 focus:ring-[#6d28d9]/10 hover:border-border-subtle/80",
+                        "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-100",
+                        disabled && "opacity-50 cursor-not-allowed bg-muted/10",
+                        inputClassName
+                    )}
                 />
+                {cleanValue && !disabled && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onChange('');
+                            if (inputRef.current) inputRef.current.value = '';
+                        }}
+                        className="absolute right-8 p-1 rounded-full text-muted/50 hover:text-muted hover:bg-black/5 dark:hover:bg-white/5 transition-all z-10"
+                        title="გასუფთავება"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                )}
             </div>
         </div>
     );
