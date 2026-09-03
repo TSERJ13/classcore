@@ -882,6 +882,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                             label={t.birthDate}
                                             value={form.birth_date}
                                             onChange={v => set('birth_date', v)}
+                                            variant="grid"
                                             inputClassName="!rounded-xl !h-[48px] !py-0 !pl-11"
                                         />
                                         <div className="space-y-1.5 flex flex-col justify-end">

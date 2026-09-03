@@ -30,8 +30,6 @@ import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
 import { getStudentSales, recordSale, deleteSale, type ShopSale } from '@/lib/sales-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
-import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
-import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
@@ -234,6 +232,7 @@ export default function AttendancePage() {
 
     const [selectedDate, setSelectedDate] = useState(new Date());
     const dateKey = getLocalISODate(selectedDate);
+    const isToday = dateKey === getLocalISODate();
     const rawSchedule = getEventsByDate(dateKey);
     
     const filteredSchedule = useMemo(() => {
@@ -918,13 +917,11 @@ export default function AttendancePage() {
                         {flash && <span className="text-xs font-bold text-white bg-emerald-500 px-4 py-2.5 rounded-2xl">{t.success}</span>}
                     </div>
 
-                    {/* Mobile Header / LARGE Date Picker */}
-                    {/* Mobile Header / LARGE Date Picker */}
+                    {/* Mobile Header / Sleek Date Navigator */}
                     <div className={cn(
-                        'flex lg:hidden flex-col gap-1 pt-0.5 pb-0.5 transition-colors duration-300 relative w-full border-b',
-                        scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : 'bg-card'
+                        'flex lg:hidden flex-col gap-1.5 p-2 transition-colors duration-300 relative w-full border-b bg-card',
+                        scanError ? 'bg-red-500/5' : flash ? 'bg-emerald-500/5' : ''
                     )}>
-
                         {/* Status Line */}
                         {(scanError || flash) && (
                             <div className="flex items-center justify-center h-4 relative">
@@ -933,33 +930,65 @@ export default function AttendancePage() {
                             </div>
                         )}
 
-                        {/* Stretched TALL Date Picker (Mobile) */}
-                        <div className="flex items-center justify-between h-11 relative overflow-hidden">
+                        {/* Elegant Mobile Date Bar */}
+                        <div className="flex items-center justify-between bg-surface border border-border-subtle rounded-2xl p-1 shadow-sm">
                             <button
-                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                className="w-12 h-12 flex items-center justify-center text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                type="button"
+                                title={l('წინა დღე', 'Предыдущий день', 'Previous day')}
+                                onClick={() => {
+                                    const prev = new Date(selectedDate);
+                                    prev.setDate(prev.getDate() - 1);
+                                    setSelectedDate(prev);
+                                }}
+                                className="w-10 h-10 flex items-center justify-center rounded-xl text-muted hover:text-primary hover:bg-card active:scale-90 transition-all flex-shrink-0"
                             >
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
-                            
-                             <div className="relative flex-1 flex items-center justify-center min-w-0 h-full">
-                                <span className="absolute inset-x-0 inset-y-0 flex items-center justify-center text-[13px] font-bold uppercase text-primary pointer-events-none tracking-widest font-sans">
-                                    {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                                <StandardDatePicker
-                                    hideIcon={true}
+
+                            <div className="relative flex-1 flex items-center justify-center px-2 h-10 cursor-pointer group">
+                                <input
+                                    type="date"
                                     value={dateKey}
-                                    onChange={(val) => {
-                                        const d = new Date(val);
-                                        if (!isNaN(d.getTime())) setSelectedDate(d);
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            const [y, m, d] = e.target.value.split('-').map(Number);
+                                            if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                                                setSelectedDate(new Date(y, m - 1, d));
+                                            }
+                                        }
                                     }}
-                                    className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!h-full [&_input]:!py-0 [&_input]:!pl-0 [&_input]:!text-transparent [&_input]:uppercase [&_input]:text-center [&_input]:!bg-transparent w-full h-[40px] flex items-center justify-center"
+                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                                 />
+                                <div className="flex items-center gap-2 pointer-events-none select-none">
+                                    <div className="w-7 h-7 rounded-lg bg-[#6d28d9]/10 flex items-center justify-center text-[#6d28d9]">
+                                        <Calendar className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[13px] font-black text-primary tracking-tight">
+                                            {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                        </span>
+                                        {isToday ? (
+                                            <span className="px-1.5 py-0.5 rounded-md bg-[#6d28d9]/10 text-[#6d28d9] text-[9px] font-black uppercase tracking-wider">
+                                                {l('დღეს', 'сегодня', 'today')}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[11px] font-bold text-muted capitalize">
+                                                ({selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })})
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             <button
-                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                className="w-12 h-12 flex items-center justify-center text-muted hover:text-[#5b21b6] transition-all active:scale-90 flex-shrink-0 relative z-10"
+                                type="button"
+                                title={l('შემდეგი დღე', 'Следующий день', 'Next day')}
+                                onClick={() => {
+                                    const next = new Date(selectedDate);
+                                    next.setDate(next.getDate() + 1);
+                                    setSelectedDate(next);
+                                }}
+                                className="w-10 h-10 flex items-center justify-center rounded-xl text-muted hover:text-primary hover:bg-card active:scale-90 transition-all flex-shrink-0"
                             >
                                 <ChevronRight className="w-5 h-5" />
                             </button>
@@ -968,43 +997,77 @@ export default function AttendancePage() {
 
                     <div className="flex flex-1 overflow-hidden">
                         {/* Left Panel: Schedule (Desktop) */}
-                        <div className="hidden xl:flex w-52 border-r border-border-subtle bg-surface/30 flex-col">
-                            <div className="p-4 border-b border-border-subtle/50 flex flex-col gap-3">
+                        <div className="hidden xl:flex w-56 border-r border-border-subtle bg-surface/30 flex-col">
+                            <div className="p-3.5 border-b border-border-subtle/50 flex flex-col gap-2.5">
                                 {/* Desktop Date Picker */}
                                 {mounted && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-1 bg-surface border border-border-subtle/50 p-1 rounded-xl mb-1 relative overflow-hidden group shadow-sm hover:border-border-subtle transition-all">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between bg-card border border-border-subtle rounded-2xl p-1 shadow-sm hover:border-[#6d28d9]/40 transition-all">
                                             <button
-                                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() - 1)))}
-                                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-colors active:scale-95 flex-shrink-0"
+                                                type="button"
+                                                title={l('წინა დღე', 'Предыдущий день', 'Previous day')}
+                                                onClick={() => {
+                                                    const prev = new Date(selectedDate);
+                                                    prev.setDate(prev.getDate() - 1);
+                                                    setSelectedDate(prev);
+                                                }}
+                                                className="w-7 h-7 flex items-center justify-center rounded-xl text-muted hover:text-primary hover:bg-surface active:scale-95 transition-all flex-shrink-0"
                                             >
                                                 <ChevronLeft className="w-3.5 h-3.5" />
                                             </button>
-                                            
-                                            <div className="flex-1 min-w-0">
-                                                <StandardDatePicker
+
+                                            <div className="relative flex-1 flex items-center justify-center px-1 h-7 cursor-pointer group min-w-0">
+                                                <input
+                                                    type="date"
                                                     value={dateKey}
-                                                    hideIcon={true}
-                                                    onChange={(val) => {
-                                                        const d = new Date(val);
-                                                        if (!isNaN(d.getTime())) setSelectedDate(d);
+                                                    onChange={(e) => {
+                                                        if (e.target.value) {
+                                                            const [y, m, d] = e.target.value.split('-').map(Number);
+                                                            if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                                                                setSelectedDate(new Date(y, m - 1, d));
+                                                            }
+                                                        }
                                                     }}
-                                                    className="w-full [&>div]:mt-0"
-                                                    style={{ margin: 0 }}
-                                                    inputClassName="!bg-transparent !border-none !shadow-none !p-0 !h-7 !pl-0 !text-[11px] !font-black !tracking-tight text-center !rounded-none"
+                                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                                                 />
+                                                <div className="flex items-center gap-1.5 pointer-events-none select-none truncate">
+                                                    <Calendar className="w-3.5 h-3.5 text-[#6d28d9] flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                                    <span className="text-[11.5px] font-black text-primary tracking-tight truncate">
+                                                        {selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })}
+                                                    </span>
+                                                    <span className="text-[9px] font-black text-muted uppercase tracking-wider flex-shrink-0">
+                                                        {isToday ? l('დღეს', 'сег', 'today') : selectedDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <button
-                                                onClick={() => setSelectedDate(new Date(new Date(selectedDate).setDate(selectedDate.getDate() + 1)))}
-                                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-card text-muted hover:text-primary transition-colors active:scale-95 flex-shrink-0"
+                                                type="button"
+                                                title={l('შემდეგი დღე', 'Следующий день', 'Next day')}
+                                                onClick={() => {
+                                                    const next = new Date(selectedDate);
+                                                    next.setDate(next.getDate() + 1);
+                                                    setSelectedDate(next);
+                                                }}
+                                                className="w-7 h-7 flex items-center justify-center rounded-xl text-muted hover:text-primary hover:bg-surface active:scale-95 transition-all flex-shrink-0"
                                             >
                                                 <ChevronRight className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
+
+                                        {!isToday && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedDate(new Date())}
+                                                className="w-full py-1 px-2 text-[10px] font-black text-[#6d28d9] bg-[#6d28d9]/5 hover:bg-[#6d28d9]/10 rounded-xl transition-all text-center flex items-center justify-center gap-1 border border-[#6d28d9]/15"
+                                            >
+                                                <span>↩</span>
+                                                <span>{l('დღეს დაბრუნება', 'Вернуться к сегодня', 'Jump to Today')}</span>
+                                            </button>
+                                        )}
                                     </div>
                                 )}
-                                <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1 mt-1">{t.schedule}</p>
+                                <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1">{t.schedule}</p>
                             </div>
                             <div className="flex-1 p-3 space-y-1.5 flex-shrink-0 overflow-y-auto no-scrollbar">
                                 {mounted && filteredSchedule.map(s => {
