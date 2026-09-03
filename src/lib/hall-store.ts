@@ -15,7 +15,7 @@ export interface HallData {
 }
 import { loadSettings } from './settings-store';
 
-import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, safeSetItem } from './utils';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
 
@@ -77,9 +77,16 @@ export function saveHalls(halls: HallData[]): void {
     if (typeof window === 'undefined') return;
     const key = getHallsKey();
     const activeSlug = getActiveSlug() || 'default';
-    import('./utils').then(mod => mod.safeSetItem(key, JSON.stringify(halls), activeSlug));
+    
+    // 1. Synchronous localStorage write + memory cache update
+    try {
+        localStorage.setItem(key, JSON.stringify(halls));
+    } catch {}
+    setHallsMemoryCache(halls, activeSlug);
+    safeSetItem(key, JSON.stringify(halls), activeSlug);
     markLocalUpdate();
     
+    window.dispatchEvent(new Event('cc_halls_update'));
     triggerInstantSync();
 
     const settings = loadSettings(activeSlug);
@@ -101,8 +108,6 @@ export function saveHalls(halls: HallData[]): void {
             });
         });
     }
-
-    window.dispatchEvent(new Event('cc_halls_update'));
 }
 
 export function deleteHall(id: string): void {
@@ -116,14 +121,24 @@ export function deleteHall(id: string): void {
 
     const key = getHallsKey();
     const activeSlug = getActiveSlug() || 'default';
-    import('./utils').then(mod => mod.safeSetItem(key, JSON.stringify(updated), activeSlug));
+    
+    // 1. Synchronous localStorage write + memory cache update
+    try {
+        localStorage.setItem(key, JSON.stringify(updated));
+    } catch {}
+    setHallsMemoryCache(updated, activeSlug);
+    safeSetItem(key, JSON.stringify(updated), activeSlug);
     markLocalUpdate();
+
+    // 2. Immediate event dispatch so all UI listeners re-render instantly
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cc_halls_update'));
+    }
 
     triggerInstantSync();
 
-    // CLOUD SYNC: Remove from Supabase
+    // 3. CLOUD SYNC: Remove from Supabase
     if (typeof window !== 'undefined') {
-        const activeSlug = getActiveSlug() || '';
         const settings = loadSettings(activeSlug);
         const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
 
@@ -141,6 +156,4 @@ export function deleteHall(id: string): void {
             });
         }
     }
-
-    window.dispatchEvent(new Event('cc_halls_update'));
 }

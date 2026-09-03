@@ -67,8 +67,8 @@ export default function HallsPage() {
     }
 
     function handleDelete(id: string) {
+        setHalls(prev => prev.filter(h => h.id !== id));
         deleteHall(id);
-        setHalls(getHalls() as unknown as Hall[]);
     }
 
     const hallStats = useMemo(() => {
