@@ -347,8 +347,7 @@ export default function StudentsPage() {
                                             <img 
                                                 src={student.photo_url} 
                                                 alt={student.full_name} 
-                                                className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-300" 
-                                                onLoad={(e) => e.currentTarget.classList.remove('opacity-0')}
+                                                className="absolute inset-0 w-full h-full object-cover" 
                                             />
                                         )}
                                     </div>

@@ -193,12 +193,12 @@ export function getStudents(): Student[] {
         // so we merge them back. cc_student_photos serves as a persistent fallback for Stale-While-Revalidate.
         let lsPhotos: Record<string, string> | null = null;
         for (const s of finalStudents as any[]) {
-            if (!isBase64(s.photo_url)) {
+            if (!s.photo_url) {
                 let p = null;
                 // 1. Try Memory Cache (latest from cloud)
                 if (_memoryStudentsCache && _memoryCacheSlug === activeSlug) {
                     const mem = _memoryStudentsCache[s.id];
-                    if (mem && isBase64((mem as any).photo_url)) {
+                    if (mem && (mem as any).photo_url) {
                         p = (mem as any).photo_url;
                     }
                 }
@@ -211,8 +211,8 @@ export function getStudents(): Student[] {
                             lsPhotos = {};
                         }
                     }
-                    if (lsPhotos![s.id] && isBase64(lsPhotos![s.id])) {
-                        p = lsPhotos![s.id];
+                    if (lsPhotos && lsPhotos[s.id]) {
+                        p = lsPhotos[s.id];
                     }
                 }
                 
@@ -328,6 +328,14 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
             if (oldId && oldId !== studentId && _memoryStudentsCache[oldId]) {
                 delete _memoryStudentsCache[oldId];
             }
+        }
+        if (patches[studentId]?.photo_url) {
+            try {
+                const photoKey = `cc_student_photos_${activeSlug || 'default'}`;
+                const existing = JSON.parse(localStorage.getItem(photoKey) || '{}');
+                existing[studentId] = patches[studentId].photo_url;
+                localStorage.setItem(photoKey, JSON.stringify(existing));
+            } catch {}
         }
         
         console.log('✅ [StudentStore] Local storage updated for:', studentId);

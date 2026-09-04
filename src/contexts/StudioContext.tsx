@@ -244,9 +244,22 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // it isn't in the local deleted-tombstone set — and re-push
                 // it to the cloud so it gets another chance to persist for
                 // real instead of silently disappearing again next hydration.
-                const cloudStudentMap: Record<string, any> = (unwrap(state.students) || []).reduce((acc: any, s: any) => {
-                    // Keep localStorage light: drop base64 photos here (they stay in
-                    // the in-memory cache set above, and getStudents() merges them back).
+                // Preserve and accumulate photos so they are never lost across hydrations
+                let existingPhotosCore: Record<string, string> = {};
+                if (typeof window !== 'undefined') {
+                    try {
+                        const raw = localStorage.getItem(`cc_student_photos_${activeSlug || 'default'}`);
+                        if (raw) existingPhotosCore = JSON.parse(raw);
+                    } catch {}
+                }
+
+                const cloudStudentsRaw = unwrap(state.students) || [];
+                const cloudStudentMap: Record<string, any> = cloudStudentsRaw.reduce((acc: any, s: any) => {
+                    if (s && s.photo_url) {
+                        existingPhotosCore[s.id] = s.photo_url;
+                    } else if (existingPhotosCore[s.id]) {
+                        s.photo_url = existingPhotosCore[s.id];
+                    }
                     const lite = (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:'))
                         ? { ...s, photo_url: undefined }
                         : s;
@@ -332,11 +345,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     // an empty localStorage. The in-memory cache is the reliable source
                     // getStudents() falls back to, so the roster shows regardless.
                     try {
-                        // Use the merged (cloud + healed-local) map so the memory-cache
-                        // fallback doesn't lose a student that only survives locally.
-                        const mergedStudents = Object.values(cloudStudentMap);
+                        const mergedStudents = Object.values(cloudStudentMap).map((s: any) => ({
+                            ...s,
+                            photo_url: existingPhotosCore[s.id] || s.photo_url
+                        }));
                         if (mergedStudents.length > 0) {
                             setMemoryStudentsCache(mergedStudents as any, activeSlug || 'default');
+                        }
+                        if (Object.keys(existingPhotosCore).length > 0) {
+                            try {
+                                localStorage.setItem(`cc_student_photos_${activeSlug || 'default'}`, JSON.stringify(existingPhotosCore));
+                            } catch {}
                         }
                     } catch (e) { console.warn('memory cache set failed', e); }
 
@@ -502,14 +521,23 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 if (heavyState.students) {
                                     const cloudStudents = unwrap(heavyState.students);
                                     const map: any = {};
-                                    const photoMap: any = {};
+                                    let existingPhotosHeavy: Record<string, string> = {};
+                                    try {
+                                        const raw = localStorage.getItem(`cc_student_photos_${activeSlug || 'default'}`);
+                                        if (raw) existingPhotosHeavy = JSON.parse(raw);
+                                    } catch {}
+
+                                    const photoMap: any = { ...existingPhotosHeavy };
                                     cloudStudents.forEach((s: any) => {
-                                        if (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:')) {
+                                        if (s && s.photo_url) {
                                             photoMap[s.id] = s.photo_url;
-                                            map[s.id] = { ...s, photo_url: undefined };
-                                        } else {
-                                            map[s.id] = s;
+                                        } else if (photoMap[s.id]) {
+                                            s.photo_url = photoMap[s.id];
                                         }
+                                        const lite = (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:'))
+                                            ? { ...s, photo_url: undefined }
+                                            : s;
+                                        map[s.id] = lite;
                                     });
 
                                     // 🩺 Same self-healing merge as the core hydration path above:
@@ -558,13 +586,19 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     }
 
                                     const { setMemoryStudentsCache } = await import('@/lib/student-store');
-                                    const mergedStudents = Object.values(map);
-                                    if (mergedStudents.length > 0) {
-                                        setMemoryStudentsCache(mergedStudents as any, activeSlug || 'default');
+                                    const mergedStudentsWithPhotos = Object.values(map).map((s: any) => ({
+                                        ...s,
+                                        photo_url: photoMap[s.id] || s.photo_url
+                                    }));
+                                    if (mergedStudentsWithPhotos.length > 0) {
+                                        setMemoryStudentsCache(mergedStudentsWithPhotos as any, activeSlug || 'default');
                                     }
 
                                     await safeSetItem(studentDataKey, JSON.stringify(map), activeSlug || 'default');
-                                    await safeSetItem(`cc_student_photos_${activeSlug || 'default'}`, JSON.stringify(photoMap), activeSlug || 'default');
+                                    if (Object.keys(photoMap).length > 0) {
+                                        await safeSetItem(`cc_student_photos_${activeSlug || 'default'}`, JSON.stringify(photoMap), activeSlug || 'default');
+                                    }
+                                    window.dispatchEvent(new Event('cc_student_update'));
                                 }
                                 if (heavyState.attendance) {
                                     // 🔧 Attendance logic needs to populate cc_attendance_data AND cc_checkins_...
