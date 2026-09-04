@@ -45,10 +45,12 @@ export function resolveSmsRecipientName(student: {
     full_name?: string | null;
     first_name?: string | null;
     name?: string | null;
+    data?: any;
 }): string {
-    const age = calculateStudentAge(student.birth_date);
-    const parentName = (student.parent_name || student.contact_person || '').trim();
-    const studentName = (student.full_name || student.first_name || student.name || '').trim();
+    const rawBirthDate = student.birth_date || student.data?.birth_date;
+    const age = calculateStudentAge(rawBirthDate);
+    const parentName = (student.parent_name || student.data?.parent_name || student.contact_person || student.data?.contact_person || '').trim();
+    const studentName = (student.full_name || student.first_name || student.data?.first_name || student.name || '').trim();
 
     // Under 18 with a parent name available -> use parent's name
     if (age !== null && age < 18 && parentName) {
@@ -78,12 +80,23 @@ export function formatSmsTemplate(
 
     const resolvedName = resolveSmsRecipientName(student);
     const resolvedStudio = studioName || 'Studio';
-    const resolvedPlan = planName || '';
+    const resolvedPlan = (planName || '').trim();
 
-    return template
+    let out = template
         .replace(/{name}/g, resolvedName)
-        .replace(/{plan}/g, resolvedPlan)
         .replace(/{studio}/g, resolvedStudio);
+
+    if (resolvedPlan) {
+        out = out.replace(/{plan}/g, resolvedPlan);
+    } else {
+        out = out
+            .replace(/{plan}-ის/g, 'აბონემენტის')
+            .replace(/\({plan}\)/g, '')
+            .replace(/{plan}/g, '')
+            .replace(/\s+/g, ' ');
+    }
+
+    return out.trim();
 }
 
 /**

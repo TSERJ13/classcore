@@ -1707,7 +1707,7 @@ export default function AttendancePage() {
                     {/* Modals */}
                     {selStudent && (
                         <>
-                            <ManualSmsModal open={manualSmsOpen} onClose={() => setManualSmsOpen(false)} studentName={selStudent.full_name} studentPhone={selStudent.phone || ''} />
+                            <ManualSmsModal open={manualSmsOpen} onClose={() => setManualSmsOpen(false)} student={selStudent} studentName={selStudent.full_name} studentPhone={selStudent.phone || ''} />
                             <StudentModal open={editModal} student={selStudent} onClose={() => setEditModal(false)} onSave={(data) => { updateStudent(selStudent.id, data); import('@/lib/student-store').then(mod => setStudentPatches(mod.getStudentPatches())); setEditModal(false); }} />
                             <IssueSubscriptionModal 
                                 open={issueModalOpen} 
