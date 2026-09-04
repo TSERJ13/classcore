@@ -245,7 +245,7 @@ export default function AttendancePage() {
             ? groups.filter(g => visibleGroupIds.includes(g.id))
             : groups;
 
-        let targetSchedule = rawSchedule;
+        let targetSchedule = [...rawSchedule];
         if (targetSchedule.length === 0) {
             targetSchedule = availableGroups
                 .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
@@ -264,6 +264,43 @@ export default function AttendancePage() {
                     };
                 }) as any;
         }
+
+        // 📅 Also include active individual subscriptions with schedule matching this day
+        try {
+            const dayOfWeekSunday0 = selectedDate.getDay();
+            const allSubsData = getSubscriptions();
+            const flatSubs = Object.values(allSubsData).flat();
+            const activeIndSubs = flatSubs.filter(sub => 
+                sub.status === 'active' && 
+                sub.plan_type === 'individual' && 
+                (sub as any).schedule?.some((sc: any) => sc.day === dayOfWeekSunday0)
+            );
+
+            activeIndSubs.forEach(sub => {
+                const slot = (sub as any).schedule?.find((sc: any) => sc.day === dayOfWeekSunday0);
+                if (slot) {
+                    const subEventId = `sub-ind-${sub.id}`;
+                    if (!targetSchedule.some(ev => ev.id === subEventId || (ev.student_id === sub.student_id && ev.start_time === slot.time))) {
+                        const sIds = (sub.student_id || '').split(',').map(id => id.trim()).filter(Boolean);
+                        const allSts = getStudents();
+                        const matched = sIds.map(id => allSts.find(x => x.id === id)).filter(Boolean);
+                        const displayNames = matched.length > 0 ? matched.map(st => st?.full_name?.split(' ')[0]).join(' & ') : 'ინდივიდუალური';
+
+                        targetSchedule.push({
+                            id: subEventId,
+                            student_id: sub.student_id,
+                            title: `${displayNames} (${sub.plan || 'Individual'})`,
+                            type: 'individual',
+                            color: (sub as any).color || '#f59e0b',
+                            start_time: slot.time || '12:00',
+                            end_time: slot.endTime || '13:00',
+                            teacher_id: sub.teacher_id || '',
+                            hall_id: slot.hallId || ''
+                        } as any);
+                    }
+                }
+            });
+        } catch {}
 
         // Staff IDs for the current teacher
         const staffMe = (settings.staff || []).find(s => {
@@ -309,6 +346,13 @@ export default function AttendancePage() {
               };
           });
     }, [rawSchedule, profile, groups, selectedDate, settings.staff]);
+
+    const [scheduleFilter, setScheduleFilter] = useState<'all' | 'group' | 'individual'>('all');
+    const displayedSchedule = useMemo(() => {
+        if (scheduleFilter === 'group') return filteredSchedule.filter(s => s.type !== 'individual' && s.type !== 'rental');
+        if (scheduleFilter === 'individual') return filteredSchedule.filter(s => s.type === 'individual' || s.type === 'rental');
+        return filteredSchedule;
+    }, [filteredSchedule, scheduleFilter]);
 
     const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
@@ -526,7 +570,13 @@ export default function AttendancePage() {
         return base
             .map(s => ({ ...s, ...(studentPatches[s.id] || {}) } as Student))
             .filter(s => {
-                if (cls?.type === 'individual' || cls?.type === 'rental') return true;
+                if (cls?.type === 'individual' || cls?.type === 'rental') {
+                    if (cls?.student_id) {
+                        const sIds = cls.student_id.split(',').map((id: string) => id.trim()).filter(Boolean);
+                        return sIds.includes(s.id);
+                    }
+                    return true;
+                }
                 if (cls?.group_id && (s.enrolled_group_ids || []).includes(cls.group_id)) return true;
                 
                 // Allow students with active subscriptions for this group
@@ -1081,11 +1131,45 @@ export default function AttendancePage() {
                                         )}
                                     </div>
                                 )}
-                                <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 px-1">{t.schedule}</p>
+                                <div className="flex items-center justify-between px-1 mb-1">
+                                    <p className="text-[10px] font-black tracking-[0.2em] text-muted opacity-40 uppercase">{t.schedule}</p>
+                                    <div className="flex bg-surface border border-border-subtle rounded-xl p-0.5 gap-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setScheduleFilter('all')}
+                                            className={cn(
+                                                "px-2 py-0.5 text-[9px] font-black rounded-lg transition-all",
+                                                scheduleFilter === 'all' ? "bg-indigo-600 text-white shadow-xs" : "text-muted hover:text-primary"
+                                            )}
+                                        >
+                                            {l('ყველა', 'Все', 'All')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setScheduleFilter('group')}
+                                            className={cn(
+                                                "px-2 py-0.5 text-[9px] font-black rounded-lg transition-all",
+                                                scheduleFilter === 'group' ? "bg-indigo-600 text-white shadow-xs" : "text-muted hover:text-primary"
+                                            )}
+                                        >
+                                            {l('ჯგუფი', 'Группы', 'Group')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setScheduleFilter('individual')}
+                                            className={cn(
+                                                "px-2 py-0.5 text-[9px] font-black rounded-lg transition-all",
+                                                scheduleFilter === 'individual' ? "bg-amber-500 text-white shadow-xs" : "text-muted hover:text-primary"
+                                            )}
+                                        >
+                                            {l('ინდივიდ.', 'Индивид.', 'Indiv.')}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex-1 p-3 space-y-1.5 flex-shrink-0 overflow-y-auto no-scrollbar">
                                 {mounted && (
-                                    filteredSchedule.length === 0 ? (
+                                    displayedSchedule.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center p-4 py-8 text-center">
                                             <div className="w-10 h-10 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center text-muted mb-2 shadow-sm">
                                                 <Calendar className="w-5 h-5 opacity-40" />
@@ -1098,7 +1182,7 @@ export default function AttendancePage() {
                                             </p>
                                         </div>
                                     ) : (
-                                        filteredSchedule.map(s => {
+                                        displayedSchedule.map(s => {
                                             const isCurrent = isCurrentClass(s.start_time);
                                             const isActive = selectedClass === s.id;
                                             const timeStr = `${s.start_time}–${s.end_time}`;
@@ -1117,12 +1201,35 @@ export default function AttendancePage() {
                                                 borderColor: classColor,
                                                 boxShadow: `0 10px 25px -5px ${classColor}40`
                                             } : {}}>
-                                            <h3 className={cn(
-                                                'text-[12.5px] font-black truncate leading-tight transition-colors',
-                                                isActive ? 'text-white' : 'text-primary'
-                                            )}>
-                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
-                                            </h3>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h3 className={cn(
+                                                    'text-[12.5px] font-black truncate leading-tight transition-colors',
+                                                    isActive ? 'text-white' : 'text-primary'
+                                                )}>
+                                                    {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
+                                                </h3>
+                                                {s.type === 'individual' && s.student_id && (() => {
+                                                    const sIds = s.student_id.split(',').map((id: string) => id.trim()).filter(Boolean);
+                                                    const allSts = getStudents();
+                                                    const matched = sIds.map(id => allSts.find(x => x.id === id)).filter(Boolean);
+                                                    if (matched.length > 0) {
+                                                        return (
+                                                            <div className="flex -space-x-1.5 shrink-0">
+                                                                {matched.map(st => (
+                                                                    st?.photo_url ? (
+                                                                        <img key={st.id} src={st.photo_url} alt="" className="w-5 h-5 rounded-md object-cover border border-card shadow-xs" />
+                                                                    ) : (
+                                                                        <div key={st?.id} className="w-5 h-5 rounded-md bg-indigo-500/10 flex items-center justify-center text-indigo-600 font-bold text-[8px] border border-card">
+                                                                            {st?.full_name?.charAt(0) || '?'}
+                                                                        </div>
+                                                                    )
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
+                                            </div>
                                             <div className="flex items-center gap-2 mt-1.5">
                                                 <Clock className={cn(
                                                     'w-2.5 h-2.5 transition-colors',
@@ -1190,9 +1297,32 @@ export default function AttendancePage() {
                                     <div className="p-3 md:p-6 border-b border-border-subtle/50 flex flex-col gap-3 md:gap-4 flex-shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div className="min-w-0 pr-2">
-                                        <h2 className="text-lg md:text-xl font-black text-primary tracking-tight truncate">
-                                            {cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : (cls.type === 'individual' ? t.indSession : t.untitledClass))}
-                                        </h2>
+                                        <div className="flex items-center gap-3">
+                                            {cls.type === 'individual' && cls.student_id && (() => {
+                                                const sIds = cls.student_id.split(',').map((id: string) => id.trim()).filter(Boolean);
+                                                const allSts = getStudents();
+                                                const matched = sIds.map(id => allSts.find(x => x.id === id)).filter(Boolean);
+                                                if (matched.length > 0) {
+                                                    return (
+                                                        <div className="flex -space-x-2 shrink-0">
+                                                            {matched.map(st => (
+                                                                st?.photo_url ? (
+                                                                    <img key={st.id} src={st.photo_url} alt={st.full_name} className="w-10 h-10 rounded-xl object-cover border-2 border-card shadow-sm" />
+                                                                ) : (
+                                                                    <div key={st?.id} className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 font-black text-xs border-2 border-card shadow-sm">
+                                                                        {st?.full_name?.charAt(0) || '?'}
+                                                                    </div>
+                                                                )
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                            <h2 className="text-lg md:text-xl font-black text-primary tracking-tight truncate">
+                                                {cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : (cls.type === 'individual' ? t.indSession : t.untitledClass))}
+                                            </h2>
+                                        </div>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
                                             <div className="flex items-center gap-1.5">
                                                 {(cls as any).teacherPhoto ? (
@@ -1262,7 +1392,7 @@ export default function AttendancePage() {
                                 {/* Horizontal Scroll Hint Wrapper */}
                                 <div className="xl:hidden relative w-full flex-shrink-0 z-30 group/scroll">
                                     <div className="w-full flex overflow-x-auto no-scrollbar gap-2 pb-1.5 px-3 touch-pan-x">
-                                        {mounted && filteredSchedule.map(s => {
+                                        {mounted && displayedSchedule.map(s => {
                                             const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
                                             return (
                                                 <button key={s.id} onClick={() => setSelectedClass(s.id)}

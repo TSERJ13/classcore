@@ -351,6 +351,26 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 schedule: selectedType === 'individual' ? schedule.map(s => ({ ...s, hallId: individualHallId })) : undefined,
                 color: selectedType === 'individual' ? eventColor : undefined,
             });
+            // 📅 Automatic Scheduling for Individual plans
+            if (selectedType === 'individual' && schedule.length > 0) {
+                import('@/lib/event-store').then(({ generateScheduledIndividualEvents }) => {
+                    const sIds = studentId.split(',').map(id => id.trim()).filter(Boolean);
+                    const matched = sIds.map(id => students.find(x => x.id === id)).filter(Boolean);
+                    const name = matched.length > 0 ? matched.map(st => st?.full_name).join(' & ') : (selectedStudent?.full_name || 'სტუდენტი');
+                    generateScheduledIndividualEvents({
+                        studentId,
+                        studentName: name,
+                        planName: plan.name,
+                        teacherId: teacherId || '',
+                        startDate,
+                        endDate: finalEndDate,
+                        sessionsTotal: Number(sessions) || null,
+                        schedule: schedule.map(s => ({ ...s, hallId: individualHallId })),
+                        color: eventColor
+                    });
+                });
+            }
+
             console.log('✅ [IssueModal] onIssue called successfully');
         } catch (err) {
             console.error('❌ [IssueModal] onIssue failed:', err);
