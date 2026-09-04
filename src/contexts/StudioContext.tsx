@@ -233,21 +233,78 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     return next;
                 });
 
+                // 🩺 SELF-HEALING MERGE for students: this used to rebuild
+                // cc_student_data from whatever the cloud returned, full stop.
+                // If a student never actually made it to Supabase (a schema
+                // mismatch on the upsert, a request still in flight, a
+                // transient network error) it would vanish from the UI the
+                // moment this hydration ran — even though nothing deleted it.
+                // Now: start from the cloud list, then bring back any
+                // LOCALLY-known student the cloud didn't return, as long as
+                // it isn't in the local deleted-tombstone set — and re-push
+                // it to the cloud so it gets another chance to persist for
+                // real instead of silently disappearing again next hydration.
+                const cloudStudentMap: Record<string, any> = (unwrap(state.students) || []).reduce((acc: any, s: any) => {
+                    // Keep localStorage light: drop base64 photos here (they stay in
+                    // the in-memory cache set above, and getStudents() merges them back).
+                    const lite = (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:'))
+                        ? { ...s, photo_url: undefined }
+                        : s;
+                    acc[s.id] = lite;
+                    return acc;
+                }, {});
+
+                if (typeof window !== 'undefined') {
+                    try {
+                        const studentDataKey = getScopedKey('cc_student_data', activeSlug || 'default');
+                        const rawLocalStudents = localStorage.getItem(studentDataKey);
+                        const localStudentMap = rawLocalStudents ? JSON.parse(rawLocalStudents) : null;
+
+                        const deletedKey = getScopedKey('cc_deleted_students', activeSlug || 'default');
+                        const rawDeleted = localStorage.getItem(deletedKey);
+                        const deletedStudentIds = new Set<string>(
+                            (() => { try { const p = rawDeleted ? JSON.parse(rawDeleted) : []; return Array.isArray(p) ? p : []; } catch { return []; } })()
+                        );
+
+                        if (localStudentMap && typeof localStudentMap === 'object' && !Array.isArray(localStudentMap)) {
+                            const missingLocalStudents: any[] = [];
+                            Object.entries(localStudentMap).forEach(([id, s]) => {
+                                if (!cloudStudentMap[id] && !deletedStudentIds.has(id)) {
+                                    cloudStudentMap[id] = s;
+                                    missingLocalStudents.push(s);
+                                }
+                            });
+
+                            if (missingLocalStudents.length > 0 && resolvedOrgId) {
+                                console.warn(`🩺 [Hydration] ${missingLocalStudents.length} local student(s) missing from cloud — restoring locally and re-pushing:`, missingLocalStudents.map((s: any) => s.id));
+                                import('@/lib/master-sync').then(({ syncRecordToCloud }) => {
+                                    missingLocalStudents.forEach((s: any) => {
+                                        syncRecordToCloud('students', {
+                                            id: s.id,
+                                            org_id: resolvedOrgId,
+                                            first_name: s.first_name || '',
+                                            last_name: s.last_name || '',
+                                            full_name: s.full_name || '',
+                                            phone: s.phone || '',
+                                            email: s.email || '',
+                                            data: s
+                                        }, resolvedOrgId).catch(() => {});
+                                    });
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ [Hydration] Student merge-and-heal check failed:', e);
+                    }
+                }
+
                 // 🚀 SCORCHED EARTH v1.1.16: Unified Atomic Hydration
                 const mapping: any = {
                     cc_teachers: unwrap(finalStaff),
                     cc_branches: state.branches || [],
                     cc_halls: unwrap(finalHalls),
                     cc_groups: unwrap(finalGroups),
-                    cc_student_data: (unwrap(state.students) || []).reduce((acc: any, s: any) => {
-                        // Keep localStorage light: drop base64 photos here (they stay in
-                        // the in-memory cache set above, and getStudents() merges them back).
-                        const lite = (s && typeof s.photo_url === 'string' && s.photo_url.startsWith('data:'))
-                            ? { ...s, photo_url: undefined }
-                            : s;
-                        acc[s.id] = lite;
-                        return acc;
-                    }, {}),
+                    cc_student_data: cloudStudentMap,
                     cc_student_subscriptions: (unwrap(state.subscriptions) || [])
                         .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
                         .reduce((acc: any, sub: any) => {
@@ -275,9 +332,11 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     // an empty localStorage. The in-memory cache is the reliable source
                     // getStudents() falls back to, so the roster shows regardless.
                     try {
-                        const cloudStudents = unwrap(state.students) || [];
-                        if (cloudStudents.length > 0) {
-                            setMemoryStudentsCache(cloudStudents as any, activeSlug || 'default');
+                        // Use the merged (cloud + healed-local) map so the memory-cache
+                        // fallback doesn't lose a student that only survives locally.
+                        const mergedStudents = Object.values(cloudStudentMap);
+                        if (mergedStudents.length > 0) {
+                            setMemoryStudentsCache(mergedStudents as any, activeSlug || 'default');
                         }
                     } catch (e) { console.warn('memory cache set failed', e); }
 
@@ -442,10 +501,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 // Save Heavy Blobs
                                 if (heavyState.students) {
                                     const cloudStudents = unwrap(heavyState.students);
-                                    const { setMemoryStudentsCache } = await import('@/lib/student-store');
-                                    if (cloudStudents.length > 0) {
-                                        setMemoryStudentsCache(cloudStudents as any, activeSlug || 'default');
-                                    }
                                     const map: any = {};
                                     const photoMap: any = {};
                                     cloudStudents.forEach((s: any) => {
@@ -456,7 +511,59 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                             map[s.id] = s;
                                         }
                                     });
-                                    await safeSetItem(getScopedKey('cc_student_data', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+
+                                    // 🩺 Same self-healing merge as the core hydration path above:
+                                    // this background "heavy" sync used to overwrite cc_student_data
+                                    // unconditionally (via safeSetItem, no isEmpty/guard at all), so a
+                                    // student that hadn't actually made it to Supabase yet would be
+                                    // wiped out by this pass even faster than by the core one. Bring
+                                    // back any locally-known, non-deleted student the cloud is
+                                    // missing, and give it another chance to sync for real.
+                                    const studentDataKey = getScopedKey('cc_student_data', activeSlug || 'default');
+                                    try {
+                                        const rawLocalStudents = localStorage.getItem(studentDataKey);
+                                        const localStudentMap = rawLocalStudents ? JSON.parse(rawLocalStudents) : null;
+                                        const rawDeleted = localStorage.getItem(getScopedKey('cc_deleted_students', activeSlug || 'default'));
+                                        const deletedStudentIds = new Set<string>(
+                                            (() => { try { const p = rawDeleted ? JSON.parse(rawDeleted) : []; return Array.isArray(p) ? p : []; } catch { return []; } })()
+                                        );
+                                        if (localStudentMap && typeof localStudentMap === 'object' && !Array.isArray(localStudentMap)) {
+                                            const missingLocalStudents: any[] = [];
+                                            Object.entries(localStudentMap).forEach(([id, s]) => {
+                                                if (!map[id] && !deletedStudentIds.has(id)) {
+                                                    map[id] = s;
+                                                    missingLocalStudents.push(s);
+                                                }
+                                            });
+                                            if (missingLocalStudents.length > 0 && resolvedOrgId) {
+                                                console.warn(`🩺 [Hydration/Heavy] ${missingLocalStudents.length} local student(s) missing from cloud — restoring locally and re-pushing:`, missingLocalStudents.map((s: any) => s.id));
+                                                import('@/lib/master-sync').then(({ syncRecordToCloud }) => {
+                                                    missingLocalStudents.forEach((s: any) => {
+                                                        syncRecordToCloud('students', {
+                                                            id: s.id,
+                                                            org_id: resolvedOrgId,
+                                                            first_name: s.first_name || '',
+                                                            last_name: s.last_name || '',
+                                                            full_name: s.full_name || '',
+                                                            phone: s.phone || '',
+                                                            email: s.email || '',
+                                                            data: s
+                                                        }, resolvedOrgId).catch(() => {});
+                                                    });
+                                                });
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.warn('⚠️ [Hydration/Heavy] Student merge-and-heal check failed:', e);
+                                    }
+
+                                    const { setMemoryStudentsCache } = await import('@/lib/student-store');
+                                    const mergedStudents = Object.values(map);
+                                    if (mergedStudents.length > 0) {
+                                        setMemoryStudentsCache(mergedStudents as any, activeSlug || 'default');
+                                    }
+
+                                    await safeSetItem(studentDataKey, JSON.stringify(map), activeSlug || 'default');
                                     await safeSetItem(`cc_student_photos_${activeSlug || 'default'}`, JSON.stringify(photoMap), activeSlug || 'default');
                                 }
                                 if (heavyState.attendance) {
@@ -698,9 +805,37 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const setCurrency = (cur: 'GEL' | 'USD' | 'EUR') => updateSettings({ currency: cur });
     const setLanguage = (lang: 'ka' | 'ru' | 'en') => updateSettings({ language: lang });
     const setTimezone = (tz: string) => updateSettings({ timezone: tz });
-    const updateStaff = (id: string, data: any) => updateSettings({ staff: settings.staff?.map((s: any) => s.id === id ? { ...s, ...data } : s) });
-    const removeStaff = (id: string) => updateSettings({ staff: settings.staff?.filter((s: any) => s.id !== id) });
-    const addStaff = (member: any) => updateSettings({ staff: [...(settings.staff || []), member] });
+    // These three used to only call updateSettings() and stop there — no
+    // `cc_teacher_update` event ever fired for an edit made from the
+    // Teachers page (unlike teacher-store.ts's own updateTeacher(), which
+    // does dispatch it). Pages that only refresh on that event — like
+    // Analytics's salary/revenue numbers — never found out a teacher's
+    // rate or percentage had changed, and kept showing stale numbers until
+    // a full reload. Dispatch it here too, and keep teacher-store.ts's
+    // memory cache (used as a localStorage-full fallback) from ever
+    // shadowing a fresher edit made through this path.
+    const notifyStaffChanged = (nextStaff: any[]) => {
+        if (typeof window === 'undefined') return;
+        import('@/lib/teacher-store').then(({ setTeachersMemoryCache }) => {
+            setTeachersMemoryCache(nextStaff as any, getActiveSlug() || settings.studioSlug || 'default');
+        });
+        window.dispatchEvent(new Event('cc_teacher_update'));
+    };
+    const updateStaff = (id: string, data: any) => {
+        const next = settings.staff?.map((s: any) => s.id === id ? { ...s, ...data } : s) || [];
+        updateSettings({ staff: next });
+        notifyStaffChanged(next);
+    };
+    const removeStaff = (id: string) => {
+        const next = settings.staff?.filter((s: any) => s.id !== id) || [];
+        updateSettings({ staff: next });
+        notifyStaffChanged(next);
+    };
+    const addStaff = (member: any) => {
+        const next = [...(settings.staff || []), member];
+        updateSettings({ staff: next });
+        notifyStaffChanged(next);
+    };
     const removeBranch = (id: string) => updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
     const updateBranch = (id: string, data: any) => updateSettings({ branches: settings.branches.map(b => b.id === id ? { ...b, ...data } : b) });
     const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });

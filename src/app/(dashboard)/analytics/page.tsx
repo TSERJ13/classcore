@@ -639,12 +639,22 @@ export default function AnalyticsPage() {
                     
                     const group = groups.find(g => g.id === groupId);
                     if (group) {
-                        // Apply specific percentage from group or fallback to global
+                        // Apply specific percentage from group, falling back to the
+                        // teacher's global percentage. `?? ` alone is wrong here:
+                        // a group saved with no percentage stores `0` (see
+                        // GroupModal), and `0 ?? fallback` evaluates to `0` because
+                        // 0 is not null/undefined — so the fallback never kicked in
+                        // and every such group's revenue silently computed as 0.
+                        // Treat 0/undefined/null the same way: "not actually set".
                         if (group.secondaryTeacherId === t.id) {
-                            const perc = group.secondaryTeacherPercentage ?? t.salary_percentage ?? 0;
+                            const perc = (group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0)
+                                ? group.secondaryTeacherPercentage
+                                : (t.salary_percentage || 0);
                             return sum + (amount * perc / 100);
                         } else if (group.teacherId === t.id) {
-                            const perc = group.primaryTeacherPercentage ?? t.salary_percentage ?? 50;
+                            const perc = (group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0)
+                                ? group.primaryTeacherPercentage
+                                : (t.salary_percentage || 50);
                             return sum + (amount * perc / 100);
                         }
                     }
@@ -895,16 +905,22 @@ export default function AnalyticsPage() {
 
     }, [lang, selectedMonth, settings.activeBranchId, refreshToggle]);
 
-    // Listen for bonus updates to refresh analytics
+    // Listen for bonus/salary/teacher updates to refresh analytics.
+    // `cc_teacher_update` was missing here: editing a teacher's rate or
+    // salary_percentage (from this page's own modal, or from the main
+    // Teachers page) never bumped `refreshToggle`, so this effect never
+    // re-ran and the numbers stayed stale until a full page reload.
     useEffect(() => {
         const h = () => setRefreshToggle(v => v + 1);
         window.addEventListener('cc_bonuses_updated', h);
         window.addEventListener('cc_salary_statuses_updated', h);
         window.addEventListener('cc_expenses_updated', h);
+        window.addEventListener('cc_teacher_update', h);
         return () => {
             window.removeEventListener('cc_bonuses_updated', h);
             window.removeEventListener('cc_salary_statuses_updated', h);
             window.removeEventListener('cc_expenses_updated', h);
+            window.removeEventListener('cc_teacher_update', h);
         };
     }, []);
 
@@ -1797,8 +1813,12 @@ export default function AnalyticsPage() {
                 onClose={() => setEditingTeacher(null)}
                 onSave={(data) => {
                     if (editingTeacher?.id) {
+                        // updateTeacher() dispatches 'cc_teacher_update', which the
+                        // listener above now picks up to actually recompute the
+                        // numbers. (This used to try forcing a refresh via
+                        // `setSelectedMonth(prev => prev)` — returning the exact
+                        // same value never triggers a re-render, so it did nothing.)
                         updateTeacher(editingTeacher.id, data);
-                        setSelectedMonth(prev => { const v = prev; return v; });
                     }
                     setEditingTeacher(null);
                 }}

@@ -14,7 +14,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import type { Teacher } from '@/types';
 import type { StaffMember } from '@/lib/settings-store';
-import { getGroups } from '@/lib/group-store';
+import { getGroups, saveGroups } from '@/lib/group-store';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 
@@ -66,17 +66,74 @@ export default function TeachersPage() {
     function openAdd() { setEditing(null); setModalOpen(true); }
     function openEdit(t: Teacher) { setEditing(t); setModalOpen(true); }
 
+    // Teacher.assigned_group_ids and Group.teacherId/secondaryTeacherId are
+    // two separate copies of the same relationship. groups/page.tsx already
+    // keeps them in sync when a GROUP is edited (it pushes the change onto
+    // the teacher). This is the missing other direction: when a TEACHER's
+    // assigned groups change here, push the change onto the groups too, so
+    // a group unchecked here actually loses this teacher (instead of still
+    // showing them on the Groups/Calendar/Attendance pages), and a group
+    // checked here actually gains them.
+    function reconcileGroupAssignments(teacherId: string, oldGroupIds: string[], newGroupIds: string[]) {
+        const removed = oldGroupIds.filter(gid => !newGroupIds.includes(gid));
+        const added = newGroupIds.filter(gid => !oldGroupIds.includes(gid));
+        if (removed.length === 0 && added.length === 0) return;
+
+        const currentGroups = getGroups();
+        let changed = false;
+        const nextGroups = currentGroups.map(g => {
+            if (removed.includes(g.id)) {
+                if (g.teacherId === teacherId) {
+                    changed = true;
+                    return { ...g, teacherId: '' };
+                }
+                if (g.secondaryTeacherId === teacherId) {
+                    changed = true;
+                    return { ...g, secondaryTeacherId: '', secondaryTeacherName: '' };
+                }
+                return g;
+            }
+            if (added.includes(g.id)) {
+                if (!g.teacherId) {
+                    changed = true;
+                    return { ...g, teacherId };
+                }
+                if (g.teacherId !== teacherId && !g.secondaryTeacherId) {
+                    changed = true;
+                    return { ...g, secondaryTeacherId: teacherId };
+                }
+                // Both teacher slots on this group are already taken by
+                // someone else — don't silently overwrite another
+                // teacher's assignment. The group keeps whatever it had;
+                // the user can resolve the conflict from the Groups page.
+                console.warn(`⚠️ [Teachers] Group ${g.id} already has both teacher slots filled — not auto-assigning ${teacherId}.`);
+                return g;
+            }
+            return g;
+        });
+
+        if (changed) {
+            setGroups(nextGroups);
+            saveGroups(nextGroups);
+        }
+    }
+
     function handleSave(data: Partial<Teacher>) {
+        const oldGroupIds = editing?.assigned_group_ids || [];
+        const newGroupIds = data.assigned_group_ids || [];
+
         if (editing) {
             updateStaff(editing.id, data as any);
+            reconcileGroupAssignments(editing.id, oldGroupIds, newGroupIds);
         } else {
+            // Defense in depth: TeacherModal always assigns an id now,
+            // but any other caller of this handler must not be allowed
+            // to add a staff member the cloud sync (which requires a
+            // non-null primary key) will silently drop.
+            const newId = data.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`);
             addStaff({
                 ...data,
-                // Defense in depth: TeacherModal always assigns an id now,
-                // but any other caller of this handler must not be allowed
-                // to add a staff member the cloud sync (which requires a
-                // non-null primary key) will silently drop.
-                id: data.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`),
+                id: newId,
                 status: data.status || 'active',
                 permissions: data.permissions || {
                     canViewAttendance: true,
@@ -92,6 +149,7 @@ export default function TeachersPage() {
                     canViewSMS: true
                 }
             } as any);
+            reconcileGroupAssignments(newId, [], newGroupIds);
         }
         setModalOpen(false);
     }
@@ -190,6 +248,7 @@ export default function TeachersPage() {
                                         <div className="flex gap-3">
                                             {teacher.rate_per_hour && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_hour, settings.currency)}/h</span>}
                                             {teacher.rate_per_month && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_month, settings.currency)}/m</span>}
+                                            {!!teacher.salary_percentage && <span className="text-emerald-600 font-black tracking-tight">{teacher.salary_percentage}%</span>}
                                         </div>
                                     </div>
 

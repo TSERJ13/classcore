@@ -347,10 +347,13 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
                 full_name: studentToSync.full_name || '',
                 phone: studentToSync.phone || '',
                 email: studentToSync.email || '',
-                // `birth_date` is a `DATE` column — send null rather than ''
-                // when unset, since Postgres rejects an empty string as an
-                // invalid date literal and would fail the whole upsert.
-                birth_date: studentToSync.birth_date || null,
+                // `birth_date` is NOT a real column on the live `students`
+                // table — it lives inside `data` (JSONB) only, same as any
+                // other non-core field. Sending it top-level made Supabase
+                // reject the whole upsert with `PGRST204: Could not find the
+                // 'birth_date' column of 'students' in the schema cache`.
+                // `studentToSync` (spread into `data` below) already carries
+                // it, so no separate field is needed here.
                 data: studentToSync
             }, finalOrgId).then(success => {
                 if (success) console.log('🟢 [StudentStore] Cloud Sync SUCCESS');

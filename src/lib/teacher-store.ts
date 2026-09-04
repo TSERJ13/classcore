@@ -19,6 +19,14 @@ export function setTeachersMemoryCache(teachers: Teacher[], slug: string) {
     _teachersMemoryCacheSlug = slug;
 }
 
+// Any local write MUST invalidate the cache, or a stale snapshot (e.g. one
+// set by StudioContext right before a rate/percentage edit lands) would
+// shadow the fresh data getTeachers() should be reading from settings.
+function invalidateTeachersMemoryCache() {
+    _teachersMemoryCache = null;
+    _teachersMemoryCacheSlug = null;
+}
+
 export function getTeachers(): Teacher[] {
     if (typeof window === 'undefined') return INITIAL_TEACHERS;
     try {
@@ -39,6 +47,7 @@ export function saveTeachers(teachers: Teacher[]) {
     try {
         const activeSlug = getActiveSlug() || 'default';
         saveSettings({ staff: teachers as unknown as StaffMember[] }, undefined, activeSlug);
+        invalidateTeachersMemoryCache();
         window.dispatchEvent(new CustomEvent('cc_teacher_update'));
     } catch (err: any) {
         console.error('Storage failed:', err);
@@ -77,6 +86,7 @@ export function updateTeacher(id: string, data: Partial<Teacher>) {
     if (idx > -1) {
         list[idx] = { ...list[idx], ...data } as any;
         saveSettings({ staff: list }, settings, activeSlug);
+        invalidateTeachersMemoryCache();
         window.dispatchEvent(new CustomEvent('cc_teacher_update'));
     }
 }
@@ -87,7 +97,8 @@ export function deleteTeacher(id: string) {
     const list = settings.staff || [];
     const filtered = list.filter(t => t.id !== id);
     saveSettings({ staff: filtered }, settings, activeSlug);
-    
+    invalidateTeachersMemoryCache();
+
     const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     if (orgId && orgId !== 'demo') {
         deleteRecordFromCloud('staff', id, orgId).catch(() => {});

@@ -16,7 +16,14 @@ const supabaseAdmin = createClient(
 // 🛡️ MINIMAL columns that DEFINITELY exist in every table
 // Anything else is dropped to prevent "column not found" errors
 const MINIMAL_COLUMNS: Record<string, string[]> = {
-    students: ['id', 'org_id', 'first_name', 'last_name', 'full_name', 'phone', 'email', 'birth_date', 'data'],
+    // NOTE: `birth_date` is intentionally NOT listed here. The live
+    // Supabase `students` table does not have a `birth_date` column (it's
+    // stored inside the `data` JSONB blob instead) — listing it here made
+    // every upsert fail with `PGRST204: Could not find the 'birth_date'
+    // column of 'students' in the schema cache`. That error was swallowed
+    // as a 200-with-warning below, so the student silently never reached
+    // the cloud and then got wiped from localStorage on the next hydration.
+    students: ['id', 'org_id', 'first_name', 'last_name', 'full_name', 'phone', 'email', 'data'],
     staff: ['id', 'org_id', 'full_name', 'email', 'phone', 'role', 'data'],
     groups: ['id', 'org_id', 'name', 'teacher_id', 'hall_id', 'data'],
     halls: ['id', 'org_id', 'name', 'data'],
