@@ -54,6 +54,38 @@ function sanitizeRow(table: string, row: any, includeData: boolean): any {
 
 async function tryUpsert(table: string, rows: any[], includeData: boolean) {
     const cleanRows = rows.map(r => sanitizeRow(table, r, includeData));
+
+    // 🛡️ CRITICAL PHOTO PRESERVATION:
+    // If table is 'students', incoming rows often come from local storage where photo_url was
+    // stripped to save quota (lite student object). If cleanRow.data has no photo_url,
+    // DO NOT allow the upsert to wipe out an existing photo_url in Supabase!
+    if (table === 'students' && includeData) {
+        try {
+            const ids = cleanRows.map(r => r.id).filter(Boolean);
+            if (ids.length > 0) {
+                const { data: existingRows } = await supabaseAdmin
+                    .from('students')
+                    .select('id, data')
+                    .in('id', ids);
+
+                const existingPhotos = new Map<string, string>();
+                (existingRows || []).forEach((er: any) => {
+                    if (er?.data?.photo_url) {
+                        existingPhotos.set(er.id, er.data.photo_url);
+                    }
+                });
+
+                cleanRows.forEach(r => {
+                    if (r.data && !r.data.photo_url && existingPhotos.has(r.id)) {
+                        r.data = { ...r.data, photo_url: existingPhotos.get(r.id) };
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('⚠️ [BulkSync] Photo preservation lookup failed:', e);
+        }
+    }
+
     const { error } = await supabaseAdmin.from(table).upsert(cleanRows);
     return error;
 }

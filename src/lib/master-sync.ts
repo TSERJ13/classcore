@@ -99,6 +99,22 @@ export async function syncRecordToCloud(table: string, record: any, orgId: strin
 
     const payload = { ...record, org_id: orgId };
 
+    // 🛡️ Ensure photo_url is never stripped when pushing a student
+    if (table === 'students' && payload.data && !payload.data.photo_url) {
+        try {
+            if (typeof window !== 'undefined') {
+                const activeSlug = localStorage.getItem('cc_active_studio_slug') || 'default';
+                const rawPhotos = localStorage.getItem(`cc_student_photos_${activeSlug}`);
+                if (rawPhotos) {
+                    const photos = JSON.parse(rawPhotos);
+                    if (photos[payload.id]) {
+                        payload.data = { ...payload.data, photo_url: photos[payload.id] };
+                    }
+                }
+            }
+        } catch {}
+    }
+
     // First try via server bulk sync API (admin service role, bypasses RLS)
     try {
         const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : undefined;

@@ -267,7 +267,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     return acc;
                 }, {});
 
-                if (typeof window !== 'undefined') {
+                if (typeof window !== 'undefined' && cloudStudentsRaw.length > 0) {
                     try {
                         const studentDataKey = getScopedKey('cc_student_data', activeSlug || 'default');
                         const rawLocalStudents = localStorage.getItem(studentDataKey);
@@ -292,6 +292,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 console.warn(`🩺 [Hydration] ${missingLocalStudents.length} local student(s) missing from cloud — restoring locally and re-pushing:`, missingLocalStudents.map((s: any) => s.id));
                                 import('@/lib/master-sync').then(({ syncRecordToCloud }) => {
                                     missingLocalStudents.forEach((s: any) => {
+                                        const photo = existingPhotosCore[s.id];
                                         syncRecordToCloud('students', {
                                             id: s.id,
                                             org_id: resolvedOrgId,
@@ -300,7 +301,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                             full_name: s.full_name || '',
                                             phone: s.phone || '',
                                             email: s.email || '',
-                                            data: s
+                                            data: photo ? { ...s, photo_url: photo } : s
                                         }, resolvedOrgId).catch(() => {});
                                     });
                                 });
@@ -567,6 +568,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                                 console.warn(`🩺 [Hydration/Heavy] ${missingLocalStudents.length} local student(s) missing from cloud — restoring locally and re-pushing:`, missingLocalStudents.map((s: any) => s.id));
                                                 import('@/lib/master-sync').then(({ syncRecordToCloud }) => {
                                                     missingLocalStudents.forEach((s: any) => {
+                                                        const photo = photoMap[s.id] || existingPhotosHeavy[s.id];
                                                         syncRecordToCloud('students', {
                                                             id: s.id,
                                                             org_id: resolvedOrgId,
@@ -575,7 +577,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                                             full_name: s.full_name || '',
                                                             phone: s.phone || '',
                                                             email: s.email || '',
-                                                            data: s
+                                                            data: photo ? { ...s, photo_url: photo } : s
                                                         }, resolvedOrgId).catch(() => {});
                                                     });
                                                 });
