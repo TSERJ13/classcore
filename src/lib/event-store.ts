@@ -77,11 +77,30 @@ export function getEvents(): CalendarEvent[] {
         // Migration: Map old 'eX' IDs to new 'clsX' IDs if they still exist in localStorage
         // Migration: Map hardcoded 'demo' org_id to the actual scoped studio slug
         let migrated = false;
-        events = events.map((e: CalendarEvent) => {
+        events = events.map((e: any) => {
             let changed = false;
             let newE = { ...e };
 
-            if (newE.id.startsWith('e') && !isNaN(Number(newE.id.slice(1)))) {
+            // 🚀 UNIVERSAL MERGE: If event has nested .data (from Supabase/cloud sync), merge it back
+            if (newE.data && typeof newE.data === 'object') {
+                newE = { ...newE.data, ...newE };
+                delete newE.data;
+                changed = true;
+            }
+
+            // If start_time or end_time are ISO timestamps (e.g. "2026-09-04T15:15:00Z"), extract HH:MM and date
+            if (newE.start_time && typeof newE.start_time === 'string' && newE.start_time.includes('T')) {
+                const parts = newE.start_time.split('T');
+                if (!newE.date) newE.date = parts[0];
+                newE.start_time = parts[1].slice(0, 5);
+                changed = true;
+            }
+            if (newE.end_time && typeof newE.end_time === 'string' && newE.end_time.includes('T')) {
+                newE.end_time = newE.end_time.split('T')[1].slice(0, 5);
+                changed = true;
+            }
+
+            if (newE.id && typeof newE.id === 'string' && newE.id.startsWith('e') && !isNaN(Number(newE.id.slice(1)))) {
                 newE.id = `cls${newE.id.slice(1)}`;
                 changed = true;
             }

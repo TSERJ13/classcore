@@ -273,8 +273,54 @@ export default function AttendancePage() {
                 };
             }) as any;
 
-        // 3. Merge both! Regular groups and individual lessons appear together seamlessly
-        let targetSchedule = [...concreteEvents, ...virtualGroupClasses];
+        // 3. Dynamic individual lessons from active individual subscriptions with schedule slots for this day
+        const allSubsMap = getSubscriptions();
+        const allSubs = Object.values(allSubsMap).flat().filter(Boolean);
+        const uniqueSubsMap = new Map<string, any>();
+        allSubs.forEach((s: any) => { if (s?.id) uniqueSubsMap.set(s.id, s); });
+        const activeIndSubs = Array.from(uniqueSubsMap.values()).filter((s: any) =>
+            s && (s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual') &&
+            s.status === 'active' &&
+            Array.isArray(s.schedule) && s.schedule.length > 0
+        );
+        const dayOfWeekSunday0 = selectedDate.getDay();
+        const virtualIndLessons: any[] = [];
+        activeIndSubs.forEach((sub: any) => {
+            const subStart = sub.purchased_at ? sub.purchased_at.split('T')[0] : '';
+            const subEnd = sub.expires_at ? sub.expires_at.split('T')[0] : '';
+            if (subStart && dateKey < subStart) return;
+            if (subEnd && dateKey > subEnd) return;
+
+            const slot = sub.schedule?.find((sc: any) => sc.day === dayOfWeekSunday0);
+            if (slot) {
+                const subEventId = `sub-ind-${sub.id}-${dateKey}`;
+                const alreadyExists = concreteEvents.some(ev =>
+                    ev.id === subEventId ||
+                    (ev.type === 'individual' && ev.student_id === sub.student_id && ev.start_time === slot.time)
+                );
+                if (!alreadyExists) {
+                    const sIds: string[] = (sub.student_id || '').split(',').map((id: string) => id.trim()).filter(Boolean);
+                    const allSts = getStudents();
+                    const matched = sIds.map((id: string) => allSts.find(x => x.id === id)).filter(Boolean);
+                    const displayNames = matched.length > 0 ? matched.map(st => st?.full_name?.split(' ')[0] || st?.first_name || '').join(' & ') : 'ინდივიდუალური';
+
+                    virtualIndLessons.push({
+                        id: subEventId,
+                        student_id: sub.student_id,
+                        title: `${displayNames} (${sub.plan || 'Individual'})`,
+                        type: 'individual',
+                        color: sub.color || '#6d28d9',
+                        start_time: slot.time || '15:00',
+                        end_time: slot.endTime || '16:00',
+                        teacher_id: sub.teacher_id || '',
+                        hall_id: slot.hallId || ''
+                    });
+                }
+            }
+        });
+
+        // 4. Merge all! Regular groups, concrete events, and individual lessons appear together seamlessly
+        let targetSchedule = [...concreteEvents, ...virtualGroupClasses, ...virtualIndLessons];
 
         // Staff IDs for the current teacher
         const staffMe = (settings.staff || []).find(s => {

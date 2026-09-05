@@ -28,7 +28,7 @@ const MINIMAL_COLUMNS: Record<string, string[]> = {
     groups: ['id', 'org_id', 'name', 'teacher_id', 'hall_id', 'data'],
     halls: ['id', 'org_id', 'name', 'data'],
     branches: ['id', 'org_id', 'name', 'address', 'data'],
-    calendar_events: ['id', 'org_id', 'title', 'date', 'start_time', 'end_time', 'group_id', 'branch_id', 'data'],
+    calendar_events: ['id', 'org_id', 'hall_id', 'group_id', 'title', 'start_time', 'end_time', 'data'],
     subscriptions: ['id', 'org_id', 'student_id', 'status', 'sessions_used', 'sessions_total', 'expires_at', 'data'],
     subscription_plans: ['id', 'org_id', 'name', 'type', 'period', 'session_count', 'validity_days', 'price', 'coach', 'coach_name', 'group_id', 'is_active', 'is_default', 'data'],
     attendance: ['id', 'org_id', 'student_id', 'group_id', 'class_id', 'date', 'status', 'notes', 'data'],
@@ -39,6 +39,24 @@ const MINIMAL_COLUMNS: Record<string, string[]> = {
 };
 
 function sanitizeRow(table: string, row: any, includeData: boolean): any {
+    if (table === 'calendar_events') {
+        const d = row.date || (row.data && row.data.date) || '2026-01-01';
+        let s = row.start_time || '10:00';
+        let e = row.end_time || '11:00';
+        if (typeof s === 'string' && !s.includes('T')) s = `${d}T${s}:00Z`;
+        if (typeof e === 'string' && !e.includes('T')) e = `${d}T${e}:00Z`;
+        return {
+            id: row.id,
+            org_id: row.org_id,
+            hall_id: row.hall_id || null,
+            group_id: row.group_id || null,
+            title: row.title || 'Event',
+            start_time: s,
+            end_time: e,
+            ...(includeData ? { data: row.data || row } : {})
+        };
+    }
+
     const allowedCols = MINIMAL_COLUMNS[table];
     if (!allowedCols) return row;
     

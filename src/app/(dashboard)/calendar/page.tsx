@@ -19,7 +19,7 @@ import { getTeachers } from '@/lib/teacher-store';
 import { getHalls } from '@/lib/hall-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getGroups, addSlotToGroup, removeSlotFromGroup, createGroup, saveGroups, type Group } from '@/lib/group-store';
-import { saveSubscription } from '@/lib/subscription-store';
+import { saveSubscription, getSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { getStudents } from '@/lib/student-store';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
@@ -1484,6 +1484,7 @@ export default function CalendarPage() {
     const [teachers, setTeachers] = useState<any[]>([]);
     const [halls, setHalls] = useState<{ id: string; name: string; color: string }[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
+    const [subs, setSubs] = useState<Record<string, SubscriptionInfo[]>>({});
     const [hasMounted, setHasMounted] = useState(false);
 
     useEffect(() => {
@@ -1492,13 +1493,15 @@ export default function CalendarPage() {
             setTeachers(getTeachers());
             setHalls(getHalls().filter(h => h.is_active !== false));
             setGroups(getGroups());
+            setSubs(getSubscriptions() || {});
         };
 
         setHasMounted(true);
         refresh();
 
         const events = [
-            'cc_calendar_events_update', 'cc_teacher_update', 'cc_halls_update', 'cc_groups_update', 'cc_student_update'
+            'cc_calendar_events_update', 'cc_teacher_update', 'cc_halls_update', 'cc_groups_update', 'cc_student_update',
+            'cc_subscription_update', 'cc_subscriptions_update'
         ];
         events.forEach(e => window.addEventListener(e, refresh));
         return () => events.forEach(e => window.removeEventListener(e, refresh));
@@ -1516,19 +1519,94 @@ export default function CalendarPage() {
 
     const expandedEvents = useMemo(() => {
         const expanded: CalendarEvent[] = [];
+        const seenKeys = new Set<string>();
+
         events.forEach(ev => {
             expanded.push(ev);
+            seenKeys.add(`${ev.date}_${ev.start_time}_${ev.student_id || ev.group_id || ev.id}`);
             if (ev.recurring === 'weekly') {
                 for (let w = -4; w <= 4; w++) { // Expand further for month view
                     if (w === 0) continue;
                     const d = new Date(ev.date);
                     d.setDate(d.getDate() + w * 7);
-                    expanded.push({ ...ev, id: `${ev.id}_w${w}`, date: toDateStr(d) });
+                    const recDate = toDateStr(d);
+                    const recId = `${ev.id}_w${w}`;
+                    expanded.push({ ...ev, id: recId, date: recDate });
+                    seenKeys.add(`${recDate}_${ev.start_time}_${ev.student_id || ev.group_id || ev.id}`);
                 }
             }
         });
+
+        // 🚀 Dynamic individual lessons from active individual subscriptions with schedule
+        const allSubs = Object.values(subs).flat().filter(Boolean);
+        const uniqueSubsMap = new Map<string, SubscriptionInfo>();
+        allSubs.forEach(s => { if (s?.id) uniqueSubsMap.set(s.id, s); });
+        const uniqueSubs = Array.from(uniqueSubsMap.values());
+
+        const activeIndSubs = uniqueSubs.filter(s =>
+            (s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual') &&
+            s.status === 'active' &&
+            Array.isArray(s.schedule) && s.schedule.length > 0
+        );
+
+        if (activeIndSubs.length > 0) {
+            const allSts = getStudents();
+            const startRange = new Date(anchor);
+            startRange.setDate(startRange.getDate() - 35);
+            const endRange = new Date(anchor);
+            endRange.setDate(endRange.getDate() + 45);
+
+            activeIndSubs.forEach(sub => {
+                const sIds: string[] = (sub.student_id || '').split(',').map((id: string) => id.trim()).filter(Boolean);
+                const matched = sIds.map((id: string) => allSts.find(x => x.id === id)).filter(Boolean);
+                const displayNames = matched.length > 0
+                    ? matched.map(st => st?.full_name?.split(' ')[0] || st?.first_name || '').join(' & ')
+                    : 'ინდივიდუალური';
+
+                const subStart = sub.purchased_at ? sub.purchased_at.split('T')[0] : '';
+                const subEnd = sub.expires_at ? sub.expires_at.split('T')[0] : '';
+
+                let cur = new Date(startRange);
+                while (cur <= endRange) {
+                    const dateStr = toDateStr(cur);
+                    if ((!subStart || dateStr >= subStart) && (!subEnd || dateStr <= subEnd)) {
+                        const dayOfWeek = cur.getDay(); // 0=Sun, 1=Mon...
+                        const slot = sub.schedule?.find((sc: any) => sc.day === dayOfWeek);
+                        if (slot) {
+                            const subEventId = `sub-ind-${sub.id}-${dateStr}`;
+                            const dedupeKey = `${dateStr}_${slot.time}_${sub.student_id}`;
+                            const alreadyExists = seenKeys.has(dedupeKey) || events.some(ev =>
+                                ev.id === subEventId ||
+                                (ev.type === 'individual' && ev.student_id === sub.student_id && ev.date === dateStr && ev.start_time === slot.time)
+                            );
+                            if (!alreadyExists) {
+                                seenKeys.add(dedupeKey);
+                                expanded.push({
+                                    id: subEventId,
+                                    org_id: (sub as any).org_id || getActiveSlug() || '',
+                                    title: `${displayNames} (${sub.plan || 'Individual'})`,
+                                    type: 'individual',
+                                    hall_id: slot.hallId || 'h1',
+                                    teacher_id: sub.teacher_id || '',
+                                    student_id: sub.student_id,
+                                    date: dateStr,
+                                    start_time: slot.time || '15:00',
+                                    end_time: (slot as any).endTime || '16:00',
+                                    color: sub.color || '#6d28d9',
+                                    recurring: 'none',
+                                    reminder_30m: false,
+                                    created_at: sub.purchased_at || new Date().toISOString()
+                                });
+                            }
+                        }
+                    }
+                    cur.setDate(cur.getDate() + 1);
+                }
+            });
+        }
+
         return expanded;
-    }, [events]);
+    }, [events, subs, anchor]);
     const [filterHall, setFilterHall] = useState<string>('all');
     const [filterTeacher, setFilterTeacher] = useState<string>('all');
     const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
