@@ -223,6 +223,11 @@ export default function SubscriptionsPage() {
     };
     const handleDelete = async (studentId: string, id: string) => {
         if (await confirm(t.deleteSubConfirm || 'ნამდვილად გსურთ წაშლა?')) {
+            // Look this subscription up BEFORE removing it from state — need
+            // its plan_type to know whether it has generated calendar events
+            // that must be cleaned up too (see below).
+            const subBeingDeleted = subsData[studentId]?.find(s => s.id === id);
+
             // Optimistic Update: Hide immediately in UI
             setSubsData(prev => {
                 const next = { ...prev };
@@ -232,8 +237,24 @@ export default function SubscriptionsPage() {
                 }
                 return next;
             });
-            
+
             deleteSubscription(studentId, id);
+
+            // 🧹 An individual subscription's schedule generates real
+            // calendar events (generateScheduledIndividualEvents, called
+            // from IssueSubscriptionModal). Without this, deleting/
+            // cancelling the subscription left those future lessons behind
+            // as "ghost" entries in the attendance schedule with no
+            // subscription backing them anymore.
+            if (subBeingDeleted?.plan_type === 'individual') {
+                import('@/lib/event-store').then(({ deleteIndividualLessonEvents }) => {
+                    // subBeingDeleted.student_id is the same (possibly comma-
+                    // joined, for a pair) id string the events were generated
+                    // with — match on the exact same value.
+                    deleteIndividualLessonEvents(subBeingDeleted.student_id || studentId);
+                }).catch(() => {});
+            }
+
             setEditing(null);
         }
     };

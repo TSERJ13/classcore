@@ -15,7 +15,7 @@ export interface HallData {
 }
 import { loadSettings } from './settings-store';
 
-import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, safeSetItem } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, safeSetItem, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
 
@@ -41,18 +41,28 @@ export function getHalls(): HallData[] {
     try {
         const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            // 🪦 Local tombstone: a background hydration can merge in a
+            // slightly-stale cloud/settings-blob snapshot that raced a hall
+            // delete (e.g. the cloud DELETE hadn't propagated yet, or
+            // deleteRecordFromCloud failed silently — see deleteHall()'s
+            // `.catch(() => {})`). Filter tombstoned ids the same way
+            // student-store.ts/group-store.ts already do, so a deleted hall
+            // can't resurrect without a page refresh.
+            const deletedIds = getLocallyDeletedIds(getDeletedHallsKey());
+
             const key = getHallsKey();
             let saved = localStorage.getItem(key);
 
             if (saved) {
                 const parsed = JSON.parse(saved);
-                return Array.isArray(parsed) ? parsed : INITIAL_HALLS;
+                const list = Array.isArray(parsed) ? parsed : INITIAL_HALLS;
+                return deletedIds.size > 0 ? list.filter(h => !deletedIds.has(h.id)) : list;
             }
-            
+
             // 🚀 Fall back to memory cache
             if (_hallsMemoryCache && _hallsMemoryCacheSlug === activeSlug) {
                 console.log('💾 [HallStore] Using memory cache');
-                return _hallsMemoryCache;
+                return deletedIds.size > 0 ? _hallsMemoryCache.filter(h => !deletedIds.has(h.id)) : _hallsMemoryCache;
             }
             return INITIAL_HALLS;
         }
@@ -113,7 +123,7 @@ export function saveHalls(halls: HallData[]): void {
 export function deleteHall(id: string): void {
     const halls = getHalls();
     const updated = halls.filter(h => h.id !== id);
-    
+
     const slug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : null;
     if (slug) {
         recordGlobalDeletion(slug, 'cc_halls', id);
@@ -121,7 +131,12 @@ export function deleteHall(id: string): void {
 
     const key = getHallsKey();
     const activeSlug = getActiveSlug() || 'default';
-    
+
+    // 🪦 Tombstone this id FIRST so getHalls()'s own filter (and any
+    // hydration that runs before the cloud delete below completes/succeeds)
+    // can't bring it back.
+    addLocallyDeletedId(getDeletedHallsKey(), id);
+
     // 1. Synchronous localStorage write + memory cache update
     try {
         localStorage.setItem(key, JSON.stringify(updated));
@@ -136,6 +151,17 @@ export function deleteHall(id: string): void {
     }
 
     triggerInstantSync();
+
+    // 2b. 🧹 Detach this hall from any calendar events referencing it
+    // (clear hall_id rather than deleting the lesson itself — a hall going
+    // away shouldn't cascade-delete someone's schedule) so attendance /
+    // calendar rendering never has to deal with a dangling hall_id, and
+    // hall-capacity lookups (getHall(id)) don't silently point nowhere.
+    if (typeof window !== 'undefined') {
+        import('./event-store').then(mod => {
+            mod.clearHallFromEvents(id);
+        }).catch(() => {});
+    }
 
     // 3. CLOUD SYNC: Remove from Supabase
     if (typeof window !== 'undefined') {

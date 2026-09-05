@@ -196,6 +196,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // already applies, and the `allDeleted`/cloud-trash check
                 // subscriptions get below).
                 const deletedEventIds = getLocallyDeletedIds(getScopedKey('cc_deleted_calendar_events', activeSlug || 'default'));
+                // Halls deleted on THIS device: same tombstone hall-store.ts's
+                // deleteHall() now writes and getHalls() itself filters by —
+                // without this, a hydration racing a still-in-flight (or
+                // silently failed, see deleteHall()'s `.catch(() => {})`)
+                // cloud DELETE would resolveRicher() the hall right back in
+                // from the cloud/settings-blob snapshot before it propagated.
+                const deletedHallIds = getLocallyDeletedIds(getScopedKey('cc_deleted_halls'));
 
                 const resolveRicher = (db: any[], backup: any) => {
                     const dbArr = Array.isArray(db) ? db : [];
@@ -207,7 +214,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 };
 
                 const finalStaff = resolveRicher(state.staff, cloudSettings.staff || settings.staff);
-                const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls);
+                const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls)
+                    .filter((h: any) => !deletedHallIds.has(h.id));
                 const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
                 const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
                 const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events)
@@ -519,7 +527,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 };
 
                                 // Save Heavy Blobs
-                                if (heavyState.students) {
+                                // 🛡️ `studentsQueryFailed` (see /api/sync/state) means the
+                                // server's students query itself errored and got silently
+                                // coerced to `[]` — NOT that the org genuinely has zero
+                                // students. Without this check, the self-healing merge
+                                // below would read that `[]` as "every local student is
+                                // missing from the cloud" and mass re-push stale local
+                                // snapshots (clobbering real cloud edits) — the exact
+                                // false-positive this block was built to prevent, just
+                                // triggered by a failed fetch instead of Core's chunking.
+                                if (heavyState.students && !heavyState.studentsQueryFailed) {
                                     const cloudStudents = unwrap(heavyState.students);
                                     const map: any = {};
                                     let existingPhotosHeavy: Record<string, string> = {};
@@ -601,6 +618,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                         await safeSetItem(`cc_student_photos_${activeSlug || 'default'}`, JSON.stringify(photoMap), activeSlug || 'default');
                                     }
                                     window.dispatchEvent(new Event('cc_student_update'));
+                                } else if (heavyState.studentsQueryFailed) {
+                                    console.warn('⚠️ [Hydration/Heavy] Students query failed server-side this cycle — leaving cc_student_data/cc_student_photos untouched (will retry on next hydration).');
                                 }
                                 if (heavyState.attendance) {
                                     // 🔧 Attendance logic needs to populate cc_attendance_data AND cc_checkins_...

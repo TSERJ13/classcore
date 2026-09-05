@@ -102,6 +102,16 @@ export function ManualSmsModal({ open, onClose, student, studentName, studentPho
 
     const studioName = settings?.studioName || 'Studio';
 
+    // Payment amount for the {amount} placeholder in the "payment" template —
+    // prefer what the student actually paid/owes on their active subscription,
+    // falling back to the plan's list price when that isn't set.
+    const paymentAmount = useMemo(() => {
+        const paid = (activeSub as any)?.amount_paid;
+        if (typeof paid === 'number' && paid > 0) return paid;
+        const planPrice = (activeSub as any)?.plan?.price ?? (activeSub as any)?.price;
+        return typeof planPrice === 'number' ? planPrice : null;
+    }, [activeSub]);
+
     // 4. Available Templates in Selected/Student Language
     const templates = useMemo(() => {
         const customTpls = (settings?.sms_templates as any)?.[templateLang] || {};
@@ -146,7 +156,12 @@ export function ManualSmsModal({ open, onClose, student, studentName, studentPho
         const formatted = formatSmsTemplate(rawTpl, {
             student: effectiveStudent,
             planName,
-            studioName
+            studioName,
+            // Only the payment template uses {amount}, but passing it
+            // unconditionally is harmless — formatSmsTemplate strips the
+            // placeholder from any template that doesn't resolve it.
+            amount: tplKey === 'payment' ? paymentAmount : null,
+            currency: settings?.currency
         });
         setMessage(formatted);
     };

@@ -4,7 +4,7 @@
  * and automated SMS notifications (expirations, birthdays).
  */
 
-import { getLocalISODate } from './utils';
+import { getLocalISODate, formatCurrency } from './utils';
 import { loadSettings } from './settings-store';
 import { getStudents } from './student-store';
 import { getSubscriptions } from './subscription-store';
@@ -66,6 +66,7 @@ export function resolveSmsRecipientName(student: {
  * - {name} with resolved recipient name (parent if <18, student if >=18)
  * - {plan} with subscription plan name
  * - {studio} with current studio name
+ * - {amount} with the payment amount (for the payment reminder template)
  */
 export function formatSmsTemplate(
     template: string,
@@ -73,14 +74,21 @@ export function formatSmsTemplate(
         student: any;
         planName?: string | null;
         studioName?: string | null;
+        amount?: number | string | null;
+        currency?: string | null;
     }
 ): string {
     if (!template) return '';
-    const { student, planName, studioName } = options;
+    const { student, planName, studioName, amount, currency } = options;
 
     const resolvedName = resolveSmsRecipientName(student);
     const resolvedStudio = studioName || 'Studio';
     const resolvedPlan = (planName || '').trim();
+    const resolvedAmount = (() => {
+        if (amount === null || amount === undefined || amount === '') return '';
+        if (typeof amount === 'number') return formatCurrency(amount, currency || 'GEL');
+        return String(amount);
+    })();
 
     let out = template
         .replace(/{name}/g, resolvedName)
@@ -93,6 +101,18 @@ export function formatSmsTemplate(
             .replace(/{plan}-ის/g, 'აბონემენტის')
             .replace(/\({plan}\)/g, '')
             .replace(/{plan}/g, '')
+            .replace(/\s+/g, ' ');
+    }
+
+    if (resolvedAmount) {
+        out = out.replace(/{amount}/g, resolvedAmount);
+    } else {
+        // No amount available (e.g. previewing a template outside a payment
+        // context) — drop the placeholder rather than sending a literal
+        // "{amount}" to the recipient.
+        out = out
+            .replace(/\({amount}\)/g, '')
+            .replace(/{amount}/g, '')
             .replace(/\s+/g, ' ');
     }
 

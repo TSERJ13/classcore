@@ -99,7 +99,7 @@ export function getEvents(): CalendarEvent[] {
             saveEvents(events);
         }
 
-        // 4. AUTO-PURGE ORPHANS: 
+        // 4. AUTO-PURGE ORPHANS:
         const deletedGroupsKey = `cc_deleted_groups_${activeSlug}`;
         const rawDeleted = localStorage.getItem(deletedGroupsKey);
         const deletedGroupIds = rawDeleted ? JSON.parse(rawDeleted) : [];
@@ -112,6 +112,29 @@ export function getEvents(): CalendarEvent[] {
                 console.log(`🧹 [EventStore] Auto-purged ${initialCount - healthyEvents.length} orphaned events from deleted groups`);
                 saveEvents(healthyEvents);
                 return healthyEvents;
+            }
+        }
+
+        // 4b. AUTO-DETACH DELETED HALLS: unlike a deleted group (whose
+        // lessons are removed entirely), a deleted hall shouldn't take the
+        // lesson down with it — only the room assignment is gone. This is a
+        // belt-and-suspenders pass for hall-store.ts's clearHallFromEvents()
+        // (which normally runs at delete time) in case that call raced a
+        // page unload or ran while offline.
+        // NOTE: uses getScopedKey('cc_deleted_halls') — the same call
+        // hall-store.ts's getDeletedHallsKey() makes — rather than a manual
+        // `cc_deleted_halls_${activeSlug}` string like the (currently
+        // dead/no-op — see summary) group-orphan-purge above: getScopedKey
+        // resolves to the org id, not the raw slug, so a hand-built key here
+        // would silently never match what deleteHall() actually writes to.
+        const deletedHallIds = getLocallyDeletedIds(getScopedKey('cc_deleted_halls'));
+        if (deletedHallIds.size > 0) {
+            const staleCount = events.filter((e: CalendarEvent) => e.hall_id && deletedHallIds.has(e.hall_id)).length;
+            if (staleCount > 0) {
+                const cleaned = events.map((e: CalendarEvent) => (e.hall_id && deletedHallIds.has(e.hall_id)) ? { ...e, hall_id: '' } : e);
+                console.log(`🧹 [EventStore] Cleared hall_id on ${staleCount} event(s) referencing a deleted hall`);
+                saveEvents(cleaned);
+                return cleaned;
             }
         }
 
@@ -213,6 +236,63 @@ export function updateEvent(id: string, updates: Partial<CalendarEvent>) {
         events[idx] = { ...events[idx], ...updates };
         saveEvents(events);
     }
+    return events;
+}
+
+/**
+ * Detach a deleted hall from every event that referenced it — clears
+ * `hall_id` rather than deleting the event, since removing a hall shouldn't
+ * cascade-delete someone's booked lessons. Called by hall-store.ts's
+ * deleteHall(); getEvents() also runs an equivalent pass on read as a
+ * belt-and-suspenders fallback in case this call never ran (offline, page
+ * unload) for a given event.
+ */
+export function clearHallFromEvents(hallId: string) {
+    if (!hallId) return getEvents();
+    const before = getEvents();
+    const affected = before.filter(e => e.hall_id === hallId).length;
+    if (affected === 0) return before;
+    const events = before.map(e => e.hall_id === hallId ? { ...e, hall_id: '' } : e);
+    saveEvents(events);
+    console.log(`🧹 [EventStore] Detached deleted hall ${hallId} from ${affected} event(s)`);
+    return events;
+}
+
+/**
+ * Remove the FUTURE individual-lesson events generated for a subscription
+ * (matched by the exact `student_id` string the events were generated with
+ * — comma-joined for a pair, see generateScheduledIndividualEvents) once
+ * that subscription is deleted/cancelled. Past dates are left untouched so
+ * attendance history isn't erased — only upcoming "ghost" lessons that no
+ * longer have a subscription behind them are cleared out.
+ */
+export function deleteIndividualLessonEvents(studentId: string, fromDate?: string) {
+    if (!studentId) return getEvents();
+    const cutoff = fromDate || getLocalISODate();
+    const before = getEvents();
+    const isMatch = (e: CalendarEvent) => e.type === 'individual' && e.student_id === studentId && e.date >= cutoff;
+    const removed = before.filter(isMatch);
+    if (removed.length === 0) return before;
+    const events = before.filter(e => !isMatch(e));
+    saveEvents(events);
+
+    const deletedKey = getDeletedEventsKey();
+    removed.forEach(e => addLocallyDeletedId(deletedKey, e.id));
+
+    // Same resurrection issue as deleteEvent()/deleteGroupEvents(): removing
+    // rows from the local list and re-pushing only the survivors never
+    // deletes the old rows in Supabase — do that explicitly.
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        const finalOrgId = getEffectiveOrgId(activeSlug);
+        if (finalOrgId) {
+            import('./master-sync').then(mod => {
+                removed.forEach(e => mod.deleteRecordFromCloud('calendar_events', e.id, finalOrgId).catch(() => {}));
+            });
+        }
+    }
+
+    console.log(`🧹 [EventStore] Removed ${removed.length} future individual-lesson event(s) for student_id=${studentId}`);
     return events;
 }
 

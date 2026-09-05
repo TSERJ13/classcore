@@ -226,7 +226,18 @@ export async function POST(req: Request) {
             if (idx === 5) return r.data; // studio_settings is maybeSingle
             return r.data || [];
         });
-        
+
+        // 🛡️ A Supabase query error (timeout, transient DB hiccup, etc.) leaves
+        // `r.data` null and `r.error` set, but the line above silently coerces
+        // that to `[]` — indistinguishable from "this org genuinely has zero
+        // students". The client's heavy-hydration self-healing merge treats an
+        // empty students list as "every locally-known student is missing from
+        // the cloud" and re-pushes all of them (stale local snapshots
+        // clobbering real cloud edits) — exactly the false-positive class of
+        // bug already fixed for Core hydration. Surface the real failure so
+        // the client can skip that merge instead of misreading it as "empty".
+        const studentsQueryFailed = isHeavy && !!(responses[0] as any)?.error;
+
         let callerStaff = null;
         if (!auth.isSuperAdmin) {
             callerStaff = (data[1] || []).find((s: any) => s.id === auth.userId || (auth.email && (s.email || '').toLowerCase().trim() === auth.email.toLowerCase().trim()));
@@ -248,6 +259,7 @@ export async function POST(req: Request) {
             calendar_events: data[11] || [],
             subscription_plans: data[12] || [],
             products: data[13] || [],
+            studentsQueryFailed,
             org_id: targetOrgId
         };
 

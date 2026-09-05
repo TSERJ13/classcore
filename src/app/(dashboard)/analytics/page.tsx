@@ -686,11 +686,21 @@ export default function AnalyticsPage() {
                         // Handle hourly split if it's a dual session
                         const group = groups.find(g => g.id === (ev as any).group_id);
                         if (group && group.secondaryTeacherId) {
+                            // Same `0 ?? fallback` footgun as the revenue-split calc
+                            // above: a group with no explicit split stores `0` for
+                            // the unset percentage (see GroupModal), and `0` is not
+                            // nullish, so `?? fallback` never applied — every hourly
+                            // teacher's worked minutes on such a group silently
+                            // multiplied by 0. Treat 0/undefined/null as "not set".
                             if (group.secondaryTeacherId === t.id) {
-                                const perc = group.secondaryTeacherPercentage ?? t.salary_percentage ?? 0;
+                                const perc = (group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0)
+                                    ? group.secondaryTeacherPercentage
+                                    : (t.salary_percentage || 0);
                                 mins *= perc / 100;
                             } else if (group.teacherId === t.id) {
-                                const perc = group.primaryTeacherPercentage ?? t.salary_percentage ?? 50;
+                                const perc = (group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0)
+                                    ? group.primaryTeacherPercentage
+                                    : (t.salary_percentage || 50);
                                 mins *= perc / 100;
                             }
                         }
