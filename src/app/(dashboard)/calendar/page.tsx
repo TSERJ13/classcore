@@ -2777,9 +2777,7 @@ export default function CalendarPage() {
                         boxShadow: fabOpen ? '0 8px 30px rgba(109,40,217,0.2)' : '0 8px 30px rgba(109,40,217,0.4)'
                     }}
                 >
-                    {(filterHall !== 'all' || filterTeacher !== 'all') && !fabOpen && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full border-2 border-card animate-pulse" />
-                    )}
+
                     <Plus className="w-6 h-6 transition-transform duration-300" />
                 </button>
             </div>

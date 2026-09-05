@@ -391,33 +391,103 @@ export default function AttendancePage() {
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
     const [att, setAtt] = useState<Record<string, State>>({});
 
-    // Smart Auto-Selection based on current time for TODAY, or first class for OTHER days
-    useEffect(() => {
-        if (filteredSchedule.length > 0) {
-            const now = new Date();
-            const isToday = selectedDate.toDateString() === now.toDateString();
-            
-            let targetId = '';
-            if (isToday) {
-                const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                // Find class that is currently active or next upcoming (within a 1-hour window)
-                const currentOrNext = filteredSchedule.find(s => {
-                    const [startH, startM] = (s.start_time || '00:00').split(':').map(Number);
-                    const classStartMins = startH * 60 + startM;
-                    return classStartMins >= currentMinutes - 60; // Up to 1 hour ago or future
-                }) || filteredSchedule[0];
-                targetId = currentOrNext.id;
-            } else {
-                targetId = filteredSchedule[0].id;
-            }
+    const lastInteractionRef = useRef<number>(Date.now());
 
-            // ONLY auto-select if no class is selected yet, or the current class is no longer valid on this date
-            const currentIsValid = filteredSchedule.find(s => s.id === selectedClass);
+    // Listen to user touch/pointer/keyboard interactions to prevent interruption while browsing
+    useEffect(() => {
+        const markActivity = () => {
+            lastInteractionRef.current = Date.now();
+        };
+        window.addEventListener('pointerdown', markActivity, { passive: true });
+        window.addEventListener('keydown', markActivity, { passive: true });
+        window.addEventListener('touchstart', markActivity, { passive: true });
+        return () => {
+            window.removeEventListener('pointerdown', markActivity);
+            window.removeEventListener('keydown', markActivity);
+            window.removeEventListener('touchstart', markActivity);
+        };
+    }, []);
+
+    const handleUserSelectClass = useCallback((classId: string) => {
+        lastInteractionRef.current = Date.now();
+        setSelectedClass(classId);
+    }, []);
+
+    // Helper to calculate current active or next upcoming class for today
+    const getCurrentTimeClassId = useCallback((schedule: any[], now = new Date()): string => {
+        if (!schedule || schedule.length === 0) return '';
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        // 1. Check for ongoing class right now: start <= currentMinutes < end
+        const ongoing = schedule.find(s => {
+            const [sh, sm] = (s.start_time || '00:00').split(':').map(Number);
+            const [eh, em] = (s.end_time || '23:59').split(':').map(Number);
+            const start = sh * 60 + sm;
+            const end = eh * 60 + em;
+            return currentMinutes >= start && currentMinutes < end;
+        });
+        if (ongoing) return ongoing.id;
+
+        // 2. Next upcoming class today
+        const upcoming = schedule.find(s => {
+            const [sh, sm] = (s.start_time || '00:00').split(':').map(Number);
+            const start = sh * 60 + sm;
+            return start >= currentMinutes;
+        });
+        if (upcoming) return upcoming.id;
+
+        // 3. Fallback: last class of today or first class
+        return schedule[schedule.length - 1]?.id || schedule[0]?.id || '';
+    }, []);
+
+    // Smart Auto-Selection based on current time for TODAY, or first class for OTHER days,
+    // plus real-time auto-advance as time ticks forward when untouched
+    useEffect(() => {
+        if (filteredSchedule.length === 0) return;
+
+        const now = new Date();
+        const isToday = selectedDate.toDateString() === now.toDateString();
+
+        if (!isToday) {
+            const currentIsValid = filteredSchedule.some(s => s.id === selectedClass);
             if (!selectedClass || !currentIsValid) {
-                setSelectedClass(targetId);
+                setSelectedClass(filteredSchedule[0]?.id || '');
             }
+            return;
         }
-    }, [selectedDate, filteredSchedule, selectedClass]);
+
+        // It is TODAY:
+        const initialTargetId = getCurrentTimeClassId(filteredSchedule, now);
+        const currentIsValid = filteredSchedule.some(s => s.id === selectedClass);
+
+        if (!selectedClass || !currentIsValid) {
+            setSelectedClass(initialTargetId);
+        }
+
+        // Periodic check every 5 seconds to advance when clock changes or user is idle
+        const interval = setInterval(() => {
+            const currentTime = new Date();
+            const currentIsToday = selectedDate.toDateString() === currentTime.toDateString();
+            if (!currentIsToday) return;
+
+            const bestId = getCurrentTimeClassId(filteredSchedule, currentTime);
+            if (!bestId) return;
+
+            const idleDuration = Date.now() - lastInteractionRef.current;
+            const IDLE_TIMEOUT_MS = 30000; // 30s of inactivity
+
+            setSelectedClass(prev => {
+                if (prev === bestId) return prev;
+                // If untouched for 30s or invalid, auto-advance!
+                if (idleDuration >= IDLE_TIMEOUT_MS || !prev || !filteredSchedule.some(s => s.id === prev)) {
+                    return bestId;
+                }
+                return prev;
+            });
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [selectedDate, filteredSchedule, selectedClass, getCurrentTimeClassId]);
 
     // ── Persistence ──
 
@@ -669,6 +739,27 @@ export default function AttendancePage() {
         console.log(`[Perf] 🎯 Filter/Sort completed at ${(performance.now() - _renderStartTime).toFixed(2)}ms (took ${(performance.now() - start).toFixed(2)}ms). Rendering ${res.length} students.`);
         return res;
     }, [students, search, studentStatuses]);
+
+    const isCoupleClass = useMemo(() => {
+        if (!cls) return false;
+        if (cls.type !== 'individual' && cls.type !== 'rental') return false;
+        const sIds = cls.student_id ? String(cls.student_id).split(',').map((id: string) => id.trim()).filter(Boolean) : [];
+        return sIds.length > 1 || getEventStudents(cls).length > 1;
+    }, [cls, getEventStudents]);
+
+    const coupleStudents = useMemo(() => {
+        if (!isCoupleClass) return [];
+        const evStudents = getEventStudents(cls);
+        if (evStudents.length > 0) return evStudents;
+        return filtered;
+    }, [isCoupleClass, cls, getEventStudents, filtered]);
+
+    const matchesCoupleSearch = useMemo(() => {
+        if (!isCoupleClass) return false;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return coupleStudents.some(s => (s.full_name || '').toLowerCase().includes(q));
+    }, [isCoupleClass, search, coupleStudents]);
 
     const handleQuickSell = (productId: string) => {
         const product = availableProducts.find(p => p.id === productId);
@@ -933,6 +1024,134 @@ export default function AttendancePage() {
             setSubs(getSubscriptions());
         }, 10);
     }
+
+    const toggleCouple = useCallback((cStudents: Student[], choiceSubId?: string) => {
+        if (!cStudents || cStudents.length === 0) return;
+        const primary = cStudents[0];
+
+        const primarySubStatus = getSubStatus(primary.id);
+        const isExpired = primarySubStatus.isExpired;
+        const activeSub = primarySubStatus.activeSub;
+
+        const isAllPresent = cStudents.every(s => (att[s.id] ?? 'none') === 'present');
+        const isAnyPresent = cStudents.some(s => (att[s.id] ?? 'none') === 'present');
+
+        if (isExpired && !isAnyPresent && !choiceSubId) {
+            alert(t.subscriptionExpired);
+            return;
+        }
+
+        if (!isAllPresent && !isAnyPresent) {
+            // MARK BOTH PRESENT:
+            // 1. Deduct 1 session from shared sub
+            recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, cls?.type as any);
+
+            // 2. Record check-in history log for partner student(s) without extra deduction
+            const dateToUse = dateKey || getLocalISODate();
+            const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+            cStudents.slice(1).forEach(st => {
+                const checkinId = `att_${st.id}_${dateToUse}_${Date.now()}`;
+                const record = {
+                    id: checkinId,
+                    studentId: st.id,
+                    studentName: st.full_name,
+                    date: dateToUse,
+                    time: nowTimeStr,
+                    via: 'manual' as const,
+                    sessionsRemaining: primarySubStatus.remaining > 0 ? primarySubStatus.remaining - 1 : 0,
+                    classId: selectedClass,
+                    groupId: selClass?.group_id,
+                };
+                try {
+                    const dKey = `cc_checkins_${dateToUse}`;
+                    const existing = JSON.parse(localStorage.getItem(dKey) || '[]');
+                    localStorage.setItem(dKey, JSON.stringify([...existing, record]));
+                } catch (e) {}
+            });
+
+            // 3. Mark both present in att
+            const nextAtt = { ...att };
+            cStudents.forEach(s => {
+                nextAtt[s.id] = 'present';
+            });
+            saveAttendance(nextAtt);
+            setFlash(primary.id);
+            setTimeout(() => setFlash(null), 2000);
+
+            // 4. --- Immediate SMS Trigger for "0 Visits Left" (Sent to BOTH students!) ---
+            const usedSub = choiceSubId ? (subs[primary.id] || []).find(s => s.id === choiceSubId) : activeSub;
+            if (usedSub && usedSub.type === 'sessions' && usedSub.sessions_total) {
+                const remainingBefore = usedSub.sessions_total - (usedSub.sessions_used || 0);
+                if (remainingBefore === 1) {
+                    const smsKey = `sms_sent_${usedSub.id}_day_0`;
+                    if (!localStorage.getItem(smsKey)) {
+                        const currentHour = new Date().getHours();
+                        const isQuietHours = currentHour >= 23 || currentHour < 10;
+                        const autoSms = JSON.parse(localStorage.getItem('cc_studio_settings') || '{}')?.notifications?.autoSms !== false;
+
+                        if (autoSms && !isQuietHours) {
+                            localStorage.setItem(smsKey, 'pending');
+
+                            cStudents.forEach(st => {
+                                let phone = (st.phone || '').replace(/[^0-9]/g, '');
+                                if (phone.length === 9) phone = '995' + phone;
+                                if (!phone) return;
+
+                                const prefLang = (st.preferred_language || 'ka') as 'ka' | 'ru' | 'en';
+                                const settings = loadSettings();
+                                const templates = settings.sms_templates || {};
+
+                                const defaultTpl = (DEFAULT_SETTINGS.sms_templates as any)[prefLang]?.expiration_day_0 ||
+                                                   (DEFAULT_SETTINGS.sms_templates as any)['ka']?.expiration_day_0 ||
+                                                   'გამარჯობა {name}, გენატრებათ ვარჯიში? თქვენი აბონემენტი ({plan}) იწურება დღეს. გთხოვთ განაახლოთ.';
+                                let tpl = defaultTpl;
+                                const langTemplates = (templates as any)[prefLang];
+                                if (langTemplates && typeof langTemplates === 'object' && langTemplates.expiration_day_0) {
+                                    tpl = langTemplates.expiration_day_0;
+                                } else if (templates.ka && typeof templates.ka === 'object' && templates.ka.expiration_day_0) {
+                                    tpl = templates.ka.expiration_day_0;
+                                }
+
+                                const studioName = settings.studioName || 'Studio';
+                                const planName = usedSub?.plan || (usedSub as any)?.plan_name || '';
+                                const msg = formatSmsTemplate(tpl, {
+                                    student: st,
+                                    planName,
+                                    studioName
+                                });
+
+                                sendSms({ to: phone, text: msg, studentName: st.full_name }).then(res => {
+                                    if (res.success) {
+                                        localStorage.setItem(`${smsKey}_${st.id}`, 'true');
+                                    } else {
+                                        localStorage.setItem(`${smsKey}_${st.id}`, 'failed');
+                                    }
+                                }).catch(() => localStorage.setItem(`${smsKey}_${st.id}`, 'failed'));
+                            });
+                            localStorage.setItem(smsKey, 'true');
+                        }
+                    }
+                }
+            }
+        } else if (isAllPresent || isAnyPresent) {
+            // MARK ABSENT (refund 1 session)
+            refundCheckin(primary.id, dateKey);
+            const nextAtt = { ...att };
+            cStudents.forEach(s => {
+                nextAtt[s.id] = 'absent';
+            });
+            saveAttendance(nextAtt);
+        } else {
+            // RESET TO NONE
+            const nextAtt = { ...att };
+            cStudents.forEach(s => {
+                nextAtt[s.id] = 'none';
+            });
+            saveAttendance(nextAtt);
+        }
+
+        setTimeout(() => setSubs(getSubscriptions()), 50);
+    }, [getSubStatus, att, selectedClass, selClass, cls, dateKey, t.subscriptionExpired, subs, saveAttendance]);
 
     const days = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
     const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
@@ -1210,7 +1429,7 @@ export default function AttendancePage() {
                                             const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
                                     
                                     return (
-                                        <button key={s.id} onClick={() => setSelectedClass(s.id)}
+                                        <button key={s.id} onClick={() => handleUserSelectClass(s.id)}
                                             className={cn(
                                                 'w-full text-left p-3.5 rounded-2xl transition-all group border relative overflow-hidden',
                                                 isActive
@@ -1364,15 +1583,19 @@ export default function AttendancePage() {
                                                 <>
                                                     <button onClick={() => {
                                                         const n: Record<string, State> = { ...att };
-                                                        students.forEach(s => {
-                                                            const { isExpired } = getSubStatus(s.id);
-                                                            if (n[s.id] !== 'present' && !isExpired) {
-                                                                recordCheckin(s.id, s.full_name, 'manual', selectedClass, cls?.group_id, undefined, dateKey);
-                                                                n[s.id] = 'present';
-                                                            }
-                                                        });
-                                                        saveAttendance(n);
-                                                        setTimeout(() => setSubs(getSubscriptions()), 20);
+                                                        if (isCoupleClass && coupleStudents.length > 0) {
+                                                            toggleCouple(coupleStudents);
+                                                        } else {
+                                                            students.forEach(s => {
+                                                                const { isExpired } = getSubStatus(s.id);
+                                                                if (n[s.id] !== 'present' && !isExpired) {
+                                                                    recordCheckin(s.id, s.full_name, 'manual', selectedClass, cls?.group_id, undefined, dateKey);
+                                                                    n[s.id] = 'present';
+                                                                }
+                                                            });
+                                                            saveAttendance(n);
+                                                            setTimeout(() => setSubs(getSubscriptions()), 20);
+                                                        }
                                                     }} className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[9px] font-black tracking-wider hover:bg-emerald-500/20 transition-colors">{t.markAllPresent}</button>
 
                                                     {hasAnyAtt && (
@@ -1380,12 +1603,21 @@ export default function AttendancePage() {
                                                             if (!await confirm(t.confirmDeleteAttendance)) return;
                                                             const n: Record<string, State> = { ...att };
                                                             import('@/lib/checkin-store').then(mod => {
-                                                                students.forEach(s => {
-                                                                    if (n[s.id] === 'present') {
-                                                                        mod.refundCheckin(s.id);
+                                                                if (isCoupleClass && coupleStudents.length > 0) {
+                                                                    if (coupleStudents.some(s => n[s.id] === 'present')) {
+                                                                        mod.refundCheckin(coupleStudents[0].id, dateKey);
                                                                     }
-                                                                    n[s.id] = 'none';
-                                                                });
+                                                                    coupleStudents.forEach(s => {
+                                                                        n[s.id] = 'none';
+                                                                    });
+                                                                } else {
+                                                                    students.forEach(s => {
+                                                                        if (n[s.id] === 'present') {
+                                                                            mod.refundCheckin(s.id, dateKey);
+                                                                        }
+                                                                        n[s.id] = 'none';
+                                                                    });
+                                                                }
                                                                 saveAttendance(n);
                                                                 setTimeout(() => setSubs(getSubscriptions()), 20);
                                                             });
@@ -1402,7 +1634,7 @@ export default function AttendancePage() {
                                         {mounted && filteredSchedule.map(s => {
                                             const classColor = s.color || (s.group_id ? GROUP_COLOR_MAP[s.group_id] : null) || '#6d28d9';
                                             return (
-                                                <button key={s.id} onClick={() => setSelectedClass(s.id)}
+                                                <button key={s.id} onClick={() => handleUserSelectClass(s.id)}
                                                     className={cn(
                                                         'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
                                                         selectedClass === s.id ? 'text-white shadow-lg' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
@@ -1434,6 +1666,172 @@ export default function AttendancePage() {
                                             <div key={i} className="w-full h-20 md:h-24 bg-surface animate-pulse rounded-[1.5rem] md:rounded-[2rem]" />
                                         ))}
                                     </div>
+                                ) : isCoupleClass ? (
+                                    matchesCoupleSearch && coupleStudents.length > 0 ? (
+                                        (() => {
+                                            const primary = coupleStudents[0];
+                                            const sInf = studentStatuses[primary.id] || { score: 3, label: null, isExpired: true, activeSub: null, color: 'red' };
+                                            const { label, isExpired, activeSub, remaining } = sInf;
+                                            const isAllPresent = coupleStudents.every(s => (att[s.id] ?? 'none') === 'present');
+                                            const isAllAbsent = coupleStudents.every(s => (att[s.id] ?? 'none') === 'absent');
+                                            const isFl = coupleStudents.some(s => flash === s.id);
+                                            const isSel = coupleStudents.some(s => selectedStudent === s.id);
+
+                                            const subToDisplay = activeSub || (activeSub === null ? (subs[primary.id]?.[0] || null) : null);
+                                            const isActuallyNone = !subToDisplay;
+                                            const isReallyExpired = isExpired || (subToDisplay && subToDisplay.expires_at < getLocalISODate());
+                                            const isInf = subToDisplay && subToDisplay.sessions_total === null;
+                                            const remainingVisits = subToDisplay ? (isInf ? Infinity : (subToDisplay.sessions_total - (subToDisplay.sessions_used ?? 0))) : 0;
+
+                                            return (
+                                                <div
+                                                    key="couple_merged_card"
+                                                    onClick={() => openProfile(selectedStudent && coupleStudents.some(s => s.id === selectedStudent) ? selectedStudent : primary.id)}
+                                                    className={cn(
+                                                        'w-full flex items-center justify-between gap-3 p-4 md:p-6 rounded-none md:rounded-[2rem] transition-all group border-b md:border md:relative overflow-hidden cursor-pointer',
+                                                        isFl ? 'bg-emerald-500/5 border-emerald-500/20' :
+                                                            isSel ? 'bg-[#f5f3ff]/50 border-[#ddd6fe]' :
+                                                                'bg-card border-border-subtle hover:bg-surface/50 hover:border-border-subtle/50',
+                                                        isReallyExpired && 'opacity-90'
+                                                    )}
+                                                >
+                                                    {/* Avatars + Info Area */}
+                                                    <div className="flex items-center gap-3.5 md:gap-5 relative z-10 flex-1 min-w-0">
+                                                        {/* Side-by-side circular student avatars */}
+                                                        <div className="flex items-center -space-x-3.5 md:-space-x-5 shrink-0 relative py-1">
+                                                            {coupleStudents.map((st, idx) => (
+                                                                <div
+                                                                    key={st.id}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openProfile(st.id);
+                                                                    }}
+                                                                    className={cn(
+                                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex items-center justify-center overflow-hidden relative shadow-md hover:scale-105 hover:z-30 cursor-pointer",
+                                                                        idx === 0 ? "z-10 ring-2 ring-card" : "z-20 ring-2 ring-card",
+                                                                        isReallyExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
+                                                                        remainingVisits === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
+                                                                        remainingVisits <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
+                                                                        "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                                                                    )}
+                                                                    title={st.full_name}
+                                                                >
+                                                                    <span className={cn(
+                                                                        'w-full h-full rounded-full flex items-center justify-center transition-transform duration-300',
+                                                                        !mounted ? 'bg-surface' : (
+                                                                            isReallyExpired ? 'bg-red-500' :
+                                                                            remainingVisits === 1 ? 'bg-yellow-400' :
+                                                                            remainingVisits <= 3 ? 'bg-amber-500' :
+                                                                            'bg-emerald-500'
+                                                                        )
+                                                                    )}>
+                                                                        {st.photo_url ? (
+                                                                            <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
+                                                                        ) : (
+                                                                            <span className="text-[10px] md:text-xs font-black text-white">{getInitials(st.full_name)}</span>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Name + Status + Shared Subscription Info */}
+                                                        <div className="flex-1 min-w-0 py-0.5">
+                                                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                                <p className={cn(
+                                                                    'text-[13px] md:text-[15px] font-black truncate tracking-tight',
+                                                                    isAllPresent ? 'text-emerald-600' : isAllAbsent ? 'text-red-500' : 'text-primary'
+                                                                )}>
+                                                                    {coupleStudents.map(s => s.full_name).join(' & ')}
+                                                                </p>
+                                                                {label && (
+                                                                    <span className={cn(
+                                                                        "shrink-0 text-[6px] md:text-[8px] font-black tracking-tighter px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-md border uppercase inline-flex transition-colors",
+                                                                        isReallyExpired ? "text-red-500 border-red-500/20 bg-red-500/5" : 
+                                                                        remainingVisits === 1 ? "text-yellow-600 border-yellow-500/20 bg-yellow-500/5" :
+                                                                        remainingVisits <= 3 ? "text-amber-600 border-amber-500/20 bg-amber-500/5" :
+                                                                        "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+                                                                    )}>
+                                                                        {isReallyExpired ? t.expired : label}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Progress / Status Bar */}
+                                                            <div className="flex items-center gap-3 w-full">
+                                                                {isActuallyNone ? (
+                                                                    <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden border border-border-subtle/30" />
+                                                                ) : (
+                                                                    <>
+                                                                        <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden border border-border-subtle/20 relative shadow-inner">
+                                                                            <div
+                                                                                className={cn(
+                                                                                    "h-full transition-all duration-700",
+                                                                                    isReallyExpired ? "bg-red-500 opacity-20" :
+                                                                                    remainingVisits === Infinity ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" :
+                                                                                    remainingVisits === 1 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" :
+                                                                                    remainingVisits <= 3 ? "bg-amber-500" : 
+                                                                                    "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
+                                                                                )}
+                                                                                style={{ width: remainingVisits === Infinity ? '100%' : (subToDisplay.sessions_total ? `${Math.max(5, Math.min(100, (remainingVisits / subToDisplay.sessions_total) * 100))}%` : '100%') }}
+                                                                            />
+                                                                        </div>
+                                                                        <span className={cn(
+                                                                            "shrink-0 text-[10px] font-black tabular-nums tracking-tighter flex items-center gap-1",
+                                                                            isReallyExpired ? "text-red-500" :
+                                                                            remainingVisits === Infinity ? "text-emerald-600" :
+                                                                            remainingVisits === 1 ? "text-red-500" :
+                                                                            remainingVisits <= 3 ? "text-amber-600" : 
+                                                                            "text-emerald-600"
+                                                                        )}>
+                                                                            {remainingVisits === Infinity ? '∞' : remainingVisits} {t.visit}
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Single Combined Attendance Toggle */}
+                                                    <div className="flex-none pl-1 relative z-20">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (isReallyExpired && !isAllPresent) {
+                                                                    setSelectedStudent(primary.id);
+                                                                    setIssueModalOpen(true);
+                                                                } else {
+                                                                    toggleCouple(coupleStudents);
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
+                                                                isAllPresent ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                                    isAllAbsent ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                                        isReallyExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
+                                                                            "bg-surface border-border-subtle text-muted/30"
+                                                            )}
+                                                        >
+                                                            {isAllPresent ? (
+                                                                <Check className="w-6 h-6 stroke-[3]" />
+                                                            ) : isAllAbsent ? (
+                                                                <X className="w-6 h-6 stroke-[3]" />
+                                                            ) : (
+                                                                <Plus className="w-6 h-6 stroke-[3]" />
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()
+                                    ) : (
+                                        <div className="p-16 text-center">
+                                            <div className="w-16 h-16 rounded-3xl bg-surface border-2 border-border-subtle flex items-center justify-center mx-auto mb-6 opacity-30">
+                                                <Search className="w-8 h-8" />
+                                            </div>
+                                            <h3 className="text-sm font-black text-muted opacity-40 tracking-widest uppercase">{t.noData}</h3>
+                                        </div>
+                                    )
                                 ) : filtered.length > 0 ? filtered.map(st => {
                                     const state = att[st.id] ?? 'none';
                                     const isSel = selectedStudent === st.id;

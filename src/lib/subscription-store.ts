@@ -589,7 +589,7 @@ export function incrementSessionsUsed(studentId: string, subId?: string, planTyp
     const todayStr = getLocalISODate();
     if (active.expires_at < todayStr) {
         active.status = 'expired';
-        saveSubscription(studentId, active);
+        saveSubscription(active.student_id || studentId, active);
         return active;
     }
 
@@ -601,7 +601,7 @@ export function incrementSessionsUsed(studentId: string, subId?: string, planTyp
         }
     }
 
-    saveSubscription(studentId, active);
+    saveSubscription(active.student_id || studentId, active);
     return active;
 }
 
@@ -622,7 +622,7 @@ export function refundSessionsUsed(studentId: string): SubscriptionInfo | null {
                 toRefund.status = 'active';
             }
         }
-        saveSubscription(studentId, toRefund);
+        saveSubscription(toRefund.student_id || studentId, toRefund);
         return toRefund;
     }
     return null;
