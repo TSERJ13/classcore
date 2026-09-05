@@ -1709,9 +1709,9 @@ export default function AttendancePage() {
                                                 >
                                                     {/* Avatars + Info Area */}
                                                     <div className="flex items-center gap-3.5 md:gap-5 relative z-10 flex-1 min-w-0">
-                                                        {/* Side-by-side circular student avatars (matching individual card circle design from Image 2) */}
-                                                        <div className="flex items-center gap-2 md:gap-3 shrink-0 py-0.5">
-                                                            {coupleStudents.map((st) => (
+                                                        {/* Overlapping paired student avatars together */}
+                                                        <div className="flex items-center -space-x-3.5 md:-space-x-5 shrink-0 relative py-1">
+                                                            {coupleStudents.map((st, idx) => (
                                                                 <div
                                                                     key={st.id}
                                                                     onClick={(e) => {
@@ -1719,7 +1719,8 @@ export default function AttendancePage() {
                                                                         openProfile(st.id);
                                                                     }}
                                                                     className={cn(
-                                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative cursor-pointer hover:scale-105 active:scale-95",
+                                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex items-center justify-center overflow-hidden relative shadow-md hover:scale-105 hover:z-30 cursor-pointer",
+                                                                        idx === 0 ? "z-10 ring-2 ring-card" : "z-20 ring-2 ring-card",
                                                                         isReallyExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
                                                                         remainingVisits === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
                                                                         remainingVisits <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
