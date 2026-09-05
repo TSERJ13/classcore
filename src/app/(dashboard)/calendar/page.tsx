@@ -1559,8 +1559,8 @@ export default function CalendarPage() {
             activeIndSubs.forEach(sub => {
                 const sIds: string[] = (sub.student_id || '').split(',').map((id: string) => id.trim()).filter(Boolean);
                 const matched = sIds.map((id: string) => allSts.find(x => x.id === id)).filter(Boolean);
-                const displayNames = matched.length > 0
-                    ? matched.map(st => st?.full_name?.split(' ')[0] || st?.first_name || '').join(' & ')
+                const studentFullNames = matched.length > 0
+                    ? matched.map(st => st?.full_name || `${st?.first_name || ''} ${st?.last_name || ''}`.trim()).filter(Boolean).join(' & ')
                     : 'ინდივიდუალური';
 
                 const subStart = sub.purchased_at ? sub.purchased_at.split('T')[0] : '';
@@ -1584,7 +1584,7 @@ export default function CalendarPage() {
                                 expanded.push({
                                     id: subEventId,
                                     org_id: (sub as any).org_id || getActiveSlug() || '',
-                                    title: `${displayNames} (${sub.plan || 'Individual'})`,
+                                    title: studentFullNames,
                                     type: 'individual',
                                     hall_id: slot.hallId || 'h1',
                                     teacher_id: sub.teacher_id || '',

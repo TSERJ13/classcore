@@ -302,12 +302,14 @@ export default function AttendancePage() {
                     const sIds: string[] = (sub.student_id || '').split(',').map((id: string) => id.trim()).filter(Boolean);
                     const allSts = getStudents();
                     const matched = sIds.map((id: string) => allSts.find(x => x.id === id)).filter(Boolean);
-                    const displayNames = matched.length > 0 ? matched.map(st => st?.full_name?.split(' ')[0] || st?.first_name || '').join(' & ') : 'ინდივიდუალური';
+                    const studentFullNames = matched.length > 0 
+                        ? matched.map(st => st?.full_name || `${st?.first_name || ''} ${st?.last_name || ''}`.trim()).filter(Boolean).join(' & ') 
+                        : 'ინდივიდუალური';
 
                     virtualIndLessons.push({
                         id: subEventId,
                         student_id: sub.student_id,
-                        title: `${displayNames} (${sub.plan || 'Individual'})`,
+                        title: studentFullNames,
                         type: 'individual',
                         color: sub.color || '#6d28d9',
                         start_time: slot.time || '15:00',
@@ -367,6 +369,24 @@ export default function AttendancePage() {
           });
     }, [events, profile, groups, selectedDate, settings.staff, dateKey]);
 
+    const getDisplayTitle = (s: any) => {
+        if (!s) return '';
+        if (s.type === 'individual') {
+            if (s.student_id) {
+                const sIds: string[] = String(s.student_id).split(',').map((id: string) => id.trim()).filter(Boolean);
+                const allSts = getStudents();
+                const matched = sIds.map((id: string) => allSts.find(x => x.id === id)).filter(Boolean);
+                if (matched.length > 0) {
+                    return matched.map(st => st?.full_name || `${st?.first_name || ''} ${st?.last_name || ''}`.trim()).filter(Boolean).join(' & ');
+                }
+            }
+            if (s.title && s.title.includes('(')) {
+                return s.title.replace(/\s*\([^)]*\)$/, '').trim();
+            }
+        }
+        return s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass));
+    };
+
     const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
     const [att, setAtt] = useState<Record<string, State>>({});
@@ -391,15 +411,9 @@ export default function AttendancePage() {
                 targetId = filteredSchedule[0].id;
             }
 
-            // ONLY auto-select if:
-            // 1. Current selectedClass is empty
-            // 2. Current selectedClass is not in the new filteredSchedule list (e.g. date changed)
-            // 3. OR the current selectedClass is a "virtual" fallback that was just replaced by real events
+            // ONLY auto-select if no class is selected yet, or the current class is no longer valid on this date
             const currentIsValid = filteredSchedule.find(s => s.id === selectedClass);
-            const currentIsVirtual = selectedClass.startsWith('virtual-');
-            const hasRealEvents = filteredSchedule.some(s => !s.id.startsWith('virtual-'));
-
-            if (!selectedClass || !currentIsValid || (currentIsVirtual && hasRealEvents)) {
+            if (!selectedClass || !currentIsValid) {
                 setSelectedClass(targetId);
             }
         }
@@ -1207,13 +1221,21 @@ export default function AttendancePage() {
                                                 backgroundColor: classColor, 
                                                 borderColor: classColor,
                                                 boxShadow: `0 10px 25px -5px ${classColor}40`
-                                            } : {}}>
-                                            <h3 className={cn(
-                                                'text-[12.5px] font-black truncate leading-tight transition-colors',
-                                                isActive ? 'text-white' : 'text-primary'
-                                            )}>
-                                                {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
-                                            </h3>
+                                            } : {
+                                                borderLeftColor: classColor,
+                                                borderLeftWidth: '5px'
+                                            }}>
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                {!isActive && (
+                                                    <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: classColor }} />
+                                                )}
+                                                <h3 className={cn(
+                                                    'text-[12.5px] font-black truncate leading-tight transition-colors flex-1 min-w-0',
+                                                    isActive ? 'text-white' : 'text-primary'
+                                                )}>
+                                                    {getDisplayTitle(s)}
+                                                </h3>
+                                            </div>
                                             <div className="flex items-center gap-2 mt-1.5">
                                                 <Clock className={cn(
                                                     'w-2.5 h-2.5 transition-colors',
@@ -1296,7 +1318,7 @@ export default function AttendancePage() {
                                 <div className="flex items-center justify-between">
                                     <div className="min-w-0 pr-2">
                                         <h2 className="text-lg md:text-xl font-black text-primary tracking-tight truncate">
-                                            {cls.title || (cls.group_id ? GROUP_MAP[cls.group_id] : (cls.type === 'individual' ? t.indSession : t.untitledClass))}
+                                            {getDisplayTitle(cls)}
                                         </h2>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
                                             <div className="flex items-center gap-1.5">
@@ -1390,7 +1412,7 @@ export default function AttendancePage() {
                                                         borderColor: classColor,
                                                         boxShadow: `0 4px 12px ${classColor}30`
                                                     } : {}}>
-                                                    {s.title || (s.group_id ? GROUP_MAP[s.group_id] : (s.type === 'individual' ? t.indSession : t.untitledClass))}
+                                                    {getDisplayTitle(s)}
                                                 </button>
                                             );
                                         })}

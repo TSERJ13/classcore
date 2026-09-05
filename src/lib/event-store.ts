@@ -463,13 +463,10 @@ export function generateScheduledIndividualEvents(params: {
                 } catch {}
             }
 
-            // Extract first names only (e.g. "Makar Ivanov & Elene Petrova" -> "Makar & Elene")
-            const displayNames = params.studentName.split('&').map(name => name.trim().split(' ')[0]).join(' & ');
-
             events.push({
                 id: `ind_${Date.now()}_${count}_${Math.random().toString(36).substr(2, 4)}`,
                 org_id: getActiveSlug() || '',
-                title: `${displayNames} (${params.planName})`,
+                title: params.studentName,
                 type: 'individual',
                 hall_id: slot.hallId || 'h1',
                 teacher_id: params.teacherId,

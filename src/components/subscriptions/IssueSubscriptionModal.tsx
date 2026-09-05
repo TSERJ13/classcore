@@ -27,6 +27,18 @@ interface IssueSubscriptionModalProps {
 
 type PayMethod = 'cash' | 'card' | 'transfer';
 
+function addOneHour(timeStr: string): string {
+    try {
+        const [hStr, mStr] = (timeStr || '18:00').split(':');
+        const h = parseInt(hStr, 10);
+        const m = parseInt(mStr || '0', 10);
+        const nextH = (h + 1) % 24;
+        return `${String(nextH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    } catch {
+        return '19:00';
+    }
+}
+
 export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, defaultType, centered = false }: IssueSubscriptionModalProps) {
     const { t, lang } = useT();
     const { settings, logSubscription } = useStudio();
@@ -768,7 +780,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                  if (isActive) {
                                                                      setSchedule(prev => prev.filter(s => s.day !== d.id));
                                                                  } else {
-                                                                     setSchedule(prev => [...prev, { day: d.id, time: '18:00', endTime: '19:00', hallId: individualHallId }]);
+                                                                     const lastSlot = schedule[schedule.length - 1];
+                                                                     const defaultTime = lastSlot?.time || '18:00';
+                                                                     const defaultEndTime = lastSlot?.endTime || addOneHour(defaultTime);
+                                                                     setSchedule(prev => [...prev, { day: d.id, time: defaultTime, endTime: defaultEndTime, hallId: individualHallId }]);
                                                                  }
                                                             }}
                                                             className={cn(
@@ -796,7 +811,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                                                 onChange={val => {
                                                                     const next = [...schedule];
                                                                     const i = next.findIndex(n => n.day === s.day);
-                                                                    if (i > -1) next[i].time = val;
+                                                                    if (i > -1) {
+                                                                        next[i].time = val;
+                                                                        next[i].endTime = addOneHour(val);
+                                                                    }
                                                                     setSchedule(next);
                                                                 }}
                                                                 className="flex-1 !border-none [&>div]:bg-surface/50 [&>div]:px-2 [&>div]:py-1 [&>div]:text-[10px] [&>div]:min-h-[28px]"
