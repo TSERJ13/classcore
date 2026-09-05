@@ -118,9 +118,13 @@ export function getSubscriptions(): SubMap {
         let dataChanged = false;
 
         Object.keys(data).forEach(studentId => {
+            // Support multi-student comma-separated IDs (e.g. "MU7698233, EA8819242" for couple subscriptions)
+            const sIds = studentId.split(',').map(x => x.trim()).filter(Boolean);
+            const hasAnyStudent = sIds.some(id => studentIdSet.has(id));
+
             // Safety: Only delete from local if we have a robust list of students
             // and we are CERTAIN this student is missing (not just a sync delay)
-            if (studentIdSet.size > 10 && !studentIdSet.has(studentId)) {
+            if (studentIdSet.size > 10 && !hasAnyStudent) {
                 delete data[studentId];
                 dataChanged = true;
                 return;
@@ -248,6 +252,10 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             id: info.id || makeEntityId('SUB'),
             org_id: orgId,
             student_id: studentId,
+            status: info.status || 'active',
+            sessions_used: info.sessions_used || 0,
+            sessions_total: info.sessions_total ?? null,
+            expires_at: info.expires_at || null,
             data: info
         };
         

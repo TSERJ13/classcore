@@ -29,7 +29,7 @@ const MINIMAL_COLUMNS: Record<string, string[]> = {
     halls: ['id', 'org_id', 'name', 'data'],
     branches: ['id', 'org_id', 'name', 'address', 'data'],
     calendar_events: ['id', 'org_id', 'title', 'date', 'start_time', 'end_time', 'group_id', 'branch_id', 'data'],
-    subscriptions: ['id', 'org_id', 'student_id', 'status', 'sessions_used', 'sessions_total', 'expires_at', 'plan', 'data'],
+    subscriptions: ['id', 'org_id', 'student_id', 'status', 'sessions_used', 'sessions_total', 'expires_at', 'data'],
     subscription_plans: ['id', 'org_id', 'name', 'type', 'period', 'session_count', 'validity_days', 'price', 'coach', 'coach_name', 'group_id', 'is_active', 'is_default', 'data'],
     attendance: ['id', 'org_id', 'student_id', 'group_id', 'class_id', 'date', 'status', 'notes', 'data'],
     products: ['id', 'org_id', 'name', 'price', 'category', 'data'],

@@ -217,16 +217,22 @@ export default function AttendancePage() {
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [groups, setGroups] = useState(getGroups());
+    const [events, setEvents] = useState(() => getEvents());
     const GROUP_MAP = useMemo(() => Object.fromEntries(groups.map(g => [g.id, g.name])), [groups]);
     const GROUP_COLOR_MAP = useMemo(() => Object.fromEntries(groups.map(g => [g.id, g.color])), [groups]);
     useEffect(() => {
-        const load = () => setGroups(getGroups());
+        const load = () => {
+            setGroups(getGroups());
+            setEvents(getEvents());
+        };
         window.addEventListener('cc_groups_update', load);
         window.addEventListener('cc_calendar_events_update', load);
+        window.addEventListener('cc_subscription_update', load);
         window.addEventListener('cc_data_hydrated', load);
         return () => {
             window.removeEventListener('cc_groups_update', load);
             window.removeEventListener('cc_calendar_events_update', load);
+            window.removeEventListener('cc_subscription_update', load);
             window.removeEventListener('cc_data_hydrated', load);
         };
     }, []);
@@ -234,7 +240,6 @@ export default function AttendancePage() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const dateKey = getLocalISODate(selectedDate);
     const isToday = dateKey === getLocalISODate();
-    const rawSchedule = getEventsByDate(dateKey);
     
     const filteredSchedule = useMemo(() => {
         const dayOfWeek = (selectedDate.getDay() + 6) % 7;
@@ -245,25 +250,31 @@ export default function AttendancePage() {
             ? groups.filter(g => visibleGroupIds.includes(g.id))
             : groups;
 
-        let targetSchedule = rawSchedule;
-        if (targetSchedule.length === 0) {
-            targetSchedule = availableGroups
-                .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
-                .map(g => {
-                    const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
-                    return {
-                        id: `virtual-${g.id}`,
-                        group_id: g.id,
-                        title: g.name,
-                        type: 'group',
-                        color: g.color || '#6d28d9',
-                        start_time: slot?.startTime || '00:00',
-                        end_time: slot?.endTime || '23:59',
-                        teacher_id: g.teacherId || '',
-                        hall_id: g.hall_id || ''
-                    };
-                }) as any;
-        }
+        // 1. Concrete events from calendar_events for this specific date
+        const concreteEvents = events.filter(e => e.date === dateKey);
+
+        // 2. Scheduled regular group classes for this day of week (virtual fallback)
+        // Only include if the group does not already have an explicit event in concreteEvents
+        const virtualGroupClasses = availableGroups
+            .filter(g => g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek))
+            .filter(g => !concreteEvents.some(ev => ev.group_id === g.id))
+            .map(g => {
+                const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
+                return {
+                    id: `virtual-${g.id}`,
+                    group_id: g.id,
+                    title: g.name,
+                    type: 'group',
+                    color: g.color || '#6d28d9',
+                    start_time: slot?.startTime || '00:00',
+                    end_time: slot?.endTime || '23:59',
+                    teacher_id: g.teacherId || '',
+                    hall_id: g.hall_id || ''
+                };
+            }) as any;
+
+        // 3. Merge both! Regular groups and individual lessons appear together seamlessly
+        let targetSchedule = [...concreteEvents, ...virtualGroupClasses];
 
         // Staff IDs for the current teacher
         const staffMe = (settings.staff || []).find(s => {
@@ -308,7 +319,7 @@ export default function AttendancePage() {
                   teacherName: tid ? getTeacherName(tid) : (ev.coach || g?.coach || '')
               };
           });
-    }, [rawSchedule, profile, groups, selectedDate, settings.staff]);
+    }, [events, profile, groups, selectedDate, settings.staff, dateKey]);
 
     const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);

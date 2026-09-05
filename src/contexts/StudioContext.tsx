@@ -331,7 +331,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
                         .reduce((acc: any, sub: any) => {
                             const sId = sub.student_id;
-                            if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sub); }
+                            if (sId) {
+                                const ids = sId.split(',').map((id: string) => id.trim()).filter(Boolean);
+                                ids.forEach((singleId: string) => {
+                                    if (!acc[singleId]) acc[singleId] = [];
+                                    if (!acc[singleId].some((x: any) => x.id === sub.id)) acc[singleId].push(sub);
+                                });
+                                if (ids.length > 1) {
+                                    if (!acc[sId]) acc[sId] = [];
+                                    if (!acc[sId].some((x: any) => x.id === sub.id)) acc[sId].push(sub);
+                                }
+                            }
                             return acc;
                         }, {}),
                     cc_calendar_events: unwrap(finalEvents),
@@ -702,7 +712,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                         .filter((sub: any) => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
                                         .forEach((s: any) => {
                                             const sId = s.student_id;
-                                            if (sId) { if (!map[sId]) map[sId] = []; map[sId].push(s); }
+                                            if (sId) {
+                                                const ids = sId.split(',').map((id: string) => id.trim()).filter(Boolean);
+                                                ids.forEach((singleId: string) => {
+                                                    if (!map[singleId]) map[singleId] = [];
+                                                    if (!map[singleId].some((x: any) => x.id === s.id)) map[singleId].push(s);
+                                                });
+                                                if (ids.length > 1) {
+                                                    if (!map[sId]) map[sId] = [];
+                                                    if (!map[sId].some((x: any) => x.id === s.id)) map[sId].push(s);
+                                                }
+                                            }
                                         });
                                     await safeSetItem(getScopedKey('cc_student_subscriptions', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
                                 }

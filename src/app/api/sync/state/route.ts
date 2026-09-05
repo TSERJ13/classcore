@@ -202,11 +202,11 @@ export async function POST(req: Request) {
             isCore ? supabaseAdmin.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle() : Promise.resolve({ data: null }),
             // 6: Subscriptions
             isHeavy ? (studentId
-                ? supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId).ilike('student_id', studentId)
+                ? supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId).ilike('student_id', `%${studentId}%`)
                 : supabaseAdmin.from('subscriptions').select('*').eq('org_id', targetOrgId)) : Promise.resolve({ data: [] }),
             // 7: Attendance
             isHeavy ? (studentId
-                ? supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId).ilike('student_id', studentId)
+                ? supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId).ilike('student_id', `%${studentId}%`)
                 : supabaseAdmin.from('attendance').select('*').eq('org_id', targetOrgId)) : Promise.resolve({ data: [] }),
             // 8: Sales
             (isHeavy && !isClientPortal) ? supabaseAdmin.from('sales').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
