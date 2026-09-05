@@ -612,13 +612,14 @@ export default function AttendancePage() {
 
     const getSubStatus = useCallback((studentId: string) => {
         const todayStr = getLocalISODate();
+        const isIndOrRental = selClass?.type === 'individual' || selClass?.type === 'rental';
         
-        // 1. Check for specific group sub
-        let activeSub = getSubscription(studentId, selClass?.group_id, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+        // 1. Check for specific group sub or individual sub
+        let activeSub = getSubscription(studentId, selClass?.group_id, isIndOrRental ? (selClass?.type as any) : 'group');
         
-        // 2. If nothing found, check for a general sub (group_id: undefined)
+        // 2. If nothing found, check for a general sub of the matching type (never match individual sub for a group!)
         if (!activeSub) {
-            activeSub = getSubscription(studentId, undefined, (selClass?.type as any) === 'individual' ? 'individual' : 'group');
+            activeSub = getSubscription(studentId, undefined, isIndOrRental ? (selClass?.type as any) : 'group');
         }
         
         if (activeSub) {
@@ -645,8 +646,14 @@ export default function AttendancePage() {
             return { activeSub, isExpired: false, status: 'active', score: 0, label: t.active, color: 'emerald', remaining };
         }
 
-        // 3. Check for any previous sub for grace period or just mark as none
-        const all = subs[studentId] || [];
+        // 3. Check for previous sub of the SAME plan type (never leak individual sub visits into group classes!)
+        const all = (subs[studentId] || []).filter(s => {
+            if (isIndOrRental) {
+                return s.plan_type === 'individual' || s.plan_type === 'rental';
+            } else {
+                return s.plan_type !== 'individual' && s.plan_type !== 'rental' && (!s.group_id || s.group_id === selClass?.group_id);
+            }
+        });
         if (all.length > 0) {
             const last = [...all].sort((a,b) => b.expires_at.localeCompare(a.expires_at))[0];
             const remaining = (last.sessions_total ?? 0) - (last.sessions_used ?? 0);
@@ -702,17 +709,22 @@ export default function AttendancePage() {
                     // showing everyone rather than an empty, unusable list.
                     return true;
                 }
+                // For GROUP classes:
+                // 1. Is student enrolled in this group?
                 if (cls?.group_id && (s.enrolled_group_ids || []).includes(cls.group_id)) return true;
 
-                // Allow students with active subscriptions for this group
+                // 2. Or does student have an active GROUP subscription specifically for this group?
+                // (CRITICAL: Individual and rental subscriptions MUST NEVER match or enroll a student into a group!)
                 const studentSubs = subs[s.id] || [];
                 const hasActiveSub = studentSubs.some(sub =>
                     sub.status === 'active' &&
-                    (!sub.group_id || sub.group_id === cls?.group_id)
+                    sub.plan_type !== 'individual' &&
+                    sub.plan_type !== 'rental' &&
+                    sub.group_id === cls?.group_id
                 );
                 if (hasActiveSub) return true;
 
-                return (s as any).classes?.includes(selectedClass);
+                return false;
             });
     }, [studentPatches, cls, selectedClass, subs]);
 
@@ -1697,9 +1709,9 @@ export default function AttendancePage() {
                                                 >
                                                     {/* Avatars + Info Area */}
                                                     <div className="flex items-center gap-3.5 md:gap-5 relative z-10 flex-1 min-w-0">
-                                                        {/* Side-by-side circular student avatars */}
-                                                        <div className="flex items-center -space-x-3.5 md:-space-x-5 shrink-0 relative py-1">
-                                                            {coupleStudents.map((st, idx) => (
+                                                        {/* Side-by-side circular student avatars (matching individual card circle design from Image 2) */}
+                                                        <div className="flex items-center gap-2 md:gap-3 shrink-0 py-0.5">
+                                                            {coupleStudents.map((st) => (
                                                                 <div
                                                                     key={st.id}
                                                                     onClick={(e) => {
@@ -1707,8 +1719,7 @@ export default function AttendancePage() {
                                                                         openProfile(st.id);
                                                                     }}
                                                                     className={cn(
-                                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex items-center justify-center overflow-hidden relative shadow-md hover:scale-105 hover:z-30 cursor-pointer",
-                                                                        idx === 0 ? "z-10 ring-2 ring-card" : "z-20 ring-2 ring-card",
+                                                                        "w-11 h-11 md:w-14 md:h-14 rounded-full border-[3px] transition-all flex-none flex items-center justify-center overflow-hidden relative cursor-pointer hover:scale-105 active:scale-95",
                                                                         isReallyExpired ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]" :
                                                                         remainingVisits === 1 ? "border-yellow-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]" :
                                                                         remainingVisits <= 3 ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]" :
@@ -1728,7 +1739,7 @@ export default function AttendancePage() {
                                                                         {st.photo_url ? (
                                                                             <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
                                                                         ) : (
-                                                                            <span className="text-[10px] md:text-xs font-black text-white">{getInitials(st.full_name)}</span>
+                                                                            <span className="text-[11px] md:text-sm font-black text-white">{getInitials(st.full_name)}</span>
                                                                         )}
                                                                     </span>
                                                                 </div>

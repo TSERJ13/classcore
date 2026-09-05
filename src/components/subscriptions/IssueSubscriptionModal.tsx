@@ -145,6 +145,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             setUseBalance(false);
             setTeacherId('');
             setPlanId(''); // 🌟 Clear so default-pick effect runs fresh on each open
+            setGroupId('');
             setSchedule([]);
             setEventColor('#6d28d9');
             setIndividualHallId(activeHalls[0]?.id || 'h1');
