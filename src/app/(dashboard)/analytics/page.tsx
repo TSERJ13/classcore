@@ -467,6 +467,26 @@ export default function AnalyticsPage() {
             return type;
         };
         
+        // 🆕 Transparency breakdown: which groups (and individual/rental
+        // lessons) contributed, at what percentage each, how many enrolled
+        // students there are vs. how many actually paid this month, and
+        // what the "expected" cut would have been if every enrolled student
+        // paid at the going rate. Requested explicitly: "პდფ ში უნდა ჩანდეს
+        // რა პროცენტობებით აიღო ხელფასი მასწავლებელმა, რომელი ჯგუფებიდან".
+        const breakdown: any[] = teacherData.breakdown || [];
+        const expectedTotal: number = teacherData.expectedTotal ?? teacherData.total;
+        const achievedPct = expectedTotal > 0 ? Math.round((teacherData.total / expectedTotal) * 100) : 100;
+
+        const breakdownRows = breakdown.map(b => `
+            <tr>
+                <td class="bcell bname">${b.name}</td>
+                <td class="bcell bcenter">${b.percentage}%</td>
+                <td class="bcell bcenter">${b.paidCount}${b.key !== 'individual' ? ` / ${b.enrolledCount}` : ''}</td>
+                <td class="bcell bright">${formatCurrency(b.revenue, settings.currency)}</td>
+                <td class="bcell bright bstrong">${formatCurrency(b.cut, settings.currency)}</td>
+            </tr>
+        `).join('');
+
         const html = `
             <!DOCTYPE html>
             <html>
@@ -483,18 +503,37 @@ export default function AnalyticsPage() {
                     .receipt-info { text-align: right; }
                     .receipt-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #4f46e5; letter-spacing: 0.1em; margin-bottom: 4px; }
                     .receipt-date { font-size: 18px; font-weight: 700; color: #334155; }
-                    
+
                     .content { background: #f8fafc; border-radius: 24px; padding: 32px; border: 1px solid #f1f5f9; }
                     .row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #e2e8f0; }
                     .row:last-of-type { border-bottom: none; }
                     .label { color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
                     .value { color: #1e293b; font-weight: 700; font-size: 15px; }
-                    
-                    .total-box { margin-top: 40px; text-align: right; padding: 24px; border-radius: 20px; background: #4f46e5; color: #fff; }
+
+                    .section-title { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: #4f46e5; margin: 32px 0 12px; }
+                    .breakdown-table { width: 100%; border-collapse: collapse; background: #f8fafc; border-radius: 20px; overflow: hidden; border: 1px solid #f1f5f9; }
+                    .breakdown-table thead th { text-align: left; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; }
+                    .breakdown-table thead th.bcenter, .bcell.bcenter { text-align: center; }
+                    .breakdown-table thead th.bright, .bcell.bright { text-align: right; }
+                    .bcell { padding: 12px 16px; font-size: 12px; font-weight: 700; color: #334155; border-bottom: 1px solid #e2e8f0; }
+                    tr:last-child .bcell { border-bottom: none; }
+                    .bname { font-weight: 800; color: #1e293b; }
+                    .bstrong { color: #4f46e5; font-weight: 900; }
+
+                    .compare-box { display: flex; gap: 16px; margin-top: 20px; }
+                    .compare-card { flex: 1; border-radius: 20px; padding: 18px 20px; border: 1px solid #e2e8f0; }
+                    .compare-card.expected { background: #f8fafc; }
+                    .compare-card.actual { background: #eef2ff; border-color: #c7d2fe; }
+                    .compare-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 6px; }
+                    .compare-value { font-size: 20px; font-weight: 900; color: #1e293b; }
+                    .achieved-note { margin-top: 14px; font-size: 11px; font-weight: 700; color: #64748b; text-align: center; }
+                    .achieved-note b { color: #4f46e5; }
+
+                    .total-box { margin-top: 32px; text-align: right; padding: 24px; border-radius: 20px; background: #4f46e5; color: #fff; }
                     .total-label { font-weight: 900; font-size: 14px; text-transform: uppercase; margin-right: 20px; opacity: 0.8; }
                     .total-value { font-size: 36px; font-weight: 900; }
-                    
-                    .footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center; }
+
+                    .footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center; }
                     .footer-text { color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
                 </style>
             </head>
@@ -509,13 +548,47 @@ export default function AnalyticsPage() {
                         <div class="receipt-date">${selectedMonth}</div>
                     </div>
                 </div>
-                
+
                 <div class="content">
                     <div class="row"><span class="label">${t.teacherName || 'Teacher'}</span> <span class="value">${teacherData.teacher}</span></div>
                     <div class="row"><span class="label">${t.typeLabel || 'Type'}</span> <span class="value">${getLocalizedType(teacherData.type)}</span></div>
                     <div class="row"><span class="label">${t.volumeTable || 'Volume'}</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
                     <div class="row"><span class="label">${t.bonusTable || 'Bonus'}</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
                 </div>
+
+                ${breakdown.length > 0 ? `
+                <div class="section-title">${l('ჯგუფების მიხედვით (გამჭვირვალობა)', 'По группам (прозрачность)', 'By Group (Transparency)')}</div>
+                <table class="breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>${l('ჯგუფი', 'Группа', 'Group')}</th>
+                            <th class="bcenter">${l('პროცენტი', '%', '%')}</th>
+                            <th class="bcenter">${l('გადაიხადა/სულ', 'Оплатили/всего', 'Paid/Total')}</th>
+                            <th class="bright">${l('შემოსავალი', 'Доход', 'Revenue')}</th>
+                            <th class="bright">${l('წილი', 'Доля', 'Cut')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>${breakdownRows}</tbody>
+                </table>
+
+                <div class="compare-box">
+                    <div class="compare-card expected">
+                        <div class="compare-label">${l('უნდა ყოფილიყო (წესით)', 'Должно было быть', 'Expected')}</div>
+                        <div class="compare-value">${formatCurrency(expectedTotal, settings.currency)}</div>
+                    </div>
+                    <div class="compare-card actual">
+                        <div class="compare-label">${l('ფაქტობრივად', 'Фактически', 'Actual')}</div>
+                        <div class="compare-value">${formatCurrency(teacherData.total, settings.currency)}</div>
+                    </div>
+                </div>
+                <p class="achieved-note">
+                    ${l(
+                        `მასწავლებელმა მიიღო შესაძლო შემოსავლის <b>${achievedPct}%</b> — სხვაობა გაცდენებისა და გადაუხდელი აბონემენტების გამოა.`,
+                        `Преподаватель получил <b>${achievedPct}%</b> от возможного дохода — разница из-за пропусков и неоплаченных абонементов.`,
+                        `Teacher received <b>${achievedPct}%</b> of the possible revenue — the gap is from missed attendance and unpaid subscriptions.`
+                    )}
+                </p>
+                ` : ''}
 
                 <div class="total-box">
                     <span class="total-label">${t.totalAmount || 'Total'}</span>
@@ -625,59 +698,128 @@ export default function AnalyticsPage() {
             // Salaries
             const calculatedSalaries = teachers.map(t => {
                 // Find all groups where this teacher is either primary or secondary
-                const teacherGroups = groups.filter(g => g.teacherId === t.id || g.secondaryTeacherId === t.id).map(g => g.id);
-                
-                // Get all subscriptions linked to these groups
-                const subsForTeacher = filteredSubs.filter(sub => {
-                    const plan = plans.find(p => p.name === sub.plan);
-                    const groupId = (sub as any).group_id || (plan && plan.group_id);
-                    return groupId && teacherGroups.includes(groupId);
-                });
+                const teacherGroupList = groups.filter(g => g.teacherId === t.id || g.secondaryTeacherId === t.id);
 
-                // Calculate revenue with split awareness
-                const teacherSubRevenue = subsForTeacher.reduce((sum, sub) => {
-                    const plan = plans.find(p => p.name === sub.plan);
-                    const groupId = (sub as any).group_id || (plan && plan.group_id);
-                    const amount = (calcSubRevenue(sub, planPrices));
-                    
-                    const group = groups.find(g => g.id === groupId);
-                    if (group) {
-                        // Apply specific percentage from group, falling back to the
-                        // teacher's global percentage. `?? ` alone is wrong here:
-                        // a group saved with no percentage stores `0` (see
-                        // GroupModal), and `0 ?? fallback` evaluates to `0` because
-                        // 0 is not null/undefined — so the fallback never kicked in
-                        // and every such group's revenue silently computed as 0.
-                        // Treat 0/undefined/null the same way: "not actually set".
-                        if (group.secondaryTeacherId === t.id) {
-                            const perc = (group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0)
-                                ? group.secondaryTeacherPercentage
-                                : (t.salary_percentage || 0);
-                            return sum + (amount * perc / 100);
-                        } else if (group.teacherId === t.id) {
-                            const perc = (group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0)
-                                ? group.primaryTeacherPercentage
-                                : (t.salary_percentage || 50);
-                            return sum + (amount * perc / 100);
+                // 🆕 Per-source breakdown, surfaced in the UI/PDF so the
+                // studio can see exactly which groups (and individual/rental
+                // lessons) made up a teacher's commission, at what
+                // percentage each, and how many enrolled kids actually paid
+                // vs. how many are on the roster — see expectedRevenue notes
+                // below for why some paid less than "on paper".
+                const breakdown: Array<{
+                    key: string; name: string; percentage: number; revenue: number; cut: number;
+                    enrolledCount: number; paidCount: number; expectedRevenue: number; expectedCut: number;
+                }> = [];
+
+                // --- Group classes: each group's own percentage (pre-filled
+                // from the teacher's rate when the group is created, and
+                // overridable per group in GroupModal) is applied directly
+                // to that group's revenue.
+                let groupCommissionEarned = 0;
+                teacherGroupList.forEach(group => {
+                    const groupSubs = filteredSubs.filter(sub => {
+                        const plan = plans.find(p => p.name === sub.plan);
+                        const groupId = (sub as any).group_id || (plan && plan.group_id);
+                        return groupId === group.id;
+                    });
+                    const revenue = groupSubs.reduce((sum, sub) => sum + calcSubRevenue(sub, planPrices), 0);
+
+                    // 0/undefined footgun (see GroupModal): a group saved with
+                    // no override stores `0`, and `0 ?? fallback` would never
+                    // fall back since 0 isn't nullish — treat 0 the same as
+                    // "not actually set".
+                    const isSecondary = group.secondaryTeacherId === t.id;
+                    const perc = isSecondary
+                        ? ((group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0) ? group.secondaryTeacherPercentage : (t.salary_percentage || 0))
+                        : ((group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0) ? group.primaryTeacherPercentage : (t.salary_percentage || 50));
+
+                    const cut = revenue * perc / 100;
+                    groupCommissionEarned += cut;
+
+                    // 🆕 Transparency: how many kids are enrolled in this
+                    // group vs. how many of them actually have a paid
+                    // subscription counted in `revenue` this month — this is
+                    // exactly the gap the studio asked to see ("შეიძლება არ
+                    // იარა ბავშვებმა და ყველას არ გადაუხდია"). "Expected"
+                    // extrapolates from the average of what paying students
+                    // actually paid this month (falling back to the group's
+                    // own plan price if literally nobody has paid yet), so
+                    // it answers "what would this group have earned if every
+                    // enrolled kid paid like the ones who did".
+                    const enrolledCount = students.filter((s: any) => s.status === 'active' && s.enrolled_group_ids?.includes(group.id)).length;
+                    const paidStudentIds = new Set(
+                        groupSubs.flatMap(sub => String(sub.student_id || '').split(',').map((id: string) => id.trim()).filter(Boolean))
+                    );
+                    const paidCount = paidStudentIds.size;
+
+                    let avgPricePerStudent = paidCount > 0 ? revenue / paidCount : 0;
+                    if (avgPricePerStudent === 0) {
+                        const groupPlans = plans.filter((p: any) => p.group_id === group.id);
+                        if (groupPlans.length > 0) {
+                            avgPricePerStudent = groupPlans.reduce((sum: number, p: any) => sum + (Number(p.price) || 0), 0) / groupPlans.length;
                         }
                     }
-                    return sum + amount;
-                }, 0);
+                    const expectedRevenue = enrolledCount * avgPricePerStudent;
+                    const expectedCut = expectedRevenue * perc / 100;
+
+                    if (enrolledCount > 0 || revenue > 0) {
+                        breakdown.push({ key: `group-${group.id}`, name: group.name, percentage: perc, revenue, cut, enrolledCount, paidCount, expectedRevenue, expectedCut });
+                    }
+                });
+
+                // --- Individual & rental lessons: these carry the teacher's
+                // id directly on the subscription (`sub.teacher_id`) rather
+                // than through a `groups` row, so the group-scoped logic
+                // above always excluded them — a teacher's 1-on-1 and
+                // hall-rental lessons never contributed to their salary at
+                // all until now.
+                const indSubs = filteredSubs.filter(sub =>
+                    (sub.plan_type === 'individual' || sub.plan_type === 'rental') && (sub as any).teacher_id === t.id
+                );
+                const indRevenue = indSubs.reduce((sum, sub) => sum + calcSubRevenue(sub, planPrices), 0);
+                const indPerc = t.salary_percentage || 0;
+                const indCut = indRevenue * indPerc / 100;
+                if (indSubs.length > 0) {
+                    breakdown.push({
+                        key: 'individual',
+                        name: l('ინდივიდუალური/დარბაზის გაკვეთილები', 'Индивидуальные/аренда', 'Individual/Rental Lessons'),
+                        percentage: indPerc, revenue: indRevenue, cut: indCut,
+                        enrolledCount: indSubs.length, paidCount: indSubs.length,
+                        expectedRevenue: indRevenue, expectedCut: indCut
+                    });
+                }
+
+                const percentageEarned = groupCommissionEarned + indCut;
 
                 const bonus = getTeacherBonusForMonth(t.id, monthStr);
-                let total = bonus;
                 const activeTypes: string[] = [];
                 const rateParts: string[] = [];
+                let monthlyComponent = 0;
+                let hourlyComponent = 0;
+                let percentageComponent = 0;
+                let usesPercentage = false;
 
-                if (t.salary_percentage) { 
-                    total += (teacherSubRevenue * t.salary_percentage) / 100; 
-                    activeTypes.push('Percentage'); 
-                    rateParts.push(`${t.salary_percentage}%`); 
+                // 🛠️ FIX: `percentageEarned` above already has each group's
+                // (or the teacher's own) commission percentage applied once.
+                // The old code then multiplied the WHOLE thing by
+                // `t.salary_percentage` again here — silently squaring a
+                // percentage-based teacher's rate. Concretely: GroupModal
+                // pre-fills a new group's percentage from the teacher's own
+                // rate, so in the common case where nobody edits that
+                // override, a teacher configured for 50% was actually being
+                // paid 50% × 50% = 25% of their groups' revenue. Add the
+                // already-computed commission directly — no second
+                // multiplication.
+                if (t.salary_percentage || breakdown.some(b => b.percentage > 0)) {
+                    percentageComponent = percentageEarned;
+                    usesPercentage = true;
+                    activeTypes.push('Percentage');
+                    rateParts.push(`${t.salary_percentage || 0}%`);
                 }
-                if (t.rate_per_month) { 
-                    total += t.rate_per_month; 
-                    activeTypes.push('Monthly'); 
-                    rateParts.push(formatCurrency(t.rate_per_month, settings.currency)); 
+                if (t.rate_per_month) {
+                    monthlyComponent = t.rate_per_month;
+                    activeTypes.push('Monthly');
+                    rateParts.push(formatCurrency(t.rate_per_month, settings.currency));
                 }
                 if (t.rate_per_hour) {
                     const teacherEvents = events.filter(e => (e.teacher_id === t.id || (e as any).secondary_teacher_id === t.id) && e.date.startsWith(monthStr));
@@ -709,17 +851,35 @@ export default function AnalyticsPage() {
                         }
                         return acc + mins;
                     }, 0);
-                    total += ((totalMinutes / 60) * t.rate_per_hour);
+                    hourlyComponent = (totalMinutes / 60) * t.rate_per_hour;
                     activeTypes.push('Hourly');
                     rateParts.push(`${formatCurrency(t.rate_per_hour, settings.currency)}/hr`);
                 }
-                if (activeTypes.length === 0) { 
-                    const defPerc = t.salary_percentage || 50; 
-                    total += (teacherSubRevenue * defPerc) / 100; 
-                    activeTypes.push('Percentage'); 
-                    rateParts.push(`${defPerc}%`); 
+                if (activeTypes.length === 0) {
+                    // No compensation fields configured at all — still
+                    // surface whatever percentage-eligible revenue exists
+                    // using a 50% default, added directly (see fix note
+                    // above: no second multiplication).
+                    percentageComponent = percentageEarned;
+                    usesPercentage = true;
+                    activeTypes.push('Percentage');
+                    rateParts.push(`50% (${l('ნაგულისხმევი', 'по умолч.', 'default')})`);
                 }
-                return { id: t.id, teacher: `${t.first_name || ''} ${t.last_name || t.full_name || ''}`, fullObject: t, type: activeTypes.length > 1 ? 'Combined' : activeTypes[0], rate: rateParts.join(' + '), bonus, total, status: 'pending' };
+
+                const total = bonus + monthlyComponent + hourlyComponent + percentageComponent;
+                // 🆕 "რამდენი უნდა ყოფილიყო წესით" — the same total, but
+                // using each group's expected (roster-extrapolated) revenue
+                // instead of what was actually collected this month. Only
+                // the percentage-based slice can differ this way; bonus/
+                // monthly/hourly are fixed regardless of who paid.
+                const expectedPercentageComponent = usesPercentage ? breakdown.reduce((sum, b) => sum + b.expectedCut, 0) : 0;
+                const expectedTotal = bonus + monthlyComponent + hourlyComponent + expectedPercentageComponent;
+
+                return {
+                    id: t.id, teacher: `${t.first_name || ''} ${t.last_name || t.full_name || ''}`, fullObject: t,
+                    type: activeTypes.length > 1 ? 'Combined' : activeTypes[0], rate: rateParts.join(' + '),
+                    bonus, total, status: 'pending', breakdown, expectedTotal
+                };
             });
 
             const totalSalaryAmount = calculatedSalaries.reduce((sum, s) => sum + s.total, 0);
@@ -1546,6 +1706,14 @@ export default function AnalyticsPage() {
                                             </td>
                                             <td className="px-8 py-5 text-center">
                                                 <span className="text-sm font-black text-primary tabular-nums">{formatCurrency(item.total, settings.currency)}</span>
+                                                {/* 🆕 Transparency: "should be" vs "actually is" — only
+                                                shown when they meaningfully differ, so a fully-paid
+                                                group doesn't clutter the row with an identical number. */}
+                                                {item.expectedTotal > item.total * 1.02 && (
+                                                    <p className="text-[9px] font-bold text-amber-600 tabular-nums mt-0.5" title={l('უნდა ყოფილიყო გადაუხდელი/გაცდენილი აბონემენტების გარეშე', 'Должно быть без неоплаченных/пропущенных', 'Expected without unpaid/missed subs')}>
+                                                        {l('წესით', 'по норме', 'expected')}: {formatCurrency(item.expectedTotal, settings.currency)}
+                                                    </p>
+                                                )}
                                             </td>
                                         </>
                                     ) : (
@@ -1661,7 +1829,14 @@ export default function AnalyticsPage() {
                             <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center justify-between">
                                 <span className="text-[9px] font-black text-indigo-600/60 tracking-widest uppercase">{t.totalAmount}</span>
                                 {showSalaries ? (
-                                    <span className="text-sm font-black text-indigo-600 tabular-nums">{formatCurrency(item.total, settings.currency)}</span>
+                                    <div className="text-right">
+                                        <span className="text-sm font-black text-indigo-600 tabular-nums">{formatCurrency(item.total, settings.currency)}</span>
+                                        {item.expectedTotal > item.total * 1.02 && (
+                                            <p className="text-[8px] font-bold text-amber-600 tabular-nums">
+                                                {l('წესით', 'по норме', 'expected')}: {formatCurrency(item.expectedTotal, settings.currency)}
+                                            </p>
+                                        )}
+                                    </div>
                                 ) : (
                                     <span className="text-sm font-black text-indigo-600/20 select-none">••••</span>
                                 )}
