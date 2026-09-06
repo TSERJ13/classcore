@@ -100,6 +100,18 @@ export function getSubscriptions(): SubMap {
                 const parsed = JSON.parse(rawDeleted);
                 if (Array.isArray(parsed)) deletedSubIds = new Set(parsed);
             }
+            const rawTrash = localStorage.getItem(getScopedKey('cc_global_trash'));
+            if (rawTrash) {
+                const trashItems = JSON.parse(rawTrash);
+                if (Array.isArray(trashItems)) {
+                    trashItems.forEach((t: any) => {
+                        if (t?.entity_type === 'cc_student_subscriptions' || t?.entity_type === 'subscriptions') {
+                            if (t.entity_id) deletedSubIds.add(t.entity_id);
+                            if (t.id) deletedSubIds.add(t.id);
+                        }
+                    });
+                }
+            }
         } catch (e) {
             console.warn('⚠️ [SubscriptionStore] Failed to parse deleted IDs:', e);
         }
@@ -207,6 +219,22 @@ export function getSubscriptions(): SubMap {
     }
 }
 
+export function getUniqueSubscriptions(): SubscriptionInfo[] {
+    const data = getSubscriptions();
+    const map = new Map<string, SubscriptionInfo>();
+    for (const list of Object.values(data)) {
+        if (!Array.isArray(list)) continue;
+        for (const sub of list) {
+            if (sub && sub.id) {
+                if (!map.has(sub.id)) {
+                    map.set(sub.id, sub);
+                }
+            }
+        }
+    }
+    return Array.from(map.values());
+}
+
 export function saveSubscription(studentId: string, info: SubscriptionInfo): void {
     if (!studentId || studentId === 'undefined') {
         console.error('saveSubscription: invalid studentId', studentId);
@@ -263,7 +291,7 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
 
         // 🔥 FOOLPROOF SCHEMA-LESS FALLBACK: Also update the settings blob
         // This is shared across all devices and used for 'rescue' recovery
-        const updatedSubs = Object.values(data).flat();
+        const updatedSubs = getUniqueSubscriptions();
         const updatedSettings = { ...settings, subscriptions: updatedSubs };
         saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
         
@@ -389,15 +417,16 @@ export function deleteSubscription(studentId: string, subId: string): void {
     let subToDelete: SubscriptionInfo | null = null;
     let primaryKey = studentId;
 
-    // Scan all keys to find the subscription
+    // Scan all keys to find and remove the subscription everywhere
     for (const key of Object.keys(data)) {
         const found = data[key].find(s => s.id === subId);
         if (found) {
-            subToDelete = found;
-            primaryKey = key;
+            if (!subToDelete) {
+                subToDelete = found;
+                primaryKey = key;
+            }
             data[key] = data[key].filter(s => s.id !== subId);
             if (data[key].length === 0) delete data[key];
-            break;
         }
     }
 
@@ -468,7 +497,7 @@ export function deleteSubscription(studentId: string, subId: string): void {
         }, finalOrgId).catch(() => {});
 
         // 3. Update recovery settings blob
-        const updatedSubs = Object.values(data).flat();
+        const updatedSubs = getUniqueSubscriptions();
         const updatedSettings = { ...settings, subscriptions: updatedSubs };
         
         saveSettings({ subscriptions: updatedSubs } as any, settings, activeSlug || '');
@@ -630,8 +659,7 @@ export function refundSessionsUsed(studentId: string): SubscriptionInfo | null {
 
 
 export function getSubscriptionStats() {
-    const all = getSubscriptions();
-    const subs = Object.values(all).flat();
+    const subs = getUniqueSubscriptions();
     const now = new Date();
     const currentMonth = now.toISOString().split('-').slice(0, 2).join('-'); // YYYY-MM
 

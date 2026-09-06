@@ -12,7 +12,7 @@ import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
-import { getSubscriptions } from '@/lib/subscription-store';
+import { getSubscriptions, getUniqueSubscriptions } from '@/lib/subscription-store';
 import { cn } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -48,9 +48,9 @@ export default function GroupsPage() {
     }, [settings.activeBranchId]);
 
     const todayStr = new Date().toISOString().split('T')[0];
+    const uniqueSubs = getUniqueSubscriptions();
     const groupsWithEnrollments = groups.map(g => {
-        const subList = Object.values(subs).flat();
-        const enrolledCount = subList.filter(s => s.group_id === g.id && s.status === 'active' && s.expires_at >= todayStr).length;
+        const enrolledCount = uniqueSubs.filter(s => s.group_id === g.id && s.status === 'active' && s.expires_at >= todayStr).length;
         return { ...g, enrolled: enrolledCount };
     });
 

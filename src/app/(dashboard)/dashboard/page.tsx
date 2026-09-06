@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
-import { getSubscription, getSubscriptions } from '@/lib/subscription-store';
+import { getSubscription, getSubscriptions, getUniqueSubscriptions } from '@/lib/subscription-store';
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
@@ -252,7 +252,7 @@ export default function DashboardPage() {
         // 1. Refresh Stats
         const sales = getSales();
         let studentsList = getStudents();
-        const allSubsListRaw = Object.values(getSubscriptions()).flat();
+        const allSubsListRaw = getUniqueSubscriptions();
         
         const isTeacher = isTeacherRole(profile?.role);
         // Robust visible-group resolution (groups they teach + assignments).
@@ -277,14 +277,18 @@ export default function DashboardPage() {
         let activeSubStudentIds = new Set<string>();
         studentsList.forEach(s => {
             let isActive = false;
-            const subsList = allSubsList.filter(sub => sub.student_id === s.id);
+            const subsList = allSubsList.filter(sub => {
+                if (!sub.student_id) return false;
+                const ids = sub.student_id.split(',').map(x => x.trim());
+                return ids.includes(s.id);
+            });
             for (const sub of subsList) {
                 const isUnlimited = sub.sessions_total === null;
                 const remaining = isUnlimited ? Infinity : ((sub.sessions_total ?? 0) - (sub.sessions_used ?? 0));
                 const hasExpiredByDate = sub.expires_at < todayStr;
                 const hasUsedAllSessions = !isUnlimited && remaining <= 0;
                 
-                if (!hasExpiredByDate && !hasUsedAllSessions) {
+                if (!hasExpiredByDate && !hasUsedAllSessions && sub.status === 'active') {
                     isActive = true;
                     break;
                 }
@@ -294,6 +298,13 @@ export default function DashboardPage() {
             }
         });
         const studentsWithActiveSub = activeSubStudentIds.size;
+        const activeSubsCount = allSubsList.filter(sub => {
+            const isUnlimited = sub.sessions_total === null;
+            const remaining = isUnlimited ? Infinity : ((sub.sessions_total ?? 0) - (sub.sessions_used ?? 0));
+            const hasExpiredByDate = sub.expires_at < todayStr;
+            const hasUsedAllSessions = !isUnlimited && remaining <= 0;
+            return sub.status === 'active' && !hasExpiredByDate && !hasUsedAllSessions;
+        }).length;
 
         const checkins = getTodayCheckins();
         const attendance = checkins.length;
@@ -349,7 +360,11 @@ export default function DashboardPage() {
         const nextWeekStr = getLocalISODate(nextWeek);
         
         studentsList.forEach(s => {
-            const subsList = allSubsList.filter(sub => sub.student_id === s.id);
+            const subsList = allSubsList.filter(sub => {
+                if (!sub.student_id) return false;
+                const ids = sub.student_id.split(',').map(x => x.trim());
+                return ids.includes(s.id);
+            });
             for (const sub of subsList) {
                 const isUnlimited = sub.sessions_total === null;
                 const remaining = isUnlimited ? Infinity : ((sub.sessions_total ?? 0) - (sub.sessions_used ?? 0));
@@ -371,7 +386,8 @@ export default function DashboardPage() {
             ...prev,
             totalStudents: students,
             activeStudents: studentsWithActiveSub,
-            activeSubs: studentsWithActiveSub,
+            activeSubs: activeSubsCount,
+            newThisMonth: subsThisMonth,
             attendance,
             attendanceRateMonth,
             monthlyRevenue,

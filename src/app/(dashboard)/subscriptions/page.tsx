@@ -231,9 +231,11 @@ export default function SubscriptionsPage() {
             // Optimistic Update: Hide immediately in UI
             setSubsData(prev => {
                 const next = { ...prev };
-                if (next[studentId]) {
-                    next[studentId] = next[studentId].filter(s => s.id !== id);
-                    if (next[studentId].length === 0) delete next[studentId];
+                for (const k of Object.keys(next)) {
+                    if (Array.isArray(next[k])) {
+                        next[k] = next[k].filter(s => s.id !== id);
+                        if (next[k].length === 0) delete next[k];
+                    }
                 }
                 return next;
             });

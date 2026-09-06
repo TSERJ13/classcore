@@ -203,6 +203,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // cloud DELETE would resolveRicher() the hall right back in
                 // from the cloud/settings-blob snapshot before it propagated.
                 const deletedHallIds = getLocallyDeletedIds(getScopedKey('cc_deleted_halls'));
+                const deletedSubIds = getLocallyDeletedIds(getScopedKey('cc_deleted_subscriptions', activeSlug || 'default'));
 
                 const resolveRicher = (db: any[], backup: any) => {
                     const dbArr = Array.isArray(db) ? db : [];
@@ -328,7 +329,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     cc_groups: unwrap(finalGroups),
                     cc_student_data: cloudStudentMap,
                     cc_student_subscriptions: (unwrap(state.subscriptions) || [])
-                        .filter(sub => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
+                        .filter(sub => sub && sub.id && !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`) && !deletedSubIds.has(sub.id))
                         .reduce((acc: any, sub: any) => {
                             const sId = sub.student_id;
                             if (sId) {

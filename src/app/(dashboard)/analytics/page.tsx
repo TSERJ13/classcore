@@ -17,7 +17,7 @@ import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { getStudents } from '@/lib/student-store';
 import { getSales } from '@/lib/sales-store';
-import { getSubscriptions } from '@/lib/subscription-store';
+import { getSubscriptions, getUniqueSubscriptions } from '@/lib/subscription-store';
 import { getTeachers, updateTeacher } from '@/lib/teacher-store';
 import { getEvents } from '@/lib/event-store';
 import { getPlans } from '@/lib/plan-store';
@@ -545,7 +545,7 @@ export default function AnalyticsPage() {
             const students = getStudents();
             const sales = getSales();
             const allSubsMap = getSubscriptions();
-            const allSubs = Object.values(allSubsMap).flat();
+            const allSubs = getUniqueSubscriptions();
             const teachers = getTeachers();
             const events = getEvents();
             const plans = getPlans();
@@ -558,7 +558,8 @@ export default function AnalyticsPage() {
 
             // Active subscriptions count
             const activeSubStudentIds = new Set(
-                allSubs.filter(sub => sub.status === 'active').map(sub => sub.student_id)
+                allSubs.filter(sub => sub.status === 'active')
+                    .flatMap(sub => (sub.student_id || '').split(',').map(s => s.trim()).filter(Boolean))
             );
             const activeSubCount = activeSubStudentIds.size;
 
