@@ -111,21 +111,33 @@ export default function PlansManagementPage() {
     }
 
     function toggleActive(id: string) {
-        const next = plans.map(p => p.id === id ? { ...p, is_active: !p.is_active } : p);
+        const next = plans.map(p => {
+            if (p.id !== id) return p;
+            const newActive = !p.is_active;
+            const updated = { ...p, is_active: newActive };
+            if (updated.data && typeof updated.data === 'object') {
+                updated.data = { ...updated.data, is_active: newActive };
+            }
+            return updated;
+        });
         setPlans(next);
         savePlans(next);
     }
 
-    // Mark plan as default — only ONE plan can be default at a time
+    // Mark plan as default — only ONE plan can be default per type at a time
     function toggleDefault(id: string) {
         const target = plans.find(p => p.id === id);
         if (!target) return;
         const willBeDefault = !target.is_default;
-        const next = plans.map(p => ({
-            ...p,
-            // If turning ON, clear default from all others. If turning OFF, just clear this one.
-            is_default: willBeDefault ? p.id === id : (p.id === id ? false : p.is_default)
-        }));
+        const next = plans.map(p => {
+            if (p.type !== target.type) return p;
+            const isDef = willBeDefault ? p.id === id : false;
+            const updated = { ...p, is_default: isDef };
+            if (updated.data && typeof updated.data === 'object') {
+                updated.data = { ...updated.data, is_default: isDef };
+            }
+            return updated;
+        });
         setPlans(next);
         savePlans(next);
     }
@@ -201,7 +213,7 @@ export default function PlansManagementPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className={cn("flex items-center gap-1 transition-opacity", plan.is_default ? "opacity-100" : "sm:opacity-0 sm:group-hover:opacity-100")}>
                                 <button onClick={() => toggleDefault(plan.id)}
                                     title={plan.is_default ? t.removeDefault : t.setAsDefault}
                                     className={cn(

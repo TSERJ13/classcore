@@ -51,7 +51,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     });
     const [plans, setPlans] = useState(() => {
         const p = getPlans();
-        return (Array.isArray(p) ? p : []).filter(p => p.is_active);
+        return (Array.isArray(p) ? p : []).filter(p => p.is_active !== false);
     });
     const [groups, setGroups] = useState(() => {
         const g = getGroups();
@@ -61,7 +61,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     useEffect(() => {
         const refresh = () => {
             setStudents(getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
-            setPlans(getPlans().filter(p => p.is_active));
+            setPlans(getPlans().filter(p => p.is_active !== false));
             setGroups(getGroups());
         };
         if (open) {
@@ -81,7 +81,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [step, setStep] = useState<'type_selection' | 'form'>('type_selection');
     const [selectedType, setSelectedType] = useState<'group' | 'individual' | 'rental'>('group');
 
-    const availablePlans = plans.filter(p => p.type === selectedType);
+    const availablePlans = useMemo(() => {
+        return plans.filter(p => p.type === selectedType && p.is_active !== false);
+    }, [plans, selectedType]);
 
     const [planId, setPlanId] = useState('');
     const [groupId, setGroupId] = useState('');
@@ -152,18 +154,16 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         }
     }, [open]);
 
-    // 🌟 Auto-select default plan when type/oneTime changes or list updates
+    // 🌟 Auto-select default plan (star ⭐ / is_default) when modal opens or category changes
     useEffect(() => {
         if (!open) return;
-        // Pick: default first, then first active, then anything
-        const defaultPlan = availablePlans.find(p => p.is_default && p.is_active !== false);
-        const firstActive = availablePlans.find(p => p.is_active !== false);
-        const auto = defaultPlan || firstActive || availablePlans[0];
-
-        // If current plan is invalid OR this is fresh open (planId empty), pick auto
-        const stillValid = planId && availablePlans.find(p => String(p.id) === String(planId));
-        if (!stillValid && auto) {
-            setPlanId(String(auto.id));
+        // Check if currently selected plan is still in availablePlans
+        const validPlan = planId && availablePlans.find(p => String(p.id) === String(planId));
+        if (!validPlan) {
+            const defaultPlan = availablePlans.find(p => p.is_default && p.is_active !== false);
+            const firstActive = availablePlans.find(p => p.is_active !== false);
+            const auto = defaultPlan || firstActive || availablePlans[0];
+            setPlanId(auto ? String(auto.id) : '');
         }
     }, [open, selectedType, availablePlans, planId]);
 
@@ -217,18 +217,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         ];
     }, [settings?.staff]);
 
-    // Update planId when category changes
-    useEffect(() => {
-        if (availablePlans.length > 0 && !availablePlans.find(p => String(p.id) === String(planId))) {
-            setPlanId(String(availablePlans[0].id));
-        } else if (availablePlans.length === 0) {
-            setPlanId('');
-        }
-    }, [selectedType, availablePlans, planId]);
-
     // Auto-fill when plan changes
     useEffect(() => {
-        const plan = plans.find(p => p.id === planId);
+        const plan = plans.find(p => String(p.id) === String(planId));
         if (plan) {
             setPrice(plan.price);
             setUnlimited(plan.period === 'unlimited');

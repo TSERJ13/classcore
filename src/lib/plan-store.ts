@@ -18,6 +18,7 @@ export interface Plan {
     group_id?: string;
     is_active: boolean;
     is_default?: boolean;
+    data?: any;
 }
 
 import { getScopedKey, markLocalUpdate, getActiveSlug, getEffectiveOrgId } from './utils';
@@ -53,7 +54,19 @@ export function getPlans(): Plan[] {
         if (saved) {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed)) {
-                return parsed.map(item => (item && typeof item === 'object' && item.data && typeof item.data === 'object') ? { ...item, ...item.data } : item);
+                const normalized = parsed.map(item => {
+                    if (!item || typeof item !== 'object') return item;
+                    const data = (item.data && typeof item.data === 'object') ? item.data : {};
+                    const merged = { ...data, ...item };
+                    return {
+                        ...merged,
+                        is_active: item.is_active !== undefined ? (item.is_active !== false && item.is_active !== 'false') : (data.is_active !== undefined ? (data.is_active !== false && data.is_active !== 'false') : true),
+                        is_default: item.is_default !== undefined ? !!item.is_default : !!data.is_default
+                    };
+                });
+                _plansMemoryCache = normalized;
+                _plansMemoryCacheSlug = activeSlug;
+                return normalized;
             }
             return INITIAL_PLANS;
         }
@@ -75,6 +88,8 @@ export async function savePlans(plans: Plan[]): Promise<void> {
     const activeSlug = getActiveSlug() || 'demo.classcore.ge';
     const key = getPlansKey(activeSlug);
     
+    _plansMemoryCache = plans;
+    _plansMemoryCacheSlug = activeSlug;
     localStorage.setItem(key, JSON.stringify(plans));
     // 🛡️ Race-condition guard: prevents background hydration from overwriting
     // freshly-saved local plans with an older cloud snapshot (e.g. iPad 4→3 bug)
