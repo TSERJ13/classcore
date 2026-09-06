@@ -18,6 +18,7 @@ interface SearchSelectProps {
     searchPlaceholder?: string;
     emptyText?: string;
     className?: string;
+    triggerClassName?: string;
     disabled?: boolean;
     searchable?: boolean;
     allowCustom?: boolean;
@@ -31,6 +32,7 @@ export function SearchSelect({
     searchPlaceholder,
     emptyText,
     className,
+    triggerClassName,
     disabled = false,
     searchable = true,
     allowCustom = false
@@ -111,7 +113,8 @@ export function SearchSelect({
                 onClick={() => !disabled && !isOpen && !allowCustom && setIsOpen(true)}
                 className={cn(
                     "w-full bg-surface border border-border-subtle rounded-xl px-4 py-2 min-h-[38px] flex items-center justify-between transition-all",
-                    disabled ? "opacity-50 cursor-not-allowed" : (allowCustom ? "focus-within:border-indigo-500/40 hover:border-indigo-500/40" : "cursor-pointer hover:border-indigo-500/40 focus:border-indigo-500/40")
+                    disabled ? "opacity-50 cursor-not-allowed" : (allowCustom ? "focus-within:border-indigo-500/40 hover:border-indigo-500/40" : "cursor-pointer hover:border-indigo-500/40 focus:border-indigo-500/40"),
+                    triggerClassName
                 )}
             >
                 <div className="flex flex-col min-w-0 flex-1 pr-2">
@@ -151,7 +154,7 @@ export function SearchSelect({
             </div>
 
             {isOpen && (
-                <div className="absolute top-full left-0 z-50 w-full mt-2 bg-card border border-border-subtle rounded-xl overflow-hidden flex flex-col animate-in slide-in-from-top-2 duration-200" style={{ maxHeight: '240px' }}>
+                <div className="absolute top-full left-0 z-50 w-full mt-2 bg-card border border-border-subtle rounded-xl overflow-hidden flex flex-col animate-in slide-in-from-top-2 duration-200 !h-auto max-h-[260px] shadow-xl" style={{ maxHeight: '260px', height: 'auto' }}>
                     {searchable && !allowCustom && (
                         <div className="p-2 border-b border-border-subtle relative">
                             <Search className="w-3.5 h-3.5 text-muted absolute left-4 top-1/2 -translate-y-1/2 opacity-50" />

@@ -872,7 +872,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                                 value={form.preferred_language || 'ka'}
                                                 onChange={val => set('preferred_language', val)}
                                                 searchable={false}
-                                                className="[&>div]:!h-[48px] [&>div]:rounded-xl"
+                                                triggerClassName="!h-[48px] rounded-xl"
                                             />
                                         </div>
                                     </div>
