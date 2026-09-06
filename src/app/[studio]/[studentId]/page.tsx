@@ -567,19 +567,35 @@ export default function StudentPortalPage() {
 
         // Student subscriptions to verify active subscription status on past dates
         const studentSubs = getStudentSubscriptions(studentId);
-        
-        // Earliest active date (student registration or first subscription purchase date)
-        let earliestStudentDate = studentData?.created_at ? getLocalISODate(new Date(studentData.created_at)) : '';
-        if (studentSubs.length > 0) {
-            const subDates = studentSubs.map(s => s.purchased_at).filter(Boolean).sort();
-            if (subDates.length > 0 && (!earliestStudentDate || subDates[0] < earliestStudentDate)) {
-                earliestStudentDate = subDates[0];
-            }
-        }
+        const isIndOrRentalSub = (s: SubscriptionInfo) => s.plan_type === 'individual' || s.plan_type === 'rental';
 
-        const hadActiveSubOnDate = (dateStr: string) => {
-            if (!studentSubs || studentSubs.length === 0) return false;
-            return studentSubs.some(s => {
+        // 🛠️ FIX: an individual/rental subscription must NEVER "cover" (or
+        // gate the visible history range for) a GROUP class, and vice versa
+        // — the same isolation rule attendance/page.tsx already enforces
+        // for roster matching ("NEVER leak individual sub visits into group
+        // classes"). Before this fix, a single global earliestStudentDate /
+        // hadActiveSubOnDate mixed all subscription types together, so e.g.
+        // an old individual-lesson subscription's purchase date could
+        // silently "open the gate" and mark a brand-new group's sessions as
+        // covered/missed for dates before the student ever joined that
+        // group.
+        const earliestDateFor = (subs: SubscriptionInfo[]) => {
+            let earliest = studentData?.created_at ? getLocalISODate(new Date(studentData.created_at)) : '';
+            const dates = subs.map(s => s.purchased_at).filter(Boolean).sort();
+            if (dates.length > 0 && (!earliest || dates[0] < earliest)) earliest = dates[0];
+            return earliest;
+        };
+        const groupSubs = studentSubs.filter(s => !isIndOrRentalSub(s));
+        const indSubs = studentSubs.filter(s => isIndOrRentalSub(s));
+        // Individual/rental events don't need their own earliest-date gate —
+        // they're already date-correct (only generated from their own
+        // subscription's purchase date onward). Group membership has no
+        // per-group join date in the data model, so it needs this gate.
+        const earliestGroupDate = earliestDateFor(groupSubs);
+
+        const hadActiveSubOnDateFor = (dateStr: string, subs: SubscriptionInfo[]) => {
+            if (!subs || subs.length === 0) return false;
+            return subs.some(s => {
                 const purchaseDate = s.purchased_at ? getLocalISODate(new Date(s.purchased_at)) : '';
                 const expiryDate = s.expires_at || '';
                 if (purchaseDate && dateStr < purchaseDate) return false;
@@ -649,24 +665,24 @@ export default function StudentPortalPage() {
                     </div>
                 </div>
 
-                {/* Legend */}
-                <div className="flex flex-wrap items-center gap-3.5 text-[10px] font-black text-muted/80 bg-surface/50 p-3 rounded-2xl border border-border-subtle/50">
+                {/* Legend — plain row of matching dots, no boxed chip bar */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-bold text-muted/70 px-0.5">
                     <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm shadow-emerald-500/30">✓</div>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
                         <span>{l('მოვიდა', 'Пришел', 'Attended')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm shadow-rose-500/30">✕</div>
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
                         <span>{l('გაცდენა (აბონემენტით)', 'Пропуск (с аб.)', 'Missed (with sub)')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-500 flex items-center justify-center text-[9px] font-black">✕</div>
+                        <span className="w-2.5 h-2.5 rounded-full border-2 border-rose-400 shrink-0" />
                         <span>{l('აბონემენტის გარეშე', 'Без абонемента', 'No sub')}</span>
                     </div>
                 </div>
 
-                {/* 3 Monthly Calendars */}
-                <div className="space-y-6">
+                {/* 3 Monthly Calendars — separated by a hairline instead of nested boxes */}
+                <div className="divide-y divide-border-subtle/50">
                     {monthsToDisplay.map((mDate, mIdx) => {
                         const monthYearLabel = mDate.toLocaleDateString(lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', year: 'numeric' });
                         const year = mDate.getFullYear();
@@ -674,7 +690,7 @@ export default function StudentPortalPage() {
 
                         // Days in month
                         const daysInMonth = new Date(year, month + 1, 0).getDate();
-                        
+
                         // First day of month (0 = Sun, 1 = Mon...) -> Convert to Mon=0
                         const firstDayRaw = new Date(year, month, 1).getDay();
                         const startingEmptySlots = (firstDayRaw + 6) % 7;
@@ -698,7 +714,14 @@ export default function StudentPortalPage() {
                                 return false;
                             });
                             const hasIndividualEvent = myEvents.some(e => e.date === dStr);
-                            const isScheduledDay = hasScheduledGroup || hasIndividualEvent;
+                            // Group membership has no per-group join date in the data
+                            // model, so gate it by the earliest GROUP-type subscription
+                            // (or account creation) — never by an unrelated individual
+                            // subscription's purchase date. Individual/rental events are
+                            // already date-correct (generated only from their own
+                            // subscription's purchase date onward), so no extra gate.
+                            const groupDayEligible = hasScheduledGroup && (!earliestGroupDate || dStr >= earliestGroupDate);
+                            const isScheduledDay = groupDayEligible || hasIndividualEvent;
 
                             let status: 'attended' | 'missed_with_sub' | 'no_sub' | 'none' | 'future' = 'none';
 
@@ -708,9 +731,15 @@ export default function StudentPortalPage() {
                                 status = 'attended';
                                 if (isScheduledDay) totalScheduledCount++;
                                 totalAttendedCount++;
-                            } else if (isScheduledDay && (!earliestStudentDate || dStr >= earliestStudentDate)) {
+                            } else if (isScheduledDay) {
                                 totalScheduledCount++;
-                                if (hadActiveSubOnDate(dStr)) {
+                                // Only a GROUP-type subscription can cover a group class,
+                                // only an individual/rental one can cover an individual
+                                // lesson — never cross-attributed.
+                                const covered =
+                                    (groupDayEligible && hadActiveSubOnDateFor(dStr, groupSubs)) ||
+                                    (hasIndividualEvent && hadActiveSubOnDateFor(dStr, indSubs));
+                                if (covered) {
                                     status = 'missed_with_sub';
                                     totalMissedWithSubCount++;
                                 } else {
@@ -728,44 +757,43 @@ export default function StudentPortalPage() {
                         }
 
                         return (
-                            <div key={mIdx} className="bg-surface/40 border border-border-subtle/70 rounded-3xl p-4 space-y-3">
-                                <h4 className="text-xs font-black text-primary capitalize tracking-tight px-1 flex items-center justify-between">
-                                    <span>{monthYearLabel}</span>
+                            <div key={mIdx} className={cn("space-y-3", mIdx > 0 && "pt-5")}>
+                                <h4 className="text-[11px] font-black text-muted/60 uppercase tracking-wider px-0.5">
+                                    {monthYearLabel}
                                 </h4>
 
                                 {/* Weekday Labels Header */}
-                                <div className="grid grid-cols-7 gap-1 text-center">
+                                <div className="grid grid-cols-7 text-center">
                                     {weekdayLabels.map((wLabel, i) => (
-                                        <span key={i} className="text-[9px] font-black text-muted opacity-40 uppercase py-1">{wLabel}</span>
+                                        <span key={i} className="text-[9px] font-black text-muted opacity-40 uppercase">{wLabel}</span>
                                     ))}
                                 </div>
 
                                 {/* Monthly Calendar Grid */}
-                                <div className="grid grid-cols-7 gap-1.5">
+                                <div className="grid grid-cols-7 gap-1">
                                     {/* Empty offset slots */}
                                     {Array.from({ length: startingEmptySlots }).map((_, i) => (
-                                        <div key={`empty-${i}`} className="h-8 rounded-xl" />
+                                        <div key={`empty-${i}`} className="aspect-square" />
                                     ))}
 
                                     {/* Days */}
                                     {monthDays.map((dayItem) => {
+                                        const isToday = dayItem.dateStr === todayStr;
                                         return (
                                             <div
                                                 key={dayItem.dayNum}
                                                 title={dayItem.dateStr}
                                                 className={cn(
-                                                    "h-8 rounded-xl flex items-center justify-center text-[11px] font-black transition-all relative",
-                                                    dayItem.status === 'attended' ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-500/20" :
-                                                    dayItem.status === 'missed_with_sub' ? "bg-rose-500 text-white shadow-md shadow-rose-500/25 ring-2 ring-rose-500/20" :
-                                                    dayItem.status === 'no_sub' ? "bg-rose-500/15 border border-rose-500/40 text-rose-500" :
-                                                    dayItem.isScheduled ? "bg-surface border border-indigo-500/30 text-indigo-500" :
-                                                    "bg-surface/20 text-muted opacity-30"
+                                                    "aspect-square rounded-lg flex items-center justify-center text-[11px] font-bold transition-all",
+                                                    dayItem.status === 'attended' && "bg-emerald-500 text-white",
+                                                    dayItem.status === 'missed_with_sub' && "bg-rose-500 text-white",
+                                                    dayItem.status === 'no_sub' && "border-2 border-rose-400 text-rose-500",
+                                                    dayItem.status === 'future' && "border border-dashed border-indigo-400/40 text-indigo-400",
+                                                    dayItem.status === 'none' && "text-muted/30",
+                                                    isToday && (dayItem.status === 'none' || dayItem.status === 'future') && "ring-2 ring-indigo-500/50 text-indigo-500 font-black"
                                                 )}
                                             >
-                                                <span>{dayItem.dayNum}</span>
-                                                {dayItem.status === 'no_sub' && (
-                                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[8px] font-black">✕</span>
-                                                )}
+                                                {dayItem.dayNum}
                                             </div>
                                         );
                                     })}
@@ -778,33 +806,28 @@ export default function StudentPortalPage() {
                 {/* Attendance Rate & Stats Footer */}
                 {(() => {
                     const totalMissed = totalMissedWithSubCount + totalNoSubCount;
-                    const attendanceRate = totalScheduledCount > 0 
-                        ? Math.round((totalAttendedCount / totalScheduledCount) * 100) 
+                    const attendanceRate = totalScheduledCount > 0
+                        ? Math.round((totalAttendedCount / totalScheduledCount) * 100)
                         : (totalAttendedCount > 0 ? 100 : 0);
+                    const rateColor = attendanceRate >= 80 ? 'text-emerald-600' : attendanceRate >= 50 ? 'text-amber-600' : 'text-rose-600';
+                    const barColor = attendanceRate >= 80 ? 'bg-emerald-500' : attendanceRate >= 50 ? 'bg-amber-500' : 'bg-rose-500';
 
                     return (
-                        <div className="bg-surface/70 border border-border-subtle/80 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="flex items-center gap-4 w-full sm:w-auto">
-                                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center justify-center shrink-0">
-                                    <span className="text-lg font-black text-indigo-600 tabular-nums leading-none">{attendanceRate}%</span>
-                                    <span className="text-[8px] font-black text-muted opacity-50 uppercase mt-0.5">{l('დასწრება', 'Явка', 'Rate')}</span>
-                                </div>
+                        <div className="pt-5 border-t border-border-subtle/50 space-y-3">
+                            <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs font-black text-primary tracking-tight">{l('დასწრებადობის პროცენტი', 'Процент посещаемости', 'Attendance Percentage')}</p>
-                                    <p className="text-[10px] font-bold text-muted opacity-70 mt-0.5">
-                                        {totalAttendedCount} {l('დასწრება', 'посещений', 'attended')} • {totalMissed} {l('გაცდენა', 'пропусков', 'missed')} {totalScheduledCount > 0 ? `(${l('სულ', 'всего', 'total')} ${totalScheduledCount} ${l('გაკვეთილი', 'уроков', 'lessons')})` : ''}
+                                    <p className="text-[10px] font-bold text-muted opacity-60 mt-0.5">
+                                        {totalAttendedCount} {l('დასწრება', 'посещений', 'attended')} • {totalMissed} {l('გაცდენა', 'пропусков', 'missed')}{totalScheduledCount > 0 ? ` • ${totalScheduledCount} ${l('სულ', 'всего', 'total')}` : ''}
                                     </p>
                                 </div>
+                                <span className={cn("text-xl font-black tabular-nums shrink-0", rateColor)}>{attendanceRate}%</span>
                             </div>
-
-                            {/* Progress Bar */}
-                            <div className="w-full sm:w-36 flex flex-col gap-1.5">
-                                <div className="h-2.5 bg-card rounded-full overflow-hidden p-0.5 border border-border-subtle">
-                                    <div
-                                        className={cn("h-full rounded-full transition-all duration-700", attendanceRate >= 80 ? "bg-emerald-500" : attendanceRate >= 50 ? "bg-amber-500" : "bg-rose-500")}
-                                        style={{ width: `${Math.min(100, Math.max(0, attendanceRate))}%` }}
-                                    />
-                                </div>
+                            <div className="h-2 bg-surface rounded-full overflow-hidden">
+                                <div
+                                    className={cn("h-full rounded-full transition-all duration-700", barColor)}
+                                    style={{ width: `${Math.min(100, Math.max(0, attendanceRate))}%` }}
+                                />
                             </div>
                         </div>
                     );

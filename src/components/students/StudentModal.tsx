@@ -1286,31 +1286,27 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                     onClose={() => setIssueModalOpen(false)}
                     initialStudentId={student.id}
                     onIssue={(data) => {
+                        // 🛠️ FIX: IssueSubscriptionModal already generates the
+                        // individual-lesson calendar events itself internally
+                        // (see its own handleSubmit — it does this for every
+                        // caller, since attendance/dashboard/subscriptions
+                        // pages rely on it and never generate events on their
+                        // own). This handler used to ALSO call
+                        // generateScheduledIndividualEvents with the same
+                        // schedule, so every individual subscription issued
+                        // from a student's profile silently created two
+                        // identical sets of calendar events (double-booked
+                        // slots, double-counted attendance). Just save the
+                        // subscription here — scheduling is the modal's job.
                         Promise.all([
                             import('@/lib/subscription-store'),
-                            import('@/lib/utils'),
-                            import('@/lib/event-store')
-                        ]).then(([mod, utilsMod, eventMod]) => {
+                            import('@/lib/utils')
+                        ]).then(([mod, utilsMod]) => {
                             const subId = utilsMod.makeEntityId('SUB');
                             mod.saveSubscription(data.student_id, {
                                 ...data,
                                 id: subId
                             } as any);
-
-                            // 📅 Automatic Scheduling for Individual plans
-                            if (data.plan_type === 'individual' && (data as any).schedule?.length > 0) {
-                                eventMod.generateScheduledIndividualEvents({
-                                    studentId: data.student_id,
-                                    studentName: student.full_name,
-                                    planName: data.plan,
-                                    teacherId: data.teacher_id || '',
-                                    startDate: data.purchased_at,
-                                    endDate: data.expires_at,
-                                    sessionsTotal: data.sessions_total,
-                                    schedule: (data as any).schedule,
-                                    color: (data as any).color
-                                });
-                            }
 
                             setIssueModalOpen(false);
                             setSales(getStudentSales(student.id));

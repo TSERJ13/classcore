@@ -367,12 +367,20 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                     const sIds = studentId.split(',').map(id => id.trim()).filter(Boolean);
                     const matched = sIds.map(id => students.find(x => x.id === id)).filter(Boolean);
                     const name = matched.length > 0 ? matched.map(st => st?.full_name).join(' & ') : (selectedStudent?.full_name || 'სტუდენტი');
+                    // 🛠️ FIX: "Start Date" (`startDate`) can be backdated by the
+                    // person issuing the subscription (e.g. paid Aug 7, plan
+                    // "starts" Aug 5). Generating real calendar events from that
+                    // backdated date meant lesson slots — and therefore
+                    // attendance — showed up on days BEFORE the subscription
+                    // was actually purchased. Clamp the generation window to
+                    // never start earlier than the actual payment date.
+                    const scheduleStartDate = startDate && startDate > finalPurchaseDate ? startDate : finalPurchaseDate;
                     generateScheduledIndividualEvents({
                         studentId,
                         studentName: name,
                         planName: plan.name,
                         teacherId: teacherId || '',
-                        startDate,
+                        startDate: scheduleStartDate,
                         endDate: finalEndDate,
                         sessionsTotal: Number(sessions) || null,
                         schedule: schedule.map(s => ({ ...s, hallId: individualHallId })),
