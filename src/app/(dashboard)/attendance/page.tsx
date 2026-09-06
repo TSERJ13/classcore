@@ -393,6 +393,32 @@ export default function AttendancePage() {
 
     const lastInteractionRef = useRef<number>(Date.now());
 
+    // 🛠️ FIX: Stable "identity" for a schedule slot that survives date
+    // navigation. Individual/rental lesson ids embed the date itself
+    // (`sub-ind-${subId}-${dateKey}`), so every time the selected day
+    // changes, the previously-selected class id becomes "invalid" even
+    // though it's logically the same lesson. That was making the page fall
+    // back to whatever class happened to be chronologically first that day —
+    // so browsing back to a day where a student's individual lesson was
+    // marked present showed a completely different class by default, and
+    // the "+"/checkmark for that student appeared to have vanished. Tracking
+    // identity by student (individual/rental) or group_id (group classes)
+    // lets us keep viewing the SAME lesson across date changes instead.
+    const getClassIdentity = useCallback((s: any): string => {
+        if (!s) return '';
+        if (s.type === 'individual' || s.type === 'rental') {
+            return `ind:${(s.student_id || '').toString()}`;
+        }
+        if (s.group_id) return `group:${s.group_id}`;
+        return `id:${s.id}`;
+    }, []);
+    const lastIdentityRef = useRef<string>('');
+    useEffect(() => {
+        if (selClass) {
+            lastIdentityRef.current = getClassIdentity(selClass);
+        }
+    }, [selClass, getClassIdentity]);
+
     // Listen to user touch/pointer/keyboard interactions to prevent interruption while browsing
     useEffect(() => {
         const markActivity = () => {
@@ -451,7 +477,13 @@ export default function AttendancePage() {
         if (!isToday) {
             const currentIsValid = filteredSchedule.some(s => s.id === selectedClass);
             if (!selectedClass || !currentIsValid) {
-                setSelectedClass(filteredSchedule[0]?.id || '');
+                // Prefer re-selecting the same lesson (by student/group identity)
+                // on the newly-viewed date over silently jumping to the first
+                // class of the day — see getClassIdentity comment above.
+                const matchByIdentity = lastIdentityRef.current
+                    ? filteredSchedule.find(s => getClassIdentity(s) === lastIdentityRef.current)
+                    : null;
+                setSelectedClass(matchByIdentity?.id || filteredSchedule[0]?.id || '');
             }
             return;
         }
@@ -487,7 +519,7 @@ export default function AttendancePage() {
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [selectedDate, filteredSchedule, selectedClass, getCurrentTimeClassId]);
+    }, [selectedDate, filteredSchedule, selectedClass, getCurrentTimeClassId, getClassIdentity]);
 
     // ── Persistence ──
 
