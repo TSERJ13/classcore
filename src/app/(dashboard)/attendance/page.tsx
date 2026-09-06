@@ -1648,14 +1648,21 @@ export default function AttendancePage() {
                                             return (
                                                 <button key={s.id} onClick={() => handleUserSelectClass(s.id)}
                                                     className={cn(
-                                                        'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200',
-                                                        selectedClass === s.id ? 'text-white shadow-lg' : 'bg-surface text-muted border-border-subtle hover:border-muted/30'
+                                                        'px-3.5 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all border-2 flex-shrink-0 active:scale-95 duration-200 flex items-center gap-1.5',
+                                                        selectedClass === s.id ? 'text-white shadow-lg' : 'hover:brightness-95'
                                                     )}
-                                                    style={selectedClass === s.id ? { 
-                                                        backgroundColor: classColor, 
+                                                    style={selectedClass === s.id ? {
+                                                        backgroundColor: classColor,
                                                         borderColor: classColor,
                                                         boxShadow: `0 4px 12px ${classColor}30`
-                                                    } : {}}>
+                                                    } : {
+                                                        backgroundColor: `${classColor}12`,
+                                                        borderColor: `${classColor}30`,
+                                                        color: classColor
+                                                    }}>
+                                                    {selectedClass !== s.id && (
+                                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: classColor }} />
+                                                    )}
                                                     {getDisplayTitle(s)}
                                                 </button>
                                             );
@@ -2096,20 +2103,51 @@ export default function AttendancePage() {
                                                         </button>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
-                                                            <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.remaining}</p>
-                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">
-                                                                {visitsLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.visit}</span>
-                                                            </p>
-                                                        </div>
-                                                        <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle/50">
-                                                            <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-1">{t.expiryDate}</p>
-                                                            <p className="text-lg font-black text-primary tabular-nums tracking-tighter">
-                                                                {daysLeft} <span className="text-[10px] opacity-40 font-bold ml-1">{t.days}</span>
-                                                            </p>
-                                                        </div>
-                                                    </div>
+                                                    {(() => {
+                                                        // 🎨 Redesigned stat cards: an icon + urgency coloring so
+                                                        // "1 visit left" or "2 days left" actually reads as urgent
+                                                        // instead of looking identical to a healthy subscription.
+                                                        const visitsCritical = typeof visitsLeft === 'number' && visitsLeft <= 1;
+                                                        const daysCritical = daysLeft !== '∞' && daysLeft !== '—' && Number(daysLeft) <= 3;
+                                                        return (
+                                                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                                                <div className={cn(
+                                                                    "p-3 rounded-2xl border flex items-center gap-2.5",
+                                                                    visitsCritical ? "bg-red-500/5 border-red-500/20" : "bg-surface border-border-subtle/60"
+                                                                )}>
+                                                                    <div className={cn(
+                                                                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                                                                        visitsCritical ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-600"
+                                                                    )}>
+                                                                        <CheckCircle2 className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-[8px] font-black text-muted tracking-widest opacity-50 uppercase truncate">{t.remaining}</p>
+                                                                        <p className={cn("text-base font-black tabular-nums tracking-tight leading-tight", visitsCritical ? "text-red-600" : "text-primary")}>
+                                                                            {visitsLeft} <span className="text-[9px] opacity-40 font-bold">{t.visit}</span>
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className={cn(
+                                                                    "p-3 rounded-2xl border flex items-center gap-2.5",
+                                                                    daysCritical ? "bg-amber-500/5 border-amber-500/20" : "bg-surface border-border-subtle/60"
+                                                                )}>
+                                                                    <div className={cn(
+                                                                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                                                                        daysCritical ? "bg-amber-500/10 text-amber-600" : "bg-indigo-500/10 text-indigo-600"
+                                                                    )}>
+                                                                        <Clock className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-[8px] font-black text-muted tracking-widest opacity-50 uppercase truncate">{t.expiryDate}</p>
+                                                                        <p className={cn("text-base font-black tabular-nums tracking-tight leading-tight", daysCritical ? "text-amber-600" : "text-primary")}>
+                                                                            {daysLeft} <span className="text-[9px] opacity-40 font-bold">{t.days}</span>
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
 
                                                     <button onClick={() => setIssueModalOpen(true)}
                                                         className="w-full mt-4 h-11 flex items-center justify-center gap-2 rounded-xl text-white font-black text-[10px] tracking-widest uppercase shadow-lg active:scale-95 transition-all"
@@ -2122,22 +2160,29 @@ export default function AttendancePage() {
                                                     </button>
                                                 </div>
 
-                                                <div className="flex px-4 pt-2 gap-1 border-b border-border-subtle/50 bg-card/20 flex-shrink-0">
-                                                    {[
-                                                        { id: 'recent', label: t.visits, icon: CalendarCheck, color: 'indigo' },
-                                                        { id: 'subs', label: t.subscriptions, icon: Package, color: 'emerald' },
-                                                        { id: 'products', label: t.purchases, icon: ShoppingCart, color: 'rose' }
-                                                    ].map(tab => (
-                                                        <button key={tab.id} onClick={() => setTab(tab.id as any)}
-                                                            className={cn(
-                                                                "flex-1 py-4 flex items-center justify-center gap-2 text-[10px] font-black tracking-widest transition-all relative overflow-hidden",
-                                                                activeTab === tab.id ? `text-${tab.color}-600` : "text-muted opacity-50 hover:opacity-100"
-                                                            )}>
-                                                            <tab.icon className="w-3.5 h-3.5" />
-                                                            <span>{tab.label}</span>
-                                                            {activeTab === tab.id && <div className={cn("absolute bottom-0 left-0 right-0 h-0.5", `bg-${tab.color}-600`)} />}
-                                                        </button>
-                                                    ))}
+                                                {/* 🎨 Redesigned as a segmented-pill control (matching the same
+                                                pattern already used e.g. on the /subscriptions status tabs)
+                                                instead of thin underline tabs — also drops the dynamically
+                                                built `text-${color}-600` / `bg-${color}-600` class names,
+                                                which only happened to survive Tailwind's content scan because
+                                                the same literal classes exist elsewhere in this file. */}
+                                                <div className="p-3 pb-2 flex-shrink-0">
+                                                    <div className="flex bg-surface border border-border-subtle rounded-2xl p-1 gap-1">
+                                                        {[
+                                                            { id: 'recent', label: t.visits, icon: CalendarCheck, activeColor: 'bg-indigo-500' },
+                                                            { id: 'subs', label: t.subscriptions, icon: Package, activeColor: 'bg-emerald-500' },
+                                                            { id: 'products', label: t.purchases, icon: ShoppingCart, activeColor: 'bg-rose-500' }
+                                                        ].map(tab => (
+                                                            <button key={tab.id} onClick={() => setTab(tab.id as any)}
+                                                                className={cn(
+                                                                    "flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider rounded-xl transition-all",
+                                                                    activeTab === tab.id ? cn(tab.activeColor, "text-white shadow-sm") : "text-muted hover:text-primary"
+                                                                )}>
+                                                                <tab.icon className="w-3.5 h-3.5 shrink-0" />
+                                                                <span className="truncate">{tab.label}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
 
                                                 <div className="flex-1 overflow-y-auto p-6 no-scrollbar">
@@ -2158,8 +2203,14 @@ export default function AttendancePage() {
                                                                             <p className="text-[10px] font-bold text-muted opacity-60 mt-0.5">{ch.time} · {cls.title}</p>
                                                                         </div>
                                                                     </div>
+                                                                    {/* 🛠️ FIX: was opacity-0 group-hover:opacity-100 — on a
+                                                                    touch device there is no hover state, so this delete
+                                                                    button was permanently invisible/unreachable on mobile
+                                                                    (it only ever appeared under a mouse cursor in desktop
+                                                                    dev tools). Always visible now, just more subtle until
+                                                                    interacted with. */}
                                                                     <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time); setSubs(getSubscriptions()); } }}
-                                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">
+                                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-60 hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shrink-0">
                                                                         <X className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
@@ -2173,14 +2224,23 @@ export default function AttendancePage() {
                                                                 const isActive = sub.status === 'active' && !isExpired;
                                                                 return (
                                                                     <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-[#6d28d9]/5 border-[#6d28d9]/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
-                                                                        <div className="flex justify-between items-start mb-3">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{isExpired ? l('ვადაგასულია', 'ИСТЁКШИЙ', 'EXPIRED') : (sub.status === 'active' ? l('აქტიური', 'АКТИВНЫЙ', 'ACTIVE') : (sub.status || "active").toUpperCase())}</span>
-                                                                                <span className="text-[9px] font-bold text-muted opacity-40">{formatDate(sub.purchased_at)}</span>
+                                                                        <div className="flex items-start gap-3 mb-3">
+                                                                            <div className={cn(
+                                                                                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+                                                                                isActive ? "bg-[#6d28d9]/10 text-[#6d28d9]" : "bg-surface text-muted"
+                                                                            )}>
+                                                                                <Package className="w-4 h-4" />
                                                                             </div>
-                                                                            <button onClick={async (e) => { 
-                                                                                e.stopPropagation(); 
-                                                                                if (await confirm(t.confirmDelete)) { 
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                                    <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{isExpired ? l('ვადაგასულია', 'ИСТЁКШИЙ', 'EXPIRED') : (sub.status === 'active' ? l('აქტიური', 'АКТИВНЫЙ', 'ACTIVE') : (sub.status || "active").toUpperCase())}</span>
+                                                                                    <span className="text-[9px] font-bold text-muted opacity-40">{formatDate(sub.purchased_at)}</span>
+                                                                                </div>
+                                                                                <p className="text-sm font-black text-primary leading-snug mt-1 truncate">{sub.plan}</p>
+                                                                            </div>
+                                                                            <button onClick={async (e) => {
+                                                                                e.stopPropagation();
+                                                                                if (await confirm(t.confirmDelete)) {
                                                                                     // Optimistic Update
                                                                                     setSubs(prev => {
                                                                                         const next = { ...prev };
@@ -2189,14 +2249,13 @@ export default function AttendancePage() {
                                                                                         }
                                                                                         return next;
                                                                                     });
-                                                                                    deleteSubscription(selStudent.id, sub.id); 
-                                                                                } 
+                                                                                    deleteSubscription(selStudent.id, sub.id);
+                                                                                }
                                                                             }}
-                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted/40 hover:text-red-500 transition-all">
+                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted/60 hover:text-red-500 transition-all shrink-0">
                                                                                 <Trash2 className="w-3.5 h-3.5" />
                                                                             </button>
                                                                         </div>
-                                                                        <p className="text-sm font-black text-primary leading-snug mb-3">{sub.plan}</p>
                                                                         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border-subtle/20">
                                                                             <div>
                                                                                 <p className="text-[8px] font-black text-muted tracking-widest opacity-40 uppercase mb-0.5">{t.expiryDate}</p>
@@ -2226,7 +2285,7 @@ export default function AttendancePage() {
                                                                         </div>
                                                                     </div>
                                                                     <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteSale(sale.id); setSubs(getSubscriptions()); } }}
-                                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">
+                                                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-60 hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shrink-0">
                                                                         <X className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
