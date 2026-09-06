@@ -10,7 +10,7 @@ import {
     QrCode, Copy, Check, Info, CalendarDays,
     Send, ChevronRight, ChevronLeft, Download, Users,
     ExternalLink, BellOff, BellRing,
-    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity, History
+    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity, History, X
 } from 'lucide-react';
 const UserIcon = User;
 import { cn, getLocalISODate, formatCurrency, getScopedKey, safeSetItem, formatDate } from '@/lib/utils';
@@ -113,10 +113,10 @@ export default function StudentPortalPage() {
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [halls, setHalls] = useState<HallData[]>([]);
     const [shopProducts, setShopProducts] = useState<Product[]>([]);
-    const [isQrExpanded, setIsQrExpanded] = useState(false);
+    const [showQrModal, setShowQrModal] = useState(false);
     const [scheduleView, setScheduleView] = useState<'daily' | 'weekly'>('daily');
     const [monthOffset, setMonthOffset] = useState(0);
-    const [historyRange, setHistoryRange] = useState<'1m' | '3m' | '6m' | '1y'>('1m');
+    const [historyRange, setHistoryRange] = useState<'current' | '3m' | '6m' | '12m'>('current');
     const [selectedPeriodOffset, setSelectedPeriodOffset] = useState<number>(0);
     const [viewAllMonths, setViewAllMonths] = useState(false);
 
@@ -714,7 +714,7 @@ export default function StudentPortalPage() {
 
         // Determine which month offsets belong to the selected range
         const periodOffsets: number[] =
-            historyRange === '1m' ? [monthOffset] :
+            historyRange === 'current' ? [monthOffset] :
             historyRange === '3m' ? [0, -1, -2] :
             historyRange === '6m' ? [0, -1, -2, -3, -4, -5] :
             [0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11];
@@ -745,22 +745,22 @@ export default function StudentPortalPage() {
             : 0;
 
         // Current active month to show in calendar
-        const activeMonth = historyRange === '1m'
+        const activeMonth = historyRange === 'current'
             ? monthsData[0]
             : (monthsData.find(m => m.offset === selectedPeriodOffset) || monthsData[0]);
 
-        // Helper to render a month's days grid
+        // Helper to render a month's days grid with designer aesthetics
         const renderMonthGrid = (m: ReturnType<typeof calculateMonthData>) => (
             <div className="space-y-3">
                 {/* Weekday Labels Header */}
                 <div className="grid grid-cols-7 text-center">
                     {weekdayLabels.map((wLabel, i) => (
-                        <span key={i} className="text-[10px] font-black text-muted opacity-40 uppercase tracking-wider">{wLabel}</span>
+                        <span key={i} className="text-[10px] font-black text-muted opacity-50 uppercase tracking-wider py-0.5">{wLabel}</span>
                     ))}
                 </div>
 
                 {/* Days Grid */}
-                <div className="grid grid-cols-7 gap-1.5">
+                <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
                     {/* Empty offset slots */}
                     {Array.from({ length: m.startingEmptySlots }).map((_, i) => (
                         <div key={`empty-${i}`} className="aspect-square" />
@@ -774,18 +774,21 @@ export default function StudentPortalPage() {
                                 key={dayItem.dayNum}
                                 title={`${dayItem.dateStr} — ${dayItem.status}`}
                                 className={cn(
-                                    "aspect-square rounded-xl flex flex-col items-center justify-center text-[12px] font-bold transition-all relative select-none",
-                                    dayItem.status === 'attended' && "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 font-black",
-                                    dayItem.status === 'missed_with_sub' && "bg-rose-500 text-white shadow-md shadow-rose-500/20 font-black",
-                                    dayItem.status === 'no_sub' && "bg-amber-400 text-amber-950 border border-amber-500 font-black shadow-sm",
-                                    dayItem.status === 'future' && "border border-dashed border-indigo-400/40 text-indigo-400/80 bg-indigo-50/10",
-                                    dayItem.status === 'none' && "text-muted/35 hover:bg-surface/50",
+                                    "aspect-square rounded-2xl flex flex-col items-center justify-center text-xs font-bold transition-all relative select-none",
+                                    dayItem.status === 'attended' && "bg-emerald-500 text-white shadow-md shadow-emerald-500/25 font-black scale-[0.98]",
+                                    dayItem.status === 'missed_with_sub' && "bg-rose-500 text-white shadow-md shadow-rose-500/25 font-black scale-[0.98]",
+                                    dayItem.status === 'no_sub' && "bg-amber-400 text-amber-950 border-2 border-amber-500 font-black shadow-md shadow-amber-400/30 scale-[0.98]",
+                                    dayItem.status === 'future' && "bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200/60 dark:border-indigo-800/40",
+                                    dayItem.status === 'none' && "text-muted/40 hover:text-muted/80 hover:bg-surface/60",
                                     isToday && (dayItem.status === 'none' || dayItem.status === 'future') && "ring-2 ring-indigo-500 text-indigo-600 dark:text-indigo-400 font-black bg-indigo-500/10"
                                 )}
                             >
                                 <span>{dayItem.dayNum}</span>
-                                {isToday && (
-                                    <span className="w-1 h-1 rounded-full bg-indigo-500 absolute bottom-1" />
+                                {dayItem.status === 'future' && (
+                                    <span className="w-1 h-1 rounded-full bg-indigo-500 absolute bottom-1.5" />
+                                )}
+                                {isToday && dayItem.status !== 'future' && (
+                                    <span className="w-1 h-1 rounded-full bg-indigo-500 absolute bottom-1.5" />
                                 )}
                             </div>
                         );
@@ -798,9 +801,9 @@ export default function StudentPortalPage() {
             <div className="bg-card border border-border-subtle rounded-[2.5rem] p-5 sm:p-7 shadow-xl shadow-indigo-500/5 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                 {/* Header & Range Selector */}
                 <div className="space-y-3 pb-3 border-b border-border-subtle/50">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner">
+                            <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner shrink-0">
                                 <Activity className="w-4 h-4" />
                             </div>
                             <div>
@@ -808,24 +811,24 @@ export default function StudentPortalPage() {
                                     {l('დასწრების ისტორია', 'История посещений', 'Attendance History')}
                                 </h3>
                                 <p className="text-[10px] sm:text-xs font-bold text-muted opacity-60">
-                                    {historyRange === '1m'
+                                    {historyRange === 'current'
                                         ? l('მიმდინარე თვე', 'Текущий месяц', 'Current Month')
                                         : historyRange === '3m'
                                         ? l('ბოლო 3 თვე', 'Последние 3 месяца', 'Last 3 Months')
                                         : historyRange === '6m'
                                         ? l('ბოლო 6 თვე', 'Последние 6 месяцев', 'Last 6 Months')
-                                        : l('ბოლო 1 წელი', 'Последний 1 год', 'Last 1 Year')}
+                                        : l('ბოლო 12 თვე', 'Последние 12 месяцев', 'Last 12 Months')}
                                 </p>
                             </div>
                         </div>
 
                         {/* Period Filter Tabs */}
-                        <div className="flex items-center p-1 bg-surface rounded-2xl border border-border-subtle text-xs">
+                        <div className="flex items-center p-1 bg-surface rounded-2xl border border-border-subtle text-xs overflow-x-auto no-scrollbar shrink-0">
                             {([
-                                { id: '1m', label: l('1 თვე', '1 мес.', '1 Mo') },
+                                { id: 'current', label: l('მიმდინარე თვე', 'Текущий месяц', 'Current') },
                                 { id: '3m', label: l('3 თვე', '3 мес.', '3 Mo') },
                                 { id: '6m', label: l('6 თვე', '6 мес.', '6 Mo') },
-                                { id: '1y', label: l('1 წელი', '1 год', '1 Yr') },
+                                { id: '12m', label: l('12 თვე', '12 мес.', '12 Mo') },
                             ] as const).map(tab => (
                                 <button
                                     key={tab.id}
@@ -835,7 +838,7 @@ export default function StudentPortalPage() {
                                         setViewAllMonths(false);
                                     }}
                                     className={cn(
-                                        "px-2.5 sm:px-3 py-1 rounded-xl font-black text-[11px] sm:text-xs transition-all",
+                                        "px-2 sm:px-3 py-1.5 rounded-xl font-black text-[10px] sm:text-xs transition-all whitespace-nowrap",
                                         historyRange === tab.id
                                             ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]"
                                             : "text-muted hover:text-primary hover:bg-surface/80"
@@ -961,7 +964,7 @@ export default function StudentPortalPage() {
                 </div>
 
                 {/* Calendar Navigation and Month Display */}
-                {historyRange === '1m' ? (
+                {historyRange === 'current' ? (
                     <div className="space-y-3 pt-2 border-t border-border-subtle/50">
                         {/* Month Header with < > Arrows */}
                         <div className="flex items-center justify-between">
@@ -1129,35 +1132,46 @@ export default function StudentPortalPage() {
                         {/* Profile Card */}
                         <div className="bg-card border border-border-subtle rounded-[2.5rem] p-5 sm:p-8 shadow-xl shadow-indigo-500/5 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl -mr-20 -mt-20 group-hover:bg-indigo-500/10 transition-all duration-700" />
-                            <div className="flex items-center gap-5 relative z-10">
-                                <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-indigo-500 to-indigo-700 p-0.5 shadow-xl shadow-indigo-500/20">
-                                    <div className="w-full h-full bg-card rounded-[1.9rem] flex items-center justify-center overflow-hidden">
-                                        {studentData.photo_url ? (
-                                            <img src={studentData.photo_url} alt="" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="text-2xl font-black text-indigo-500">{initials || '??'}</div>
-                                        )}
+                            <div className="flex items-start justify-between gap-3 relative z-10">
+                                <div className="flex items-center gap-4 sm:gap-5 flex-1 min-w-0">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.8rem] bg-gradient-to-br from-indigo-500 to-indigo-700 p-0.5 shadow-xl shadow-indigo-500/20 shrink-0">
+                                        <div className="w-full h-full bg-card rounded-[1.7rem] flex items-center justify-center overflow-hidden">
+                                            {studentData.photo_url ? (
+                                                <img src={studentData.photo_url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="text-xl sm:text-2xl font-black text-indigo-500">{initials || '??'}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-left flex-1 min-w-0">
+                                        <div className="flex flex-col mb-1">
+                                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight truncate">
+                                                {studentData.full_name || `${studentData.first_name} ${studentData.last_name}`}
+                                            </h1>
+                                            <p className="text-[10px] font-bold text-indigo-500 tracking-widest uppercase opacity-70 mt-0.5 truncate">
+                                                {studentData.enrolled_group_ids && studentData.enrolled_group_ids.length > 0
+                                                    ? getGroups().filter(g => studentData.enrolled_group_ids?.includes(g.id)).map(g => g.name).join(', ')
+                                                    : '—'}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <p className={cn("text-[10px] font-black tracking-widest uppercase", (sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? "text-emerald-500" : "text-rose-500")}>
+                                                {(sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? t.active : t.inactive || 'InActive'}
+                                            </p>
+                                            <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
+                                            <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {(studentData?.id || studentId).toUpperCase()}</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="text-left flex-1 min-w-0">
-                                    <div className="flex flex-col mb-1">
-                                        <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight">
-                                            {studentData.full_name || `${studentData.first_name} ${studentData.last_name}`}
-                                        </h1>
-                                        <p className="text-[10px] font-bold text-indigo-500 tracking-widest uppercase opacity-70 mt-0.5">
-                                            {studentData.enrolled_group_ids && studentData.enrolled_group_ids.length > 0
-                                                ? getGroups().filter(g => studentData.enrolled_group_ids?.includes(g.id)).map(g => g.name).join(', ')
-                                                : '—'}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <p className={cn("text-[10px] font-black tracking-widest uppercase", (sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? "text-emerald-500" : "text-rose-500")}>
-                                            {(sub?.status === 'active' || (sub?.sessions_total && sub.sessions_used < sub.sessions_total)) ? t.active : t.inactive || 'InActive'}
-                                        </p>
-                                        <span className="w-1 h-1 rounded-full bg-border-subtle/50" />
-                                        <p className="text-[10px] font-bold text-muted tracking-widest opacity-40">ID: {(studentData?.id || studentId).toUpperCase()}</p>
-                                    </div>
-                                </div>
+
+                                {/* QR Code Quick Button */}
+                                <button
+                                    onClick={() => setShowQrModal(true)}
+                                    className="w-11 h-11 rounded-2xl bg-indigo-500/10 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-500/20 flex items-center justify-center transition-all shadow-sm active:scale-90 shrink-0 group"
+                                    title={l('QR კოდის ჩვენება', 'Показать QR код', 'Show QR Code')}
+                                >
+                                    <QrCode className="w-5 h-5 transition-transform group-hover:scale-110" />
+                                </button>
                             </div>
 
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-8 pt-6 border-t border-border-subtle/50 relative z-10">
@@ -1240,56 +1254,6 @@ export default function StudentPortalPage() {
 
                         {/* Attendance History Card */}
                         {renderAttendanceHistoryCard()}
-
-
-                        {/* QR Card */}
-                        <div className="bg-card border border-border-subtle rounded-[2.5rem] overflow-hidden shadow-xl shadow-black/5 transition-all duration-500">
-                            <button
-                                onClick={() => setIsQrExpanded(!isQrExpanded)}
-                                className="w-full p-6 sm:p-8 flex items-center justify-between hover:bg-surface/50 transition-colors"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-all", isQrExpanded ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20")}>
-                                        <QrCode className="w-6 h-6" />
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <h1 className="text-xl font-black text-primary truncate max-w-[200px] leading-tight">{studentData?.full_name || t.loading}</h1>
-                                            <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-500/20">{studentData?.status || 'Active'}</div>
-                                            <div className="text-[10px] font-bold text-muted/40 ml-auto uppercase tracking-tighter">ID: {(studentData?.id || studentId).toUpperCase()}</div>
-                                        </div>
-                                        <h3 className="text-sm font-black text-primary tracking-tight">{t.qrCode || 'QR კოდი'}</h3>
-                                        <p className="text-[10px] font-bold text-muted opacity-60 tracking-widest">{isQrExpanded ? t.hideQr || 'დამალვა' : t.showQr || 'ჩვენება'}</p>
-                                    </div>
-                                </div>
-                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center transition-transform duration-300", isQrExpanded ? "rotate-180 bg-indigo-50/50" : "bg-surface border border-border-subtle")}>
-                                    <ChevronRight className={cn("w-4 h-4 text-primary", isQrExpanded && "rotate-90")} />
-                                </div>
-                            </button>
-                            <div className={cn("px-8 pb-8 space-y-6 overflow-hidden transition-all duration-500 ease-in-out", isQrExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 invisible")}>
-                                <div className="flex flex-col items-center gap-6 py-4">
-                                    <div className="relative w-48 h-48 bg-white rounded-3xl p-4 shadow-2xl shadow-indigo-500/10 border border-border-subtle/30">
-                                        {qrDataUrl ? (
-                                            <img src={qrDataUrl} alt="QR Code" className="w-full h-full object-contain" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center animate-pulse">
-                                                <QrCode className="w-10 h-10 text-border-subtle" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="w-full space-y-2">
-                                        <p className="text-[10px] text-muted font-black tracking-widest opacity-40 text-center">{t.qrIdAndCopy}</p>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleCopyId(); }}
-                                            className="w-full flex items-center justify-between gap-4 bg-surface/50 border border-border-subtle hover:border-indigo-500/40 rounded-2xl px-6 py-4 transition-all"
-                                        >
-                                            <span className="text-lg font-mono font-black text-primary tracking-tighter">{studentId}</span>
-                                            {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5 text-muted opacity-40" />}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 )}
 
@@ -1665,6 +1629,72 @@ export default function StudentPortalPage() {
                     </div>
                 )}
             </div>
+
+            {/* Student QR Code Modal Popup */}
+            {showQrModal && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setShowQrModal(false)}
+                >
+                    <div
+                        className="bg-card border border-border-subtle rounded-[2.5rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl space-y-6 relative animate-in zoom-in-95 duration-200"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setShowQrModal(false)}
+                            className="absolute top-5 right-5 w-9 h-9 rounded-2xl bg-surface hover:bg-surface/80 border border-border-subtle flex items-center justify-center text-muted hover:text-primary transition-all active:scale-90"
+                            title={l('დახურვა', 'Закрыть', 'Close')}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        <div className="text-center space-y-1.5 pt-1">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-inner">
+                                <QrCode className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-base sm:text-lg font-black text-primary tracking-tight">
+                                {studentData?.full_name || l('მოსწავლის QR კოდი', 'QR код ученика', 'Student QR Code')}
+                            </h3>
+                            <p className="text-[11px] font-bold text-muted opacity-60">
+                                {l('წარუდგინეთ ადმინისტრატორს შესვლისას', 'Предъявите администратору при входе', 'Show to administrator at check-in')}
+                            </p>
+                        </div>
+
+                        {/* High-res QR Code */}
+                        <div className="flex justify-center">
+                            <div className="p-4 bg-white rounded-3xl shadow-xl shadow-indigo-500/10 border border-border-subtle/40">
+                                {qrDataUrl ? (
+                                    <img src={qrDataUrl} alt="QR Code" className="w-48 h-48 sm:w-52 sm:h-52 object-contain" />
+                                ) : (
+                                    <div className="w-48 h-48 sm:w-52 sm:h-52 flex items-center justify-center animate-pulse">
+                                        <QrCode className="w-12 h-12 text-border-subtle" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Student ID & Copy Button */}
+                        <div className="space-y-2">
+                            <button
+                                onClick={handleCopyId}
+                                className="w-full flex items-center justify-between gap-3 bg-surface border border-border-subtle hover:border-indigo-500/40 rounded-2xl px-5 py-3.5 transition-all group active:scale-[0.99]"
+                            >
+                                <div className="text-left">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted opacity-50 block">ID</span>
+                                    <span className="text-sm sm:text-base font-mono font-black text-primary tracking-wider uppercase">
+                                        {studentId}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                    {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                                    <span>{copied ? l('კოპირებულია', 'Скопировано', 'Copied') : l('კოპირება', 'Копировать', 'Copy')}</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Footer */}
             <div className="text-center pt-12 pb-6">
