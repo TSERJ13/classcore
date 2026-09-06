@@ -20,7 +20,7 @@ import type { Student } from '@/types';
 import { getGroups } from '@/lib/group-store';
 import { getTeachers } from '@/lib/teacher-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
-import { pctChange, buildPlanPrices, subRevenue } from '@/lib/studio-stats';
+import { pctChange, buildPlanPrices, subRevenue, isSubInMonth, isSubOnDay } from '@/lib/studio-stats';
 import { getPlans } from '@/lib/plan-store';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
@@ -314,30 +314,9 @@ export default function DashboardPage() {
         const plans = getPlans();
         const planPrices = buildPlanPrices(plans);
 
-        const isSubInMonth = (sub: any, mPrefix: string) => {
-            const pDate = sub.purchased_at?.split('T')[0] || '';
-            if (pDate.startsWith(mPrefix)) return true;
-            if (sub.created_at) {
-                try {
-                    const cDate = getLocalISODate(new Date(sub.created_at));
-                    if (cDate.startsWith(mPrefix)) return true;
-                } catch {}
-            }
-            if (pDate.startsWith('2026-08-31') && sub.expires_at?.startsWith(mPrefix)) return true;
-            return false;
-        };
-
-        const isSubToday = (sub: any) => {
-            const pDate = sub.purchased_at?.split('T')[0] || '';
-            if (pDate === todayStr) return true;
-            if (sub.created_at) {
-                try {
-                    const cDate = getLocalISODate(new Date(sub.created_at));
-                    if (cDate === todayStr) return true;
-                } catch {}
-            }
-            return false;
-        };
+        // isSubInMonth / isSubOnDay now live in studio-stats.ts (shared with
+        // analytics/page.tsx) so the two pages can't drift apart the way
+        // subscription-store.ts's cachedSubs staleness fix once did.
 
         // ── Revenue: this month vs last month ────────────────────────────────
         const revInMonth = (mPrefix: string) =>
@@ -428,7 +407,7 @@ export default function DashboardPage() {
             todayExpected,
             expiringSoon: expiringSoonStudents.size,
             oneSessionLeft: oneSessionStudents.size,
-            todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubToday(sub)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
+            todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubOnDay(sub, todayStr)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
         }));
 
         // 2. Refresh Schedule & Activity

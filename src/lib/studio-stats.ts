@@ -15,6 +15,8 @@
  * ---------------------------------------------------------------------------
  */
 
+import { getLocalISODate } from './utils';
+
 export type Localize = (ka: string, ru: string, en: string) => string;
 
 /** Build a price lookup keyed by BOTH plan name and plan id, so either reference resolves. */
@@ -47,6 +49,56 @@ export function subRevenue(sub: any, planPrices: Record<string, number>): number
 /** Sum revenue across a list of subscriptions using the canonical per-sub rule. */
 export function sumSubRevenue(subs: any[], planPrices: Record<string, number>): number {
     return (subs || []).reduce((sum, s) => sum + subRevenue(s, planPrices), 0);
+}
+
+/**
+ * Canonical "which calendar month does this subscription's payment belong to"
+ * check, used by both dashboard/page.tsx and analytics/page.tsx.
+ *
+ * 🛠️ CONSOLIDATION NOTE: this used to be copy-pasted verbatim in both files
+ * (a real risk — the two copies had already started answering slightly
+ * different questions before this was pulled out; see the cachedSubs /
+ * clearCache staleness bug elsewhere in this codebase for what happens when
+ * two call sites are supposed to stay in sync and don't). Fix both call
+ * sites by editing this one function instead.
+ *
+ * The `pDate.startsWith('2026-08-31')` branch is a one-off compatibility
+ * shim: subscriptions created before `purchased_at`/`starts_at` were split
+ * into separate "payment date" vs "service start date" fields apparently
+ * got backfilled with a literal 2026-08-31 purchase date during that
+ * migration, so their real month has to be guessed from `expires_at`
+ * instead. This is a narrow, date-literal patch for that one batch of
+ * legacy rows — it will not generalize to any future migration, and should
+ * be revisited (and likely deleted) once those legacy subscriptions have
+ * aged out of any reporting window.
+ */
+export function isSubInMonth(sub: any, monthPrefix: string): boolean {
+    if (!sub) return false;
+    const pDate = sub.purchased_at?.split('T')[0] || '';
+    if (pDate.startsWith(monthPrefix)) return true;
+    if (sub.created_at) {
+        try {
+            const localISO = getLocalISODate(new Date(sub.created_at));
+            if (localISO.startsWith(monthPrefix)) return true;
+        } catch {}
+    }
+    if (pDate.startsWith('2026-08-31') && sub.expires_at?.startsWith(monthPrefix)) return true;
+    return false;
+}
+
+/** Same-day counterpart of {@link isSubInMonth}, for "today's revenue" cards. */
+export function isSubOnDay(sub: any, dayStr: string): boolean {
+    if (!sub) return false;
+    const pDate = sub.purchased_at?.split('T')[0] || '';
+    if (pDate === dayStr) return true;
+    if (sub.created_at) {
+        try {
+            const cDate = new Date(sub.created_at);
+            const localISO = `${cDate.getFullYear()}-${String(cDate.getMonth() + 1).padStart(2, '0')}-${String(cDate.getDate()).padStart(2, '0')}`;
+            if (localISO === dayStr) return true;
+        } catch {}
+    }
+    return false;
 }
 
 /** Safe percentage change. Returns null when there is no meaningful baseline. */

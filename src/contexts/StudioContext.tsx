@@ -205,10 +205,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // from the cloud/settings-blob snapshot before it propagated.
                 const deletedHallIds = getLocallyDeletedIds(getScopedKey('cc_deleted_halls'));
                 const deletedSubIds = getLocallyDeletedIds(getScopedKey('cc_deleted_subscriptions', activeSlug || 'default'));
-                // Same mechanism, for products (product-store.ts's deleteProduct()) —
-                // used further below where `cc_shop_products` is written, both here
-                // in the core mapping and again in the heavy background sync.
+                // Same mechanism, for products, plans and groups — used further
+                // below (products in the core mapping + heavy sync) and right
+                // here for finalPlans/finalGroups, which used to merge in the
+                // backup settings-blob copy with no tombstone filter at all
+                // (unlike finalHalls above) — a deleted plan or group could
+                // resurrect via this exact merge even after being removed from
+                // its own dedicated store.
                 const deletedProductIds = getLocallyDeletedIds(getScopedKey('cc_deleted_products'));
+                const deletedGroupIds = getLocallyDeletedIds(getScopedKey('cc_deleted_groups'));
+                const deletedPlanIds = getLocallyDeletedIds(getScopedKey('cc_deleted_subscription_plans'));
 
                 const resolveRicher = (db: any[], backup: any) => {
                     const dbArr = Array.isArray(db) ? db : [];
@@ -218,14 +224,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     backupArr.forEach(b => { if (!merged.find(m => m.id === b.id)) merged.push(b); });
                     return merged;
                 };
-
-                // 🛠️ FIX: finalPlans/finalGroups used to merge in the backup
-                // settings-blob copy with no tombstone filter at all (unlike
-                // finalHalls/finalEvents right below, which already did) — a
-                // deleted plan or group could resurrect via this exact merge
-                // even after being removed from its own dedicated store.
-                const deletedGroupIds = getLocallyDeletedIds(getScopedKey('cc_deleted_groups'));
-                const deletedPlanIds = getLocallyDeletedIds(getScopedKey('cc_deleted_subscription_plans'));
 
                 const finalStaff = resolveRicher(state.staff, cloudSettings.staff || settings.staff);
                 const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls)
@@ -458,8 +456,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     // setMemoryStudentsCache above for students), but nothing ever
                     // populated it — so if a localStorage write for
                     // cc_student_subscriptions ever failed under quota pressure,
-                    // getSubscriptions() had no fresher-than-nothing fallback to
-                    // fall back to.
+                    // getSubscriptions() had no fresher-than-nothing fallback.
                     if (mapping.cc_student_subscriptions) {
                         setSubscriptionsMemoryCache(mapping.cc_student_subscriptions, activeSlug || 'default');
                     }
@@ -662,7 +659,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 // condition gating an unconditional overwrite of that collection's
                                 // localStorage key — but heavyState.X is an array/object built by the
                                 // route as `r.data || []`, so it's truthy even when the underlying
-                                // Supabase query actually ERRORED (route.ts now flags that in
+                                // Supabase query actually ERRORED (route.ts flags that in
                                 // `queryFailed.X`). A transient query error on, say, `sales` used to
                                 // silently wipe every locally-cached sale until the next successful
                                 // hydration cycle. Skip the write on that specific collection's error
@@ -746,7 +743,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     const map: any = {};
                                     const allDeleted = new Set((heavyState.trash || []).map((t: any) => t?.entity_id || t?.id).filter(Boolean));
                                     unwrap(heavyState.subscriptions)
-                                        .filter((sub: any) => !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`))
+                                        .filter((sub: any) => sub && sub.id && !allDeleted.has(sub.id) && !allDeleted.has(`sub_${sub.id}`) && !deletedSubIds.has(sub.id))
                                         .forEach((s: any) => {
                                             const sId = s.student_id;
                                             if (sId) {
@@ -764,13 +761,13 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     await safeSetItem(getScopedKey('cc_student_subscriptions', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
                                     setSubscriptionsMemoryCache(map, activeSlug || 'default');
                                 }
-                                
+
                                 if (heavyState.products && !heavyState.queryFailed?.products) {
                                     // Same array-vs-map mismatch as calendar_events above:
                                     // product-store.ts requires `cc_shop_products` to be an array
                                     // (`Array.isArray(parsed) ? parsed : INITIAL_PRODUCTS`), so writing
                                     // an `{id: product}` map here got silently discarded on next read.
-                                    // Also filtered by `deletedProductIds` (see product-store.ts's new
+                                    // Also filtered by `deletedProductIds` (product-store.ts's
                                     // `cc_deleted_products` tombstone) so a product deleted on this
                                     // device can't resurrect via this background sync.
                                     const list = unwrap(heavyState.products).filter((p: any) => !deletedProductIds.has(p.id));

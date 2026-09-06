@@ -555,7 +555,15 @@ export default function StudentPortalPage() {
         const enrolledGroups = getGroups().filter(g =>
             studentData?.enrolled_group_ids?.includes(g.id)
         );
-        const myEvents = getEvents().filter(e => e.student_id === studentId || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
+        // 🛠️ FIX: individual/pair-lesson events store `student_id` as a
+        // comma-joined string (e.g. "idA,idB") when the lesson was issued to
+        // a couple/pair subscription (see IssueSubscriptionModal.tsx, which
+        // passes the same joined studentId into both saveSubscription() and
+        // generateIndividualEvents()). An exact `e.student_id === studentId`
+        // check here NEVER matches for either half of a pair, so a paired
+        // student's own individual lessons silently never appeared on their
+        // own student-portal history. Split + compare instead.
+        const myEvents = getEvents().filter(e => (e.student_id || '').split(',').map(x => x.trim().toLowerCase()).includes(studentId) || studentData?.enrolled_group_ids?.includes(e.group_id || ''));
 
         // Student subscriptions to verify active subscription status on past dates
         const studentSubs = getStudentSubscriptions(studentId);
@@ -1225,7 +1233,8 @@ export default function StudentPortalPage() {
                                                     </div>
                                                     <div className="space-y-3">
                                                         {dayEvents.map(ev => {
-                                                            const isMyEvent = studentData?.enrolled_group_ids?.includes(ev.group_id || '') || ev.student_id === studentId;
+                                                            // 🛠️ Same pair-subscription fix as renderAttendanceHistoryCard() above.
+                                                            const isMyEvent = studentData?.enrolled_group_ids?.includes(ev.group_id || '') || (ev.student_id || '').split(',').map(x => x.trim().toLowerCase()).includes(studentId);
                                                             return (
                                                                 <div key={`${ev.id}-${dayDate}`} className={cn("relative bg-surface border rounded-3xl p-4 flex gap-4 transition-all overflow-hidden", isMyEvent ? "border-indigo-500/30 bg-indigo-50/20 shadow-lg shadow-indigo-500/5" : "border-border-subtle opacity-80 shadow-sm", dayDate < todayStr && "opacity-40 grayscale-[0.5]")}>
                                                                     {isMyEvent && (

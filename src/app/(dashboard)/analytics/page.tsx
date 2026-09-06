@@ -29,7 +29,7 @@ import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
 import { getExpenses, saveExpenses, MonthlyExpenses } from '@/lib/expense-store';
 import { getStudentCheckins } from '@/lib/checkin-store';
-import { buildPlanPrices, subRevenue as calcSubRevenue, pctChange, generateInsights } from '@/lib/studio-stats';
+import { buildPlanPrices, subRevenue as calcSubRevenue, pctChange, generateInsights, isSubInMonth, isSubOnDay } from '@/lib/studio-stats';
 
 // ─── Month Navigator ─────────────────────────────────────────────────────────
 
@@ -564,31 +564,8 @@ export default function AnalyticsPage() {
             const activeSubCount = activeSubStudentIds.size;
 
             // Revenue & Subscriptions for this month
-            const isSubInMonth = (sub: any, m: string) => {
-                const pDate = sub.purchased_at?.split('T')[0] || '';
-                if (pDate.startsWith(m)) return true;
-                if (sub.created_at) {
-                    try {
-                        const cDate = getLocalISODate(new Date(sub.created_at));
-                        if (cDate.startsWith(m)) return true;
-                    } catch {}
-                }
-                if (pDate.startsWith('2026-08-31') && sub.expires_at?.startsWith(m)) return true;
-                return false;
-            };
-
-            const isSubOnDay = (sub: any, dStr: string) => {
-                const pDate = sub.purchased_at?.split('T')[0] || '';
-                if (pDate === dStr) return true;
-                if (sub.created_at) {
-                    try {
-                        const cDate = getLocalISODate(new Date(sub.created_at));
-                        if (cDate === dStr) return true;
-                    } catch {}
-                }
-                return false;
-            };
-
+            // isSubInMonth / isSubOnDay now live in studio-stats.ts (shared
+            // with dashboard/page.tsx) — see that module for why.
             const filteredSales = sales.filter(s => s.date?.startsWith(monthStr));
             const filteredSubs = allSubs.filter(sub => isSubInMonth(sub, monthStr));
 
@@ -899,8 +876,18 @@ export default function AnalyticsPage() {
                 }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 10),
                 branchStats: settings.branches.map(b => {
                     const branchStudents = students.filter(s => s.branch_id === b.id || (!s.branch_id && b.id === 'main'));
-                    const branchRevenue = filteredSales.filter(s => s.studentId && students.find(st => st.id === s.studentId && (st.branch_id === b.id || (!st.branch_id && b.id === 'main')))).reduce((sum, s) => sum + s.price * s.quantity, 0) +
-                        filteredSubs.filter(sub => students.find(st => st.id === sub.student_id && (st.branch_id === b.id || (!st.branch_id && b.id === 'main')))).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
+                    const branchStudentIds = new Set(branchStudents.map(s => s.id));
+                    const branchRevenue = filteredSales.filter(s => s.studentId && branchStudentIds.has(s.studentId)).reduce((sum, s) => sum + s.price * s.quantity, 0) +
+                        // 🛠️ FIX: a pair/couple subscription stores `student_id` as a
+                        // comma-joined string ("idA,idB"). The old `st.id === sub.student_id`
+                        // exact-equality check never matched any single branch student for
+                        // such a subscription, so branch revenue silently dropped all
+                        // pair-plan income. Split and check membership instead.
+                        filteredSubs.filter(sub => {
+                            if (!sub.student_id) return false;
+                            const ids = String(sub.student_id).split(',').map((x: string) => x.trim());
+                            return ids.some((id: string) => branchStudentIds.has(id));
+                        }).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
                     return { name: b.name, students: branchStudents.length, revenue: branchRevenue };
                 })
             });
