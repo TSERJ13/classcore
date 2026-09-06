@@ -155,7 +155,12 @@ export default function StudentsPage() {
             if (!editing) {
                 const dup = mod.checkDuplicateStudent(data.full_name || '', data.phone || '', data.birth_date);
                 if (dup) {
-                    if (!confirm(`სტუდენტი ამ სახელით ან ნომრით უკვე არსებობს (${dup.full_name}). მაინც გსურთ დამატება?`)) {
+                    // 🛠️ FIX: confirm() (from useConfirm()) returns a Promise<boolean> —
+                    // this was missing `await`, so `!confirm(...)` negated the Promise
+                    // object itself (always falsy), and `return` never fired regardless
+                    // of the user's answer. A duplicate was silently created even when
+                    // the user clicked "Cancel".
+                    if (!await confirm(`სტუდენტი ამ სახელით ან ნომრით უკვე არსებობს (${dup.full_name}). მაინც გსურთ დამატება?`)) {
                         return;
                     }
                 }

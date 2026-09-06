@@ -449,7 +449,14 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                     days[jsDay] = { active: true, start: slot.startTime, end: slot.endTime };
                 });
             } else {
-                const jsDay = new Date(ev.date).getDay();
+                // 🛠️ FIX: ev.date is a plain 'YYYY-MM-DD' string. `new Date(str)`
+                // parses that as UTC midnight, then .getDay() reads it back in
+                // the browser's LOCAL timezone — in any negative-UTC-offset
+                // timezone that's the previous calendar day, pre-selecting the
+                // wrong weekday toggle here. Every other date site in this file
+                // avoids this by appending 'T00:00:00' so the Date is
+                // constructed in local time from the start.
+                const jsDay = new Date(`${ev.date}T00:00:00`).getDay();
                 days[jsDay] = { active: true, start: ev.start_time, end: ev.end_time };
             }
         }
@@ -1527,7 +1534,11 @@ export default function CalendarPage() {
             if (ev.recurring === 'weekly') {
                 for (let w = -4; w <= 4; w++) { // Expand further for month view
                     if (w === 0) continue;
-                    const d = new Date(ev.date);
+                    // 🛠️ FIX: same 'YYYY-MM-DD' → UTC-midnight trap as above —
+                    // appending 'T00:00:00' keeps this in local time so the
+                    // recurring-lesson dates it expands to don't shift by a
+                    // day in a negative-UTC-offset browser.
+                    const d = new Date(`${ev.date}T00:00:00`);
                     d.setDate(d.getDate() + w * 7);
                     const recDate = toDateStr(d);
                     const recId = `${ev.id}_w${w}`;

@@ -119,10 +119,12 @@ export function getEvents(): CalendarEvent[] {
         }
 
         // 4. AUTO-PURGE ORPHANS:
-        const deletedGroupsKey = `cc_deleted_groups_${activeSlug}`;
-        const rawDeleted = localStorage.getItem(deletedGroupsKey);
-        const deletedGroupIds = rawDeleted ? JSON.parse(rawDeleted) : [];
-        const deletedSet = new Set(Array.isArray(deletedGroupIds) ? deletedGroupIds : []);
+        // 🛠️ FIX: this used to read a hand-built `cc_deleted_groups_${activeSlug}`
+        // key, which getScopedKey() never produces once an org id is resolvable
+        // (it substitutes the org's UUID for the slug) — so this never matched
+        // what group-store.ts's getDeletedGroupsKey() writes to, and this block
+        // was permanently a no-op. Use the same call group-store.ts makes.
+        const deletedSet = getLocallyDeletedIds(getScopedKey('cc_deleted_groups'));
 
         if (deletedSet.size > 0) {
             const initialCount = events.length;
@@ -141,11 +143,11 @@ export function getEvents(): CalendarEvent[] {
         // (which normally runs at delete time) in case that call raced a
         // page unload or ran while offline.
         // NOTE: uses getScopedKey('cc_deleted_halls') — the same call
-        // hall-store.ts's getDeletedHallsKey() makes — rather than a manual
-        // `cc_deleted_halls_${activeSlug}` string like the (currently
-        // dead/no-op — see summary) group-orphan-purge above: getScopedKey
-        // resolves to the org id, not the raw slug, so a hand-built key here
-        // would silently never match what deleteHall() actually writes to.
+        // hall-store.ts's getDeletedHallsKey() makes — for the same reason
+        // the group-orphan-purge above was just fixed to do likewise:
+        // getScopedKey resolves to the org id, not the raw slug, so a
+        // hand-built key here would silently never match what deleteHall()
+        // actually writes to.
         const deletedHallIds = getLocallyDeletedIds(getScopedKey('cc_deleted_halls'));
         if (deletedHallIds.size > 0) {
             const staleCount = events.filter((e: CalendarEvent) => e.hall_id && deletedHallIds.has(e.hall_id)).length;

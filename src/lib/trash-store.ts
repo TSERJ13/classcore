@@ -59,7 +59,15 @@ export function moveToTrash(type: TrashItem['type'], data: any, branchId: string
             deletedBy
         };
 
-        const updated = [newItem, ...trash];
+        // 🛠️ FIX: dedupe by id. Some delete flows call moveToTrash() twice for
+        // the same entity (once directly from a page's delete handler, once
+        // via the store-level recordGlobalDeletion() bridge) — without this,
+        // the second call always added a second row to the trash list, and
+        // when the two calls disagreed on what `data` they had (e.g. one had
+        // the full record, the other only an id) the duplicate showed up as a
+        // near-empty "junk" entry next to the real one. Replacing any existing
+        // entry with the same id keeps a single, richest-available row.
+        const updated = [newItem, ...trash.filter(t => t.id !== newItem.id)];
         localStorage.setItem(getScopedKey(TRASH_KEY), JSON.stringify(updated));
         
         // Cloud sync

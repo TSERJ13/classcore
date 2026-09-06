@@ -6,7 +6,7 @@ import { getTrash, removeFromTrash, TrashItem } from '@/lib/trash-store';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Trash2, Search, RotateCcw, AlertCircle, Building2, User, Users, CreditCard, Mail, Phone, Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { cn, getScopedKey } from '@/lib/utils';
+import { cn, getScopedKey, removeLocallyDeletedId } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 
@@ -30,18 +30,26 @@ export default function TrashPage() {
     });
 
     const handleRestore = async (item: TrashItem) => {
-        const typeMap: Record<string, { key: string; event: string }> = {
-            'student': { key: 'cc_student_data', event: 'cc_student_update' },
+        // 🛠️ FIX: every getX() reader (getStudents/getSubscriptions/getGroups)
+        // filters out ids present in its own `cc_deleted_X` tombstone set — a
+        // set that delete-time code adds to, but this restore flow never
+        // cleared. The record below WAS being written back into the main
+        // collection, but the tombstone kept hiding it, so "Restore" showed
+        // the "Restored!" toast while the item stayed permanently invisible.
+        // `deletedKey` (when set) is cleared for the restored id right after
+        // the collection write.
+        const typeMap: Record<string, { key: string; event: string; deletedKey?: string }> = {
+            'student': { key: 'cc_student_data', event: 'cc_student_update', deletedKey: 'cc_deleted_students' },
             'teacher': { key: 'cc_teachers', event: 'cc_teacher_update' },
-            'subscription': { key: 'cc_student_subscriptions', event: 'cc_subscription_update' },
-            'group': { key: 'cc_groups', event: 'cc_group_update' }
+            'subscription': { key: 'cc_student_subscriptions', event: 'cc_subscription_update', deletedKey: 'cc_deleted_subscriptions' },
+            'group': { key: 'cc_groups', event: 'cc_group_update', deletedKey: 'cc_deleted_groups' }
         };
 
         const config = typeMap[item.type];
         if (config) {
             const storageKey = getScopedKey(config.key);
             const raw = localStorage.getItem(storageKey);
-            
+
             if (item.type === 'student') {
                 const existing = JSON.parse(raw || '{}');
                 existing[item.data.id] = item.data;
@@ -57,6 +65,10 @@ export default function TrashPage() {
             } else {
                 const existing = JSON.parse(raw || '[]');
                 localStorage.setItem(storageKey, JSON.stringify([...existing, item.data]));
+            }
+
+            if (config.deletedKey && item.data?.id) {
+                removeLocallyDeletedId(getScopedKey(config.deletedKey), item.data.id);
             }
 
             removeFromTrash(item.id);

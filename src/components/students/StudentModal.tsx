@@ -159,11 +159,19 @@ function SubscriptionCard({ student }: { student: Student }) {
     return (
         <div className="space-y-3 mb-6">
             {subs.map(sub => {
-                const expiresAt = new Date(sub.expires_at);
+                // 🛠️ FIX: sub.expires_at is a plain 'YYYY-MM-DD' string. `new
+                // Date(str)` parses it as UTC midnight, while `today` below is
+                // LOCAL midnight — for Georgia's UTC+4 (and any other
+                // positive-offset timezone) that's a ~4h+ gap that Math.ceil()
+                // rounds up into a whole extra day, e.g. a subscription that
+                // actually expires in 5 days shows "6 days left". Anchoring
+                // expiresAt to local midnight too (same 'T00:00:00' pattern
+                // used elsewhere in this codebase) makes both sides comparable.
+                const expiresAt = new Date(`${sub.expires_at}T00:00:00`);
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const diffTime = expiresAt.getTime() - today.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
                 const isUnlimited = sub.expires_at === '2099-12-31';
                 const isSessions = sub.type === 'sessions';

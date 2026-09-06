@@ -60,21 +60,40 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'id or ids required' }, { status: 400 });
         }
 
-        // Scope the delete to the caller's own org — defense in depth even if
-        // the auth check above is ever bypassed, this can't touch other orgs' rows.
-        const { error } = await supabaseAdmin
+        // 🛠️ FIX: this used to scope the delete by `auth.orgId` — the CALLER'S
+        // PRIMARY org (allowedOrgIds[0]) — while the check just above validates
+        // the REQUEST's `orgId` against the caller's full allowedOrgIds list.
+        // A caller whose staff-table membership resolves to more than one org
+        // (legitimate: multi-studio staff, or studio_slug/org mismatches during
+        // hydration) could pass hasAccessToOrg(orgId) for a SECONDARY org while
+        // this `.eq()` kept filtering by the primary one — the delete then
+        // silently matched 0 rows in the wrong org, yet still reported
+        // `success: true`. The client (deleteRecordFromCloud) takes that as
+        // confirmation and removes the row locally, so the "deleted" record
+        // survives in Supabase and reappears on the next hydration. Use the
+        // already-validated `orgId` instead, and select the affected rows so a
+        // genuine no-op (id simply didn't exist, or truly didn't match this
+        // org) is visible in the response rather than silently reported as if
+        // it had deleted something.
+        const { data: deletedRows, error } = await supabaseAdmin
             .from(table)
             .delete()
-            .eq('org_id', auth.orgId)
-            .in('id', idList);
+            .eq('org_id', orgId)
+            .in('id', idList)
+            .select('id');
 
         if (error) {
             console.error(`❌ [DeleteSync API] ${table}:`, error.message);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        console.log(`🗑️ [DeleteSync API] Deleted ${idList.length} row(s) from ${table}`);
-        return NextResponse.json({ success: true, deleted: idList.length });
+        const deletedCount = deletedRows?.length ?? 0;
+        if (deletedCount < idList.length) {
+            console.warn(`⚠️ [DeleteSync API] ${table}: requested ${idList.length} id(s), only ${deletedCount} actually matched org ${orgId} and were deleted.`);
+        }
+
+        console.log(`🗑️ [DeleteSync API] Deleted ${deletedCount} row(s) from ${table}`);
+        return NextResponse.json({ success: true, deleted: deletedCount, requested: idList.length });
     } catch (e: any) {
         return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 });
     }

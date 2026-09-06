@@ -64,6 +64,23 @@ export function setSubscriptionsMemoryCache(subs: SubMap, slug: string) {
 let cachedSubs: SubMap | null = null;
 function clearCache() { cachedSubs = null; }
 
+// 🛠️ FIX: clearCache() was only ever called from THIS file's own local
+// write functions (saveSubscription/deleteSubscription) — so a subscription
+// created/edited/deleted on THIS device correctly invalidated the cache, but
+// a background hydration (StudioContext.tsx) that pulls in a subscription
+// created on a DIFFERENT device writes straight to the `cc_student_subscriptions`
+// localStorage key and then dispatches `cc_subscription_update` — a signal
+// this store never listened for. getSubscriptions() below returns `cachedSubs`
+// immediately without re-reading localStorage at all once it's set, so once
+// any code on this page had called getSubscriptions() a single time, a
+// subscription issued on another device would sync down into localStorage
+// correctly but stay invisible everywhere in the UI (e.g. it wouldn't show up
+// in /attendance) until a full page reload reset this module's state.
+if (typeof window !== 'undefined') {
+    window.addEventListener('cc_subscription_update', clearCache);
+    window.addEventListener('cc_data_hydrated', clearCache);
+}
+
 export function getSubscriptions(): SubMap {
     if (typeof window === 'undefined') return INITIAL_SUBS;
     if (cachedSubs) return cachedSubs;

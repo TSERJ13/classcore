@@ -2,8 +2,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { setMemoryStudentsCache } from '@/lib/student-store';
+import { setSubscriptionsMemoryCache } from '@/lib/subscription-store';
 import { useUser } from '@/hooks/useUser';
-import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds } from '@/lib/utils';
+import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds, getEffectiveOrgId } from '@/lib/utils';
 import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
 
 interface StudioContextType {
@@ -204,6 +205,10 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 // from the cloud/settings-blob snapshot before it propagated.
                 const deletedHallIds = getLocallyDeletedIds(getScopedKey('cc_deleted_halls'));
                 const deletedSubIds = getLocallyDeletedIds(getScopedKey('cc_deleted_subscriptions', activeSlug || 'default'));
+                // Same mechanism, for products (product-store.ts's deleteProduct()) —
+                // used further below where `cc_shop_products` is written, both here
+                // in the core mapping and again in the heavy background sync.
+                const deletedProductIds = getLocallyDeletedIds(getScopedKey('cc_deleted_products'));
 
                 const resolveRicher = (db: any[], backup: any) => {
                     const dbArr = Array.isArray(db) ? db : [];
@@ -214,11 +219,21 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     return merged;
                 };
 
+                // 🛠️ FIX: finalPlans/finalGroups used to merge in the backup
+                // settings-blob copy with no tombstone filter at all (unlike
+                // finalHalls/finalEvents right below, which already did) — a
+                // deleted plan or group could resurrect via this exact merge
+                // even after being removed from its own dedicated store.
+                const deletedGroupIds = getLocallyDeletedIds(getScopedKey('cc_deleted_groups'));
+                const deletedPlanIds = getLocallyDeletedIds(getScopedKey('cc_deleted_subscription_plans'));
+
                 const finalStaff = resolveRicher(state.staff, cloudSettings.staff || settings.staff);
                 const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls)
                     .filter((h: any) => !deletedHallIds.has(h.id));
-                const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans);
-                const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups);
+                const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans)
+                    .filter((p: any) => !deletedPlanIds.has(p.id));
+                const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups)
+                    .filter((g: any) => !deletedGroupIds.has(g.id));
                 const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events)
                     .filter((e: any) => !deletedEventIds.has(e.id));
                 
@@ -347,7 +362,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         }, {}),
                     cc_calendar_events: unwrap(finalEvents),
                     cc_subscription_plans: unwrap(finalPlans),
-                    cc_shop_products: unwrap(state.products),
+                    cc_shop_products: unwrap(state.products).filter((p: any) => !deletedProductIds.has(p.id)),
                     cc_shop_sales: (unwrap(state.sales) || []).reduce((acc: any, sale: any) => {
                         const sId = sale.student_id;
                         if (sId) { if (!acc[sId]) acc[sId] = []; acc[sId].push(sale); }
@@ -436,6 +451,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         }
                     } else {
                         await Promise.all(Object.entries(mapping).map(([key, data]) => guardedWrite(key, data)));
+                    }
+
+                    // 🛠️ FIX: setSubscriptionsMemoryCache() exists specifically as
+                    // subscription-store.ts's quota-exceeded fallback (mirrors
+                    // setMemoryStudentsCache above for students), but nothing ever
+                    // populated it — so if a localStorage write for
+                    // cc_student_subscriptions ever failed under quota pressure,
+                    // getSubscriptions() had no fresher-than-nothing fallback to
+                    // fall back to.
+                    if (mapping.cc_student_subscriptions) {
+                        setSubscriptionsMemoryCache(mapping.cc_student_subscriptions, activeSlug || 'default');
                     }
 
                     // Attendance mapping
@@ -632,7 +658,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 } else if (heavyState.studentsQueryFailed) {
                                     console.warn('⚠️ [Hydration/Heavy] Students query failed server-side this cycle — leaving cc_student_data/cc_student_photos untouched (will retry on next hydration).');
                                 }
-                                if (heavyState.attendance) {
+                                // 🛡️ FIX: every `if (heavyState.X)` guard below used to be the ONLY
+                                // condition gating an unconditional overwrite of that collection's
+                                // localStorage key — but heavyState.X is an array/object built by the
+                                // route as `r.data || []`, so it's truthy even when the underlying
+                                // Supabase query actually ERRORED (route.ts now flags that in
+                                // `queryFailed.X`). A transient query error on, say, `sales` used to
+                                // silently wipe every locally-cached sale until the next successful
+                                // hydration cycle. Skip the write on that specific collection's error
+                                // instead — the same protection already existed only for `students`
+                                // (heavyState.studentsQueryFailed above).
+                                if (heavyState.attendance && !heavyState.queryFailed?.attendance) {
                                     // 🔧 Attendance logic needs to populate cc_attendance_data AND cc_checkins_...
                                     const groupedAtt: Record<string, any[]> = {};
                                     const perDay: Record<string, any[]> = {};
@@ -676,7 +712,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                         await safeSetItem(dayKey, JSON.stringify(merged), activeSlug || 'default');
                                     }
                                 }
-                                if (heavyState.sales) {
+                                if (heavyState.sales && !heavyState.queryFailed?.sales) {
                                     const map: any = {};
                                     unwrap(heavyState.sales).forEach((s: any) => {
                                         const sId = s.student_id;
@@ -684,12 +720,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                     });
                                     await safeSetItem(getScopedKey('cc_shop_sales', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
                                 }
-                                if (heavyState.expenses) {
+                                if (heavyState.expenses && !heavyState.queryFailed?.expenses) {
                                     const map: any = {};
                                     unwrap(heavyState.expenses).forEach((e: any) => map[e.id] = e);
                                     await safeSetItem(getScopedKey('cc_expenses', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
                                 }
-                                if (heavyState.calendar_events) {
+                                if (heavyState.calendar_events && !heavyState.queryFailed?.calendar_events) {
                                     // event-store.ts's getEvents() requires this key to hold a plain
                                     // ARRAY (`Array.isArray(events)`, else it discards whatever was
                                     // stored and falls back to the seed/empty list). This used to
@@ -701,12 +737,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                         .filter((e: any) => !deletedEventIds.has(e.id));
                                     await safeSetItem(getScopedKey('cc_calendar_events', activeSlug || 'default'), JSON.stringify(list), activeSlug || 'default');
                                 }
-                                if (heavyState.trash) {
+                                if (heavyState.trash && !heavyState.queryFailed?.trash) {
                                     const map: any = {};
                                     unwrap(heavyState.trash).forEach((t: any) => map[t.id || t.entity_id] = t);
                                     await safeSetItem(getScopedKey('cc_global_trash', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
                                 }
-                                if (heavyState.subscriptions) {
+                                if (heavyState.subscriptions && !heavyState.queryFailed?.subscriptions) {
                                     const map: any = {};
                                     const allDeleted = new Set((heavyState.trash || []).map((t: any) => t?.entity_id || t?.id).filter(Boolean));
                                     unwrap(heavyState.subscriptions)
@@ -726,28 +762,35 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                             }
                                         });
                                     await safeSetItem(getScopedKey('cc_student_subscriptions', activeSlug || 'default'), JSON.stringify(map), activeSlug || 'default');
+                                    setSubscriptionsMemoryCache(map, activeSlug || 'default');
                                 }
                                 
-                                if (heavyState.products) {
+                                if (heavyState.products && !heavyState.queryFailed?.products) {
                                     // Same array-vs-map mismatch as calendar_events above:
                                     // product-store.ts requires `cc_shop_products` to be an array
                                     // (`Array.isArray(parsed) ? parsed : INITIAL_PRODUCTS`), so writing
                                     // an `{id: product}` map here got silently discarded on next read.
-                                    const list = unwrap(heavyState.products);
+                                    // Also filtered by `deletedProductIds` (see product-store.ts's new
+                                    // `cc_deleted_products` tombstone) so a product deleted on this
+                                    // device can't resurrect via this background sync.
+                                    const list = unwrap(heavyState.products).filter((p: any) => !deletedProductIds.has(p.id));
                                     await safeSetItem(getScopedKey('cc_shop_products', activeSlug || 'default'), JSON.stringify(list), activeSlug || 'default');
                                 }
 
-                                if (heavyState.subscription_plans) {
-                                    const plansList = unwrap(heavyState.subscription_plans);
+                                if (heavyState.subscription_plans && !heavyState.queryFailed?.subscription_plans) {
+                                    const plansList = unwrap(heavyState.subscription_plans).filter((p: any) => !deletedPlanIds.has(p.id));
                                     if (plansList.length > 0) {
                                         await safeSetItem(getScopedKey('cc_subscription_plans', activeSlug || 'default'), JSON.stringify(plansList), activeSlug || 'default');
                                     }
                                 }
 
                                 // Merge into settings context for products/plans
+                                const heavyPlansFiltered = heavyState.subscription_plans?.length
+                                    ? unwrap(heavyState.subscription_plans).filter((p: any) => !deletedPlanIds.has(p.id))
+                                    : null;
                                 setSettings(prev => ({
                                     ...prev,
-                                    subscription_plans: heavyState.subscription_plans?.length ? unwrap(heavyState.subscription_plans) : prev.subscription_plans
+                                    subscription_plans: heavyPlansFiltered && heavyPlansFiltered.length > 0 ? heavyPlansFiltered : prev.subscription_plans
                                 }));
 
                                 console.log('✅ [StudioContext] Heavy Background Sync Complete!');
@@ -906,6 +949,39 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         const next = settings.staff?.filter((s: any) => s.id !== id) || [];
         updateSettings({ staff: next });
         notifyStaffChanged(next);
+
+        // 🛠️ FIX: updateSettings()→saveSettings()'s staff-sync branch only
+        // ever UPSERTS the remaining staff to Supabase's `staff` table — it
+        // never issues a delete for the one just removed, and
+        // master-sync.ts's studio-metadata push explicitly strips `staff`
+        // out of that payload too. So the row survived in the cloud forever,
+        // and the next hydration's `resolveRicher(state.staff, ...)` merge
+        // pulled it straight back into local settings — a deleted teacher
+        // reappeared in the roster after any reload. teacher-store.ts
+        // already has the correct call for this (deleteTeacher), it just was
+        // never wired up to the UI's actual delete path (this function) —
+        // fire the cloud delete here instead of duplicating its local-state
+        // logic (which already differs: it goes through saveSettings
+        // directly rather than this component's updateSettings()).
+        if (typeof window !== 'undefined') {
+            const activeSlug = getActiveSlug() || 'default';
+            const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
+            if (orgId && orgId !== 'demo') {
+                import('@/lib/master-sync').then(({ deleteRecordFromCloud }) => {
+                    deleteRecordFromCloud('staff', id, orgId).catch(() => {});
+                }).catch(() => {});
+            }
+
+            // 🛠️ FIX: group-store.ts's updateTeacherGroups() exists specifically
+            // to clear a group's teacherId/secondaryTeacherId when a teacher is
+            // unassigned, but nothing ever called it — so a deleted teacher's id
+            // was left dangling on every group they taught. Passing an empty
+            // assignedGroupIds list clears them from every group they're
+            // currently attached to.
+            import('@/lib/group-store').then(({ updateTeacherGroups }) => {
+                updateTeacherGroups(id, '', []);
+            }).catch(() => {});
+        }
     };
     const addStaff = (member: any) => {
         const next = [...(settings.staff || []), member];

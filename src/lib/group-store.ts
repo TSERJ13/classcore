@@ -29,7 +29,7 @@ export interface Group {
     org_id?: string;
 }
 
-import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
 import { loadSettings, saveSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
 import { deleteRecordFromCloud, syncRecordToCloud } from './master-sync';
@@ -61,10 +61,18 @@ export function getGroups(): Group[] {
         const key = getGroupsKey();
         let saved = localStorage.getItem(key);
 
+        // 🪦 Local tombstone (same mechanism hall-store.ts uses for halls):
+        // deleteGroup() now writes this id here BEFORE it's actually
+        // reflected in `saved`/the memory cache, so it must be applied to
+        // every return path below — including the memory-cache fallback,
+        // which previously returned unfiltered and could resurrect a
+        // just-deleted group if localStorage briefly lagged behind it.
+        const deletedIds = getLocallyDeletedIds(getDeletedGroupsKey());
+
         // 🚀 Fall back to memory cache
         if (!saved && _groupsMemoryCache && _groupsMemoryCacheSlug === activeSlug) {
             console.log('💾 [GroupStore] Using memory cache');
-            return _groupsMemoryCache;
+            return deletedIds.size > 0 ? _groupsMemoryCache.filter(g => !deletedIds.has(g.id)) : _groupsMemoryCache;
         }
 
         // Migration: If new scoped key is empty, check old unscoped key
@@ -72,22 +80,12 @@ export function getGroups(): Group[] {
             const oldKey = `cc_groups_${activeSlug}`;
             const oldKeyMain = `cc_groups_${activeSlug}_main`;
             saved = localStorage.getItem(oldKey) || localStorage.getItem(oldKeyMain);
-            
+
             if (saved) {
                 console.log('🚚 [GroupStore] Migrating legacy main branch data');
                 localStorage.setItem(key, saved);
             }
         }
-
-        const deletedKey = getDeletedGroupsKey();
-        let deletedIds = new Set<string>();
-        try {
-            const rawDeleted = localStorage.getItem(deletedKey);
-            if (rawDeleted) {
-                const parsed = JSON.parse(rawDeleted);
-                if (Array.isArray(parsed)) deletedIds = new Set(parsed);
-            }
-        } catch {}
 
         if (!saved) {
             const data = isMainBranch ? INITIAL_GROUPS : [];
@@ -114,9 +112,10 @@ export function saveGroups(groups: Group[]): void {
     console.log(`💾 [GroupStore] Saving groups to: ${key}`, { count: groups.length });
     localStorage.setItem(key, JSON.stringify(groups));
     markLocalUpdate();
-    
+
     // 🔥 NEW ATOMIC SYNC: Push all groups to the native table
     const activeSlug = getActiveSlug() || '';
+    setGroupsMemoryCache(groups, activeSlug);
     const settings = loadSettings(activeSlug);
     const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
     if (orgId && orgId !== 'demo') {
@@ -306,9 +305,18 @@ export function deleteGroup(id: string): void {
         recordGlobalDeletion(slug, 'cc_groups', id);
     }
 
+    // 🪦 Tombstone this id FIRST (mirrors hall-store.ts's deleteHall()) so
+    // getGroups()'s own filter — and any hydration/cloud-sync race that
+    // lands before the cloud delete above actually completes/succeeds —
+    // can't resurrect a group a user just deleted. This key previously had
+    // a read side (getDeletedGroupsKey() in getGroups()) but nothing ever
+    // wrote to it, making that filter permanently dead.
+    addLocallyDeletedId(getDeletedGroupsKey(), id);
+
     const key = getGroupsKey();
     localStorage.setItem(key, JSON.stringify(updated));
     markLocalUpdate();
+    setGroupsMemoryCache(updated, activeSlug || '');
 
     // CLEANUP STAFF: Remove deleted group ID from all staff mappings
     if (slug) {

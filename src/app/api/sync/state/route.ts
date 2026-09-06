@@ -238,6 +238,31 @@ export async function POST(req: Request) {
         // the client can skip that merge instead of misreading it as "empty".
         const studentsQueryFailed = isHeavy && !!(responses[0] as any)?.error;
 
+        // 🛡️ Same false-positive-empty risk as studentsQueryFailed above, but
+        // this codebase had only ever guarded against it for the students
+        // query — every other collection here was still silently coerced from
+        // "query errored" to "empty result", and the client wrote that
+        // coerced-empty result straight over local data with NO guard at all
+        // for most of these (see StudioContext.tsx's heavy-sync block). Expose
+        // a failed-flag for every remaining query so the client can skip
+        // writing on a transient error instead of wiping a collection because
+        // Supabase hiccuped for one hydration cycle.
+        const queryFailed = {
+            staff: !!(responses[1] as any)?.error,
+            groups: !!(responses[2] as any)?.error,
+            branches: !!(responses[3] as any)?.error,
+            halls: !!(responses[4] as any)?.error,
+            settings: !!(responses[5] as any)?.error,
+            subscriptions: !!(responses[6] as any)?.error,
+            attendance: !!(responses[7] as any)?.error,
+            sales: !!(responses[8] as any)?.error,
+            expenses: !!(responses[9] as any)?.error,
+            trash: !!(responses[10] as any)?.error,
+            calendar_events: !!(responses[11] as any)?.error,
+            subscription_plans: !!(responses[12] as any)?.error,
+            products: !!(responses[13] as any)?.error,
+        };
+
         let callerStaff = null;
         if (!auth.isSuperAdmin) {
             callerStaff = (data[1] || []).find((s: any) => s.id === auth.userId || (auth.email && (s.email || '').toLowerCase().trim() === auth.email.toLowerCase().trim()));
@@ -260,6 +285,7 @@ export async function POST(req: Request) {
             subscription_plans: data[12] || [],
             products: data[13] || [],
             studentsQueryFailed,
+            queryFailed,
             org_id: targetOrgId
         };
 

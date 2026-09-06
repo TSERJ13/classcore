@@ -21,16 +21,18 @@ export interface Plan {
     data?: any;
 }
 
-import { getScopedKey, markLocalUpdate, getActiveSlug, getEffectiveOrgId } from './utils';
+import { getScopedKey, markLocalUpdate, getActiveSlug, getEffectiveOrgId, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
 import { loadSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud } from './master-sync';
 
 const BASE_PLANS_KEY = 'cc_subscription_plans';
+const BASE_DELETED_PLANS_KEY = 'cc_deleted_subscription_plans';
 function getPlansKey(slug?: string) {
     const s = slug || getActiveSlug() || 'demo.classcore.ge';
     return getScopedKey(BASE_PLANS_KEY, s);
 }
+function getDeletedPlansKey() { return getScopedKey(BASE_DELETED_PLANS_KEY); }
 
 const INITIAL_PLANS: Plan[] = [];
 
@@ -51,6 +53,13 @@ export function getPlans(): Plan[] {
         const key = getPlansKey(activeSlug);
         let saved = localStorage.getItem(key);
 
+        // 🪦 Local tombstone (same mechanism as halls/groups): deletePlan()
+        // writes here first. Previously plans had NO delete-resurrection
+        // protection at all — a hydration or backup-settings-blob merge that
+        // raced (or outlasted, if it silently failed) a plan's cloud delete
+        // could bring it right back.
+        const deletedIds = getLocallyDeletedIds(getDeletedPlansKey());
+
         if (saved) {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed)) {
@@ -64,9 +73,10 @@ export function getPlans(): Plan[] {
                         is_default: item.is_default !== undefined ? !!item.is_default : !!data.is_default
                     };
                 });
-                _plansMemoryCache = normalized;
+                const filtered = deletedIds.size > 0 ? normalized.filter((p: any) => !deletedIds.has(p.id)) : normalized;
+                _plansMemoryCache = filtered;
                 _plansMemoryCacheSlug = activeSlug;
-                return normalized;
+                return filtered;
             }
             return INITIAL_PLANS;
         }
@@ -74,7 +84,7 @@ export function getPlans(): Plan[] {
         // 🚀 Fall back to memory cache
         if (_plansMemoryCache && _plansMemoryCacheSlug === activeSlug) {
             console.log('💾 [PlanStore] Using memory cache');
-            return _plansMemoryCache;
+            return deletedIds.size > 0 ? _plansMemoryCache.filter(p => !deletedIds.has(p.id)) : _plansMemoryCache;
         }
         
         return INITIAL_PLANS;
@@ -88,12 +98,22 @@ export async function savePlans(plans: Plan[]): Promise<void> {
     const activeSlug = getActiveSlug() || 'demo.classcore.ge';
     const key = getPlansKey(activeSlug);
     
-    _plansMemoryCache = plans;
-    _plansMemoryCacheSlug = activeSlug;
-    localStorage.setItem(key, JSON.stringify(plans));
-    // 🛡️ Race-condition guard: prevents background hydration from overwriting
-    // freshly-saved local plans with an older cloud snapshot (e.g. iPad 4→3 bug)
-    localStorage.setItem(`cc_local_edit_guard_${key}`, String(Date.now()));
+    // 🛠️ FIX: setPlansMemoryCache() exists and getPlans() reads it as a
+    // quota-exceeded fallback, but nothing ever called it — so that fallback
+    // was permanently dead. Also wrap the raw localStorage.setItem in
+    // try/catch: previously a QuotaExceededError here threw straight out of
+    // this exported function, aborting the cloud sync below entirely (a plan
+    // edit would fail to reach Supabase just because the local write hit
+    // quota).
+    try {
+        localStorage.setItem(key, JSON.stringify(plans));
+        // 🛡️ Race-condition guard: prevents background hydration from overwriting
+        // freshly-saved local plans with an older cloud snapshot (e.g. iPad 4→3 bug)
+        localStorage.setItem(`cc_local_edit_guard_${key}`, String(Date.now()));
+    } catch (e) {
+        console.warn('[savePlans] local write skipped (storage full) — memory cache + cloud sync still run', e);
+    }
+    setPlansMemoryCache(plans, activeSlug);
     markLocalUpdate();
     
     // 🔥 ATOMIC SYNC: Push ALL plan fields to the cloud
@@ -143,7 +163,14 @@ export async function deletePlan(id: string): Promise<void> {
     const next = plans.filter(p => p.id !== id);
     const activeSlug = getActiveSlug() || 'demo.classcore.ge';
     const key = getPlansKey(activeSlug);
-    localStorage.setItem(key, JSON.stringify(next));
+    // 🪦 Tombstone FIRST — see getPlans().
+    addLocallyDeletedId(getDeletedPlansKey(), id);
+    try {
+        localStorage.setItem(key, JSON.stringify(next));
+    } catch (e) {
+        console.warn('[deletePlan] local write skipped (storage full) — memory cache + cloud delete still run', e);
+    }
+    setPlansMemoryCache(next, activeSlug);
     markLocalUpdate();
 
     const settings = loadSettings(activeSlug);

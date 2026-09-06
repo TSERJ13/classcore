@@ -18,7 +18,7 @@ import { type StaffPermissions, type UserRole, type Branch, type StaffMember, en
 import { getTrash, removeFromTrash, cleanupOldTrash, type TrashItem } from '@/lib/trash-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { compactSlugify, getScopedKey } from '@/lib/utils';
+import { compactSlugify, getScopedKey, removeLocallyDeletedId } from '@/lib/utils';
 
 export default function ProfilePage() {
     const { t, lang } = useT();
@@ -53,12 +53,17 @@ export default function ProfilePage() {
 
     // Mirrors the restore logic in the dedicated /trash page -- same
     // TrashItem shape, same cc_global_trash storage key.
+    // Mirrors the restore logic in the dedicated /trash page — see that
+    // file's handleRestore() for the full explanation of the fix below: a
+    // restored record was being written back into its collection, but its
+    // `cc_deleted_X` tombstone (added at delete time) was never cleared, so
+    // the getter that every page reads through kept filtering it back out.
     const handleRestoreFromTrash = (item: TrashItem) => {
-        const typeMap: Record<string, { key: string; event: string }> = {
-            'student': { key: 'cc_student_data', event: 'cc_student_update' },
+        const typeMap: Record<string, { key: string; event: string; deletedKey?: string }> = {
+            'student': { key: 'cc_student_data', event: 'cc_student_update', deletedKey: 'cc_deleted_students' },
             'teacher': { key: 'cc_teachers', event: 'cc_teacher_update' },
-            'subscription': { key: 'cc_student_subscriptions', event: 'cc_subscription_update' },
-            'group': { key: 'cc_groups', event: 'cc_group_update' }
+            'subscription': { key: 'cc_student_subscriptions', event: 'cc_subscription_update', deletedKey: 'cc_deleted_subscriptions' },
+            'group': { key: 'cc_groups', event: 'cc_group_update', deletedKey: 'cc_deleted_groups' }
         };
         const config = typeMap[item.type];
         if (!config) return;
@@ -81,6 +86,10 @@ export default function ProfilePage() {
         } else {
             const existing = JSON.parse(raw || '[]');
             localStorage.setItem(storageKey, JSON.stringify([...existing, item.data]));
+        }
+
+        if (config.deletedKey && item.data?.id) {
+            removeLocallyDeletedId(getScopedKey(config.deletedKey), item.data.id);
         }
 
         removeFromTrash(item.id);

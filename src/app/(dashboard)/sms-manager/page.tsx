@@ -130,8 +130,12 @@ export default function SmsManagerPage() {
 
     const handleSendHoliday = async () => {
         if (!selectedHoliday) return;
-        const rawTpl = (templates[lang] as any)[selectedHoliday] || (templates.ka as any)[selectedHoliday];
-        if (!rawTpl) return;
+        // Just a pre-flight check that SOME template exists for the currently
+        // selected holiday, in at least the admin's own language or the ka
+        // fallback — the actual per-student template is picked inside the loop
+        // below (see the fix note there).
+        const hasAnyTemplate = (templates[lang] as any)?.[selectedHoliday] || (templates.ka as any)?.[selectedHoliday];
+        if (!hasAnyTemplate) return;
 
         const eligible = students.filter(s => s.phone);
         const count = eligible.length;
@@ -145,6 +149,17 @@ export default function SmsManagerPage() {
         for (const student of eligible) {
             const sub = getSubscription(student.id);
             const planName = sub?.plan || (sub as any)?.plan_name || '';
+            // 🛠️ FIX: this used to pick `rawTpl` ONCE outside the loop, keyed by
+            // the admin's own currently-active UI language (`lang`) — every
+            // student in the broadcast got the admin's language regardless of
+            // their own preference. sms-service.ts's automated sender already
+            // gets this right (looks up `student.preferred_language` per
+            // student); mirror that here instead.
+            const prefLang = (student.preferred_language || 'ka') as 'ka' | 'ru' | 'en';
+            const rawTpl = (templates[prefLang] as any)?.[selectedHoliday]
+                || (templates[lang] as any)?.[selectedHoliday]
+                || (templates.ka as any)?.[selectedHoliday];
+            if (!rawTpl) continue;
             const text = formatSmsTemplate(rawTpl, {
                 student,
                 planName,

@@ -381,6 +381,19 @@ export function updateStudent(studentId: string, data: Partial<Student>, oldId?:
 }
 
 export function deleteStudent(studentId: string): void {
+    // 🛠️ FIX: capture the outgoing student record BEFORE anything below makes
+    // it unreachable (memory-cache delete, then the tombstone at 🪦 below,
+    // both of which getStudents() consults). This used to be looked up further
+    // down, AFTER the tombstone was already written — so it always resolved to
+    // undefined, and the recordGlobalDeletion() call below always bridged into
+    // trash-store.moveToTrash() with a data object that has no `.id` field. That
+    // made moveToTrash() fall back to `Date.now()` for the trash row's id,
+    // producing a SECOND, distinct trash entry (with no real student fields,
+    // just the bare studentId as its display name) alongside any real trash
+    // entry a caller (e.g. students/page.tsx's handleDelete) had already
+    // created directly — i.e. every delete left one good row and one junk row.
+    const outgoingStudent = getStudents().find(s => s.id === studentId);
+
     // 1️⃣ Remove from the in-memory cache FIRST. This can't throw, and the
     // memory cache is what getStudents() actually reads when localStorage is
     // full — so the student disappears from the UI immediately.
@@ -429,10 +442,11 @@ export function deleteStudent(studentId: string): void {
             deleteRecordFromCloud('students', studentId, '');
         }
         
-        const student = getStudents().find(s => s.id === studentId);
+        const student = outgoingStudent;
         const studentName = student?.full_name || studentId;
 
         recordGlobalDeletion(slug, 'cc_student_data', studentId, {
+            id: studentId,
             ...student,
             details: studentName,
             performedBy: session?.staff.full_name || 'System',

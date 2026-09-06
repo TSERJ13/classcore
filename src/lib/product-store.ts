@@ -4,13 +4,15 @@
  */
 
 import { Product } from '@/types';
-import { getScopedKey, getActiveSlug, markLocalUpdate, getEffectiveOrgId } from './utils';
+import { getScopedKey, getActiveSlug, markLocalUpdate, getEffectiveOrgId, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
 import { loadSettings } from './settings-store';
 import { triggerInstantSync } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
 
 const BASE_PRODUCTS_KEY = 'cc_shop_products';
+const BASE_DELETED_PRODUCTS_KEY = 'cc_deleted_products';
 function getProductsKey(slug?: string) { return getScopedKey(BASE_PRODUCTS_KEY, slug); }
+function getDeletedProductsKey() { return getScopedKey(BASE_DELETED_PRODUCTS_KEY); }
 
 const INITIAL_PRODUCTS: Product[] = [];
 
@@ -23,7 +25,14 @@ export function getProducts(): Product[] {
 
         if (!saved) return INITIAL_PRODUCTS;
         const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : INITIAL_PRODUCTS;
+        const list = Array.isArray(parsed) ? parsed : INITIAL_PRODUCTS;
+        // 🪦 Local tombstone (same mechanism as halls/groups/plans): products
+        // previously had NO delete-resurrection protection at all — deleting a
+        // product whose cloud delete silently failed (network blip, RLS edge
+        // case — deleteRecordFromCloud()'s `.catch(() => {})` swallows it) came
+        // right back on the next hydration.
+        const deletedIds = getLocallyDeletedIds(getDeletedProductsKey());
+        return deletedIds.size > 0 ? list.filter((p: any) => !deletedIds.has(p.id)) : list;
     } catch {
         return INITIAL_PRODUCTS;
     }
@@ -33,8 +42,12 @@ export async function saveProducts(products: Product[]): Promise<void> {
     if (typeof window === 'undefined') return;
     const activeSlug = getActiveSlug() || '';
     const key = getProductsKey(activeSlug);
-    
-    localStorage.setItem(key, JSON.stringify(products));
+
+    try {
+        localStorage.setItem(key, JSON.stringify(products));
+    } catch (e) {
+        console.warn('[saveProducts] local write skipped (storage full) — cloud sync still runs', e);
+    }
     markLocalUpdate();
     
     const settings = loadSettings(activeSlug);
@@ -78,6 +91,9 @@ export async function saveProducts(products: Product[]): Promise<void> {
 }
 
 export async function deleteProduct(id: string): Promise<void> {
+    // 🪦 Tombstone FIRST — see getProducts().
+    addLocallyDeletedId(getDeletedProductsKey(), id);
+
     const products = getProducts();
     const next = products.filter(p => p.id !== id);
     await saveProducts(next);

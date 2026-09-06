@@ -306,6 +306,26 @@ export function addLocallyDeletedId(storageKey: string, id: string) {
     }
 }
 
+/**
+ * Undo side of addLocallyDeletedId() — needed by any "Restore from Trash"
+ * flow. Every getX() reader (students/subscriptions/groups/halls/events)
+ * filters out ids present in its tombstone set, so writing a restored record
+ * back into the main collection without also clearing its tombstone entry
+ * here leaves it permanently invisible: it's "restored" in storage but the
+ * getter keeps hiding it.
+ */
+export function removeLocallyDeletedId(storageKey: string, id: string) {
+    if (typeof window === 'undefined') return;
+    try {
+        const ids = getLocallyDeletedIds(storageKey);
+        if (!ids.has(id)) return;
+        ids.delete(id);
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(ids)));
+    } catch (e) {
+        console.error('❌ [Utils] Failed to clear locally-deleted id:', e);
+    }
+}
+
 export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;
