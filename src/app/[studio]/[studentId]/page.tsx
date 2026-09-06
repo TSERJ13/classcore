@@ -822,8 +822,15 @@ export default function StudentPortalPage() {
                             </div>
                         </div>
 
-                        {/* Period Filter Tabs */}
-                        <div className="flex items-center p-1 bg-surface rounded-2xl border border-border-subtle text-xs overflow-x-auto no-scrollbar shrink-0">
+                        {/* 🛠️ FIX: was a single `overflow-x-auto` row — with 4
+                        Georgian labels this never fully fit a phone-width
+                        card, so the last pill ("12 თვე") sat half-cut at the
+                        scrollable edge with no hint that it could be
+                        scrolled to, reading as a broken/ugly filter. A 2x2
+                        grid on narrow screens always shows all 4 options at
+                        once with nothing clipped; it becomes a single row
+                        again once there's room (sm+). */}
+                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-1 p-1 bg-surface rounded-2xl border border-border-subtle text-xs shrink-0">
                             {([
                                 { id: 'current', label: l('მიმდინარე თვე', 'Текущий месяц', 'Current') },
                                 { id: '3m', label: l('3 თვე', '3 мес.', '3 Mo') },
@@ -838,7 +845,7 @@ export default function StudentPortalPage() {
                                         setViewAllMonths(false);
                                     }}
                                     className={cn(
-                                        "px-2 sm:px-3 py-1.5 rounded-xl font-black text-[10px] sm:text-xs transition-all whitespace-nowrap",
+                                        "px-2 sm:px-3 py-1.5 rounded-xl font-black text-[10px] sm:text-xs transition-all whitespace-nowrap sm:flex-1 text-center",
                                         historyRange === tab.id
                                             ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]"
                                             : "text-muted hover:text-primary hover:bg-surface/80"
@@ -851,18 +858,51 @@ export default function StudentPortalPage() {
                     </div>
                 </div>
 
-                {/* Prominent Stats Cards: Missed Rate vs Attendance Rate */}
+                {/* 🛠️ FIX: the two cards below both repeated their own
+                percentage twice (once as a small header badge, once as the
+                big number) — the same figure shown twice in one card reads
+                as a glitch, not as information. Removed the redundant
+                badges. Also swapped the order so the positive "Attendance"
+                figure leads (parents check "did my kid go?", not "how much
+                did they miss?" first) and added a plain-language note when
+                the sample is too small (1-2 scheduled lessons) for a 100%/0%
+                swing to mean anything — without it, a brand-new student's
+                very first missed class reads as a dramatic "100% missed"
+                red flag instead of what it actually is. */}
+                {totalPeriodScheduled > 0 && totalPeriodScheduled <= 2 && (
+                    <p className="text-[10px] sm:text-[11px] font-bold text-muted/70 bg-surface/60 border border-border-subtle/50 rounded-2xl px-3 py-2 -mt-2">
+                        {l(
+                            `ჯერ მხოლოდ ${totalPeriodScheduled} დაგეგმილი გაკვეთილია ამ პერიოდში — პროცენტი მეტ მონაცემთან ერთად დაზუსტდება.`,
+                            `Пока всего ${totalPeriodScheduled} запланированных занятий за этот период — процент уточнится с большим количеством данных.`,
+                            `Only ${totalPeriodScheduled} lesson(s) scheduled so far this period — the percentage will settle in as more data comes in.`
+                        )}
+                    </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
-                    {/* 1. გაცდენების პროცენტობა */}
-                    <div className="bg-rose-500/[0.04] dark:bg-rose-500/[0.07] border border-rose-500/20 rounded-3xl p-4 flex flex-col justify-between relative overflow-hidden group hover:border-rose-500/40 transition-all">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                                {l('გაცდენები', 'Пропуски', 'Missed Rate')}
-                            </span>
-                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400">
-                                {periodMissedRate}%
-                            </span>
+                    {/* 1. დასწრების პროცენტობა (positive framing leads) */}
+                    <div className="bg-emerald-500/[0.04] dark:bg-emerald-500/[0.07] border border-emerald-500/20 rounded-3xl p-4 flex flex-col justify-between relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                            {l('დასწრება', 'Посещаемость', 'Attendance')}
+                        </span>
+                        <div className="my-2">
+                            <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight tabular-nums">
+                                {periodAttendanceRate}%
+                            </div>
+                            <p className="text-[10px] sm:text-[11px] font-bold text-muted mt-0.5">
+                                {totalPeriodAttended} / {totalPeriodScheduled} {l('გაკვეთილზე ესწრებოდა', 'занятий посещено', 'lessons attended')}
+                            </p>
                         </div>
+                        <div className="pt-2 border-t border-emerald-500/15 flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <span>{l('ვიზიტები', 'Визиты', 'Visits')}:</span>
+                            <span className="font-black tabular-nums">{totalPeriodAttended} {l('დასწრებული', 'посещено', 'attended')}</span>
+                        </div>
+                    </div>
+
+                    {/* 2. გაცდენების პროცენტობა */}
+                    <div className="bg-rose-500/[0.04] dark:bg-rose-500/[0.07] border border-rose-500/20 rounded-3xl p-4 flex flex-col justify-between relative overflow-hidden group hover:border-rose-500/40 transition-all">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                            {l('გაცდენები', 'Пропуски', 'Missed')}
+                        </span>
                         <div className="my-2">
                             <div className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight tabular-nums">
                                 {periodMissedRate}%
@@ -874,7 +914,7 @@ export default function StudentPortalPage() {
                         <div className="pt-2 border-t border-rose-500/15 space-y-1 text-[10px]">
                             {totalPeriodMissedWithSub > 0 && (
                                 <div className="flex items-center justify-between text-rose-500 font-bold">
-                                    <span>{l('აბონემენტით', 'С абонементом', 'With sub')}:</span>
+                                    <span>{l('აქტიური აბონემენტით', 'С активным абонементом', 'With active sub')}:</span>
                                     <span className="font-black tabular-nums">{totalPeriodMissedWithSub}</span>
                                 </div>
                             )}
@@ -882,7 +922,7 @@ export default function StudentPortalPage() {
                                 <div className="flex items-center justify-between font-black text-amber-700 dark:text-amber-300 bg-amber-400/25 px-1.5 py-0.5 rounded-md border border-amber-400/40">
                                     <span className="flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                        {l('აბონემენტის გარეშე', 'Без абонемента', 'No sub')}:
+                                        {l('აბონემენტი არ ჰქონდა', 'Не было абонемента', 'No subscription')}:
                                     </span>
                                     <span className="tabular-nums">{totalPeriodNoSub}</span>
                                 </div>
@@ -892,30 +932,6 @@ export default function StudentPortalPage() {
                                     {l('გაცდენის გარეშე 🎉', 'Без пропусков 🎉', 'No misses 🎉')}
                                 </span>
                             )}
-                        </div>
-                    </div>
-
-                    {/* 2. დასწრების პროცენტობა */}
-                    <div className="bg-emerald-500/[0.04] dark:bg-emerald-500/[0.07] border border-emerald-500/20 rounded-3xl p-4 flex flex-col justify-between relative overflow-hidden group hover:border-emerald-500/40 transition-all">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                                {l('დასწრება', 'Посещаемость', 'Attendance')}
-                            </span>
-                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                                {periodAttendanceRate}%
-                            </span>
-                        </div>
-                        <div className="my-2">
-                            <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight tabular-nums">
-                                {periodAttendanceRate}%
-                            </div>
-                            <p className="text-[10px] sm:text-[11px] font-bold text-muted mt-0.5">
-                                {totalPeriodAttended} / {totalPeriodScheduled} {l('სულ', 'всего', 'total')}
-                            </p>
-                        </div>
-                        <div className="pt-2 border-t border-emerald-500/15 flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                            <span>{l('ვიზიტები', 'Визиты', 'Visits')}:</span>
-                            <span className="font-black tabular-nums">{totalPeriodAttended} {l('დასწრებული', 'посещено', 'attended')}</span>
                         </div>
                     </div>
                 </div>
@@ -1145,7 +1161,17 @@ export default function StudentPortalPage() {
                                     </div>
                                     <div className="text-left flex-1 min-w-0">
                                         <div className="flex flex-col mb-1">
-                                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight truncate">
+                                            {/* 🛠️ FIX: was a single `truncate` line, so anyone
+                                            with a moderately long name (very common —
+                                            first + last name, sometimes both partners of a
+                                            couple) had it cut off with "..." on their own
+                                            profile, right next to the QR button that caused
+                                            the squeeze. A person's own name is the last
+                                            thing that should ever be clipped — let it wrap
+                                            onto a second line instead, with a slightly
+                                            smaller size on small screens to fit more of it
+                                            per line. */}
+                                            <h1 className="text-lg sm:text-2xl font-black text-primary tracking-tight leading-tight [overflow-wrap:anywhere] line-clamp-2">
                                                 {studentData.full_name || `${studentData.first_name} ${studentData.last_name}`}
                                             </h1>
                                             <p className="text-[10px] font-bold text-indigo-500 tracking-widest uppercase opacity-70 mt-0.5 truncate">
