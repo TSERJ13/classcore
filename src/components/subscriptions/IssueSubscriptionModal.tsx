@@ -92,6 +92,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [purchaseDate, setPurchaseDate] = useState('');
     const [days, setDays] = useState<number | ''>('');
     const [sessions, setSessions] = useState<number | ''>('');
     const [unlimited, setUnlimited] = useState(false);
@@ -141,6 +142,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             const currentStudents = getStudents().sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
             setStudentId(initialStudentId || currentStudents[0]?.id || '');
             setStartDate(getLocalISODate());
+            setPurchaseDate(getLocalISODate());
             setDiscount('');
             setPayMethod('cash');
             setAmountPaid('');
@@ -335,6 +337,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
         const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
 
+        const finalPurchaseDate = purchaseDate || getLocalISODate();
+
         try {
             onIssue({
                 student_id: studentId,
@@ -342,8 +346,10 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 sessions_used: 0,
                 sessions_total: sessionsTotal,
                 status: 'active',
-                purchased_at: startDate,
+                purchased_at: finalPurchaseDate,
+                starts_at: startDate || finalPurchaseDate,
                 expires_at: finalEndDate,
+                price: typeof price === 'number' ? price : plan.price,
                 type: subType,
                 plan_type: plan.type,
                 group_id: isGroupPlan ? groupId : undefined,
@@ -689,17 +695,26 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </div>
                                 )}
 
-                                {/* Amount paid input */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.amountPaid} ({settings.currency})</label>
-                                    <input
-                                        type="number"
-                                        value={amountPaid}
-                                        onFocus={(e) => e.target.select()}
-                                        onChange={(e) => setAmountPaid(parseFloat(e.target.value) || '')}
-                                        placeholder={remaining.toFixed(2)}
-                                        className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] sm:text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
-                                    />
+                                {/* Amount paid and payment date inputs */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.amountPaid} ({settings.currency})</label>
+                                        <input
+                                            type="number"
+                                            value={amountPaid}
+                                            onFocus={(e) => e.target.select()}
+                                            onChange={(e) => setAmountPaid(parseFloat(e.target.value) || '')}
+                                            placeholder={remaining.toFixed(2)}
+                                            className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] sm:text-sm font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{l('გადახდის თარიღი', 'Дата оплаты', 'Payment Date')}</label>
+                                        <StandardDatePicker
+                                            value={purchaseDate}
+                                            onChange={v => setPurchaseDate(v)}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Payment summary */}

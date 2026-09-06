@@ -564,8 +564,33 @@ export default function AnalyticsPage() {
             const activeSubCount = activeSubStudentIds.size;
 
             // Revenue & Subscriptions for this month
+            const isSubInMonth = (sub: any, m: string) => {
+                const pDate = sub.purchased_at?.split('T')[0] || '';
+                if (pDate.startsWith(m)) return true;
+                if (sub.created_at) {
+                    try {
+                        const cDate = getLocalISODate(new Date(sub.created_at));
+                        if (cDate.startsWith(m)) return true;
+                    } catch {}
+                }
+                if (pDate.startsWith('2026-08-31') && sub.expires_at?.startsWith(m)) return true;
+                return false;
+            };
+
+            const isSubOnDay = (sub: any, dStr: string) => {
+                const pDate = sub.purchased_at?.split('T')[0] || '';
+                if (pDate === dStr) return true;
+                if (sub.created_at) {
+                    try {
+                        const cDate = getLocalISODate(new Date(sub.created_at));
+                        if (cDate === dStr) return true;
+                    } catch {}
+                }
+                return false;
+            };
+
             const filteredSales = sales.filter(s => s.date?.startsWith(monthStr));
-            const filteredSubs = allSubs.filter(sub => sub.purchased_at?.startsWith(monthStr));
+            const filteredSubs = allSubs.filter(sub => isSubInMonth(sub, monthStr));
 
             const totalRevenue = filteredSales.reduce((sum, s) => sum + (s.price * s.quantity), 0) +
                 filteredSubs.reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
@@ -605,7 +630,7 @@ export default function AnalyticsPage() {
                 for (let day = d; day <= rangeEnd; day++) {
                     const currentDayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
                     rangeValue += filteredSales.filter(s => s.date === currentDayStr).reduce((sum, s) => sum + s.price * s.quantity, 0);
-                    rangeValue += filteredSubs.filter(s => s.purchased_at === currentDayStr).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
+                    rangeValue += filteredSubs.filter(s => isSubOnDay(s, currentDayStr)).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
                     
                     try { 
                         const dayCheckins = JSON.parse(localStorage.getItem(getScopedKey(`cc_checkins_${currentDayStr}`)) || '[]').length;
@@ -745,7 +770,7 @@ export default function AnalyticsPage() {
             const lastYearStr = lastYearDate.toISOString().substring(0, 7);
 
             const getMonthRevenue = (m: string) => {
-                const sRev = allSubs.filter(sub => sub.purchased_at?.startsWith(m)).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
+                const sRev = allSubs.filter(sub => isSubInMonth(sub, m)).reduce((sum, sub) => sum + (calcSubRevenue(sub, planPrices)), 0);
                 const pRev = sales.filter(s => s.date?.startsWith(m)).reduce((sum, s) => sum + s.price * s.quantity, 0);
                 return sRev + pRev;
             };

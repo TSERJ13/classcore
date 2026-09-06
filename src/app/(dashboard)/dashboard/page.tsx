@@ -20,7 +20,8 @@ import type { Student } from '@/types';
 import { getGroups } from '@/lib/group-store';
 import { getTeachers } from '@/lib/teacher-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
-import { pctChange } from '@/lib/studio-stats';
+import { pctChange, buildPlanPrices, subRevenue } from '@/lib/studio-stats';
+import { getPlans } from '@/lib/plan-store';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 
@@ -309,17 +310,46 @@ export default function DashboardPage() {
         const checkins = getTodayCheckins();
         const attendance = checkins.length;
 
+        // ── Plan Prices & Revenue Helpers ────────────────────────────────────
+        const plans = getPlans();
+        const planPrices = buildPlanPrices(plans);
+
+        const isSubInMonth = (sub: any, mPrefix: string) => {
+            const pDate = sub.purchased_at?.split('T')[0] || '';
+            if (pDate.startsWith(mPrefix)) return true;
+            if (sub.created_at) {
+                try {
+                    const cDate = getLocalISODate(new Date(sub.created_at));
+                    if (cDate.startsWith(mPrefix)) return true;
+                } catch {}
+            }
+            if (pDate.startsWith('2026-08-31') && sub.expires_at?.startsWith(mPrefix)) return true;
+            return false;
+        };
+
+        const isSubToday = (sub: any) => {
+            const pDate = sub.purchased_at?.split('T')[0] || '';
+            if (pDate === todayStr) return true;
+            if (sub.created_at) {
+                try {
+                    const cDate = getLocalISODate(new Date(sub.created_at));
+                    if (cDate === todayStr) return true;
+                } catch {}
+            }
+            return false;
+        };
+
         // ── Revenue: this month vs last month ────────────────────────────────
         const revInMonth = (mPrefix: string) =>
             sales.filter(s => s.date?.startsWith(mPrefix)).reduce((sum, s) => sum + s.price * s.quantity, 0) +
-            allSubsList.filter(sub => sub.purchased_at?.startsWith(mPrefix)).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0);
+            allSubsList.filter(sub => isSubInMonth(sub, mPrefix)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0);
         const monthlyRevenue = revInMonth(currentMonth);
         const prevMonthRevenue = revInMonth(prevMonth);
         const revenueChange = pctChange(monthlyRevenue, prevMonthRevenue) ?? 0;
 
         // ── Subscriptions purchased: this month vs last month ────────────────
-        const subsThisMonth = allSubsList.filter(sub => sub.purchased_at?.startsWith(currentMonth)).length;
-        const subsLastMonth = allSubsList.filter(sub => sub.purchased_at?.startsWith(prevMonth)).length;
+        const subsThisMonth = allSubsList.filter(sub => isSubInMonth(sub, currentMonth)).length;
+        const subsLastMonth = allSubsList.filter(sub => isSubInMonth(sub, prevMonth)).length;
         const subsChange = pctChange(subsThisMonth, subsLastMonth) ?? 0;
 
         // ── Attendance rate: % of all students who attended at least once this month ──
@@ -398,7 +428,7 @@ export default function DashboardPage() {
             todayExpected,
             expiringSoon: expiringSoonStudents.size,
             oneSessionLeft: oneSessionStudents.size,
-            todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => sub.purchased_at === todayStr).reduce((sum, sub) => sum + (sub.amount_paid || 0), 0),
+            todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubToday(sub)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
         }));
 
         // 2. Refresh Schedule & Activity

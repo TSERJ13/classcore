@@ -14,6 +14,8 @@ export interface SubscriptionInfo {
     status: 'active' | 'expired' | 'paused';
     expires_at: string;
     purchased_at: string;
+    starts_at?: string;
+    created_at?: string;
     teacher_comment?: string;
     type: 'sessions' | 'monthly';
     plan_type?: 'group' | 'individual' | 'rental';
@@ -23,6 +25,7 @@ export interface SubscriptionInfo {
     // Payment info
     payment_method?: 'cash' | 'card' | 'transfer';
     amount_paid?: number;
+    price?: number;
     teacher_id?: string;
     // Individual lesson schedule slots
     schedule?: Array<{ day: number; time: string; endTime: string; hallId?: string }>;
@@ -249,6 +252,12 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
     if (!info.id) {
         (info as any).id = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     }
+    if (!info.created_at) {
+        (info as any).created_at = new Date().toISOString();
+    }
+    if (!info.starts_at) {
+        (info as any).starts_at = info.purchased_at;
+    }
 
     studentIds.forEach(id => {
         if (!data[id]) data[id] = [];
@@ -283,7 +292,9 @@ export function saveSubscription(studentId: string, info: SubscriptionInfo): voi
             status: info.status || 'active',
             sessions_used: info.sessions_used || 0,
             sessions_total: info.sessions_total ?? null,
+            starts_at: info.starts_at || info.purchased_at || null,
             expires_at: info.expires_at || null,
+            price: info.price || (typeof info.amount_paid === 'number' ? info.amount_paid : null),
             data: info
         };
         
