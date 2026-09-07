@@ -1231,8 +1231,18 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                                     <button
                                                         onClick={async () => {
                                                             if (await confirm(t.deleteVisitConfirm)) {
+                                                                // 🛠️ FIX: this called refundCheckin(visit.studentId)
+                                                                // with no date — which internally defaults to TODAY —
+                                                                // so clicking delete on any visit OTHER than one from
+                                                                // today either silently did nothing (if the student
+                                                                // had no check-in today) or, worse, deleted/refunded
+                                                                // today's unrelated real check-in instead of the one
+                                                                // actually clicked. deleteCheckin() targets this exact
+                                                                // record (by id, with date/time as fallback matching)
+                                                                // and only refunds when it actually finds and removes
+                                                                // that record.
                                                                 import('@/lib/checkin-store').then(m => {
-                                                                    m.refundCheckin(visit.studentId);
+                                                                    m.deleteCheckin(visit.studentId, visit.date, visit.time, visit.id);
                                                                     setVisits(m.getStudentCheckins(student!.id));
                                                                 });
                                                             }

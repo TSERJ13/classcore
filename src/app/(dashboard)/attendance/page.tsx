@@ -1079,7 +1079,18 @@ export default function AttendancePage() {
             }
         } else if (cur === 'present') {
             // Mark absent: refund session (since it was present)
-            refundCheckin(id);
+            // 🛠️ FIX: refundCheckin(id) with no date argument silently
+            // defaults to TODAY's real-world date internally — so
+            // un-marking attendance on any day OTHER than today (which is
+            // most of the time an admin browses back to fix a past date)
+            // looked for that day's check-in under today's key, found
+            // nothing, and refunded nothing. Combined with the check-in
+            // overlay in loadAtt() (see saveAttendance/loadAtt above),
+            // that stale real check-in record for the past date was never
+            // removed either, so it would keep reappearing as "present"
+            // no matter how many times it was unmarked. Pass the date
+            // actually being viewed, same as toggleCouple() already does.
+            refundCheckin(id, dateKey);
             next = 'absent';
         } else {
             next = 'none';
@@ -1679,6 +1690,14 @@ export default function AttendancePage() {
                                                                 if (isCoupleClass && coupleStudents.length > 0) {
                                                                     if (coupleStudents.some(s => n[s.id] === 'present')) {
                                                                         mod.refundCheckin(coupleStudents[0].id, dateKey);
+                                                                        // 🛠️ FIX: this cleared the couple's `att` state
+                                                                        // but only ever refunded/removed the PRIMARY
+                                                                        // partner's real check-in record — the
+                                                                        // companion's own record (written by
+                                                                        // recordCompanionCheckin) was left behind as a
+                                                                        // phantom "present" entry that would reappear
+                                                                        // the next time this day was loaded.
+                                                                        coupleStudents.slice(1).forEach(s => mod.deleteCompanionCheckin(s.id, dateKey));
                                                                     }
                                                                     coupleStudents.forEach(s => {
                                                                         n[s.id] = 'none';
