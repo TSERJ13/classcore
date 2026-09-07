@@ -11,7 +11,7 @@ import {
 import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge, formatDate } from '@/lib/utils';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, getCheckinsForDate, refundCheckin, deleteCheckin, getSessionsRemaining } from '@/lib/checkin-store';
+import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, getCheckinsForDate, recordCompanionCheckin, deleteCompanionCheckin, refundCheckin, deleteCheckin, getSessionsRemaining } from '@/lib/checkin-store';
 import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
@@ -1115,27 +1115,26 @@ export default function AttendancePage() {
             // 1. Deduct 1 session from shared sub
             recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, cls?.type as any);
 
-            // 2. Record check-in history log for partner student(s) without extra deduction
+            // 2. Record check-in history log for partner student(s) without extra
+            // deduction. 🛠️ FIX: this used to hand-write the companion's
+            // record straight into localStorage, bypassing checkin-store's
+            // cloud sync entirely — so the companion's own "present" mark
+            // never reached Supabase and would vanish on any other device
+            // (or after this browser's storage was cleared), even though
+            // the primary partner's mark was fine. recordCompanionCheckin()
+            // writes an equally real, cloud-synced record but still skips
+            // the session deduction (already taken once, above).
             const dateToUse = dateKey || getLocalISODate();
-            const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
             cStudents.slice(1).forEach(st => {
-                const checkinId = `att_${st.id}_${dateToUse}_${Date.now()}`;
-                const record = {
-                    id: checkinId,
-                    studentId: st.id,
-                    studentName: st.full_name,
-                    date: dateToUse,
-                    time: nowTimeStr,
-                    via: 'manual' as const,
-                    sessionsRemaining: primarySubStatus.remaining > 0 ? primarySubStatus.remaining - 1 : 0,
-                    classId: selectedClass,
-                    groupId: selClass?.group_id,
-                };
-                try {
-                    const dKey = `cc_checkins_${dateToUse}`;
-                    const existing = JSON.parse(localStorage.getItem(dKey) || '[]');
-                    localStorage.setItem(dKey, JSON.stringify([...existing, record]));
-                } catch (e) {}
+                recordCompanionCheckin(
+                    st.id,
+                    st.full_name,
+                    'manual',
+                    primarySubStatus.remaining > 0 ? primarySubStatus.remaining - 1 : 0,
+                    selectedClass,
+                    selClass?.group_id,
+                    dateToUse
+                );
             });
 
             // 3. Mark both present in att
@@ -1203,8 +1202,13 @@ export default function AttendancePage() {
                 }
             }
         } else if (isAllPresent || isAnyPresent) {
-            // MARK ABSENT (refund 1 session)
+            // MARK ABSENT (refund the 1 shared session via the primary's
+            // record; also remove the companion's own record — otherwise
+            // it lingers as a phantom "present" check-in even after the
+            // couple is unmarked, since deleteCompanionCheckin deliberately
+            // does NOT refund again for it).
             refundCheckin(primary.id, dateKey);
+            cStudents.slice(1).forEach(st => deleteCompanionCheckin(st.id, dateKey));
             const nextAtt = { ...att };
             cStudents.forEach(s => {
                 nextAtt[s.id] = 'absent';
@@ -2243,13 +2247,24 @@ export default function AttendancePage() {
                                                 </div>
 
                                                 <div className="flex-1 overflow-y-auto p-6 no-scrollbar">
-                                                    {activeTab === 'recent' && (
+                                                    {activeTab === 'recent' && (() => {
+                                                        // 🛠️ FIX: this used to list the student's ENTIRE all-time
+                                                        // check-in history, so visits tied to a subscription from
+                                                        // months ago cluttered the view alongside the current one —
+                                                        // "ვიზიტებში კონკრეტულად ამ აბონემენტის ვიზიტები უნდა
+                                                        // იყოს". Scope it to the currently active subscription's
+                                                        // own window (from its purchase date onward).
+                                                        const allCheckins = getStudentCheckins(selStudent.id);
+                                                        const { activeSub } = getSubStatus(selStudent.id);
+                                                        const windowStart = activeSub?.purchased_at ? activeSub.purchased_at.split('T')[0] : null;
+                                                        const visibleCheckins = windowStart ? allCheckins.filter(ch => ch.date >= windowStart) : allCheckins;
+                                                        return (
                                                         <div className="space-y-3 pb-24">
-                                                            {getStudentCheckins(selStudent.id).length > 0 ? getStudentCheckins(selStudent.id).map((ch, i) => (
-                                                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-[#6d28d9]/30 transition-all">
+                                                            {visibleCheckins.length > 0 ? visibleCheckins.map((ch, i) => (
+                                                                <div key={ch.id || i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-[#6d28d9]/30 transition-all">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                                                                            style={{ 
+                                                                            style={{
                                                                                 backgroundColor: `${selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9'}15`,
                                                                                 color: selClass?.color || (selClass?.group_id ? GROUP_COLOR_MAP[selClass.group_id] : null) || '#6d28d9'
                                                                             }}>
@@ -2265,15 +2280,19 @@ export default function AttendancePage() {
                                                                     button was permanently invisible/unreachable on mobile
                                                                     (it only ever appeared under a mouse cursor in desktop
                                                                     dev tools). Always visible now, just more subtle until
-                                                                    interacted with. */}
-                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time); setSubs(getSubscriptions()); } }}
+                                                                    interacted with. Also now passes ch.id as an exact
+                                                                    match instead of relying only on date+time string
+                                                                    equality, which could silently fail to match and make
+                                                                    the button look broken. */}
+                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time, ch.id); setSubs(getSubscriptions()); } }}
                                                                         className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-60 hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shrink-0">
                                                                         <X className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
                                                             )) : <div className="text-center py-12 opacity-30 font-black text-[10px] tracking-widest">{t.noData}</div>}
                                                         </div>
-                                                    )}
+                                                        );
+                                                    })()}
                                                     {activeTab === 'subs' && (
                                                         <div className="space-y-4 pb-24">
                                                             {(subs[selStudent.id] || []).map((sub, idx) => {

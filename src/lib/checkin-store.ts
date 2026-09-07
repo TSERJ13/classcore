@@ -188,6 +188,126 @@ export function refundCheckin(studentId: string, customDate?: string): void {
     }
 }
 
+/**
+ * Shared write path for a single check-in RECORD: appends it to the
+ * per-day localStorage list and — the part that actually matters for
+ * cross-device reliability — pushes it to the cloud `attendance` table and
+ * mirrors it into the `cc_attendance_data` cache, exactly like a normal
+ * check-in. Does NOT touch session counts; callers decide whether/who to
+ * deduct from (see recordCompanionCheckin below for why this is split
+ * out).
+ */
+function _persistCheckinRecord(record: CheckinRecord, via: 'nfc' | 'qr' | 'manual'): void {
+    const key = dayKey(record.date);
+    const existing = JSON.parse(localStorage.getItem(key) ?? '[]');
+    localStorage.setItem(key, JSON.stringify([...existing, record]));
+    markLocalUpdate();
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cc_attendance_update'));
+    }
+
+    const activeSlug = getActiveSlug();
+    const settings = loadSettings(activeSlug || '');
+    const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
+    if (orgId && orgId !== 'demo') {
+        const cloudRecord = {
+            id: record.id,
+            org_id: orgId,
+            student_id: record.studentId,
+            group_id: record.groupId || 'none',
+            date: record.date,
+            status: 'present',
+            notes: `Via ${via.toUpperCase()}`,
+            data: record
+        };
+        syncRecordToCloud('attendance', cloudRecord, orgId);
+        try {
+            const attDataKey = getScopedKey('cc_attendance_data', activeSlug);
+            const attData = JSON.parse(localStorage.getItem(attDataKey) || '{}');
+            if (!attData[record.studentId]) attData[record.studentId] = [];
+            attData[record.studentId].push(cloudRecord);
+            localStorage.setItem(attDataKey, JSON.stringify(attData));
+        } catch (e) {}
+    }
+}
+
+/**
+ * Records a COMPANION check-in for a paired/"couple" lesson where the
+ * primary partner already deducted the one shared session (via
+ * recordCheckin/forceCheckin). This writes an equally real, cloud-synced
+ * attendance record for the OTHER partner — same as a normal check-in —
+ * but deliberately skips incrementSessionsUsed so the shared subscription
+ * isn't double-charged.
+ *
+ * 🛠️ FIX: attendance/page.tsx's toggleCouple() used to write this
+ * companion record by hand, straight into localStorage only, bypassing
+ * this whole sync path — so it never reached Supabase. On any other
+ * device (or after this browser's storage was cleared/reset), the
+ * companion's own "present" mark would silently vanish even though the
+ * couple genuinely attended and the primary partner's mark was fine —
+ * exactly the "green doesn't stick" symptom reported for couple classes.
+ */
+export function recordCompanionCheckin(
+    studentId: string,
+    studentName: string,
+    via: 'nfc' | 'qr' | 'manual',
+    sessionsRemaining: number,
+    classId?: string,
+    groupId?: string,
+    customDate?: string
+): CheckinRecord {
+    const dateToUse = customDate || today();
+    const record: CheckinRecord = {
+        id: `att_${studentId}_${dateToUse}_${Date.now()}`,
+        studentId,
+        studentName,
+        date: dateToUse,
+        time: nowTime(),
+        via,
+        sessionsRemaining,
+        classId,
+        groupId,
+    };
+    _persistCheckinRecord(record, via);
+    return record;
+}
+
+/**
+ * Removes a companion record written by recordCompanionCheckin, without
+ * touching session counts — the shared session was already refunded once
+ * via the primary partner's refundCheckin() call. Mirrors deleteCheckin's
+ * local + cloud cleanup but deliberately has no refund side effect, so
+ * un-marking a couple doesn't silently hand back an extra session nobody
+ * actually took.
+ */
+export function deleteCompanionCheckin(studentId: string, date: string): void {
+    if (typeof window === 'undefined' || !date) return;
+    try {
+        const key = dayKey(date);
+        const existing: CheckinRecord[] = JSON.parse(localStorage.getItem(key) || '[]');
+        const idx = existing.findLastIndex(r => r.studentId === studentId);
+        if (idx === -1) return;
+        const rec = existing[idx];
+        const updated = [...existing];
+        updated.splice(idx, 1);
+        if (updated.length === 0) localStorage.removeItem(key);
+        else localStorage.setItem(key, JSON.stringify(updated));
+        markLocalUpdate();
+
+        const activeSlug = getActiveSlug();
+        const settings = loadSettings(activeSlug || '');
+        const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
+        if (orgId && orgId !== 'demo' && rec.id) {
+            import('./master-sync').then(({ deleteRecordFromCloud }) => {
+                deleteRecordFromCloud('attendance', rec.id, orgId);
+            });
+        }
+        window.dispatchEvent(new Event('cc_attendance_update'));
+    } catch (e) {
+        console.error('❌ [Checkin] Failed to delete companion checkin:', e);
+    }
+}
+
 function _writeCheckin(
     studentId: string,
     studentName: string,
@@ -205,7 +325,7 @@ function _writeCheckin(
     const next = hasSubscription ? getSessionsRemaining(studentId, groupId) : -1;
     const dateToUse = customDate || today();
     const checkinId = `att_${studentId}_${dateToUse}_${Date.now()}`;
-    
+
     const record: CheckinRecord = {
         id: checkinId,
         studentId,
@@ -225,7 +345,7 @@ function _writeCheckin(
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('cc_attendance_update'));
     }
-    
+
     // 🔥 NEW ATOMIC SYNC: Push this check-in to the native table
     const activeSlug = getActiveSlug();
     const settings = loadSettings(activeSlug || '');
@@ -397,36 +517,53 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
 
 /** Delete a specific checkin from history and refund sessions */
 export function deleteCheckin(studentId: string, date: string, time: string, forceId?: string): void {
-    const key = dayKey(date);
-    let existing: CheckinRecord[] = [];
+    let rToDelete: CheckinRecord | undefined = undefined;
+
+    // 🛠️ FIX: this used to look ONLY at the one exact key
+    // getScopedKey(`cc_checkins_${date}`) computes right now — if the
+    // record the "ვიზიტები" list is actually showing lives under a
+    // differently-scoped variant of that same day (a legacy/branch-scoped
+    // key, for instance), the lookup silently found nothing, deleted
+    // nothing, and the "X" button appeared to just not work. Scan every
+    // cc_checkins_<date> key that actually exists instead of computing one
+    // and hoping it's the right one. Also prefer an exact id match
+    // (forceId) over the fragile time-string comparison when we have one.
     try {
-        const raw = localStorage.getItem(key);
-        if (raw) existing = JSON.parse(raw);
-        if (!Array.isArray(existing)) existing = [];
+        const dayKeys = Object.keys(localStorage).filter(k => k.includes(`${BASE_CHECKINS_PREFIX}${date}`));
+        for (const key of dayKeys) {
+            let existing: CheckinRecord[] = [];
+            try {
+                const raw = localStorage.getItem(key);
+                existing = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(existing)) existing = [];
+            } catch { existing = []; }
+
+            const idx = existing.findIndex(r => r.studentId === studentId && (r.id === forceId || r.time === time || !time));
+            if (idx > -1) {
+                rToDelete = existing[idx];
+                const updated = [...existing];
+                updated.splice(idx, 1);
+                if (updated.length === 0) localStorage.removeItem(key);
+                else localStorage.setItem(key, JSON.stringify(updated));
+            }
+        }
     } catch (e) {
         // Ignore
     }
-    const idx = existing.findIndex(r => r.studentId === studentId && (r.time === time || !time || r.id === forceId));
 
-    let rToDelete: CheckinRecord | undefined = undefined;
-
-    if (idx > -1) {
-        rToDelete = existing[idx];
-        const updated = [...existing];
-        updated.splice(idx, 1);
-        if (updated.length === 0) localStorage.removeItem(key);
-        else localStorage.setItem(key, JSON.stringify(updated));
-    }
-
-    // Also look in cc_attendance_data (cloud hydrated data)
+    // Also look in cc_attendance_data (cloud hydrated data) — case-insensitive
+    // key lookup, matching getStudentCheckins() (the source the "ვიზიტები"
+    // list this button is wired to actually reads), since a mismatched case
+    // here meant this branch never found anything for that record either.
     try {
         const attKeys = Object.keys(localStorage).filter(k => k.includes('cc_attendance_data'));
         for (const attKey of attKeys) {
             const attData = JSON.parse(localStorage.getItem(attKey) || '{}');
-            const studentRecords = attData[studentId];
+            const targetKey = Object.keys(attData).find(k => k.toLowerCase() === studentId.toLowerCase());
+            const studentRecords = targetKey ? attData[targetKey] : undefined;
             if (Array.isArray(studentRecords)) {
-                const cloudIdx = studentRecords.findIndex((r: any) => 
-                    r.date === date && (r.time === time || !time || r.id === forceId)
+                const cloudIdx = studentRecords.findIndex((r: any) =>
+                    r.date === date && (r.id === forceId || r.time === time || !time)
                 );
                 if (cloudIdx > -1) {
                     if (!rToDelete) {
@@ -442,7 +579,7 @@ export function deleteCheckin(studentId: string, date: string, time: string, for
                         };
                     }
                     studentRecords.splice(cloudIdx, 1);
-                    attData[studentId] = studentRecords;
+                    attData[targetKey as string] = studentRecords;
                     localStorage.setItem(attKey, JSON.stringify(attData));
                 }
             }
@@ -460,9 +597,10 @@ export function deleteCheckin(studentId: string, date: string, time: string, for
         const activeSlug = getActiveSlug();
         const settings = loadSettings(activeSlug || '');
         const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
-        if (orgId && orgId !== 'demo' && rToDelete.id) {
+        const finalRecord = rToDelete;
+        if (orgId && orgId !== 'demo' && finalRecord.id) {
             import('./master-sync').then(({ deleteRecordFromCloud }) => {
-                deleteRecordFromCloud('attendance', rToDelete.id as string, orgId);
+                deleteRecordFromCloud('attendance', finalRecord.id as string, orgId);
             });
         }
 
