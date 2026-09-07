@@ -11,7 +11,7 @@ import {
 import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge, formatDate } from '@/lib/utils';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, refundCheckin, deleteCheckin, getSessionsRemaining } from '@/lib/checkin-store';
+import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, getCheckinsForDate, refundCheckin, deleteCheckin, getSessionsRemaining } from '@/lib/checkin-store';
 import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
@@ -549,22 +549,47 @@ export default function AttendancePage() {
                 }
             }
 
+            let archived: Record<string, State> = {};
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
                     if (data[dateKey] && data[dateKey][selectedClass]) {
-                        setAtt(data[dateKey][selectedClass]);
-                        return;
+                        archived = data[dateKey][selectedClass];
                     }
                 } catch (e) {
                     console.error('❌ [Attendance] Failed to parse archive:', e);
                 }
             }
-            setAtt({});
+
+            // 🛠️ FIX: `cc_attendance_archive` is a plain per-device localStorage
+            // cache — it's only ever written by THIS browser's own toggle()
+            // clicks (see saveAttendance below) and is never pushed to the
+            // cloud, so it can silently drift from reality (cleared storage,
+            // a different device, a check-in that happened before this
+            // browser ever loaded the archive). The REAL record of who
+            // checked in is `cc_checkins_<date>`, written by recordCheckin()
+            // and kept in sync across devices in real time by
+            // realtime-sync.ts's applyRemoteCheckin(). Overlay those real
+            // records on top of the archive so "present" (the "+" turning
+            // green) always reflects the actual check-in database — the
+            // archive now only remains authoritative for explicit "absent"
+            // marks, which have no real backing record of their own.
+            const merged: Record<string, State> = { ...archived };
+            try {
+                getCheckinsForDate(dateKey).forEach(rec => {
+                    if (rec.classId === selectedClass) {
+                        merged[rec.studentId] = 'present';
+                    }
+                });
+            } catch (e) {
+                console.error('❌ [Attendance] Failed to reconcile real check-ins:', e);
+            }
+
+            setAtt(merged);
         };
 
         loadAtt();
-        const events = ['cc_attendance_update', 'cc_student_update', 'cc_subscription_update'];
+        const events = ['cc_attendance_update', 'cc_checkin_update', 'cc_student_update', 'cc_subscription_update'];
         events.forEach(e => window.addEventListener(e, loadAtt));
         return () => events.forEach(e => window.removeEventListener(e, loadAtt));
     }, [dateKey, selectedClass, settings.studioSlug, settings.orgId]);

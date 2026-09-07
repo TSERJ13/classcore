@@ -11,6 +11,7 @@ import {
     Sparkles, AlertCircle
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
+import { translations, type Lang } from '@/lib/i18n';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { useUser } from '@/hooks/useUser';
@@ -459,14 +460,24 @@ export default function AnalyticsPage() {
         const salaryWin = window.open('', '_blank');
         if (!salaryWin) return;
 
+        // 🆕 The PDF is FOR the teacher, so it should speak the language THEY
+        // chose in their own profile — not whatever language the admin who
+        // clicked "download" currently has the dashboard set to. Requested
+        // explicitly: "ხელფასის პდფ ენა შეუსაბამე იმ ენას რომელიც არჩეული
+        // აქვს მასწავლებელს". Falls back to Georgian, same default used
+        // everywhere else in the app when a preference isn't set.
+        const pdfLang: Lang = ((teacherData?.fullObject?.preferred_language as Lang) || 'ka');
+        const tPdf = translations[pdfLang] || translations.ka;
+        const lPdf = (ka: string, ru: string, en: string) => pdfLang === 'ka' ? ka : pdfLang === 'ru' ? ru : en;
+
         const getLocalizedType = (type: string) => {
-            if (type === 'Monthly') return t.monthly;
-            if (type === 'Hourly') return t.hourly;
-            if (type === 'Percentage') return t.percentageShort || 'Share';
-            if (type === 'Combined') return l('კომბინირებული', 'Комбинир.', 'Combined');
+            if (type === 'Monthly') return tPdf.monthly;
+            if (type === 'Hourly') return tPdf.hourly;
+            if (type === 'Percentage') return tPdf.percentageShort || 'Share';
+            if (type === 'Combined') return lPdf('კომბინირებული', 'Комбинир.', 'Combined');
             return type;
         };
-        
+
         // 🆕 Transparency breakdown: which groups (and individual/rental
         // lessons) contributed, at what percentage each, how many enrolled
         // students there are vs. how many actually paid this month, and
@@ -481,91 +492,107 @@ export default function AnalyticsPage() {
             <tr>
                 <td class="bcell bname">${b.name}</td>
                 <td class="bcell bcenter">${b.percentage}%</td>
-                <td class="bcell bcenter">${b.paidCount}${b.key !== 'individual' ? ` / ${b.enrolledCount}` : ''}</td>
+                <td class="bcell bcenter">${b.paidCount}${(b.key !== 'individual' && b.key !== 'rental') ? ` / ${b.enrolledCount}` : ''}</td>
                 <td class="bcell bright">${formatCurrency(b.revenue, settings.currency)}</td>
                 <td class="bcell bright bstrong">${formatCurrency(b.cut, settings.currency)}</td>
             </tr>
         `).join('');
+
+        // 🆕 Studio logo, next to the studio name — requested: "ლოგო
+        // დაურთო ზემოთ სადაც სახელი წერია სტუდიის". `logoDataUrl` is
+        // already a self-contained base64 data: URL (same field the rest
+        // of the app uses for the sidebar/login logo), so it prints fine
+        // with no network fetch needed.
+        const logoHtml = settings.logoDataUrl
+            ? `<img src="${settings.logoDataUrl}" class="studio-logo" alt="logo" />`
+            : '';
 
         const html = `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>${t.salaryCalculation || 'Salary Statement'} - ${teacherData.teacher}</title>
+                <title>${tPdf.salaryCalculation || 'Salary Statement'} - ${teacherData.teacher}</title>
                 <style>
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-                    body { font-family: 'Inter', -apple-system, sans-serif; padding: 60px; color: #1e293b; max-width: 800px; margin: 0 auto; background: #fff; line-height: 1.5; }
-                    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 40px; }
+                    @page { size: A4; margin: 10mm 12mm; }
+                    * { box-sizing: border-box; }
+                    body { font-family: 'Inter', -apple-system, sans-serif; padding: 30px 40px; color: #1e293b; max-width: 800px; margin: 0 auto; background: #fff; line-height: 1.4; }
+                    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px; }
+                    .studio-identity { display: flex; align-items: center; gap: 12px; }
+                    .studio-logo { width: 42px; height: 42px; border-radius: 12px; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,0.15); flex-shrink: 0; }
                     .studio-info { text-align: left; }
-                    .studio-name { font-size: 28px; font-weight: 900; color: #4f46e5; letter-spacing: -0.025em; }
-                    .studio-tag { color: #94a3b8; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.1em; }
+                    .studio-name { font-size: 21px; font-weight: 900; color: #4f46e5; letter-spacing: -0.025em; }
+                    .studio-tag { color: #94a3b8; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-top: 2px; letter-spacing: 0.08em; }
                     .receipt-info { text-align: right; }
-                    .receipt-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #4f46e5; letter-spacing: 0.1em; margin-bottom: 4px; }
-                    .receipt-date { font-size: 18px; font-weight: 700; color: #334155; }
+                    .receipt-title { font-size: 11px; font-weight: 900; text-transform: uppercase; color: #4f46e5; letter-spacing: 0.08em; margin-bottom: 3px; }
+                    .receipt-date { font-size: 14px; font-weight: 700; color: #334155; }
 
-                    .content { background: #f8fafc; border-radius: 24px; padding: 32px; border: 1px solid #f1f5f9; }
-                    .row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #e2e8f0; }
+                    .content { background: #f8fafc; border-radius: 16px; padding: 16px 20px; border: 1px solid #f1f5f9; }
+                    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
                     .row:last-of-type { border-bottom: none; }
-                    .label { color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-                    .value { color: #1e293b; font-weight: 700; font-size: 15px; }
+                    .label { color: #64748b; font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+                    .value { color: #1e293b; font-weight: 700; font-size: 13px; }
 
-                    .section-title { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: #4f46e5; margin: 32px 0 12px; }
-                    .breakdown-table { width: 100%; border-collapse: collapse; background: #f8fafc; border-radius: 20px; overflow: hidden; border: 1px solid #f1f5f9; }
-                    .breakdown-table thead th { text-align: left; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; }
+                    .section-title { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #4f46e5; margin: 16px 0 8px; }
+                    .breakdown-table { width: 100%; border-collapse: collapse; background: #f8fafc; border-radius: 14px; overflow: hidden; border: 1px solid #f1f5f9; }
+                    .breakdown-table thead th { text-align: left; font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
                     .breakdown-table thead th.bcenter, .bcell.bcenter { text-align: center; }
                     .breakdown-table thead th.bright, .bcell.bright { text-align: right; }
-                    .bcell { padding: 12px 16px; font-size: 12px; font-weight: 700; color: #334155; border-bottom: 1px solid #e2e8f0; }
+                    .bcell { padding: 7px 12px; font-size: 11px; font-weight: 700; color: #334155; border-bottom: 1px solid #e2e8f0; }
                     tr:last-child .bcell { border-bottom: none; }
                     .bname { font-weight: 800; color: #1e293b; }
                     .bstrong { color: #4f46e5; font-weight: 900; }
 
-                    .compare-box { display: flex; gap: 16px; margin-top: 20px; }
-                    .compare-card { flex: 1; border-radius: 20px; padding: 18px 20px; border: 1px solid #e2e8f0; }
+                    .compare-box { display: flex; gap: 12px; margin-top: 12px; }
+                    .compare-card { flex: 1; border-radius: 14px; padding: 10px 14px; border: 1px solid #e2e8f0; }
                     .compare-card.expected { background: #f8fafc; }
                     .compare-card.actual { background: #eef2ff; border-color: #c7d2fe; }
-                    .compare-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 6px; }
-                    .compare-value { font-size: 20px; font-weight: 900; color: #1e293b; }
-                    .achieved-note { margin-top: 14px; font-size: 11px; font-weight: 700; color: #64748b; text-align: center; }
+                    .compare-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 4px; }
+                    .compare-value { font-size: 16px; font-weight: 900; color: #1e293b; }
+                    .achieved-note { margin-top: 8px; font-size: 10px; font-weight: 700; color: #64748b; text-align: center; }
                     .achieved-note b { color: #4f46e5; }
 
-                    .total-box { margin-top: 32px; text-align: right; padding: 24px; border-radius: 20px; background: #4f46e5; color: #fff; }
-                    .total-label { font-weight: 900; font-size: 14px; text-transform: uppercase; margin-right: 20px; opacity: 0.8; }
-                    .total-value { font-size: 36px; font-weight: 900; }
+                    .total-box { margin-top: 16px; text-align: right; padding: 14px 18px; border-radius: 14px; background: #4f46e5; color: #fff; }
+                    .total-label { font-weight: 900; font-size: 12px; text-transform: uppercase; margin-right: 16px; opacity: 0.8; }
+                    .total-value { font-size: 26px; font-weight: 900; }
 
-                    .footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center; }
-                    .footer-text { color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+                    .footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #f1f5f9; text-align: center; }
+                    .footer-text { color: #94a3b8; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <div class="studio-info">
-                        <div class="studio-name">${settings.studioName || 'ClassCore Studio'}</div>
-                        <div class="studio-tag">${l('პროფესიონალური სტუდიის მართვა', 'Проф. управление студией', 'Professional Management')}</div>
+                    <div class="studio-identity">
+                        ${logoHtml}
+                        <div class="studio-info">
+                            <div class="studio-name">${settings.studioName || 'ClassCore Studio'}</div>
+                            <div class="studio-tag">${lPdf('პროფესიონალური სტუდიის მართვა', 'Проф. управление студией', 'Professional Management')}</div>
+                        </div>
                     </div>
                     <div class="receipt-info">
-                        <div class="receipt-title">${t.salaryCalculation || 'Salary Statement'}</div>
+                        <div class="receipt-title">${tPdf.salaryCalculation || 'Salary Statement'}</div>
                         <div class="receipt-date">${selectedMonth}</div>
                     </div>
                 </div>
 
                 <div class="content">
-                    <div class="row"><span class="label">${t.teacherName || 'Teacher'}</span> <span class="value">${teacherData.teacher}</span></div>
-                    <div class="row"><span class="label">${t.typeLabel || 'Type'}</span> <span class="value">${getLocalizedType(teacherData.type)}</span></div>
-                    <div class="row"><span class="label">${t.volumeTable || 'Volume'}</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
-                    <div class="row"><span class="label">${t.bonusTable || 'Bonus'}</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
+                    <div class="row"><span class="label">${tPdf.teacherName || 'Teacher'}</span> <span class="value">${teacherData.teacher}</span></div>
+                    <div class="row"><span class="label">${tPdf.typeLabel || 'Type'}</span> <span class="value">${getLocalizedType(teacherData.type)}</span></div>
+                    <div class="row"><span class="label">${tPdf.volumeTable || 'Volume'}</span> <span class="value">${typeof teacherData.rate === 'number' ? formatCurrency(teacherData.rate, settings.currency) : teacherData.rate}</span></div>
+                    <div class="row"><span class="label">${tPdf.bonusTable || 'Bonus'}</span> <span class="value">${formatCurrency(teacherData.bonus, settings.currency)}</span></div>
                 </div>
 
                 ${breakdown.length > 0 ? `
-                <div class="section-title">${l('ჯგუფების მიხედვით (გამჭვირვალობა)', 'По группам (прозрачность)', 'By Group (Transparency)')}</div>
+                <div class="section-title">${lPdf('ჯგუფების მიხედვით (გამჭვირვალობა)', 'По группам (прозрачность)', 'By Group (Transparency)')}</div>
                 <table class="breakdown-table">
                     <thead>
                         <tr>
-                            <th>${l('ჯგუფი', 'Группа', 'Group')}</th>
-                            <th class="bcenter">${l('პროცენტი', '%', '%')}</th>
-                            <th class="bcenter">${l('გადაიხადა/სულ', 'Оплатили/всего', 'Paid/Total')}</th>
-                            <th class="bright">${l('შემოსავალი', 'Доход', 'Revenue')}</th>
-                            <th class="bright">${l('წილი', 'Доля', 'Cut')}</th>
+                            <th>${lPdf('ჯგუფი', 'Группа', 'Group')}</th>
+                            <th class="bcenter">${lPdf('პროცენტი', '%', '%')}</th>
+                            <th class="bcenter">${lPdf('გადაიხადა/სულ', 'Оплатили/всего', 'Paid/Total')}</th>
+                            <th class="bright">${lPdf('შემოსავალი', 'Доход', 'Revenue')}</th>
+                            <th class="bright">${lPdf('წილი', 'Доля', 'Cut')}</th>
                         </tr>
                     </thead>
                     <tbody>${breakdownRows}</tbody>
@@ -573,16 +600,16 @@ export default function AnalyticsPage() {
 
                 <div class="compare-box">
                     <div class="compare-card expected">
-                        <div class="compare-label">${l('უნდა ყოფილიყო (წესით)', 'Должно было быть', 'Expected')}</div>
+                        <div class="compare-label">${lPdf('სრული', 'Полная сумма', 'Full Amount')}</div>
                         <div class="compare-value">${formatCurrency(expectedTotal, settings.currency)}</div>
                     </div>
                     <div class="compare-card actual">
-                        <div class="compare-label">${l('ფაქტობრივად', 'Фактически', 'Actual')}</div>
+                        <div class="compare-label">${lPdf('ფაქტობრივად', 'Фактически', 'Actual')}</div>
                         <div class="compare-value">${formatCurrency(teacherData.total, settings.currency)}</div>
                     </div>
                 </div>
                 <p class="achieved-note">
-                    ${l(
+                    ${lPdf(
                         `მასწავლებელმა მიიღო შესაძლო შემოსავლის <b>${achievedPct}%</b> — სხვაობა გაცდენებისა და გადაუხდელი აბონემენტების გამოა.`,
                         `Преподаватель получил <b>${achievedPct}%</b> от возможного дохода — разница из-за пропусков и неоплаченных абонементов.`,
                         `Teacher received <b>${achievedPct}%</b> of the possible revenue — the gap is from missed attendance and unpaid subscriptions.`
@@ -591,14 +618,14 @@ export default function AnalyticsPage() {
                 ` : ''}
 
                 <div class="total-box">
-                    <span class="total-label">${t.totalAmount || 'Total'}</span>
+                    <span class="total-label">${tPdf.totalAmount || 'Total'}</span>
                     <span class="total-value">${formatCurrency(teacherData.total, settings.currency)}</span>
                 </div>
 
                 <div class="footer">
-                    <div class="footer-text">© ${new Date().getFullYear()} ${settings.studioName || 'ClassCore'}. ${l('გენერირებულია ClassCore-ს მიერ', 'Сгенерировано ClassCore', 'Generated by ClassCore')}.</div>
+                    <div class="footer-text">© ${new Date().getFullYear()} ${settings.studioName || 'ClassCore'}. ${lPdf('გენერირებულია ClassCore-ს მიერ', 'Сгенерировано ClassCore', 'Generated by ClassCore')}.</div>
                 </div>
-                
+
                 <script>
                     window.onload = () => {
                         window.print();
@@ -607,7 +634,7 @@ export default function AnalyticsPage() {
             </body>
             </html>
         `;
-        
+
         salaryWin.document.write(html);
         salaryWin.document.close();
     };
@@ -773,22 +800,45 @@ export default function AnalyticsPage() {
                 // above always excluded them — a teacher's 1-on-1 and
                 // hall-rental lessons never contributed to their salary at
                 // all until now.
-                const indSubs = filteredSubs.filter(sub =>
-                    (sub.plan_type === 'individual' || sub.plan_type === 'rental') && (sub as any).teacher_id === t.id
+                // 🛠️ FIX: individual lessons and hall-rental lessons are two
+                // different, unrelated revenue sources that happened to share
+                // one filter/one combined "Individual/Rental" breakdown row —
+                // studio explicitly asked why they were merged ("ინდივიდუალური
+                // გაკვეთილი არასწორად წერია ინდივიდუალური/დარბაზი წერია").
+                // Split them into their own rows so each shows its own name.
+                const individualOnlySubs = filteredSubs.filter(sub =>
+                    sub.plan_type === 'individual' && (sub as any).teacher_id === t.id
                 );
-                const indRevenue = indSubs.reduce((sum, sub) => sum + calcSubRevenue(sub, planPrices), 0);
+                const rentalOnlySubs = filteredSubs.filter(sub =>
+                    sub.plan_type === 'rental' && (sub as any).teacher_id === t.id
+                );
                 const indPerc = t.salary_percentage || 0;
-                const indCut = indRevenue * indPerc / 100;
-                if (indSubs.length > 0) {
+
+                const individualRevenue = individualOnlySubs.reduce((sum, sub) => sum + calcSubRevenue(sub, planPrices), 0);
+                const individualCut = individualRevenue * indPerc / 100;
+                if (individualOnlySubs.length > 0) {
                     breakdown.push({
                         key: 'individual',
-                        name: l('ინდივიდუალური/დარბაზის გაკვეთილები', 'Индивидуальные/аренда', 'Individual/Rental Lessons'),
-                        percentage: indPerc, revenue: indRevenue, cut: indCut,
-                        enrolledCount: indSubs.length, paidCount: indSubs.length,
-                        expectedRevenue: indRevenue, expectedCut: indCut
+                        name: l('ინდივიდუალური გაკვეთილები', 'Индивидуальные занятия', 'Individual Lessons'),
+                        percentage: indPerc, revenue: individualRevenue, cut: individualCut,
+                        enrolledCount: individualOnlySubs.length, paidCount: individualOnlySubs.length,
+                        expectedRevenue: individualRevenue, expectedCut: individualCut
                     });
                 }
 
+                const rentalRevenue = rentalOnlySubs.reduce((sum, sub) => sum + calcSubRevenue(sub, planPrices), 0);
+                const rentalCut = rentalRevenue * indPerc / 100;
+                if (rentalOnlySubs.length > 0) {
+                    breakdown.push({
+                        key: 'rental',
+                        name: l('დარბაზის გაქირავება', 'Аренда зала', 'Hall Rental'),
+                        percentage: indPerc, revenue: rentalRevenue, cut: rentalCut,
+                        enrolledCount: rentalOnlySubs.length, paidCount: rentalOnlySubs.length,
+                        expectedRevenue: rentalRevenue, expectedCut: rentalCut
+                    });
+                }
+
+                const indCut = individualCut + rentalCut;
                 const percentageEarned = groupCommissionEarned + indCut;
 
                 const bonus = getTeacherBonusForMonth(t.id, monthStr);
@@ -1711,7 +1761,7 @@ export default function AnalyticsPage() {
                                                 group doesn't clutter the row with an identical number. */}
                                                 {item.expectedTotal > item.total * 1.02 && (
                                                     <p className="text-[9px] font-bold text-amber-600 tabular-nums mt-0.5" title={l('უნდა ყოფილიყო გადაუხდელი/გაცდენილი აბონემენტების გარეშე', 'Должно быть без неоплаченных/пропущенных', 'Expected without unpaid/missed subs')}>
-                                                        {l('წესით', 'по норме', 'expected')}: {formatCurrency(item.expectedTotal, settings.currency)}
+                                                        {l('სრული', 'Полностью', 'Full')}: {formatCurrency(item.expectedTotal, settings.currency)}
                                                     </p>
                                                 )}
                                             </td>
@@ -1833,7 +1883,7 @@ export default function AnalyticsPage() {
                                         <span className="text-sm font-black text-indigo-600 tabular-nums">{formatCurrency(item.total, settings.currency)}</span>
                                         {item.expectedTotal > item.total * 1.02 && (
                                             <p className="text-[8px] font-bold text-amber-600 tabular-nums">
-                                                {l('წესით', 'по норме', 'expected')}: {formatCurrency(item.expectedTotal, settings.currency)}
+                                                {l('სრული', 'Полностью', 'Full')}: {formatCurrency(item.expectedTotal, settings.currency)}
                                             </p>
                                         )}
                                     </div>

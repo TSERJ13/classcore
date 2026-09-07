@@ -658,12 +658,21 @@ export default function StudentPortalPage() {
 
                 let status: 'attended' | 'missed_with_sub' | 'no_sub' | 'none' | 'future' = 'none';
 
-                if (dStr > todayStr) {
-                    status = isScheduledDay ? 'future' : 'none';
-                } else if (checkinDates.has(dStr)) {
+                // 🛠️ FIX: was `dStr > todayStr` checked before the checkin
+                // lookup, so TODAY itself always fell through past the
+                // "future" branch and into the "missed" branch below — a
+                // class scheduled for later today (or a lesson that simply
+                // hasn't happened yet) was being counted as a miss the
+                // moment the day started, hours before it could possibly
+                // have occurred. Check for an actual checkin first (so a
+                // same-day check-in still correctly shows as attended), then
+                // treat today the same as future/pending until it's over.
+                if (checkinDates.has(dStr)) {
                     status = 'attended';
                     if (isScheduledDay) scheduledCount++;
                     attendedCount++;
+                } else if (dStr >= todayStr) {
+                    status = isScheduledDay ? 'future' : 'none';
                 } else if (isScheduledDay) {
                     scheduledCount++;
                     const covered =

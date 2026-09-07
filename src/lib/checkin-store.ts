@@ -71,6 +71,25 @@ export function hasCheckinToday(studentId: string): boolean {
     return getTodayCheckins().some(r => r.studentId === studentId);
 }
 
+/**
+ * Real check-ins recorded for an arbitrary date (not just today).
+ * This is the same `cc_checkins_<date>` list that recordCheckin() writes to
+ * and that realtime-sync.ts's applyRemoteCheckin() mirrors in from OTHER
+ * devices — i.e. it's the actual source of truth, unlike the attendance
+ * page's own `cc_attendance_archive` display cache (see attendance/page.tsx),
+ * which is per-device, never synced to the cloud, and can drift from it.
+ */
+export function getCheckinsForDate(date: string): CheckinRecord[] {
+    if (typeof window === 'undefined' || !date) return [];
+    try {
+        const key = dayKey(date);
+        const parsed = JSON.parse(localStorage.getItem(key) ?? '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
 /** How many times the student has checked in today (0, 1, 2, ...) */
 export function getCheckinCountToday(studentId: string): number {
     return getTodayCheckins().filter(r => r.studentId === studentId).length;
