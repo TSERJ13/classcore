@@ -20,6 +20,8 @@ export interface CheckinRecord {
     sessionsRemaining: number;
     classId?: string;
     groupId?: string;
+    subId?: string;
+    planType?: 'group' | 'individual' | 'rental';
 }
 
 function today(): string {
@@ -136,16 +138,24 @@ export function forceCheckin(
 }
 
 /** Refund a checkin: increments sessions back */
-export function refundCheckin(studentId: string, customDate?: string): void {
+export function refundCheckin(
+    studentId: string,
+    customDate?: string,
+    planType?: 'group' | 'individual' | 'rental',
+    groupId?: string,
+    subId?: string
+): void {
     const activeSlug = getActiveSlug();
     const targetDate = customDate || today();
     let rToDeleteId: string | undefined;
+    let foundRec: CheckinRecord | undefined;
 
     // 1. Try to find and remove in local day queue
     const key = getScopedKey(`cc_checkins_${targetDate}`);
     const existing: CheckinRecord[] = JSON.parse(localStorage.getItem(key) || '[]');
     const idx = existing.findLastIndex(r => r.studentId === studentId);
     if (idx > -1) {
+        foundRec = existing[idx];
         rToDeleteId = existing[idx].id;
         existing.splice(idx, 1);
         localStorage.setItem(key, JSON.stringify(existing));
@@ -163,7 +173,9 @@ export function refundCheckin(studentId: string, customDate?: string): void {
         if (attData[studentId]) {
             const recordIdx = attData[studentId].findIndex((r: any) => r.date === targetDate);
             if (recordIdx > -1) {
-                if (!rToDeleteId) rToDeleteId = attData[studentId][recordIdx].id;
+                const cRec = attData[studentId][recordIdx];
+                if (!foundRec) foundRec = cRec.data || cRec;
+                if (!rToDeleteId) rToDeleteId = cRec.id;
                 cloudFound = true;
                 attData[studentId].splice(recordIdx, 1);
                 localStorage.setItem(attDataKey, JSON.stringify(attData));
@@ -172,8 +184,12 @@ export function refundCheckin(studentId: string, customDate?: string): void {
     } catch (e) {}
 
     if (rToDeleteId || cloudFound || idx > -1) {
-        // Delegate refund to subscription store
-        refundSessionsUsed(studentId);
+        const recSubId = subId || foundRec?.subId;
+        const recGroupId = groupId || foundRec?.groupId;
+        const recPlanType = planType || foundRec?.planType || (recGroupId ? 'group' : undefined);
+
+        // Delegate refund to subscription store with strict plan/group isolation
+        refundSessionsUsed(studentId, recSubId, recPlanType, recGroupId);
 
         const settings = loadSettings(activeSlug || '');
         const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
@@ -319,10 +335,10 @@ function _writeCheckin(
     planType?: 'group' | 'individual' | 'rental'
 ): CheckinResult {
     // Only deduct sessions if the student has an active subscription
-    const subResult = incrementSessionsUsed(studentId, subId, planType);
+    const subResult = incrementSessionsUsed(studentId, subId, planType, groupId);
     const hasSubscription = subResult !== null;
 
-    const next = hasSubscription ? getSessionsRemaining(studentId, groupId) : -1;
+    const next = hasSubscription ? getSessionsRemaining(studentId, groupId, planType) : -1;
     const dateToUse = customDate || today();
     const checkinId = `att_${studentId}_${dateToUse}_${Date.now()}`;
 
@@ -336,6 +352,8 @@ function _writeCheckin(
         sessionsRemaining: next,
         classId,
         groupId,
+        subId: subResult?.id || subId,
+        planType: subResult?.plan_type || planType || (groupId ? 'group' : undefined),
     };
     const existing = JSON.parse(localStorage.getItem(dayKey(dateToUse)) ?? '[]');
     const key = dayKey(dateToUse);
@@ -589,8 +607,11 @@ export function deleteCheckin(studentId: string, date: string, time: string, for
     }
 
     if (rToDelete) {
-        // Refund session
-        refundSessionsUsed(studentId);
+        // Refund session using record metadata
+        const recSubId = (rToDelete as any)?.subId;
+        const recGroupId = rToDelete.groupId;
+        const recPlanType = (rToDelete as any)?.planType || (recGroupId ? 'group' : undefined);
+        refundSessionsUsed(studentId, recSubId, recPlanType, recGroupId);
         markLocalUpdate();
 
         // Standardized Cloud Sync

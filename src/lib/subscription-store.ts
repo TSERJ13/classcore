@@ -369,7 +369,7 @@ export function getSubscription(
 
     const todayStr = getLocalISODate();
 
-    // Priority 1: Filter by specific group/type if provided
+    // Priority 1: Filter by expiration or available sessions
     let candidateSubs = subs.filter(s => {
         if (s.status === 'active' && s.expires_at >= todayStr) return true;
         
@@ -382,16 +382,26 @@ export function getSubscription(
         return false;
     });
     
+    // Strict isolation: if groupId is passed, it implies group plan type!
+    const effectivePlanType = planType || (groupId ? 'group' : undefined);
+
     // Filter by planType if specified (group/individual/rental)
-    if (planType) {
+    if (effectivePlanType) {
         candidateSubs = candidateSubs.filter(s => {
-            if (!s.plan_type) return planType === 'group'; // Default legacy to group
-            return s.plan_type === planType;
+            const isInd = s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual';
+            const isRental = s.plan_type === 'rental';
+            const isGroup = !isInd && !isRental;
+
+            if (effectivePlanType === 'individual') return isInd;
+            if (effectivePlanType === 'rental') return isRental;
+            if (effectivePlanType === 'group') return isGroup;
+            return true;
         });
     }
 
     // Filter and sort for auto-continuation
     const valid = candidateSubs.filter(s => {
+        // If groupId is provided, a subscription tied to a different group is invalid
         if (groupId && s.group_id && s.group_id !== groupId) return false;
 
         const isSessionBased = s.type === 'sessions' || (s.sessions_total !== null && !s.type);
@@ -409,7 +419,13 @@ export function getSubscription(
     const manualDefault = valid.find(s => s.is_default);
     if (manualDefault) return manualDefault;
 
-    // 2. Prioritize oldest purchased (for auto-continuation)
+    // 2. If groupId is provided, prioritize subscription explicitly assigned to this group
+    if (groupId) {
+        const groupSpecific = valid.find(s => s.group_id === groupId);
+        if (groupSpecific) return groupSpecific;
+    }
+
+    // 3. Prioritize oldest purchased (for auto-continuation)
     return [...valid].sort((a, b) => {
         const pA = a.purchased_at || a.expires_at || '';
         const pB = b.purchased_at || b.expires_at || '';
@@ -630,7 +646,12 @@ export function pauseActiveSubscription(studentId: string, subId: string, days: 
     return newSub;
 }
 
-export function incrementSessionsUsed(studentId: string, subId?: string, planType?: 'group' | 'individual' | 'rental'): SubscriptionInfo | null {
+export function incrementSessionsUsed(
+    studentId: string,
+    subId?: string,
+    planType?: 'group' | 'individual' | 'rental',
+    groupId?: string
+): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
 
     let active: SubscriptionInfo | null = null;
@@ -638,7 +659,7 @@ export function incrementSessionsUsed(studentId: string, subId?: string, planTyp
         const subs = getStudentSubscriptions(studentId);
         active = subs.find(s => s.id === subId) || null;
     } else {
-        active = getSubscription(studentId, undefined, planType);
+        active = getSubscription(studentId, groupId, planType);
     }
 
     if (!active) return null;
@@ -662,12 +683,47 @@ export function incrementSessionsUsed(studentId: string, subId?: string, planTyp
     return active;
 }
 
-export function refundSessionsUsed(studentId: string): SubscriptionInfo | null {
+export function refundSessionsUsed(
+    studentId: string,
+    subId?: string,
+    planType?: 'group' | 'individual' | 'rental',
+    groupId?: string
+): SubscriptionInfo | null {
     const subs = getStudentSubscriptions(studentId);
     if (subs.length === 0) return null;
 
+    let candidateSubs = subs;
+
+    if (subId) {
+        const target = subs.find(s => s.id === subId);
+        if (target) {
+            candidateSubs = [target];
+        }
+    } else {
+        const effectivePlanType = planType || (groupId ? 'group' : undefined);
+        if (effectivePlanType) {
+            candidateSubs = candidateSubs.filter(s => {
+                const isInd = s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual';
+                const isRental = s.plan_type === 'rental';
+                const isGroup = !isInd && !isRental;
+
+                if (effectivePlanType === 'individual') return isInd;
+                if (effectivePlanType === 'rental') return isRental;
+                if (effectivePlanType === 'group') return isGroup;
+                return true;
+            });
+        }
+        if (groupId) {
+            // Prioritize subs specifically for this group
+            const groupMatches = candidateSubs.filter(s => s.group_id === groupId);
+            if (groupMatches.some(s => s.sessions_used > 0)) {
+                candidateSubs = groupMatches;
+            }
+        }
+    }
+
     // Most recent purchased first
-    const sorted = [...subs].sort((a, b) => (b.purchased_at || '').localeCompare(a.purchased_at || ''));
+    const sorted = [...candidateSubs].sort((a, b) => (b.purchased_at || '').localeCompare(a.purchased_at || ''));
     const toRefund = sorted.find(s => s.sessions_used > 0);
 
     if (toRefund) {

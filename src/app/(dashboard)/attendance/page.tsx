@@ -15,7 +15,7 @@ import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, 
 import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { getSubscriptions, getSubscription, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getSubscriptions, getSubscription, getStudentSubscriptions, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getEventsByDate, getEvents, updateEvent } from '@/lib/event-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
@@ -669,14 +669,18 @@ export default function AttendancePage() {
 
     const getSubStatus = useCallback((studentId: string) => {
         const todayStr = getLocalISODate();
-        const isIndOrRental = selClass?.type === 'individual' || selClass?.type === 'rental';
+        const activeClass = selClass || filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0];
+        const isIndOrRental = activeClass?.type === 'individual' || activeClass?.type === 'rental' || !!activeClass?.student_id;
+        const targetPlanType: 'group' | 'individual' | 'rental' = 
+            activeClass?.type === 'rental' ? 'rental' : 
+            (isIndOrRental ? 'individual' : 'group');
         
         // 1. Check for specific group sub or individual sub
-        let activeSub = getSubscription(studentId, selClass?.group_id, isIndOrRental ? (selClass?.type as any) : 'group');
+        let activeSub = getSubscription(studentId, activeClass?.group_id, targetPlanType);
         
-        // 2. If nothing found, check for a general sub of the matching type (never match individual sub for a group!)
-        if (!activeSub) {
-            activeSub = getSubscription(studentId, undefined, isIndOrRental ? (selClass?.type as any) : 'group');
+        // 2. If nothing found with group_id, check for a general sub of the matching type (never match individual sub for a group!)
+        if (!activeSub && targetPlanType === 'group') {
+            activeSub = getSubscription(studentId, undefined, 'group');
         }
         
         if (activeSub) {
@@ -704,11 +708,13 @@ export default function AttendancePage() {
         }
 
         // 3. Check for previous sub of the SAME plan type (never leak individual sub visits into group classes!)
-        const all = (subs[studentId] || []).filter(s => {
-            if (isIndOrRental) {
-                return s.plan_type === 'individual' || s.plan_type === 'rental';
+        const all = getStudentSubscriptions(studentId).filter(s => {
+            if (targetPlanType === 'individual') {
+                return s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual';
+            } else if (targetPlanType === 'rental') {
+                return s.plan_type === 'rental';
             } else {
-                return s.plan_type !== 'individual' && s.plan_type !== 'rental' && (!s.group_id || s.group_id === selClass?.group_id);
+                return s.plan_type !== 'individual' && s.category?.toLowerCase() !== 'individual' && s.plan_type !== 'rental' && (!s.group_id || s.group_id === activeClass?.group_id);
             }
         });
         if (all.length > 0) {
@@ -718,7 +724,7 @@ export default function AttendancePage() {
         }
 
         return { activeSub: null, isExpired: true, status: 'suspended', score: 3, label: t.noSubscription, color: 'red', remaining: 0 };
-    }, [selClass, subs, t.active, t.expired, t.noSubscription]);
+    }, [selClass, filteredSchedule, selectedClass, subs, t.active, t.expired, t.noSubscription]);
 
     const cls = filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0] || ({} as CalendarEvent);
 
@@ -772,7 +778,7 @@ export default function AttendancePage() {
 
                 // 2. Or does student have an active GROUP subscription specifically for this group?
                 // (CRITICAL: Individual and rental subscriptions MUST NEVER match or enroll a student into a group!)
-                const studentSubs = subs[s.id] || [];
+                const studentSubs = getStudentSubscriptions(s.id);
                 const hasActiveSub = studentSubs.some(sub =>
                     sub.status === 'active' &&
                     sub.plan_type !== 'individual' &&
@@ -830,6 +836,13 @@ export default function AttendancePage() {
         return coupleStudents.some(s => (s.full_name || '').toLowerCase().includes(q));
     }, [isCoupleClass, search, coupleStudents]);
 
+    const currentPlanType: 'group' | 'individual' | 'rental' = useMemo(() => {
+        if (!cls) return 'group';
+        if (cls.type === 'rental') return 'rental';
+        if (cls.type === 'individual' || isCoupleClass || cls.student_id) return 'individual';
+        return 'group';
+    }, [cls, isCoupleClass]);
+
     const handleQuickSell = (productId: string) => {
         const product = availableProducts.find(p => p.id === productId);
         if (!product || !selectedStudent) return;
@@ -882,12 +895,12 @@ export default function AttendancePage() {
 
     const confirmDouble = useCallback(() => {
         if (!popup) return;
-        const result = forceCheckin(popup.studentId, popup.studentName, 'manual', selectedClass, selClass?.group_id);
-        const sub = getSubscription(popup.studentId);
+        const result = forceCheckin(popup.studentId, popup.studentName, 'manual', selectedClass, selClass?.group_id, undefined, undefined, currentPlanType);
+        const sub = getSubscription(popup.studentId, selClass?.group_id, currentPlanType);
         const isMonthly = sub?.type === 'monthly';
         saveAttendance({ ...att, [popup.studentId]: 'present' });
         setPopup({ ...popup, sessionsRemaining: result.sessionsRemaining, checkinCount: popup.checkinCount + 1, phase: 'double-success', isMonthly });
-    }, [popup, att, saveAttendance, selectedClass, selClass]);
+    }, [popup, att, saveAttendance, selectedClass, selClass, currentPlanType]);
 
     const processCode = useCallback((code: string, choiceSubId?: string) => {
         if (popup?.phase === 'confirm' && !choiceSubId) return;
@@ -904,22 +917,28 @@ export default function AttendancePage() {
 
         if (studentId && studentName) {
             const todayStr = getLocalISODate();
-            const studentSubs = (getSubscriptions()[studentId] || []).filter(s => {
+            const studentSubs = getStudentSubscriptions(studentId).filter(s => {
                 const expired = s.status !== 'active' || s.expires_at < todayStr;
                 if (expired) return false;
-                if (s.plan_type === 'individual' && cls.type !== 'individual') return false;
-                if (s.group_id && s.group_id !== cls.group_id) return false;
-                return true;
+                if (currentPlanType === 'individual') {
+                    return s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual';
+                } else if (currentPlanType === 'rental') {
+                    return s.plan_type === 'rental';
+                } else {
+                    if (s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual' || s.plan_type === 'rental') return false;
+                    if (s.group_id && cls?.group_id && s.group_id !== cls.group_id) return false;
+                    return true;
+                }
             });
 
             // If multiple valid subs and NO specific sub chosen yet
             if (studentSubs.length > 1 && !choiceSubId) {
                 const checkinCount = getCheckinCountToday(studentId);
-                const sub = getSubscription(studentId, cls.group_id);
+                const sub = getSubscription(studentId, cls?.group_id, currentPlanType);
                 setPopup({
                     studentId,
                     studentName,
-                    sessionsRemaining: getSessionsRemaining(studentId, cls.group_id),
+                    sessionsRemaining: getSessionsRemaining(studentId, cls?.group_id, currentPlanType),
                     checkinCount,
                     phase: 'success',
                     isMonthly: sub?.type === 'monthly',
@@ -930,7 +949,7 @@ export default function AttendancePage() {
             }
 
             const checkinCount = getCheckinCountToday(studentId);
-            const result = recordCheckin(studentId, studentName, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
+            const result = recordCheckin(studentId, studentName, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
             const newAtt = { ...att, [studentId!]: 'present' as State };
             saveAttendance(newAtt);
             setScanError('');
@@ -939,7 +958,7 @@ export default function AttendancePage() {
             setTimeout(() => setFlash(null), 2500);
             setQrInput('');
 
-            const sub = choiceSubId ? getSubscriptions()[studentId].find(s => s.id === choiceSubId) : getSubscription(studentId, cls.group_id);
+            const sub = choiceSubId ? getStudentSubscriptions(studentId).find(s => s.id === choiceSubId) : getSubscription(studentId, cls?.group_id, currentPlanType);
             const isMonthly = sub?.type === 'monthly';
 
             if (result.alreadyCheckedIn && !choiceSubId) {
@@ -952,7 +971,7 @@ export default function AttendancePage() {
             setTimeout(() => setScanError(''), 3000);
             setQrInput('');
         }
-    }, [popup, att, t, saveAttendance, cls, selectedClass, selClass, dateKey]);
+    }, [popup, att, t, saveAttendance, cls, selectedClass, selClass, dateKey, currentPlanType]);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -995,12 +1014,18 @@ export default function AttendancePage() {
 
         if (cur === 'none') {
             const todayStr = getLocalISODate();
-            const studentSubs = (subs[id] || []).filter(s => {
+            const studentSubs = getStudentSubscriptions(id).filter(s => {
                 const expired = s.status !== 'active' || s.expires_at < todayStr;
                 if (expired) return false;
-                if (s.plan_type === 'individual' && cls.type !== 'individual') return false;
-                if (s.group_id && s.group_id !== cls.group_id) return false;
-                return true;
+                if (currentPlanType === 'individual') {
+                    return s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual';
+                } else if (currentPlanType === 'rental') {
+                    return s.plan_type === 'rental';
+                } else {
+                    if (s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual' || s.plan_type === 'rental') return false;
+                    if (s.group_id && cls?.group_id && s.group_id !== cls.group_id) return false;
+                    return true;
+                }
             });
 
             if (studentSubs.length > 1 && !choiceSubId) {
@@ -1008,7 +1033,7 @@ export default function AttendancePage() {
                 setPopup({
                     studentId: id,
                     studentName: student.full_name,
-                    sessionsRemaining: getSessionsRemaining(id, cls.group_id),
+                    sessionsRemaining: getSessionsRemaining(id, cls?.group_id, currentPlanType),
                     checkinCount,
                     phase: 'success',
                     isMonthly: activeSub?.type === 'monthly',
@@ -1019,10 +1044,10 @@ export default function AttendancePage() {
             }
 
             // Mark present: deduct session
-            recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey);
+            recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
             next = 'present';
 
-            const usedSub = choiceSubId ? (subs[id] || []).find(s => s.id === choiceSubId) : activeSub;
+            const usedSub = choiceSubId ? getStudentSubscriptions(id).find(s => s.id === choiceSubId) : activeSub;
 
             // --- Immediate SMS Trigger for "0 Visits Left" ---
             if (usedSub && usedSub.type === 'sessions' && usedSub.sessions_total) {
@@ -1090,7 +1115,7 @@ export default function AttendancePage() {
             // removed either, so it would keep reappearing as "present"
             // no matter how many times it was unmarked. Pass the date
             // actually being viewed, same as toggleCouple() already does.
-            refundCheckin(id, dateKey);
+            refundCheckin(id, dateKey, currentPlanType, selClass?.group_id);
             next = 'absent';
         } else {
             next = 'none';
@@ -1124,7 +1149,7 @@ export default function AttendancePage() {
         if (!isAllPresent && !isAnyPresent) {
             // MARK BOTH PRESENT:
             // 1. Deduct 1 session from shared sub
-            recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, cls?.type as any);
+            recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, 'individual');
 
             // 2. Record check-in history log for partner student(s) without extra
             // deduction. 🛠️ FIX: this used to hand-write the companion's
@@ -1158,7 +1183,7 @@ export default function AttendancePage() {
             setTimeout(() => setFlash(null), 2000);
 
             // 4. --- Immediate SMS Trigger for "0 Visits Left" (Sent to BOTH students!) ---
-            const usedSub = choiceSubId ? (subs[primary.id] || []).find(s => s.id === choiceSubId) : activeSub;
+            const usedSub = choiceSubId ? getStudentSubscriptions(primary.id).find(s => s.id === choiceSubId) : activeSub;
             if (usedSub && usedSub.type === 'sessions' && usedSub.sessions_total) {
                 const remainingBefore = usedSub.sessions_total - (usedSub.sessions_used || 0);
                 if (remainingBefore === 1) {
@@ -1218,7 +1243,7 @@ export default function AttendancePage() {
             // it lingers as a phantom "present" check-in even after the
             // couple is unmarked, since deleteCompanionCheckin deliberately
             // does NOT refund again for it).
-            refundCheckin(primary.id, dateKey);
+            refundCheckin(primary.id, dateKey, 'individual', selClass?.group_id);
             cStudents.slice(1).forEach(st => deleteCompanionCheckin(st.id, dateKey));
             const nextAtt = { ...att };
             cStudents.forEach(s => {
@@ -1235,7 +1260,7 @@ export default function AttendancePage() {
         }
 
         setTimeout(() => setSubs(getSubscriptions()), 50);
-    }, [getSubStatus, att, selectedClass, selClass, cls, dateKey, t.subscriptionExpired, subs, saveAttendance]);
+    }, [getSubStatus, att, selectedClass, selClass, cls, dateKey, t.subscriptionExpired, subs, saveAttendance, currentPlanType]);
 
     const days = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
     const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
@@ -1673,7 +1698,7 @@ export default function AttendancePage() {
                                                             students.forEach(s => {
                                                                 const { isExpired } = getSubStatus(s.id);
                                                                 if (n[s.id] !== 'present' && !isExpired) {
-                                                                    recordCheckin(s.id, s.full_name, 'manual', selectedClass, cls?.group_id, undefined, dateKey);
+                                                                    recordCheckin(s.id, s.full_name, 'manual', selectedClass, cls?.group_id, undefined, dateKey, currentPlanType);
                                                                     n[s.id] = 'present';
                                                                 }
                                                             });
@@ -1689,7 +1714,7 @@ export default function AttendancePage() {
                                                             import('@/lib/checkin-store').then(mod => {
                                                                 if (isCoupleClass && coupleStudents.length > 0) {
                                                                     if (coupleStudents.some(s => n[s.id] === 'present')) {
-                                                                        mod.refundCheckin(coupleStudents[0].id, dateKey);
+                                                                        mod.refundCheckin(coupleStudents[0].id, dateKey, 'individual', cls?.group_id);
                                                                         // 🛠️ FIX: this cleared the couple's `att` state
                                                                         // but only ever refunded/removed the PRIMARY
                                                                         // partner's real check-in record — the
@@ -1705,7 +1730,7 @@ export default function AttendancePage() {
                                                                 } else {
                                                                     students.forEach(s => {
                                                                         if (n[s.id] === 'present') {
-                                                                            mod.refundCheckin(s.id, dateKey);
+                                                                            mod.refundCheckin(s.id, dateKey, currentPlanType, cls?.group_id);
                                                                         }
                                                                         n[s.id] = 'none';
                                                                     });
@@ -1776,7 +1801,7 @@ export default function AttendancePage() {
                                             const isFl = coupleStudents.some(s => flash === s.id);
                                             const isSel = coupleStudents.some(s => selectedStudent === s.id);
 
-                                            const subToDisplay = activeSub || (activeSub === null ? (subs[primary.id]?.[0] || null) : null);
+                                            const subToDisplay = activeSub || null;
                                             const isActuallyNone = !subToDisplay;
                                             const isReallyExpired = isExpired || (subToDisplay && subToDisplay.expires_at < getLocalISODate());
                                             const isInf = subToDisplay && subToDisplay.sessions_total === null;
@@ -2004,7 +2029,7 @@ export default function AttendancePage() {
                                                     {/* Progress/Status Bar */}
                                                     <div className="flex items-center gap-3 w-full">
                                                         {(() => {
-                                                            const subToDisplay = activeSub || (activeSub === null ? (subs[st.id]?.[0] || null) : null);
+                                                            const subToDisplay = activeSub || null;
                                                             const isActuallyNone = !subToDisplay;
                                                             const isReallyExpired = isExpired || (subToDisplay && subToDisplay.expires_at < getLocalISODate());
                                                             const isInf = subToDisplay && subToDisplay.sessions_total === null;
@@ -2314,9 +2339,10 @@ export default function AttendancePage() {
                                                     })()}
                                                     {activeTab === 'subs' && (
                                                         <div className="space-y-4 pb-24">
-                                                            {(subs[selStudent.id] || []).map((sub, idx) => {
+                                                            {getStudentSubscriptions(selStudent.id).map((sub, idx) => {
                                                                 const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
                                                                 const isActive = sub.status === 'active' && !isExpired;
+                                                                const isInd = sub.plan_type === 'individual' || sub.category?.toLowerCase() === 'individual';
                                                                 return (
                                                                     <div key={idx} className={cn("p-4 rounded-2xl border transition-all", isActive ? "bg-[#6d28d9]/5 border-[#6d28d9]/20 shadow-sm" : "bg-surface/30 border-border-subtle opacity-60")}>
                                                                         <div className="flex items-start gap-3 mb-3">
@@ -2329,6 +2355,12 @@ export default function AttendancePage() {
                                                                             <div className="flex-1 min-w-0">
                                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                                     <span className={cn("text-[9px] font-black tracking-widest", isActive ? "text-emerald-500" : "text-muted")}>{isExpired ? l('ვადაგასულია', 'ИСТЁКШИЙ', 'EXPIRED') : (sub.status === 'active' ? l('აქტიური', 'АКТИВНЫЙ', 'ACTIVE') : (sub.status || "active").toUpperCase())}</span>
+                                                                                    <span className={cn(
+                                                                                        "text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded border",
+                                                                                        isInd ? "bg-violet-500/10 text-violet-600 border-violet-500/20" : "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                                                                    )}>
+                                                                                        {isInd ? l('ინდივიდუალური', 'Индивидуальный', 'Individual') : (sub.group_id ? GROUP_MAP[sub.group_id] || l('ჯგუფური', 'Групповой', 'Group') : l('ჯგუფური', 'Групповой', 'Group'))}
+                                                                                    </span>
                                                                                     <span className="text-[9px] font-bold text-muted opacity-40">{formatDate(sub.purchased_at)}</span>
                                                                                 </div>
                                                                                 <p className="text-sm font-black text-primary leading-snug mt-1 truncate">{sub.plan}</p>
@@ -2339,12 +2371,12 @@ export default function AttendancePage() {
                                                                                     // Optimistic Update
                                                                                     setSubs(prev => {
                                                                                         const next = { ...prev };
-                                                                                        if (next[selStudent.id]) {
-                                                                                            next[selStudent.id] = next[selStudent.id].filter(s => s.id !== sub.id);
-                                                                                        }
+                                                                                        Object.keys(next).forEach(k => {
+                                                                                            next[k] = next[k].filter(s => s.id !== sub.id);
+                                                                                        });
                                                                                         return next;
                                                                                     });
-                                                                                    deleteSubscription(selStudent.id, sub.id);
+                                                                                    deleteSubscription(sub.student_id || selStudent.id, sub.id);
                                                                                 }
                                                                             }}
                                                                                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted/60 hover:text-red-500 transition-all shrink-0">
