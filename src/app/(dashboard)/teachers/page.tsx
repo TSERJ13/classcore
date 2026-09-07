@@ -248,7 +248,7 @@ export default function TeachersPage() {
                                         <div className="flex gap-3">
                                             {teacher.rate_per_hour && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_hour, settings.currency)}/h</span>}
                                             {teacher.rate_per_month && <span className="text-emerald-600 font-black tracking-tight">{formatCurrency(teacher.rate_per_month, settings.currency)}/m</span>}
-                                            {!!teacher.salary_percentage && <span className="text-emerald-600 font-black tracking-tight">{teacher.salary_percentage}%</span>}
+                                            {(teacher.salary_percentage !== undefined && teacher.salary_percentage !== null) && <span className="text-emerald-600 font-black tracking-tight">{teacher.salary_percentage}%</span>}
                                         </div>
                                     </div>
 

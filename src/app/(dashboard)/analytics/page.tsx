@@ -755,10 +755,14 @@ export default function AnalyticsPage() {
                     // no override stores `0`, and `0 ?? fallback` would never
                     // fall back since 0 isn't nullish — treat 0 the same as
                     // "not actually set".
+                    // If a teacher is configured with 0% (e.g. Nini), commission
+                    // is strictly 0% regardless of group leftover splits.
                     const isSecondary = group.secondaryTeacherId === t.id;
-                    const perc = isSecondary
-                        ? ((group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0) ? group.secondaryTeacherPercentage : (t.salary_percentage || 0))
-                        : ((group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0) ? group.primaryTeacherPercentage : (t.salary_percentage || 50));
+                    const perc = (t.salary_percentage !== undefined && Number(t.salary_percentage) === 0)
+                        ? 0
+                        : (isSecondary
+                            ? ((group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0) ? group.secondaryTeacherPercentage : (t.salary_percentage || 0))
+                            : ((group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0) ? group.primaryTeacherPercentage : (t.salary_percentage || 0)));
 
                     const cut = revenue * perc / 100;
                     groupCommissionEarned += cut;
@@ -860,7 +864,12 @@ export default function AnalyticsPage() {
                 // paid 50% × 50% = 25% of their groups' revenue. Add the
                 // already-computed commission directly — no second
                 // multiplication.
-                if (t.salary_percentage || breakdown.some(b => b.percentage > 0)) {
+                if (t.salary_percentage !== undefined && Number(t.salary_percentage) === 0) {
+                    percentageComponent = 0;
+                    usesPercentage = true;
+                    activeTypes.push('Percentage');
+                    rateParts.push('0%');
+                } else if (t.salary_percentage || breakdown.some(b => b.percentage > 0)) {
                     percentageComponent = percentageEarned;
                     usesPercentage = true;
                     activeTypes.push('Percentage');
@@ -888,14 +897,18 @@ export default function AnalyticsPage() {
                             // teacher's worked minutes on such a group silently
                             // multiplied by 0. Treat 0/undefined/null as "not set".
                             if (group.secondaryTeacherId === t.id) {
-                                const perc = (group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0)
-                                    ? group.secondaryTeacherPercentage
-                                    : (t.salary_percentage || 0);
+                                const perc = (t.salary_percentage !== undefined && Number(t.salary_percentage) === 0)
+                                    ? 0
+                                    : ((group.secondaryTeacherPercentage && group.secondaryTeacherPercentage > 0)
+                                        ? group.secondaryTeacherPercentage
+                                        : (t.salary_percentage || 0));
                                 mins *= perc / 100;
                             } else if (group.teacherId === t.id) {
-                                const perc = (group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0)
-                                    ? group.primaryTeacherPercentage
-                                    : (t.salary_percentage || 50);
+                                const perc = (t.salary_percentage !== undefined && Number(t.salary_percentage) === 0)
+                                    ? 0
+                                    : ((group.primaryTeacherPercentage && group.primaryTeacherPercentage > 0)
+                                        ? group.primaryTeacherPercentage
+                                        : (t.salary_percentage || 0));
                                 mins *= perc / 100;
                             }
                         }
@@ -906,14 +919,10 @@ export default function AnalyticsPage() {
                     rateParts.push(`${formatCurrency(t.rate_per_hour, settings.currency)}/hr`);
                 }
                 if (activeTypes.length === 0) {
-                    // No compensation fields configured at all — still
-                    // surface whatever percentage-eligible revenue exists
-                    // using a 50% default, added directly (see fix note
-                    // above: no second multiplication).
-                    percentageComponent = percentageEarned;
-                    usesPercentage = true;
-                    activeTypes.push('Percentage');
-                    rateParts.push(`50% (${l('ნაგულისხმევი', 'по умолч.', 'default')})`);
+                    // No compensation fields configured at all — default to 0%
+                    percentageComponent = 0;
+                    usesPercentage = false;
+                    rateParts.push('0%');
                 }
 
                 const total = bonus + monthlyComponent + hourlyComponent + percentageComponent;

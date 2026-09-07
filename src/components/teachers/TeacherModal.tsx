@@ -84,7 +84,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
             setHasAccess(!!initialForm.email || !!initialForm.password);
             setShowPassword(false);
             if (teacher) {
-                if (teacher.salary_percentage) setActiveRateType('percentage');
+                if (teacher.salary_percentage !== undefined && teacher.salary_percentage !== null) setActiveRateType('percentage');
                 else if (teacher.rate_per_month) setActiveRateType('monthly');
                 else setActiveRateType('hourly');
             }
