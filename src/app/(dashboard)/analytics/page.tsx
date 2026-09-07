@@ -23,7 +23,8 @@ import { getTeachers, updateTeacher } from '@/lib/teacher-store';
 import { getEvents } from '@/lib/event-store';
 import { getPlans } from '@/lib/plan-store';
 import { getMonthlyBonuses, getTeacherBonusForMonth, setTeacherBonus } from '@/lib/bonus-store';
-import { getSalaryStatuses, toggleSalaryStatus, getStatusForTeacher } from '@/lib/salary-status-store';
+import { getSalaryStatuses, toggleSalaryStatus, getStatusForTeacher, getTeacherSalaryPayment } from '@/lib/salary-status-store';
+import { SalaryPayoutModal } from '@/components/analytics/SalaryPayoutModal';
 import { TeacherModal } from '@/components/teachers/TeacherModal';
 import { getGroups } from '@/lib/group-store';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
@@ -391,6 +392,7 @@ export default function AnalyticsPage() {
     const [prevMonthStats, setPrevMonthStats] = useState<any>(null);
     const [currentMonthStats, setCurrentMonthStats] = useState<any>(null);
     const [editingTeacher, setEditingTeacher] = useState<any>(null);
+    const [payoutTeacher, setPayoutTeacher] = useState<any | null>(null);
     const [showInsightsModal, setShowInsightsModal] = useState(false);
     const [showExpenseModal, setShowExpenseModal] = useState(false);
     const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpenses>(getExpenses(selectedMonth, settings.activeBranchId || 'default'));
@@ -864,23 +866,24 @@ export default function AnalyticsPage() {
                 // paid 50% × 50% = 25% of their groups' revenue. Add the
                 // already-computed commission directly — no second
                 // multiplication.
-                if (t.salary_percentage !== undefined && Number(t.salary_percentage) === 0) {
-                    percentageComponent = 0;
-                    usesPercentage = true;
-                    activeTypes.push('Percentage');
-                    rateParts.push('0%');
-                } else if (t.salary_percentage || breakdown.some(b => b.percentage > 0)) {
+                const hasConfiguredSalary = (
+                    (t.salary_percentage !== undefined && t.salary_percentage !== null && Number(t.salary_percentage) > 0) ||
+                    (t.rate_per_month !== undefined && t.rate_per_month !== null && Number(t.rate_per_month) > 0) ||
+                    (t.rate_per_hour !== undefined && t.rate_per_hour !== null && Number(t.rate_per_hour) > 0)
+                );
+
+                if (t.salary_percentage !== undefined && Number(t.salary_percentage) > 0) {
                     percentageComponent = percentageEarned;
                     usesPercentage = true;
                     activeTypes.push('Percentage');
-                    rateParts.push(`${t.salary_percentage || 0}%`);
+                    rateParts.push(`${t.salary_percentage}%`);
                 }
-                if (t.rate_per_month) {
-                    monthlyComponent = t.rate_per_month;
+                if (t.rate_per_month && Number(t.rate_per_month) > 0) {
+                    monthlyComponent = Number(t.rate_per_month);
                     activeTypes.push('Monthly');
                     rateParts.push(formatCurrency(t.rate_per_month, settings.currency));
                 }
-                if (t.rate_per_hour) {
+                if (t.rate_per_hour && Number(t.rate_per_hour) > 0) {
                     const teacherEvents = events.filter(e => (e.teacher_id === t.id || (e as any).secondary_teacher_id === t.id) && e.date.startsWith(monthStr));
                     const totalMinutes = teacherEvents.reduce((acc, ev) => {
                         const [h1, m1] = ev.start_time.split(':').map(Number);
@@ -914,15 +917,13 @@ export default function AnalyticsPage() {
                         }
                         return acc + mins;
                     }, 0);
-                    hourlyComponent = (totalMinutes / 60) * t.rate_per_hour;
+                    hourlyComponent = (totalMinutes / 60) * Number(t.rate_per_hour);
                     activeTypes.push('Hourly');
                     rateParts.push(`${formatCurrency(t.rate_per_hour, settings.currency)}/hr`);
                 }
                 if (activeTypes.length === 0) {
-                    // No compensation fields configured at all — default to 0%
                     percentageComponent = 0;
                     usesPercentage = false;
-                    rateParts.push('0%');
                 }
 
                 const total = bonus + monthlyComponent + hourlyComponent + percentageComponent;
@@ -936,7 +937,8 @@ export default function AnalyticsPage() {
 
                 return {
                     id: t.id, teacher: `${t.first_name || ''} ${t.last_name || t.full_name || ''}`, fullObject: t,
-                    type: activeTypes.length > 1 ? 'Combined' : activeTypes[0], rate: rateParts.join(' + '),
+                    type: activeTypes.length > 1 ? 'Combined' : (activeTypes.length === 1 ? activeTypes[0] : undefined),
+                    rate: rateParts.length > 0 ? rateParts.join(' + ') : '-',
                     bonus, total, status: 'pending', breakdown, expectedTotal
                 };
             });
@@ -1733,21 +1735,29 @@ export default function AnalyticsPage() {
                                         <p className="text-sm font-black text-primary group-hover:text-rose-600 transition-colors tracking-tight">{item.teacher}</p>
                                     </td>
                                     <td className="px-8 py-5 text-center">
-                                        <span className={cn(
-                                            "px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider border",
-                                            item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : 
-                                            item.type === 'Hourly' ? "bg-violet-500/10 text-violet-600 border-violet-500/20" :
-                                            item.type === 'Combined' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
-                                            "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                        )}>
-                                            {item.type === 'Monthly' ? t.monthly : 
-                                             item.type === 'Hourly' ? t.hourly : 
-                                             item.type === 'Percentage' ? t.percentageShort || 'Share' :
-                                             item.type === 'Combined' ? l('კომბინირებული', 'Комбинир.', 'Combined') : item.type}
-                                        </span>
+                                        {item.type ? (
+                                            <span className={cn(
+                                                "px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider border",
+                                                item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : 
+                                                item.type === 'Hourly' ? "bg-violet-500/10 text-violet-600 border-violet-500/20" :
+                                                item.type === 'Combined' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                                                "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                            )}>
+                                                {item.type === 'Monthly' ? t.monthly : 
+                                                 item.type === 'Hourly' ? t.hourly : 
+                                                 item.type === 'Percentage' ? (t.percentageShort || 'პროცენტი') :
+                                                 item.type === 'Combined' ? l('კომბინირებული', 'Комбинир.', 'Combined') : item.type}
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted/40 font-bold text-sm select-none">—</span>
+                                        )}
                                     </td>
                                     <td className="px-8 py-5 text-center">
-                                        <span className="text-xs font-black text-primary tabular-nums">{typeof item.rate === 'number' ? formatCurrency(item.rate, settings.currency) : item.rate}</span>
+                                        {item.type && item.rate && item.rate !== '-' ? (
+                                            <span className="text-xs font-black text-primary tabular-nums">{typeof item.rate === 'number' ? formatCurrency(item.rate, settings.currency) : item.rate}</span>
+                                        ) : (
+                                            <span className="text-muted/40 font-bold text-sm select-none">—</span>
+                                        )}
                                     </td>
                                     {showSalaries ? (
                                         <>
@@ -1789,23 +1799,43 @@ export default function AnalyticsPage() {
                                             <button onClick={() => handleDownloadTeacherPDF(item)} className="p-2 rounded-lg bg-surface hover:bg-indigo-500/10 text-muted hover:text-indigo-600 transition-colors opacity-100 shadow-sm" title={l('PDF გადმოწერა', 'Скачать PDF', 'Download PDF')}>
                                                 <Download className="w-3.5 h-3.5" />
                                             </button>
-                                            {getStatusForTeacher(item.id, selectedMonth) === 'pending' ? (
-                                                <button 
-                                                    onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
-                                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black tracking-wider shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
-                                                >
-                                                    <Banknote className="w-3.5 h-3.5" />
-                                                    {t.pay}
-                                                </button>
-                                            ) : (
-                                                <button 
-                                                    onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-sm"
-                                                >
-                                                    <CheckCircle2 className="w-3 h-3" />
-                                                    {t.paidAmount}
-                                                </button>
-                                            )}
+                                            {(() => {
+                                                const payment = getTeacherSalaryPayment(item.id, selectedMonth, item.total);
+                                                if (payment.status === 'pending') {
+                                                    return (
+                                                        <button 
+                                                            onClick={() => setPayoutTeacher(item)}
+                                                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black tracking-wider shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                                                            title={l('ხელფასის გაცემა', 'Выплатить зарплату', 'Pay Salary')}
+                                                        >
+                                                            <Banknote className="w-3.5 h-3.5" />
+                                                            {t.pay || 'გაცემა'}
+                                                        </button>
+                                                    );
+                                                }
+                                                if (payment.status === 'partial') {
+                                                    return (
+                                                        <button 
+                                                            onClick={() => setPayoutTeacher(item)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider border bg-amber-500/10 text-amber-600 border-amber-500/20 shadow-sm hover:bg-amber-500/20 transition-all"
+                                                            title={l('ნაწილობრივ გაცემული — დაკლიკეთ შესაცვლელად', 'Частично выплачено — нажать для изменения', 'Partially paid — click to edit')}
+                                                        >
+                                                            <Clock className="w-3.5 h-3.5" />
+                                                            <span>{formatCurrency(payment.paidAmount, settings.currency)} / {formatCurrency(item.total, settings.currency)}</span>
+                                                        </button>
+                                                    );
+                                                }
+                                                return (
+                                                    <button 
+                                                        onClick={() => setPayoutTeacher(item)}
+                                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-sm hover:bg-emerald-500/20 transition-all"
+                                                        title={l('სრულად გაცემულია — დაკლიკეთ შესაცვლელად', 'Полностью выплачено — нажать для изменения', 'Fully paid — click to edit')}
+                                                    >
+                                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                                        <span>{t.paidAmount || 'გაცემულია'} ({formatCurrency(payment.paidAmount, settings.currency)})</span>
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     </td>
                                 </tr>
@@ -1827,18 +1857,22 @@ export default function AnalyticsPage() {
                             <div className="flex items-start justify-between">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-[13px] font-black text-primary tracking-tight truncate mb-0.5">{item.teacher}</p>
-                                    <span className={cn(
-                                        "px-1.5 py-0 rounded-md text-[7px] font-black tracking-wider border inline-block",
-                                        item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : 
-                                        item.type === 'Hourly' ? "bg-violet-500/10 text-violet-600 border-violet-500/20" :
-                                        item.type === 'Combined' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
-                                        "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                    )}>
-                                        {item.type === 'Monthly' ? t.monthly : 
-                                         item.type === 'Hourly' ? t.hourly : 
-                                         item.type === 'Percentage' ? t.percentageShort || 'Share' :
-                                         item.type === 'Combined' ? l('კომბინირებული', 'Комбинир.', 'Combined') : item.type}
-                                    </span>
+                                    {item.type ? (
+                                        <span className={cn(
+                                            "px-1.5 py-0 rounded-md text-[7px] font-black tracking-wider border inline-block",
+                                            item.type === 'Monthly' ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" : 
+                                            item.type === 'Hourly' ? "bg-violet-500/10 text-violet-600 border-violet-500/20" :
+                                            item.type === 'Combined' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                                            "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                        )}>
+                                            {item.type === 'Monthly' ? t.monthly : 
+                                             item.type === 'Hourly' ? t.hourly : 
+                                             item.type === 'Percentage' ? (t.percentageShort || 'პროცენტი') :
+                                             item.type === 'Combined' ? l('კომბინირებული', 'Комбинир.', 'Combined') : item.type}
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted/40 font-bold text-xs select-none">—</span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <button onClick={() => handleDownloadTeacherPDF(item)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-500 shadow-sm hover:bg-indigo-100 transition-colors">
@@ -1847,28 +1881,46 @@ export default function AnalyticsPage() {
                                     <button onClick={() => setEditingTeacher(item.fullObject)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 border border-violet-100 text-violet-500 shadow-sm hover:bg-violet-100 transition-colors">
                                         <Edit2 className="w-3.5 h-3.5" />
                                     </button>
-                                    {getStatusForTeacher(item.id, selectedMonth) === 'pending' ? (
-                                        <button 
-                                            onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
-                                            className="px-2.5 py-1.5 rounded-xl bg-emerald-600 text-white text-[8px] font-black tracking-wider shadow-lg active:scale-95"
-                                        >
-                                            {t.pay}
-                                        </button>
-                                    ) : (
-                                        <button 
-                                            onClick={() => toggleSalaryStatus(item.id, selectedMonth)}
-                                            className="h-7 px-2 rounded-full text-[8px] font-black tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                        >
-                                            {t.paidAmount}
-                                        </button>
-                                    )}
+                                    {(() => {
+                                        const payment = getTeacherSalaryPayment(item.id, selectedMonth, item.total);
+                                        if (payment.status === 'pending') {
+                                            return (
+                                                <button 
+                                                    onClick={() => setPayoutTeacher(item)}
+                                                    className="px-2.5 py-1.5 rounded-xl bg-emerald-600 text-white text-[8px] font-black tracking-wider shadow-lg active:scale-95"
+                                                >
+                                                    {t.pay || 'გაცემა'}
+                                                </button>
+                                            );
+                                        }
+                                        if (payment.status === 'partial') {
+                                            return (
+                                                <button 
+                                                    onClick={() => setPayoutTeacher(item)}
+                                                    className="h-7 px-2 rounded-lg text-[8px] font-black tracking-wider border bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                >
+                                                    {formatCurrency(payment.paidAmount, settings.currency)}
+                                                </button>
+                                            );
+                                        }
+                                        return (
+                                            <button 
+                                                onClick={() => setPayoutTeacher(item)}
+                                                className="h-7 px-2 rounded-lg text-[8px] font-black tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                            >
+                                                {t.paidAmount || 'გაცემულია'}
+                                            </button>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="p-2 rounded-xl bg-surface/50 border border-border-subtle/50">
                                     <p className="text-[7px] font-black text-muted tracking-widest uppercase opacity-40 mb-0.5">{t.volumeTable}</p>
-                                    <p className="text-[10px] font-black text-primary tabular-nums truncate">{typeof item.rate === 'number' ? formatCurrency(item.rate, settings.currency) : item.rate}</p>
+                                    <p className="text-[10px] font-black text-primary tabular-nums truncate">
+                                        {item.type && item.rate && item.rate !== '-' ? (typeof item.rate === 'number' ? formatCurrency(item.rate, settings.currency) : item.rate) : '—'}
+                                    </p>
                                 </div>
                                 <div className="p-2 rounded-xl bg-surface/50 border border-border-subtle/50">
                                     <p className="text-[7px] font-black text-muted tracking-widest uppercase opacity-40 mb-0.5">{t.bonusTable}</p>
@@ -1914,7 +1966,7 @@ export default function AnalyticsPage() {
                             <p className="text-[10px] font-black text-muted tracking-widest opacity-40 mb-1">{t.totalPaidThisMonth}</p>
                             <p className="text-xl font-black text-emerald-600 tabular-nums">
                                 {formatCurrency(
-                                    salaryData.filter(s => getStatusForTeacher(s.id, selectedMonth) === 'paid').reduce((acc, curr) => acc + curr.total, 0),
+                                    salaryData.reduce((acc, curr) => acc + getTeacherSalaryPayment(curr.id, selectedMonth, curr.total).paidAmount, 0),
                                     settings.currency
                                 )}
                             </p>
@@ -1924,7 +1976,7 @@ export default function AnalyticsPage() {
                             <p className="text-[10px] font-black text-muted tracking-widest opacity-40 mb-1">{t.totalPendingThisMonth}</p>
                             <p className="text-xl font-black text-amber-600 tabular-nums">
                                 {formatCurrency(
-                                    salaryData.filter(s => getStatusForTeacher(s.id, selectedMonth) === 'pending').reduce((acc, curr) => acc + curr.total, 0),
+                                    salaryData.reduce((acc, curr) => acc + Math.max(0, curr.total - getTeacherSalaryPayment(curr.id, selectedMonth, curr.total).paidAmount), 0),
                                     settings.currency
                                 )}
                             </p>
@@ -2090,6 +2142,16 @@ export default function AnalyticsPage() {
                 t={t}
                 l={l}
                 settings={settings}
+            />
+
+            {/* Salary Payout Modal */}
+            <SalaryPayoutModal
+                open={!!payoutTeacher}
+                onClose={() => setPayoutTeacher(null)}
+                teacher={payoutTeacher}
+                selectedMonth={selectedMonth}
+                currency={settings.currency}
+                lang={lang}
             />
             </div>
         </PermissionGuard>
