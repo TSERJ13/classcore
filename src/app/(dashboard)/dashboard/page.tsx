@@ -198,31 +198,43 @@ function actionBadge(action: string, t: any) {
     return { label: t.new, cls: 'bg-amber-500/15 text-amber-400 border-amber-500/20' };
 }
 
-// ─── Subscription Status Donut Chart ────────────────────────────────────────
+// ─── Lightweight SVG Donut Chart Card ──────────────────────────────────────
 
-function SubscriptionDonutChart({
-    counts,
-    l,
-    t,
+interface DonutSegment {
+    key: string;
+    label: string;
+    count: number;
+    formattedValue?: string;
+    color: string;
+    bgClass: string;
+}
+
+function DonutCard({
+    title,
+    icon: Icon,
+    iconColorClass = 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+    linkHref,
+    linkLabel,
+    centerValue,
+    centerLabel,
+    segments,
 }: {
-    counts: { active: number; paused: number; expired: number; cancelled: number; total: number };
-    l: (ka: string, ru: string, en: string) => string;
-    t: any;
+    title: string;
+    icon: any;
+    iconColorClass?: string;
+    linkHref?: string;
+    linkLabel?: string;
+    centerValue: string | number;
+    centerLabel: string;
+    segments: DonutSegment[];
 }) {
-    const { active, paused, expired, cancelled, total } = counts;
+    const total = segments.reduce((sum, s) => sum + s.count, 0);
 
     const size = 136;
     const strokeWidth = 14;
     const radius = 50;
     const center = size / 2;
     const circumference = 2 * Math.PI * radius; // ~314.159
-
-    const segments = [
-        { key: 'active', count: active, color: '#10b981', bgClass: 'bg-emerald-500', label: l('აქტიური', 'Активные', 'Active') },
-        { key: 'paused', count: paused, color: '#f59e0b', bgClass: 'bg-amber-500', label: l('შეჩერებული', 'На паузе', 'Paused') },
-        { key: 'expired', count: expired, color: '#f43f5e', bgClass: 'bg-rose-500', label: l('ვადაგასული', 'Истекшие', 'Expired') },
-        { key: 'cancelled', count: cancelled, color: '#6366f1', bgClass: 'bg-indigo-500', label: l('გაუქმებული', 'Отмененные', 'Cancelled') },
-    ];
 
     let accumulatedOffset = 0;
     const slices = segments.map(seg => {
@@ -243,20 +255,22 @@ function SubscriptionDonutChart({
         <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                        <CreditCard className="w-4 h-4" />
+                    <div className={cn("w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0", iconColorClass)}>
+                        <Icon className="w-4 h-4" />
                     </div>
                     <h3 className="text-xs font-bold text-primary tracking-tight">
-                        {l('აბონემენტების სტატუსი', 'Статус абонементов', 'Subscription Statuses')}
+                        {title}
                     </h3>
                 </div>
-                <Link
-                    href="/subscriptions"
-                    className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5"
-                >
-                    <span>{l('ყველა', 'Все', 'View all')}</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+                {linkHref && (
+                    <Link
+                        href={linkHref}
+                        className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5 group-hover:translate-x-0.5"
+                    >
+                        <span>{linkLabel || 'ყველა'}</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                )}
             </div>
 
             <div className="flex items-center justify-between gap-4 py-1">
@@ -293,13 +307,13 @@ function SubscriptionDonutChart({
                         })}
                     </svg>
 
-                    {/* Center Text: Total Active */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-2xl font-black text-primary leading-none tracking-tight">
-                            {active}
+                    {/* Center Text */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center">
+                        <span className="text-xl sm:text-2xl font-black text-primary leading-none tracking-tight truncate max-w-[100px]">
+                            {centerValue}
                         </span>
-                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
-                            {l('აქტიური', 'активных', 'active')}
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider mt-1 truncate max-w-[90px]">
+                            {centerLabel}
                         </span>
                     </div>
                 </div>
@@ -316,7 +330,7 @@ function SubscriptionDonutChart({
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                                 <span className="text-xs font-bold text-primary tabular-nums">
-                                    {item.count}
+                                    {item.formattedValue || item.count}
                                 </span>
                                 {total > 0 && (
                                     <span className="text-[10px] text-muted/60 tabular-nums">
@@ -363,6 +377,9 @@ export default function DashboardPage() {
         subsChange: 0,
         todayExpected: 0,
         subStatusCounts: { active: 0, paused: 0, expired: 0, cancelled: 0, total: 0 },
+        newThisMonthStudents: 0,
+        monthlySubsRevenue: 0,
+        monthlyShopRevenue: 0,
     });
     const [birthdayStudents, setBirthdayStudents] = useState<Student[]>([]);
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
@@ -626,6 +643,9 @@ export default function DashboardPage() {
             totalDebt: Math.round(totalDebt),
             studentsWithDebt,
             subStatusCounts,
+            newThisMonthStudents: newStudentsThisMonth,
+            monthlySubsRevenue: allSubsList.filter(sub => isSubInMonth(sub, currentMonth)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
+            monthlyShopRevenue: sales.filter(s => s.date?.startsWith(currentMonth)).reduce((sum, s) => sum + s.price * s.quantity, 0),
             expiringSoon: expiringSoonStudents.size,
             oneSessionLeft: oneSessionStudents.size,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubOnDay(sub, todayStr)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
@@ -966,79 +986,140 @@ export default function DashboardPage() {
                 ))}
             </div>
 
-            {/* ─── Operations & Subscriptions Overview ─── */}
+            {/* ─── Donut Charts: Operations & Analytics Overview ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 items-stretch">
-                {/* 1. Today's Attendance Overview */}
-                <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-violet-500/10 text-violet-500 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                                <CalendarCheck className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-bold text-primary tracking-tight">
-                                {l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
-                            </h3>
-                        </div>
-                        <Link 
-                            href="/attendance" 
-                            className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform"
-                        >
-                            <span>{l('ჟურნალი', 'Журнал', 'Journal')}</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                        </Link>
-                    </div>
+                {/* 1. Today's Attendance Donut */}
+                <DonutCard
+                    title={l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
+                    icon={CalendarCheck}
+                    iconColorClass="text-violet-400 bg-violet-500/10 border-violet-500/20"
+                    linkHref="/attendance"
+                    linkLabel={l('ჟურნალი', 'Журнал', 'Journal')}
+                    centerValue={liveStats.todayExpected > 0 ? `${Math.round((liveStats.attendance / liveStats.todayExpected) * 100)}%` : liveStats.attendance}
+                    centerLabel={liveStats.todayExpected > 0 ? l('გამოცხადება', 'явка', 'turnout') : l('დამსწრე', 'посетило', 'attended')}
+                    segments={[
+                        {
+                            key: 'attended',
+                            label: l('გამოცხადდა', 'Посетили', 'Attended'),
+                            count: liveStats.attendance,
+                            color: '#10b981',
+                            bgClass: 'bg-emerald-500',
+                        },
+                        {
+                            key: 'remaining',
+                            label: l('მოსასვლელი', 'Ожидаются', 'Expected'),
+                            count: Math.max(0, liveStats.todayExpected - liveStats.attendance),
+                            color: '#8b5cf6',
+                            bgClass: 'bg-violet-500',
+                        },
+                    ]}
+                />
 
-                    <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mt-auto">
-                        <div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-2xl sm:text-3xl font-black text-primary leading-none">
-                                    {liveStats.attendance}
-                                    {liveStats.todayExpected > 0 && (
-                                        <span className="text-sm font-semibold text-muted"> / {liveStats.todayExpected} {l('დამსწრე', 'посетит', 'expected')}</span>
-                                    )}
-                                </span>
-                                {liveStats.todayExpected > 0 && (() => {
-                                    const turnoutPct = Math.round((liveStats.attendance / liveStats.todayExpected) * 100);
-                                    return (
-                                        <span className={cn(
-                                            "text-xs font-bold px-2 py-0.5 rounded-md",
-                                            turnoutPct >= 80 ? "text-emerald-500 bg-emerald-500/10" :
-                                            turnoutPct >= 50 ? "text-amber-500 bg-amber-500/10" : "text-rose-500 bg-rose-500/10"
-                                        )}>
-                                            {turnoutPct}% {l('გამოცხადება', 'явка', 'turnout')}
-                                        </span>
-                                    );
-                                })()}
-                            </div>
-                            <p className="text-[11px] text-muted font-medium mt-1.5">
-                                {liveStats.todayExpected > 0 
-                                    ? l('დღეს დაგეგმილი გაკვეთილების მიხედვით', 'По расписанию на сегодня', 'Based on scheduled classes today')
-                                    : l('დღეს ჯგუფური გაკვეთილები არ არის დაგეგმილი', 'Сегодня нет запланированных уроков', 'No scheduled classes today')}
-                            </p>
-                        </div>
+                {/* 2. Subscriptions Distribution Donut */}
+                <DonutCard
+                    title={l('აბონემენტების სტატუსი', 'Статус абонементов', 'Subscription Statuses')}
+                    icon={CreditCard}
+                    iconColorClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                    linkHref="/subscriptions"
+                    linkLabel={l('ყველა', 'Все', 'View all')}
+                    centerValue={liveStats.subStatusCounts.active}
+                    centerLabel={l('აქტიური', 'активных', 'active')}
+                    segments={[
+                        {
+                            key: 'active',
+                            label: l('აქტიური', 'Активные', 'Active'),
+                            count: liveStats.subStatusCounts.active,
+                            color: '#10b981',
+                            bgClass: 'bg-emerald-500',
+                        },
+                        {
+                            key: 'paused',
+                            label: l('შეჩერებული', 'На паузе', 'Paused'),
+                            count: liveStats.subStatusCounts.paused,
+                            color: '#f59e0b',
+                            bgClass: 'bg-amber-500',
+                        },
+                        {
+                            key: 'expired',
+                            label: l('ვადაგასული', 'Истекшие', 'Expired'),
+                            count: liveStats.subStatusCounts.expired,
+                            color: '#f43f5e',
+                            bgClass: 'bg-rose-500',
+                        },
+                        {
+                            key: 'cancelled',
+                            label: l('გაუქმებული', 'Отмененные', 'Cancelled'),
+                            count: liveStats.subStatusCounts.cancelled,
+                            color: '#6366f1',
+                            bgClass: 'bg-indigo-500',
+                        },
+                    ]}
+                />
 
-                        {liveStats.todayExpected > 0 && (() => {
-                            const turnoutPct = Math.min(100, Math.round((liveStats.attendance / liveStats.todayExpected) * 100));
-                            return (
-                                <div className="w-full sm:w-36 flex flex-col gap-1.5 pb-1">
-                                    <div className="flex justify-between text-[10px] font-bold text-muted">
-                                        <span>{l('პროგრესი', 'Прогресс', 'Progress')}</span>
-                                        <span>{turnoutPct}%</span>
-                                    </div>
-                                    <div className="w-full bg-surface border border-border-subtle rounded-full h-2 overflow-hidden">
-                                        <div 
-                                            className="bg-violet-500 h-full rounded-full transition-all duration-500" 
-                                            style={{ width: `${turnoutPct}%` }} 
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </div>
-                </div>
+                {/* 3. Students Distribution Donut */}
+                <DonutCard
+                    title={l('სტუდენტების განაწილება', 'Распределение студентов', 'Students Breakdown')}
+                    icon={Users}
+                    iconColorClass="text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
+                    linkHref="/students"
+                    linkLabel={l('სტუდენტები', 'Студенты', 'Students')}
+                    centerValue={liveStats.totalStudents}
+                    centerLabel={l('სტუდენტი', 'студентов', 'students')}
+                    segments={[
+                        {
+                            key: 'withSub',
+                            label: l('აქტიური აბონემენტით', 'С абонементом', 'With active pass'),
+                            count: liveStats.activeStudents,
+                            color: '#10b981',
+                            bgClass: 'bg-emerald-500',
+                        },
+                        {
+                            key: 'withoutSub',
+                            label: l('აბონემენტის გარეშე', 'Без абонемента', 'Without pass'),
+                            count: Math.max(0, liveStats.totalStudents - liveStats.activeStudents),
+                            color: '#f59e0b',
+                            bgClass: 'bg-amber-500',
+                        },
+                        {
+                            key: 'newStudents',
+                            label: l('ახალი ამ თვეში', 'Новые в этом мес.', 'New this month'),
+                            count: liveStats.newThisMonthStudents || 0,
+                            color: '#6366f1',
+                            bgClass: 'bg-indigo-500',
+                        },
+                    ]}
+                />
 
-                {/* 2. Subscriptions Distribution Donut Chart */}
-                <SubscriptionDonutChart counts={liveStats.subStatusCounts} l={l} t={t} />
+                {/* 4. Monthly Revenue Sources Donut (if canViewRevenue) */}
+                {canViewRevenue && (
+                    <DonutCard
+                        title={l('თვის შემოსავლის წყაროები', 'Источники дохода за месяц', 'Monthly Revenue Sources')}
+                        icon={TrendingUp}
+                        iconColorClass="text-amber-400 bg-amber-500/10 border-amber-500/20"
+                        linkHref="/analytics"
+                        linkLabel={l('ანალიტიკა', 'Аналитика', 'Analytics')}
+                        centerValue={formatCurrency(liveStats.monthlyRevenue, settings.currency)}
+                        centerLabel={l('შემოსავალი', 'доход', 'revenue')}
+                        segments={[
+                            {
+                                key: 'subs',
+                                label: l('აბონემენტები', 'Абонементы', 'Subscriptions'),
+                                count: Math.round(liveStats.monthlySubsRevenue),
+                                formattedValue: formatCurrency(Math.round(liveStats.monthlySubsRevenue), settings.currency),
+                                color: '#8b5cf6',
+                                bgClass: 'bg-violet-500',
+                            },
+                            {
+                                key: 'shop',
+                                label: l('მაღაზია / ბარი', 'Магазин / Бар', 'Shop / Bar'),
+                                count: Math.round(liveStats.monthlyShopRevenue),
+                                formattedValue: formatCurrency(Math.round(liveStats.monthlyShopRevenue), settings.currency),
+                                color: '#10b981',
+                                bgClass: 'bg-emerald-500',
+                            },
+                        ]}
+                    />
+                )}
             </div>
 
             {/* ─── Needs Attention ─── */}

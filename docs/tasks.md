@@ -25,12 +25,13 @@ Enhance the main dashboard (`src/app/(dashboard)/dashboard/page.tsx`) with accur
   - Automatically identifies students whose `birth_date` matches today's `MM-DD` (matching the algorithm in `sms-service.ts`).
   - Displays festive celebratory banner with student photo/initials, name, phone, and quick link to send congratulatory SMS via `/sms-manager`.
   - Stays hidden when no students celebrate birthdays today.
-- [x] **Subscription Status Breakdown (Donut Chart)**:
-  - Added lightweight custom SVG Donut (ring) diagram based on `<circle>` and `strokeDasharray`/`strokeDashoffset` (zero external dependencies).
-  - Derived statuses from `getUniqueSubscriptions()` via `getEffectiveStatus()` (`active`, `paused`, `expired`, `cancelled`).
-  - Rendered total active subscriptions count as the central hero metric.
-  - Interactive legend with color-coded badges matching the studio color palette (`emerald` for active, `amber` for paused, `rose` for expired, `indigo` for cancelled).
-  - Balanced 2-column layout alongside Today's Attendance Overview with responsive mobile wrap.
+- [x] **Full Suite of Statistics Donut Charts**:
+  - Reusable, responsive, lightweight SVG Donut diagram component (`DonutCard`) based on `<circle>` with `strokeDasharray`/`strokeDashoffset` (zero external chart dependencies, pure Tailwind + React).
+  - **Today's Attendance Donut**: Visualizes checked-in students vs remaining expected students with real-time turnout % in center, linking to `/attendance`.
+  - **Subscription Statuses Donut**: Visualizes breakdown across active, paused, expired, and cancelled subscriptions via `getEffectiveStatus()`, with active count in center, linking to `/subscriptions`.
+  - **Students Breakdown Donut**: Visualizes students with active passes vs students without passes vs newly joined students this month, with total student count in center, linking to `/students`.
+  - **Monthly Revenue Sources Donut**: Visualizes monthly earnings split between subscriptions and shop sales, with monthly revenue in center, linking to `/analytics` (secured with `canViewRevenue` guard).
+  - Formatted in an elegant 2x2 grid (`grid-cols-1 lg:grid-cols-2 gap-4`) directly underneath top KPI stat cards.
 - [x] **Type Safety**:
   - Added `booking_status?: 'pending' | 'confirmed' | 'cancelled'` to `CalendarEvent` in `src/types/index.ts`.
   - Exported `getEffectiveStatus` and `SubscriptionEffectiveStatus` in `src/lib/subscription-store.ts`.
