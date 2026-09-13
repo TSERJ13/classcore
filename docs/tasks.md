@@ -243,12 +243,47 @@ Notes:
 
 ### Phase 7: Real Hall Rental module
 
-Status: pending
+Status: partially completed — made it real (persisted, real halls); the PRD's pending+SMS
+confirmation flow is deliberately not built (see below).
 
-`src/app/(dashboard)/hall-rental/page.tsx` is currently a disconnected mock (`useState(MOCK_RENTALS)`,
-no store, no persistence, no link to `subscription-store.ts`'s `'rental'` plan_type). Rebuild as a
-real flow: name, calendar, tariff (from Phase 2b's Hall rental tariff type), renewal type, pending +
-SMS confirmation, checkout/invoice generation — per PRD Subscriptions §8.
+**Decision made while implementing**: `HallRental` (`types/index.ts`) already has a richer, more
+purpose-built shape than `SubscriptionInfo`'s minimal `'rental'` plan_type stub (deposit, contract
+upload, renter contact info for people who aren't students) — the gap analysis read the two as
+competing/disconnected implementations of the same PRD feature, but on inspection `HallRental` is
+clearly the better home for it. Left `SubscriptionInfo.plan_type === 'rental'` untouched rather than
+trying to unify the two data models — that would be a bigger, more speculative change for
+questionable benefit versus just making the already-better-designed page real.
+
+**Built**:
+- `hall-rental-store.ts` (new): real persistence for `HallRental` records, mirroring `plan-store.ts`'s
+  pattern (localStorage + best-effort individual-record cloud sync + schema-less settings-blob
+  fallback). Previously `hall-rental/page.tsx` held everything in a bare `useState(MOCK_RENTALS)` —
+  nothing survived a page refresh, ever.
+- `HallRental` gained `hall_id` (stable reference to `HallData.id`) alongside the existing `hall_name`
+  (kept as a denormalized display copy) — same `id`+`name` pattern as `plan_id`+`plan` from Phase 4,
+  fixing the "hardcoded `HALLS = ['დარბაზი #1', ...]` string array, no relation to real halls" gap.
+- Page now loads/saves through the store and pulls real halls via `getHalls()` instead of the
+  hardcoded list, everywhere a hall is picked or filtered.
+
+**Not done (flagged, not silently skipped)**:
+- Pending status + SMS-confirmation-to-teacher flow (PRD §8: "ჯავშანი იქმნება 'მოლოდინში' სტატუსით
+  ... მასწავლებელს მიდის SMS"). Skipped because this page has no student/self-serve creation path at
+  all — it's purely an admin-facing booking form, so there's no caller that would ever produce a
+  'pending' booking to confirm. Adding the field without a way to set it to anything but one value
+  would be dead code. This gap is really about a missing *student-portal* entry point for hall rental
+  requests, which is its own, bigger piece of work (student profile module territory).
+- Hall-conflict checking (can't double-book a hall against an existing group/individual/other rental)
+  — `hasIndividualSlotConflict()` from Phase 6 is individual-lesson-specific and this page's
+  `multiday`/`monthly` rental types don't even have start/end *times*, only dates, so generalizing the
+  conflict engine to cover hall rentals needs its own design pass, not a quick reuse.
+- Checkout/invoice generation — explicitly out of scope per the Subscriptions PRD itself (§15: invoice
+  generation lives in the separate Finance module, not described in that document either).
+
+Notes:
+- `tsc --noEmit`: clean. Lint: one new issue caught and fixed (an `any` assignment in the new store,
+  same pattern flagged elsewhere in this codebase — used a typed spread instead).
+- Playwright smoke-check: page compiles and serves with zero console/page errors (same
+  Supabase-credential limitation as previous phases prevents full end-to-end browser verification).
 
 ---
 

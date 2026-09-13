@@ -13,19 +13,13 @@ import type { HallRental, RentalType, PaymentStatus } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { generateTimeOptions } from '@/lib/date-utils';
+import { getHalls, type HallData } from '@/lib/hall-store';
+import { getRentals, saveRentals, deleteRental as deleteRentalInStore } from '@/lib/hall-rental-store';
 
 const RENTAL_TYPES: { value: RentalType; label: string; icon: React.ReactNode; desc: string }[] = [
     { value: 'hourly', label: 'საათობრივი/დღიური', icon: <Clock className="w-4 h-4" />, desc: 'ერთი დღე, კონკრეტული საათები' },
     { value: 'multiday', label: 'რამდენიმე დღე', icon: <CalendarRange className="w-4 h-4" />, desc: 'თარიღის ინტერვალი' },
     { value: 'monthly', label: 'თვიური', icon: <CalendarDays className="w-4 h-4" />, desc: 'ფიქსირებული ყოველთვიური' },
-];
-
-const HALLS = ['დარბაზი #1', 'დარბაზი #2', 'სტუდია A', 'სტუდია B'];
-
-const MOCK_RENTALS: HallRental[] = [
-    { id: '1', org_id: 'demo', renter_name: 'ლელა მამულაშვილი', renter_phone: '577 11 22 33', hall_name: 'დარბაზი #1', rental_type: 'hourly', start_date: '2026-02-22', end_date: '2026-02-22', start_time: '18:00', end_time: '21:00', total_price: 150, deposit: 50, payment_status: 'partial', event_type: 'დაბადების დღე', created_at: '2026-02-19' },
-    { id: '2', org_id: 'demo', renter_name: 'TBC Dance Academy', renter_phone: '598 33 44 55', hall_name: 'სტუდია A', rental_type: 'monthly', start_date: '2026-03-01', end_date: '2026-03-31', total_price: 800, deposit: 200, payment_status: 'paid', event_type: 'რეპეტიცია', created_at: '2026-02-18' },
-    { id: '3', org_id: 'demo', renter_name: 'გიორგი ბერიძე', renter_phone: '555 44 55 66', hall_name: 'დარბაზი #2', rental_type: 'multiday', start_date: '2026-02-25', end_date: '2026-02-27', total_price: 360, deposit: 100, payment_status: 'pending', event_type: 'ფოტო სეია', created_at: '2026-02-17' },
 ];
 
 const PAY_STATUS_INFO: Record<PaymentStatus, { icon: React.ReactNode; label: string; cls: string }> = {
@@ -41,7 +35,7 @@ const TYPE_LABELS: Record<RentalType, string> = {
 
 const EMPTY: Omit<HallRental, 'id' | 'org_id' | 'created_at'> = {
     renter_name: '', renter_phone: '', renter_email: '',
-    hall_name: HALLS[0], rental_type: 'hourly',
+    hall_id: '', hall_name: '', rental_type: 'hourly',
     start_date: '', end_date: '', start_time: '', end_time: '',
     total_price: 0, deposit: 0, payment_status: 'pending',
     event_type: '', notes: '',
@@ -52,7 +46,8 @@ export default function HallRentalPage() {
     const { t } = useT();
     const { settings } = useStudio();
     const confirm = useConfirm();
-    const [rentals, setRentals] = useState<HallRental[]>(MOCK_RENTALS);
+    const [rentals, setRentals] = useState<HallRental[]>([]);
+    const [halls, setHalls] = useState<HallData[]>([]);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<HallRental | null>(null);
     const [form, setForm] = useState(EMPTY);
@@ -60,32 +55,49 @@ export default function HallRentalPage() {
     const [search, setSearch] = useState('');
     const [hallFilter, setHallFilter] = useState('all');
 
+    useEffect(() => {
+        const load = () => {
+            setRentals(getRentals());
+            setHalls(getHalls().filter(h => h.is_active !== false));
+        };
+        load();
+        window.addEventListener('cc_hall_rentals_update', load);
+        window.addEventListener('cc_halls_update', load);
+        return () => {
+            window.removeEventListener('cc_hall_rentals_update', load);
+            window.removeEventListener('cc_halls_update', load);
+        };
+    }, []);
 
     const timeOptions = generateTimeOptions(15);
 
     function set(k: string, v: string | number) { setForm(p => ({ ...p, [k]: v })); }
-    function openAdd() { setEditing(null); setForm(EMPTY); setStep(1); setModalOpen(true); }
+    function openAdd() { setEditing(null); setForm({ ...EMPTY, hall_id: halls[0]?.id || '', hall_name: halls[0]?.name || '' }); setStep(1); setModalOpen(true); }
     function openEdit(r: HallRental) { setEditing(r); setForm(r); setStep(2); setModalOpen(true); }
 
-    function saveRental() {
+    async function saveRental() {
+        let next: HallRental[];
         if (editing) {
-            setRentals(prev => prev.map(r => r.id === editing.id ? { ...r, ...form } as HallRental : r));
+            next = rentals.map(r => r.id === editing.id ? { ...r, ...form } as HallRental : r);
         } else {
-            setRentals(prev => [{
+            next = [{
                 ...form, id: String(Date.now()), org_id: settings.orgId || 'demo', created_at: new Date().toISOString(),
-            } as HallRental, ...prev]);
+            } as HallRental, ...rentals];
         }
+        setRentals(next);
+        await saveRentals(next);
         setModalOpen(false);
     }
 
-    function deleteRental(id: string) {
+    async function deleteRentalAction(id: string) {
         setRentals(prev => prev.filter(r => r.id !== id));
+        await deleteRentalInStore(id);
         setModalOpen(false);
     }
 
     const filtered = rentals.filter(r => {
         const matchesSearch = r.renter_name.toLowerCase().includes(search.toLowerCase()) || r.hall_name?.toLowerCase().includes(search.toLowerCase());
-        const matchesHall = hallFilter === 'all' || r.hall_name === hallFilter;
+        const matchesHall = hallFilter === 'all' || r.hall_id === hallFilter;
         return matchesSearch && matchesHall;
     });
 
@@ -138,7 +150,7 @@ export default function HallRentalPage() {
                     <SearchSelect
                         options={[
                             { value: 'all', label: t.allHalls || 'ყველა დარბაზი' },
-                            ...HALLS.map(h => ({ value: h, label: h }))
+                            ...halls.map(h => ({ value: h.id, label: h.name }))
                         ]}
                         value={hallFilter}
                         onChange={setHallFilter}
@@ -259,7 +271,7 @@ export default function HallRentalPage() {
                         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 scrollbar-thin">
                             {editing && step === 2 && (
                                 <div className="space-y-4">
-                                    <button onClick={async () => { if (await confirm('ნამდვილად გსურთ წაშლა?')) deleteRental(editing.id); }}
+                                    <button onClick={async () => { if (await confirm('ნამდვილად გსურთ წაშლა?')) deleteRentalAction(editing.id); }}
                                         className="w-full py-2.5 text-red-500/60 hover:text-red-500 text-xs font-bold border border-red-500/10 hover:border-red-500/30 rounded-xl transition-all flex items-center justify-center gap-2">
                                         <Trash2 className="w-4 h-4" /> ჯავშნის წაშლა
                                     </button>
@@ -308,9 +320,12 @@ export default function HallRentalPage() {
                                     <div className="border-t border-border-subtle/50 pt-6">
                                         <label className="text-[11px] font-black text-muted mb-2 block tracking-wider opacity-60">დარბაზი</label>
                                         <SearchSelect
-                                            options={HALLS.map(h => ({ value: h, label: h }))}
-                                            value={form.hall_name || ''}
-                                            onChange={val => set('hall_name', val)}
+                                            options={halls.map(h => ({ value: h.id, label: h.name }))}
+                                            value={form.hall_id || ''}
+                                            onChange={val => {
+                                                const hall = halls.find(h => h.id === val);
+                                                setForm(p => ({ ...p, hall_id: val, hall_name: hall?.name || '' }));
+                                            }}
                                             className="!border-border-subtle hover:!border-indigo-500/60 shadow-inner [&>div]:py-3.5 [&>div]:px-4"
                                             placeholder="აირჩიეთ დარბაზი"
                                         />

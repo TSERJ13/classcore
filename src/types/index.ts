@@ -367,7 +367,8 @@ export interface HallRental {
     renter_name: string;
     renter_phone: string;
     renter_email?: string;
-    hall_name?: string;      // if multiple halls
+    hall_id?: string;        // src/lib/hall-store.ts HallData.id — the stable reference
+    hall_name?: string;      // denormalized display copy, kept in sync with hall_id
     rental_type: RentalType;
     start_date: string;
     end_date: string;
