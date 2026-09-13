@@ -295,30 +295,18 @@ export default function PlansManagementPage() {
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <div className="bg-card border border-border-subtle rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-                                <h3 className="text-base font-bold text-primary">{editingPlan ? t.edit : t.add} {t.subscription}</h3>
+                                <div className="flex items-center gap-2.5">
+                                    <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center', TYPE_META[form.type].iconWrap)}>
+                                        {(() => { const { Icon } = TYPE_META[form.type]; return <Icon className={cn('w-4 h-4', TYPE_META[form.type].iconColor)} />; })()}
+                                    </div>
+                                    <h3 className="text-base font-bold text-primary">
+                                        {editingPlan ? t.edit : t.add} — {form.type === 'group' ? t.monthlyShortLabel : form.type === 'personal' ? t.personalClass : form.type === 'individual' ? t.individualClass : t.rental}
+                                    </h3>
+                                </div>
                                 <button onClick={() => setShowForm(false)} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface text-muted transition-colors">×</button>
                             </div>
 
                             <div className="px-6 py-5 space-y-4">
-                                <div className="grid grid-cols-4 gap-2">
-                                    {(['group', 'personal', 'individual', 'rental'] as const)
-                                        .filter(tp => tp !== 'individual' || isFeatureEnabled(settings, 'individualLessons'))
-                                        .filter(tp => tp !== 'rental' || isFeatureEnabled(settings, 'hallRental'))
-                                        .map(tp => (
-                                        <button key={tp} onClick={() => setForm(p => ({
-                                            ...p, type: tp,
-                                            ...(tp === 'group' ? { period: 'monthly' as Period } : {}),
-                                            ...(tp === 'personal' && p.type !== 'personal' ? { period: 'sessions' as Period } : {}),
-                                            ...(tp === 'rental' ? { rental_period: p.rental_period || 'hourly' as RentalPeriod } : {}),
-                                        }))}
-                                            className={cn('py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase border transition-all flex flex-col items-center gap-2',
-                                                form.type === tp ? TYPE_META[tp].typeBtn : 'border-border-subtle text-muted opacity-40 hover:opacity-100')}>
-                                            {(() => { const { Icon } = TYPE_META[tp]; return <Icon className="w-5 h-5" />; })()}
-                                            {tp === 'group' ? t.monthlyShortLabel : tp === 'personal' ? t.personalClass : tp === 'individual' ? t.individualClass : t.rental}
-                                        </button>
-                                    ))}
-                                </div>
-
                                 <div>
                                     <label className="text-xs text-muted mb-1.5 block">{t.planName} *</label>
                                     <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
@@ -379,7 +367,7 @@ export default function PlansManagementPage() {
                                             className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-3 gap-3">
+                                    <div className={cn("grid gap-3", form.period === 'sessions' ? "grid-cols-3" : "grid-cols-2")}>
                                         {form.period === 'sessions' && (
                                             <div>
                                                 <label className="text-xs text-muted mb-1.5 block">{t.sessionCountLabel}</label>
