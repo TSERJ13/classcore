@@ -217,6 +217,7 @@ function DonutCard({
     linkLabel,
     centerValue,
     centerLabel,
+    change,
     segments,
 }: {
     title: string;
@@ -226,8 +227,11 @@ function DonutCard({
     linkLabel?: string;
     centerValue: string | number;
     centerLabel: string;
+    change?: string | null;
     segments: DonutSegment[];
 }) {
+    const [activeKey, setActiveKey] = useState<string | null>(null);
+
     const total = segments.reduce((sum, s) => sum + s.count, 0);
 
     const size = 136;
@@ -251,6 +255,8 @@ function DonutCard({
         };
     });
 
+    const activeSlice = slices.find(s => s.key === activeKey) || null;
+
     return (
         <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
             <div className="flex items-center justify-between mb-2">
@@ -261,6 +267,17 @@ function DonutCard({
                     <h3 className="text-xs font-bold text-primary tracking-tight">
                         {title}
                     </h3>
+                    {change && (
+                        <span className={cn(
+                            "text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5",
+                            change.startsWith('+') && change !== '+0%' && change !== '+0' ? "text-emerald-500 bg-emerald-500/10" : 
+                            change.startsWith('-') ? "text-rose-500 bg-rose-500/10" : "text-muted bg-surface"
+                        )}>
+                            {change.startsWith('+') && change !== '+0%' && change !== '+0' ? <ArrowUpRight className="w-2.5 h-2.5" /> : 
+                             change.startsWith('-') ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
+                            {change.replace('+', '')}
+                        </span>
+                    )}
                 </div>
                 {linkHref && (
                     <Link
@@ -290,6 +307,7 @@ function DonutCard({
                         {/* Slices */}
                         {total > 0 && slices.map(slice => {
                             if (slice.count <= 0) return null;
+                            const isHovered = activeKey === slice.key;
                             return (
                                 <circle
                                     key={slice.key}
@@ -298,48 +316,113 @@ function DonutCard({
                                     r={radius}
                                     fill="none"
                                     stroke={slice.color}
-                                    strokeWidth={strokeWidth}
+                                    strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
                                     strokeDasharray={slice.strokeDasharray}
                                     strokeDashoffset={slice.strokeDashoffset}
-                                    className="transition-all duration-700 ease-out"
-                                />
+                                    className="transition-all duration-300 ease-out cursor-pointer"
+                                    style={{
+                                        opacity: activeKey ? (isHovered ? 1 : 0.35) : 1,
+                                        filter: isHovered ? `drop-shadow(0 0 6px ${slice.color}80)` : undefined,
+                                    }}
+                                    onMouseEnter={() => setActiveKey(slice.key)}
+                                    onMouseLeave={() => setActiveKey(null)}
+                                    onClick={() => setActiveKey(prev => prev === slice.key ? null : slice.key)}
+                                >
+                                    <title>{slice.label}: {slice.formattedValue || slice.count} ({slice.pct}%)</title>
+                                </circle>
                             );
                         })}
                     </svg>
 
                     {/* Center Text */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center">
-                        <span className="text-xl sm:text-2xl font-black text-primary leading-none tracking-tight truncate max-w-[100px]">
-                            {centerValue}
-                        </span>
-                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider mt-1 truncate max-w-[90px]">
-                            {centerLabel}
-                        </span>
-                    </div>
+                    {activeSlice ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center animate-in fade-in zoom-in-90 duration-150">
+                            {total > 0 && (
+                                <span 
+                                    className="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white leading-none shadow-xs mb-0.5"
+                                    style={{ backgroundColor: activeSlice.color }}
+                                >
+                                    {activeSlice.pct}%
+                                </span>
+                            )}
+                            <span className="text-base sm:text-lg font-black text-primary leading-tight truncate max-w-[96px]">
+                                {activeSlice.formattedValue || activeSlice.count}
+                            </span>
+                            <span className="text-[9px] font-bold text-muted truncate max-w-[96px] leading-tight mt-0.5">
+                                {activeSlice.label}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center transition-all">
+                            <span className="text-xl sm:text-2xl font-black text-primary leading-none tracking-tight truncate max-w-[100px]">
+                                {centerValue}
+                            </span>
+                            <span className="text-[9px] font-bold text-muted uppercase tracking-wider mt-1 truncate max-w-[90px]">
+                                {centerLabel}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {/* Legend */}
-                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
-                    {slices.map(item => (
-                        <div key={item.key} className="flex items-center justify-between gap-2 p-1.5 rounded-lg hover:bg-surface/50 transition-colors">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <span className={cn("w-2 h-2 rounded-full shrink-0", item.bgClass)} />
-                                <span className="text-[11px] font-medium text-muted truncate">
-                                    {item.label}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-xs font-bold text-primary tabular-nums">
-                                    {item.formattedValue || item.count}
-                                </span>
-                                {total > 0 && (
-                                    <span className="text-[10px] text-muted/60 tabular-nums">
-                                        ({item.pct}%)
-                                    </span>
+                {/* Legend (Interactive: numbers & percentages shown on hover/click) */}
+                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1">
+                    {slices.map(item => {
+                        const isItemActive = activeKey === item.key;
+                        return (
+                            <div
+                                key={item.key}
+                                onMouseEnter={() => setActiveKey(item.key)}
+                                onMouseLeave={() => setActiveKey(null)}
+                                onClick={() => setActiveKey(prev => prev === item.key ? null : item.key)}
+                                className={cn(
+                                    "flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl cursor-pointer transition-all duration-200 select-none group/item",
+                                    isItemActive
+                                        ? "bg-surface/90 border border-border-subtle shadow-xs"
+                                        : "hover:bg-surface/50 border border-transparent"
                                 )}
+                            >
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                        className={cn(
+                                            "w-2 h-2 rounded-full shrink-0 transition-all duration-200",
+                                            item.bgClass,
+                                            isItemActive ? "scale-125 ring-2 ring-offset-1 ring-offset-card" : "opacity-80"
+                                        )}
+                                        style={{
+                                            boxShadow: isItemActive ? `0 0 6px ${item.color}` : undefined
+                                        }}
+                                    />
+                                    <span className={cn(
+                                        "text-[11px] truncate transition-colors",
+                                        isItemActive ? "font-bold text-primary" : "font-medium text-muted group-hover/item:text-primary"
+                                    )}>
+                                        {item.label}
+                                    </span>
+                                </div>
+
+                                {/* Numbers and percentage: ONLY shown on hover / click / active! */}
+                                <div className={cn(
+                                    "flex items-center gap-1.5 shrink-0 transition-all duration-200",
+                                    isItemActive ? "opacity-100 translate-x-0" : "opacity-0 translate-x-1 pointer-events-none"
+                                )}>
+                                    <span className="text-xs font-black text-primary tabular-nums">
+                                        {item.formattedValue || item.count}
+                                    </span>
+                                    {total > 0 && (
+                                        <span
+                                            className="text-[10px] font-bold px-1 py-0.5 rounded-md tabular-nums"
+                                            style={{
+                                                backgroundColor: `${item.color}20`,
+                                                color: item.color,
+                                            }}
+                                        >
+                                            {item.pct}%
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -770,53 +853,9 @@ export default function DashboardPage() {
         return `${weekday}, ${day} ${month} ${year}`;
     };
 
-    const getSubtext = (type: 'today' | 'monthly') => {
-        const now = new Date();
-        const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
-        if (type === 'today') {
-            // Just show: "2 March" — no "Today is" prefix
-            return `${now.getDate()} ${months[now.getMonth()]}`;
-        }
-        if (revenueRange.start && revenueRange.end) {
-            return `${revenueRange.start.getDate()} ${months[revenueRange.start.getMonth()]} - ${revenueRange.end.getDate()} ${months[revenueRange.end.getMonth()]}`;
-        }
-        // Current month: 1st to Today
-        return `1 ${months[now.getMonth()]} - ${now.getDate()} ${months[now.getMonth()]}`;
-    };
-
     const dateStr = getLocalizedDate(selectedDate, t);
     const isTeacher = isTeacherRole(profile?.role);
     const canViewRevenue = !isTeacher && (profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'manager' || !!profile?.canViewAnalytics || !!profile?.canViewBilling);
-
-    const stats = [
-        { 
-            label: isTeacher ? (l('ჯგუფის სტუდენტები', 'Студенты группы', 'Group Students')) : t.totalStudents, 
-            value: String(liveStats.totalStudents), 
-            change: liveStats.studentChange !== null ? (liveStats.studentChange > 0 ? `+${liveStats.studentChange}%` : `${liveStats.studentChange}%`) : null, 
-            sub: null, 
-            icon: Users, 
-            color: 'indigo' 
-        },
-        { 
-            label: isTeacher ? (l('აქტიური აბონემენტები', 'Активные абонементы', 'Active Subscriptions')) : t.activeSubscriptions, 
-            value: String(liveStats.activeSubs), 
-            change: liveStats.newThisMonth > 0 ? `+${liveStats.newThisMonth}` : null, 
-            sub: null, 
-            icon: CreditCard, 
-            color: 'emerald' 
-        },
-        ...(canViewRevenue ? [
-            { label: t.todayRevenue, value: formatCurrency(liveStats.todayRevenue, settings.currency), change: liveStats.revenueChange !== 0 ? (liveStats.revenueChange > 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`) : null, sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
-            { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: formatCurrency(liveStats.monthlyRevenue, settings.currency), change: liveStats.revenueChange !== 0 ? (liveStats.revenueChange > 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`) : null, sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
-        ] : [])
-    ];
-
-    const colorMap: Record<string, { bg: string; text: string; border: string; glow: string }> = {
-        indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20', glow: 'shadow-indigo-500/10' },
-        emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20', glow: 'shadow-emerald-500/10' },
-        violet: { bg: 'bg-violet-500/10', text: 'text-violet-400', border: 'border-violet-500/20', glow: 'shadow-violet-500/10' },
-        amber: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20', glow: 'shadow-amber-500/10' },
-    };
 
     const nowHour = new Date().getHours();
     const isToday = selectedDate.toDateString() === new Date().toDateString();
@@ -959,71 +998,85 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ─── Statistics (2x2 Grid) ─── */}
-            <div className={cn("grid gap-3 sm:gap-4 items-stretch pb-2", stats.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 lg:grid-cols-4")}>
-                {stats.map((stat, idx) => (
-                    <div key={idx} className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col items-start transition-all relative overflow-hidden group hover:border-border-subtle/60">
-                        <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-${stat.color}-500/10 to-transparent rounded-bl-[4rem] -mr-4 -mt-4 transition-transform group-hover:scale-110`} />
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-3 ${colorMap[stat.color].bg} ${colorMap[stat.color].text}`}>
-                            <stat.icon className="w-4 h-4" />
-                        </div>
-                        <p className="text-[10px] sm:text-xs font-bold text-muted mb-1">{stat.label}</p>
-                        <div className="flex items-end gap-2 mt-auto">
-                            <span className="text-xl sm:text-2xl font-black text-primary leading-none">{stat.value}</span>
-                            {stat.change && (
-                                <span className={cn(
-                                    "text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 mb-0.5",
-                                    stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? "text-emerald-500 bg-emerald-500/10" : 
-                                    stat.change.startsWith('-') ? "text-rose-500 bg-rose-500/10" : "text-muted bg-surface"
-                                )}>
-                                    {stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? <ArrowUpRight className="w-2.5 h-2.5" /> : 
-                                     stat.change.startsWith('-') ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
-                                    {stat.change.replace('+', '')}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* ─── Donut Charts: Operations & Analytics Overview ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 items-stretch">
-                {/* 1. Today's Attendance Donut */}
+            {/* ─── Operations & Analytics (Donut Cards) ─── */}
+            <div className={cn("grid gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1 md:grid-cols-3")}>
+                {/* 1. Students Breakdown */}
                 <DonutCard
-                    title={l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
-                    icon={CalendarCheck}
-                    iconColorClass="text-violet-400 bg-violet-500/10 border-violet-500/20"
-                    linkHref="/attendance"
-                    linkLabel={l('ჟურნალი', 'Журнал', 'Journal')}
-                    centerValue={liveStats.todayExpected > 0 ? `${Math.round((liveStats.attendance / liveStats.todayExpected) * 100)}%` : liveStats.attendance}
-                    centerLabel={liveStats.todayExpected > 0 ? l('გამოცხადება', 'явка', 'turnout') : l('დამსწრე', 'посетило', 'attended')}
+                    title={l('სტუდენტები', 'Студенты', 'Students')}
+                    icon={Users}
+                    iconColorClass="text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
+                    linkHref="/students"
+                    linkLabel={l('სტუდენტები', 'Студенты', 'Students')}
+                    centerValue={liveStats.totalStudents}
+                    centerLabel={l('სტუდენტი', 'студентов', 'students')}
+                    change={liveStats.studentChange !== null ? (liveStats.studentChange > 0 ? `+${liveStats.studentChange}%` : `${liveStats.studentChange}%`) : null}
                     segments={[
                         {
-                            key: 'attended',
-                            label: l('გამოცხადდა', 'Посетили', 'Attended'),
-                            count: liveStats.attendance,
+                            key: 'withSub',
+                            label: l('აქტიური აბონემენტით', 'С абонементом', 'With active pass'),
+                            count: liveStats.activeStudents,
                             color: '#10b981',
                             bgClass: 'bg-emerald-500',
                         },
                         {
-                            key: 'remaining',
-                            label: l('მოსასვლელი', 'Ожидаются', 'Expected'),
-                            count: Math.max(0, liveStats.todayExpected - liveStats.attendance),
-                            color: '#8b5cf6',
-                            bgClass: 'bg-violet-500',
+                            key: 'withoutSub',
+                            label: l('აბონემენტის გარეშე', 'Без абонемента', 'Without pass'),
+                            count: Math.max(0, liveStats.totalStudents - liveStats.activeStudents),
+                            color: '#f59e0b',
+                            bgClass: 'bg-amber-500',
+                        },
+                        {
+                            key: 'newStudents',
+                            label: l('ახალი ამ თვეში', 'Новые в этом мес.', 'New this month'),
+                            count: liveStats.newThisMonthStudents || 0,
+                            color: '#6366f1',
+                            bgClass: 'bg-indigo-500',
                         },
                     ]}
                 />
 
-                {/* 2. Subscriptions Distribution Donut */}
+                {/* 2. Monthly Revenue (if canViewRevenue) */}
+                {canViewRevenue && (
+                    <DonutCard
+                        title={l('თვის შემოსავალი', 'Доход за месяц', 'Monthly Revenue')}
+                        icon={TrendingUp}
+                        iconColorClass="text-amber-400 bg-amber-500/10 border-amber-500/20"
+                        linkHref="/analytics"
+                        linkLabel={l('ანალიტიკა', 'Аналитика', 'Analytics')}
+                        centerValue={formatCurrency(liveStats.monthlyRevenue, settings.currency)}
+                        centerLabel={l('შემოსავალი', 'доход', 'revenue')}
+                        change={liveStats.revenueChange !== 0 ? (liveStats.revenueChange > 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`) : null}
+                        segments={[
+                            {
+                                key: 'subs',
+                                label: l('აბონემენტები', 'Абонементы', 'Subscriptions'),
+                                count: Math.round(liveStats.monthlySubsRevenue),
+                                formattedValue: formatCurrency(Math.round(liveStats.monthlySubsRevenue), settings.currency),
+                                color: '#8b5cf6',
+                                bgClass: 'bg-violet-500',
+                            },
+                            {
+                                key: 'shop',
+                                label: l('მაღაზია / ბარი', 'Магазин / Бар', 'Shop / Bar'),
+                                count: Math.round(liveStats.monthlyShopRevenue),
+                                formattedValue: formatCurrency(Math.round(liveStats.monthlyShopRevenue), settings.currency),
+                                color: '#10b981',
+                                bgClass: 'bg-emerald-500',
+                            },
+                        ]}
+                    />
+                )}
+
+                {/* 3. Subscriptions Statuses */}
                 <DonutCard
-                    title={l('აბონემენტების სტატუსი', 'Статус абонементов', 'Subscription Statuses')}
+                    title={l('აბონემენტები', 'Абонементы', 'Subscriptions')}
                     icon={CreditCard}
                     iconColorClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                     linkHref="/subscriptions"
                     linkLabel={l('ყველა', 'Все', 'View all')}
                     centerValue={liveStats.subStatusCounts.active}
                     centerLabel={l('აქტიური', 'активных', 'active')}
+                    change={liveStats.newThisMonth > 0 ? `+${liveStats.newThisMonth}` : null}
                     segments={[
                         {
                             key: 'active',
@@ -1056,70 +1109,32 @@ export default function DashboardPage() {
                     ]}
                 />
 
-                {/* 3. Students Distribution Donut */}
+                {/* 4. Today's Attendance */}
                 <DonutCard
-                    title={l('სტუდენტების განაწილება', 'Распределение студентов', 'Students Breakdown')}
-                    icon={Users}
-                    iconColorClass="text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
-                    linkHref="/students"
-                    linkLabel={l('სტუდენტები', 'Студенты', 'Students')}
-                    centerValue={liveStats.totalStudents}
-                    centerLabel={l('სტუდენტი', 'студентов', 'students')}
+                    title={l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
+                    icon={CalendarCheck}
+                    iconColorClass="text-violet-400 bg-violet-500/10 border-violet-500/20"
+                    linkHref="/attendance"
+                    linkLabel={l('ჟურნალი', 'Журнал', 'Journal')}
+                    centerValue={liveStats.todayExpected > 0 ? `${Math.round((liveStats.attendance / liveStats.todayExpected) * 100)}%` : liveStats.attendance}
+                    centerLabel={liveStats.todayExpected > 0 ? l('გამოცხადება', 'явка', 'turnout') : l('დამსწრე', 'посетило', 'attended')}
                     segments={[
                         {
-                            key: 'withSub',
-                            label: l('აქტიური აბონემენტით', 'С абонементом', 'With active pass'),
-                            count: liveStats.activeStudents,
+                            key: 'attended',
+                            label: l('გამოცხადდა', 'Посетили', 'Attended'),
+                            count: liveStats.attendance,
                             color: '#10b981',
                             bgClass: 'bg-emerald-500',
                         },
                         {
-                            key: 'withoutSub',
-                            label: l('აბონემენტის გარეშე', 'Без абонемента', 'Without pass'),
-                            count: Math.max(0, liveStats.totalStudents - liveStats.activeStudents),
-                            color: '#f59e0b',
-                            bgClass: 'bg-amber-500',
-                        },
-                        {
-                            key: 'newStudents',
-                            label: l('ახალი ამ თვეში', 'Новые в этом мес.', 'New this month'),
-                            count: liveStats.newThisMonthStudents || 0,
-                            color: '#6366f1',
-                            bgClass: 'bg-indigo-500',
+                            key: 'remaining',
+                            label: l('მოსასვლელი', 'Ожидаются', 'Expected'),
+                            count: Math.max(0, liveStats.todayExpected - liveStats.attendance),
+                            color: '#8b5cf6',
+                            bgClass: 'bg-violet-500',
                         },
                     ]}
                 />
-
-                {/* 4. Monthly Revenue Sources Donut (if canViewRevenue) */}
-                {canViewRevenue && (
-                    <DonutCard
-                        title={l('თვის შემოსავლის წყაროები', 'Источники дохода за месяц', 'Monthly Revenue Sources')}
-                        icon={TrendingUp}
-                        iconColorClass="text-amber-400 bg-amber-500/10 border-amber-500/20"
-                        linkHref="/analytics"
-                        linkLabel={l('ანალიტიკა', 'Аналитика', 'Analytics')}
-                        centerValue={formatCurrency(liveStats.monthlyRevenue, settings.currency)}
-                        centerLabel={l('შემოსავალი', 'доход', 'revenue')}
-                        segments={[
-                            {
-                                key: 'subs',
-                                label: l('აბონემენტები', 'Абонементы', 'Subscriptions'),
-                                count: Math.round(liveStats.monthlySubsRevenue),
-                                formattedValue: formatCurrency(Math.round(liveStats.monthlySubsRevenue), settings.currency),
-                                color: '#8b5cf6',
-                                bgClass: 'bg-violet-500',
-                            },
-                            {
-                                key: 'shop',
-                                label: l('მაღაზია / ბარი', 'Магазин / Бар', 'Shop / Bar'),
-                                count: Math.round(liveStats.monthlyShopRevenue),
-                                formattedValue: formatCurrency(Math.round(liveStats.monthlyShopRevenue), settings.currency),
-                                color: '#10b981',
-                                bgClass: 'bg-emerald-500',
-                            },
-                        ]}
-                    />
-                )}
             </div>
 
             {/* ─── Needs Attention ─── */}
