@@ -217,6 +217,7 @@ function DonutCard({
     linkLabel,
     centerValue,
     centerLabel,
+    defaultPct,
     change,
     segments,
 }: {
@@ -227,6 +228,7 @@ function DonutCard({
     linkLabel?: string;
     centerValue: string | number;
     centerLabel: string;
+    defaultPct?: string | null;
     change?: string | null;
     segments: DonutSegment[];
 }) {
@@ -234,11 +236,11 @@ function DonutCard({
 
     const total = segments.reduce((sum, s) => sum + s.count, 0);
 
-    const size = 136;
-    const strokeWidth = 14;
-    const radius = 50;
+    const size = 114;
+    const strokeWidth = 11;
+    const radius = 42;
     const center = size / 2;
-    const circumference = 2 * Math.PI * radius; // ~314.159
+    const circumference = 2 * Math.PI * radius; // ~263.89
 
     let accumulatedOffset = 0;
     const slices = segments.map(seg => {
@@ -256,9 +258,12 @@ function DonutCard({
     });
 
     const activeSlice = slices.find(s => s.key === activeKey) || null;
+    const displayedValue = activeSlice ? (activeSlice.formattedValue || activeSlice.count) : centerValue;
+    const isLongValue = String(displayedValue).length > 5;
 
     return (
         <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
+            {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <div className={cn("w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0", iconColorClass)}>
@@ -290,9 +295,10 @@ function DonutCard({
                 )}
             </div>
 
-            <div className="flex items-center justify-between gap-4 py-1">
-                {/* SVG Donut */}
-                <div className="relative flex items-center justify-center flex-shrink-0">
+            {/* Centered Donut & Bottom Details (No side text) */}
+            <div className="flex flex-col items-center justify-center py-1 flex-1">
+                {/* SVG Donut Ring */}
+                <div className="relative flex items-center justify-center flex-shrink-0 my-1">
                     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 transform">
                         {/* Background track circle */}
                         <circle
@@ -334,93 +340,77 @@ function DonutCard({
                         })}
                     </svg>
 
-                    {/* Center Text */}
+                    {/* Inside Donut Center: ONLY the numeric value (reduced font size for amounts like 3,450 ₾) */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1 text-center">
+                        <span className={cn(
+                            "font-black text-primary leading-none tracking-tight truncate max-w-[84px]",
+                            isLongValue ? "text-sm sm:text-base" : "text-xl sm:text-2xl"
+                        )}>
+                            {displayedValue}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Under Donut: Text & Percentage */}
+                <div className="mt-2 text-center min-h-[38px] flex flex-col items-center justify-center w-full px-1">
                     {activeSlice ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center animate-in fade-in zoom-in-90 duration-150">
-                            {total > 0 && (
-                                <span 
-                                    className="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white leading-none shadow-xs mb-0.5"
-                                    style={{ backgroundColor: activeSlice.color }}
-                                >
-                                    {activeSlice.pct}%
-                                </span>
-                            )}
-                            <span className="text-base sm:text-lg font-black text-primary leading-tight truncate max-w-[96px]">
-                                {activeSlice.formattedValue || activeSlice.count}
-                            </span>
-                            <span className="text-[9px] font-bold text-muted truncate max-w-[96px] leading-tight mt-0.5">
+                        <div className="animate-in fade-in zoom-in-95 duration-150 flex flex-col items-center">
+                            <span className="text-xs font-bold text-primary truncate max-w-[180px] leading-tight">
                                 {activeSlice.label}
                             </span>
+                            <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                                {total > 0 && (
+                                    <span
+                                        className="text-[10px] font-black px-1.5 py-0.2 rounded-md text-white shadow-xs"
+                                        style={{ backgroundColor: activeSlice.color }}
+                                    >
+                                        {activeSlice.pct}%
+                                    </span>
+                                )}
+                                <span className="text-[11px] font-bold text-muted tabular-nums">
+                                    {activeSlice.formattedValue || activeSlice.count}
+                                </span>
+                            </div>
                         </div>
                     ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center transition-all">
-                            <span className="text-xl sm:text-2xl font-black text-primary leading-none tracking-tight truncate max-w-[100px]">
-                                {centerValue}
-                            </span>
-                            <span className="text-[9px] font-bold text-muted uppercase tracking-wider mt-1 truncate max-w-[90px]">
+                        <div className="flex flex-col items-center transition-all">
+                            <span className="text-xs font-bold text-muted truncate max-w-[180px] leading-tight">
                                 {centerLabel}
                             </span>
+                            {defaultPct && (
+                                <span className="text-[10px] font-semibold text-muted/70 mt-0.5">
+                                    {defaultPct}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* Legend (Interactive: numbers & percentages shown on hover/click) */}
-                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1">
+                {/* Bottom Category Dots / Pills */}
+                <div className="flex items-center justify-center flex-wrap gap-1 mt-2.5 pt-2 border-t border-border-subtle/40 w-full">
                     {slices.map(item => {
                         const isItemActive = activeKey === item.key;
                         return (
-                            <div
+                            <button
                                 key={item.key}
+                                type="button"
                                 onMouseEnter={() => setActiveKey(item.key)}
                                 onMouseLeave={() => setActiveKey(null)}
                                 onClick={() => setActiveKey(prev => prev === item.key ? null : item.key)}
                                 className={cn(
-                                    "flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl cursor-pointer transition-all duration-200 select-none group/item",
+                                    "flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] transition-all cursor-pointer",
                                     isItemActive
-                                        ? "bg-surface/90 border border-border-subtle shadow-xs"
-                                        : "hover:bg-surface/50 border border-transparent"
+                                        ? "bg-surface font-bold text-primary ring-1 ring-border-subtle shadow-xs scale-105"
+                                        : "text-muted/80 hover:text-primary hover:bg-surface/50"
                                 )}
+                                title={`${item.label}: ${item.formattedValue || item.count} (${item.pct}%)`}
                             >
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <span
-                                        className={cn(
-                                            "w-2 h-2 rounded-full shrink-0 transition-all duration-200",
-                                            item.bgClass,
-                                            isItemActive ? "scale-125 ring-2 ring-offset-1 ring-offset-card" : "opacity-80"
-                                        )}
-                                        style={{
-                                            boxShadow: isItemActive ? `0 0 6px ${item.color}` : undefined
-                                        }}
-                                    />
-                                    <span className={cn(
-                                        "text-[11px] truncate transition-colors",
-                                        isItemActive ? "font-bold text-primary" : "font-medium text-muted group-hover/item:text-primary"
-                                    )}>
-                                        {item.label}
-                                    </span>
-                                </div>
-
-                                {/* Numbers and percentage: ONLY shown on hover / click / active! */}
-                                <div className={cn(
-                                    "flex items-center gap-1.5 shrink-0 transition-all duration-200",
-                                    isItemActive ? "opacity-100 translate-x-0" : "opacity-0 translate-x-1 pointer-events-none"
-                                )}>
-                                    <span className="text-xs font-black text-primary tabular-nums">
-                                        {item.formattedValue || item.count}
-                                    </span>
-                                    {total > 0 && (
-                                        <span
-                                            className="text-[10px] font-bold px-1 py-0.5 rounded-md tabular-nums"
-                                            style={{
-                                                backgroundColor: `${item.color}20`,
-                                                color: item.color,
-                                            }}
-                                        >
-                                            {item.pct}%
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+                                <span
+                                    className={cn("w-1.5 h-1.5 rounded-full shrink-0 transition-transform", isItemActive && "scale-125")}
+                                    style={{ backgroundColor: item.color }}
+                                />
+                                <span className="truncate max-w-[75px]">{item.label}</span>
+                            </button>
                         );
                     })}
                 </div>
@@ -998,8 +988,8 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ─── Operations & Analytics (Donut Cards) ─── */}
-            <div className={cn("grid gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1 md:grid-cols-3")}>
+            {/* ─── Operations & Analytics (Donut Cards: 4 in 1 Row) ─── */}
+            <div className={cn("grid gap-3 sm:gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3")}>
                 {/* 1. Students Breakdown */}
                 <DonutCard
                     title={l('სტუდენტები', 'Студенты', 'Students')}
@@ -1008,7 +998,8 @@ export default function DashboardPage() {
                     linkHref="/students"
                     linkLabel={l('სტუდენტები', 'Студенты', 'Students')}
                     centerValue={liveStats.totalStudents}
-                    centerLabel={l('სტუდენტი', 'студентов', 'students')}
+                    centerLabel={l('სულ სტუდენტი', 'Всего студентов', 'Total Students')}
+                    defaultPct={liveStats.totalStudents > 0 ? `${Math.round((liveStats.activeStudents / liveStats.totalStudents) * 100)}% ${l('აქტიური', 'активных', 'active')}` : null}
                     change={liveStats.studentChange !== null ? (liveStats.studentChange > 0 ? `+${liveStats.studentChange}%` : `${liveStats.studentChange}%`) : null}
                     segments={[
                         {
@@ -1044,7 +1035,8 @@ export default function DashboardPage() {
                         linkHref="/analytics"
                         linkLabel={l('ანალიტიკა', 'Аналитика', 'Analytics')}
                         centerValue={formatCurrency(liveStats.monthlyRevenue, settings.currency)}
-                        centerLabel={l('შემოსავალი', 'доход', 'revenue')}
+                        centerLabel={l('შემოსავალი', 'Доход', 'Revenue')}
+                        defaultPct={liveStats.monthlyRevenue > 0 && liveStats.monthlySubsRevenue > 0 ? `${Math.round((liveStats.monthlySubsRevenue / liveStats.monthlyRevenue) * 100)}% ${l('აბონემენტები', 'абонементы', 'subs')}` : null}
                         change={liveStats.revenueChange !== 0 ? (liveStats.revenueChange > 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`) : null}
                         segments={[
                             {
@@ -1057,7 +1049,7 @@ export default function DashboardPage() {
                             },
                             {
                                 key: 'shop',
-                                label: l('მაღაზია / ბარი', 'Магазин / Бар', 'Shop / Bar'),
+                                label: l('მაღაზია / ბარი', 'Магазиნ / Бар', 'Shop / Bar'),
                                 count: Math.round(liveStats.monthlyShopRevenue),
                                 formattedValue: formatCurrency(Math.round(liveStats.monthlyShopRevenue), settings.currency),
                                 color: '#10b981',
@@ -1075,7 +1067,11 @@ export default function DashboardPage() {
                     linkHref="/subscriptions"
                     linkLabel={l('ყველა', 'Все', 'View all')}
                     centerValue={liveStats.subStatusCounts.active}
-                    centerLabel={l('აქტიური', 'активных', 'active')}
+                    centerLabel={l('აქტიური აბონემენტი', 'Активных', 'Active')}
+                    defaultPct={(() => {
+                        const totalSubs = liveStats.subStatusCounts.active + liveStats.subStatusCounts.paused + liveStats.subStatusCounts.expired + liveStats.subStatusCounts.cancelled;
+                        return totalSubs > 0 ? `${Math.round((liveStats.subStatusCounts.active / totalSubs) * 100)}% ${l('სულ', 'всего', 'of all')}` : null;
+                    })()}
                     change={liveStats.newThisMonth > 0 ? `+${liveStats.newThisMonth}` : null}
                     segments={[
                         {
@@ -1118,6 +1114,7 @@ export default function DashboardPage() {
                     linkLabel={l('ჟურნალი', 'Журнал', 'Journal')}
                     centerValue={liveStats.todayExpected > 0 ? `${Math.round((liveStats.attendance / liveStats.todayExpected) * 100)}%` : liveStats.attendance}
                     centerLabel={liveStats.todayExpected > 0 ? l('გამოცხადება', 'явка', 'turnout') : l('დამსწრე', 'посетило', 'attended')}
+                    defaultPct={liveStats.todayExpected > 0 ? `${liveStats.attendance} / ${liveStats.todayExpected} ${l('მოსწავლე', 'учен.', 'students')}` : null}
                     segments={[
                         {
                             key: 'attended',
