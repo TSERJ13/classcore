@@ -209,6 +209,28 @@ interface DonutSegment {
     bgClass: string;
 }
 
+function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+    return {
+        x: Number((centerX + radius * Math.cos(angleInRadians)).toFixed(3)),
+        y: Number((centerY + radius * Math.sin(angleInRadians)).toFixed(3))
+    };
+}
+
+function describeArc(x: number, y: number, radius: number, startAngle: number, endAngle: number) {
+    const sweep = endAngle - startAngle;
+    if (sweep >= 359.99) {
+        const start = polarToCartesian(x, y, radius, startAngle);
+        const mid = polarToCartesian(x, y, radius, startAngle + 180);
+        const end = polarToCartesian(x, y, radius, startAngle + 359.99);
+        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 0 1 ${mid.x} ${mid.y} A ${radius} ${radius} 0 0 1 ${end.x} ${end.y}`;
+    }
+    const start = polarToCartesian(x, y, radius, startAngle);
+    const end = polarToCartesian(x, y, radius, endAngle);
+    const largeArcFlag = sweep <= 180 ? '0' : '1';
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
+}
+
 function DonutCard({
     title,
     icon: Icon,
@@ -240,20 +262,25 @@ function DonutCard({
     const strokeWidth = 12;
     const radius = 48;
     const center = size / 2;
-    const circumference = 2 * Math.PI * radius; // ~301.59
 
-    let accumulatedOffset = 0;
+    const nonZeroSegments = segments.filter(s => s.count > 0);
+    const gap = nonZeroSegments.length > 1 ? 2 : 0;
+
+    let curAngle = 0;
     const slices = segments.map(seg => {
         const fraction = total > 0 ? seg.count / total : 0;
-        const dashLength = fraction * circumference;
-        const strokeDasharray = `${dashLength} ${circumference - dashLength}`;
-        const strokeDashoffset = -accumulatedOffset;
-        accumulatedOffset += dashLength;
+        const sliceAngle = fraction * 360;
+        const actualGap = sliceAngle > gap * 1.5 ? gap : 0;
+        const startAngle = curAngle + actualGap / 2;
+        const endAngle = curAngle + sliceAngle - actualGap / 2;
+        if (seg.count > 0) {
+            curAngle += sliceAngle;
+        }
+        const pathD = seg.count > 0 ? describeArc(center, center, radius, startAngle, endAngle) : '';
         return {
             ...seg,
             pct: total > 0 ? Math.round(fraction * 100) : 0,
-            strokeDasharray,
-            strokeDashoffset,
+            pathD,
         };
     });
 
@@ -299,7 +326,7 @@ function DonutCard({
             <div className="flex flex-col items-center justify-center py-1 flex-1">
                 {/* SVG Donut Ring */}
                 <div className="relative flex items-center justify-center flex-shrink-0 my-1">
-                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 transform">
+                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
                         {/* Background track circle */}
                         <circle
                             cx={center}
@@ -312,19 +339,16 @@ function DonutCard({
                         />
                         {/* Slices */}
                         {total > 0 && slices.map(slice => {
-                            if (slice.count <= 0) return null;
+                            if (slice.count <= 0 || !slice.pathD) return null;
                             const isHovered = activeKey === slice.key;
                             return (
-                                <circle
+                                <path
                                     key={slice.key}
-                                    cx={center}
-                                    cy={center}
-                                    r={radius}
+                                    d={slice.pathD}
                                     fill="none"
                                     stroke={slice.color}
                                     strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
-                                    strokeDasharray={slice.strokeDasharray}
-                                    strokeDashoffset={slice.strokeDashoffset}
+                                    strokeLinecap="butt"
                                     className="transition-all duration-300 ease-out cursor-pointer"
                                     style={{
                                         opacity: activeKey ? (isHovered ? 1 : 0.35) : 1,
@@ -335,7 +359,7 @@ function DonutCard({
                                     onClick={() => setActiveKey(prev => prev === slice.key ? null : slice.key)}
                                 >
                                     <title>{slice.label}: {slice.formattedValue || slice.count} ({slice.pct}%)</title>
-                                </circle>
+                                </path>
                             );
                         })}
                     </svg>
