@@ -5,13 +5,13 @@ import { X, CalendarClock, Check } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
 import { type SubscriptionInfo } from '@/lib/subscription-store';
-import { createIndividualBooking } from '@/lib/event-store';
+import { createIndividualBooking, getOpenSlots, deleteOpenSlot } from '@/lib/event-store';
 import { getHalls } from '@/lib/hall-store';
 import { getStudents } from '@/lib/student-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { generateTimeOptions } from '@/lib/date-utils';
-import { getLocalISODate, cn } from '@/lib/utils';
+import { getLocalISODate, cn, formatDate } from '@/lib/utils';
 import MainPortal from '@/components/ui/MainPortal';
 
 interface BookIndividualLessonModalProps {
@@ -26,24 +26,35 @@ function addOneHour(timeStr: string): string {
 }
 
 /**
- * 7B, direct-assignment path: books ONE lesson time against an
- * already-purchased individual credit. The other 7B path (a teacher
- * pre-publishing open slots for students to pick from) isn't built yet —
- * see docs/tasks.md Phase 6.
+ * 7B: books ONE lesson time against an already-purchased individual credit —
+ * either picked from a teacher-published open slot (see individual-availability
+ * page), which is consumed (deleted) once booked, or a direct-assignment time
+ * typed in manually. Both paths go through the same confirmation logic in
+ * createIndividualBooking() (auto-confirmed only when a teacher does the booking).
  */
 export function BookIndividualLessonModal({ subscription, onClose, onBooked }: BookIndividualLessonModalProps) {
     const { t } = useT();
     const { profile } = useUser();
     const halls = getHalls().filter(h => h.is_active !== false);
     const student = getStudents().find(s => s.id === (subscription.student_id || '').split(',')[0].trim());
+    const openSlots = getOpenSlots(subscription.teacher_id);
 
     const [hallId, setHallId] = useState(halls[0]?.id || '');
     const [date, setDate] = useState(getLocalISODate());
     const [startTime, setStartTime] = useState('18:00');
     const [endTime, setEndTime] = useState('19:00');
+    const [pickedSlotId, setPickedSlotId] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
     const [result, setResult] = useState<'confirmed' | 'pending' | null>(null);
+
+    function pickSlot(slot: typeof openSlots[number]) {
+        setPickedSlotId(slot.id);
+        setHallId(slot.hall_id || '');
+        setDate(slot.date);
+        setStartTime(slot.start_time);
+        setEndTime(slot.end_time);
+    }
 
     const timeOptions = generateTimeOptions();
     const isTeacher = profile?.role === 'teacher';
@@ -63,6 +74,7 @@ export function BookIndividualLessonModal({ subscription, onClose, onBooked }: B
                 endTime,
                 createdByTeacher: isTeacher,
             });
+            if (pickedSlotId) deleteOpenSlot(pickedSlotId);
             setResult(event.booking_status === 'confirmed' ? 'confirmed' : 'pending');
             onBooked();
         } catch (e) {
@@ -102,16 +114,32 @@ export function BookIndividualLessonModal({ subscription, onClose, onBooked }: B
                     ) : (
                         <>
                             <div className="px-6 py-5 space-y-4">
+                                {openSlots.length > 0 && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-muted block">{t.individualAvailabilityLabel}</label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {openSlots.map(slot => (
+                                                <button key={slot.id} onClick={() => pickSlot(slot)}
+                                                    className={cn(
+                                                        'text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-all',
+                                                        pickedSlotId === slot.id ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-surface border-border-subtle text-muted hover:border-indigo-500/40'
+                                                    )}>
+                                                    {formatDate(slot.date)} · {slot.start_time}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="text-xs text-muted mb-1.5 block">{t.hall}</label>
                                     <SearchSelect
                                         options={halls.map(h => ({ value: h.id, label: h.name }))}
                                         value={hallId}
-                                        onChange={setHallId}
+                                        onChange={v => { setHallId(v); setPickedSlotId(null); }}
                                         placeholder={t.hall}
                                     />
                                 </div>
-                                <StandardDatePicker label={t.selectDate} value={date} onChange={setDate} />
+                                <StandardDatePicker label={t.selectDate} value={date} onChange={v => { setDate(v); setPickedSlotId(null); }} />
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs text-muted mb-1.5 block">{t.startTime}</label>
@@ -119,12 +147,12 @@ export function BookIndividualLessonModal({ subscription, onClose, onBooked }: B
                                             options={timeOptions}
                                             value={startTime}
                                             allowCustom
-                                            onChange={v => { setStartTime(v); setEndTime(addOneHour(v)); }}
+                                            onChange={v => { setStartTime(v); setEndTime(addOneHour(v)); setPickedSlotId(null); }}
                                         />
                                     </div>
                                     <div>
                                         <label className="text-xs text-muted mb-1.5 block">{t.endTime}</label>
-                                        <SearchSelect options={timeOptions} value={endTime} allowCustom onChange={setEndTime} />
+                                        <SearchSelect options={timeOptions} value={endTime} allowCustom onChange={v => { setEndTime(v); setPickedSlotId(null); }} />
                                     </div>
                                 </div>
                                 {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}

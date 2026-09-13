@@ -171,6 +171,7 @@ export const ka: Translations = {
     vacationActiveToggle: 'ჩართული',
     featureTogglesLabel: 'ტიპების ჩართვა/გამორთვა',
     featureTogglesDesc: 'რომელი აბონემენტის ტიპები გამოჩნდეს ამ სტუდიაზე.',
+    individualAvailabilityLabel: 'ინდივიდუალური საათების გამოქვეყნება',
     trialStatus: 'საცდელი ვერსია',
     minAgo: '{n} წუთის წინ',
     contemporaryDance: 'კონტემპორარი',

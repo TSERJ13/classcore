@@ -7,6 +7,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { getSubscriptions, deleteSubscription, saveSubscription, getEffectiveStatus, type SubscriptionInfo } from '@/lib/subscription-store';
+import { isFeatureEnabled } from '@/lib/settings-store';
 import { getStudents } from '@/lib/student-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { SubscriptionModal } from '@/components/subscriptions/SubscriptionModal';
@@ -323,6 +324,14 @@ export default function SubscriptionsPage() {
                             <span className="hidden sm:inline whitespace-nowrap">{lang === 'ka' ? 'ტარიფები' : lang === 'ru' ? 'Тарифы' : 'Prices'}</span>
                         </Link>
 
+                        {isFeatureEnabled(settings, 'individualLessons') && (
+                            <Link href="/individual-availability"
+                                title={t.individualAvailabilityLabel}
+                                className="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 border-2 border-indigo-500/20 text-indigo-600 font-black text-[11px] h-12 w-12 rounded-[1.25rem] tracking-widest transition-all shadow-sm">
+                                <CalendarClock strokeWidth={2.5} className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                            </Link>
+                        )}
+
                         {/* Primary Action Button */}
                         <button onClick={() => setIssuing(true)}
                             className="flex-shrink-0 flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-black text-[11px] rounded-[1.25rem] tracking-widest transition-all active:scale-95 touch-manipulation shadow-sm">
@@ -402,6 +411,14 @@ export default function SubscriptionsPage() {
                             className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/20 text-emerald-600 font-black text-[11px] h-14 w-14 rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 group">
                             <DollarSign strokeWidth={3} className="w-6 h-6 text-emerald-500 flex-shrink-0" />
                         </Link>
+
+                        {isFeatureEnabled(settings, 'individualLessons') && (
+                            <Link href="/individual-availability"
+                                onClick={() => setFabOpen(false)}
+                                className="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 border-2 border-indigo-500/20 text-indigo-600 font-black text-[11px] h-14 w-14 rounded-2xl tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 group">
+                                <CalendarClock strokeWidth={2.5} className="w-6 h-6 text-indigo-500 flex-shrink-0" />
+                            </Link>
+                        )}
 
                         {/* Primary Action Button */}
                         <button onClick={() => { setIssuing(true); setFabOpen(false); }}

@@ -175,6 +175,7 @@ export interface Translations {
     vacationActiveToggle: string;
     featureTogglesLabel: string;
     featureTogglesDesc: string;
+    individualAvailabilityLabel: string;
     trialStatus: string;
     minAgo: string;
     contemporaryDance: string;

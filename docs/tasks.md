@@ -366,3 +366,70 @@ one.
 
 Notes:
 - `tsc --noEmit`: clean. Lint: no new issues.
+
+---
+
+### Post-Phase-9 fix: code review caught a real bug in the Personal group-binding
+
+Status: completed
+
+A `code-review` pass on the full diff (Phase 1 → 9) caught a real correctness bug Phase 9 introduced:
+the group-binding selector in `IssueSubscriptionModal.tsx` was extended to show for `'personal'`
+plans, but the submit logic that actually *uses* `groupId` (enrollment, `group_id`, `category`,
+`selectedGroup`) still gated on `plan.type === 'group'` only — so picking a group for a Personal
+subscription was silently dropped, even though the UI implied it saved. Fixed with a separate
+`bindsToGroup` flag (group OR personal-with-groupId) for those non-required consumers, keeping the
+original group-only flag for the "group plan requires a group" validation (Personal's binding stays
+optional). Also fixed a minor layout issue from the same phase: the type-selector grid always jumped
+to 4 columns when either optional feature was enabled, leaving an empty cell when only one of
+individual/rental was actually on — column count now matches the real tile count.
+
+---
+
+### Follow-up A: 7B open-slot browsing (teacher publishes availability)
+
+Status: completed
+
+The other half of Phase 6's 7B booking system — a teacher pre-publishes free times, and a
+student/admin picks from those instead of proposing an arbitrary time (the "direct assignment" path,
+already built in Phase 6). Per PRD Subscriptions §7B, confirmation logic is unaffected by which path
+was used — it depends only on who does the booking action (teacher = auto-confirmed, else pending) —
+so this reuses `createIndividualBooking()`'s existing confirmation logic unchanged.
+
+**Built**:
+- `CalendarEvent.is_open_slot?: boolean` (`types/index.ts`) — a published availability window with no
+  student/`sub_id` yet.
+- `publishOpenSlot()`, `getOpenSlots(teacherId?)`, `deleteOpenSlot()` in `event-store.ts`. Publishing is
+  conflict-checked through the same `hasIndividualSlotConflict()` engine from Phase 6 — no point
+  opening a slot that already collides with a group lesson.
+- New page `src/app/(dashboard)/individual-availability/page.tsx`: a teacher (or an admin picking a
+  teacher from `settings.staff`) lists, adds, and deletes their own open slots. Not registered in the
+  sidebar/header nav (same as `/hall-rental` already wasn't) — reached via a new small link on the
+  subscriptions page header (desktop bar + mobile FAB), shown only when `individualLessons` is enabled.
+- `BookIndividualLessonModal.tsx` now fetches `getOpenSlots(subscription.teacher_id)` and shows them as
+  quick-pick chips above the manual date/time fields. Picking one pre-fills the form; editing any field
+  afterward clears the pick (so a slot only gets consumed if it's actually booked as-published).
+  Successful booking deletes the consumed slot via `deleteOpenSlot()`.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new issues (new files are fully clean).
+- Playwright smoke-check on `/individual-availability`: first request threw a transient "Invalid or
+  unexpected token" page error — did not reproduce on a second and third run, consistent with a cold
+  webpack-compile race in Next dev mode for a brand-new route rather than a real bug (tsc found nothing,
+  and the file has no dynamic requires or anything else that would explain a genuine syntax error).
+  Worth an extra look in a real browser before relying on this being non-flaky in production.
+
+---
+
+### Follow-up B: SMS confirmation + confirm UI for pending individual bookings
+
+Status: pending
+
+`createIndividualBooking()` correctly sets `booking_status: 'pending'` for a non-teacher-created
+booking (whether from an open slot or direct assignment), but nothing notifies the teacher (SMS/link)
+or gives them a way to confirm it — a teacher can currently only discover a pending booking by looking
+at the calendar directly, and even there has no dedicated "confirm" action. The natural place for a
+confirm button is the calendar's own event modal (`src/app/(dashboard)/calendar/page.tsx`,
+`AddEventModal`, 3000+ lines) — deliberately not touched in this pass; deserves its own focused pass
+given the file's size. The SMS side needs a new template (similar to the existing payment-reminder
+template in `sms-service.ts`) plus a call site wired to `createIndividualBooking()`'s pending branch.

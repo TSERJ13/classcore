@@ -171,6 +171,7 @@ export const ru: Translations = {
     vacationActiveToggle: 'Включено',
     featureTogglesLabel: 'Включение/отключение типов',
     featureTogglesDesc: 'Какие типы абонементов доступны в этой студии.',
+    individualAvailabilityLabel: 'Публикация свободного времени для инд. уроков',
     trialStatus: 'Пробная версия',
     minAgo: '{n} минут назад',
     contemporaryDance: 'Контемпорари',

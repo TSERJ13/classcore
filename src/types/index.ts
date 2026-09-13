@@ -251,6 +251,10 @@ export interface CalendarEvent {
     // every other event type.
     sub_id?: string;
     booking_status?: 'confirmed' | 'pending';
+    // 7B, open-slot path: a teacher-published availability window with no
+    // student/sub_id attached yet. Consumed (deleted) once someone books it —
+    // see publishOpenSlot()/getOpenSlots() in event-store.ts.
+    is_open_slot?: boolean;
 }
 
 export type UserRole = 'admin' | 'coach' | 'student';

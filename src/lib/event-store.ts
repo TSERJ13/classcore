@@ -611,3 +611,66 @@ export function confirmIndividualBooking(eventId: string): CalendarEvent | null 
     }
     return updated;
 }
+
+/**
+ * 7B, open-slot path: a teacher publishes a free time as bookable, ahead of
+ * any specific student. Conflict-checked the same way a real booking is —
+ * no point publishing a slot that already collides with a group lesson.
+ */
+export function publishOpenSlot(params: {
+    teacherId: string;
+    hallId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+}): CalendarEvent {
+    if (hasIndividualSlotConflict(params.hallId, params.date, params.startTime, params.endTime)) {
+        throw new Error('SLOT_CONFLICT');
+    }
+    const event: CalendarEvent = {
+        id: `openslot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        org_id: getActiveSlug() || '',
+        title: '',
+        type: 'individual',
+        hall_id: params.hallId,
+        teacher_id: params.teacherId,
+        date: params.date,
+        start_time: params.startTime,
+        end_time: params.endTime,
+        recurring: 'none',
+        reminder_30m: false,
+        created_at: new Date().toISOString(),
+        is_open_slot: true,
+    };
+    saveEvents([...getEvents(), event]);
+    return event;
+}
+
+/** Upcoming open slots, optionally scoped to one teacher (e.g. the teacher a purchased credit is with). */
+export function getOpenSlots(teacherId?: string): CalendarEvent[] {
+    const todayStr = getLocalISODate();
+    return getEvents()
+        .filter(e => e.is_open_slot && e.date >= todayStr && (!teacherId || e.teacher_id === teacherId))
+        .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time));
+}
+
+/** Un-publish an open slot — either the teacher withdrawing it, or it being consumed by a booking. */
+export function deleteOpenSlot(id: string) {
+    const before = getEvents();
+    const target = before.find(e => e.id === id && e.is_open_slot);
+    if (!target) return before;
+    const events = before.filter(e => e.id !== id);
+    saveEvents(events);
+    addLocallyDeletedId(getDeletedEventsKey(), id);
+
+    const activeSlug = getActiveSlug();
+    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+        const finalOrgId = getEffectiveOrgId(activeSlug);
+        if (finalOrgId) {
+            import('./master-sync').then(mod => {
+                mod.deleteRecordFromCloud('calendar_events', id, finalOrgId).catch(() => {});
+            });
+        }
+    }
+    return events;
+}
