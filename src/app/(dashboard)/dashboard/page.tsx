@@ -289,19 +289,19 @@ function DonutCard({
     const isLongValue = String(displayedValue).length > 5;
 
     return (
-        <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
+        <div className="bg-card border border-border-subtle rounded-2xl p-3 sm:p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
             {/* Header */}
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    <div className={cn("w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0", iconColorClass)}>
-                        <Icon className="w-4 h-4" />
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-1">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                    <div className={cn("w-6 h-6 sm:w-7 sm:h-7 rounded-lg border flex items-center justify-center flex-shrink-0", iconColorClass)}>
+                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
-                    <h3 className="text-xs font-bold text-primary tracking-tight">
+                    <h3 className="text-[11px] sm:text-xs font-bold text-primary tracking-tight truncate">
                         {title}
                     </h3>
                     {change && (
                         <span className={cn(
-                            "text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5",
+                            "text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded-md flex items-center gap-0.5 flex-shrink-0",
                             change.startsWith('+') && change !== '+0%' && change !== '+0' ? "text-emerald-500 bg-emerald-500/10" : 
                             change.startsWith('-') ? "text-rose-500 bg-rose-500/10" : "text-muted bg-surface"
                         )}>
@@ -314,10 +314,10 @@ function DonutCard({
                 {linkHref && (
                     <Link
                         href={linkHref}
-                        className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5 group-hover:translate-x-0.5"
+                        className="text-[10px] sm:text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5 group-hover:translate-x-0.5 flex-shrink-0"
                     >
-                        <span>{linkLabel || 'ყველა'}</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{linkLabel || 'ყველა'}</span>
+                        <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </Link>
                 )}
             </div>
@@ -325,8 +325,8 @@ function DonutCard({
             {/* Centered Donut & Bottom Details (No side text, slightly enlarged donut) */}
             <div className="flex flex-col items-center justify-center py-1 flex-1">
                 {/* SVG Donut Ring */}
-                <div className="relative flex items-center justify-center flex-shrink-0 my-1">
-                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                <div className="relative flex items-center justify-center flex-shrink-0 my-0.5 sm:my-1">
+                    <svg viewBox={`0 0 ${size} ${size}`} className="w-[104px] h-[104px] sm:w-[132px] sm:h-[132px]">
                         {/* Background track circle */}
                         <circle
                             cx={center}
@@ -367,8 +367,8 @@ function DonutCard({
                     {/* Inside Donut Center: ONLY the numeric value (reduced font size for amounts like 3,450 ₾) */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1 text-center">
                         <span className={cn(
-                            "font-black text-primary leading-none tracking-tight truncate max-w-[90px]",
-                            isLongValue ? "text-base sm:text-lg" : "text-2xl sm:text-3xl"
+                            "font-black text-primary leading-none tracking-tight truncate max-w-[76px] sm:max-w-[90px]",
+                            isLongValue ? "text-xs sm:text-base" : "text-lg sm:text-2xl"
                         )}>
                             {displayedValue}
                         </span>
@@ -376,33 +376,33 @@ function DonutCard({
                 </div>
 
                 {/* Under Donut: Text & Percentage */}
-                <div className="mt-3 text-center min-h-[40px] flex flex-col items-center justify-center w-full px-1">
+                <div className="mt-2 sm:mt-3 text-center min-h-[36px] sm:min-h-[40px] flex flex-col items-center justify-center w-full px-1">
                     {activeSlice ? (
                         <div className="animate-in fade-in zoom-in-95 duration-150 flex flex-col items-center">
-                            <span className="text-xs font-bold text-primary truncate max-w-[190px] leading-tight">
+                            <span className="text-[11px] sm:text-xs font-bold text-primary truncate max-w-[140px] sm:max-w-[190px] leading-tight">
                                 {activeSlice.label}
                             </span>
-                            <div className="flex items-center justify-center gap-1.5 mt-1">
+                            <div className="flex items-center justify-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1">
                                 {total > 0 && (
                                     <span
-                                        className="text-[10px] font-black px-1.5 py-0.5 rounded-md text-white shadow-xs"
+                                        className="text-[9px] sm:text-[10px] font-black px-1 sm:px-1.5 py-0.5 rounded-md text-white shadow-xs"
                                         style={{ backgroundColor: activeSlice.color }}
                                     >
                                         {activeSlice.pct}%
                                     </span>
                                 )}
-                                <span className="text-xs font-bold text-muted tabular-nums">
+                                <span className="text-[11px] sm:text-xs font-bold text-muted tabular-nums">
                                     {activeSlice.formattedValue || activeSlice.count}
                                 </span>
                             </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center transition-all">
-                            <span className="text-xs font-bold text-muted truncate max-w-[190px] leading-tight">
+                            <span className="text-[11px] sm:text-xs font-bold text-muted truncate max-w-[140px] sm:max-w-[190px] leading-tight">
                                 {centerLabel}
                             </span>
                             {defaultPct && (
-                                <span className="text-[11px] font-semibold text-muted/70 mt-0.5">
+                                <span className="text-[10px] sm:text-[11px] font-semibold text-muted/70 mt-0.5">
                                     {defaultPct}
                                 </span>
                             )}
@@ -983,8 +983,8 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ─── Operations & Analytics (Donut Cards: 4 in 1 Row) ─── */}
-            <div className={cn("grid gap-3 sm:gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3")}>
+            {/* ─── Operations & Analytics (Donut Cards: 2x2 on mobile, 4 in 1 row on desktop) ─── */}
+            <div className={cn("grid gap-2.5 sm:gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3")}>
                 {/* 1. Students Breakdown */}
                 <DonutCard
                     title={l('სტუდენტები', 'Студенты', 'Students')}
