@@ -224,6 +224,13 @@ export interface CalendarEvent {
     reminder_30m?: boolean;
     created_at: string;
     coach?: string;       // legacy fallback teacher name (pre-teacher_id era)
+    // Individual-lesson booking (7B): which purchased credit (SubscriptionInfo.id)
+    // this specific lesson time spends, and whether it's confirmed yet.
+    // 'confirmed' when the teacher created it themselves; 'pending' when a
+    // student/admin created it and the teacher hasn't confirmed. Absent for
+    // every other event type.
+    sub_id?: string;
+    booking_status?: 'confirmed' | 'pending';
 }
 
 export type UserRole = 'admin' | 'coach' | 'student';

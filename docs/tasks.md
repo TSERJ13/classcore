@@ -178,26 +178,66 @@ Notes:
 
 ### Phase 6: Individual lesson 7A/7B rebuild
 
-Status: pending
+Status: partially completed — the structurally important pieces are done; two UI surfaces are
+explicitly deferred (see "Not done" below). Recommend a follow-up ticket for those, possibly to
+Antigravity, rather than treating this phase as fully closed.
 
-The biggest piece — likely worth handing to Antigravity as its own self-contained ticket once Phases
-1-2b are merged, since it doesn't depend on 3-5.
+**Decision made while implementing**: the existing purchase flow (`IssueSubscriptionModal.tsx`,
+individual type) doesn't just sell a credit — it also lets the studio set a *recurring weekly*
+schedule at purchase time, generating real calendar events immediately. That's a live, working
+feature real studios depend on today. The PRD's "these two are separate and NEVER merge into one
+form" is correct for the *target* design, but ripping the scheduler out of purchase in this pass
+would have been a breaking UX change with no equivalent replacement ready yet (no open-slot browsing
+UI exists). So: the recurring-purchase flow was **left in place, unchanged**, and the new 7A/7B
+primitives were added *alongside* it, additively — see below.
 
-Split `IssueSubscriptionModal.tsx`'s single combined "individual" flow into two separate flows per
-PRD Subscriptions §7:
-- **7A Purchase**: teacher-first card selection (photo + name, chosen before any price is shown) →
-  auto-shown tariffs for that teacher only → credit balance created ("0/8 used — Teacher: X"), no
-  lesson time chosen yet.
-- **7B Booking**: separate calendar screen, any time after purchase, no payment/invoice — open-slot
-  selection (published by the teacher) or direct assignment. Teacher-created = auto-confirmed;
-  student/admin-created = `pending` + SMS confirmation link to the teacher. Balance deducts 1 unit on
-  confirmation, not on check-in (current behavior deducts via `checkin-store.ts` `incrementSessionsUsed`,
-  which should remain the fallback for group/personal but individual should deduct earlier, on booking
-  confirmation).
+**Built**:
+- `CalendarEvent` (`types/index.ts`): added `sub_id` (which purchased credit a lesson spends) and
+  `booking_status: 'confirmed' | 'pending'`.
+- `HallData` (`hall-store.ts`): added `max_parallel_individual` (defaults to 1 when unset).
+- `hasIndividualSlotConflict()` (`event-store.ts`) — the real conflict engine: an individual slot can
+  never overlap a `group_class` event in the same hall (no override, ever), and can only overlap OTHER
+  individual sessions up to the hall's `max_parallel_individual`. Wired into the *existing*
+  `generateScheduledIndividualEvents()` — it now skips (rather than blindly double-books) any
+  conflicting occurrence and returns `{ events, skippedDates }` instead of a bare array, so a caller
+  can eventually surface "N sessions couldn't be auto-scheduled" (the current call site doesn't use
+  the return value yet, so nothing regressed — this is a pure safety improvement to a flow that
+  previously had zero conflict checking).
+- `createIndividualBooking()` (`event-store.ts`) — 7B, direct-assignment path only (see "Not done"):
+  books one lesson time against an already-purchased credit (`plan_type === 'individual'` subscription
+  ID), rejects with `SLOT_CONFLICT` if it collides, auto-confirms when the creator is a teacher
+  (`profile.role === 'teacher'`) and otherwise leaves it `pending`.
+- `confirmIndividualBooking()` (`event-store.ts`) — flips a pending booking to confirmed. Both this and
+  the auto-confirm path in `createIndividualBooking()` deduct 1 unit from the linked subscription via
+  the *existing* `incrementSessionsUsed(studentId, subId)` — deduction happens on booking/confirmation,
+  not on check-in, for lessons booked this way (the old recurring-schedule flow still deducts via
+  check-in as before, unchanged).
+- `BookIndividualLessonModal.tsx` (new component) + a "Book a lesson" button on the subscriptions
+  page's individual-credit cards (shown whenever `sessions_used < sessions_total`): hall, date,
+  start/end time, calls `createIndividualBooking()`, shows the conflict error inline, and reports
+  back whether the booking landed confirmed or pending.
 
-Also build the conflict engine (PRD §7B / §8): individual slots must never overlap group lessons in
-the same hall (no override, ever); add a "max parallel individual sessions" parameter to `HallData`
-(`hall-store.ts`, currently only has a generic people-count `capacity`).
+**Not done (flagged as follow-ups, not silently skipped)**:
+- **7B, open-slot path**: a teacher pre-publishing available times for students/admins to browse and
+  pick from (PRD's other 7B sub-path). What's built only covers "direct assignment" — someone
+  picking an arbitrary free time. Needs its own UI surface (teacher-side slot publishing + a
+  browsing view) — a good candidate for its own ticket.
+- **Teacher-first purchase (7A)**: the purchase modal still asks for tariff before/alongside teacher in
+  the existing combined form, rather than the PRD's "teacher cards first, tariff auto-filtered after."
+  Not changed, for the same reason the recurring scheduler wasn't removed — reworking the purchase
+  step order is entangled with the existing form's layout and validation, and didn't fit safely in
+  this pass.
+- **SMS confirmation link** for a pending booking: `createIndividualBooking()` correctly sets
+  `booking_status: 'pending'`, but nothing sends the teacher an SMS/notification with a confirm link
+  yet, and there's no confirmation inbox UI. A teacher can currently only be told about a pending
+  booking by looking at the calendar. Needs the SMS template + a confirm action somewhere a teacher
+  will actually see it (the calendar's event modal would be the natural place — not touched here,
+  that file is 3000+ lines and a change there deserved its own focused pass).
+
+Notes:
+- `tsc --noEmit`: clean. Lint: one new issue caught and fixed (an `any` catch clause in the new
+  modal); everything else pre-existing.
+- Could not browser-test end-to-end (same Supabase-credential limitation as Phase 2b).
 
 ---
 

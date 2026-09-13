@@ -162,6 +162,12 @@ export interface Translations {
     legacyFreezeNote: string;
     cancelled: string;
     overdueStatus: string;
+    bookLesson: string;
+    slotConflict: string;
+    pendingConfirmation: string;
+    startTime: string;
+    endTime: string;
+    bookingConfirmed: string;
     trialStatus: string;
     minAgo: string;
     contemporaryDance: string;

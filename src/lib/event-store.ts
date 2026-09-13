@@ -5,6 +5,7 @@
 import type { CalendarEvent, EventType } from '@/types';
 import { pushStudioStateToCloud } from './sync-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, getEffectiveOrgId, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
+import { getHalls } from './hall-store';
 
 const BASE_EVENTS_KEY = 'cc_calendar_events';
 function getEventsKey() { return getScopedKey(BASE_EVENTS_KEY); }
@@ -425,8 +426,43 @@ export function addIndividualLesson(studentId: string, title: string, teacherId:
     return newEvent;
 }
 
+function timeRangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+    return aStart < bEnd && bStart < aEnd;
+}
+
+/**
+ * Individual-lesson conflict rule (Subscriptions PRD §7B/§8) — NO override,
+ * ever. An individual slot can never share a hall with a group lesson at an
+ * overlapping time, and can only share a hall with OTHER individual sessions
+ * up to that hall's `max_parallel_individual` (default 1).
+ */
+export function hasIndividualSlotConflict(
+    hallId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    excludeEventId?: string
+): boolean {
+    if (!hallId) return false;
+    const sameHallSameDay = getEvents().filter(e => e.hall_id === hallId && e.date === date && e.id !== excludeEventId);
+
+    const overlapsGroupClass = sameHallSameDay.some(e =>
+        e.type === 'group_class' && timeRangesOverlap(startTime, endTime, e.start_time, e.end_time)
+    );
+    if (overlapsGroupClass) return true;
+
+    const maxParallel = getHalls().find(h => h.id === hallId)?.max_parallel_individual || 1;
+    const overlappingIndividualCount = sameHallSameDay.filter(e =>
+        e.type === 'individual' && timeRangesOverlap(startTime, endTime, e.start_time, e.end_time)
+    ).length;
+    return overlappingIndividualCount >= maxParallel;
+}
+
 /**
  * 🚀 AUTO-GENERATE INDIVIDUAL EVENTS
+ * Occurrences that would conflict (per hasIndividualSlotConflict) are skipped
+ * rather than double-booked — their dates come back in `skippedDates` so the
+ * caller can tell the studio some sessions couldn't be auto-scheduled.
  */
 export function generateScheduledIndividualEvents(params: {
     studentId: string;
@@ -438,9 +474,10 @@ export function generateScheduledIndividualEvents(params: {
     sessionsTotal: number | null;
     schedule: { day: number; time: string; hallId: string }[];
     color?: string;
-}) {
-    if (!params.schedule || params.schedule.length === 0) return [];
+}): { events: CalendarEvent[]; skippedDates: string[] } {
+    if (!params.schedule || params.schedule.length === 0) return { events: [], skippedDates: [] };
     const events: CalendarEvent[] = [];
+    const skippedDates: string[] = [];
     const maxSessions = params.sessionsTotal || 100;
     const end = new Date(params.endDate);
     let current = new Date(params.startDate);
@@ -456,7 +493,7 @@ export function generateScheduledIndividualEvents(params: {
             const dateStr = getLocalISODate(current);
             const startTime = slot.time;
             let endTime = (slot as any).endTime || '19:00';
-            
+
             if (!(slot as any).endTime) {
                 try {
                     const [h, m] = startTime.split(':').map(Number);
@@ -465,23 +502,29 @@ export function generateScheduledIndividualEvents(params: {
                 } catch {}
             }
 
-            events.push({
-                id: `ind_${Date.now()}_${count}_${Math.random().toString(36).substr(2, 4)}`,
-                org_id: getActiveSlug() || '',
-                title: params.studentName,
-                type: 'individual',
-                hall_id: slot.hallId || 'h1',
-                teacher_id: params.teacherId,
-                student_id: params.studentId,
-                date: dateStr,
-                start_time: startTime,
-                end_time: endTime,
-                color: params.color || '#6d28d9',
-                recurring: 'none',
-                reminder_30m: false,
-                created_at: new Date().toISOString()
-            });
-            count++;
+            const hallId = slot.hallId || 'h1';
+            if (hasIndividualSlotConflict(hallId, dateStr, startTime, endTime)) {
+                skippedDates.push(dateStr);
+            } else {
+                events.push({
+                    id: `ind_${Date.now()}_${count}_${Math.random().toString(36).substr(2, 4)}`,
+                    org_id: getActiveSlug() || '',
+                    title: params.studentName,
+                    type: 'individual',
+                    hall_id: hallId,
+                    teacher_id: params.teacherId,
+                    student_id: params.studentId,
+                    date: dateStr,
+                    start_time: startTime,
+                    end_time: endTime,
+                    color: params.color || '#6d28d9',
+                    recurring: 'none',
+                    reminder_30m: false,
+                    created_at: new Date().toISOString(),
+                    booking_status: 'confirmed', // the issuer scheduled it directly — same trust level as a teacher creating it
+                });
+                count++;
+            }
         }
         current.setDate(current.getDate() + 1);
     }
@@ -490,5 +533,81 @@ export function generateScheduledIndividualEvents(params: {
         console.log(`📅 [Calendar] Saving ${events.length} new individual events.`);
         saveEvents([...allEvents, ...events]);
     }
-    return events;
+    if (skippedDates.length > 0) {
+        console.warn(`⚠️ [Calendar] Skipped ${skippedDates.length} individual-lesson occurrence(s) due to a hall conflict:`, skippedDates);
+    }
+    return { events, skippedDates };
+}
+
+/**
+ * 7B (direct assignment): create a single individual-lesson booking against
+ * an already-purchased credit (SubscriptionInfo.id). Rejects on conflict —
+ * there is no override. Auto-confirmed when the teacher creates it
+ * themselves; otherwise 'pending' until confirmIndividualBooking() is called.
+ */
+export function createIndividualBooking(params: {
+    subId: string;
+    studentId: string;
+    studentName: string;
+    teacherId: string;
+    hallId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    createdByTeacher: boolean;
+    color?: string;
+}): CalendarEvent {
+    if (hasIndividualSlotConflict(params.hallId, params.date, params.startTime, params.endTime)) {
+        throw new Error('SLOT_CONFLICT');
+    }
+    const event: CalendarEvent = {
+        id: `ind_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        org_id: getActiveSlug() || '',
+        title: params.studentName,
+        type: 'individual',
+        hall_id: params.hallId,
+        teacher_id: params.teacherId,
+        student_id: params.studentId,
+        sub_id: params.subId,
+        date: params.date,
+        start_time: params.startTime,
+        end_time: params.endTime,
+        color: params.color || '#6d28d9',
+        recurring: 'none',
+        reminder_30m: false,
+        created_at: new Date().toISOString(),
+        booking_status: params.createdByTeacher ? 'confirmed' : 'pending',
+    };
+    saveEvents([...getEvents(), event]);
+    if (params.createdByTeacher) {
+        import('./subscription-store').then(({ incrementSessionsUsed }) => {
+            incrementSessionsUsed(params.studentId, params.subId);
+        }).catch(() => {});
+    }
+    return event;
+}
+
+/**
+ * Confirms a pending individual booking (teacher approving a student/admin-
+ * created request) and deducts 1 unit from the linked credit — per PRD, the
+ * balance is only spent on confirmation, not at booking time.
+ */
+export function confirmIndividualBooking(eventId: string): CalendarEvent | null {
+    const events = getEvents();
+    const idx = events.findIndex(e => e.id === eventId);
+    if (idx === -1) return null;
+    const event = events[idx];
+    if (event.booking_status === 'confirmed') return event;
+
+    const updated = { ...event, booking_status: 'confirmed' as const };
+    const next = [...events];
+    next[idx] = updated;
+    saveEvents(next);
+
+    if (updated.sub_id && updated.student_id) {
+        import('./subscription-store').then(({ incrementSessionsUsed }) => {
+            incrementSessionsUsed(updated.student_id!, updated.sub_id);
+        }).catch(() => {});
+    }
+    return updated;
 }

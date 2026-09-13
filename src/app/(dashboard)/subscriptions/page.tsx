@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus } from 'lucide-react';
+import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus, CalendarClock } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { getStudents } from '@/lib/student-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { SubscriptionModal } from '@/components/subscriptions/SubscriptionModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
+import { BookIndividualLessonModal } from '@/components/subscriptions/BookIndividualLessonModal';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import MainPortal from '@/components/ui/MainPortal';
 
@@ -23,6 +24,7 @@ export default function SubscriptionsPage() {
     const [category, setCategory] = useState<'group' | 'individual'>('group');
     const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<SubscriptionInfo | null>(null);
+    const [bookingSub, setBookingSub] = useState<SubscriptionInfo | null>(null);
     const [issuing, setIssuing] = useState(false);
     const [fabOpen, setFabOpen] = useState(false);
     const [subsData, setSubsData] = useState<Record<string, SubscriptionInfo[]>>({});
@@ -220,6 +222,13 @@ export default function SubscriptionsPage() {
 
                 {/* Actions */}
                 <div className="absolute top-3 lg:top-4 right-3 lg:right-4 flex flex-col items-center gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-all lg:translate-x-2 lg:group-hover:translate-x-0">
+                    {(s.plan_type === 'individual' || s.category?.toLowerCase() === 'individual') && s.sessions_total !== null && s.sessions_used < s.sessions_total && (
+                        <button onClick={(e) => { e.stopPropagation(); setBookingSub(s); }}
+                            title={t.bookLesson}
+                            className="w-10 h-10 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-emerald-600 transition-all shadow-sm active:scale-90">
+                            <CalendarClock className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
+                        </button>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); setEditing(s); }}
                         className="w-10 h-10 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-indigo-600 transition-all shadow-sm active:scale-90">
                         <Edit2 className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
@@ -422,6 +431,14 @@ export default function SubscriptionsPage() {
                 onClose={() => setIssuing(false)}
                 onIssue={handleIssue}
             />
+
+            {bookingSub && (
+                <BookIndividualLessonModal
+                    subscription={bookingSub}
+                    onClose={() => setBookingSub(null)}
+                    onBooked={() => window.dispatchEvent(new Event('cc_attendance_update'))}
+                />
+            )}
             </div>
         </PermissionGuard>
     );
