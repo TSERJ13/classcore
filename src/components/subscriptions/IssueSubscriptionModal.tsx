@@ -10,6 +10,7 @@ import { getStudents, updateStudent } from '@/lib/student-store';
 import { getPlans } from '@/lib/plan-store';
 import { getGroups } from '@/lib/group-store';
 import { getHalls } from '@/lib/hall-store';
+import { isFeatureEnabled } from '@/lib/settings-store';
 import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
 import { generateTimeOptions } from '@/lib/date-utils';
 import { useStudio } from '@/contexts/StudioContext';
@@ -457,7 +458,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                             <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
 
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                             <div className={cn('grid grid-cols-1 gap-6', isFeatureEnabled(settings, 'individualLessons') || isFeatureEnabled(settings, 'hallRental') ? 'md:grid-cols-4' : 'md:grid-cols-2')}>
                                 <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         type="button"
@@ -474,41 +475,61 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
 
-                                <div className="flex flex-col border-2 border-orange-500/20 rounded-3xl overflow-hidden bg-card hover:border-orange-500/40 transition-all group shadow-sm h-full">
+                                <div className="flex flex-col border-2 border-sky-500/20 rounded-3xl overflow-hidden bg-card hover:border-sky-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         type="button"
-                                        onClick={() => { 
-                                            console.log('Pick IND');
-                                            setSelectedType('individual'); 
-                                            setStep('form'); 
-                                        }}
-                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-orange-500/5 transition-colors text-primary h-full min-h-[160px]"
+                                        onClick={() => { setSelectedType('personal'); setStep('form'); }}
+                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-sky-500/5 transition-colors text-primary h-full min-h-[160px]"
                                     >
-                                        <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                        <div className="w-14 h-14 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.91 8.84 8.56 21.18a2 2 0 0 1-2.83 0l-3-3a2 2 0 0 1 0-2.83L15.06 3.09a2.12 2.12 0 0 1 3 3Z" /><path d="M15.09 6.09 18.9 9.91" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-sm font-black tracking-tight">{t.individualSubscription}</h3>
-                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ინდივიდუალური', 'Индивидуальный', 'Individual')}</p>
+                                            <h3 className="text-sm font-black tracking-tight">{t.personalSubscription}</h3>
+                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('პერსონალური', 'Персональный', 'Personal')}</p>
                                         </div>
                                     </button>
                                 </div>
 
-                                <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm h-full">
-                                    <button
-                                        type="button"
-                                        onClick={() => { console.log('Pick RENTAL'); setSelectedType('rental'); setStep('form'); }}
-                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-amber-500/5 transition-colors text-primary h-full min-h-[160px]"
-                                    >
-                                        <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                                        </div>
-                                        <div className="text-center">
-                                            <h3 className="text-sm font-black tracking-tight">{t.rentalSubscription}</h3>
-                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('დარბაზის იჯარა', 'Аренда зала', 'Hall Rental')}</p>
-                                        </div>
-                                    </button>
-                                </div>
+                                {isFeatureEnabled(settings, 'individualLessons') && (
+                                    <div className="flex flex-col border-2 border-orange-500/20 rounded-3xl overflow-hidden bg-card hover:border-orange-500/40 transition-all group shadow-sm h-full">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                console.log('Pick IND');
+                                                setSelectedType('individual');
+                                                setStep('form');
+                                            }}
+                                            className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-orange-500/5 transition-colors text-primary h-full min-h-[160px]"
+                                        >
+                                            <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                            </div>
+                                            <div className="text-center">
+                                                <h3 className="text-sm font-black tracking-tight">{t.individualSubscription}</h3>
+                                                <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ინდივიდუალური', 'Индивидуальный', 'Individual')}</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {isFeatureEnabled(settings, 'hallRental') && (
+                                    <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm h-full">
+                                        <button
+                                            type="button"
+                                            onClick={() => { console.log('Pick RENTAL'); setSelectedType('rental'); setStep('form'); }}
+                                            className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-amber-500/5 transition-colors text-primary h-full min-h-[160px]"
+                                        >
+                                            <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                            </div>
+                                            <div className="text-center">
+                                                <h3 className="text-sm font-black tracking-tight">{t.rentalSubscription}</h3>
+                                                <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('დარბაზის იჯარა', 'Аренда зала', 'Hall Rental')}</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -587,7 +608,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     />
                                 </div>
 
-                                {plans.find(p => p.id === planId)?.type === 'group' && (
+                                {(() => { const pt = plans.find(p => p.id === planId)?.type; return pt === 'group' || pt === 'personal'; })() && (
                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
                                         <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.addToGroup}</label>
                                         <SearchSelect

@@ -139,6 +139,16 @@ export interface StudioSettings {
         startDate: string;
         endDate: string;
     };
+    // Which optional tariff/subscription types this studio offers (Subscriptions
+    // PRD §3: "which types appear depends on the business type chosen at
+    // registration" — this app has no such registration step, so it's a plain
+    // settings toggle instead, matching how the PRD itself describes Individual
+    // lessons specifically: "optional feature, turned on from settings").
+    // Undefined/missing key = enabled, so existing studios see no change.
+    enabledFeatures?: {
+        individualLessons?: boolean;
+        hallRental?: boolean;
+    };
     landingContent: {
         heroTitle: string;
         heroSubtitle: string;

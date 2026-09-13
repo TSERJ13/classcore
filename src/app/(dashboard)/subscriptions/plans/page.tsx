@@ -7,7 +7,7 @@ import {
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
+import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings, isFeatureEnabled } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { useStudio } from '@/contexts/StudioContext';
@@ -189,7 +189,10 @@ export default function PlansManagementPage() {
 
             {/* Tabs */}
             <div className="flex w-full h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1">
-                {([['group', t.monthlyShortLabel, Users], ['personal', t.personalClass, Ticket], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const).map(([v, lbl, Icon]) => (
+                {([['group', t.monthlyShortLabel, Users], ['personal', t.personalClass, Ticket], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const)
+                    .filter(([v]) => v !== 'individual' || isFeatureEnabled(settings, 'individualLessons'))
+                    .filter(([v]) => v !== 'rental' || isFeatureEnabled(settings, 'hallRental'))
+                    .map(([v, lbl, Icon]) => (
                     <button key={v} onClick={() => setTab(v as PlanType)}
                         className={cn(
                             'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all truncate',
@@ -298,7 +301,10 @@ export default function PlansManagementPage() {
 
                             <div className="px-6 py-5 space-y-4">
                                 <div className="grid grid-cols-4 gap-2">
-                                    {(['group', 'personal', 'individual', 'rental'] as const).map(tp => (
+                                    {(['group', 'personal', 'individual', 'rental'] as const)
+                                        .filter(tp => tp !== 'individual' || isFeatureEnabled(settings, 'individualLessons'))
+                                        .filter(tp => tp !== 'rental' || isFeatureEnabled(settings, 'hallRental'))
+                                        .map(tp => (
                                         <button key={tp} onClick={() => setForm(p => ({
                                             ...p, type: tp,
                                             ...(tp === 'group' ? { period: 'monthly' as Period } : {}),
@@ -609,6 +615,36 @@ export default function PlansManagementPage() {
                             {savingVacation ? t.saving || 'ინახება...' : savedVacation ? t.saved || 'შენახულია' : t.saveChanges || 'შენახვა'}
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {/* Business-type feature toggles (Subscriptions PRD §3) */}
+            <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-sm pt-6">
+                <div className="px-6 border-b border-border-subtle pb-4">
+                    <h2 className="text-base font-bold text-primary">{t.featureTogglesLabel}</h2>
+                    <p className="text-sm text-muted mt-1">{t.featureTogglesDesc}</p>
+                </div>
+                <div className="p-6 space-y-3">
+                    {([['individualLessons', t.individualClass, User], ['hallRental', t.rental, Home]] as const).map(([key, label, Icon]) => {
+                        const enabled = isFeatureEnabled(settings, key);
+                        return (
+                            <div key={key} className="flex items-center justify-between p-3 bg-card border border-border-subtle rounded-xl">
+                                <div className="flex items-center gap-2.5">
+                                    <Icon className="w-4 h-4 text-muted" />
+                                    <span className="text-sm font-semibold text-primary">{label}</span>
+                                </div>
+                                <button
+                                    onClick={() => updateSettings({ enabledFeatures: { ...settings.enabledFeatures, [key]: !enabled } })}
+                                    className={cn(
+                                        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all',
+                                        enabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/[0.05] text-white/30 border border-white/[0.07]'
+                                    )}>
+                                    {enabled ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                                    {enabled ? t.active : t.inactive}
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>

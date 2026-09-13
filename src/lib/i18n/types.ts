@@ -173,6 +173,8 @@ export interface Translations {
     vacationStartDate: string;
     vacationEndDate: string;
     vacationActiveToggle: string;
+    featureTogglesLabel: string;
+    featureTogglesDesc: string;
     trialStatus: string;
     minAgo: string;
     contemporaryDance: string;
@@ -699,6 +701,7 @@ export interface Translations {
     selectSubType: string;
     groupSubscription: string;
     groupOneTime: string;
+    personalSubscription: string;
     individualSubscription: string;
     individualOneTime: string;
     rentalSubscription: string;

@@ -733,6 +733,15 @@ export function getVacationExtensionDays(settings: StudioSettings): number {
     return Math.max(0, days);
 }
 
+/**
+ * Whether an optional tariff/subscription type is offered by this studio
+ * (Subscriptions PRD §3). Missing/undefined defaults to enabled, so existing
+ * studios that never touch this setting see no change in behavior.
+ */
+export function isFeatureEnabled(settings: StudioSettings, feature: keyof NonNullable<StudioSettings['enabledFeatures']>): boolean {
+    return settings.enabledFeatures?.[feature] !== false;
+}
+
 /** Apply accent CSS variable to :root */
 export function applyTheme(themeKey: ThemeKey) {
     const theme = THEMES[themeKey];

@@ -332,8 +332,37 @@ Notes:
 
 ### Phase 9: Business-type driven feature toggling
 
-Status: pending
+Status: completed
 
-Add a settings-driven way to show/hide the Individual and Hall-rental tariff/subscription types based
-on the studio's registered business type (e.g. a Georgian-dance-only studio shouldn't see an
-Individual-lessons tab). No such concept exists yet in `settings-store.ts`.
+**Decision made while implementing**: `types/index.ts` already declares `OrgType =
+'dance'|'sports'|'yoga'|'fitness'` and `Organization.org_type`, which looked like the PRD's
+"business type chosen at registration" — but grepping the whole `src/app` tree found zero reads or
+writes of it anywhere; there is no registration flow that sets it. Building real business-type
+gating would mean building that registration step first, which is out of scope for a PRD-alignment
+pass. The PRD's own text about Individual lessons specifically says "optional feature, turned on
+from settings" — so a plain settings toggle (not tied to a business-type selector that doesn't
+exist) is both what's buildable today and what the PRD itself describes for at least that type;
+applied the same toggle shape to Hall rental for consistency.
+
+**Built**:
+- `StudioSettings.enabledFeatures?: { individualLessons?, hallRental? }` (`types/index.ts`) — missing
+  key = enabled, so existing studios see no change.
+- `isFeatureEnabled(settings, feature)` in `settings-store.ts`.
+- Wired into the two places that decide "which types can be created": `subscriptions/plans/page.tsx`'s
+  tariff tabs + its in-modal type-selector grid, and `IssueSubscriptionModal.tsx`'s type-selection
+  screen.
+- New toggle panel on the tariffs page (instant-apply, matching the existing `toggleActive` pattern
+  in that file, rather than the freeze/vacation panels' draft-then-save pattern — there's no
+  intermediate state worth drafting for a plain on/off switch).
+
+**Bug found and fixed while touching this screen**: `IssueSubscriptionModal.tsx`'s type-selection step
+still only offered 3 tiles (Group/Individual/Rental) — it was never updated when Phase 2 added
+`'personal'` as its own tariff type, so a studio could create a Personal *tariff* on the Tariffs page
+but could never actually *issue* a Personal subscription from this modal. Added the missing tile, and
+also extended the group-binding selector (previously `plan.type === 'group'`-only) to show for
+`'personal'` tariffs too, matching the Personal type's "with or without group binding" PRD
+description (Subscriptions §3) — the group is optional for Personal either way, only Monthly requires
+one.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new issues.
