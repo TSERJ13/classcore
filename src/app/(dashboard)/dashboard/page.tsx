@@ -7,7 +7,7 @@ import { getSubscription, getSubscriptions, getUniqueSubscriptions, getEffective
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert, Plus, Sparkles } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert, Plus, Sparkles } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -240,7 +240,6 @@ function DonutCard({
     centerValue,
     centerLabel,
     defaultPct,
-    change,
     segments,
 }: {
     title: string;
@@ -251,7 +250,6 @@ function DonutCard({
     centerValue: string | number;
     centerLabel: string;
     defaultPct?: string | null;
-    change?: string | null;
     segments: DonutSegment[];
 }) {
     const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -295,17 +293,6 @@ function DonutCard({
                     <h3 className="text-[11px] sm:text-xs font-bold text-primary tracking-tight truncate">
                         {title}
                     </h3>
-                    {change && (
-                        <span className={cn(
-                            "text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded-md flex items-center gap-0.5 flex-shrink-0",
-                            change.startsWith('+') && change !== '+0%' && change !== '+0' ? "text-emerald-500 bg-emerald-500/10" : 
-                            change.startsWith('-') ? "text-rose-500 bg-rose-500/10" : "text-muted bg-surface"
-                        )}>
-                            {change.startsWith('+') && change !== '+0%' && change !== '+0' ? <ArrowUpRight className="w-2.5 h-2.5" /> : 
-                             change.startsWith('-') ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
-                            {change.replace('+', '')}
-                        </span>
-                    )}
                 </div>
                 {linkHref && (
                     <Link
@@ -991,7 +978,6 @@ export default function DashboardPage() {
                     centerValue={liveStats.totalStudents}
                     centerLabel={l('სულ სტუდენტი', 'Всего студентов', 'Total Students')}
                     defaultPct={liveStats.totalStudents > 0 ? `${Math.round((liveStats.activeStudents / liveStats.totalStudents) * 100)}% ${l('აქტიური', 'активных', 'active')}` : null}
-                    change={liveStats.studentChange !== null ? (liveStats.studentChange > 0 ? `+${liveStats.studentChange}%` : `${liveStats.studentChange}%`) : null}
                     segments={[
                         {
                             key: 'withSub',
@@ -1028,7 +1014,6 @@ export default function DashboardPage() {
                         centerValue={formatCurrency(liveStats.monthlyRevenue, settings.currency)}
                         centerLabel={l('შემოსავალი', 'Доход', 'Revenue')}
                         defaultPct={liveStats.monthlyRevenue > 0 && liveStats.monthlySubsRevenue > 0 ? `${Math.round((liveStats.monthlySubsRevenue / liveStats.monthlyRevenue) * 100)}% ${l('აბონემენტები', 'абонементы', 'subs')}` : null}
-                        change={liveStats.revenueChange !== 0 ? (liveStats.revenueChange > 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`) : null}
                         segments={[
                             {
                                 key: 'subs',
@@ -1063,7 +1048,6 @@ export default function DashboardPage() {
                         const totalSubs = liveStats.subStatusCounts.active + liveStats.subStatusCounts.paused + liveStats.subStatusCounts.expired + liveStats.subStatusCounts.cancelled;
                         return totalSubs > 0 ? `${Math.round((liveStats.subStatusCounts.active / totalSubs) * 100)}% ${l('სულ', 'всего', 'of all')}` : null;
                     })()}
-                    change={liveStats.newThisMonth > 0 ? `+${liveStats.newThisMonth}` : null}
                     segments={[
                         {
                             key: 'active',
