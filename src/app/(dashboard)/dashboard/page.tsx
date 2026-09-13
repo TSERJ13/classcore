@@ -236,11 +236,11 @@ function DonutCard({
 
     const total = segments.reduce((sum, s) => sum + s.count, 0);
 
-    const size = 114;
-    const strokeWidth = 11;
-    const radius = 42;
+    const size = 132;
+    const strokeWidth = 12;
+    const radius = 48;
     const center = size / 2;
-    const circumference = 2 * Math.PI * radius; // ~263.89
+    const circumference = 2 * Math.PI * radius; // ~301.59
 
     let accumulatedOffset = 0;
     const slices = segments.map(seg => {
@@ -295,7 +295,7 @@ function DonutCard({
                 )}
             </div>
 
-            {/* Centered Donut & Bottom Details (No side text) */}
+            {/* Centered Donut & Bottom Details (No side text, slightly enlarged donut) */}
             <div className="flex flex-col items-center justify-center py-1 flex-1">
                 {/* SVG Donut Ring */}
                 <div className="relative flex items-center justify-center flex-shrink-0 my-1">
@@ -343,8 +343,8 @@ function DonutCard({
                     {/* Inside Donut Center: ONLY the numeric value (reduced font size for amounts like 3,450 ₾) */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1 text-center">
                         <span className={cn(
-                            "font-black text-primary leading-none tracking-tight truncate max-w-[84px]",
-                            isLongValue ? "text-sm sm:text-base" : "text-xl sm:text-2xl"
+                            "font-black text-primary leading-none tracking-tight truncate max-w-[90px]",
+                            isLongValue ? "text-base sm:text-lg" : "text-2xl sm:text-3xl"
                         )}>
                             {displayedValue}
                         </span>
@@ -352,67 +352,38 @@ function DonutCard({
                 </div>
 
                 {/* Under Donut: Text & Percentage */}
-                <div className="mt-2 text-center min-h-[38px] flex flex-col items-center justify-center w-full px-1">
+                <div className="mt-3 text-center min-h-[40px] flex flex-col items-center justify-center w-full px-1">
                     {activeSlice ? (
                         <div className="animate-in fade-in zoom-in-95 duration-150 flex flex-col items-center">
-                            <span className="text-xs font-bold text-primary truncate max-w-[180px] leading-tight">
+                            <span className="text-xs font-bold text-primary truncate max-w-[190px] leading-tight">
                                 {activeSlice.label}
                             </span>
-                            <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                            <div className="flex items-center justify-center gap-1.5 mt-1">
                                 {total > 0 && (
                                     <span
-                                        className="text-[10px] font-black px-1.5 py-0.2 rounded-md text-white shadow-xs"
+                                        className="text-[10px] font-black px-1.5 py-0.5 rounded-md text-white shadow-xs"
                                         style={{ backgroundColor: activeSlice.color }}
                                     >
                                         {activeSlice.pct}%
                                     </span>
                                 )}
-                                <span className="text-[11px] font-bold text-muted tabular-nums">
+                                <span className="text-xs font-bold text-muted tabular-nums">
                                     {activeSlice.formattedValue || activeSlice.count}
                                 </span>
                             </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center transition-all">
-                            <span className="text-xs font-bold text-muted truncate max-w-[180px] leading-tight">
+                            <span className="text-xs font-bold text-muted truncate max-w-[190px] leading-tight">
                                 {centerLabel}
                             </span>
                             {defaultPct && (
-                                <span className="text-[10px] font-semibold text-muted/70 mt-0.5">
+                                <span className="text-[11px] font-semibold text-muted/70 mt-0.5">
                                     {defaultPct}
                                 </span>
                             )}
                         </div>
                     )}
-                </div>
-
-                {/* Bottom Category Dots / Pills */}
-                <div className="flex items-center justify-center flex-wrap gap-1 mt-2.5 pt-2 border-t border-border-subtle/40 w-full">
-                    {slices.map(item => {
-                        const isItemActive = activeKey === item.key;
-                        return (
-                            <button
-                                key={item.key}
-                                type="button"
-                                onMouseEnter={() => setActiveKey(item.key)}
-                                onMouseLeave={() => setActiveKey(null)}
-                                onClick={() => setActiveKey(prev => prev === item.key ? null : item.key)}
-                                className={cn(
-                                    "flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] transition-all cursor-pointer",
-                                    isItemActive
-                                        ? "bg-surface font-bold text-primary ring-1 ring-border-subtle shadow-xs scale-105"
-                                        : "text-muted/80 hover:text-primary hover:bg-surface/50"
-                                )}
-                                title={`${item.label}: ${item.formattedValue || item.count} (${item.pct}%)`}
-                            >
-                                <span
-                                    className={cn("w-1.5 h-1.5 rounded-full shrink-0 transition-transform", isItemActive && "scale-125")}
-                                    style={{ backgroundColor: item.color }}
-                                />
-                                <span className="truncate max-w-[75px]">{item.label}</span>
-                            </button>
-                        );
-                    })}
                 </div>
             </div>
         </div>
