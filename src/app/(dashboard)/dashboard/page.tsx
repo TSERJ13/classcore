@@ -7,11 +7,11 @@ import { getSubscription, getSubscriptions, getUniqueSubscriptions } from '@/lib
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert, Plus } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert, Plus, Sparkles } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
-import { getTodayEvents } from '@/lib/event-store';
+import { getTodayEvents, getEvents } from '@/lib/event-store';
 import { getStudents, getStudentPatches, updateStudent } from '@/lib/student-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
@@ -212,25 +212,24 @@ export default function DashboardPage() {
         activeStudents: 0,
         activeSubs: 0,
         newThisMonth: 0,
-        churnThisMonth: 0,
         attendance: 0,
         attendanceRateMonth: 0,
         monthlyRevenue: 0,
         prevMonthRevenue: 0,
         todayRevenue: 0,
         totalDebt: 0,
+        studentsWithDebt: 0,
         expiringSoon: 0,
         oneSessionLeft: 0,
-        inactiveSubs: 0,
-        newStudents3m: 0,
-        leftStudents3m: 0,
+        pendingBookings: 0,
         revenueChange: 0,
-        activeChange: 0,
+        studentChange: null as number | null,
         subsThisMonth: 0,
         subsLastMonth: 0,
         subsChange: 0,
         todayExpected: 0,
     });
+    const [birthdayStudents, setBirthdayStudents] = useState<Student[]>([]);
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
@@ -273,6 +272,17 @@ export default function DashboardPage() {
         // Previous month string (YYYY-MM)
         const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+        // ── Real Student Change (new students added this month vs last month) ──
+        const newStudentsThisMonth = studentsList.filter(s => s.created_at?.startsWith(currentMonth)).length;
+        const newStudentsLastMonth = studentsList.filter(s => s.created_at?.startsWith(prevMonth)).length;
+        let studentChange: number | null = null;
+        if (newStudentsLastMonth > 0) {
+            const pct = pctChange(newStudentsThisMonth, newStudentsLastMonth);
+            if (pct !== null && pct !== 0) studentChange = pct;
+        } else if (newStudentsThisMonth > 0) {
+            studentChange = 100;
+        }
 
         const todayStr = getLocalISODate(new Date());
         let activeSubStudentIds = new Set<string>();
@@ -360,6 +370,63 @@ export default function DashboardPage() {
             }
         } catch { /* ignore */ }
 
+        // ── Pending Bookings ──────────────────────────────────────────────────
+        let pendingBookings = 0;
+        let allEvs: any[] = [];
+        try {
+            allEvs = getEvents();
+            pendingBookings = allEvs.filter(ev => {
+                if ((ev as any).booking_status !== 'pending') return false;
+                if (ev.date < todayStr) return false;
+                if (isTeacher && visibleGroupIds && ev.group_id && !visibleGroupIds.includes(ev.group_id)) return false;
+                return true;
+            }).length;
+        } catch { /* ignore */ }
+        setAllEvents(allEvs);
+
+        // ── Debt Calculation (Subscriptions unpaid + Negative Student Balances) ──
+        let totalDebt = 0;
+        const debtStudentIds = new Set<string>();
+
+        allSubsList.forEach((sub: any) => {
+            if (sub.status === 'cancelled') return;
+            const subPrice = sub.price ?? (sub.plan != null ? planPrices[String(sub.plan)] : undefined) ?? (sub.plan_id != null ? planPrices[String(sub.plan_id)] : undefined) ?? 0;
+            if (subPrice > 0) {
+                const amountPaid = typeof sub.amount_paid === 'number' ? sub.amount_paid : (sub.paid ? subPrice : 0);
+                if (amountPaid < subPrice) {
+                    const diff = subPrice - amountPaid;
+                    totalDebt += diff;
+                    if (sub.student_id) {
+                        sub.student_id.split(',').forEach((sid: string) => {
+                            const clean = sid.trim();
+                            if (clean) debtStudentIds.add(clean);
+                        });
+                    }
+                }
+            }
+        });
+
+        studentsList.forEach(s => {
+            if (typeof s.balance === 'number' && s.balance < 0) {
+                totalDebt += Math.abs(s.balance);
+                debtStudentIds.add(s.id);
+            }
+        });
+        const studentsWithDebt = debtStudentIds.size;
+
+        // ── Birthdays Today ───────────────────────────────────────────────────
+        const todayMonthDay = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const birthdayList = studentsList.filter(s => {
+            if (!s.birth_date) return false;
+            const cleanBday = s.birth_date.split('T')[0];
+            const parts = cleanBday.split('-');
+            if (parts.length === 3) {
+                return `${parts[1]}-${parts[2]}` === todayMonthDay;
+            }
+            return false;
+        });
+        setBirthdayStudents(birthdayList);
+
         // ── Needs Attention ───────────────────────────────────────────────────
         const expiringSoonStudents = new Set<string>();
         const oneSessionStudents = new Set<string>();
@@ -405,6 +472,10 @@ export default function DashboardPage() {
             subsLastMonth,
             subsChange,
             todayExpected,
+            studentChange,
+            pendingBookings,
+            totalDebt: Math.round(totalDebt),
+            studentsWithDebt,
             expiringSoon: expiringSoonStudents.size,
             oneSessionLeft: oneSessionStudents.size,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubOnDay(sub, todayStr)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
@@ -548,11 +619,25 @@ export default function DashboardPage() {
     const canViewRevenue = !isTeacher && (profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'manager' || !!profile?.canViewAnalytics || !!profile?.canViewBilling);
 
     const stats = [
-        { label: isTeacher ? (l('ჯგუფის სტუდენტები', 'Студенты группы', 'Group Students')) : t.totalStudents, value: String(liveStats.totalStudents), change: (liveStats.activeChange >= 0 ? `+${liveStats.activeChange}%` : `${liveStats.activeChange}%`), sub: null, icon: Users, color: 'indigo' },
-        { label: isTeacher ? (l('აქტიური აბონემენტები', 'Активные абонементы', 'Active Subscriptions')) : t.activeSubscriptions, value: String(liveStats.activeSubs), change: (liveStats.newThisMonth >= 0 ? `+${liveStats.newThisMonth}` : String(liveStats.newThisMonth)), sub: null, icon: CreditCard, color: 'emerald' },
+        { 
+            label: isTeacher ? (l('ჯგუფის სტუდენტები', 'Студенты группы', 'Group Students')) : t.totalStudents, 
+            value: String(liveStats.totalStudents), 
+            change: liveStats.studentChange !== null ? (liveStats.studentChange > 0 ? `+${liveStats.studentChange}%` : `${liveStats.studentChange}%`) : null, 
+            sub: null, 
+            icon: Users, 
+            color: 'indigo' 
+        },
+        { 
+            label: isTeacher ? (l('აქტიური აბონემენტები', 'Активные абонементы', 'Active Subscriptions')) : t.activeSubscriptions, 
+            value: String(liveStats.activeSubs), 
+            change: liveStats.newThisMonth > 0 ? `+${liveStats.newThisMonth}` : null, 
+            sub: null, 
+            icon: CreditCard, 
+            color: 'emerald' 
+        },
         ...(canViewRevenue ? [
-            { label: t.todayRevenue, value: formatCurrency(liveStats.todayRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
-            { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: formatCurrency(liveStats.monthlyRevenue, settings.currency), change: (liveStats.revenueChange >= 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`), sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
+            { label: t.todayRevenue, value: formatCurrency(liveStats.todayRevenue, settings.currency), change: liveStats.revenueChange !== 0 ? (liveStats.revenueChange > 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`) : null, sub: getSubtext('today'), icon: TrendingUp, color: 'amber' },
+            { label: (revenueRange.start && revenueRange.end) ? (t.selectedPeriod || 'Selected Period') : t.monthlyRevenue, value: formatCurrency(liveStats.monthlyRevenue, settings.currency), change: liveStats.revenueChange !== 0 ? (liveStats.revenueChange > 0 ? `+${liveStats.revenueChange}%` : `${liveStats.revenueChange}%`) : null, sub: getSubtext('monthly'), icon: Activity, color: 'violet' },
         ] : [])
     ];
 
@@ -731,16 +816,71 @@ export default function DashboardPage() {
                 ))}
             </div>
 
+            {/* ─── Today's Attendance Overview ─── */}
+            {(liveStats.todayExpected > 0 || liveStats.attendance > 0) && (() => {
+                const turnoutPct = liveStats.todayExpected > 0 
+                    ? Math.round((liveStats.attendance / liveStats.todayExpected) * 100) 
+                    : 100;
+                return (
+                    <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group hover:border-border-subtle/60 transition-all mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-500 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+                                <CalendarCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-muted">{l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}</p>
+                                <div className="flex items-baseline gap-2 mt-0.5">
+                                    <span className="text-xl sm:text-2xl font-black text-primary">
+                                        {liveStats.attendance}
+                                        {liveStats.todayExpected > 0 && (
+                                            <span className="text-sm font-semibold text-muted"> / {liveStats.todayExpected} {l('დამსწრე', 'посетит', 'expected')}</span>
+                                        )}
+                                    </span>
+                                    {liveStats.todayExpected > 0 && (
+                                        <span className={cn(
+                                            "text-xs font-bold px-2 py-0.5 rounded-md",
+                                            turnoutPct >= 80 ? "text-emerald-500 bg-emerald-500/10" :
+                                            turnoutPct >= 50 ? "text-amber-500 bg-amber-500/10" : "text-rose-500 bg-rose-500/10"
+                                        )}>
+                                            {turnoutPct}% {l('გამოცხადება', 'явка', 'turnout')}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="w-full sm:w-auto flex items-center gap-4">
+                            {liveStats.todayExpected > 0 && (
+                                <div className="hidden md:block w-36 sm:w-48">
+                                    <div className="w-full bg-surface border border-border-subtle rounded-full h-2 overflow-hidden">
+                                        <div 
+                                            className="bg-violet-500 h-full rounded-full transition-all duration-500" 
+                                            style={{ width: `${Math.min(100, turnoutPct)}%` }} 
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            <Link 
+                                href="/attendance" 
+                                className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform ml-auto sm:ml-0"
+                            >
+                                <span>{l('დასწრების ჟურნალი', 'Журнал посещаемости', 'Attendance Journal')}</span>
+                                <ChevronRight className="w-4 h-4" />
+                            </Link>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* ─── Needs Attention ─── */}
-            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0) && (
-                <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4 mb-6 animate-fade-in">
+            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && (
+                <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4 mb-4 animate-fade-in">
                     <div className="flex items-center gap-2 mb-3">
                         <div className="w-6 h-6 rounded-lg bg-rose-500/10 flex items-center justify-center">
                             <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
                         </div>
                         <h3 className="text-xs font-bold text-rose-600 tracking-wide uppercase">{l('საჭიროებს ყურადღებას', 'Требует внимания', 'Needs Attention')}</h3>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                         {liveStats.expiringSoon > 0 && (
                             <Link href="/subscriptions" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-rose-500/10 rounded-xl p-3 transition-colors">
                                 <span className="text-rose-500 font-black text-lg w-6 text-center">{liveStats.expiringSoon}</span>
@@ -753,6 +893,58 @@ export default function DashboardPage() {
                                 <span className="text-[11px] font-medium text-amber-600/80">{l('სტუდენტს დარჩა 1 გაკვეთილი', 'студентов остался 1 урок', 'students have 1 lesson left')}</span>
                             </Link>
                         )}
+                        {liveStats.pendingBookings > 0 && (
+                            <Link href="/calendar" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-amber-500/10 rounded-xl p-3 transition-colors">
+                                <span className="text-amber-500 font-black text-lg w-6 text-center">{liveStats.pendingBookings}</span>
+                                <span className="text-[11px] font-medium text-amber-600/80">{l('დასადასტურებელი ჯავშანი კალენდარში', 'бронирований ожидает подтверждения', 'bookings awaiting confirmation')}</span>
+                            </Link>
+                        )}
+                        {canViewRevenue && liveStats.totalDebt > 0 && (
+                            <Link href="/subscriptions" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-rose-500/10 rounded-xl p-3 transition-colors">
+                                <span className="text-rose-500 font-black text-lg min-w-6 text-center">{liveStats.studentsWithDebt}</span>
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-[11px] font-medium text-rose-600/80">{l('სტუდენტს აქვს დავალიანება', 'студентов с задолженностью', 'students with outstanding debt')}</span>
+                                    <span className="text-[10px] font-bold text-rose-500">{formatCurrency(liveStats.totalDebt, settings.currency)}</span>
+                                </div>
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Birthdays Today ─── */}
+            {birthdayStudents.length > 0 && (
+                <div className="bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-500/20 rounded-2xl p-4 mb-6 animate-fade-in">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500">
+                                <Sparkles className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400 tracking-wide uppercase flex items-center gap-1.5">
+                                <span>🎉</span> {l('დღეს დაბადების დღეა!', 'Сегодня день рождения!', 'Birthday Today!')}
+                            </h3>
+                        </div>
+                        <Link href="/sms-manager" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1">
+                            <span>{l('SMS მილოცვა', 'Поздравить по SMS', 'Send Birthday SMS')}</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {birthdayStudents.map(student => (
+                            <div key={student.id} className="flex items-center gap-3 bg-white/60 dark:bg-slate-900/60 border border-amber-500/15 rounded-xl p-2.5">
+                                {student.photo_url ? (
+                                    <img src={student.photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-amber-400/40" />
+                                ) : (
+                                    <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                        {(student.full_name || 'S').substring(0, 2).toUpperCase()}
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-primary truncate">{student.full_name}</p>
+                                    <p className="text-[10px] text-muted truncate">{student.phone || l('ტელეფონი არაა', 'Нет телефона', 'No phone')}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

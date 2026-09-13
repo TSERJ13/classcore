@@ -224,6 +224,7 @@ export interface CalendarEvent {
     reminder_30m?: boolean;
     created_at: string;
     coach?: string;       // legacy fallback teacher name (pre-teacher_id era)
+    booking_status?: 'pending' | 'confirmed' | 'cancelled';
 }
 
 export type UserRole = 'admin' | 'coach' | 'student';
