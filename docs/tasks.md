@@ -146,15 +146,33 @@ Notes:
 
 ### Phase 5: Payment window mechanism
 
-Status: pending
+Status: completed (overdue-calc integration only — see below for what's still open)
 
-Depends on: Phase 1.
+Depends on: Phase 1, Phase 4.
 
-Replace the current `purchased_at + validity_days` renewal calc for Monthly-type subscriptions with
-the tariff's `payment_window` (start/end day-of-month), anchored to the calendar month rather than
-the purchase date (PRD Tariffs §8: a subscription bought on the 20th with window "1-5" is due in
-*next* month's window, not "one month after purchase"). Wire into SMS reminder timing and the
-overdue-status calculation from Phase 3.
+Scoped down from the original description after checking what's actually wireable in this codebase:
+
+- **Not touched**: how `expires_at` gets set at subscription creation. `IssueSubscriptionModal.tsx`
+  already has the admin/self-serve pick start/end dates directly (PRD Subscriptions §5.11 — editable
+  dates), there's no "N months from purchase" auto-math to replace there.
+- **Not built**: automatic SMS reminder scheduling keyed to the window. There is no server-side cron
+  or scheduler anywhere in this app (confirmed while working Phase 3) — the "payment reminder" SMS
+  template in `sms-service.ts` is staff-triggered, not automatic, so there was nothing to wire a
+  window into. Automating that would need a scheduler to exist first, which is bigger than this ticket.
+- **Built**: the one piece that's genuinely about *counting* overdue-ness, per PRD Tariffs §11
+  ("'ვადაგადაცილებული' სტატუსი ... აითვლება ამ ფანჯარის დასრულებიდან" — overdue counts from the
+  window's end, not the raw date). Added a private `getEffectiveDueDate(sub)` helper in
+  `subscription-store.ts`: for a Monthly-type subscription (`plan_type === 'group'`) whose tariff has
+  a `payment_window`, the overdue/cancelled day-count in `getEffectiveStatus()` now measures from that
+  window's end-day in the month of `expires_at`, instead of from `expires_at` itself. Subscriptions
+  without a payment_window tariff are unaffected (falls straight through to `sub.expires_at`, same as
+  before).
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new issues.
+- If a real SMS scheduler gets built later (own ticket), it should reuse the same window-boundary
+  logic — worth extracting `getEffectiveDueDate`'s window math into a shared exported helper at that
+  point rather than duplicating it.
 
 ---
 

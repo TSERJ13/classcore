@@ -57,9 +57,30 @@ export interface EffectiveStatus {
 }
 
 /**
+ * The date a subscription is actually overdue from. Normally that's just
+ * expires_at, but for a Monthly tariff with a payment_window configured, the
+ * PRD (Tariffs §11) counts "overdue" from the window's end-day in the month
+ * of expires_at, not from the raw date — a subscription bought on the 20th
+ * against a "1-5" window isn't overdue the moment day 20 of next month hits,
+ * it's overdue after that month's 5th passes.
+ */
+function getEffectiveDueDate(sub: SubscriptionInfo): string {
+    if (sub.plan_type === 'group' && sub.expires_at) {
+        const tariff = findTariffForSubscription(sub);
+        if (tariff?.payment_window) {
+            const d = new Date(sub.expires_at);
+            const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            const endDay = Math.min(tariff.payment_window.endDay, lastDayOfMonth);
+            return new Date(d.getFullYear(), d.getMonth(), endDay).toISOString().split('T')[0];
+        }
+    }
+    return sub.expires_at;
+}
+
+/**
  * Derives the PRD's 3-status model (active/suspended/cancelled) from the stored
  * subscription. 'suspended' covers both a manual self-pause and an auto-detected
- * payment overdue (2+ days past expiry); 'cancelled' covers a manual cancel or
+ * payment overdue (2+ days past due); 'cancelled' covers a manual cancel or
  * 30+ days of non-payment. `reason`/`days` drive the card's informational note
  * ("Paused (12 days left)" / "Overdue (3 days)") without creating a 4th status.
  */
@@ -69,8 +90,9 @@ export function getEffectiveStatus(sub: SubscriptionInfo): EffectiveStatus {
     // A self-pause with a still-running window overrides everything else. Once the
     // window has elapsed, nothing currently flips the stored status back to 'active'
     // (no server-side cron in this app) — rather than reporting "suspended" forever
-    // with no days left, fall through to the normal expiry/overdue check below, since
-    // pauseActiveSubscription() already pushed expires_at forward by the pause length.
+    // with no days left, fall through to the normal due-date/overdue check below,
+    // since pauseActiveSubscription() already pushed expires_at forward by the
+    // pause length.
     if (sub.status === 'paused') {
         if (sub.paused_at && sub.pause_days) {
             const elapsedDays = Math.floor((Date.now() - new Date(sub.paused_at).getTime()) / 86400000);
@@ -82,10 +104,11 @@ export function getEffectiveStatus(sub: SubscriptionInfo): EffectiveStatus {
     }
 
     const todayStr = getLocalISODate();
-    if (sub.expires_at && sub.expires_at < todayStr) {
-        const daysSinceExpiry = Math.floor((new Date(todayStr).getTime() - new Date(sub.expires_at).getTime()) / 86400000);
-        if (daysSinceExpiry >= 30) return { status: 'cancelled' };
-        if (daysSinceExpiry >= 2) return { status: 'suspended', reason: 'overdue', days: daysSinceExpiry };
+    const dueDate = getEffectiveDueDate(sub);
+    if (dueDate && dueDate < todayStr) {
+        const daysOverdue = Math.floor((new Date(todayStr).getTime() - new Date(dueDate).getTime()) / 86400000);
+        if (daysOverdue >= 30) return { status: 'cancelled' };
+        if (daysOverdue >= 2) return { status: 'suspended', reason: 'overdue', days: daysOverdue };
     }
 
     return { status: 'active' };
