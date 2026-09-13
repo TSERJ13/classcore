@@ -29,6 +29,10 @@ export const en: Translations = {
     hallRental: 'Hall Rental',
     addNew: 'Add New',
     subscriptions: 'Subscriptions',
+    tariffs: 'Tariffs',
+    finance: 'Finance',
+    invoices: 'Invoices',
+    payments: 'Payments',
     billing: 'Billing',
     sms_manager: 'SMS Manager',
     // Nav sections

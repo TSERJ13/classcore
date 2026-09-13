@@ -29,6 +29,10 @@ export const ka: Translations = {
     hallRental: 'დარბაზის იჯარა',
     addNew: 'ახლის დამატება',
     subscriptions: 'აბონემენტები',
+    tariffs: 'ტარიფები',
+    finance: 'ფინანსები',
+    invoices: 'ინვოისები',
+    payments: 'გადახდები',
     billing: 'ბილინგი',
     sms_manager: 'SMS მენეჯერი',
     // Nav sections

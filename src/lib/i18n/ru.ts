@@ -29,6 +29,10 @@ export const ru: Translations = {
     hallRental: 'Аренда зала',
     addNew: 'Добавить новый',
     subscriptions: 'Абонементы',
+    tariffs: 'Тарифы',
+    finance: 'Финансы',
+    invoices: 'Инвойсы',
+    payments: 'Платежи',
     billing: 'Биллинг',
     sms_manager: 'SMS Менеджер',
     // Nav sections

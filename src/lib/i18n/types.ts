@@ -29,6 +29,10 @@ export interface Translations {
     hallRental: string;
     addNew: string;
     subscriptions: string;
+    tariffs: string;
+    finance: string;
+    invoices: string;
+    payments: string;
     billing: string;
     sms_manager: string;
     // Nav sections
