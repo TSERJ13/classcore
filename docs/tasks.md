@@ -289,13 +289,44 @@ Notes:
 
 ### Phase 8: Studio vacation / kill-switch mode
 
-Status: pending
+Status: completed
 
-New feature, independent of `src/components/KillSwitchGate.tsx` (which is ClassCore's own SaaS
-billing enforcement against the studio owner — a completely different thing; do not reuse or
-confuse the two). Build: one global toggle; notification suppression for subscription SMS during the
-active period; balance freeze (no session/day consumption); automatic end-date extension by the
-vacation's duration for every active subscription, per PRD Subscriptions §13.
+Independent of `src/components/KillSwitchGate.tsx` (ClassCore's own SaaS billing enforcement against
+the studio owner — confirmed untouched, a completely different thing).
+
+**Decision made while implementing**: rather than a batch job that walks every subscription and
+mutates `expires_at` when a vacation is configured (risky at scale, and this app has no cron to run
+it reliably anyway — confirmed back in Phase 3/5), the extension is computed, the same way the
+payment-window and pause-remaining-days logic already is. This also quietly satisfies "balance
+freeze" for free: session-based subscriptions only ever lose a session on an actual check-in, and a
+closed studio has no check-ins happening, so there's nothing separate to freeze once the due-date
+extension is in place.
+
+**Built**:
+- `StudioSettings.vacationMode?: { active, startDate, endDate }` (`types/index.ts`).
+- `isStudioOnVacation(settings, asOfDate?)` and `getVacationExtensionDays(settings)` in
+  `settings-store.ts` — pure helpers, the latter returns the configured window's length in days
+  (0 if unset/inactive).
+- `getEffectiveDueDate()` in `subscription-store.ts` now adds `getVacationExtensionDays()` on top of
+  whatever due date it already computed (raw `expires_at`, or the payment-window-adjusted one from
+  Phase 5) — flows straight into `getEffectiveStatus()`'s overdue/cancelled check, so a configured
+  vacation protects every subscription's status automatically, no per-subscription writes needed.
+- `runAutomatedSmsCheck()` in `sms-service.ts`: the subscription-expiring-today SMS loop is now
+  skipped while `isStudioOnVacation()` is true. Birthday messages (a separate loop in the same
+  function) are unrelated to subscriptions and still send, per the PRD's own scoping ("აბონემენტებთან
+  დაკავშირებული SMS" — subscription-*related* SMS specifically).
+- Settings UI: a "Studio vacation mode" panel (toggle + start/end date) added to
+  `subscriptions/plans/page.tsx`, next to the per-tariff freeze-price panel it's conceptually closest
+  to — this repo's ~1700-line general settings page wasn't touched, to avoid navigating unfamiliar
+  territory for one small addition.
+
+**Not done**: gating the *other* subscription-related SMS send points (the staff-triggered manual
+"payment reminder" template noted in Phase 5, and the not-yet-built individual-booking confirmation
+SMS from Phase 6's follow-up) — only the one automatic sweep that actually exists today is gated.
+Whoever builds those should add the same `isStudioOnVacation()` check.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new issues.
 
 ---
 

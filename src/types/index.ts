@@ -129,6 +129,16 @@ export interface StudioSettings {
         '30': number;
         '60': number;
     };
+    // Studio vacation / kill-switch mode (Subscriptions PRD §13): a studio-wide
+    // full break. While `active` and today falls within [startDate, endDate],
+    // subscription-related SMS are suppressed and every active subscription's
+    // effective due date is pushed out by the vacation's length — see
+    // isStudioOnVacation()/getVacationExtensionDays() in settings-store.ts.
+    vacationMode?: {
+        active: boolean;
+        startDate: string;
+        endDate: string;
+    };
     landingContent: {
         heroTitle: string;
         heroSubtitle: string;

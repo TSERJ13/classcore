@@ -705,6 +705,34 @@ export function patchSecurity(patch: Partial<StudioSettings['security']>, curren
     return saveSettings({ security: { ...base.security, ...patch } }, base, slug);
 }
 
+/**
+ * Studio vacation / kill-switch mode (Subscriptions PRD §13). Whether `asOfDate`
+ * (defaults to today) falls within a currently-active vacation window.
+ */
+export function isStudioOnVacation(settings: StudioSettings, asOfDate?: string): boolean {
+    const v = settings.vacationMode;
+    if (!v || !v.active || !v.startDate || !v.endDate) return false;
+    const dateStr = asOfDate || new Date().toISOString().split('T')[0];
+    return dateStr >= v.startDate && dateStr <= v.endDate;
+}
+
+/**
+ * How many days an active subscription's due date should be pushed out by,
+ * once a vacation window has been configured — the studio's closure shouldn't
+ * cost a student any of their paid-for time. A vacation only counts once its
+ * length is knowable, i.e. any configured window with valid dates, not just
+ * one that's currently active — a subscription due mid-vacation needs the
+ * extension applied before the window ends, not after.
+ */
+export function getVacationExtensionDays(settings: StudioSettings): number {
+    const v = settings.vacationMode;
+    if (!v || !v.active || !v.startDate || !v.endDate) return 0;
+    const start = new Date(v.startDate);
+    const end = new Date(v.endDate);
+    const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+    return Math.max(0, days);
+}
+
 /** Apply accent CSS variable to :root */
 export function applyTheme(themeKey: ThemeKey) {
     const theme = THEMES[themeKey];

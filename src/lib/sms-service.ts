@@ -5,7 +5,7 @@
  */
 
 import { getLocalISODate, formatCurrency } from './utils';
-import { loadSettings } from './settings-store';
+import { loadSettings, isStudioOnVacation } from './settings-store';
 import { getStudents } from './student-store';
 import { getSubscriptions } from './subscription-store';
 
@@ -180,7 +180,10 @@ export async function runAutomatedSmsCheck(options?: { force?: boolean }): Promi
         const subsMap = getSubscriptions();
 
         // ── 1. Check Subscriptions Expiring Today (expiration_day_0) ──
-        for (const student of students) {
+        // Suppressed during studio vacation mode (PRD §13) — subscription
+        // notifications shouldn't go out while the studio itself is closed.
+        // Birthday messages (below) are unrelated to subscriptions and still send.
+        if (!isStudioOnVacation(settings)) for (const student of students) {
             const phone = (student.phone || '').replace(/[^0-9]/g, '');
             if (!phone) continue;
 

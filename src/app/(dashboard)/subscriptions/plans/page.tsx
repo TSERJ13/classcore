@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import {
-    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus, Star, Ticket, Minus, Snowflake
+    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus, Star, Ticket, Minus, Snowflake, Umbrella
 } from 'lucide-react';
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
+import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { useStudio } from '@/contexts/StudioContext';
 import { getPlans, savePlans, deletePlan as deletePlanInStore, type Plan, type RentalPeriod } from '@/lib/plan-store';
 import { getGroups, type Group } from '@/lib/group-store';
@@ -63,12 +64,18 @@ export default function PlansManagementPage() {
     const [savingPause, setSavingPause] = useState(false);
     const [savedPause, setSavedPause] = useState(false);
     const [savingPlan, setSavingPlan] = useState(false);
+    const [localVacation, setLocalVacation] = useState<{ active: boolean; startDate: string; endDate: string }>({ active: false, startDate: '', endDate: '' });
+    const [savingVacation, setSavingVacation] = useState(false);
+    const [savedVacation, setSavedVacation] = useState(false);
 
     useEffect(() => {
         if (settings.pausePrices) {
             setLocalPausePrices(settings.pausePrices);
         }
-    }, [settings.pausePrices]);
+        if (settings.vacationMode) {
+            setLocalVacation(settings.vacationMode);
+        }
+    }, [settings.pausePrices, settings.vacationMode]);
 
     const filtered = plans.filter(p => p.type === tab);
 
@@ -541,6 +548,65 @@ export default function PlansManagementPage() {
                                 <Check className="w-4 h-4" />
                             )}
                             {savingPause ? t.saving || 'ინახება...' : savedPause ? t.saved || 'შენახულია' : t.saveChanges || 'შენახვა'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Studio Vacation Mode (Subscriptions PRD §13) */}
+            <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-sm pt-6">
+                <div className="px-6 border-b border-border-subtle pb-4 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-base font-bold text-primary flex items-center gap-2"><Umbrella className="w-4 h-4 text-sky-500" /> {t.vacationModeLabel}</h2>
+                        <p className="text-sm text-muted mt-1">{t.vacationModeDesc}</p>
+                    </div>
+                    <button onClick={() => setLocalVacation(p => ({ ...p, active: !p.active }))}
+                        className={cn(
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-widest transition-all',
+                            localVacation.active ? 'bg-sky-500/10 text-sky-600 border border-sky-500/20' : 'bg-white/[0.05] text-muted/40 border border-border-subtle'
+                        )}>
+                        {localVacation.active ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                        {t.vacationActiveToggle}
+                    </button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <StandardDatePicker
+                            label={t.vacationStartDate}
+                            value={localVacation.startDate}
+                            onChange={v => setLocalVacation(p => ({ ...p, startDate: v }))}
+                        />
+                        <StandardDatePicker
+                            label={t.vacationEndDate}
+                            value={localVacation.endDate}
+                            onChange={v => setLocalVacation(p => ({ ...p, endDate: v }))}
+                        />
+                    </div>
+                    <div className="flex justify-end">
+                        <button
+                            onClick={async () => {
+                                setSavingVacation(true);
+                                updateSettings({ vacationMode: localVacation });
+                                setTimeout(() => {
+                                    setSavingVacation(false);
+                                    setSavedVacation(true);
+                                    setTimeout(() => setSavedVacation(false), 2000);
+                                }, 600);
+                            }}
+                            disabled={savingVacation || !localVacation.startDate || !localVacation.endDate}
+                            className={cn(
+                                "flex items-center gap-2 px-6 py-2.5 text-[11px] font-black tracking-widest rounded-xl shadow-lg transition-all active:scale-95 uppercase disabled:opacity-40",
+                                savedVacation
+                                    ? "bg-emerald-500 text-white shadow-emerald-500/20"
+                                    : "bg-[#6d28d9] hover:bg-[#5b21b6] text-white shadow-[#6d28d9]/20"
+                            )}
+                        >
+                            {savingVacation ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <Check className="w-4 h-4" />
+                            )}
+                            {savingVacation ? t.saving || 'ინახება...' : savedVacation ? t.saved || 'შენახულია' : t.saveChanges || 'შენახვა'}
                         </button>
                     </div>
                 </div>

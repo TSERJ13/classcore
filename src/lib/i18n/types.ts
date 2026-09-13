@@ -168,6 +168,11 @@ export interface Translations {
     startTime: string;
     endTime: string;
     bookingConfirmed: string;
+    vacationModeLabel: string;
+    vacationModeDesc: string;
+    vacationStartDate: string;
+    vacationEndDate: string;
+    vacationActiveToggle: string;
     trialStatus: string;
     minAgo: string;
     contemporaryDance: string;

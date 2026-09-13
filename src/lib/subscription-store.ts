@@ -44,7 +44,7 @@ export interface SubscriptionInfo {
 
 type SubMap = Record<string, SubscriptionInfo[]>;
 
-import { getStaffSession, loadSettings, saveSettings } from './settings-store';
+import { getStaffSession, loadSettings, saveSettings, getVacationExtensionDays } from './settings-store';
 import { recordAuditAction } from './audit-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, makeEntityId } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
@@ -65,16 +65,30 @@ export interface EffectiveStatus {
  * it's overdue after that month's 5th passes.
  */
 function getEffectiveDueDate(sub: SubscriptionInfo): string {
-    if (sub.plan_type === 'group' && sub.expires_at) {
+    let due = sub.expires_at;
+
+    if (sub.plan_type === 'group' && due) {
         const tariff = findTariffForSubscription(sub);
         if (tariff?.payment_window) {
-            const d = new Date(sub.expires_at);
+            const d = new Date(due);
             const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
             const endDay = Math.min(tariff.payment_window.endDay, lastDayOfMonth);
-            return new Date(d.getFullYear(), d.getMonth(), endDay).toISOString().split('T')[0];
+            due = new Date(d.getFullYear(), d.getMonth(), endDay).toISOString().split('T')[0];
         }
     }
-    return sub.expires_at;
+
+    // Studio vacation mode (PRD §13): push every subscription's due date out
+    // by the vacation's length, so the closure never costs a student time.
+    if (due) {
+        const extensionDays = getVacationExtensionDays(loadSettings());
+        if (extensionDays > 0) {
+            const d = new Date(due);
+            d.setDate(d.getDate() + extensionDays);
+            due = d.toISOString().split('T')[0];
+        }
+    }
+
+    return due;
 }
 
 /**
