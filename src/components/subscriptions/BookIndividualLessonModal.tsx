@@ -10,7 +10,7 @@ import { getHalls } from '@/lib/hall-store';
 import { getStudents } from '@/lib/student-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
-import { generateTimeOptions } from '@/lib/date-utils';
+import { generateTimeOptions, addOneHour } from '@/lib/date-utils';
 import { getLocalISODate, cn, formatDate } from '@/lib/utils';
 import MainPortal from '@/components/ui/MainPortal';
 
@@ -18,11 +18,6 @@ interface BookIndividualLessonModalProps {
     subscription: SubscriptionInfo;
     onClose: () => void;
     onBooked: () => void;
-}
-
-function addOneHour(timeStr: string): string {
-    const [h, m] = timeStr.split(':').map(Number);
-    return `${String((h + 1) % 24).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
 }
 
 /**
@@ -73,6 +68,7 @@ export function BookIndividualLessonModal({ subscription, onClose, onBooked }: B
                 startTime,
                 endTime,
                 createdByTeacher: isTeacher,
+                fromOpenSlotId: pickedSlotId || undefined,
             });
             if (pickedSlotId) deleteOpenSlot(pickedSlotId);
             setResult(event.booking_status === 'confirmed' ? 'confirmed' : 'pending');

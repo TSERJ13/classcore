@@ -1665,6 +1665,9 @@ export default function CalendarPage() {
     const filtered = useMemo(() => {
         const firstHallId = halls[0]?.id;
         return expandedEvents.filter(ev => {
+            // Open slots (Follow-up A) are unclaimed teacher availability, not a real booking
+            // yet — they'd otherwise render as a blank, student-less "individual" chip.
+            if (ev.is_open_slot) return false;
             const hallMatch = filterHall === 'all'
                 || ev.hall_id === filterHall
                 // If no specific hall_id set or h1 default, treat as belonging to first hall

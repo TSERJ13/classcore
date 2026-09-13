@@ -453,3 +453,45 @@ Notes:
   lines already use in the same prop list, for local consistency rather than introducing a different
   style.
 - This closes out the last item from the original gap analysis and both follow-ups.
+
+---
+
+### Post-Follow-up fix: code review caught 3 more real bugs across A and B
+
+Status: completed
+
+A second `code-review` pass (this time against Follow-up A's base commit, covering both A and B)
+caught three more real issues, all fixed:
+
+1. **Booking a picked open slot almost always failed with `SLOT_CONFLICT`.** `createIndividualBooking()`
+   ran its conflict check *before* the picked open slot was deleted, so the still-present slot (same
+   hall/time, `type: 'individual'`) counted as 1 occupying session against itself — and since
+   `max_parallel_individual` defaults to 1, `1 >= 1` was always true. Fixed by adding an optional
+   `fromOpenSlotId` param to `createIndividualBooking()`, passed through to
+   `hasIndividualSlotConflict()`'s existing (already-built, just never wired) `excludeEventId` param.
+   `BookIndividualLessonModal.tsx` now passes `pickedSlotId` through as `fromOpenSlotId`.
+2. **A teacher landing directly on `/individual-availability` (e.g. a refresh or deep link) could get
+   locked into the wrong `teacherId`.** `useUser()`'s `profile` and `useStudio()`'s `settings.staff`
+   both resolve asynchronously; seeding `teacherId` from a one-time `useState` initializer captured
+   whatever they were on the very first render (often still empty/null). Replaced with two `useEffect`s
+   that sync `teacherId` once each actually resolves, and memoized the `staff` list so the effect's
+   dependency array is stable.
+3. **Open slots rendered as blank, student-less "individual" chips on the main calendar grid.**
+   `calendar/page.tsx`'s central `filtered` memo (the one thing every week/day/month view actually
+   renders from) had no `is_open_slot` awareness. Added one line excluding them — they're unclaimed
+   availability, not a real booking, and have no title/student to show anyway.
+
+Also deduplicated a small `addOneHour()` helper that had been copy-pasted into both
+`BookIndividualLessonModal.tsx` and `individual-availability/page.tsx` — moved into `date-utils.ts`
+(both files already imported `generateTimeOptions` from there).
+
+Notes:
+- `tsc --noEmit`: clean, no new lint issues (one pre-existing warning in the new page was tightened
+  along the way rather than left as `staff.length` in a dependency array).
+- Playwright smoke-check across `/individual-availability`, `/subscriptions`, `/calendar`: zero
+  console/page errors.
+- Deliberately *not* changed: an unbooked open slot still occupies a hall's parallel-individual
+  capacity against *other* bookings (e.g. `generateScheduledIndividualEvents()` will skip a
+  conflicting date) — treating a published slot as "reserved" the same way a real booking is felt
+  like the more defensible interpretation of "this capacity slot is spoken for" than the alternative
+  (letting the same hall/time be double-offered to two different students).

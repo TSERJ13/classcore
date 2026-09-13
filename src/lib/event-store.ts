@@ -556,8 +556,11 @@ export function createIndividualBooking(params: {
     endTime: string;
     createdByTeacher: boolean;
     color?: string;
+    // Pass the open slot's own id when booking FROM it (see BookIndividualLessonModal) —
+    // otherwise the still-unconsumed slot counts as its own conflict against itself.
+    fromOpenSlotId?: string;
 }): CalendarEvent {
-    if (hasIndividualSlotConflict(params.hallId, params.date, params.startTime, params.endTime)) {
+    if (hasIndividualSlotConflict(params.hallId, params.date, params.startTime, params.endTime, params.fromOpenSlotId)) {
         throw new Error('SLOT_CONFLICT');
     }
     const event: CalendarEvent = {

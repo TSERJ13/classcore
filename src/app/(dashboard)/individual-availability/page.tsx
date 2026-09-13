@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Plus, Trash2, CalendarClock, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
@@ -13,12 +13,7 @@ import { getOpenSlots, publishOpenSlot, deleteOpenSlot } from '@/lib/event-store
 import type { CalendarEvent } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
-import { generateTimeOptions } from '@/lib/date-utils';
-
-function addOneHour(timeStr: string): string {
-    const [h, m] = timeStr.split(':').map(Number);
-    return `${String((h + 1) % 24).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
-}
+import { generateTimeOptions, addOneHour } from '@/lib/date-utils';
 
 /**
  * 7B, open-slot path: lets a teacher (or an admin on their behalf) publish
@@ -33,9 +28,19 @@ export default function IndividualAvailabilityPage() {
     const { settings } = useStudio();
 
     const isTeacher = profile?.role === 'teacher';
-    const staff = (settings.staff || []).filter(s => s.role === 'teacher' || s.role === 'coach');
-    const [teacherId, setTeacherId] = useState(isTeacher ? profile.id : (staff[0]?.id || ''));
+    const staff = useMemo(() => (settings.staff || []).filter(s => s.role === 'teacher' || s.role === 'coach'), [settings.staff]);
     const halls = getHalls().filter(h => h.is_active !== false);
+
+    // profile (useUser) and settings.staff (useStudio) both resolve asynchronously, so seeding
+    // this from their first-render values (still null/empty) can lock a teacher into the wrong
+    // id — sync it once each actually resolves instead of only on mount.
+    const [teacherId, setTeacherId] = useState('');
+    useEffect(() => {
+        if (isTeacher && profile?.id) setTeacherId(profile.id);
+    }, [isTeacher, profile?.id]);
+    useEffect(() => {
+        if (!isTeacher && !teacherId && staff.length > 0) setTeacherId(staff[0].id);
+    }, [isTeacher, teacherId, staff]);
 
     const [slots, setSlots] = useState<CalendarEvent[]>([]);
     const [showForm, setShowForm] = useState(false);
