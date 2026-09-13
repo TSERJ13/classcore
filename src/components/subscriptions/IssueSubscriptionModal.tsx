@@ -343,6 +343,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             onIssue({
                 student_id: studentId,
                 plan: plan.name,
+                plan_id: plan.id,
                 sessions_used: 0,
                 sessions_total: sessionsTotal,
                 status: 'active',

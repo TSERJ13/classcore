@@ -114,14 +114,33 @@ Notes:
 
 ### Phase 4: Wire per-tariff freeze pricing into the pause flow
 
-Status: pending
+Status: completed
 
-Depends on: Phase 1, Phase 2b.
+Depends on: Phase 1, Phase 2b. (both already completed)
 
-Replace `settings.pausePrices` global-table usage in `SubscriptionModal.tsx` (~174-208) and
-`subscription-store.ts`'s `pauseActiveSubscription()` with the subscription's own tariff's
-`freeze_options` (falling back to the global table only when the tariff has none set) plus a single
-enable-toggle, per PRD Subscriptions §12 / Tariffs §9.
+Added `SubscriptionInfo.plan_id` (stable reference to the originating `Plan.id`) and
+`findTariffForSubscription(sub)` in `subscription-store.ts` — tries `plan_id` first, falls back to
+matching by `name+type` for subscriptions issued before this field existed. `IssueSubscriptionModal.tsx`
+now stamps `plan_id` on every newly-issued subscription.
+
+`SubscriptionModal.tsx`'s pause section now looks up the subscription's tariff and uses its
+`freeze_options` (days+price pairs) when it has any set; falls back to the old studio-wide
+`settings.pausePrices` 7/14/30/60 table only when the tariff has none — matching the "enable toggle
+against the tariff's own periods" intent from PRD Subscriptions §12 / Tariffs §9, implemented as a
+lookup-with-fallback rather than a literal UI toggle (there's nothing to toggle *to* when the tariff
+has no freeze_options of its own).
+
+Also, since `getEffectiveStatus()` was already being extended here: fixed the "known limitation" flagged
+in Phase 3 — a self-pause whose `pause_days` has fully elapsed no longer reports "suspended" forever;
+it now falls through to the normal expiry/overdue check (harmless, since `pauseActiveSubscription()`
+already pushes `expires_at` forward by the pause length at pause time).
+
+Notes:
+- `tsc --noEmit`: clean. Lint on touched files: no new issues.
+- Not done here (still open): an actual UI toggle in the *edit* modal letting an admin pick "use the
+  tariff's periods" vs override — right now it's an automatic fallback, not a user-facing choice. The
+  PRD's wording ("ერთ ჩართვის toggle-ს") suggests a literal toggle might be expected; revisit if a
+  studio actually needs to override a tariff that already has its own `freeze_options` set.
 
 ---
 

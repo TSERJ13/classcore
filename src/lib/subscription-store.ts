@@ -4,6 +4,7 @@
  */
 
 import { updateStudent, getStudents } from './student-store';
+import { getPlans, type Plan } from './plan-store';
 
 export interface SubscriptionInfo {
     id: string;
@@ -23,6 +24,11 @@ export interface SubscriptionInfo {
     pause_days?: number;
     type: 'sessions' | 'monthly';
     plan_type?: 'group' | 'personal' | 'individual' | 'rental';
+    // Stable reference to the originating tariff (src/lib/plan-store.ts Plan.id), so
+    // per-tariff config (e.g. freeze_options) can be looked up later. Optional because
+    // subscriptions issued before this field existed don't have it — see
+    // findTariffForSubscription() for the name-based fallback lookup those need.
+    plan_id?: string;
     group_id?: string;
     category?: string; // e.g. 'Dance', 'Salsa', 'Yoga'
     is_default?: boolean;
@@ -60,13 +66,19 @@ export interface EffectiveStatus {
 export function getEffectiveStatus(sub: SubscriptionInfo): EffectiveStatus {
     if (sub.status === 'cancelled') return { status: 'cancelled' };
 
+    // A self-pause with a still-running window overrides everything else. Once the
+    // window has elapsed, nothing currently flips the stored status back to 'active'
+    // (no server-side cron in this app) — rather than reporting "suspended" forever
+    // with no days left, fall through to the normal expiry/overdue check below, since
+    // pauseActiveSubscription() already pushed expires_at forward by the pause length.
     if (sub.status === 'paused') {
         if (sub.paused_at && sub.pause_days) {
             const elapsedDays = Math.floor((Date.now() - new Date(sub.paused_at).getTime()) / 86400000);
             const remaining = sub.pause_days - elapsedDays;
             if (remaining > 0) return { status: 'suspended', reason: 'paused', days: remaining };
+        } else {
+            return { status: 'suspended', reason: 'paused' };
         }
-        return { status: 'suspended', reason: 'paused' };
     }
 
     const todayStr = getLocalISODate();
@@ -77,6 +89,21 @@ export function getEffectiveStatus(sub: SubscriptionInfo): EffectiveStatus {
     }
 
     return { status: 'active' };
+}
+
+/**
+ * Finds the tariff (Plan) a subscription was issued from, so per-tariff config
+ * (freeze_options, payment_window, ...) can be looked up. Prefers the stable
+ * `plan_id` reference; falls back to matching by name+type for subscriptions
+ * issued before that field existed.
+ */
+export function findTariffForSubscription(sub: SubscriptionInfo): Plan | null {
+    const plans = getPlans();
+    if (sub.plan_id) {
+        const byId = plans.find(p => p.id === sub.plan_id);
+        if (byId) return byId;
+    }
+    return plans.find(p => p.name === sub.plan && p.type === sub.plan_type) || null;
 }
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';

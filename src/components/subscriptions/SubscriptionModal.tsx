@@ -6,7 +6,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { type SubscriptionInfo, pauseActiveSubscription, getEffectiveStatus } from '@/lib/subscription-store';
+import { type SubscriptionInfo, pauseActiveSubscription, getEffectiveStatus, findTariffForSubscription } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { cn } from '@/lib/utils';
@@ -178,19 +178,25 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                     </div>
 
                     {/* Pause Subscription Section */}
-                    {form.status === 'active' && (
-                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-4">
-                            <h3 className="text-xs font-black text-amber-600 flex items-center gap-2">
-                                <Pause className="w-4 h-4" /> აბონემენტის დაპაუზება
-                            </h3>
-                            <div className="flex flex-wrap gap-2">
-                                {(['7', '14', '30', '60'] as const).map(daysStr => {
-                                    const days = parseInt(daysStr) as 7 | 14 | 30 | 60;
-                                    const cost = settings.pausePrices?.[daysStr] || 0;
+                    {form.status === 'active' && (() => {
+                        // Per-tariff freeze pricing (Tariffs PRD §9) takes priority over the old
+                        // studio-wide settings.pausePrices table — that table stays only as the
+                        // default for tariffs that haven't set their own freeze_options yet.
+                        const tariff = findTariffForSubscription(form);
+                        const freezeOptions: { days: number; price: number }[] =
+                            tariff?.freeze_options && tariff.freeze_options.length > 0
+                                ? tariff.freeze_options
+                                : (['7', '14', '30', '60'] as const).map(d => ({ days: parseInt(d), price: settings.pausePrices?.[d] || 0 }));
 
-                                    return (
+                        return (
+                            <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-4">
+                                <h3 className="text-xs font-black text-amber-600 flex items-center gap-2">
+                                    <Pause className="w-4 h-4" /> აბონემენტის დაპაუზება
+                                </h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {freezeOptions.map(({ days, price: cost }, idx) => (
                                         <button
-                                            key={daysStr}
+                                            key={`${days}-${idx}`}
                                             onClick={async () => {
                                                 const msg = cost > 0
                                                     ? `ანგარიშიდან ჩამოიჭრება ${cost} ${settings.currency}. გსურთ ${days} დღით შეჩერება?`
@@ -207,11 +213,11 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                                             <span>{days} {t.days || 'დღე'}</span>
                                             {cost > 0 && <span className="text-[9px] font-black opacity-60 mt-0.5">{cost} {settings.currency}</span>}
                                         </button>
-                                    );
-                                })}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </div>
 
                 {/* Footer */}
