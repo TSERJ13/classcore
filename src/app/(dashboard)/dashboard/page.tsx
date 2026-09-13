@@ -263,16 +263,12 @@ function DonutCard({
     const radius = 48;
     const center = size / 2;
 
-    const nonZeroSegments = segments.filter(s => s.count > 0);
-    const gap = nonZeroSegments.length > 1 ? 2 : 0;
-
     let curAngle = 0;
     const slices = segments.map(seg => {
         const fraction = total > 0 ? seg.count / total : 0;
         const sliceAngle = fraction * 360;
-        const actualGap = sliceAngle > gap * 1.5 ? gap : 0;
-        const startAngle = curAngle + actualGap / 2;
-        const endAngle = curAngle + sliceAngle - actualGap / 2;
+        const startAngle = curAngle;
+        const endAngle = curAngle + sliceAngle;
         if (seg.count > 0) {
             curAngle += sliceAngle;
         }
