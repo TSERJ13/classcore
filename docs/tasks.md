@@ -423,13 +423,33 @@ Notes:
 
 ### Follow-up B: SMS confirmation + confirm UI for pending individual bookings
 
-Status: pending
+Status: completed
 
-`createIndividualBooking()` correctly sets `booking_status: 'pending'` for a non-teacher-created
-booking (whether from an open slot or direct assignment), but nothing notifies the teacher (SMS/link)
-or gives them a way to confirm it — a teacher can currently only discover a pending booking by looking
-at the calendar directly, and even there has no dedicated "confirm" action. The natural place for a
-confirm button is the calendar's own event modal (`src/app/(dashboard)/calendar/page.tsx`,
-`AddEventModal`, 3000+ lines) — deliberately not touched in this pass; deserves its own focused pass
-given the file's size. The SMS side needs a new template (similar to the existing payment-reminder
-template in `sms-service.ts`) plus a call site wired to `createIndividualBooking()`'s pending branch.
+**Built**:
+- New SMS template `sms_templates.{ka,ru,en}.individual_booking_pending` (`types/index.ts` +
+  defaults in `settings-store.ts`), with `{teacher}`/`{student}`/`{date}`/`{time}`/`{studio}`
+  placeholders. Kept separate from the existing `formatSmsTemplate()` helper rather than reusing it —
+  that helper's `{name}` resolution is specifically student-vs-parent-by-age logic
+  (`resolveSmsRecipientName`), which doesn't fit a teacher-addressed message.
+- `sendIndividualBookingConfirmationSms()` in `sms-service.ts` — does its own simple placeholder
+  substitution, suppressed during studio vacation mode (`isStudioOnVacation()`, same as the other
+  automated subscription SMS from Phase 8).
+- `createIndividualBooking()` (`event-store.ts`) now sends this SMS on its `pending` branch (i.e.
+  whenever the booking isn't teacher-created), looking the teacher's phone up from
+  `settings.staff` since the store itself only carries a bare `teacherId`.
+- Confirm UI: found the calendar's actual event-detail component (`EventPopup` in
+  `calendar/page.tsx` — the file is 3000+ lines but the relevant component is a self-contained ~500
+  lines starting at line 380). Added a `booking_status === 'pending'` note plus a "Confirm booking"
+  button in its view-mode render, gated the same way the existing edit/delete buttons already are
+  (`canEdit`). Wired a new `onConfirmBooking` prop through to the one call site that renders
+  `EventPopup`, calling `confirmIndividualBooking(selectedEv.id)` — which was already fully built in
+  Phase 6, just never had a UI trigger. The calendar page already listens for
+  `cc_calendar_events_update` (dispatched by `saveEvents()` inside `confirmIndividualBooking()`), so
+  its event list refreshes on its own — no extra wiring needed there.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new categories introduced — the one new line in `calendar/page.tsx`
+  (`selectedEv!!.id`) reuses the exact double-non-null-assertion pattern the two adjacent, pre-existing
+  lines already use in the same prop list, for local consistency rather than introducing a different
+  style.
+- This closes out the last item from the original gap analysis and both follow-ups.

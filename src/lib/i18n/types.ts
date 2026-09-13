@@ -176,6 +176,7 @@ export interface Translations {
     featureTogglesLabel: string;
     featureTogglesDesc: string;
     individualAvailabilityLabel: string;
+    confirmBookingAction: string;
     trialStatus: string;
     minAgo: string;
     contemporaryDance: string;

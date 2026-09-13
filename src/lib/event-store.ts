@@ -583,6 +583,24 @@ export function createIndividualBooking(params: {
         import('./subscription-store').then(({ incrementSessionsUsed }) => {
             incrementSessionsUsed(params.studentId, params.subId);
         }).catch(() => {});
+    } else {
+        // Not the teacher booking their own slot — they need to confirm it.
+        // Notify by SMS; look their phone up from settings.staff since this
+        // store only has a bare teacherId, not the staff record.
+        import('./settings-store').then(({ loadSettings }) => {
+            const staff = loadSettings().staff?.find((s: any) => s.id === params.teacherId);
+            const teacherPhone = staff?.phone || staff?.phone_number;
+            if (!teacherPhone) return;
+            import('./sms-service').then(({ sendIndividualBookingConfirmationSms }) => {
+                sendIndividualBookingConfirmationSms({
+                    teacherPhone,
+                    teacherName: `${staff.first_name} ${staff.last_name || ''}`.trim(),
+                    studentName: params.studentName,
+                    date: params.date,
+                    time: params.startTime,
+                }).catch(() => {});
+            }).catch(() => {});
+        }).catch(() => {});
     }
     return event;
 }

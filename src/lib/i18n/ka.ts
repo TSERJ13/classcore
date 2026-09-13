@@ -172,6 +172,7 @@ export const ka: Translations = {
     featureTogglesLabel: 'ტიპების ჩართვა/გამორთვა',
     featureTogglesDesc: 'რომელი აბონემენტის ტიპები გამოჩნდეს ამ სტუდიაზე.',
     individualAvailabilityLabel: 'ინდივიდუალური საათების გამოქვეყნება',
+    confirmBookingAction: 'ჯავშნის დადასტურება',
     trialStatus: 'საცდელი ვერსია',
     minAgo: '{n} წუთის წინ',
     contemporaryDance: 'კონტემპორარი',

@@ -423,7 +423,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             new_year: 'გილოცავთ ახალ წელს! გისურვებთ წარმატებულ და ბედნიერ წელს {studio}-სთან ერთად.',
             easter: 'გილოცავთ აღდგომის ბრწყინვალე დღესასწაულს! საუკეთესო სურვილებით, {studio}.',
             march_8: 'გილოცავთ 8 მარტს! გისურვებთ სილამაზეს და ბედნიერებას. პატივისცემით, {studio}.',
-            sept_1: 'გილოცავთ სწავლის დაწყებას! გელით მეცადინეობებზე {studio}-ში.'
+            sept_1: 'გილოცავთ სწავლის დაწყებას! გელით მეცადინეობებზე {studio}-ში.',
+            individual_booking_pending: 'გამარჯობა {teacher}, {student}-მა დაგეჯავშნათ ინდივიდუალური გაკვეთილი {date} {time}-ზე. გთხოვთ დაადასტუროთ {studio}-ის აპლიკაციაში.',
         },
         ru: {
             payment: 'Здравствуйте {name}, напоминаем об оплате абонемента {plan}. Пожалуйста, внесите оплату. С уважением, {studio}.',
@@ -433,7 +434,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             new_year: 'С Новым Годом! Желаем успешного и счастливого года вместе с {studio}.',
             easter: 'Поздравляем со светлым праздником Пасхи! С наилучшими пожеланиями, {studio}.',
             march_8: 'Поздравляем с 8 Марта! Желаем красоты и счастья. С уважением, {studio}.',
-            sept_1: 'Поздравляем с началом учебного года! Ждем вас на занятиях в {studio}.'
+            sept_1: 'Поздравляем с началом учебного года! Ждем вас на занятиях в {studio}.',
+            individual_booking_pending: 'Здравствуйте {teacher}, {student} записался(-ась) на индивидуальный урок {date} в {time}. Пожалуйста, подтвердите в приложении {studio}.',
         },
         en: {
             payment: 'Hello {name}, this is a reminder regarding the payment for your {plan} plan. Best regards, {studio}.',
@@ -443,7 +445,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             new_year: 'Happy New Year! Wishing you a successful and happy year with {studio}.',
             easter: 'Happy Easter! Best wishes from {studio}.',
             march_8: 'Happy March 8! Wishing you beauty and happiness. Sincerely, {studio}.',
-            sept_1: 'Happy First Day of School! Looking forward to seeing you at {studio}.'
+            sept_1: 'Happy First Day of School! Looking forward to seeing you at {studio}.',
+            individual_booking_pending: 'Hello {teacher}, {student} booked an individual lesson for {date} at {time}. Please confirm it in the {studio} app.',
         }
     },
     branches: [

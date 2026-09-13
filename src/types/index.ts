@@ -164,6 +164,7 @@ export interface StudioSettings {
             easter: string;
             march_8: string;
             sept_1: string;
+            individual_booking_pending?: string;
         };
         ru: {
             payment?: string;
@@ -174,6 +175,7 @@ export interface StudioSettings {
             easter: string;
             march_8: string;
             sept_1: string;
+            individual_booking_pending?: string;
         };
         en: {
             payment?: string;
@@ -184,6 +186,7 @@ export interface StudioSettings {
             easter: string;
             march_8: string;
             sept_1: string;
+            individual_booking_pending?: string;
         };
     };
     sms_enabled: boolean;

@@ -4,7 +4,7 @@
  * and automated SMS notifications (expirations, birthdays).
  */
 
-import { getLocalISODate, formatCurrency } from './utils';
+import { getLocalISODate, formatCurrency, formatDate } from './utils';
 import { loadSettings, isStudioOnVacation } from './settings-store';
 import { getStudents } from './student-store';
 import { getSubscriptions } from './subscription-store';
@@ -149,6 +149,40 @@ export async function sendSms(params: {
     } catch (err: any) {
         return { success: false, error: err?.message || 'Network error' };
     }
+}
+
+/**
+ * Notifies a teacher by SMS that a student/admin booked an individual lesson
+ * against their credit and it's waiting for confirmation (createIndividualBooking()'s
+ * 'pending' branch — PRD Subscriptions §7B). Suppressed during studio vacation
+ * mode, same as the other subscription-related automated SMS.
+ */
+export async function sendIndividualBookingConfirmationSms(params: {
+    teacherPhone: string;
+    teacherName: string;
+    studentName: string;
+    date: string;
+    time: string;
+}): Promise<{ success: boolean; error?: string }> {
+    if (typeof window === 'undefined') return { success: false, error: 'No window' };
+    const settings = loadSettings();
+    if (isStudioOnVacation(settings)) return { success: false, error: 'Studio on vacation' };
+    if (!params.teacherPhone) return { success: false, error: 'No teacher phone' };
+
+    const lang = (settings.language || 'ka') as 'ka' | 'ru' | 'en';
+    const templates = settings.sms_templates || {};
+    const tpl = (templates as any)?.[lang]?.individual_booking_pending
+        || (templates as any)?.ka?.individual_booking_pending
+        || 'Hello {teacher}, {student} booked an individual lesson for {date} at {time}. Please confirm it in the {studio} app.';
+
+    const text = tpl
+        .replace(/{teacher}/g, params.teacherName)
+        .replace(/{student}/g, params.studentName)
+        .replace(/{date}/g, formatDate(params.date))
+        .replace(/{time}/g, params.time)
+        .replace(/{studio}/g, settings.studioName || 'Studio');
+
+    return sendSms({ to: params.teacherPhone, text, studentName: params.teacherName });
 }
 
 /**

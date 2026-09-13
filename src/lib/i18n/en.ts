@@ -172,6 +172,7 @@ export const en: Translations = {
     featureTogglesLabel: 'Enable/disable types',
     featureTogglesDesc: 'Which subscription types this studio offers.',
     individualAvailabilityLabel: 'Publish individual-lesson availability',
+    confirmBookingAction: 'Confirm booking',
     trialStatus: 'Trial Version',
     minAgo: '{n} minutes ago',
     contemporaryDance: 'Contemporary',

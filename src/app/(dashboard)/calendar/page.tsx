@@ -14,7 +14,7 @@ import {
 import { cn, getLocalISODate, getActiveSlug, formatDate, formatShortName } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import type { CalendarEvent, EventType } from '@/types';
-import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar } from '@/lib/event-store';
+import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar, confirmIndividualBooking } from '@/lib/event-store';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHalls } from '@/lib/hall-store';
 import { useStudio } from '@/contexts/StudioContext';
@@ -377,13 +377,14 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
 
 /* ─── Event Detail + Edit Popup ─────────────────────────────── */
 
-function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeries, teachers, halls, groups, canEdit }: {
+function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeries, onConfirmBooking, teachers, halls, groups, canEdit }: {
     ev: CalendarEvent;
     onClose: () => void;
     onDelete: () => void;
     onDeleteAll: () => void;
     onUpdate: (updated: CalendarEvent) => void;
     onUpdateSeries?: (updated: CalendarEvent, recurringDays: Record<number, { active: boolean; start: string; end: string }>) => void;
+    onConfirmBooking?: () => void;
     teachers: any[];
     halls: any[];
     groups: Group[];
@@ -873,7 +874,20 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
                         </div>
                     )}
                     {ev.notes && <div className="flex items-start gap-2"><BookOpen className="w-3.5 h-3.5 opacity-40 mt-0.5" />{ev.notes}</div>}
+                    {ev.type === 'individual' && ev.booking_status === 'pending' && (
+                        <div className="flex items-center gap-2 font-bold text-amber-500">
+                            <Clock className="w-3.5 h-3.5" />
+                            {t.pendingConfirmation}
+                        </div>
+                    )}
                 </div>
+
+                {canEdit && ev.type === 'individual' && ev.booking_status === 'pending' && onConfirmBooking && (
+                    <button onClick={onConfirmBooking}
+                        className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
+                        {t.confirmBookingAction}
+                    </button>
+                )}
 
                 {canEdit && (
                     <div className="flex gap-2 pt-1">
@@ -3062,6 +3076,7 @@ export default function CalendarPage() {
                     onDeleteAll={() => { deleteAllGroupOccurrences(selectedEv!!); setSelectedEv(null); }}
                     onUpdate={(updated) => { updateEvent(updated); setSelectedEv(null); }}
                     onUpdateSeries={(updated, days) => { updateEventSeries(updated, days); setSelectedEv(null); }}
+                    onConfirmBooking={() => { confirmIndividualBooking(selectedEv!!.id); setSelectedEv(null); }}
                     canEdit={canEdit}
                     teachers={teachers}
                     halls={halls}
