@@ -6,7 +6,7 @@ import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, Cr
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
-import { getSubscriptions, deleteSubscription, saveSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getSubscriptions, deleteSubscription, saveSubscription, getEffectiveStatus, type SubscriptionInfo } from '@/lib/subscription-store';
 import { getStudents } from '@/lib/student-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { SubscriptionModal } from '@/components/subscriptions/SubscriptionModal';
@@ -70,14 +70,16 @@ export default function SubscriptionsPage() {
     const filtered = sortedSubs.filter(s => {
         if (!s) return false;
         
-        // Robust Status Matching: If status is 'active' or if it looks active by date/sessions
-        const todayStr = new Date().toISOString().split('T')[0];
-        const isActuallyExpired = s.expires_at < todayStr || (s.type === 'sessions' && s.sessions_total !== null && s.sessions_used >= s.sessions_total);
-        const isActuallyPaused = s.status === 'paused';
-        
+        // Status model (PRD): active / suspended (paused OR 2+ days overdue) / cancelled
+        // (manual, or 30+ days overdue). Sessions exhausted is orthogonal to that model —
+        // the PRD shows it on the card (e.g. "5/5"), not as its own status — but this page
+        // still needs to bucket an exhausted session pack out of the "active" tab.
+        const eff = getEffectiveStatus(s);
+        const sessionsExhausted = s.type === 'sessions' && s.sessions_total !== null && s.sessions_used >= s.sessions_total;
+
         let effectiveStatus: 'active' | 'paused' | 'expired' = 'active';
-        if (isActuallyPaused) effectiveStatus = 'paused';
-        else if (isActuallyExpired) effectiveStatus = 'expired';
+        if (eff.status === 'suspended') effectiveStatus = 'paused';
+        else if (eff.status === 'cancelled' || sessionsExhausted) effectiveStatus = 'expired';
 
         const matchesTab = effectiveStatus === tab;
         
@@ -105,7 +107,7 @@ export default function SubscriptionsPage() {
         let emptyText = lang === 'ka' ? 'აბონემენტი არ არის' : lang === 'ru' ? 'Нет абонемента' : 'No Subscriptions';
         if (tab === 'active') emptyText = lang === 'ka' ? 'აქტიური აბონემენტი არ არის' : 'Нет активных абонементов';
         if (tab === 'paused') emptyText = lang === 'ka' ? 'შეჩერებული აბონემენტი არ არის' : 'Нет приостановленных абонементов';
-        if (tab === 'expired') emptyText = lang === 'ka' ? 'ვადაგასული აბონემენტი არ არის' : 'Нет истекших абонементов';
+        if (tab === 'expired') emptyText = lang === 'ka' ? 'გაუქმებული აბონემენტი არ არის' : 'Нет отменённых абонементов';
         return (
             <div className="p-16 text-center border-2 border-dashed border-border-subtle/50 rounded-3xl space-y-3">
                 <div className="w-12 h-12 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-2">
@@ -165,6 +167,16 @@ export default function SubscriptionsPage() {
                             )}>
                                 {(s.plan || 'სტანდარტული')}
                             </span>
+                            {(() => {
+                                const eff = getEffectiveStatus(s);
+                                if (!eff.reason || !eff.days) return null;
+                                const label = eff.reason === 'paused' ? `${t.paused} · ${eff.days} ${t.daysLeft}` : `${t.overdueStatus} · ${eff.days} ${t.day}`;
+                                return (
+                                    <span className="text-[8px] lg:text-[10px] font-black px-1.5 lg:px-2 py-0.5 border rounded-lg tracking-wider leading-none shadow-sm uppercase shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                        {label}
+                                    </span>
+                                );
+                            })()}
                         </div>
                         <div className="flex flex-row flex-wrap items-center gap-x-4 lg:gap-x-6 gap-y-1.5 mt-1 lg:mt-2 border-t lg:border-none border-border-subtle/30 pt-1.5 lg:pt-0">
                             <div className="flex items-center gap-1.5 text-[9px] lg:text-xs text-muted font-bold">
@@ -280,7 +292,7 @@ export default function SubscriptionsPage() {
                         {[
                                 { id: 'active', label: { ka: 'აქტიური', en: 'Active', ru: 'Активные' }[lang] || 'Active', icon: Zap, activeColor: 'bg-emerald-500', hoverColor: 'hover:text-emerald-600' },
                                 { id: 'paused', label: { ka: 'შეჩერებული', en: 'Suspended', ru: 'Приостановлен.' }[lang] || 'Suspended', icon: Pause, activeColor: 'bg-amber-500', hoverColor: 'hover:text-amber-600' },
-                                { id: 'expired', label: { ka: 'ვადაგასული', en: 'Expired', ru: 'Истекшие' }[lang] || 'Expired', icon: AlertCircle, activeColor: 'bg-red-500', hoverColor: 'hover:text-red-600' },
+                                { id: 'expired', label: { ka: 'გაუქმებული', en: 'Cancelled', ru: 'Отменено' }[lang] || 'Cancelled', icon: AlertCircle, activeColor: 'bg-red-500', hoverColor: 'hover:text-red-600' },
                             ].map(v => (
                                 <button key={v.id} onClick={() => setTab(v.id as typeof tab)}
                                     className={cn(

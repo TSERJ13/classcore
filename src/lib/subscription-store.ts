@@ -11,12 +11,16 @@ export interface SubscriptionInfo {
     plan: string;
     sessions_used: number;
     sessions_total: number | null;
-    status: 'active' | 'expired' | 'paused';
+    status: 'active' | 'expired' | 'paused' | 'cancelled';
     expires_at: string;
     purchased_at: string;
     starts_at?: string;
     created_at?: string;
     teacher_comment?: string;
+    // Self-pause bookkeeping (set by pauseActiveSubscription) — lets the UI show
+    // "Paused (X days left)" instead of just a bare 'paused' status.
+    paused_at?: string;
+    pause_days?: number;
     type: 'sessions' | 'monthly';
     plan_type?: 'group' | 'personal' | 'individual' | 'rental';
     group_id?: string;
@@ -39,6 +43,41 @@ import { recordAuditAction } from './audit-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, makeEntityId } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud, pushFullStudioMetadata } from './master-sync';
+
+export interface EffectiveStatus {
+    status: 'active' | 'suspended' | 'cancelled';
+    reason?: 'overdue' | 'paused';
+    days?: number; // days overdue, or days of pause remaining
+}
+
+/**
+ * Derives the PRD's 3-status model (active/suspended/cancelled) from the stored
+ * subscription. 'suspended' covers both a manual self-pause and an auto-detected
+ * payment overdue (2+ days past expiry); 'cancelled' covers a manual cancel or
+ * 30+ days of non-payment. `reason`/`days` drive the card's informational note
+ * ("Paused (12 days left)" / "Overdue (3 days)") without creating a 4th status.
+ */
+export function getEffectiveStatus(sub: SubscriptionInfo): EffectiveStatus {
+    if (sub.status === 'cancelled') return { status: 'cancelled' };
+
+    if (sub.status === 'paused') {
+        if (sub.paused_at && sub.pause_days) {
+            const elapsedDays = Math.floor((Date.now() - new Date(sub.paused_at).getTime()) / 86400000);
+            const remaining = sub.pause_days - elapsedDays;
+            if (remaining > 0) return { status: 'suspended', reason: 'paused', days: remaining };
+        }
+        return { status: 'suspended', reason: 'paused' };
+    }
+
+    const todayStr = getLocalISODate();
+    if (sub.expires_at && sub.expires_at < todayStr) {
+        const daysSinceExpiry = Math.floor((new Date(todayStr).getTime() - new Date(sub.expires_at).getTime()) / 86400000);
+        if (daysSinceExpiry >= 30) return { status: 'cancelled' };
+        if (daysSinceExpiry >= 2) return { status: 'suspended', reason: 'overdue', days: daysSinceExpiry };
+    }
+
+    return { status: 'active' };
+}
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';
 const BASE_DELETED_SUBS_KEY = 'cc_deleted_subscriptions';
@@ -640,6 +679,8 @@ export function pauseActiveSubscription(studentId: string, subId: string, days: 
         ...sub,
         status: 'paused', // change status to paused explicitly
         expires_at: date.toISOString().split('T')[0],
+        paused_at: getLocalISODate(),
+        pause_days: days,
     };
 
     saveSubscription(studentId, newSub);

@@ -74,15 +74,41 @@ Notes:
 
 ### Phase 3: Real subscription status model
 
-Status: pending
+Status: completed
 
-Add `'cancelled'` to `SubscriptionInfo.status` (`src/lib/subscription-store.ts`, currently
-`'active'|'expired'|'paused'`) and wire it into `SubscriptionModal.tsx`'s status dropdown and
-`subscriptions/page.tsx`'s tabs (currently Active/Suspended(paused)/Expired — PRD wants
-Active/Suspended/Cancelled, where Suspended covers BOTH overdue-payment and self-pause). Build the
-auto-transition logic: active → suspended after 2+ days payment overdue; suspended → cancelled after
-30+ days non-payment. Add the card status note (e.g. "Paused (X days left)", "Overdue (X days)") to
-`renderSub()` in `subscriptions/page.tsx`.
+Added `'cancelled'` to `SubscriptionInfo.status`. Added a new exported pure helper
+`getEffectiveStatus(sub)` in `subscription-store.ts` that derives the PRD's 3-status model
+(active/suspended/cancelled) from the stored subscription — suspended covers both self-pause and
+2-29 days overdue; cancelled covers 30+ days overdue or an explicit manual cancel. Since this app has
+no server-side cron (everything is client-computed from localStorage on load), "automatic transition"
+is implemented as a derived/computed status rather than a background job that mutates storage — the
+correct status is always shown wherever `getEffectiveStatus` is called, with no explicit write needed.
+
+Wired into:
+- `SubscriptionModal.tsx`: status dropdown now offers active/paused/cancelled (dropped the manually-
+  selectable 'expired' option — it stays as a legitimate *stored* value written elsewhere by
+  `incrementSessionsUsed()`'s auto-renewal/rollover, and `getEffectiveStatus` treats it the same as
+  'active' by falling through to the expires_at check). Added the informational note ("Suspended —
+  N days left" / "Overdue (N days)") next to the status field.
+- `subscriptions/page.tsx`: tab-bucketing now uses `getEffectiveStatus` (kept the sessions-exhausted
+  check as a separate, additional signal — the PRD treats that as card info, not part of the status
+  model). Renamed the third tab's label from "Expired" to "Cancelled" (kept its internal id `'expired'`
+  to avoid touching every reference to that tab state — technical debt, not worth the blast radius
+  here). Added the same informational note badge to each subscription card.
+- Also fixed a real bug found while touching the pause flow: `SubscriptionModal.tsx`'s pause buttons
+  showed the studio a deduction amount in the confirm dialog but never actually passed it to
+  `pauseActiveSubscription()`, so the balance was never charged. Now passes `cost` through.
+- `pauseActiveSubscription()` now also stores `paused_at`/`pause_days` so the "days left" note is
+  computable — previously a pause only extended `expires_at` with no record of the pause's own start/
+  length.
+
+Notes:
+- `tsc --noEmit`: clean. Lint on touched files: no new issues (all remaining warnings predate this
+  change — verified none reference the new identifiers).
+- Known limitation carried forward, not fixed here: a self-pause never auto-resumes to 'active' when
+  its `pause_days` elapses (nothing currently writes that flip) — `getEffectiveStatus` will keep
+  reporting 'suspended' with no `days` left rather than reverting to 'active'. Worth a small follow-up
+  when Phase 4 touches this same pause flow.
 
 ---
 

@@ -156,6 +156,8 @@ export const en: Translations = {
     addFreezeOption: '+ Add period',
     paymentWindowLabel: 'Payment window',
     legacyFreezeNote: 'These are defaults — a tariff with its own freeze periods set above takes priority.',
+    cancelled: 'Cancelled',
+    overdueStatus: 'Overdue',
     trialStatus: 'Trial Version',
     minAgo: '{n} minutes ago',
     contemporaryDance: 'Contemporary',

@@ -156,6 +156,8 @@ export const ru: Translations = {
     addFreezeOption: '+ Добавить период',
     paymentWindowLabel: 'Окно оплаты',
     legacyFreezeNote: 'Это значения по умолчанию — у тарифа со своими периодами заморозки приоритет выше.',
+    cancelled: 'Отменено',
+    overdueStatus: 'Просрочено',
     trialStatus: 'Пробная версия',
     minAgo: '{n} минут назад',
     contemporaryDance: 'Контемпорари',

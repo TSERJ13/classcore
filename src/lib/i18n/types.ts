@@ -160,6 +160,8 @@ export interface Translations {
     addFreezeOption: string;
     paymentWindowLabel: string;
     legacyFreezeNote: string;
+    cancelled: string;
+    overdueStatus: string;
     trialStatus: string;
     minAgo: string;
     contemporaryDance: string;

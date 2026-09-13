@@ -6,7 +6,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { type SubscriptionInfo, pauseActiveSubscription } from '@/lib/subscription-store';
+import { type SubscriptionInfo, pauseActiveSubscription, getEffectiveStatus } from '@/lib/subscription-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { cn } from '@/lib/utils';
@@ -94,12 +94,18 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                                 options={[
                                     { value: 'active', label: t.active },
                                     { value: 'paused', label: t.paused },
-                                    { value: 'expired', label: t.expired }
+                                    { value: 'cancelled', label: t.cancelled }
                                 ]}
-                                value={form.status}
-                                onChange={(val: string) => setForm({ ...form, status: val as 'active' | 'paused' | 'expired' })}
+                                value={form.status === 'expired' ? 'cancelled' : form.status}
+                                onChange={(val: string) => setForm({ ...form, status: val as 'active' | 'paused' | 'cancelled' })}
                                 className="!border-border-subtle hover:!border-indigo-500/40"
                             />
+                            {(() => {
+                                const eff = getEffectiveStatus(form);
+                                if (!eff.reason || !eff.days) return null;
+                                const label = eff.reason === 'paused' ? `${t.paused} — ${eff.days} ${t.daysLeft}` : `${t.overdueStatus} (${eff.days} ${t.day})`;
+                                return <p className="text-[10px] text-amber-600 font-semibold px-1 mt-1">{label}</p>;
+                            })()}
                         </div>
 
                         {/* Type */}
@@ -190,7 +196,7 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                                                     ? `ანგარიშიდან ჩამოიჭრება ${cost} ${settings.currency}. გსურთ ${days} დღით შეჩერება?`
                                                     : `გსურთ აბონემენტის ${days} დღით შეჩერება უფასოდ?`;
                                                 if (await confirm(msg)) {
-                                                    pauseActiveSubscription(form.student_id, form.id, days);
+                                                    pauseActiveSubscription(form.student_id, form.id, days, cost);
                                                     onClose(); // Close modal, letting the parent refresh
                                                     // Trigger global refresh so subscriptions list updates
                                                     window.dispatchEvent(new Event('cc_student_update'));

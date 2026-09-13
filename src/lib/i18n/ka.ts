@@ -156,6 +156,8 @@ export const ka: Translations = {
     addFreezeOption: '+ პერიოდის დამატება',
     paymentWindowLabel: 'გადახდის ფანჯარა',
     legacyFreezeNote: 'ეს ნაგულისხმევი ფასებია — ტარიფს, რომელზეც საკუთარი გაყინვის პერიოდები აქვს მითითებული, ისინი აქვს პრიორიტეტი.',
+    cancelled: 'გაუქმებული',
+    overdueStatus: 'ვადაგადაცილებული',
     trialStatus: 'საცდელი ვერსია',
     minAgo: '{n} წუთის წინ',
     contemporaryDance: 'კონტემპორარი',
