@@ -5,6 +5,17 @@
 
 export type PlanType = 'group' | 'individual' | 'rental';
 export type Period = 'sessions' | 'monthly' | 'unlimited';
+export type RentalPeriod = 'hourly' | 'monthly';
+
+export interface FreezeOption {
+    days: number;
+    price: number;
+}
+
+export interface PaymentWindow {
+    startDay: number; // 1-31
+    endDay: number; // 1-31
+}
 
 export interface Plan {
     id: string;
@@ -18,6 +29,14 @@ export interface Plan {
     group_id?: string;
     is_active: boolean;
     is_default?: boolean;
+    // Individual tariff: teacher this tariff belongs to (required for type === 'individual')
+    teacher_id?: string;
+    // Hall rental tariff: hourly vs monthly pricing
+    rental_period?: RentalPeriod;
+    // Per-tariff subscription freeze/pause pricing (replaces old studio-wide settings.pausePrices table)
+    freeze_options?: FreezeOption[];
+    // Monthly tariff: recurring day-of-month window when payment is due
+    payment_window?: PaymentWindow;
     data?: any;
 }
 
@@ -129,6 +148,10 @@ export async function savePlans(plans: Plan[]): Promise<void> {
                     is_active: plan.is_active,
                     coach_name: plan.coach,
                     group_id: plan.group_id,
+                    teacher_id: plan.teacher_id,
+                    rental_period: plan.rental_period,
+                    freeze_options: plan.freeze_options,
+                    payment_window: plan.payment_window,
                     data: plan
                 }, orgId);
             } catch (err) {
