@@ -307,6 +307,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             console.error('❌ [IssueModal] Group plan missing groupId');
             return;
         }
+        // Personal tariffs can optionally bind to a group too (PRD §3), unlike
+        // Monthly/'group' where it's required — hence the separate, non-blocking flag.
+        const bindsToGroup = (plan.type === 'group' || plan.type === 'personal') && !!groupId;
 
         const subType = plan.period === 'unlimited' ? 'monthly' : 'sessions';
         const sessionsTotal = unlimited ? null : (typeof sessions === 'number' ? sessions : 12);
@@ -318,8 +321,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             updateStudent(primaryStudentId, { balance: newBalance });
         }
 
-        // Enroll all students in the group if it's a group plan
-        if (isGroupPlan && groupId) {
+        // Enroll all students in the group, whether it's a group plan or a personal plan bound to one
+        if (bindsToGroup) {
             studentIds.forEach(id => {
                 const s = students.find(x => x.id === id);
                 if (s) {
@@ -336,7 +339,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         if (appliedBalance > 0) commentParts.push(`${l('ბალანსიდან', 'С баланса', 'From Balance')}: ${formatCurrency(appliedBalance, settings.currency)}`);
         if (overpayment > 0) commentParts.push(`${l('ბალანსზე', 'На баланс', 'To Balance')}: +${formatCurrency(overpayment, settings.currency)}`);
 
-        const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
+        const selectedGroup = bindsToGroup ? groups.find(g => g.id === groupId) : null;
 
         const finalPurchaseDate = purchaseDate || getLocalISODate();
 
@@ -354,7 +357,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 price: typeof price === 'number' ? price : plan.price,
                 type: subType,
                 plan_type: plan.type,
-                group_id: isGroupPlan ? groupId : undefined,
+                group_id: bindsToGroup ? groupId : undefined,
                 category: plan.type === 'individual' ? 'Individual' : (selectedGroup ? selectedGroup.type : undefined),
                 payment_method: payMethod,
                 amount_paid: paidNow,
@@ -458,7 +461,11 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                             <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
 
-                             <div className={cn('grid grid-cols-1 gap-6', isFeatureEnabled(settings, 'individualLessons') || isFeatureEnabled(settings, 'hallRental') ? 'md:grid-cols-4' : 'md:grid-cols-2')}>
+                             <div className={cn('grid grid-cols-1 gap-6', {
+                                 2: 'md:grid-cols-2',
+                                 3: 'md:grid-cols-3',
+                                 4: 'md:grid-cols-4',
+                             }[2 + (isFeatureEnabled(settings, 'individualLessons') ? 1 : 0) + (isFeatureEnabled(settings, 'hallRental') ? 1 : 0)])}>
                                 <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         type="button"
