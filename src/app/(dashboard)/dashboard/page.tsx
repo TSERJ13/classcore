@@ -3,19 +3,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
-import { getSubscription, getSubscriptions, getUniqueSubscriptions, getEffectiveStatus } from '@/lib/subscription-store';
-import { getSales, type ShopSale } from '@/lib/sales-store';
-import { getUidRegistry } from '@/lib/student-store';
+import { getUniqueSubscriptions, getEffectiveStatus, type SubscriptionEffectiveStatus } from '@/lib/subscription-store';
+import { getSales } from '@/lib/sales-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert, Plus, Sparkles } from 'lucide-react';
-import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, UserPlus, ChevronLeft, ChevronRight, ShoppingBag, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
+import { cn, getLocalISODate, formatCurrency, getScopedKey } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { getTodayEvents, getEvents } from '@/lib/event-store';
-import { getStudents, getStudentPatches, updateStudent } from '@/lib/student-store';
+import { getStudents, updateStudent } from '@/lib/student-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
-import { addNotification } from '@/lib/notification-store';
 import type { Student } from '@/types';
 import { getGroups } from '@/lib/group-store';
 import { getTeachers } from '@/lib/teacher-store';
@@ -24,179 +22,8 @@ import { pctChange, buildPlanPrices, subRevenue, isSubInMonth, isSubOnDay } from
 import { getPlans } from '@/lib/plan-store';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
-
-import { getScopedKey } from '@/lib/settings-store';
-import { AppLogo } from '@/components/ui/Logo';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-const toDateStr = (d: Date) => d.toISOString().split('T')[0];
-
-// ─── Mini calendar helpers ──────────────────────────────────────────────────
-
-function getDaysInMonth(year: number, month: number) {
-    return new Date(year, month + 1, 0).getDate();
-}
-function getFirstDayOfMonth(year: number, month: number) {
-    return new Date(year, month, 1).getDay(); // 0=Sun
-}
-
-// Mini calendar helpers moved to use centralized translations
-
-// Days with events (demo) - removed in favor of real events
-function MiniCalendar({ t, selectedDate, rangeStart, rangeEnd, onSelect, onRangeSelect, events = [] }: {
-    t: any;
-    selectedDate: Date;
-    rangeStart?: Date | null;
-    rangeEnd?: Date | null;
-    onSelect: (d: Date) => void;
-    onRangeSelect: (start: Date | null, end: Date | null) => void;
-    events?: any[]
-}) {
-    const [year, setYear] = useState(selectedDate.getFullYear());
-    const [month, setMonth] = useState(selectedDate.getMonth());
-    const now = new Date();
-    const today = now.getDate();
-    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
-
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
-    const weeks = [t.shortSun, t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat];
-
-    function prevMonth() { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); }
-    function nextMonth() { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); }
-
-    const cells = [];
-    for (let i = 0; i < firstDay; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-    const handleDateClick = (d: number) => {
-        const date = new Date(year, month, d);
-        onSelect(date);
-
-        if (!rangeStart || (rangeStart && rangeEnd)) {
-            onRangeSelect(date, null);
-        } else {
-            if (date < rangeStart) {
-                onRangeSelect(date, rangeStart);
-            } else if (date.getTime() === rangeStart.getTime()) {
-                onRangeSelect(null, null);
-            } else {
-                onRangeSelect(rangeStart, date);
-            }
-        }
-    };
-
-    const isInRange = (d: number) => {
-        if (!rangeStart || !rangeEnd) return false;
-        const date = new Date(year, month, d);
-        return date >= rangeStart && date <= rangeEnd;
-    };
-
-    return (
-        <div>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-                <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-primary transition-colors">
-                    <ChevronLeft className="w-4 h-4" />
-                </button>
-                <div className="flex flex-col items-center">
-                    <span className="text-sm font-semibold text-primary">{months[month]} {year}</span>
-                    {rangeStart && rangeEnd ? (
-                        <div className="flex flex-col items-center">
-                            <span className="text-[10px] text-indigo-400 font-bold">
-                                {rangeStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {rangeEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                            </span>
-                            <button
-                                onClick={() => onRangeSelect(null, null)}
-                                className="text-[9px] text-indigo-400/60 hover:text-indigo-300 font-bold tracking-tighter"
-                            >
-                                {t.clear || 'Clear Selection'}
-                            </button>
-                        </div>
-                    ) : rangeStart && (
-                        <button
-                            onClick={() => onRangeSelect(null, null)}
-                            className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold tracking-tighter"
-                        >
-                            {t.clear || 'Clear Selection'}
-                        </button>
-                    )}
-                </div>
-                <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-primary transition-colors">
-                    <ChevronRight className="w-4 h-4" />
-                </button>
-            </div>
-            {/* Weekday headers */}
-            <div className="grid grid-cols-7 mb-1">
-                {weeks.map(w => (
-                    <div key={w} className="text-center text-[10px] font-bold text-muted/40 py-1">{w}</div>
-                ))}
-            </div>
-            {/* Days */}
-            <div className="grid grid-cols-7 gap-y-0.5">
-                {cells.map((d, i) => {
-                    if (!d) return <div key={i} />;
-                    const isToday = isCurrentMonth && d === today;
-                    const isSelected = selectedDate.getDate() === d && selectedDate.getMonth() === month && selectedDate.getFullYear() === year;
-                    const isStart = rangeStart && rangeStart.getDate() === d && rangeStart.getMonth() === month && rangeStart.getFullYear() === year;
-                    const isEnd = rangeEnd && rangeEnd.getDate() === d && rangeEnd.getMonth() === month && rangeEnd.getFullYear() === year;
-                    const inRange = isInRange(d);
-
-                    const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    const hasEvent = events.some(e => {
-                        if (e.date === dayStr) return true;
-                        if (e.recurring === 'weekly') {
-                            const evDate = new Date(`${e.date}T00:00:00`);
-                            const targetDate = new Date(`${dayStr}T00:00:00`);
-                            return evDate.getDay() === targetDate.getDay() && targetDate.getTime() >= evDate.getTime();
-                        }
-                        return false;
-                    });
-
-                    return (
-                        <button key={i}
-                            onClick={() => handleDateClick(d)}
-                            className={cn(
-                                "relative flex flex-col items-center justify-center h-8 transition-colors hover:bg-surface",
-                                (isStart || isEnd) ? "bg-indigo-500/20 rounded-lg" : inRange ? "bg-indigo-500/5" : "rounded-lg",
-                                isSelected && !isStart && !isEnd && !inRange && "bg-indigo-500/10 border border-indigo-500/20"
-                            )}>
-                            <span className={cn('text-xs font-medium leading-none transition-colors z-10',
-                                isToday
-                                    ? 'w-7 h-7 flex items-center justify-center bg-indigo-500 text-white rounded-full font-black text-[11px] shadow-sm'
-                                    : (isSelected || isStart || isEnd)
-                                        ? 'text-indigo-500 font-black text-[11px]'
-                                        : 'text-primary/60 group-hover:text-primary',
-                                inRange && !isStart && !isEnd && 'text-indigo-400/80'
-                            )}>
-                                {d}
-                            </span>
-                            {hasEvent && (
-                                <span className={cn("absolute bottom-1 w-1 h-1 rounded-full",
-                                    (isSelected || isStart || isEnd || isToday) ? "bg-indigo-400" : "bg-indigo-400/70"
-                                )} />
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-// ─── Today's schedule ───────────────────────────────────────────────────────
-// Static SCHEDULE mock removed in favor of live event-store
-
-// ─── Recent activity ────────────────────────────────────────────────────────
-
-
-function actionBadge(action: string, t: any) {
-    if (action === 'check-in') return { label: t.checkInActivity, cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' };
-    if (action === 'subscription') return { label: t.subscriptions, cls: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/20' };
-    if (action === 'sale') return { label: t.saleActivity, cls: 'bg-violet-500/15 text-violet-400 border-violet-500/20' };
-    return { label: t.new, cls: 'bg-amber-500/15 text-amber-400 border-amber-500/20' };
-}
+import { TodayGroupsCard } from '@/components/dashboard/TodayGroupsCard';
+import { CalendarScheduleCard } from '@/components/dashboard/CalendarScheduleCard';
 
 // ─── Lightweight SVG Donut Chart Card ──────────────────────────────────────
 
@@ -662,7 +489,7 @@ export default function DashboardPage() {
         });
 
         // ── Subscription Status Breakdown (Real Effective Status) ──
-        const subStatusCounts = {
+        const subStatusCounts: Record<SubscriptionEffectiveStatus, number> & { total: number } = {
             active: 0,
             paused: 0,
             expired: 0,
@@ -671,7 +498,9 @@ export default function DashboardPage() {
         };
         allSubsList.forEach(sub => {
             const status = getEffectiveStatus(sub);
-            subStatusCounts[status]++;
+            if (status in subStatusCounts) {
+                subStatusCounts[status]++;
+            }
             subStatusCounts.total++;
         });
 
@@ -1187,194 +1016,57 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* ─── Main 3-column grid ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-                {/* ── Left: Calendar + Quick actions ── */}
-                <div className="lg:col-span-3 space-y-4">
-
-                    {/* Calendar */}
-                    <div className="bg-card border border-border-subtle rounded-2xl p-4">
-                        <MiniCalendar
-                            t={t}
-                            selectedDate={selectedDate}
-                            rangeStart={revenueRange.start}
-                            rangeEnd={revenueRange.end}
-                            onSelect={setSelectedDate}
-                            onRangeSelect={(start, end) => setRevenueRange({ start, end })}
-                            events={allEvents}
-                        />
-                    </div>
-
-                    {/* Quick actions */}
-                    <div className="bg-card border border-border-subtle rounded-2xl p-3 sm:p-4">
-                        <p className="text-[10px] font-bold text-muted tracking-widest mb-2.5">{t.quickActions}</p>
-                        <div className="grid grid-cols-4 gap-1 w-full">
-                            {[
-                                {
-                                    label: t.addStudentShort || 'ახალი',
-                                    icon: UserPlus,
-                                    color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20 hover:bg-indigo-500/20',
-                                    onClick: () => setShowAddStudent(true)
-                                },
-                                {
-                                    label: t.attendance || 'დასწრება',
-                                    icon: CalendarCheck,
-                                    color: 'text-violet-400 bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/20',
-                                    href: '/attendance'
-                                },
-                                {
-                                    label: t.issuePlan || 'აბონემენტი',
-                                    icon: CreditCard,
-                                    color: 'text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20',
-                                    onClick: () => setShowIssueSub(true)
-                                },
-                                {
-                                    label: t.shop || 'მაღაზია',
-                                    icon: ShoppingBag,
-                                    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20',
-                                    href: '/shop'
-                                },
-                            ].map((a, idx) => {
-                                const Icon = a.icon;
-                                const content = (
-                                    <div className="flex flex-col items-center justify-center p-1 gap-1 w-full">
-                                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-[0.9rem] border flex items-center justify-center transition-all ${a.color}`}>
-                                            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                                        </div>
-                                        <span className="text-[9px] font-bold tracking-tight text-primary/80 truncate w-full text-center">{a.label}</span>
-                                    </div>
-                                );
-
-                                return a.href ? (
-                                    <Link key={idx} href={a.href} className="group w-full flex justify-center">
-                                        {content}
-                                    </Link>
-                                ) : (
-                                    <button key={idx} onClick={a.onClick} className="group w-full flex justify-center">
-                                        {content}
-                                    </button>
-                                );
-                            })}
-                        </div>
+            {/* ─── Quick Actions Bar ─── */}
+            <div className="bg-card border border-border-subtle rounded-2xl p-3 sm:p-4 mb-4">
+                <div className="flex items-center justify-between gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowAddStudent(true)}
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 cursor-pointer shadow-2xs"
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            <span>{t.addStudentShort || 'ახალი სტუდენტი'}</span>
+                        </button>
+                        <Link
+                            href="/attendance"
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 shadow-2xs"
+                        >
+                            <CalendarCheck className="w-4 h-4" />
+                            <span>{t.attendance || 'დასწრება'}</span>
+                        </Link>
+                        <button
+                            onClick={() => setShowIssueSub(true)}
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 cursor-pointer shadow-2xs"
+                        >
+                            <CreditCard className="w-4 h-4" />
+                            <span>{t.issuePlan || 'აბონემენტი'}</span>
+                        </button>
+                        <Link
+                            href="/shop"
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 shadow-2xs"
+                        >
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>{t.shop || 'მაღაზია'}</span>
+                        </Link>
                     </div>
                 </div>
+            </div>
 
-                {/* ── Middle: Today's schedule ── */}
-                <div className="lg:col-span-4 bg-card border border-border-subtle rounded-2xl overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}
-                                className="p-1 hover:bg-surface rounded-md text-muted transition-colors"
-                            >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <h2 className="text-sm font-semibold text-primary">
-                                {isToday ? t.todaySchedule : dateStr}
-                            </h2>
-                            <button
-                                onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
-                                className="p-1 hover:bg-surface rounded-md text-muted transition-colors"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <a href="/calendar" className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
-                            {t.allLink}
-                        </a>
-                    </div>
-                    <div className="divide-y divide-border-subtle max-h-[400px] overflow-y-auto">
-                        {liveSchedule.length > 0 ? (
-                            (liveSchedule as { start_time: string; color: string; title: string; teacher_id: string }[]).map((cls, i) => {
-                                const startTime = cls.start_time || '00:00';
-                                const h = parseInt(startTime.split(':')[0] || '0');
-                                const isCurrent = isToday && h <= nowHour && h + 2 > nowHour;
-                                return (
-                                    <div key={i} className={`flex items-center gap-3 px-5 py-3.5 hover:bg-surface transition-colors ${isCurrent ? 'bg-surface' : ''}`}>
-                                        <div className="w-10 text-center flex-shrink-0">
-                                            <p className={`text-xs font-bold tabular-nums ${isCurrent ? 'text-indigo-400' : 'text-muted/40'}`}>{startTime}</p>
-                                        </div>
-                                        <div className={`w-1 h-8 rounded-full flex-shrink-0`} style={{ backgroundColor: cls.color || '#6366f1' }} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-primary/75'}`}>{cls.title || t.unnamed}</p>
-                                            <div className="flex items-center gap-2 mt-0.5">
-                                                {(cls as any).teacherName && (
-                                                    <p className="text-[10px] font-bold text-muted/40 truncate">{(cls as any).teacherName}</p>
-                                                )}
-                                                {(cls as any).hallName && (
-                                                    <p className="text-[10px] font-bold text-indigo-500/50 truncate flex items-center gap-1">
-                                                        <span className="w-1 h-1 rounded-full bg-indigo-500/30" />
-                                                        {(cls as any).hallName}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {(cls as any).teacherPhoto ? (
-                                            <img src={(cls as any).teacherPhoto} alt="" className="w-7 h-7 rounded-full object-cover border border-border-subtle" />
-                                        ) : (
-                                            (cls as any).teacherName && (
-                                                <div className="w-7 h-7 rounded-full bg-muted/5 border border-border-subtle flex items-center justify-center text-[10px] font-black text-muted/40 uppercase">
-                                                    {(cls as any).teacherName.substring(0, 2)}
-                                                </div>
-                                            )
-                                        )}
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="p-10 text-center">
-                                <p className="text-xs text-muted/40 font-medium">
-                                    {t.noEventsToday}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
+            {/* ─── Main 2 Windows: Today's Groups + Google Calendar Schedule ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch mb-6">
+                {/* Left Window: Today's Groups (Tabs + Expected Students List) */}
+                <TodayGroupsCard
+                    lang={lang}
+                    currentDate={selectedDate}
+                    onRefreshDashboard={refreshFullDashboard}
+                />
 
-                {/* ── Right: Recent activity ── */}
-                <div className="lg:col-span-5 bg-card border border-border-subtle rounded-2xl overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
-                        <div className="flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-muted" />
-                            <h2 className="text-sm font-semibold text-primary">{t.recentActivity}</h2>
-                        </div>
-                        <a href="/attendance" className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
-                            {t.allLink}
-                        </a>
-                    </div>
-                    <div className="divide-y divide-border-subtle">
-                        {liveActivity.length > 0 ? (
-                            liveActivity.map((item, i) => {
-                                const badge = actionBadge(item.action, t);
-                                return (
-                                    <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-surface transition-colors">
-                                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                                            <span className="text-[10px] font-bold text-white">{item.avatar}</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-primary/85 truncate">{item.name}</p>
-                                            <p className="text-[11px] text-muted truncate">{item.group}</p>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${badge.cls}`}>{badge.label}</span>
-                                            <span className="text-[10px] text-muted">{item.time}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="p-12 text-center flex flex-col items-center justify-center h-full">
-                                <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4 text-muted/30">
-                                    <ClipboardList className="w-8 h-8" />
-                                </div>
-                                <p className="text-xs text-muted font-medium max-w-[200px]">
-                                    {t.noActivityToday || 'დღეს აქტივობა არ დაფიქსირებულა'}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {/* Right Window: Google Calendar Schedule (Day / Week / Month) */}
+                <CalendarScheduleCard
+                    lang={lang}
+                    initialDate={selectedDate}
+                    onSelectDate={setSelectedDate}
+                />
             </div>
 
             {/* ─── Modals ─── */}
