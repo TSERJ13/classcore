@@ -18,7 +18,7 @@ export interface SubscriptionInfo {
     created_at?: string;
     teacher_comment?: string;
     type: 'sessions' | 'monthly';
-    plan_type?: 'group' | 'individual' | 'rental';
+    plan_type?: 'group' | 'personal' | 'individual' | 'rental';
     group_id?: string;
     category?: string; // e.g. 'Dance', 'Salsa', 'Yoga'
     is_default?: boolean;
@@ -360,7 +360,7 @@ export function getStudentSubscriptions(studentId: string): SubscriptionInfo[] {
 export function getSubscription(
     studentId: string,
     groupId?: string,
-    planType?: 'group' | 'individual' | 'rental',
+    planType?: 'group' | 'personal' | 'individual' | 'rental',
     includeExpiredWithSessions: boolean = false
 ): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
@@ -649,7 +649,7 @@ export function pauseActiveSubscription(studentId: string, subId: string, days: 
 export function incrementSessionsUsed(
     studentId: string,
     subId?: string,
-    planType?: 'group' | 'individual' | 'rental',
+    planType?: 'group' | 'personal' | 'individual' | 'rental',
     groupId?: string
 ): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
@@ -686,7 +686,7 @@ export function incrementSessionsUsed(
 export function refundSessionsUsed(
     studentId: string,
     subId?: string,
-    planType?: 'group' | 'individual' | 'rental',
+    planType?: 'group' | 'personal' | 'individual' | 'rental',
     groupId?: string
 ): SubscriptionInfo | null {
     const subs = getStudentSubscriptions(studentId);

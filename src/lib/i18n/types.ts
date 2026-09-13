@@ -153,8 +153,13 @@ export interface Translations {
     allTeachers: string;
     exportCalendar: string;
     groupClass: string;
+    personalClass: string;
     individualClass: string;
     rental: string;
+    freezeOptionsLabel: string;
+    addFreezeOption: string;
+    paymentWindowLabel: string;
+    legacyFreezeNote: string;
     trialStatus: string;
     minAgo: string;
     contemporaryDance: string;

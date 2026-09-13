@@ -306,7 +306,7 @@ export interface Group {
 }
 
 // ─── Subscription Plans ────────────────────────────────────────
-export type SubscriptionType = 'group' | 'individual' | 'rental';
+export type SubscriptionType = 'group' | 'personal' | 'individual' | 'rental';
 export type SessionPeriod = 'sessions' | 'monthly' | 'unlimited';
 
 export interface SubscriptionPlan {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus, Star
+    ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus, Star, Ticket, Minus, Snowflake
 } from 'lucide-react';
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
@@ -10,10 +10,10 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
-import { getPlans, savePlans, deletePlan as deletePlanInStore, type Plan } from '@/lib/plan-store';
+import { getPlans, savePlans, deletePlan as deletePlanInStore, type Plan, type RentalPeriod } from '@/lib/plan-store';
 import { getGroups, type Group } from '@/lib/group-store';
 
-type PlanType = 'group' | 'individual' | 'rental';
+type PlanType = 'group' | 'personal' | 'individual' | 'rental';
 type Period = 'sessions' | 'monthly' | 'unlimited';
 
 
@@ -29,6 +29,14 @@ const PERIODS: { value: Period; label: any }[] = [
     { value: 'monthly', label: (t: any) => t.monthlyShortLabel },
     { value: 'unlimited', label: (t: any) => t.unlimitedShortLabel },
 ];
+
+// Static Tailwind classes per tariff type — kept literal (not templated) so the JIT compiler picks them up.
+const TYPE_META: Record<PlanType, { Icon: any; iconWrap: string; iconColor: string; typeBtn: string }> = {
+    group: { Icon: Users, iconWrap: 'bg-indigo-500/15 border border-indigo-500/25', iconColor: 'text-indigo-400', typeBtn: 'bg-indigo-500/10 border-indigo-500/40 text-indigo-400' },
+    personal: { Icon: Ticket, iconWrap: 'bg-emerald-500/15 border border-emerald-500/25', iconColor: 'text-emerald-400', typeBtn: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' },
+    individual: { Icon: User, iconWrap: 'bg-violet-500/15 border border-violet-500/25', iconColor: 'text-violet-400', typeBtn: 'bg-violet-500/10 border-violet-500/40 text-violet-400' },
+    rental: { Icon: Home, iconWrap: 'bg-amber-500/15 border border-amber-500/25', iconColor: 'text-amber-400', typeBtn: 'bg-amber-500/10 border-amber-500/40 text-amber-400' },
+};
 
 export default function PlansManagementPage() {
     const { t } = useT();
@@ -66,28 +74,38 @@ export default function PlansManagementPage() {
 
     function openAdd() {
         setEditingPlan(null);
-        setForm({ ...EMPTY_PLAN, type: tab });
+        const defaults: Partial<Plan> =
+            tab === 'group' ? { period: 'monthly' } :
+            tab === 'personal' ? { period: 'sessions' } :
+            tab === 'rental' ? { rental_period: 'hourly' as RentalPeriod } : {};
+        setForm({ ...EMPTY_PLAN, type: tab, freeze_options: [], ...defaults });
         setShowForm(true);
     }
 
     function openEdit(p: Plan) {
         setEditingPlan(p);
-        setForm({ 
-            name: p.name, 
-            type: p.type, 
-            period: p.period, 
-            session_count: p.session_count, 
-            validity_days: p.validity_days, 
-            price: p.price, 
-            coach: p.coach, 
+        setForm({
+            name: p.name,
+            type: p.type,
+            period: p.period,
+            session_count: p.session_count,
+            validity_days: p.validity_days,
+            price: p.price,
+            coach: p.coach,
             group_id: p.group_id,
-            is_active: p.is_active 
+            is_active: p.is_active,
+            teacher_id: p.teacher_id,
+            rental_period: p.rental_period,
+            freeze_options: p.freeze_options || [],
+            payment_window: p.payment_window,
         });
         setShowForm(true);
     }
 
+    const teacherRequiredMissing = form.type === 'individual' && !form.teacher_id;
+
     async function savePlan() {
-        if (!form.name || !form.price) return;
+        if (!form.name || !form.price || teacherRequiredMissing) return;
         setSavingPlan(true);
         try {
             let next: Plan[];
@@ -164,7 +182,7 @@ export default function PlansManagementPage() {
 
             {/* Tabs */}
             <div className="flex w-full h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1">
-                {([['group', t.groupClass, Users], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const).map(([v, lbl, Icon]) => (
+                {([['group', t.monthlyShortLabel, Users], ['personal', t.personalClass, Ticket], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const).map(([v, lbl, Icon]) => (
                     <button key={v} onClick={() => setTab(v as PlanType)}
                         className={cn(
                             'flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-4 h-full rounded-xl text-[9px] sm:text-xs font-black tracking-widest transition-all truncate',
@@ -186,15 +204,8 @@ export default function PlansManagementPage() {
                         )}>
                         <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-3">
-                                <div className={cn(
-                                    'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
-                                    plan.type === 'group' ? 'bg-indigo-500/15 border border-indigo-500/25' :
-                                        plan.type === 'individual' ? 'bg-violet-500/15 border border-violet-500/25' :
-                                            'bg-amber-500/15 border border-amber-500/25'
-                                )}>
-                                    {plan.type === 'group' ? <Users className="w-5 h-5 text-indigo-400" /> :
-                                        plan.type === 'individual' ? <User className="w-5 h-5 text-violet-400" /> :
-                                            <Home className="w-5 h-5 text-amber-400" />}
+                                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0', TYPE_META[plan.type].iconWrap)}>
+                                    {(() => { const { Icon } = TYPE_META[plan.type]; return <Icon className={cn('w-5 h-5', TYPE_META[plan.type].iconColor)} />; })()}
                                 </div>
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-1.5">
@@ -210,6 +221,15 @@ export default function PlansManagementPage() {
                                         {plan.period === 'sessions' && plan.session_count && <span className="text-[10px] text-muted">{plan.session_count} {t.visits}</span>}
                                         {plan.period === 'unlimited' && <span className="flex items-center gap-1 text-[10px] text-emerald-400/70"><Zap className="w-2.5 h-2.5" />{t.notAccounted}</span>}
                                         {plan.validity_days && <span className="text-[10px] text-muted/40">· {plan.validity_days} {t.day}</span>}
+                                        {plan.type === 'individual' && plan.teacher_id && (
+                                            <span className="text-[10px] text-muted/60">· {(settings.staff || []).find(s => s.id === plan.teacher_id)?.first_name || ''}</span>
+                                        )}
+                                        {plan.type === 'rental' && plan.rental_period && (
+                                            <span className="text-[10px] text-muted/60">· {plan.rental_period === 'hourly' ? t.hourly : t.monthlyShortLabel}</span>
+                                        )}
+                                        {plan.freeze_options && plan.freeze_options.length > 0 && (
+                                            <span className="flex items-center gap-0.5 text-[10px] text-sky-400/70"><Snowflake className="w-2.5 h-2.5" />{plan.freeze_options.length}</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -270,17 +290,18 @@ export default function PlansManagementPage() {
                             </div>
 
                             <div className="px-6 py-5 space-y-4">
-                                <div className="grid grid-cols-3 gap-2">
-                                    {(['group', 'individual', 'rental'] as const).map(tp => (
-                                        <button key={tp} onClick={() => setForm(p => ({ ...p, type: tp }))}
-                                            className={cn('py-3 rounded-2xl text-[11px] font-black tracking-widest uppercase border transition-all flex flex-col items-center gap-2',
-                                                form.type === tp 
-                                                    ? tp === 'group' ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-400' :
-                                                      tp === 'individual' ? 'bg-violet-500/10 border-violet-500/40 text-violet-400' :
-                                                      'bg-amber-500/10 border-amber-500/40 text-amber-400'
-                                                    : 'border-border-subtle text-muted opacity-40 hover:opacity-100')}>
-                                            {tp === 'group' ? <Users className="w-5 h-5" /> : tp === 'individual' ? <User className="w-5 h-5" /> : <Home className="w-5 h-5" />}
-                                            {tp === 'group' ? t.groupClass : tp === 'individual' ? t.individualClass : t.rental}
+                                <div className="grid grid-cols-4 gap-2">
+                                    {(['group', 'personal', 'individual', 'rental'] as const).map(tp => (
+                                        <button key={tp} onClick={() => setForm(p => ({
+                                            ...p, type: tp,
+                                            ...(tp === 'group' ? { period: 'monthly' as Period } : {}),
+                                            ...(tp === 'personal' && p.type !== 'personal' ? { period: 'sessions' as Period } : {}),
+                                            ...(tp === 'rental' ? { rental_period: p.rental_period || 'hourly' as RentalPeriod } : {}),
+                                        }))}
+                                            className={cn('py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase border transition-all flex flex-col items-center gap-2',
+                                                form.type === tp ? TYPE_META[tp].typeBtn : 'border-border-subtle text-muted opacity-40 hover:opacity-100')}>
+                                            {(() => { const { Icon } = TYPE_META[tp]; return <Icon className="w-5 h-5" />; })()}
+                                            {tp === 'group' ? t.monthlyShortLabel : tp === 'personal' ? t.personalClass : tp === 'individual' ? t.individualClass : t.rental}
                                         </button>
                                     ))}
                                 </div>
@@ -291,38 +312,51 @@ export default function PlansManagementPage() {
                                         className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary outline-none" />
                                 </div>
 
-                                <div>
-                                    <label className="text-xs text-muted mb-1.5 block">{t.typeLabel}</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {PERIODS.map(p => (
-                                            <button key={p.value} onClick={() => setForm(f => ({ ...f, period: p.value }))}
-                                                className={cn('py-2 rounded-xl text-xs font-medium border transition-all',
-                                                    form.period === p.value ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600' : 'border-border-subtle text-muted')}>
-                                                {typeof p.label === 'function' ? p.label(t) : p.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-3">
-                                    {form.period === 'sessions' && (
-                                        <div>
-                                            <label className="text-xs text-muted mb-1.5 block">{t.sessionCountLabel}</label>
-                                            <input type="number" value={form.session_count || ''} onChange={e => {
-                                                const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                                setForm(p => ({ ...p, session_count: val }));
-                                            }}
-                                                className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
-                                        </div>
-                                    )}
+                                {form.type === 'personal' && (
                                     <div>
-                                        <label className="text-xs text-muted mb-1.5 block">{t.validityDaysInput}</label>
-                                        <input type="number" value={form.validity_days || ''} onChange={e => {
-                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                            setForm(p => ({ ...p, validity_days: val }));
-                                        }}
-                                            className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
+                                        <label className="text-xs text-muted mb-1.5 block">{t.typeLabel}</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {PERIODS.filter(p => p.value !== 'monthly').map(p => (
+                                                <button key={p.value} onClick={() => setForm(f => ({ ...f, period: p.value }))}
+                                                    className={cn('py-2 rounded-xl text-xs font-medium border transition-all',
+                                                        form.period === p.value ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-500' : 'border-border-subtle text-muted')}>
+                                                    {typeof p.label === 'function' ? p.label(t) : p.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
+                                )}
+
+                                {form.type === 'individual' && (
+                                    <div>
+                                        <label className="text-xs text-muted mb-1.5 block">{t.calTeacher} *</label>
+                                        <select value={form.teacher_id || ''} onChange={e => setForm(p => ({ ...p, teacher_id: e.target.value }))}
+                                            className={cn('w-full bg-surface border rounded-xl px-3 py-2.5 text-sm text-primary outline-none',
+                                                teacherRequiredMissing ? 'border-red-500/50' : 'border-border-subtle')}>
+                                            <option value="">{t.selectTeacher}</option>
+                                            {(settings.staff || []).map(s => (
+                                                <option key={s.id} value={s.id}>{s.first_name} {s.last_name || ''}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {form.type === 'rental' && (
+                                    <div>
+                                        <label className="text-xs text-muted mb-1.5 block">{t.typeLabel}</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {(['hourly', 'monthly'] as const).map(rp => (
+                                                <button key={rp} onClick={() => setForm(p => ({ ...p, rental_period: rp }))}
+                                                    className={cn('py-2 rounded-xl text-xs font-medium border transition-all',
+                                                        form.rental_period === rp ? 'bg-amber-500/10 border-amber-500/40 text-amber-500' : 'border-border-subtle text-muted')}>
+                                                    {rp === 'hourly' ? t.hourly : t.monthlyShortLabel}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {form.type === 'rental' ? (
                                     <div>
                                         <label className="text-xs text-muted mb-1.5 block">{t.price} ({settings.currency}) *</label>
                                         <input type="number" value={form.price || ''} onChange={e => {
@@ -331,10 +365,90 @@ export default function PlansManagementPage() {
                                         }}
                                             className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
                                     </div>
-                                </div>
-                                
+                                ) : (
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {form.period === 'sessions' && (
+                                            <div>
+                                                <label className="text-xs text-muted mb-1.5 block">{t.sessionCountLabel}</label>
+                                                <input type="number" value={form.session_count || ''} onChange={e => {
+                                                    const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                                    setForm(p => ({ ...p, session_count: val }));
+                                                }}
+                                                    className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label className="text-xs text-muted mb-1.5 block">{t.validityDaysInput}</label>
+                                            <input type="number" value={form.validity_days || ''} onChange={e => {
+                                                const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                                setForm(p => ({ ...p, validity_days: val }));
+                                            }}
+                                                className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-muted mb-1.5 block">{t.price} ({settings.currency}) *</label>
+                                            <input type="number" value={form.price || ''} onChange={e => {
+                                                const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                                setForm(p => ({ ...p, price: val }));
+                                            }}
+                                                className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
+                                        </div>
+                                    </div>
+                                )}
 
                                 {form.type === 'group' && (
+                                    <div>
+                                        <label className="text-xs text-muted mb-1.5 block">{t.paymentWindowLabel}</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <input type="number" min="1" max="31" placeholder="1" value={form.payment_window?.startDay ?? ''} onChange={e => {
+                                                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                                setForm(p => ({ ...p, payment_window: { startDay: val ?? 1, endDay: p.payment_window?.endDay ?? 5 } }));
+                                            }}
+                                                className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
+                                            <input type="number" min="1" max="31" placeholder="5" value={form.payment_window?.endDay ?? ''} onChange={e => {
+                                                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                                setForm(p => ({ ...p, payment_window: { startDay: p.payment_window?.startDay ?? 1, endDay: val ?? 5 } }));
+                                            }}
+                                                className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2.5 text-sm outline-none" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-xs text-muted block flex items-center gap-1"><Snowflake className="w-3 h-3" /> {t.freezeOptionsLabel}</label>
+                                        <button onClick={() => setForm(p => ({ ...p, freeze_options: [...(p.freeze_options || []), { days: 7, price: 0 }] }))}
+                                            className="text-[10px] font-bold text-indigo-500 hover:text-indigo-400">
+                                            {t.addFreezeOption}
+                                        </button>
+                                    </div>
+                                    {(form.freeze_options || []).length > 0 && (
+                                        <div className="space-y-2">
+                                            {(form.freeze_options || []).map((fo, idx) => (
+                                                <div key={idx} className="flex items-center gap-2">
+                                                    <input type="number" min="1" value={fo.days} placeholder={t.days}
+                                                        onChange={e => {
+                                                            const val = Number(e.target.value) || 0;
+                                                            setForm(p => ({ ...p, freeze_options: (p.freeze_options || []).map((x, i) => i === idx ? { ...x, days: val } : x) }));
+                                                        }}
+                                                        className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2 text-sm outline-none" />
+                                                    <input type="number" min="0" value={fo.price} placeholder={t.price}
+                                                        onChange={e => {
+                                                            const val = Number(e.target.value) || 0;
+                                                            setForm(p => ({ ...p, freeze_options: (p.freeze_options || []).map((x, i) => i === idx ? { ...x, price: val } : x) }));
+                                                        }}
+                                                        className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2 text-sm outline-none" />
+                                                    <button onClick={() => setForm(p => ({ ...p, freeze_options: (p.freeze_options || []).filter((_, i) => i !== idx) }))}
+                                                        className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted/40 hover:text-red-500 transition-colors">
+                                                        <Minus className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {(form.type === 'group' || form.type === 'personal') && (
                                     <div>
                                         <label className="text-xs text-muted mb-1.5 block">{t.group || 'ჯგუფი'}</label>
                                         <select 
@@ -353,7 +467,7 @@ export default function PlansManagementPage() {
 
                             <div className="flex gap-3 px-6 pb-5">
                                 <button onClick={() => setShowForm(false)} className="flex-1 py-3 border border-border-subtle text-muted text-sm font-medium rounded-xl hover:bg-surface">{t.cancel}</button>
-                                <button onClick={savePlan} disabled={!form.name || !form.price || savingPlan} className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2">
+                                <button onClick={savePlan} disabled={!form.name || !form.price || savingPlan || teacherRequiredMissing} className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2">
                                     {savingPlan ? (
                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     ) : (
@@ -373,6 +487,7 @@ export default function PlansManagementPage() {
                     <div>
                         <h2 className="text-base font-bold text-primary">{t.pauseMgmt || 'შეჩერების მართვა'}</h2>
                         <p className="text-sm text-muted mt-1">{t.pausePricesDesc || 'აბონემენტის გაყინვის ფასების მართვა'}</p>
+                        <p className="text-[10px] text-muted/50 mt-1">{t.legacyFreezeNote || 'ეს ნაგულისხმევი ფასებია — ტარიფს, რომელზეც ზემოთ საკუთარი გაყინვის პერიოდები აქვს მითითებული, ისინი აქვს პრიორიტეტი.'}</p>
                     </div>
                 </div>
                 <div className="p-6">

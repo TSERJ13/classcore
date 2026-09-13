@@ -21,7 +21,7 @@ interface IssueSubscriptionModalProps {
     onClose: () => void;
     onIssue: (data: Omit<SubscriptionInfo, 'id'>) => void;
     initialStudentId?: string;
-    defaultType?: 'group' | 'individual' | 'rental';
+    defaultType?: 'group' | 'personal' | 'individual' | 'rental';
     centered?: boolean;
 }
 
@@ -79,7 +79,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     const [studentId, setStudentId] = useState('');
     const [step, setStep] = useState<'type_selection' | 'form'>('type_selection');
-    const [selectedType, setSelectedType] = useState<'group' | 'individual' | 'rental'>('group');
+    const [selectedType, setSelectedType] = useState<'group' | 'personal' | 'individual' | 'rental'>('group');
 
     const availablePlans = useMemo(() => {
         return plans.filter(p => p.type === selectedType && p.is_active !== false);

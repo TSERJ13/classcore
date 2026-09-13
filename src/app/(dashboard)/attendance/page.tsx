@@ -671,7 +671,7 @@ export default function AttendancePage() {
         const todayStr = getLocalISODate();
         const activeClass = selClass || filteredSchedule.find(s => s.id === selectedClass) || filteredSchedule[0];
         const isIndOrRental = activeClass?.type === 'individual' || activeClass?.type === 'rental' || !!activeClass?.student_id;
-        const targetPlanType: 'group' | 'individual' | 'rental' = 
+        const targetPlanType: 'group' | 'personal' | 'individual' | 'rental' = 
             activeClass?.type === 'rental' ? 'rental' : 
             (isIndOrRental ? 'individual' : 'group');
         
@@ -836,7 +836,7 @@ export default function AttendancePage() {
         return coupleStudents.some(s => (s.full_name || '').toLowerCase().includes(q));
     }, [isCoupleClass, search, coupleStudents]);
 
-    const currentPlanType: 'group' | 'individual' | 'rental' = useMemo(() => {
+    const currentPlanType: 'group' | 'personal' | 'individual' | 'rental' = useMemo(() => {
         if (!cls) return 'group';
         if (cls.type === 'rental') return 'rental';
         if (cls.type === 'individual' || isCoupleClass || cls.student_id) return 'individual';

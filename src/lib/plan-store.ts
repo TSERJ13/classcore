@@ -3,7 +3,7 @@
  * Persists available subscription plans to localStorage.
  */
 
-export type PlanType = 'group' | 'individual' | 'rental';
+export type PlanType = 'group' | 'personal' | 'individual' | 'rental';
 export type Period = 'sessions' | 'monthly' | 'unlimited';
 export type RentalPeriod = 'hourly' | 'monthly';
 
@@ -85,8 +85,15 @@ export function getPlans(): Plan[] {
                         if (!item || typeof item !== 'object') return item;
                         const data = (item.data && typeof item.data === 'object') ? item.data : {};
                         const merged = { ...data, ...item };
+                        // 🔀 MIGRATION: legacy 'group' tariffs that aren't actually monthly
+                        // (period 'sessions'/'unlimited') are what the PRD calls "Personal" —
+                        // reclassify on read so old data lands on the new dedicated tab.
+                        const migratedType = merged.type === 'group' && merged.period && merged.period !== 'monthly'
+                            ? 'personal'
+                            : merged.type;
                         return {
                             ...merged,
+                            type: migratedType,
                             is_active: item.is_active !== undefined ? (item.is_active !== false && item.is_active !== 'false') : (data.is_active !== undefined ? (data.is_active !== false && data.is_active !== 'false') : true),
                             is_default: item.is_default !== undefined ? !!item.is_default : !!data.is_default
                         };
