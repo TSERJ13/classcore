@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
-import { getSubscription, getSubscriptions, getUniqueSubscriptions } from '@/lib/subscription-store';
+import { getSubscription, getSubscriptions, getUniqueSubscriptions, getEffectiveStatus } from '@/lib/subscription-store';
 import { getSales, type ShopSale } from '@/lib/sales-store';
 import { getUidRegistry } from '@/lib/student-store';
 import Link from 'next/link';
@@ -198,6 +198,140 @@ function actionBadge(action: string, t: any) {
     return { label: t.new, cls: 'bg-amber-500/15 text-amber-400 border-amber-500/20' };
 }
 
+// ─── Subscription Status Donut Chart ────────────────────────────────────────
+
+function SubscriptionDonutChart({
+    counts,
+    l,
+    t,
+}: {
+    counts: { active: number; paused: number; expired: number; cancelled: number; total: number };
+    l: (ka: string, ru: string, en: string) => string;
+    t: any;
+}) {
+    const { active, paused, expired, cancelled, total } = counts;
+
+    const size = 136;
+    const strokeWidth = 14;
+    const radius = 50;
+    const center = size / 2;
+    const circumference = 2 * Math.PI * radius; // ~314.159
+
+    const segments = [
+        { key: 'active', count: active, color: '#10b981', bgClass: 'bg-emerald-500', label: l('აქტიური', 'Активные', 'Active') },
+        { key: 'paused', count: paused, color: '#f59e0b', bgClass: 'bg-amber-500', label: l('შეჩერებული', 'На паузе', 'Paused') },
+        { key: 'expired', count: expired, color: '#f43f5e', bgClass: 'bg-rose-500', label: l('ვადაგასული', 'Истекшие', 'Expired') },
+        { key: 'cancelled', count: cancelled, color: '#6366f1', bgClass: 'bg-indigo-500', label: l('გაუქმებული', 'Отмененные', 'Cancelled') },
+    ];
+
+    let accumulatedOffset = 0;
+    const slices = segments.map(seg => {
+        const fraction = total > 0 ? seg.count / total : 0;
+        const dashLength = fraction * circumference;
+        const strokeDasharray = `${dashLength} ${circumference - dashLength}`;
+        const strokeDashoffset = -accumulatedOffset;
+        accumulatedOffset += dashLength;
+        return {
+            ...seg,
+            pct: total > 0 ? Math.round(fraction * 100) : 0,
+            strokeDasharray,
+            strokeDashoffset,
+        };
+    });
+
+    return (
+        <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <CreditCard className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-xs font-bold text-primary tracking-tight">
+                        {l('აბონემენტების სტატუსი', 'Статус абонементов', 'Subscription Statuses')}
+                    </h3>
+                </div>
+                <Link
+                    href="/subscriptions"
+                    className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5"
+                >
+                    <span>{l('ყველა', 'Все', 'View all')}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 py-1">
+                {/* SVG Donut */}
+                <div className="relative flex items-center justify-center flex-shrink-0">
+                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 transform">
+                        {/* Background track circle */}
+                        <circle
+                            cx={center}
+                            cy={center}
+                            r={radius}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={strokeWidth}
+                            className="text-surface/80 dark:text-slate-800"
+                        />
+                        {/* Slices */}
+                        {total > 0 && slices.map(slice => {
+                            if (slice.count <= 0) return null;
+                            return (
+                                <circle
+                                    key={slice.key}
+                                    cx={center}
+                                    cy={center}
+                                    r={radius}
+                                    fill="none"
+                                    stroke={slice.color}
+                                    strokeWidth={strokeWidth}
+                                    strokeDasharray={slice.strokeDasharray}
+                                    strokeDashoffset={slice.strokeDashoffset}
+                                    className="transition-all duration-700 ease-out"
+                                />
+                            );
+                        })}
+                    </svg>
+
+                    {/* Center Text: Total Active */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-2xl font-black text-primary leading-none tracking-tight">
+                            {active}
+                        </span>
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
+                            {l('აქტიური', 'активных', 'active')}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
+                    {slices.map(item => (
+                        <div key={item.key} className="flex items-center justify-between gap-2 p-1.5 rounded-lg hover:bg-surface/50 transition-colors">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className={cn("w-2 h-2 rounded-full shrink-0", item.bgClass)} />
+                                <span className="text-[11px] font-medium text-muted truncate">
+                                    {item.label}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-xs font-bold text-primary tabular-nums">
+                                    {item.count}
+                                </span>
+                                {total > 0 && (
+                                    <span className="text-[10px] text-muted/60 tabular-nums">
+                                        ({item.pct}%)
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -228,6 +362,7 @@ export default function DashboardPage() {
         subsLastMonth: 0,
         subsChange: 0,
         todayExpected: 0,
+        subStatusCounts: { active: 0, paused: 0, expired: 0, cancelled: 0, total: 0 },
     });
     const [birthdayStudents, setBirthdayStudents] = useState<Student[]>([]);
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
@@ -458,6 +593,20 @@ export default function DashboardPage() {
             }
         });
 
+        // ── Subscription Status Breakdown (Real Effective Status) ──
+        const subStatusCounts = {
+            active: 0,
+            paused: 0,
+            expired: 0,
+            cancelled: 0,
+            total: 0,
+        };
+        allSubsList.forEach(sub => {
+            const status = getEffectiveStatus(sub);
+            subStatusCounts[status]++;
+            subStatusCounts.total++;
+        });
+
         setLiveStats(prev => ({
             ...prev,
             totalStudents: students,
@@ -476,6 +625,7 @@ export default function DashboardPage() {
             pendingBookings,
             totalDebt: Math.round(totalDebt),
             studentsWithDebt,
+            subStatusCounts,
             expiringSoon: expiringSoonStudents.size,
             oneSessionLeft: oneSessionStudents.size,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubOnDay(sub, todayStr)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
@@ -816,27 +966,40 @@ export default function DashboardPage() {
                 ))}
             </div>
 
-            {/* ─── Today's Attendance Overview ─── */}
-            {(liveStats.todayExpected > 0 || liveStats.attendance > 0) && (() => {
-                const turnoutPct = liveStats.todayExpected > 0 
-                    ? Math.round((liveStats.attendance / liveStats.todayExpected) * 100) 
-                    : 100;
-                return (
-                    <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group hover:border-border-subtle/60 transition-all mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-500 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                                <CalendarCheck className="w-5 h-5" />
+            {/* ─── Operations & Subscriptions Overview ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 items-stretch">
+                {/* 1. Today's Attendance Overview */}
+                <div className="bg-card border border-border-subtle rounded-2xl p-4 flex flex-col justify-between group hover:border-border-subtle/60 transition-all h-full">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-violet-500/10 text-violet-500 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+                                <CalendarCheck className="w-4 h-4" />
                             </div>
-                            <div>
-                                <p className="text-xs font-bold text-muted">{l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}</p>
-                                <div className="flex items-baseline gap-2 mt-0.5">
-                                    <span className="text-xl sm:text-2xl font-black text-primary">
-                                        {liveStats.attendance}
-                                        {liveStats.todayExpected > 0 && (
-                                            <span className="text-sm font-semibold text-muted"> / {liveStats.todayExpected} {l('დამსწრე', 'посетит', 'expected')}</span>
-                                        )}
-                                    </span>
+                            <h3 className="text-xs font-bold text-primary tracking-tight">
+                                {l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
+                            </h3>
+                        </div>
+                        <Link 
+                            href="/attendance" 
+                            className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform"
+                        >
+                            <span>{l('ჟურნალი', 'Журнал', 'Journal')}</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mt-auto">
+                        <div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-2xl sm:text-3xl font-black text-primary leading-none">
+                                    {liveStats.attendance}
                                     {liveStats.todayExpected > 0 && (
+                                        <span className="text-sm font-semibold text-muted"> / {liveStats.todayExpected} {l('დამსწრე', 'посетит', 'expected')}</span>
+                                    )}
+                                </span>
+                                {liveStats.todayExpected > 0 && (() => {
+                                    const turnoutPct = Math.round((liveStats.attendance / liveStats.todayExpected) * 100);
+                                    return (
                                         <span className={cn(
                                             "text-xs font-bold px-2 py-0.5 rounded-md",
                                             turnoutPct >= 80 ? "text-emerald-500 bg-emerald-500/10" :
@@ -844,32 +1007,39 @@ export default function DashboardPage() {
                                         )}>
                                             {turnoutPct}% {l('გამოცხადება', 'явка', 'turnout')}
                                         </span>
-                                    )}
-                                </div>
+                                    );
+                                })()}
                             </div>
+                            <p className="text-[11px] text-muted font-medium mt-1.5">
+                                {liveStats.todayExpected > 0 
+                                    ? l('დღეს დაგეგმილი გაკვეთილების მიხედვით', 'По расписанию на сегодня', 'Based on scheduled classes today')
+                                    : l('დღეს ჯგუფური გაკვეთილები არ არის დაგეგმილი', 'Сегодня нет запланированных уроков', 'No scheduled classes today')}
+                            </p>
                         </div>
-                        <div className="w-full sm:w-auto flex items-center gap-4">
-                            {liveStats.todayExpected > 0 && (
-                                <div className="hidden md:block w-36 sm:w-48">
+
+                        {liveStats.todayExpected > 0 && (() => {
+                            const turnoutPct = Math.min(100, Math.round((liveStats.attendance / liveStats.todayExpected) * 100));
+                            return (
+                                <div className="w-full sm:w-36 flex flex-col gap-1.5 pb-1">
+                                    <div className="flex justify-between text-[10px] font-bold text-muted">
+                                        <span>{l('პროგრესი', 'Прогресс', 'Progress')}</span>
+                                        <span>{turnoutPct}%</span>
+                                    </div>
                                     <div className="w-full bg-surface border border-border-subtle rounded-full h-2 overflow-hidden">
                                         <div 
                                             className="bg-violet-500 h-full rounded-full transition-all duration-500" 
-                                            style={{ width: `${Math.min(100, turnoutPct)}%` }} 
+                                            style={{ width: `${turnoutPct}%` }} 
                                         />
                                     </div>
                                 </div>
-                            )}
-                            <Link 
-                                href="/attendance" 
-                                className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform ml-auto sm:ml-0"
-                            >
-                                <span>{l('დასწრების ჟურნალი', 'Журнал посещаемости', 'Attendance Journal')}</span>
-                                <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        </div>
+                            );
+                        })()}
                     </div>
-                );
-            })()}
+                </div>
+
+                {/* 2. Subscriptions Distribution Donut Chart */}
+                <SubscriptionDonutChart counts={liveStats.subStatusCounts} l={l} t={t} />
+            </div>
 
             {/* ─── Needs Attention ─── */}
             {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && (

@@ -25,6 +25,13 @@ Enhance the main dashboard (`src/app/(dashboard)/dashboard/page.tsx`) with accur
   - Automatically identifies students whose `birth_date` matches today's `MM-DD` (matching the algorithm in `sms-service.ts`).
   - Displays festive celebratory banner with student photo/initials, name, phone, and quick link to send congratulatory SMS via `/sms-manager`.
   - Stays hidden when no students celebrate birthdays today.
+- [x] **Subscription Status Breakdown (Donut Chart)**:
+  - Added lightweight custom SVG Donut (ring) diagram based on `<circle>` and `strokeDasharray`/`strokeDashoffset` (zero external dependencies).
+  - Derived statuses from `getUniqueSubscriptions()` via `getEffectiveStatus()` (`active`, `paused`, `expired`, `cancelled`).
+  - Rendered total active subscriptions count as the central hero metric.
+  - Interactive legend with color-coded badges matching the studio color palette (`emerald` for active, `amber` for paused, `rose` for expired, `indigo` for cancelled).
+  - Balanced 2-column layout alongside Today's Attendance Overview with responsive mobile wrap.
 - [x] **Type Safety**:
   - Added `booking_status?: 'pending' | 'confirmed' | 'cancelled'` to `CalendarEvent` in `src/types/index.ts`.
+  - Exported `getEffectiveStatus` and `SubscriptionEffectiveStatus` in `src/lib/subscription-store.ts`.
   - Verified `npx tsc --noEmit` exits with code 0 (zero errors).

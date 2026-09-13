@@ -255,6 +255,36 @@ export function getUniqueSubscriptions(): SubscriptionInfo[] {
     return Array.from(map.values());
 }
 
+export type SubscriptionEffectiveStatus = 'active' | 'paused' | 'expired' | 'cancelled';
+
+export function getEffectiveStatus(sub: SubscriptionInfo): SubscriptionEffectiveStatus {
+    if ((sub.status as string) === 'cancelled') return 'cancelled';
+
+    // Paused check (active pause window)
+    if (sub.status === 'paused') {
+        if ((sub as any).paused_at && (sub as any).pause_days) {
+            const elapsedDays = Math.floor((Date.now() - new Date((sub as any).paused_at).getTime()) / 86400000);
+            const remaining = (sub as any).pause_days - elapsedDays;
+            if (remaining > 0) return 'paused';
+        } else {
+            return 'paused';
+        }
+    }
+
+    // Expiry check
+    const todayStr = getLocalISODate(new Date());
+    const isUnlimited = sub.sessions_total === null;
+    const remainingSessions = isUnlimited ? Infinity : ((sub.sessions_total ?? 0) - (sub.sessions_used ?? 0));
+    const hasExpiredByDate = sub.expires_at ? sub.expires_at < todayStr : false;
+    const hasUsedAllSessions = !isUnlimited && remainingSessions <= 0;
+
+    if (sub.status === 'expired' || hasExpiredByDate || hasUsedAllSessions) {
+        return 'expired';
+    }
+
+    return 'active';
+}
+
 export function saveSubscription(studentId: string, info: SubscriptionInfo): void {
     if (!studentId || studentId === 'undefined') {
         console.error('saveSubscription: invalid studentId', studentId);
