@@ -785,15 +785,63 @@ export default function DashboardPage() {
                         );
                     })()}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0 flex-wrap sm:flex-nowrap">
                     {currentClass && (
-                        <div className="hidden lg:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+                        <div className="hidden xl:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             <span className="text-xs font-medium text-emerald-400">{currentClass.title}</span>
                         </div>
                     )}
+                    <button
+                        onClick={() => setShowAddStudent(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all active:scale-95 shadow-sm shadow-indigo-500/20 cursor-pointer"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        <span>{l('სტუდენტის დამატება', 'Добавить студента', 'Add Student')}</span>
+                    </button>
+                    <Link
+                        href="/attendance"
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface hover:bg-card text-primary border border-border-subtle hover:border-indigo-500/30 text-xs font-bold transition-all active:scale-95 shadow-2xs"
+                    >
+                        <CalendarCheck className="w-4 h-4 text-violet-500" />
+                        <span>{l('დასწრება', 'Посещаемость', 'Attendance')}</span>
+                    </Link>
                 </div>
             </div>
+
+            {/* ─── Compact Needs Attention Strip ─── */}
+            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && (
+                <div className="flex items-center gap-2.5 px-3.5 py-2 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/15 rounded-xl text-xs overflow-x-auto scrollbar-none animate-fade-in">
+                    <div className="flex items-center gap-1.5 text-rose-500 font-bold flex-shrink-0">
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span className="text-[11px] uppercase tracking-wider font-extrabold">{l('საჭიროებს ყურადღებას:', 'Требует внимания:', 'Needs Attention:')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        {canViewRevenue && liveStats.totalDebt > 0 && (
+                            <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium text-xs transition-colors border border-rose-500/20 flex-shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                <span><strong className="font-bold">{liveStats.studentsWithDebt}</strong> {l('სტუდენტს აქვს დავალიანება', 'студентов с долгом', 'students with debt')}</span>
+                                <span className="font-bold text-rose-500">({formatCurrency(liveStats.totalDebt, settings.currency)})</span>
+                            </Link>
+                        )}
+                        {liveStats.expiringSoon > 0 && (
+                            <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
+                                <span><strong className="font-bold">{liveStats.expiringSoon}</strong> {l('სტუდენტს ეწურება აბონემენტი', 'заканчивается абонемент', 'subs expiring')}</span>
+                            </Link>
+                        )}
+                        {liveStats.oneSessionLeft > 0 && (
+                            <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
+                                <span><strong className="font-bold">{liveStats.oneSessionLeft}</strong> {l('დარჩა 1 გაკვეთილი', 'остался 1 урок', '1 lesson left')}</span>
+                            </Link>
+                        )}
+                        {liveStats.pendingBookings > 0 && (
+                            <Link href="/calendar" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-medium text-xs transition-colors border border-indigo-500/20 flex-shrink-0">
+                                <span><strong className="font-bold">{liveStats.pendingBookings}</strong> {l('დასადასტურებელი ჯავშანი', 'бронь ожидает', 'pending bookings')}</span>
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ─── Operations & Analytics (Donut Cards: 2x2 on mobile, 4 in 1 row on desktop) ─── */}
             <div className={cn("grid gap-2.5 sm:gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3")}>
@@ -938,56 +986,13 @@ export default function DashboardPage() {
                 />
             </div>
 
-            {/* ─── Needs Attention ─── */}
-            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && (
-                <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4 mb-4 animate-fade-in">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
-                        </div>
-                        <h3 className="text-xs font-bold text-rose-600 tracking-wide uppercase">{l('საჭიროებს ყურადღებას', 'Требует внимания', 'Needs Attention')}</h3>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                        {liveStats.expiringSoon > 0 && (
-                            <Link href="/subscriptions" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-rose-500/10 rounded-xl p-3 transition-colors">
-                                <span className="text-rose-500 font-black text-lg w-6 text-center">{liveStats.expiringSoon}</span>
-                                <span className="text-[11px] font-medium text-rose-600/80">{l('სტუდენტს ეწურება აბონემენტი ამ კვირაში', 'студентов заканчивается абонемент на этой неделе', 'students subscriptions expire this week')}</span>
-                            </Link>
-                        )}
-                        {liveStats.oneSessionLeft > 0 && (
-                            <Link href="/subscriptions" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-rose-500/10 rounded-xl p-3 transition-colors">
-                                <span className="text-amber-500 font-black text-lg w-6 text-center">{liveStats.oneSessionLeft}</span>
-                                <span className="text-[11px] font-medium text-amber-600/80">{l('სტუდენტს დარჩა 1 გაკვეთილი', 'студентов остался 1 урок', 'students have 1 lesson left')}</span>
-                            </Link>
-                        )}
-                        {liveStats.pendingBookings > 0 && (
-                            <Link href="/calendar" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-amber-500/10 rounded-xl p-3 transition-colors">
-                                <span className="text-amber-500 font-black text-lg w-6 text-center">{liveStats.pendingBookings}</span>
-                                <span className="text-[11px] font-medium text-amber-600/80">{l('დასადასტურებელი ჯავშანი კალენდარში', 'бронирований ожидает подтверждения', 'bookings awaiting confirmation')}</span>
-                            </Link>
-                        )}
-                        {canViewRevenue && liveStats.totalDebt > 0 && (
-                            <Link href="/subscriptions" className="flex items-center gap-3 bg-white/50 hover:bg-white dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-rose-500/10 rounded-xl p-3 transition-colors">
-                                <span className="text-rose-500 font-black text-lg min-w-6 text-center">{liveStats.studentsWithDebt}</span>
-                                <div className="flex flex-col min-w-0">
-                                    <span className="text-[11px] font-medium text-rose-600/80">{l('სტუდენტს აქვს დავალიანება', 'студентов с задолженностью', 'students with outstanding debt')}</span>
-                                    <span className="text-[10px] font-bold text-rose-500">{formatCurrency(liveStats.totalDebt, settings.currency)}</span>
-                                </div>
-                            </Link>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* ─── Birthdays Today ─── */}
+            {/* ─── Birthdays Today (Compact) ─── */}
             {birthdayStudents.length > 0 && (
-                <div className="bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-500/20 rounded-2xl p-4 mb-6 animate-fade-in">
-                    <div className="flex items-center justify-between mb-3">
+                <div className="bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-500/20 rounded-xl p-2.5 sm:p-3 mb-4 animate-fade-in">
+                    <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500">
-                                <Sparkles className="w-4 h-4" />
-                            </div>
-                            <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400 tracking-wide uppercase flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase flex items-center gap-1">
                                 <span>🎉</span> {l('დღეს დაბადების დღეა!', 'Сегодня день рождения!', 'Birthday Today!')}
                             </h3>
                         </div>
@@ -996,61 +1001,22 @@ export default function DashboardPage() {
                             <ChevronRight className="w-3.5 h-3.5" />
                         </Link>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                         {birthdayStudents.map(student => (
-                            <div key={student.id} className="flex items-center gap-3 bg-white/60 dark:bg-slate-900/60 border border-amber-500/15 rounded-xl p-2.5">
+                            <div key={student.id} className="flex items-center gap-2 bg-white/60 dark:bg-slate-900/60 border border-amber-500/15 rounded-lg px-2.5 py-1.5 flex-shrink-0">
                                 {student.photo_url ? (
-                                    <img src={student.photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-amber-400/40" />
+                                    <img src={student.photo_url} alt="" className="w-6 h-6 rounded-full object-cover border border-amber-400/40" />
                                 ) : (
-                                    <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                    <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
                                         {(student.full_name || 'S').substring(0, 2).toUpperCase()}
                                     </div>
                                 )}
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold text-primary truncate">{student.full_name}</p>
-                                    <p className="text-[10px] text-muted truncate">{student.phone || l('ტელეფონი არაა', 'Нет телефона', 'No phone')}</p>
-                                </div>
+                                <p className="text-xs font-bold text-primary truncate max-w-[140px]">{student.full_name}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
-
-            {/* ─── Quick Actions Bar ─── */}
-            <div className="bg-card border border-border-subtle rounded-2xl p-3 sm:p-4 mb-4">
-                <div className="flex items-center justify-between gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowAddStudent(true)}
-                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 cursor-pointer shadow-2xs"
-                        >
-                            <UserPlus className="w-4 h-4" />
-                            <span>{t.addStudentShort || 'ახალი სტუდენტი'}</span>
-                        </button>
-                        <Link
-                            href="/attendance"
-                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 shadow-2xs"
-                        >
-                            <CalendarCheck className="w-4 h-4" />
-                            <span>{t.attendance || 'დასწრება'}</span>
-                        </Link>
-                        <button
-                            onClick={() => setShowIssueSub(true)}
-                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 cursor-pointer shadow-2xs"
-                        >
-                            <CreditCard className="w-4 h-4" />
-                            <span>{t.issuePlan || 'აბონემენტი'}</span>
-                        </button>
-                        <Link
-                            href="/shop"
-                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-bold transition-all active:scale-95 flex-shrink-0 shadow-2xs"
-                        >
-                            <ShoppingBag className="w-4 h-4" />
-                            <span>{t.shop || 'მაღაზია'}</span>
-                        </Link>
-                    </div>
-                </div>
-            </div>
 
             {/* ─── Main 2 Windows: Today's Groups + Google Calendar Schedule ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch mb-6">
