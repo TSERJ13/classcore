@@ -129,6 +129,59 @@ export interface StudioSettings {
         '30': number;
         '60': number;
     };
+    // Studio vacation / kill-switch mode (Subscriptions PRD §13): a studio-wide
+    // full break. While `active` and today falls within [startDate, endDate],
+    // subscription-related SMS are suppressed and every active subscription's
+    // effective due date is pushed out by the vacation's length — see
+    // isStudioOnVacation()/getVacationExtensionDays() in settings-store.ts.
+    vacationMode?: {
+        active: boolean;
+        startDate: string;
+        endDate: string;
+    };
+    // Which optional tariff/subscription types this studio offers (Subscriptions
+    // PRD §3: "which types appear depends on the business type chosen at
+    // registration" — this app has no such registration step, so it's a plain
+    // settings toggle instead, matching how the PRD itself describes Individual
+    // lessons specifically: "optional feature, turned on from settings").
+    // Undefined/missing key = enabled, so existing studios see no change.
+    enabledFeatures?: {
+        individualLessons?: boolean;
+        hallRental?: boolean;
+        // Registration Flow PRD §6: "the same logic applies to the 'Personal'
+        // payment style" — mirrors individualLessons/hallRental so choosing
+        // Monthly-only at signup can actually turn this off.
+        personalPlans?: boolean;
+    };
+    // Registration Flow PRD (v1.1) §3-5 — captured once at signup, purely
+    // informational (does not auto-create real groups/halls/branches).
+    businessCategory?: 'arts' | 'sports' | 'education' | 'other';
+    specificType?: string;
+    onboardingMetrics?: {
+        students?: number;
+        groups?: number;
+        teachers?: number;
+        halls?: number;
+        branches?: number;
+    };
+    // Registration Flow PRD §8: new signups get a 14-day Pro trial with an
+    // immediate hard lock at expiry (no grace/overdue window) — see
+    // saas-billing.ts's getBillingState(). Undefined = legacy 30-day trial
+    // with the existing GRACE_DAYS behavior, so existing studios see no change.
+    trialDays?: number;
+    // Registration Flow PRD §9: set on first successful login so the
+    // "Complete your profile" pop-up can fire 2-3 hours later. See
+    // ProfileCompletionPopup + useUser's first-login hook.
+    firstLoginAt?: string;
+    profileCompletedAt?: string;
+    // Placeholder shape only — PRD §9/§10 explicitly defers the exact fields
+    // (payment details, IE status, business data) to a later spec; this is
+    // just somewhere to put whatever the popup collects today.
+    businessProfile?: {
+        isIndividualEntrepreneur?: boolean;
+        taxId?: string;
+        legalAddress?: string;
+    };
     landingContent: {
         heroTitle: string;
         heroSubtitle: string;
@@ -144,6 +197,7 @@ export interface StudioSettings {
             easter: string;
             march_8: string;
             sept_1: string;
+            individual_booking_pending?: string;
         };
         ru: {
             payment?: string;
@@ -154,6 +208,7 @@ export interface StudioSettings {
             easter: string;
             march_8: string;
             sept_1: string;
+            individual_booking_pending?: string;
         };
         en: {
             payment?: string;
@@ -164,6 +219,7 @@ export interface StudioSettings {
             easter: string;
             march_8: string;
             sept_1: string;
+            individual_booking_pending?: string;
         };
     };
     sms_enabled: boolean;
@@ -224,7 +280,18 @@ export interface CalendarEvent {
     reminder_30m?: boolean;
     created_at: string;
     coach?: string;       // legacy fallback teacher name (pre-teacher_id era)
+    // Individual-lesson booking (7B): which purchased credit (SubscriptionInfo.id)
+    // this specific lesson time spends, and whether it's confirmed yet.
+    // 'confirmed' when the teacher created it themselves; 'pending' when a
+    // student/admin created it and the teacher hasn't confirmed; 'cancelled'
+    // reserved for a future cancel-booking action. Absent for every other
+    // event type.
+    sub_id?: string;
     booking_status?: 'pending' | 'confirmed' | 'cancelled';
+    // 7B, open-slot path: a teacher-published availability window with no
+    // student/sub_id attached yet. Consumed (deleted) once someone books it —
+    // see publishOpenSlot()/getOpenSlots() in event-store.ts.
+    is_open_slot?: boolean;
 }
 
 export type UserRole = 'admin' | 'coach' | 'student';
@@ -307,7 +374,7 @@ export interface Group {
 }
 
 // ─── Subscription Plans ────────────────────────────────────────
-export type SubscriptionType = 'group' | 'individual' | 'rental';
+export type SubscriptionType = 'group' | 'personal' | 'individual' | 'rental';
 export type SessionPeriod = 'sessions' | 'monthly' | 'unlimited';
 
 export interface SubscriptionPlan {
@@ -361,7 +428,8 @@ export interface HallRental {
     renter_name: string;
     renter_phone: string;
     renter_email?: string;
-    hall_name?: string;      // if multiple halls
+    hall_id?: string;        // src/lib/hall-store.ts HallData.id — the stable reference
+    hall_name?: string;      // denormalized display copy, kept in sync with hall_id
     rental_type: RentalType;
     start_date: string;
     end_date: string;

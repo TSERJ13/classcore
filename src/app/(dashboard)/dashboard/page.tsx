@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
-import { getUniqueSubscriptions, getEffectiveStatus, type SubscriptionEffectiveStatus } from '@/lib/subscription-store';
+import { getUniqueSubscriptions, getSubscriptionStatusBucket, type SubscriptionEffectiveStatus } from '@/lib/subscription-store';
 import { getSales } from '@/lib/sales-store';
 import Link from 'next/link';
 import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, UserPlus, ChevronLeft, ChevronRight, ShoppingBag, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
@@ -497,7 +497,7 @@ export default function DashboardPage() {
             total: 0,
         };
         allSubsList.forEach(sub => {
-            const status = getEffectiveStatus(sub);
+            const status = getSubscriptionStatusBucket(sub);
             if (status in subStatusCounts) {
                 subStatusCounts[status]++;
             }

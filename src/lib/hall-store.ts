@@ -12,6 +12,11 @@ export interface HallData {
     sq_meters?: number;
     photo_url?: string;
     is_active: boolean;
+    // Individual-lesson conflict rule (Subscriptions PRD §8): how many
+    // individual sessions with DIFFERENT teachers can run in this hall at
+    // the exact same time. Undefined/1 = only one at a time (the default —
+    // most halls aren't big enough for two lessons to share the floor).
+    max_parallel_individual?: number;
 }
 import { loadSettings } from './settings-store';
 

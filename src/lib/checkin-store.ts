@@ -21,7 +21,7 @@ export interface CheckinRecord {
     classId?: string;
     groupId?: string;
     subId?: string;
-    planType?: 'group' | 'individual' | 'rental';
+    planType?: 'group' | 'personal' | 'individual' | 'rental';
 }
 
 function today(): string {
@@ -34,7 +34,7 @@ function nowTime(): string {
 
 // ─── Sessions (Delegated to subscription-store) ──────────────────────────────
 
-export function getSessionsRemaining(studentId: string, groupId?: string, planType?: 'group' | 'individual' | 'rental'): number {
+export function getSessionsRemaining(studentId: string, groupId?: string, planType?: 'group' | 'personal' | 'individual' | 'rental'): number {
     const sub = getSubscription(studentId, groupId, planType);
     if (!sub) return 0;
     if (sub.type === 'monthly') {
@@ -115,7 +115,7 @@ export function recordCheckin(
     groupId?: string,
     subId?: string,
     customDate?: string,
-    planType?: 'group' | 'individual' | 'rental'
+    planType?: 'group' | 'personal' | 'individual' | 'rental'
 ): CheckinResult {
     return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, planType);
 }
@@ -132,7 +132,7 @@ export function forceCheckin(
     groupId?: string,
     subId?: string,
     customDate?: string,
-    planType?: 'group' | 'individual' | 'rental'
+    planType?: 'group' | 'personal' | 'individual' | 'rental'
 ): CheckinResult {
     return _writeCheckin(studentId, studentName, via, classId, groupId, subId, customDate, planType);
 }
@@ -141,7 +141,7 @@ export function forceCheckin(
 export function refundCheckin(
     studentId: string,
     customDate?: string,
-    planType?: 'group' | 'individual' | 'rental',
+    planType?: 'group' | 'personal' | 'individual' | 'rental',
     groupId?: string,
     subId?: string
 ): void {
@@ -332,7 +332,7 @@ function _writeCheckin(
     groupId?: string,
     subId?: string,
     customDate?: string,
-    planType?: 'group' | 'individual' | 'rental'
+    planType?: 'group' | 'personal' | 'individual' | 'rental'
 ): CheckinResult {
     // Only deduct sessions if the student has an active subscription
     const subResult = incrementSessionsUsed(studentId, subId, planType, groupId);
