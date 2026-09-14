@@ -69,9 +69,17 @@ export function getBillingState(slug: string): BillingState {
             saveBillingData(slug, { trialStartDate: trialStart.toISOString() });
         }
 
+        // Registration Flow PRD §8: studios that signed up through the new
+        // 5-step wizard carry an explicit trialDays (14) and get an immediate
+        // hard lock at expiry, no grace window. Studios with no trialDays set
+        // (everyone registered before this) keep the legacy 30-day trial +
+        // GRACE_DAYS behavior unchanged.
+        const isPrecisionTrial = typeof settings.trialDays === 'number';
+        const effectiveTrialDays = isPrecisionTrial ? settings.trialDays : TRIAL_DAYS;
+
         const now = new Date();
         const trialEnd = new Date(trialStart);
-        trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+        trialEnd.setDate(trialEnd.getDate() + effectiveTrialDays);
 
         const lastPaid = settings.lastPaidDate ? new Date(settings.lastPaidDate) : null;
 
@@ -92,15 +100,16 @@ export function getBillingState(slug: string): BillingState {
 
         // No payment — check trial
         const daysInTrial = Math.floor((now.getTime() - trialStart.getTime()) / (1000 * 60 * 60 * 24));
-        const daysLeftInTrial = Math.max(0, TRIAL_DAYS - daysInTrial);
+        const daysLeftInTrial = Math.max(0, effectiveTrialDays - daysInTrial);
 
-        if (daysInTrial < TRIAL_DAYS) {
+        if (daysInTrial < effectiveTrialDays) {
             return { status: 'trial', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial, daysOverdue: 0, nextDueDate: trialEnd.toISOString(), accountBalance: settings.accountBalance || 0, manualBlock };
         }
 
-        // Trial ended, no payment
-        const daysOverdue = daysInTrial - TRIAL_DAYS;
-        if (daysOverdue <= GRACE_DAYS) {
+        // Trial ended, no payment. Precision (14-day) trials lock immediately
+        // per PRD §8 — no fallback tier, no grace window.
+        const daysOverdue = daysInTrial - effectiveTrialDays;
+        if (!isPrecisionTrial && daysOverdue <= GRACE_DAYS) {
             return { status: 'overdue', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial: 0, daysOverdue, nextDueDate: trialEnd.toISOString(), accountBalance: settings.accountBalance || 0, manualBlock };
         }
         return { status: 'suspended', plan, trialStartDate: trialStart.toISOString(), lastPaidDate: null, daysLeftInTrial: 0, daysOverdue, nextDueDate: trialEnd.toISOString(), accountBalance: settings.accountBalance || 0, manualBlock };

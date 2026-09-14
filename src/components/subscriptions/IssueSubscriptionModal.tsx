@@ -462,10 +462,11 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                             <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
 
                              <div className={cn('grid grid-cols-1 gap-6', {
+                                 1: 'md:grid-cols-1',
                                  2: 'md:grid-cols-2',
                                  3: 'md:grid-cols-3',
                                  4: 'md:grid-cols-4',
-                             }[2 + (isFeatureEnabled(settings, 'individualLessons') ? 1 : 0) + (isFeatureEnabled(settings, 'hallRental') ? 1 : 0)])}>
+                             }[1 + (isFeatureEnabled(settings, 'personalPlans') ? 1 : 0) + (isFeatureEnabled(settings, 'individualLessons') ? 1 : 0) + (isFeatureEnabled(settings, 'hallRental') ? 1 : 0)])}>
                                 <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         type="button"
@@ -482,6 +483,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
 
+                                {isFeatureEnabled(settings, 'personalPlans') && (
                                 <div className="flex flex-col border-2 border-sky-500/20 rounded-3xl overflow-hidden bg-card hover:border-sky-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         type="button"
@@ -497,6 +499,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                         </div>
                                     </button>
                                 </div>
+                                )}
 
                                 {isFeatureEnabled(settings, 'individualLessons') && (
                                     <div className="flex flex-col border-2 border-orange-500/20 rounded-3xl overflow-hidden bg-card hover:border-orange-500/40 transition-all group shadow-sm h-full">

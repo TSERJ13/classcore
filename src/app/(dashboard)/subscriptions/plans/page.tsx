@@ -190,6 +190,7 @@ export default function PlansManagementPage() {
             {/* Tabs */}
             <div className="flex w-full h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1">
                 {([['group', t.monthlyShortLabel, Users], ['personal', t.personalClass, Ticket], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const)
+                    .filter(([v]) => v !== 'personal' || isFeatureEnabled(settings, 'personalPlans'))
                     .filter(([v]) => v !== 'individual' || isFeatureEnabled(settings, 'individualLessons'))
                     .filter(([v]) => v !== 'rental' || isFeatureEnabled(settings, 'hallRental'))
                     .map(([v, lbl, Icon]) => (
@@ -302,6 +303,7 @@ export default function PlansManagementPage() {
                             <div className="px-6 py-5 space-y-4">
                                 <div className="grid grid-cols-4 gap-2">
                                     {(['group', 'personal', 'individual', 'rental'] as const)
+                                        .filter(tp => tp !== 'personal' || isFeatureEnabled(settings, 'personalPlans'))
                                         .filter(tp => tp !== 'individual' || isFeatureEnabled(settings, 'individualLessons'))
                                         .filter(tp => tp !== 'rental' || isFeatureEnabled(settings, 'hallRental'))
                                         .map(tp => (
@@ -625,7 +627,7 @@ export default function PlansManagementPage() {
                     <p className="text-sm text-muted mt-1">{t.featureTogglesDesc}</p>
                 </div>
                 <div className="p-6 space-y-3">
-                    {([['individualLessons', t.individualClass, User], ['hallRental', t.rental, Home]] as const).map(([key, label, Icon]) => {
+                    {([['personalPlans', t.personalClass, Ticket], ['individualLessons', t.individualClass, User], ['hallRental', t.rental, Home]] as const).map(([key, label, Icon]) => {
                         const enabled = isFeatureEnabled(settings, key);
                         return (
                             <div key={key} className="flex items-center justify-between p-3 bg-card border border-border-subtle rounded-xl">

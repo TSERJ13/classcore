@@ -495,3 +495,139 @@ Notes:
   conflicting date) — treating a published slot as "reserved" the same way a real booking is felt
   like the more defensible interpretation of "this capacity slot is spoken for" than the alternative
   (letting the same hall/time be double-offered to two different students).
+
+---
+
+## Registration Flow PRD (v1.1) alignment
+
+Source: `classcore_registration_flow_prd.pdf` (v1.1, დამტკიცებული). Same branch
+(`claude/youthful-sagan-efyg4i`). Rewrites `(auth)/registration/page.tsx` from a single-step form
+into the PRD's 5-step wizard, with real inline email+SMS verification (previously: a Supabase
+magic-link email, no phone verification at all) and a 14-day Pro trial with an immediate hard lock
+at expiry (previously: 30-day trial with a 2-day grace/"overdue" window for everyone).
+
+**Architecture decision (asked the user, since it needed either their Supabase dashboard access or
+a build choice I could make alone):** built a fully custom OTP system — a new `registration_otps`
+table plus `/api/auth/otp/send` and `/api/auth/otp/verify` — instead of switching Supabase Auth's
+own "confirm signup" flow to emit a code. The custom route needs zero Supabase email-template
+configuration (which this session can't reach or test — no real Supabase credentials), and reuses
+infrastructure already in the repo (`sendEmail`/SMTP from `send-activation-email`, the GOSMS call
+from `/api/sms/send`, called directly here since that route requires a logged-in session which
+doesn't exist yet mid-registration).
+
+### R1: OTP infrastructure
+
+Status: completed
+
+- `supabase/migrations/20260914_registration_otp.sql` — new `registration_otps` table
+  (`session_token, channel, contact, code_hash, code_salt, attempts, verified_at, expires_at`), RLS
+  enabled with **no policies** (service-role-only access, matching the existing security-hardening
+  migration's posture). **This migration has not been applied to any real database in this
+  session** — no Supabase credentials were available to run it; it needs to be run against the
+  actual project before this flow works end to end.
+- `/api/auth/otp/send`: generates a 6-digit code, hashes it with a random per-row salt (no server
+  secret dependency), emails it via the existing SMTP helper or texts it via a direct GOSMS call.
+  45s resend cooldown per (session, channel); opportunistic cleanup of rows >24h old on every call
+  (no cron exists in this app, so cleanup piggybacks on real traffic instead).
+- `/api/auth/otp/verify`: checks the latest row for (session, channel), 10-minute expiry, 5-attempt
+  cap, marks `verified_at` on match.
+
+### R2: 5-step registration wizard UI
+
+Status: completed
+
+Rewrote `src/app/(auth)/registration/page.tsx` as the PRD's 5 steps (no progress persisted between
+them — an abandoned form restarts from step 1 on return, per PRD §2): business category (4 tiles,
+context-only) → free-text specific type → studio name + 5 numeric estimates (students/groups/
+teachers/halls/branches, +/- steppers) → service config (lesson type + payment style, button
+groups) → account creation with inline email+SMS verification, password, and a Terms/Privacy
+checkbox now linking to the real `/terms` and `/privacy` pages (previously plain text).
+
+Account creation flow changed: the client no longer calls `supabase.auth.signUp()` directly.
+`register-studio/route.ts` was rewritten to (1) re-verify both OTP rows server-side match the
+submitted email/phone exactly — so a client can't skip verification or swap in an unverified contact
+at the last second — then (2) create the Supabase user via `admin.createUser({ email_confirm: true,
+... })` (pre-confirmed, since we already verified both channels ourselves), then (3) upsert the
+`studios`/`profiles` rows as before. The client then calls `signInWithPassword()` itself to get a
+real session, and seeds the localStorage settings blob (same "scorched earth" + `initialSettings`
+pattern the old flow used) with the new fields from steps 1-4.
+
+### R3: Step-4 answers → enabledFeatures + studio metrics
+
+Status: completed
+
+- Studio metrics (students/groups/teachers/halls/branches) are stored as
+  `StudioSettings.onboardingMetrics` — informational only, exactly per PRD §5: does **not**
+  auto-create real groups/halls/branches anywhere.
+- Lesson type "Individual"/"Both" → `enabledFeatures.individualLessons = true`, same toggle Phase 9
+  already built for the Tariffs/Subscriptions PRDs.
+- **New toggle added**: `enabledFeatures.personalPlans`. The PRD explicitly says payment style
+  "Personal"/"Both" should have "the same [critical system] effect" as the lesson-type answer — but
+  no such toggle existed, because Phase 2 built Personal tariffs as an always-on core split (not an
+  optional feature like Individual/Rental). Added `personalPlans` mirroring the existing
+  `individualLessons`/`hallRental` shape (undefined = enabled, so existing studios see no change),
+  and wired it into the same 4 spots those two already gate: the Tariffs page's tab row + in-modal
+  type grid, and `IssueSubscriptionModal.tsx`'s type-selection tiles + column-count calculation.
+  New studios get explicit `true`/`false` for both toggles based on their actual step-4 answers
+  (not left `undefined`) — the PRD's whole point is that the registration answer *is* the initial
+  configuration.
+
+### R4: 14-day Pro trial for new studios
+
+Status: completed
+
+**Scope decision (asked the user):** only studios registered through this new wizard get the 14-day
+trial with an immediate hard lock; every studio that already exists keeps the current 30-day trial
+with its existing 2-day grace window, unchanged.
+
+- `StudioSettings.trialDays?: number` — set to `14` only by the new registration flow;
+  undefined for every existing studio.
+- `saas-billing.ts`'s `getBillingState()`: reads `settings.trialDays` (falls back to the existing
+  `TRIAL_DAYS=30` constant when unset) as `effectiveTrialDays`. When `trialDays` **is** explicitly
+  set (a "precision trial"), the trial-expiry branch skips the `overdue`/`GRACE_DAYS` step entirely
+  and goes straight to `suspended` — per PRD §8's "access is restricted immediately... does not fall
+  back to any limited free tier." The renewal-payment `overdue` grace period (a different scenario —
+  someone who already paid once and missed a renewal) is untouched for everyone.
+- `KillSwitchGate.tsx` already gates on `billing.status`, so this reaches real access-blocking
+  without any changes there.
+- "Full Pro access during trial": checked every `plan === 'pro'` gate in the app (only 2 exist,
+  both cosmetic billing-banner conditions, not feature gates) — nothing actually restricts trial
+  studios today, so no code change was needed for this part; it's already true.
+
+### R5: "Complete your profile" pop-up mechanism
+
+Status: completed
+
+Built only the mechanism, per PRD §9/§10's own note that the exact fields are still TBD:
+- `StudioSettings.firstLoginAt` — stamped at the moment the new registration flow's own
+  `signInWithPassword()` succeeds (that *is* the first successful login for a wizard signup).
+  Existing studios never get this field, so the popup mechanism is inert for them.
+- `src/components/ProfileCompletionPopup.tsx` — polls every 5 minutes while mounted; shows once
+  `Date.now() - firstLoginAt >= 2.5h` (PRD says "2-3 hours") and `profileCompletedAt` is still unset,
+  owner role only. Placeholder fields (IE status toggle, tax ID, legal address) go into
+  `StudioSettings.businessProfile` — explicitly a placeholder shape, since PRD §10 defers the real
+  field list. "Later" snoozes for the current session only (component-local state); "Save" sets
+  `profileCompletedAt` and the popup never shows again.
+- Mounted in `(dashboard)/layout.tsx` next to `GlobalRFIDScanner`, inside `MobileMenuProvider`, so it
+  applies across every dashboard page rather than just `/dashboard`.
+
+### Not done / explicitly out of scope (per the PRD's own §10 table)
+
+- Exact fields for the "Complete your profile" pop-up — PRD defers this.
+- Hall rental inside the registration flow — PRD explicitly excludes it from this version.
+- A "space owner" independent account type — PRD marks this as a future update.
+- Terms/Privacy page's *menu* placement — the pages (`/terms`, `/privacy`) and the mandatory
+  checkbox both already exist; only where they're linked from the app's menu is still open, per PRD.
+
+### Deployment note
+
+**The `registration_otps` migration has not been run against any real database from this session**
+— there were no Supabase credentials available to apply it or to smoke-test the OTP send/verify
+round-trip end to end. Before this flow can work in a real environment: (1) run
+`supabase/migrations/20260914_registration_otp.sql` against the project, (2) confirm `SMTP_HOST` /
+`SMTP_USER` / `SMTP_PASS` and `GOSMS_API_KEY` / `NEXT_PUBLIC_GOSMS_SENDER_ID` are set (both are
+pre-existing env vars this flow reuses, not new ones), (3) manually walk through the wizard once in
+a real environment to confirm the email/SMS codes actually arrive.
+
+Verified in this session: `tsc --noEmit` clean and `next lint` clean on every new/changed file
+across R1-R5.

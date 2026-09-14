@@ -148,6 +148,39 @@ export interface StudioSettings {
     enabledFeatures?: {
         individualLessons?: boolean;
         hallRental?: boolean;
+        // Registration Flow PRD §6: "the same logic applies to the 'Personal'
+        // payment style" — mirrors individualLessons/hallRental so choosing
+        // Monthly-only at signup can actually turn this off.
+        personalPlans?: boolean;
+    };
+    // Registration Flow PRD (v1.1) §3-5 — captured once at signup, purely
+    // informational (does not auto-create real groups/halls/branches).
+    businessCategory?: 'arts' | 'sports' | 'education' | 'other';
+    specificType?: string;
+    onboardingMetrics?: {
+        students?: number;
+        groups?: number;
+        teachers?: number;
+        halls?: number;
+        branches?: number;
+    };
+    // Registration Flow PRD §8: new signups get a 14-day Pro trial with an
+    // immediate hard lock at expiry (no grace/overdue window) — see
+    // saas-billing.ts's getBillingState(). Undefined = legacy 30-day trial
+    // with the existing GRACE_DAYS behavior, so existing studios see no change.
+    trialDays?: number;
+    // Registration Flow PRD §9: set on first successful login so the
+    // "Complete your profile" pop-up can fire 2-3 hours later. See
+    // ProfileCompletionPopup + useUser's first-login hook.
+    firstLoginAt?: string;
+    profileCompletedAt?: string;
+    // Placeholder shape only — PRD §9/§10 explicitly defers the exact fields
+    // (payment details, IE status, business data) to a later spec; this is
+    // just somewhere to put whatever the popup collects today.
+    businessProfile?: {
+        isIndividualEntrepreneur?: boolean;
+        taxId?: string;
+        legalAddress?: string;
     };
     landingContent: {
         heroTitle: string;
