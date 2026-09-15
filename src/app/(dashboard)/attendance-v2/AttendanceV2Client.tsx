@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { useAttendancePageQuery, useAttendanceDailyCountsQuery } from '@/hooks/useAttendanceQuery';
+import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+    useAttendancePageQuery, useAttendanceDailyCountsQuery,
+    useStudentSubscriptionsQuery, useMarkAttendanceMutation,
+} from '@/hooks/useAttendanceQuery';
 
 const PAGE_SIZE = 20;
 
@@ -13,6 +16,68 @@ function defaultRange() {
     const from = new Date();
     from.setDate(from.getDate() - 29);
     return { dateFrom: toISODate(from), dateTo: toISODate(to) };
+}
+
+function MarkAttendancePanel() {
+    const [studentId, setStudentId] = useState('');
+    const [subscriptionId, setSubscriptionId] = useState<string>('');
+    const [result, setResult] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+    const { data: subs, isLoading: subsLoading } = useStudentSubscriptionsQuery(studentId);
+    const markAttendance = useMarkAttendanceMutation();
+
+    async function handleMark() {
+        setResult(null);
+        setErrorMsg(null);
+        try {
+            const res = await markAttendance.mutateAsync({ studentId, subscriptionId: subscriptionId || undefined, status: 'present' });
+            setResult(
+                res.sessionsUsed !== null
+                    ? `Marked. Session deducted atomically: ${res.sessionsUsed}${res.sessionsTotal !== null ? ` / ${res.sessionsTotal}` : ''} used.`
+                    : 'Marked (no subscription charged — drop-in).'
+            );
+        } catch (err) {
+            setErrorMsg(err instanceof Error ? err.message : 'Failed to mark attendance');
+        }
+    }
+
+    return (
+        <div className="bg-card border border-border-subtle rounded-2xl p-4 space-y-3">
+            <p className="text-[10px] font-black text-muted uppercase tracking-widest">
+                Mark attendance — atomic session deduction (Phase 3)
+            </p>
+            <p className="text-xs text-muted">
+                Paste a student id from the row list below. If they have an active subscription, marking
+                attendance deducts one session in the same Postgres transaction as the attendance insert —
+                both succeed or both roll back (see `mark_attendance_and_deduct_session` /
+                20260915_mark_attendance_atomic.sql).
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+                <input value={studentId} onChange={e => { setStudentId(e.target.value); setSubscriptionId(''); setResult(null); setErrorMsg(null); }}
+                    placeholder="student id" className="flex-1 h-10 px-3 bg-surface border border-border-subtle rounded-xl text-sm outline-none" />
+                <select value={subscriptionId} onChange={e => setSubscriptionId(e.target.value)} disabled={subsLoading || !subs?.length}
+                    className="h-10 px-3 bg-surface border border-border-subtle rounded-xl text-sm outline-none disabled:opacity-50">
+                    <option value="">No subscription (drop-in)</option>
+                    {subs?.map(s => (
+                        <option key={s.id} value={s.id}>
+                            {s.plan} — {s.sessions_used}{s.sessions_total !== null ? `/${s.sessions_total}` : ' (unlimited)'} used
+                        </option>
+                    ))}
+                </select>
+                <button onClick={handleMark} disabled={!studentId || markAttendance.isPending}
+                    className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-40">
+                    {markAttendance.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Mark present'}
+                </button>
+            </div>
+            {result && (
+                <p className="text-xs text-emerald-600 font-bold flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> {result}</p>
+            )}
+            {errorMsg && (
+                <p className="text-xs text-red-500 font-bold flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> {errorMsg}</p>
+            )}
+        </div>
+    );
 }
 
 export default function AttendanceV2Client() {
@@ -29,8 +94,10 @@ export default function AttendanceV2Client() {
         <div className="max-w-4xl mx-auto space-y-4">
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-xs font-bold text-amber-600">
                 Pilot module — server-aggregated attendance history (see docs/architecture-migration.md).
-                Not linked from navigation; marking attendance still happens on /attendance.
+                Not linked from navigation; the real /attendance still marks attendance its own way too.
             </div>
+
+            <MarkAttendancePanel />
 
             <div className="flex items-center gap-3">
                 <label className="text-xs font-bold text-muted">From</label>

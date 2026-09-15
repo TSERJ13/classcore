@@ -1,7 +1,13 @@
 # ClassCore Architecture Migration — Server-Driven Roadmap
 
-Status: **Phase 0 (RLS gap-fill) + Phase 1 (Attendance) + the Students pattern
-pilot are built.** None of this is linked into the live app yet — see §6.
+Status: **Phases 0-3 are all built** (RLS gap-fill, Attendance history +
+daily-count RPC, Students full CRUD, atomic attendance-marking + subscription
+deduction). All three new migrations from Phases 0-1 have been applied to the
+real Frankfurt Supabase project and the branch has been merged + deployed to
+`rebrendig`/`rebranding` — see §6. The Phase 3 migration
+(`20260915_mark_attendance_atomic.sql`) has **not** been applied yet and still
+needs the same SQL Editor step. None of `/students-v2` or `/attendance-v2` is
+linked into the live app's navigation.
 Branch: `claude/youthful-sagan-efyg4i`.
 
 This responds to the "Fat Client / 85% Frontend" critique with an actual audit of
@@ -99,8 +105,8 @@ transition. Recommended real order:
 |---|---|---|---|
 | 0 | **RLS gap-fill** — every remaining core table | ✅ built (`20260915_phase0_rls_gapfill.sql`, dynamic per-table so it skips anything not present) | Pure database migrations, zero app code changes, zero behavior change (service-role path is untouched and still works) — closes the actual security hole immediately, independent of everything else. |
 | 1 | **Attendance history (read-only)** | ✅ built (`src/app/actions/attendance.ts`, `/attendance-v2`, `attendance_daily_counts` RPC) | Read-heavy, append-only, no writes to migrate, nothing else depends on its output — the safest possible place to prove the Server Action + TanStack Query pattern against real data volume (this is where the "30,000 attendance rows" problem actually lives). Daily counts now come from one grouped Postgres query, not a client-side reduce. |
-| 2 | **Students (this pilot's code pattern)** | ✅ pattern built (`/students-v2`), not yet feature-complete | Migrate the module the pattern was built against, now that Phase 1 has proven the pattern against real read volume. Both `/students` and `/students-v2` run side by side — cut over the nav link only once `/students-v2` has parity (sort, edit, photo upload, group enrollment) and has been used in production for a real billing cycle. |
-| 3 | **Subscriptions & attendance-marking (the atomic-transaction case)** | not started | This is where "deduct a session atomically" actually matters — do it last, once the Server Action + RLS pattern is proven on two lower-stakes modules, since a bug here directly costs a studio money or a student a lesson. |
+| 2 | **Students (this pilot's code pattern)** | ✅ full CRUD built: edit, soft-delete-to-trash, group enrollment (`/students-v2`). Photo upload still deferred (needs Storage bucket policies — separate scope, not skipped by accident) | Migrate the module the pattern was built against, now that Phase 1 proved the pattern against real read volume. Both `/students` and `/students-v2` run side by side — cut over the nav link only once photo upload lands and `/students-v2` has been used in production for a real billing cycle. |
+| 3 | **Attendance-marking + subscription deduction (the atomic-transaction case)** | ✅ built: `mark_attendance_and_deduct_session` RPC + `markAttendanceAction`, demoed on `/attendance-v2` | This is where "deduct a session atomically" actually matters. Built last, after the Server Action + RLS pattern was proven on two lower-stakes modules, since a bug here directly costs a studio money or a student a lesson. |
 
 **One finding from writing Phase 0:** the 20260415 hardening migration's
 policies sit on tables named `groups_classes` and `attendance_logs`, but the
@@ -163,40 +169,81 @@ if skipped).
   debounced search, an "add student" form using the mutation. **Not linked from
   the sidebar** — reachable only by direct URL, for review before it goes live.
 
+**Schema correction made while building this:** the first Students pass
+guessed that `parent_name`, `notes`, and `status` were top-level `students`
+columns. `student-store.ts` already carries a comment describing a real
+production bug from that exact assumption for `birth_date`
+(`PGRST204: Could not find the 'birth_date' column`) — the live table only
+has `id, org_id, first_name, last_name, full_name, phone, email` as real
+columns, everything else lives in the `data` JSONB column. Fixed to match:
+`getStudentsPage`/`createStudentAction`/`updateStudentAction` now read/write
+those three fields inside `data`, merging rather than overwriting so fields
+this pilot doesn't know about (e.g. `birth_date`) survive an edit.
+
+**Phase 2 additions — Students full CRUD:**
+- `updateStudentAction`, `deleteStudentAction` (soft-delete to `trash`,
+  mirroring legacy `deleteStudent()`'s behavior instead of hard-deleting),
+  `getGroupsForOrg`, `updateStudentGroupsAction` — all in
+  `src/app/actions/students.ts`.
+- `/students-v2` UI: inline edit, delete-with-confirm, and toggleable group
+  chips per student.
+- **Explicitly not built:** photo upload. That needs a Supabase Storage
+  bucket + its own access policy, which is a different kind of change than
+  everything else here (no bucket exists to point at yet) — flagged rather
+  than half-built.
+
+**Phase 3 additions — atomic attendance-marking:**
+- `supabase/migrations/20260915_mark_attendance_atomic.sql` —
+  `mark_attendance_and_deduct_session(student_id, group_id, subscription_id,
+  status, notes)`, a single Postgres function that locks the subscription
+  row (`FOR UPDATE`), checks it's active and has sessions left, deducts one,
+  and inserts the attendance row — all as one transaction. Any failure
+  (inactive subscription, zero sessions left) rolls back the whole thing,
+  including the attendance insert, instead of leaving a "checked in but not
+  charged" row.
+- `markAttendanceAction` + `getActiveSubscriptionsForStudent`
+  (`src/app/actions/attendance.ts`), demoed on `/attendance-v2` via a "mark
+  attendance" panel that shows the subscription's live session count and
+  surfaces the RPC's error text directly (e.g. "No sessions remaining on
+  this subscription") when it refuses.
+
 New dependencies added: `zod`, `@tanstack/react-query` (neither existed in
 `package.json` before this pass).
 
 ---
 
-## 5. Week 1 execution plan
+## 5. Status vs. this doc's original Week 1 plan
 
-**Steps 4-5 below (Phase 0's remaining tables, Phase 1's target module) are
-already done** — see §4. What's left is applying and proving them:
+All of Phases 0-3 from §3 are now built (code + migrations). What's left is
+applying/proving them, not writing more of them:
 
-1. **Apply all three new migrations** via the Supabase SQL Editor, in this
-   order: `20260915_students_rls_pilot.sql`, `20260915_phase0_rls_gapfill.sql`,
-   `20260915_attendance_stats_rpc.sql`. Confirm existing pages (`/students`,
-   `/attendance`, `/api/sync/state`) still work unchanged afterward — they
-   should, since they use the service-role client, which RLS never touches.
-2. **Visit `/students-v2` and `/attendance-v2` on a real logged-in session**
-   and confirm both actually return rows for that studio and *only* that
-   studio. This is the concrete test that RLS + Server Actions are working,
-   not just compiling.
-3. **Pick 2-3 real studios' worth of test data** (or one studio with several
-   hundred students / thousands of attendance rows, if one exists) to
-   sanity-check pagination and the daily-count RPC's performance before
-   treating either pattern as proven at real scale.
-4. ~~Write the Phase-0 RLS migrations for the remaining uncovered tables~~ —
-   done (`20260915_phase0_rls_gapfill.sql`). Reconcile the
-   `groups`/`groups_classes` and `attendance`/`attendance_logs` naming split
-   noted in §3 with whoever has direct database access.
-5. ~~Decide Phase 1's target~~ — done (attendance history + the daily-count RPC).
-6. Once steps 1-3 hold up under real usage, start wiring `/students-v2` and
-   `/attendance-v2` toward feature parity with their `/students` and
-   `/attendance` counterparts (photo upload, group enrollment editing, bulk
-   import, marking attendance itself as a Server Action) as Phase 2.
-7. Phase 3 (Subscriptions + atomic session deduction) is still un-scaffolded
-   by design — see §3's reasoning for doing it last.
+1. ~~Apply `20260915_students_rls_pilot.sql` / `_phase0_rls_gapfill.sql` /
+   `_attendance_stats_rpc.sql`~~ — **done**, confirmed applied to the real
+   Frankfurt Supabase project (per the message this doc was updated from).
+2. **`20260915_mark_attendance_atomic.sql` still needs to be applied** the
+   same way (Supabase SQL Editor) — it wasn't part of the earlier batch.
+3. **Visit `/students-v2` and `/attendance-v2` on a real logged-in session**
+   and confirm both return rows for that studio and *only* that studio —
+   the concrete test that RLS + Server Actions work, not just compile.
+   Specifically exercise: editing a student, deleting one (check it lands in
+   `trash`), toggling group membership, and marking attendance against a
+   subscription twice in a row to confirm the second call correctly refuses
+   once sessions are exhausted.
+4. **Pick 2-3 real studios' worth of test data** to sanity-check pagination
+   and the daily-count RPC's performance at real scale.
+5. Reconcile the `groups`/`groups_classes` and `attendance`/`attendance_logs`
+   naming split noted in §3 with whoever has direct database access.
+6. Photo upload for Students (needs a Storage bucket + policy) is the one
+   piece of Phase 2 still open before `/students-v2` could realistically
+   replace `/students`.
+
+## 6. Deployment status
+
+This branch (`claude/youthful-sagan-efyg4i`) has been merged into the team's
+`rebrendig`/`rebranding` branches, built with `npm run build` (0 errors), and
+deployed to `classcore-rebrendig.vercel.app`. `/students-v2` and
+`/attendance-v2` are live there but unlinked from navigation, as designed —
+visiting them directly is how to do the verification in §5 step 3.
 
 Everything in §4 was verified with `tsc --noEmit` (clean) and `next lint`
 (clean) before being written up here.
