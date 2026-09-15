@@ -205,6 +205,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         document.cookie = "cc_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         document.cookie = "cc_active_slug=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         
+        if (typeof window !== 'undefined') {
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('cc_') && !key.includes('lang')) {
+                    localStorage.removeItem(key);
+                }
+            });
+        }
+        
         window.location.href = '/login';
     };
 

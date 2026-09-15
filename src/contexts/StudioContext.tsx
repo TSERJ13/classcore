@@ -78,20 +78,29 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             }
         }
 
-        let activeSlug = getActiveSlug() || defaultSlug || profile?.studio_slug || settings.studioSlug;
+        // 🔒 AUTH IDENTITY FIRST:
+        // When a user is logged in, their account's studio is the sovereign source of truth!
+        // Stale localStorage from previous accounts/registrations on this device must NEVER hijack the session.
+        const authUserSlug = (user as any)?.user_metadata?.studio_slug || profile?.studio_slug;
+        const staffSlug = typeof window !== 'undefined' ? (() => {
+            try { return JSON.parse(localStorage.getItem('cc_staff_session') || '{}')?.slug; } catch { return undefined; }
+        })() : undefined;
+
+        // Path slug has priority ONLY if it's explicitly a studio route like /[studio]/dashboard
+        const pathFirst = typeof window !== 'undefined' ? window.location.pathname.split('/')[1]?.toLowerCase() : null;
+        const excludedPaths = ['dashboard', 'auth', 'admin', 'login', 'superadmin', 'settings', 'billing', 'analytics', 'history', 'attendance', 'students', 'teachers', 'halls', 'groups', 'calendar', 'shop', 'sms-manager', 'subscriptions', 'trash', 'sa-login', 'sa-admin', 'registration', 'forgot-password', 'reset-password', 'checkin', 'nfc-checkin', 'privacy', 'terms', 'terms-and-conditions', '_next', 'api'];
+        const isExplicitStudioRoute = pathFirst && !excludedPaths.includes(pathFirst);
+
+        let activeSlug = (isExplicitStudioRoute ? pathFirst : null) || authUserSlug || staffSlug || defaultSlug || getActiveSlug() || settings.studioSlug;
+
+        // 🛡️ Auto-correct stale localStorage if it conflicts with authenticated user
+        if (authUserSlug && typeof window !== 'undefined' && localStorage.getItem('cc_active_studio_slug') !== authUserSlug) {
+            console.log(`🔒 [StudioContext] Correcting cc_active_studio_slug from '${localStorage.getItem('cc_active_studio_slug')}' to authenticated user slug: '${authUserSlug}'`);
+            localStorage.setItem('cc_active_studio_slug', authUserSlug);
+        }
         
         // 🔒 AUTH CHECK: Wait for user if we don't have a slug yet
         if (userLoading && !activeSlug) return;
-
-        // 🛡️ RECOVERY: If no slug found, try to recover from profile or identity
-        if (!activeSlug || ["auth", "login", "superadmin", "subscriptions", "settings", "dashboard"].includes(activeSlug)) {
-             if (profile && profile.studio_slug) {
-                 activeSlug = profile.studio_slug;
-             } else if (user && !userLoading) {
-                 const identitySlug = (user as any).user_metadata?.studio_slug;
-                 if (identitySlug) activeSlug = identitySlug;
-             }
-        }
 
         if (!activeSlug && !userLoading) {
             console.warn('⚠️ [StudioContext] No slug resolved.');
@@ -824,15 +833,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
 
     useEffect(() => {
         const currentUserId = user?.id || null;
-        const currentSlug = profile?.studio_slug || null;
+        const currentSlug = (user as any)?.user_metadata?.studio_slug || profile?.studio_slug || null;
 
         if (currentUserId !== lastUserRef.current || currentSlug !== lastSlugRef.current) {
-            console.log('🚀 [ClassCore] System Initializing (v1.1.10)...');
+            console.log('🚀 [ClassCore] System Initializing with user slug:', currentSlug);
             lastUserRef.current = currentUserId;
             lastSlugRef.current = currentSlug;
+            if (currentSlug && typeof window !== 'undefined') {
+                localStorage.setItem('cc_active_studio_slug', currentSlug);
+            }
             hydrate();
         }
-    }, [user?.id, profile?.studio_slug, hydrate]);
+    }, [user?.id, (user as any)?.user_metadata?.studio_slug, profile?.studio_slug, hydrate]);
 
     // 🛡️ SAFETY FALLBACK: Ensure isLoaded becomes true within 3s no matter what
     useEffect(() => {

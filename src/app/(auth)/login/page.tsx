@@ -108,6 +108,23 @@ export default function LoginPage() {
 
                 if (!signedInUser) throw new Error('USER_NOT_FOUND');
 
+                const userSlug = signedInUser?.user_metadata?.studio_slug;
+                const userOrgId = signedInUser?.user_metadata?.org_id;
+                const userStudioName = signedInUser?.user_metadata?.studio_name;
+
+                if (typeof window !== 'undefined' && userSlug) {
+                    // 🛡️ MULTI-TENANT ISOLATION: Purge stale caches from any previous studio
+                    Object.keys(localStorage).forEach(k => {
+                        if (k.startsWith('cc_') && !k.includes('lang')) {
+                            localStorage.removeItem(k);
+                        }
+                    });
+                    localStorage.setItem('cc_active_studio_slug', userSlug);
+                    if (userOrgId) localStorage.setItem(`cc_org_id_override_${userSlug}`, userOrgId);
+                    if (userStudioName) localStorage.setItem('cc_active_studio_name', userStudioName);
+                    document.cookie = `cc_active_slug=${userSlug}; path=/; max-age=31536000; SameSite=Lax`;
+                }
+
                 setLoginStatus(l('შესვლა...', 'Вход...', 'Logging in...'));
                 setIsSuccess(true);
                 const isSuperAdmin = isSuperAdminEmail(signedInUser?.email);
@@ -121,9 +138,14 @@ export default function LoginPage() {
                 }
 
                 setTimeout(() => {
-                    // Default fallback if somehow staffResult didn't trigger
-                    window.location.href = isSuperAdmin ? '/superadmin' : '/dashboard';
-                }, 2000);
+                    if (isSuperAdmin) {
+                        window.location.href = '/superadmin';
+                    } else if (userSlug) {
+                        window.location.href = `/${userSlug}/dashboard`;
+                    } else {
+                        window.location.href = '/dashboard';
+                    }
+                }, 1500);
             })();
 
             await Promise.race([loginTask, timeoutPromise]);
