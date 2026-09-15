@@ -1,6 +1,7 @@
 # ClassCore Architecture Migration — Server-Driven Roadmap
 
-Status: **analysis + first pilot module built**, not yet linked into the live app.
+Status: **Phase 0 (RLS gap-fill) + Phase 1 (Attendance) + the Students pattern
+pilot are built.** None of this is linked into the live app yet — see §6.
 Branch: `claude/youthful-sagan-efyg4i`.
 
 This responds to the "Fat Client / 85% Frontend" critique with an actual audit of
@@ -94,12 +95,20 @@ Registration, Dashboard) reads from `student-store.ts`/`StudioContext` — cutti
 it over first maximizes blast radius for the riskiest, least-tested part of the
 transition. Recommended real order:
 
-| Phase | Module | Why this position |
-|---|---|---|
-| 0 | **RLS gap-fill** (`students` now; `staff`, `branches`, `halls`, `calendar_events`, `sales`, `expenses`, `products` next) | Pure database migrations, zero app code changes, zero behavior change (service-role path is untouched and still works) — closes the actual security hole immediately, independent of everything else. |
-| 1 | **Analytics / attendance history (read-only)** | Read-heavy, append-only, no writes to migrate, nothing else depends on its output — the safest possible place to prove the Server Action + TanStack Query pattern against real data volume (this is where the "30,000 attendance rows" problem actually lives). |
-| 2 | **Students (this pilot's code pattern)** | Now migrate the module the pattern was built against, once Phase 1 has proven the pattern under load. Both the old `/students` and new `/students-v2` (built here) can run side by side — cut over the nav link only once `/students-v2` has parity (search, sort, edit, photo upload, group enrollment) and has been used in production for a real billing cycle. |
-| 3 | **Subscriptions & attendance-marking (the atomic-transaction case)** | This is where "deduct a session atomically" actually matters — do it last, once the Server Action + RLS pattern is proven on two lower-stakes modules, since a bug here directly costs a studio money or a student a lesson. |
+| Phase | Module | Status | Why this position |
+|---|---|---|---|
+| 0 | **RLS gap-fill** — every remaining core table | ✅ built (`20260915_phase0_rls_gapfill.sql`, dynamic per-table so it skips anything not present) | Pure database migrations, zero app code changes, zero behavior change (service-role path is untouched and still works) — closes the actual security hole immediately, independent of everything else. |
+| 1 | **Attendance history (read-only)** | ✅ built (`src/app/actions/attendance.ts`, `/attendance-v2`, `attendance_daily_counts` RPC) | Read-heavy, append-only, no writes to migrate, nothing else depends on its output — the safest possible place to prove the Server Action + TanStack Query pattern against real data volume (this is where the "30,000 attendance rows" problem actually lives). Daily counts now come from one grouped Postgres query, not a client-side reduce. |
+| 2 | **Students (this pilot's code pattern)** | ✅ pattern built (`/students-v2`), not yet feature-complete | Migrate the module the pattern was built against, now that Phase 1 has proven the pattern against real read volume. Both `/students` and `/students-v2` run side by side — cut over the nav link only once `/students-v2` has parity (sort, edit, photo upload, group enrollment) and has been used in production for a real billing cycle. |
+| 3 | **Subscriptions & attendance-marking (the atomic-transaction case)** | not started | This is where "deduct a session atomically" actually matters — do it last, once the Server Action + RLS pattern is proven on two lower-stakes modules, since a bug here directly costs a studio money or a student a lesson. |
+
+**One finding from writing Phase 0:** the 20260415 hardening migration's
+policies sit on tables named `groups_classes` and `attendance_logs`, but the
+live sync routes (`/api/sync/state`, `/api/sync/bulk`) query tables named
+`groups` and `attendance` — different names. Phase 0's migration targets the
+names the app actually queries, so `groups`/`attendance` are covered
+regardless of what the other two turn out to be, but this naming split is
+worth reconciling with whoever has direct database access.
 
 **How old and new run side by side during the transition (the brief's actual
 question):** every migrated module gets its own route (`/students-v2` here) and
@@ -112,11 +121,34 @@ by reverting that one link if the new page misbehaves.
 
 ## 4. What's built in this pass (real, working, additive — nothing removed)
 
-- `supabase/migrations/20260915_students_rls_pilot.sql` — RLS for `students`
-  (Phase 0, this table only). **Not yet applied to any real database** — same
-  constraint as the registration-flow migration: no Supabase credentials in
-  this session. Needs to be run via the Supabase SQL Editor before `/students-v2`
-  can return any rows (RLS with no matching policy returns nothing, not an error).
+**Phase 0 — RLS gap-fill:**
+- `supabase/migrations/20260915_students_rls_pilot.sql` — RLS for `students`.
+- `supabase/migrations/20260915_phase0_rls_gapfill.sql` — RLS for every other
+  core table the sync routes touch: `staff`, `groups`, `branches`, `halls`,
+  `studio_settings`, `attendance`, `sales`, `expenses`, `trash`,
+  `calendar_events`, `subscription_plans`, `products`. Written defensively
+  (checks `information_schema` before touching a table/column) since this
+  session has no way to confirm the live schema first.
+
+**Neither migration above has been applied to any real database** — same
+constraint as the registration-flow migration: no Supabase credentials in
+this session. Both need to be run via the Supabase SQL Editor before
+`/students-v2` or `/attendance-v2` can return any rows (RLS with no matching
+policy returns nothing, not an error — so this fails silently, not loudly,
+if skipped).
+
+**Phase 1 — Attendance (read-only pilot):**
+- `supabase/migrations/20260915_attendance_stats_rpc.sql` — `attendance_daily_counts(date, date)`,
+  a `SECURITY DEFINER` Postgres function that re-checks the caller's own
+  org membership and returns one grouped count per day — the "index in the
+  database at 0.01s" the brief asked for, instead of fetching every row.
+- `src/app/actions/attendance.ts` — `getAttendancePage()` (paginated, date-range
+  + student filter) and `getAttendanceDailyCounts()` (calls the RPC above).
+- `src/hooks/useAttendanceQuery.ts`, `src/app/(dashboard)/attendance-v2/` — the
+  demo page: a date-range picker, a daily bar chart driven entirely by the
+  RPC's output, and the paginated row list. **Not linked from the sidebar.**
+
+**Students pattern pilot (built previously, unchanged this pass):**
 - `src/app/actions/students.ts` — `getStudentsPage()` (paginated + searched read)
   and `createStudentAction()` (Zod-validated insert), both running through the
   SSR/RLS client, no service role, no manual org_id filter on the read (RLS
@@ -124,8 +156,9 @@ by reverting that one link if the new page misbehaves.
 - `src/hooks/useStudentsQuery.ts` — `useStudentsQuery` / `useCreateStudentMutation`,
   calling the Server Actions directly as TanStack Query's fetcher/mutator.
 - `src/components/providers/QueryProvider.tsx` — a `QueryClientProvider` scoped
-  to just this pilot page, not the root layout (so zero risk to any existing
-  page — nothing else instantiates a `QueryClient` yet).
+  to just these pilot pages, not the root layout (so zero risk to any existing
+  page — nothing else instantiates a `QueryClient` yet; both `/students-v2` and
+  `/attendance-v2` reuse this same provider component).
 - `src/app/(dashboard)/students-v2/` — the demo page: server-paginated list,
   debounced search, an "add student" form using the mutation. **Not linked from
   the sidebar** — reachable only by direct URL, for review before it goes live.
@@ -137,26 +170,33 @@ New dependencies added: `zod`, `@tanstack/react-query` (neither existed in
 
 ## 5. Week 1 execution plan
 
-1. **Apply `20260915_students_rls_pilot.sql`** via the Supabase SQL Editor
-   (same process as the registration-flow OTP migration). Confirm existing
-   pages (`/students`, `/api/sync/state`) still work unchanged afterward — they
+**Steps 4-5 below (Phase 0's remaining tables, Phase 1's target module) are
+already done** — see §4. What's left is applying and proving them:
+
+1. **Apply all three new migrations** via the Supabase SQL Editor, in this
+   order: `20260915_students_rls_pilot.sql`, `20260915_phase0_rls_gapfill.sql`,
+   `20260915_attendance_stats_rpc.sql`. Confirm existing pages (`/students`,
+   `/attendance`, `/api/sync/state`) still work unchanged afterward — they
    should, since they use the service-role client, which RLS never touches.
-2. **Visit `/students-v2` on a real logged-in session** and confirm the
-   paginated list actually returns rows for that studio and *only* that
-   studio. This is the concrete test that RLS + Server Action is working, not
-   just compiling.
+2. **Visit `/students-v2` and `/attendance-v2` on a real logged-in session**
+   and confirm both actually return rows for that studio and *only* that
+   studio. This is the concrete test that RLS + Server Actions are working,
+   not just compiling.
 3. **Pick 2-3 real studios' worth of test data** (or one studio with several
-   hundred students, if one exists) to sanity-check pagination performance and
-   search relevance before treating the pattern as proven.
-4. **Write the Phase-0 RLS migrations for the remaining uncovered tables**
-   (`staff`, `branches`, `halls`, `calendar_events`, `sales`, `expenses`,
-   `products`) — mechanical, low-risk, same policy shape as students.
-5. **Decide Phase 1's target** (recommended: attendance history for a single
-   date range/report) and scaffold its Server Action the same way — `getX`
-   paginated read, one Zod schema, no service role.
-6. Only after Phase 1 ships and holds up under real usage, start wiring
-   `/students-v2` toward feature parity with `/students` (photo upload, group
-   enrollment editing, bulk import) as Phase 2.
+   hundred students / thousands of attendance rows, if one exists) to
+   sanity-check pagination and the daily-count RPC's performance before
+   treating either pattern as proven at real scale.
+4. ~~Write the Phase-0 RLS migrations for the remaining uncovered tables~~ —
+   done (`20260915_phase0_rls_gapfill.sql`). Reconcile the
+   `groups`/`groups_classes` and `attendance`/`attendance_logs` naming split
+   noted in §3 with whoever has direct database access.
+5. ~~Decide Phase 1's target~~ — done (attendance history + the daily-count RPC).
+6. Once steps 1-3 hold up under real usage, start wiring `/students-v2` and
+   `/attendance-v2` toward feature parity with their `/students` and
+   `/attendance` counterparts (photo upload, group enrollment editing, bulk
+   import, marking attendance itself as a Server Action) as Phase 2.
+7. Phase 3 (Subscriptions + atomic session deduction) is still un-scaffolded
+   by design — see §3's reasoning for doing it last.
 
 Everything in §4 was verified with `tsc --noEmit` (clean) and `next lint`
 (clean) before being written up here.
