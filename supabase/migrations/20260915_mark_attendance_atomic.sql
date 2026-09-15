@@ -16,6 +16,8 @@
 
 BEGIN;
 
+ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS notes text;
+
 CREATE OR REPLACE FUNCTION public.mark_attendance_and_deduct_session(
     p_student_id text,
     p_group_id text,
