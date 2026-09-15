@@ -3,13 +3,15 @@
 /**
  * Phase 1 pilot (see docs/architecture-migration.md) — attendance is the
  * module the brief's "20,000+ records will crash the browser" concern
- * actually describes, and it's pure reads (marking attendance still goes
- * through the existing checkin-store.ts path for now), which makes it the
- * lowest-risk place to prove server-side pagination + aggregation before
- * touching anything with writes.
+ * actually describes, and started as pure reads. Phase 3 adds the one
+ * write this module actually needs an atomic transaction for: marking
+ * attendance against a subscription must deduct exactly one session, even
+ * under concurrent calls — see `markAttendanceAction` below and
+ * `20260915_mark_attendance_atomic.sql`.
  */
 
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
 const PAGE_SIZE_DEFAULT = 20;
@@ -99,4 +101,70 @@ export async function getAttendanceDailyCounts(rawParams: unknown): Promise<Atte
     if (error) throw new Error(error.message);
 
     return (data ?? []).map((r: { day: string; count: number }) => ({ day: r.day, count: Number(r.count) }));
+}
+
+export type StudentSubscriptionOption = {
+    id: string;
+    plan: string;
+    sessions_used: number;
+    sessions_total: number | null;
+    status: string;
+};
+
+/** For the "mark attendance" picker — which of this student's subscriptions can be charged a session. */
+export async function getActiveSubscriptionsForStudent(studentId: string): Promise<StudentSubscriptionOption[]> {
+    await requireOrgId();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from('subscriptions')
+        .select('id, status, sessions_used, sessions_total, data')
+        .eq('student_id', studentId)
+        .eq('status', 'active');
+    if (error) throw new Error(error.message);
+
+    return (data ?? []).map((r: { id: string; status: string; sessions_used: number; sessions_total: number | null; data: { plan?: string } | null }) => ({
+        id: r.id,
+        plan: r.data?.plan || 'Subscription',
+        sessions_used: r.sessions_used,
+        sessions_total: r.sessions_total,
+        status: r.status,
+    }));
+}
+
+const markAttendanceSchema = z.object({
+    studentId: z.string().min(1),
+    groupId: z.string().optional(),
+    subscriptionId: z.string().optional(),
+    status: z.enum(['present', 'absent', 'late']).default('present'),
+    notes: z.string().max(500).optional(),
+});
+
+export type MarkAttendanceResult = { attendanceId: string; sessionsUsed: number | null; sessionsTotal: number | null };
+
+/**
+ * Calls `mark_attendance_and_deduct_session` — one Postgres transaction
+ * that inserts the attendance row AND deducts a session from the given
+ * subscription, or rolls back both if the subscription turns out to be
+ * inactive/exhausted. This is the atomic-transaction case the brief asked
+ * for explicitly; every other write in this pilot (student edits, group
+ * enrollment) is a plain sequential update because nothing about them can
+ * be silently double-spent the way a session count can.
+ */
+export async function markAttendanceAction(rawInput: unknown): Promise<MarkAttendanceResult> {
+    const input = markAttendanceSchema.parse(rawInput);
+    await requireOrgId();
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('mark_attendance_and_deduct_session', {
+        p_student_id: input.studentId,
+        p_group_id: input.groupId || null,
+        p_subscription_id: input.subscriptionId || null,
+        p_status: input.status,
+        p_notes: input.notes || null,
+    });
+    if (error) throw new Error(error.message);
+
+    const row = Array.isArray(data) ? data[0] : data;
+    revalidatePath('/attendance-v2');
+    return { attendanceId: row.attendance_id, sessionsUsed: row.sessions_used, sessionsTotal: row.sessions_total };
 }
