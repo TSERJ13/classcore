@@ -8,6 +8,7 @@ import KillSwitchGate from '@/components/KillSwitchGate';
 import { DashboardHydrationGuard } from '@/components/layout/DashboardHydrationGuard';
 
 import { GlobalRFIDScanner } from '@/components/layout/GlobalRFIDScanner';
+import { ProfileCompletionPopup } from '@/components/ProfileCompletionPopup';
 
 export const metadata: Metadata = {
     title: 'ClassCore Dashboard',
@@ -24,6 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <KillSwitchGate>
                 <MobileMenuProvider>
                     <GlobalRFIDScanner />
+                    <ProfileCompletionPopup />
                     <div className="dashboard-root relative flex h-[100dvh] bg-surface overflow-hidden w-full isolation-auto">
                         <Sidebar defaultExpanded={defaultExpanded} defaultRole={defaultRole} />
                         <div className="dashboard-stabilized-view flex-1 flex flex-col min-w-0 transition-all duration-300 relative overflow-hidden h-[100dvh]">

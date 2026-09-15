@@ -3,8 +3,19 @@
  * Persists available subscription plans to localStorage.
  */
 
-export type PlanType = 'group' | 'individual' | 'rental';
+export type PlanType = 'group' | 'personal' | 'individual' | 'rental';
 export type Period = 'sessions' | 'monthly' | 'unlimited';
+export type RentalPeriod = 'hourly' | 'monthly';
+
+export interface FreezeOption {
+    days: number;
+    price: number;
+}
+
+export interface PaymentWindow {
+    startDay: number; // 1-31
+    endDay: number; // 1-31
+}
 
 export interface Plan {
     id: string;
@@ -18,6 +29,14 @@ export interface Plan {
     group_id?: string;
     is_active: boolean;
     is_default?: boolean;
+    // Individual tariff: teacher this tariff belongs to (required for type === 'individual')
+    teacher_id?: string;
+    // Hall rental tariff: hourly vs monthly pricing
+    rental_period?: RentalPeriod;
+    // Per-tariff subscription freeze/pause pricing (replaces old studio-wide settings.pausePrices table)
+    freeze_options?: FreezeOption[];
+    // Monthly tariff: recurring day-of-month window when payment is due
+    payment_window?: PaymentWindow;
     data?: any;
 }
 
@@ -66,8 +85,15 @@ export function getPlans(): Plan[] {
                         if (!item || typeof item !== 'object') return item;
                         const data = (item.data && typeof item.data === 'object') ? item.data : {};
                         const merged = { ...data, ...item };
+                        // 🔀 MIGRATION: legacy 'group' tariffs that aren't actually monthly
+                        // (period 'sessions'/'unlimited') are what the PRD calls "Personal" —
+                        // reclassify on read so old data lands on the new dedicated tab.
+                        const migratedType = merged.type === 'group' && merged.period && merged.period !== 'monthly'
+                            ? 'personal'
+                            : merged.type;
                         return {
                             ...merged,
+                            type: migratedType,
                             is_active: item.is_active !== undefined ? (item.is_active !== false && item.is_active !== 'false') : (data.is_active !== undefined ? (data.is_active !== false && data.is_active !== 'false') : true),
                             is_default: item.is_default !== undefined ? !!item.is_default : !!data.is_default
                         };
@@ -129,6 +155,10 @@ export async function savePlans(plans: Plan[]): Promise<void> {
                     is_active: plan.is_active,
                     coach_name: plan.coach,
                     group_id: plan.group_id,
+                    teacher_id: plan.teacher_id,
+                    rental_period: plan.rental_period,
+                    freeze_options: plan.freeze_options,
+                    payment_window: plan.payment_window,
                     data: plan
                 }, orgId);
             } catch (err) {
