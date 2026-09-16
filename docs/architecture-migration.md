@@ -583,3 +583,47 @@ from the new Server Actions transparently (they all go through
 `StudioContext`'s `addStaff`/`updateStaff`/`removeStaff`), but consolidating
 them into one UI, or covering the superadmin path, wasn't asked for and
 isn't done here.
+
+## 11. Branches + Halls
+
+**Halls** (`src/app/actions/halls.ts`): a conventional port. `halls` already
+had full CRUD RLS and `hall-store.ts` already dual-wrote to the real table
+(`pushCollectionToCloud`) — same shape as Groups. `getHallsAction`,
+`saveHallsAction` (whole-array replace, matching `hall-store.ts`'s
+`saveHalls()` contract — it never had a per-row upsert either),
+`deleteHallAction`. Wired into `/halls/page.tsx`; the delete side effect
+(`clearHallFromEvents(id)`, detaching the hall from calendar events) stays
+client-side, same "keep side effects in the page, swap only the raw
+persistence" pattern as Groups' `deleteGroupEvents`.
+
+**Branches** (`src/app/actions/branches.ts`) turned out different from
+every other module so far: `branches` already had full CRUD RLS ready (same
+migration, same table array) but **nothing had ever written a real row into
+it** — branch data has lived entirely inside
+`studio_settings.settings.branches`, a JSONB blob (`StudioContext.tsx`'s
+`addBranch`/`updateBranch`/`removeBranch` only ever called
+`updateSettings()`/`saveSettings()`, no `syncRecordToCloud('branches', ...)`
+call exists anywhere, unlike Staff/Halls which already had one). So this
+isn't "port an existing real-table path to RLS," it's activating a table
+that was previously inert. Decided to activate it rather than leave it
+dead weight, wired the same additive way as Staff: `createBranchAction`/
+`updateBranchAction`/`deleteBranchAction` now also get called alongside the
+existing settings-blob path, not instead of it, since every branch reader
+(`BranchSwitcher`, the sidebar, the profile page's own branches tab, staff
+`allowedBranchIds` scoping) still reads `settings.branches` and isn't
+migrating this pass. **This only takes effect going forward** — branches
+created before this change (including the default `"main"` branch every
+studio already has) only exist in the settings blob; they aren't
+retroactively backfilled into the real table, since that would need
+enumerating every org's existing settings blob directly, which isn't
+possible from a migration file.
+
+No new RLS migration needed for either — both were already in the phase-0
+gapfill migration's table array (confirmed for both: literally present,
+with `org_id` columns per `/api/sync/bulk`'s `MINIMAL_COLUMNS` allowlist).
+
+**Confirmed, not changed:** there is no per-entity `branch_id` database
+column or RLS boundary anywhere in the schema — "multi-branch" today is
+entirely a client-side UI filter over org-wide data (students, expenses,
+staff `allowedBranchIds`), never a security boundary. `org_id` stays the
+only real tenant boundary, same as every other module in this migration.
