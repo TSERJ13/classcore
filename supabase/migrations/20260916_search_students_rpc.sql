@@ -32,7 +32,7 @@ DECLARE
     caller_org_id uuid;
     v_offset int;
 BEGIN
-    SELECT org_id INTO caller_org_id FROM public.profiles WHERE id = auth.uid();
+    SELECT p.org_id INTO caller_org_id FROM public.profiles p WHERE p.id = auth.uid();
     IF caller_org_id IS NULL THEN
         RAISE EXCEPTION 'No org for current user';
     END IF;
@@ -43,7 +43,7 @@ BEGIN
         SELECT
             s.id, s.full_name, s.first_name, s.last_name, s.phone, s.email, s.data,
             sub.status AS m_sub_status, sub.sessions_total AS m_sessions_total,
-            sub.sessions_used AS m_sessions_used, sub.expires_at AS m_expires_at
+            sub.sessions_used AS m_sessions_used, sub.expires_at::date AS m_expires_at
         FROM public.students s
         LEFT JOIN LATERAL (
             SELECT status, sessions_total, sessions_used, expires_at
