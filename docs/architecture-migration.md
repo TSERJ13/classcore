@@ -461,8 +461,61 @@ core CRUD):
   it stays *eventually* correct because `StudioContext`'s background
   `/api/sync/state` hydration still runs and refreshes it independently, but
   it's not instant the way the new Server Actions are.
-- Every other module not yet touched: Groups, Calendar/Events, Staff,
+- Every other module not yet touched: Calendar/Events, Staff,
   Branches/Halls, Shop/Sales, SMS templates, Settings.
+  (Groups' own CRUD moved in §9 below — Calendar's group-writing side
+  effects did not.)
 - `StudioContext.tsx` itself (1042 lines) still runs its full hydration/
   merge engine on every page — nothing has been removed from it yet, since
   other pages still depend on the localStorage state it populates.
+
+## 9. Groups (`/groups`)
+
+`groups` already had full CRUD RLS from `20260915_phase0_rls_gapfill.sql`
+(confirmed: `'groups'` — the live table name — is literally in that
+migration's table array, unlike `subscriptions` which needed its own
+follow-up) — no new migration needed for this module.
+
+`src/app/actions/groups.ts`: `getGroupsAction`, `createGroupAction`,
+`updateGroupAction`, `deleteGroupAction`, same `id, org_id, name, data`
+schema pattern as everything else. `createGroupAction` persists the
+client-supplied id verbatim rather than minting its own — `GroupModal`
+already generates a client-side id before calling `onSave` and reuses that
+exact id right after to sync the group's `schedule_slots` into real
+calendar events (`syncGroupScheduleToCalendar`, `event-store.ts`); minting
+a different server-side id would have split a group from its own calendar
+events.
+
+**Scoped to the Groups management page's own CRUD only** — 15 files import
+`group-store.ts` across the app (attendance, calendar, dashboard, analytics,
+teachers, subscriptions/plans, `IssueSubscriptionModal`, `StudentModal`, the
+public student page, header search, SMS modal, onboarding — full inventory
+in the research this section is based on). Two are explicitly left alone:
+- **Calendar** (`calendar/page.tsx`) still writes to `group-store.ts`
+  directly — `createGroup()` when an unrecognized group name is typed while
+  adding a calendar event, `addSlotToGroup`/`removeSlotFromGroup` to keep
+  `schedule_slots` in sync with recurring events, and a direct color patch.
+  Calendar/Events is its own not-yet-migrated module; folding its
+  group-writing side effects into this pass would be scope creep. Both
+  write paths land on the same real `groups` table, so nothing conflicts —
+  Calendar's writes still go through the old sync path, the Groups page's
+  through RLS-respecting Server Actions.
+- **Teachers** (`teachers/page.tsx`) and `StudioContext`'s
+  `updateTeacherGroups()` (on teacher deletion) still reconcile a group's
+  `teacherId`/`secondaryTeacherId` via `group-store.ts` from the Staff side
+  — Staff is also not yet migrated.
+
+Every other, read-only consumer keeps reading `getGroups()`'s local cache,
+staying eventually consistent via `StudioContext`'s background hydration —
+same reasoning already documented for Plans in §8.
+
+**Pre-existing inconsistency found, not fixed (not asked, and "fixing"
+silently would risk changing numbers someone already relies on):**
+`groups/page.tsx`'s own enrollment count (now server-driven via
+`getSubscriptionsAction`, matching its exact prior behavior:
+active+unexpired subscriptions with a matching `group_id`) is a **different
+computation** than `analytics/page.tsx`/`dashboard/page.tsx`'s enrollment
+count (active students whose `enrolled_group_ids` includes the group). The
+two already disagreed before this migration; this pass preserves the
+`/groups` page's own definition rather than quietly reconciling it with the
+other one.
