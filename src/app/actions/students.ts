@@ -1,35 +1,27 @@
 'use server';
 
 /**
- * Pilot Server Actions for the Students module (see
- * docs/architecture-migration.md). Deliberately NOT wired into the live
- * `/students` page yet — this lives alongside the existing localStorage +
- * `/api/sync/*` system as a parallel, additive reference implementation
- * (`/students-v2`) so it can be reviewed and tested without touching a page
- * every studio currently depends on.
- *
- * The one thing this is actually demonstrating: every query here runs as
- * the signed-in user through the anon key + RLS (supabase/server.ts), NOT
- * through the service-role client `/api/sync/state` uses. There is no
- * `.eq('org_id', ...)` anywhere below — Postgres enforces that via the RLS
- * policy in `20260915_students_rls_pilot.sql`. A missing filter here simply
- * can't leak another studio's students, which is exactly the property the
- * old bulk-fetch/service-role pattern doesn't have.
+ * Server Actions for the Students module — this is now the data layer the
+ * real `/students` page (src/app/(dashboard)/students/page.tsx) runs on,
+ * not a parallel pilot. Every query runs as the signed-in user through the
+ * anon key + RLS (supabase/server.ts), not the service-role client
+ * `/api/sync/state` used to use for this data.
  *
  * SCHEMA NOTE: the real `students` table only has a handful of top-level
  * columns — `id, org_id, first_name, last_name, full_name, phone, email` —
  * confirmed by an existing comment in `student-store.ts` describing a real
  * production bug (`PGRST204: Could not find the 'birth_date' column`) from
- * assuming otherwise. Everything else (parent_name, notes, status,
- * enrolled_group_ids, birth_date, ...) lives in the `data` JSONB column.
- * This file follows that same shape rather than guessing at new columns.
+ * assuming otherwise. Everything else the UI needs (gender, birth_date,
+ * dance_style, medical_cert_expires_at, photo_url, social_links, qr_code,
+ * nfc_uid, enrolled_group_ids, notes, parent_name, discount info, status,
+ * ...) lives in the `data` JSONB column and is passed through mostly
+ * untyped here rather than re-declared field by field — `StudentModal`
+ * (unchanged by this migration) already owns that shape.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-
-const PAGE_SIZE_DEFAULT = 20;
 
 async function requireOrgId(): Promise<{ orgId: string; userId: string }> {
     const supabase = await createClient();
@@ -46,200 +38,193 @@ async function requireOrgId(): Promise<{ orgId: string; userId: string }> {
     return { orgId: profile.org_id, userId: userData.user.id };
 }
 
-type StudentData = {
-    parent_name?: string;
-    notes?: string;
-    status?: 'active' | 'inactive' | 'lead';
-    birth_date?: string;
-    enrolled_group_ids?: string[];
-};
+// ─── Search / list (search_students RPC — 20260916_search_students_rpc.sql) ───
 
-const listParamsSchema = z.object({
+const searchParamsSchema = z.object({
     page: z.number().int().min(1).default(1),
-    pageSize: z.number().int().min(1).max(100).default(PAGE_SIZE_DEFAULT),
+    pageSize: z.number().int().min(1).max(100).default(24),
     search: z.string().trim().max(200).optional(),
+    status: z.enum(['all', 'active', 'inactive']).default('all'),
+    gender: z.enum(['all', 'male', 'female']).default('all'),
+    groupId: z.string().optional(),
+    visibleGroupIds: z.array(z.string()).optional(),
+    sortBy: z.enum(['none', 'first_name', 'last_name', 'gender']).default('none'),
 });
 
-export type StudentsPageRow = {
+export type StudentSubscriptionSummary = {
+    status: string;
+    sessions_total: number | null;
+    sessions_used: number;
+    expires_at: string | null;
+};
+
+export type StudentRow = {
     id: string;
     full_name: string;
+    first_name: string | null;
+    last_name: string | null;
     phone: string;
     email: string | null;
-    parent_name: string | null;
-    notes: string | null;
-    status: 'active' | 'inactive' | 'lead';
-    enrolled_group_ids: string[];
+    subscription: StudentSubscriptionSummary | null;
+    [key: string]: unknown; // everything from the `data` JSONB column (gender, birth_date, photo_url, ...)
 };
 
-export type StudentsPageResult = {
-    rows: StudentsPageRow[];
-    total: number;
-    page: number;
-    pageSize: number;
+type RawRpcRow = {
+    id: string; full_name: string; first_name: string | null; last_name: string | null;
+    phone: string; email: string | null; data: Record<string, unknown> | null;
+    sub_status: string | null; sub_sessions_total: number | null; sub_sessions_used: number | null;
+    sub_expires_at: string | null; total_count: number;
 };
 
-function rowFromDbRecord(r: { id: string; full_name: string; phone: string; email: string | null; data: StudentData | null }): StudentsPageRow {
-    const d = r.data || {};
+function rowFromRpc(r: RawRpcRow): StudentRow {
     return {
+        ...(r.data || {}),
         id: r.id,
         full_name: r.full_name,
+        first_name: r.first_name,
+        last_name: r.last_name,
         phone: r.phone,
         email: r.email,
-        parent_name: d.parent_name || null,
-        notes: d.notes || null,
-        status: d.status || 'active',
-        enrolled_group_ids: d.enrolled_group_ids || [],
+        subscription: r.sub_status ? {
+            status: r.sub_status,
+            sessions_total: r.sub_sessions_total,
+            sessions_used: r.sub_sessions_used ?? 0,
+            expires_at: r.sub_expires_at,
+        } : null,
     };
 }
 
+export type SearchStudentsResult = { rows: StudentRow[]; total: number; page: number; pageSize: number };
+
 /**
- * Server-side paginated + searched student list. RLS (not this function)
- * is what actually confines results to the caller's studio — see the file
- * header. `search` is a plain `ilike` on name/phone for the pilot; a real
- * rollout would add a Postgres full-text index once search patterns are
- * known.
+ * Search/filter/sort/paginate students, each with its current subscription
+ * summary — all computed by the `search_students` RPC (a LATERAL join +
+ * window count), not fetched in bulk and filtered in the browser.
  */
-export async function getStudentsPage(rawParams: unknown): Promise<StudentsPageResult> {
-    const { page, pageSize, search } = listParamsSchema.parse(rawParams);
-    await requireOrgId(); // throws if unauthenticated; RLS still governs visibility
+export async function searchStudents(rawParams: unknown): Promise<SearchStudentsResult> {
+    const p = searchParamsSchema.parse(rawParams);
+    await requireOrgId();
 
     const supabase = await createClient();
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    const { data, error } = await supabase.rpc('search_students', {
+        p_search: p.search || null,
+        p_status: p.status,
+        p_gender: p.gender,
+        p_group_id: p.groupId || null,
+        p_visible_group_ids: p.visibleGroupIds && p.visibleGroupIds.length > 0 ? p.visibleGroupIds : null,
+        p_sort_by: p.sortBy,
+        p_page: p.page,
+        p_page_size: p.pageSize,
+    });
+    if (error) throw new Error(error.message);
 
-    let query = supabase
-        .from('students')
-        .select('id, full_name, phone, email, data', { count: 'exact' })
-        .order('full_name', { ascending: true })
-        .range(from, to);
+    const rows = ((data as RawRpcRow[]) || []).map(rowFromRpc);
+    const total = data && data.length > 0 ? Number((data[0] as RawRpcRow).total_count) : 0;
+    return { rows, total, page: p.page, pageSize: p.pageSize };
+}
 
-    if (search) {
-        const term = search.replace(/[%_]/g, '');
-        query = query.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
+// ─── Save (create or update) ───────────────────────────────────────────────
+
+const GEO_TO_LAT: Record<string, string> = {
+    'ა': 'A', 'ბ': 'B', 'გ': 'G', 'დ': 'D', 'ე': 'E', 'ვ': 'V', 'ზ': 'Z', 'თ': 'T', 'ი': 'I', 'კ': 'K', 'ლ': 'L', 'მ': 'M', 'ნ': 'N', 'ო': 'O', 'პ': 'P', 'ჟ': 'ZH', 'რ': 'R', 'ს': 'S', 'ტ': 'T', 'უ': 'U', 'ფ': 'F', 'ქ': 'K', 'ღ': 'GH', 'ყ': 'Q', 'შ': 'SH', 'ჩ': 'CH', 'ც': 'TS', 'ძ': 'DZ', 'წ': 'TS', 'ჭ': 'CH', 'ხ': 'KH', 'ჯ': 'J', 'ჰ': 'H',
+};
+function initialFor(name: string): string {
+    if (!name) return 'X';
+    const ch = name.trim()[0];
+    return GEO_TO_LAT[ch] || ch.toUpperCase();
+}
+
+/** Mirrors student-store.ts's generateFormattedStudentId(), but checks uniqueness against the DB instead of a localStorage-loaded list. */
+async function generateStudentId(supabase: Awaited<ReturnType<typeof createClient>>, firstName: string, lastName: string): Promise<string> {
+    const prefix = `${initialFor(firstName)}${initialFor(lastName)}`.slice(0, 2).toUpperCase();
+    for (let i = 0; i < 10; i++) {
+        const suffix = String(Math.floor(1000000 + Math.random() * 9000000));
+        const candidate = `${prefix}${suffix}`;
+        const { data } = await supabase.from('students').select('id').eq('id', candidate).maybeSingle();
+        if (!data) return candidate;
+    }
+    return `ST${Date.now().toString().slice(-7)}`;
+}
+
+const saveStudentSchema = z.object({
+    id: z.string().optional(),
+    full_name: z.string().trim().min(1).max(200),
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
+    phone: z.string().trim().min(3).max(30),
+    email: z.string().optional(),
+}).passthrough(); // everything else (gender, birth_date, photo_url, social_links, ...) rides along into `data`
+
+/**
+ * Create-or-update, matching the legacy page's `handleSave()` semantics
+ * exactly: an id present -> update (merging into the existing `data` blob
+ * so fields this call doesn't send survive), no id -> generate one and
+ * insert. Legacy also unconditionally set `status: 'active'` on every save
+ * (edit included) — kept as-is rather than "fixed" silently.
+ */
+export async function saveStudentAction(rawInput: unknown): Promise<{ id: string }> {
+    const input = saveStudentSchema.parse(rawInput) as Record<string, unknown> & { id?: string; full_name: string; first_name?: string; last_name?: string; phone: string; email?: string };
+    const { orgId } = await requireOrgId();
+    const supabase = await createClient();
+
+    const { id: inputId, full_name, first_name, last_name, phone, email, ...rest } = input;
+    const resolvedFirst = first_name || full_name.split(' ')[0] || '';
+    const resolvedLast = last_name || full_name.split(' ').slice(1).join(' ') || '';
+
+    let id = inputId;
+    let existingData: Record<string, unknown> = {};
+    if (id) {
+        const { data: existing } = await supabase.from('students').select('data').eq('id', id).maybeSingle();
+        existingData = (existing?.data as Record<string, unknown>) || {};
+    } else {
+        id = await generateStudentId(supabase, resolvedFirst, resolvedLast);
     }
 
-    const { data, error, count } = await query;
+    const mergedData = { ...existingData, ...rest, status: 'active' };
+
+    const { error } = await supabase.from('students').upsert({
+        id, org_id: orgId, first_name: resolvedFirst, last_name: resolvedLast,
+        full_name, phone, email: email || null, data: mergedData,
+    }, { onConflict: 'id' });
     if (error) throw new Error(error.message);
 
-    return { rows: (data ?? []).map(rowFromDbRecord), total: count ?? 0, page, pageSize };
+    revalidatePath('/students');
+    return { id };
 }
 
-function splitName(fullName: string): { first_name: string; last_name: string } {
-    const trimmed = fullName.trim();
-    const idx = trimmed.indexOf(' ');
-    if (idx === -1) return { first_name: trimmed, last_name: '' };
-    return { first_name: trimmed.slice(0, idx), last_name: trimmed.slice(idx + 1) };
-}
+// ─── Duplicate check ────────────────────────────────────────────────────────
 
-const studentInputSchema = z.object({
-    full_name: z.string().trim().min(2).max(200),
-    phone: z.string().trim().min(5).max(30),
-    email: z.string().trim().email().optional().or(z.literal('')),
-    parent_name: z.string().trim().max(200).optional().or(z.literal('')),
-    notes: z.string().trim().max(2000).optional().or(z.literal('')),
-    status: z.enum(['active', 'inactive', 'lead']).default('active'),
+const duplicateCheckSchema = z.object({
+    full_name: z.string(),
+    phone: z.string(),
+    birth_date: z.string().optional(),
+    excludeId: z.string().optional(),
 });
 
-export type CreateStudentInput = z.infer<typeof studentInputSchema>;
-
-/**
- * Creates a student in one atomic insert. Zod validates shape before it
- * ever reaches Postgres; the RLS INSERT policy's WITH CHECK is the actual
- * backstop guaranteeing `org_id` can't be spoofed even if this function's
- * own logic had a bug.
- */
-export async function createStudentAction(rawInput: unknown): Promise<{ id: string }> {
-    const input = studentInputSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const { first_name, last_name } = splitName(input.full_name);
-
-    const dataBlob: StudentData = {
-        parent_name: input.parent_name || undefined,
-        notes: input.notes || undefined,
-        status: input.status,
-        enrolled_group_ids: [],
-    };
-
-    const supabase = await createClient();
-    const { data, error } = await supabase
-        .from('students')
-        .insert({
-            org_id: orgId,
-            first_name,
-            last_name,
-            full_name: input.full_name,
-            phone: input.phone,
-            email: input.email || null,
-            data: dataBlob,
-        })
-        .select('id')
-        .single();
-
-    if (error) throw new Error(error.message);
-
-    revalidatePath('/students-v2');
-    return { id: data.id };
-}
-
-const updateStudentSchema = studentInputSchema.extend({
-    id: z.string().min(1),
-});
-
-/**
- * Reads the row first so the JSONB `data` merge doesn't clobber fields this
- * form doesn't know about (e.g. birth_date, enrolled_group_ids) — RLS still
- * governs whether the read/write is even visible to this caller.
- */
-export async function updateStudentAction(rawInput: unknown): Promise<{ id: string }> {
-    const input = updateStudentSchema.parse(rawInput);
+/** Same match rule as the legacy `checkDuplicateStudent()`: same name, and either same birth date or same phone. */
+export async function checkDuplicateStudentAction(rawInput: unknown): Promise<{ id: string; full_name: string } | null> {
+    const input = duplicateCheckSchema.parse(rawInput);
     await requireOrgId();
-    const { first_name, last_name } = splitName(input.full_name);
-
     const supabase = await createClient();
-    const { data: existing, error: readErr } = await supabase
-        .from('students')
-        .select('data')
-        .eq('id', input.id)
-        .single();
-    if (readErr) throw new Error(readErr.message);
+    const normalizedPhone = input.phone.replace(/\D/g, '');
 
-    const mergedData: StudentData = {
-        ...(existing?.data || {}),
-        parent_name: input.parent_name || undefined,
-        notes: input.notes || undefined,
-        status: input.status,
-    };
-
-    const { error } = await supabase
-        .from('students')
-        .update({
-            first_name,
-            last_name,
-            full_name: input.full_name,
-            phone: input.phone,
-            email: input.email || null,
-            data: mergedData,
-        })
-        .eq('id', input.id);
-
+    const { data, error } = await supabase.from('students').select('id, full_name, phone, data').ilike('full_name', input.full_name);
     if (error) throw new Error(error.message);
 
-    revalidatePath('/students-v2');
-    return { id: input.id };
+    const match = (data || []).find((s) => {
+        if (input.excludeId && s.id === input.excludeId) return false;
+        if ((s.full_name || '').toLowerCase() !== input.full_name.toLowerCase()) return false;
+        const sBirth = (s.data as Record<string, unknown> | null)?.birth_date as string | undefined;
+        if (input.birth_date && sBirth) return sBirth === input.birth_date;
+        return (s.phone || '').replace(/\D/g, '') === normalizedPhone;
+    });
+    return match ? { id: match.id, full_name: match.full_name } : null;
 }
+
+// ─── Delete (soft — moves to trash, mirroring legacy deleteStudent()) ──────
 
 const idSchema = z.object({ id: z.string().min(1) });
 
-/**
- * Soft-deletes to `trash` first, then removes from `students` — mirroring
- * the legacy `deleteStudent()` (student-store.ts) behavior of moving a
- * record to trash rather than hard-deleting it. Sequential, not a single
- * RPC transaction: an admin delete is low-frequency enough that "trashed
- * but the students-row delete failed, so it still shows up" is an
- * acceptable, visible failure mode — unlike the attendance/session case in
- * `markAttendanceAction`, where a partial write would silently cost a
- * session, so that one *is* a single atomic RPC.
- */
 export async function deleteStudentAction(rawInput: unknown): Promise<{ id: string }> {
     const { id } = idSchema.parse(rawInput);
     const { orgId, userId } = await requireOrgId();
@@ -265,41 +250,26 @@ export async function deleteStudentAction(rawInput: unknown): Promise<{ id: stri
     const { error: deleteErr } = await supabase.from('students').delete().eq('id', id);
     if (deleteErr) throw new Error(deleteErr.message);
 
-    revalidatePath('/students-v2');
+    revalidatePath('/students');
     return { id };
 }
 
-/** For the group-enrollment picker — id/name only, no need for the full `data` blob. */
-export async function getGroupsForOrg(): Promise<Array<{ id: string; name: string }>> {
+// ─── Groups (for the filter dropdown) ──────────────────────────────────────
+
+export type GroupRow = {
+    id: string;
+    name: string;
+    teacherId?: string;
+    secondaryTeacherId?: string;
+    enrolled?: number;
+    [key: string]: unknown;
+};
+
+/** Full group shape (not just id/name) — the page's teacher-visibility check (access.ts's getVisibleGroupIds) needs teacherId/secondaryTeacherId. */
+export async function getGroupsForOrg(): Promise<GroupRow[]> {
     await requireOrgId();
     const supabase = await createClient();
-    const { data, error } = await supabase.from('groups').select('id, name').order('name');
+    const { data, error } = await supabase.from('groups').select('id, name, data').order('name');
     if (error) throw new Error(error.message);
-    return data ?? [];
-}
-
-const updateGroupsSchema = z.object({
-    id: z.string().min(1),
-    enrolled_group_ids: z.array(z.string()),
-});
-
-export async function updateStudentGroupsAction(rawInput: unknown): Promise<{ id: string }> {
-    const input = updateGroupsSchema.parse(rawInput);
-    await requireOrgId();
-
-    const supabase = await createClient();
-    const { data: existing, error: readErr } = await supabase
-        .from('students')
-        .select('data')
-        .eq('id', input.id)
-        .single();
-    if (readErr) throw new Error(readErr.message);
-
-    const mergedData: StudentData = { ...(existing?.data || {}), enrolled_group_ids: input.enrolled_group_ids };
-
-    const { error } = await supabase.from('students').update({ data: mergedData }).eq('id', input.id);
-    if (error) throw new Error(error.message);
-
-    revalidatePath('/students-v2');
-    return { id: input.id };
+    return (data ?? []).map((g) => ({ ...(g.data as Record<string, unknown> || {}), id: g.id, name: g.name }));
 }

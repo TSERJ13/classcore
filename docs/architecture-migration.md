@@ -1,13 +1,14 @@
 # ClassCore Architecture Migration — Server-Driven Roadmap
 
-Status: **Phases 0-3 are all built** (RLS gap-fill, Attendance history +
-daily-count RPC, Students full CRUD, atomic attendance-marking + subscription
-deduction). All three new migrations from Phases 0-1 have been applied to the
-real Frankfurt Supabase project and the branch has been merged + deployed to
-`rebrendig`/`rebranding` — see §6. The Phase 3 migration
-(`20260915_mark_attendance_atomic.sql`) has **not** been applied yet and still
-needs the same SQL Editor step. None of `/students-v2` or `/attendance-v2` is
-linked into the live app's navigation.
+Status: **Live cutover in progress.** There are no real studios on this app
+yet, so — per an explicit decision to stop building parallel `-v2` pilot
+pages and cut the real pages over directly — `/students` (the actual live
+page) now runs entirely on Server Actions + TanStack Query + RLS; the
+`student-store.ts`/`StudioContext` data path is gone from that page. The
+`/students-v2` and `/attendance-v2` pilot pages have been deleted (their
+job — proving the pattern — is done). `/attendance` has **not** been
+converted yet — see the note at the end of this doc; it turned out to be a
+much larger page than the pilot assumed. `/subscriptions` is next.
 Branch: `claude/youthful-sagan-efyg4i`.
 
 This responds to the "Fat Client / 85% Frontend" critique with an actual audit of
@@ -247,3 +248,105 @@ visiting them directly is how to do the verification in §5 step 3.
 
 Everything in §4 was verified with `tsc --noEmit` (clean) and `next lint`
 (clean) before being written up here.
+
+---
+
+## 7. Live cutover: `/students` (done) and `/attendance` check-in (done, surgical)
+
+**`/students` (`src/app/(dashboard)/students/page.tsx`) is now the real,
+only version of this page** — no more `/students-v2`. It reuses everything
+built for the pilot (Server Actions, RLS, TanStack Query) but had to grow to
+match the live page's actual surface:
+
+- New `search_students` RPC (`20260916_search_students_rpc.sql`) — the live
+  page needs search + status/gender/group filters + sort + pagination + each
+  row's current subscription summary, all at once. Doing that as several
+  Server Action round trips (fetch a page, then fetch subscriptions, then
+  filter by status in JS) would either break the pagination count or turn
+  into an N+1, so it's one RPC with a `LATERAL` join instead, same reasoning
+  as `attendance_daily_counts`.
+- `saveStudentAction` replaces `student-store.ts`'s `updateStudent()` (full
+  upsert, server-side id generation, merges into the existing `data` JSONB
+  rather than overwriting it) and `checkDuplicateStudentAction` replaces the
+  client-side `checkDuplicateStudent()` duplicate-name/phone/birthdate check
+  — same UX (a confirm dialog before creating a likely-duplicate), same
+  match rule, just server-resolved.
+- `deleteStudentAction` moves the record to `trash` and then deletes it,
+  matching legacy `deleteStudent()`'s soft-delete behavior.
+- The card grid switched from "load everything, filter/sort in the browser"
+  to server-side pagination with a "load more" button (`useInfiniteQuery`) —
+  this is the actual fix for the brief's "500 students crashes the browser"
+  concern, not just RLS.
+- **`StudentModal` itself was left untouched.** It already only produces a
+  plain `Partial<Student>` object and hands it to the page's `onSave`
+  callback — persistence was always the page's job, not the modal's — so
+  swapping what `onSave`/`onDelete` call underneath didn't require touching
+  the modal. Its own internal reads (shop purchase history, checkin
+  history, custom style presets, the embedded `IssueSubscriptionModal`) are
+  still on their original stores, which is correct: those belong to Shop,
+  Attendance, and Subscriptions respectively, not to this pass.
+
+**`/attendance` (`src/app/(dashboard)/attendance/page.tsx`, ~2,465 lines) is
+the studio's daily-operations screen, not a report** — live check-in
+marking, companion check-ins, shop sales made at check-in time, browsing the
+day's group schedule, teacher/hall display, and subscription pause/delete,
+all from one screen. Converting the whole thing in one pass would mean
+touching Subscriptions, Shop, and Calendar's data layers too — undeclared
+scope creep on modules nobody has asked to migrate yet. Took the **surgical**
+option: only the actual check-in write path (present/absent marking, the
+session deduction/refund it triggers, and the per-student visit history
+list) moved to the server; schedule browsing, shop sales, and subscription
+pause/delete are untouched, still on their original stores, clearly out of
+scope for this pass.
+
+What moved:
+- `supabase/migrations/20260916_checkin_session_rpcs.sql` — two small,
+  atomic, row-locking (`FOR UPDATE`) RPCs, `checkin_deduct_session` /
+  `checkin_refund_session`, scoped to *only* the increment/decrement. This
+  is deliberately the one part that was previously racy: the old
+  `checkin-store.ts` path read a subscription's `sessions_used` into a JS
+  variable, incremented it locally, and pushed the whole object back —
+  two admins (or two tabs) marking the same student around the same moment
+  could both read the same stale count and the loser's `+1` would silently
+  overwrite the winner's, under- or over-charging a session with no error
+  and no trace. A `FOR UPDATE` lock inside a `SECURITY DEFINER` function
+  makes that physically impossible: the second writer blocks until the
+  first one's transaction commits, then reads the already-updated row.
+- `src/app/actions/checkin.ts` — the "which subscription do we charge/
+  refund" resolution is a faithful **TypeScript** port of
+  `subscription-store.ts`'s `getSubscription()` / `refundSessionsUsed()`
+  candidate-selection tiers (plan-type/group-id fallback, manual-default
+  priority, oldest-purchased-for-continuation on charge vs.
+  newest-purchased-with-sessions-used on refund) — kept in TS rather than
+  PL/pgSQL specifically so it stays line-by-line diffable against the
+  original instead of being reimplemented blind in SQL. Exposes
+  `markPresentAction`, `refundCheckinAction`, `recordCompanionCheckinAction`,
+  `deleteCompanionCheckinAction`, `getCheckinsForDateAction`,
+  `getCheckinCountTodayAction`, `getStudentCheckinsAction`,
+  `deleteCheckinAction`.
+- `src/lib/checkin-client.ts` — a client-side adapter exposing the exact
+  same function names/signatures as `checkin-store.ts` (`recordCheckin`,
+  `forceCheckin`, `refundCheckin`, `recordCompanionCheckin`,
+  `deleteCompanionCheckin`, `getCheckinsForDate`, `getCheckinCountToday`,
+  `getStudentCheckins`, `deleteCheckin`) but backed by the Server Actions
+  above instead of localStorage — so `attendance/page.tsx`'s call sites
+  only needed `await` added, not a rewrite. `getSessionsRemaining` (a pure
+  read against the not-yet-migrated subscription cache) stays imported from
+  `checkin-store.ts`.
+- `attendance/page.tsx`: `toggle()`, `toggleCouple()`, `confirmDouble()`,
+  `processCode()` (QR/RFID scan), the bulk "mark all present"/"delete
+  attendance" buttons, and the student drawer's visit-history list all now
+  go through the adapter. All surrounding logic — the multi-subscription
+  choice popup, the "1 visit left" SMS trigger, couple-checkin pairing, the
+  historical companion-checkin/date-argument/class-identity bug fixes — is
+  unchanged.
+- Known limitation, accepted for this pass: `subs` (the schedule/roster's
+  subscription display state) is still read from `subscription-store.ts`'s
+  localStorage cache, which nothing writes to anymore now that deduction
+  happens server-side. To avoid that going stale mid-session, every mutating
+  call site patches `subs` locally from the server action's actual returned
+  `sessions_used`/`sessions_total` (`patchSubAfterCheckin`) — correct for
+  this tab, this session, immediately after a mark/unmark. It does **not**
+  fix staleness from another device/tab; that only goes away once
+  `/subscriptions` (the next step) moves this whole read path off
+  localStorage too.

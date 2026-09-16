@@ -11,7 +11,8 @@ import {
 import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge, formatDate } from '@/lib/utils';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, getCheckinsForDate, recordCompanionCheckin, deleteCompanionCheckin, refundCheckin, deleteCheckin, getSessionsRemaining } from '@/lib/checkin-store';
+import { getSessionsRemaining } from '@/lib/checkin-store';
+import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, getCheckinsForDate, recordCompanionCheckin, deleteCompanionCheckin, refundCheckin, deleteCheckin } from '@/lib/checkin-client';
 import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
@@ -525,7 +526,8 @@ export default function AttendancePage() {
 
 
     useEffect(() => {
-        const loadAtt = () => {
+        let cancelled = false;
+        const loadAtt = async () => {
             const key = getScopedKey('cc_attendance_archive');
             let saved = localStorage.getItem(key);
 
@@ -576,7 +578,8 @@ export default function AttendancePage() {
             // marks, which have no real backing record of their own.
             const merged: Record<string, State> = { ...archived };
             try {
-                getCheckinsForDate(dateKey).forEach(rec => {
+                const realCheckins = await getCheckinsForDate(dateKey);
+                realCheckins.forEach(rec => {
                     if (rec.classId === selectedClass) {
                         merged[rec.studentId] = 'present';
                     }
@@ -585,13 +588,13 @@ export default function AttendancePage() {
                 console.error('❌ [Attendance] Failed to reconcile real check-ins:', e);
             }
 
-            setAtt(merged);
+            if (!cancelled) setAtt(merged);
         };
 
         loadAtt();
         const events = ['cc_attendance_update', 'cc_checkin_update', 'cc_student_update', 'cc_subscription_update'];
         events.forEach(e => window.addEventListener(e, loadAtt));
-        return () => events.forEach(e => window.removeEventListener(e, loadAtt));
+        return () => { cancelled = true; events.forEach(e => window.removeEventListener(e, loadAtt)); };
     }, [dateKey, selectedClass, settings.studioSlug, settings.orgId]);
 
     const saveAttendance = useCallback((newAtt: Record<string, State>) => {
@@ -615,6 +618,32 @@ export default function AttendancePage() {
         const data = getSubscriptions();
         console.log(`[Perf] 🔄 refreshSubs() called at ${(performance.now() - _renderStartTime).toFixed(2)}ms. Took ${(performance.now() - start).toFixed(2)}ms`);
         setSubs(data);
+    }, []);
+
+    /**
+     * The actual session-count mutation now happens server-side (see
+     * src/lib/checkin-client.ts / src/app/actions/checkin.ts), so
+     * `getSubscriptions()` — a read of the local, no-longer-written-to
+     * subscription-store.ts cache — can't pick it up. Mirror the server's
+     * response straight into `subs` so this tab's badges/counters update
+     * immediately after a mark/unmark, without re-introducing a local write
+     * path. `subscriptions` itself moves fully off this cache in the next
+     * migration step.
+     */
+    const patchSubAfterCheckin = useCallback((studentId: string, subId: string | null | undefined, sessionsUsed: number | null, sessionsTotal: number | null) => {
+        if (!subId || sessionsUsed === null) return;
+        setSubs(prev => {
+            const list = prev[studentId];
+            if (!list) return prev;
+            const idx = list.findIndex(s => s.id === subId);
+            if (idx === -1) return prev;
+            const sub = list[idx];
+            const newStatus = sessionsTotal !== null && sessionsUsed >= sessionsTotal ? 'expired'
+                : (sub.status === 'expired' ? 'active' : sub.status);
+            const newList = [...list];
+            newList[idx] = { ...sub, sessions_used: sessionsUsed, status: newStatus };
+            return { ...prev, [studentId]: newList };
+        });
     }, []);
 
     useEffect(() => {
@@ -650,6 +679,7 @@ export default function AttendancePage() {
     const [quickSellQty, setQuickSellQty] = useState(1);
 
     const [studentPatches, setStudentPatches] = useState<Record<string, any>>({});
+    const [studentCheckinsHistory, setStudentCheckinsHistory] = useState<Awaited<ReturnType<typeof getStudentCheckins>>>([]);
 
     const qrRef = useRef<HTMLInputElement>(null);
     const rfidBuffer = useRef('');
@@ -660,11 +690,22 @@ export default function AttendancePage() {
             setStudentSales(getStudentSales(selectedStudent));
             const saved = localStorage.getItem('cc_shop_products');
             setAvailableProducts(saved ? JSON.parse(saved) : []);
-            
+
             import('@/lib/student-store').then(mod => {
                 setStudentPatches(mod.getStudentPatches());
             });
         }
+    }, [selectedStudent, drawerOpen]);
+
+    useEffect(() => {
+        if (!selectedStudent || !drawerOpen) return;
+        let cancelled = false;
+        const load = () => {
+            getStudentCheckins(selectedStudent).then(list => { if (!cancelled) setStudentCheckinsHistory(list); });
+        };
+        load();
+        window.addEventListener('cc_attendance_update', load);
+        return () => { cancelled = true; window.removeEventListener('cc_attendance_update', load); };
     }, [selectedStudent, drawerOpen]);
 
     const getSubStatus = useCallback((studentId: string) => {
@@ -893,16 +934,16 @@ export default function AttendancePage() {
         setSearch('');
     }, [selectedClass, selectedDate]);
 
-    const confirmDouble = useCallback(() => {
+    const confirmDouble = useCallback(async () => {
         if (!popup) return;
-        const result = forceCheckin(popup.studentId, popup.studentName, 'manual', selectedClass, selClass?.group_id, undefined, undefined, currentPlanType);
+        const result = await forceCheckin(popup.studentId, popup.studentName, 'manual', selectedClass, selClass?.group_id, undefined, undefined, currentPlanType);
         const sub = getSubscription(popup.studentId, selClass?.group_id, currentPlanType);
         const isMonthly = sub?.type === 'monthly';
         saveAttendance({ ...att, [popup.studentId]: 'present' });
         setPopup({ ...popup, sessionsRemaining: result.sessionsRemaining, checkinCount: popup.checkinCount + 1, phase: 'double-success', isMonthly });
     }, [popup, att, saveAttendance, selectedClass, selClass, currentPlanType]);
 
-    const processCode = useCallback((code: string, choiceSubId?: string) => {
+    const processCode = useCallback(async (code: string, choiceSubId?: string) => {
         if (popup?.phase === 'confirm' && !choiceSubId) return;
         const clean = code.toUpperCase().replace(/[:\-\s]/g, '').trim();
         if (!clean) return;
@@ -933,7 +974,7 @@ export default function AttendancePage() {
 
             // If multiple valid subs and NO specific sub chosen yet
             if (studentSubs.length > 1 && !choiceSubId) {
-                const checkinCount = getCheckinCountToday(studentId);
+                const checkinCount = await getCheckinCountToday(studentId);
                 const sub = getSubscription(studentId, cls?.group_id, currentPlanType);
                 setPopup({
                     studentId,
@@ -948,8 +989,8 @@ export default function AttendancePage() {
                 return;
             }
 
-            const checkinCount = getCheckinCountToday(studentId);
-            const result = recordCheckin(studentId, studentName, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
+            const checkinCount = await getCheckinCountToday(studentId);
+            const result = await recordCheckin(studentId, studentName, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
             const newAtt = { ...att, [studentId!]: 'present' as State };
             saveAttendance(newAtt);
             setScanError('');
@@ -998,7 +1039,7 @@ export default function AttendancePage() {
         return () => document.removeEventListener('keydown', onKeyDown);
     }, [processCode, closePopup, popup]);
 
-    function toggle(id: string, choiceSubId?: string) {
+    async function toggle(id: string, choiceSubId?: string) {
         const student = students.find(s => s.id === id);
         if (!student) return;
 
@@ -1029,7 +1070,7 @@ export default function AttendancePage() {
             });
 
             if (studentSubs.length > 1 && !choiceSubId) {
-                const checkinCount = getCheckinCountToday(id);
+                const checkinCount = await getCheckinCountToday(id);
                 setPopup({
                     studentId: id,
                     studentName: student.full_name,
@@ -1044,7 +1085,8 @@ export default function AttendancePage() {
             }
 
             // Mark present: deduct session
-            recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
+            const checkinRes = await recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
+            patchSubAfterCheckin(id, checkinRes.record?.subId, checkinRes.sessionsUsed ?? null, checkinRes.sessionsTotal ?? null);
             next = 'present';
 
             const usedSub = choiceSubId ? getStudentSubscriptions(id).find(s => s.id === choiceSubId) : activeSub;
@@ -1115,7 +1157,8 @@ export default function AttendancePage() {
             // removed either, so it would keep reappearing as "present"
             // no matter how many times it was unmarked. Pass the date
             // actually being viewed, same as toggleCouple() already does.
-            refundCheckin(id, dateKey, currentPlanType, selClass?.group_id);
+            const refundRes = await refundCheckin(id, dateKey, currentPlanType, selClass?.group_id);
+            patchSubAfterCheckin(id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
             next = 'absent';
         } else {
             next = 'none';
@@ -1123,14 +1166,9 @@ export default function AttendancePage() {
 
         saveAttendance({ ...att, [id]: next });
         setPopup(null);
-
-        // Immediate refresh of subscriptions to show the updated count
-        setTimeout(() => {
-            setSubs(getSubscriptions());
-        }, 10);
     }
 
-    const toggleCouple = useCallback((cStudents: Student[], choiceSubId?: string) => {
+    const toggleCouple = useCallback(async (cStudents: Student[], choiceSubId?: string) => {
         if (!cStudents || cStudents.length === 0) return;
         const primary = cStudents[0];
 
@@ -1149,7 +1187,8 @@ export default function AttendancePage() {
         if (!isAllPresent && !isAnyPresent) {
             // MARK BOTH PRESENT:
             // 1. Deduct 1 session from shared sub
-            recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, 'individual');
+            const primaryRes = await recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, 'individual');
+            patchSubAfterCheckin(primary.id, primaryRes.record?.subId, primaryRes.sessionsUsed ?? null, primaryRes.sessionsTotal ?? null);
 
             // 2. Record check-in history log for partner student(s) without extra
             // deduction. 🛠️ FIX: this used to hand-write the companion's
@@ -1161,7 +1200,7 @@ export default function AttendancePage() {
             // writes an equally real, cloud-synced record but still skips
             // the session deduction (already taken once, above).
             const dateToUse = dateKey || getLocalISODate();
-            cStudents.slice(1).forEach(st => {
+            await Promise.all(cStudents.slice(1).map(st =>
                 recordCompanionCheckin(
                     st.id,
                     st.full_name,
@@ -1170,8 +1209,8 @@ export default function AttendancePage() {
                     selectedClass,
                     selClass?.group_id,
                     dateToUse
-                );
-            });
+                )
+            ));
 
             // 3. Mark both present in att
             const nextAtt = { ...att };
@@ -1243,8 +1282,9 @@ export default function AttendancePage() {
             // it lingers as a phantom "present" check-in even after the
             // couple is unmarked, since deleteCompanionCheckin deliberately
             // does NOT refund again for it).
-            refundCheckin(primary.id, dateKey, 'individual', selClass?.group_id);
-            cStudents.slice(1).forEach(st => deleteCompanionCheckin(st.id, dateKey));
+            const refundRes = await refundCheckin(primary.id, dateKey, 'individual', selClass?.group_id);
+            patchSubAfterCheckin(primary.id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
+            await Promise.all(cStudents.slice(1).map(st => deleteCompanionCheckin(st.id, dateKey)));
             const nextAtt = { ...att };
             cStudents.forEach(s => {
                 nextAtt[s.id] = 'absent';
@@ -1258,9 +1298,7 @@ export default function AttendancePage() {
             });
             saveAttendance(nextAtt);
         }
-
-        setTimeout(() => setSubs(getSubscriptions()), 50);
-    }, [getSubStatus, att, selectedClass, selClass, cls, dateKey, t.subscriptionExpired, subs, saveAttendance, currentPlanType]);
+    }, [getSubStatus, att, selectedClass, selClass, cls, dateKey, t.subscriptionExpired, subs, saveAttendance, currentPlanType, patchSubAfterCheckin]);
 
     const days = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
     const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
@@ -1690,20 +1728,21 @@ export default function AttendancePage() {
                                             const hasAnyAtt = Object.values(att).some(v => v !== 'none');
                                             return (
                                                 <>
-                                                    <button onClick={() => {
-                                                        const n: Record<string, State> = { ...att };
+                                                    <button onClick={async () => {
                                                         if (isCoupleClass && coupleStudents.length > 0) {
-                                                            toggleCouple(coupleStudents);
+                                                            await toggleCouple(coupleStudents);
                                                         } else {
-                                                            students.forEach(s => {
+                                                            const n: Record<string, State> = { ...att };
+                                                            const targets = students.filter(s => {
                                                                 const { isExpired } = getSubStatus(s.id);
-                                                                if (n[s.id] !== 'present' && !isExpired) {
-                                                                    recordCheckin(s.id, s.full_name, 'manual', selectedClass, cls?.group_id, undefined, dateKey, currentPlanType);
-                                                                    n[s.id] = 'present';
-                                                                }
+                                                                return n[s.id] !== 'present' && !isExpired;
                                                             });
+                                                            await Promise.all(targets.map(async s => {
+                                                                const res = await recordCheckin(s.id, s.full_name, 'manual', selectedClass, cls?.group_id, undefined, dateKey, currentPlanType);
+                                                                patchSubAfterCheckin(s.id, res.record?.subId, res.sessionsUsed ?? null, res.sessionsTotal ?? null);
+                                                                n[s.id] = 'present';
+                                                            }));
                                                             saveAttendance(n);
-                                                            setTimeout(() => setSubs(getSubscriptions()), 20);
                                                         }
                                                     }} className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[9px] font-black tracking-wider hover:bg-emerald-500/20 transition-colors">{t.markAllPresent}</button>
 
@@ -1711,33 +1750,30 @@ export default function AttendancePage() {
                                                         <button onClick={async () => {
                                                             if (!await confirm(t.confirmDeleteAttendance)) return;
                                                             const n: Record<string, State> = { ...att };
-                                                            import('@/lib/checkin-store').then(mod => {
-                                                                if (isCoupleClass && coupleStudents.length > 0) {
-                                                                    if (coupleStudents.some(s => n[s.id] === 'present')) {
-                                                                        mod.refundCheckin(coupleStudents[0].id, dateKey, 'individual', cls?.group_id);
-                                                                        // 🛠️ FIX: this cleared the couple's `att` state
-                                                                        // but only ever refunded/removed the PRIMARY
-                                                                        // partner's real check-in record — the
-                                                                        // companion's own record (written by
-                                                                        // recordCompanionCheckin) was left behind as a
-                                                                        // phantom "present" entry that would reappear
-                                                                        // the next time this day was loaded.
-                                                                        coupleStudents.slice(1).forEach(s => mod.deleteCompanionCheckin(s.id, dateKey));
-                                                                    }
-                                                                    coupleStudents.forEach(s => {
-                                                                        n[s.id] = 'none';
-                                                                    });
-                                                                } else {
-                                                                    students.forEach(s => {
-                                                                        if (n[s.id] === 'present') {
-                                                                            mod.refundCheckin(s.id, dateKey, currentPlanType, cls?.group_id);
-                                                                        }
-                                                                        n[s.id] = 'none';
-                                                                    });
+                                                            if (isCoupleClass && coupleStudents.length > 0) {
+                                                                if (coupleStudents.some(s => n[s.id] === 'present')) {
+                                                                    const refundRes = await refundCheckin(coupleStudents[0].id, dateKey, 'individual', cls?.group_id);
+                                                                    patchSubAfterCheckin(coupleStudents[0].id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
+                                                                    // 🛠️ FIX: this cleared the couple's `att` state
+                                                                    // but only ever refunded/removed the PRIMARY
+                                                                    // partner's real check-in record — the
+                                                                    // companion's own record (written by
+                                                                    // recordCompanionCheckin) was left behind as a
+                                                                    // phantom "present" entry that would reappear
+                                                                    // the next time this day was loaded.
+                                                                    await Promise.all(coupleStudents.slice(1).map(s => deleteCompanionCheckin(s.id, dateKey)));
                                                                 }
-                                                                saveAttendance(n);
-                                                                setTimeout(() => setSubs(getSubscriptions()), 20);
-                                                            });
+                                                                coupleStudents.forEach(s => {
+                                                                    n[s.id] = 'none';
+                                                                });
+                                                            } else {
+                                                                await Promise.all(students.filter(s => n[s.id] === 'present').map(async s => {
+                                                                    const refundRes = await refundCheckin(s.id, dateKey, currentPlanType, cls?.group_id);
+                                                                    patchSubAfterCheckin(s.id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
+                                                                }));
+                                                                students.forEach(s => { n[s.id] = 'none'; });
+                                                            }
+                                                            saveAttendance(n);
                                                         }} className="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-[9px] font-black tracking-wider hover:bg-red-500/20 transition-colors ml-1">{t.deleteAttendance}</button>
                                                     )}
                                                 </>
@@ -2298,7 +2334,7 @@ export default function AttendancePage() {
                                                         // "ვიზიტებში კონკრეტულად ამ აბონემენტის ვიზიტები უნდა
                                                         // იყოს". Scope it to the currently active subscription's
                                                         // own window (from its purchase date onward).
-                                                        const allCheckins = getStudentCheckins(selStudent.id);
+                                                        const allCheckins = studentCheckinsHistory;
                                                         const { activeSub } = getSubStatus(selStudent.id);
                                                         const windowStart = activeSub?.purchased_at ? activeSub.purchased_at.split('T')[0] : null;
                                                         const visibleCheckins = windowStart ? allCheckins.filter(ch => ch.date >= windowStart) : allCheckins;
@@ -2328,7 +2364,7 @@ export default function AttendancePage() {
                                                                     match instead of relying only on date+time string
                                                                     equality, which could silently fail to match and make
                                                                     the button look broken. */}
-                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteCheckin(selStudent.id, ch.date, ch.time, ch.id); setSubs(getSubscriptions()); } }}
+                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { await deleteCheckin(selStudent.id, ch.date, ch.time, ch.id); refreshSubs(); } }}
                                                                         className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-60 hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shrink-0">
                                                                         <X className="w-4 h-4" />
                                                                     </button>
