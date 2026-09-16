@@ -519,3 +519,67 @@ count (active students whose `enrolled_group_ids` includes the group). The
 two already disagreed before this migration; this pass preserves the
 `/groups` page's own definition rather than quietly reconciling it with the
 other one.
+
+## 10. Staff — writes only, and why reads stay put
+
+This module is structurally different from everything migrated so far:
+**staff/teacher end users don't authenticate through Supabase Auth at
+all.** They log in via a completely separate, parallel system — a signed
+`cc_staff_token` HMAC cookie (`src/lib/staff-token.ts`), checked server-side
+today only by service-role endpoints (`src/lib/sync-auth.ts`,
+`src/lib/session-check.ts`) that hand-roll their own `org_id` scoping. A
+teacher session has **no Supabase Auth session and no `profiles` row** —
+`auth.uid()` is always null for them.
+
+Every already-migrated page that reads teacher/staff data is viewed by
+teachers themselves, not just owners/admins: attendance, groups, dashboard,
+and students all call `access.ts`'s `getVisibleGroupIds()` or
+`teacher-store.ts`'s `getTeachers()`/`getTeacherName()`/`getTeacherPhoto()`
+specifically to filter what a *teacher* sees. An `auth.uid()`-gated read
+Server Action — the pattern used everywhere else in this migration — would
+return "Not authenticated" for every one of those sessions. **So this pass
+migrates writes only** (`src/app/actions/staff.ts`:
+`createStaffAction`/`updateStaffAction`/`deleteStaffAction`), which are
+safe under the same `auth.uid()` pattern because every real call site
+(`/teachers`, `/settings`'s "Staff Access" section, `/profile`'s "Team"
+tab) is only ever reachable by an owner/admin/manager who did authenticate
+through real Supabase Auth. Reads keep coming from `teacher-store.ts`'s
+local `settings.staff` cache, unchanged — genuinely fixing this needs
+either a `cc_staff_token`-aware branch in these Server Actions (mirroring
+`sync-auth.ts`) or a separate decision about migrating staff auth itself,
+neither of which was asked for here.
+
+`supabase/migrations/20260918_staff_write_rls.sql`: `staff` was already in
+the phase-0 gapfill migration's table array, but no `CREATE TABLE staff`
+exists anywhere in this repo's migration history (it predates the repo's
+migrations folder) — so whether the 4 policies actually attached couldn't
+be confirmed by reading files. This migration re-applies them idempotently
+(drop-if-exists + recreate, same "IF org_id column exists" guard as the
+phase-0 migration) so running it *is* the verification.
+
+Wired additively into `StudioContext.tsx`'s `addStaff`/`updateStaff`/
+`removeStaff` — each now also calls the matching Server Action, alongside
+(not instead of) the existing service-role sync path
+(`settings-store.ts`'s `saveSettings()` → `syncRecordToCloud('staff', ...)`
+/ `deleteRecordFromCloud('staff', ...)`). Kept additive on purpose: the read
+side isn't migrating this pass, so the local `settings.staff` cache still
+needs to keep getting populated the old way for `teacher-store.ts` and
+`useUser.tsx`'s staff-session hydration to keep working.
+
+**Flagged, not fixed — a separate, security-sensitive piece of work:**
+`src/app/api/auth/staff-login/route.ts` compares `staff.password` in
+plaintext. This migration writes `password` through as given (needed since
+the login route reads it as a plain top-level column); it does not hash it
+— hashing here without also changing the login route's comparison would
+just break every staff login. Worth prioritizing as its own task.
+
+**Not migrated, and out of scope for this pass:** staff CRUD UI is
+duplicated across three separate pages with three separate modals
+(`/teachers`'s `TeacherModal`, `/settings`'s inline "Staff Access" form,
+`/profile`'s inline "Team" tab form) plus a fourth, superadmin-only direct
+write path (`superadmin/studios/page.tsx`) that mutates `settings.staff`
+out of band from `addStaff`/`updateStaff`. All three UI paths now benefit
+from the new Server Actions transparently (they all go through
+`StudioContext`'s `addStaff`/`updateStaff`/`removeStaff`), but consolidating
+them into one UI, or covering the superadmin path, wasn't asked for and
+isn't done here.
