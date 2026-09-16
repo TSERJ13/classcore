@@ -627,3 +627,59 @@ column or RLS boundary anywhere in the schema — "multi-branch" today is
 entirely a client-side UI filter over org-wide data (students, expenses,
 staff `allowedBranchIds`), never a security boundary. `org_id` stays the
 only real tenant boundary, same as every other module in this migration.
+
+## 12. Calendar/Events — researched, deliberately NOT migrated this pass
+
+This is the one module in this migration where I stopped short of writing
+code, on purpose. `calendar_events` already has full CRUD RLS (confirmed:
+in the phase-0 gapfill migration's table array, with a real `org_id`
+column per `/api/sync/bulk`'s `MINIMAL_COLUMNS` map) — no new RLS migration
+is even needed. What stopped me is `event-store.ts`'s actual write model,
+which is unsafe to port faithfully *or* to quietly fix:
+
+1. **There is no real per-occurrence identity for recurring events.** Only
+   the *current calendar week's* row for a recurring group class is ever a
+   concrete, addressable `calendar_events` row (`syncGroupScheduleToCalendar`
+   wipes and regenerates it every time groups load); every other week, and
+   every individual lesson derived from a subscription's own weekly
+   schedule, is recomputed fresh on every render with a synthetic id
+   (`_wN` suffixes, `sub-ind-{subId}-{date}`) that has no row behind it.
+   "Edit" or "delete" on one of those synthetic ids is, today, either a
+   silent no-op (`updateEvent`/`deleteEvent` against an id nothing in the
+   real array matches — confirmed in the store's own code, no error
+   surfaces) or it mutates the *whole recurring template* instead of just
+   the one occurrence someone clicked. Porting this 1:1 means faithfully
+   reproducing UI actions that silently do nothing or do the wrong thing;
+   fixing it under this migration would be a real product decision (a
+   proper per-occurrence exception model), not "move the write to a
+   Server Action."
+2. **Teacher/staff-token reachability is pervasive here, not incidental —
+   across writes, not just reads.** Staff's migration could stay safe by
+   moving writes only, because every Staff write is admin-only in
+   practice. Calendar doesn't have that clean split: teachers routinely
+   call `event-store.ts` directly today to book their own individual
+   lessons (`BookIndividualLessonModal`, `createIndividualBooking`),
+   publish/withdraw their own open availability
+   (`individual-availability/page.tsx`, `publishOpenSlot`/`deleteOpenSlot`),
+   and edit/drag their own calendar (gated only by a `canEditCalendar` flag
+   on their own staff record, never by `auth.uid()` — confirmed via
+   `useUser.tsx`'s staff-token branch, which populates `profile` from the
+   local `settings.staff[]` record with no server round-trip). An
+   `auth.uid()`-gated Server Action would lock teachers out of exactly the
+   self-service actions this module exists for.
+3. `start_time`/`end_time` are stored as full timestamps in the DB (not the
+   `HH:MM` strings the `CalendarEvent` type and every consumer use in
+   memory) with no separate `date` column — every read already does a
+   timestamp→date+HH:MM split; any Server Action needs to either keep
+   doing that split or introduce a real `date` column, another decision
+   with knock-on effects across ~19 files that import `event-store.ts`.
+
+None of this makes Calendar un-migratable — it means it needs its own
+explicit scoping conversation (which occurrence-editing bugs to fix vs.
+preserve, how to handle teacher-token writes) before code gets written,
+the same way Attendance's real size forced a decision before that
+migration started. Left on `event-store.ts`/localStorage for now; every
+consumer (`calendar/page.tsx`, `attendance/page.tsx`'s schedule display,
+`dashboard/page.tsx`'s schedule widget, `individual-availability/page.tsx`,
+`BookIndividualLessonModal`, the public student portal) is unaffected by
+everything else in this migration and keeps working exactly as before.
