@@ -251,7 +251,7 @@ Everything in §4 was verified with `tsc --noEmit` (clean) and `next lint`
 
 ---
 
-## 7. Live cutover: `/students` (done) and `/attendance` (not yet — see why)
+## 7. Live cutover: `/students` (done) and `/attendance` check-in (done, surgical)
 
 **`/students` (`src/app/(dashboard)/students/page.tsx`) is now the real,
 only version of this page** — no more `/students-v2`. It reuses everything
@@ -286,28 +286,67 @@ match the live page's actual surface:
   still on their original stores, which is correct: those belong to Shop,
   Attendance, and Subscriptions respectively, not to this pass.
 
-**`/attendance` (`src/app/(dashboard)/attendance/page.tsx`) has deliberately
-not been converted yet.** The pilot's assumption — that this is an
-attendance *list* — undersold it badly: the real page is ~2,465 lines and is
-the studio's daily-operations screen, not a report. It handles live
-check-in marking, companion check-ins, shop sales made at check-in time,
-browsing the day's group schedule, teacher/hall display, and — notably —
-subscription pause/delete actions, all from one screen, importing from
-`checkin-store`, `student-store`, `subscription-store` (including
-`saveSubscription`/`pauseActiveSubscription`/`deleteSubscription`),
-`event-store`, `teacher-store`, `group-store`, `sales-store`, and
-`sms-service`, plus the same embedded `StudentModal`/`IssueSubscriptionModal`.
-Converting the whole thing in the same pass as Students would mean touching
-Subscriptions, Shop, and Calendar's data layers too — undeclared scope
-creep on modules nobody has asked to migrate yet, and enough surface area
-that doing it carelessly risks actually breaking daily check-in, which
-`mark_attendance_and_deduct_session` was specifically built to make safer,
-not riskier. Two honest options for how to proceed, not yet decided:
-1. **Surgical**: wire only the actual check-in action (present/absent
-   marking + the session deduction it triggers) to
-   `mark_attendance_and_deduct_session`, leaving the rest of the page
-   (schedule browsing, sales, subscription pause/delete) on its current
-   stores for now, clearly marked as such.
-2. **Full page migration**: its own dedicated pass, likely comparable in
-   size to everything done so far combined, given how many other modules'
-   data it touches.
+**`/attendance` (`src/app/(dashboard)/attendance/page.tsx`, ~2,465 lines) is
+the studio's daily-operations screen, not a report** — live check-in
+marking, companion check-ins, shop sales made at check-in time, browsing the
+day's group schedule, teacher/hall display, and subscription pause/delete,
+all from one screen. Converting the whole thing in one pass would mean
+touching Subscriptions, Shop, and Calendar's data layers too — undeclared
+scope creep on modules nobody has asked to migrate yet. Took the **surgical**
+option: only the actual check-in write path (present/absent marking, the
+session deduction/refund it triggers, and the per-student visit history
+list) moved to the server; schedule browsing, shop sales, and subscription
+pause/delete are untouched, still on their original stores, clearly out of
+scope for this pass.
+
+What moved:
+- `supabase/migrations/20260916_checkin_session_rpcs.sql` — two small,
+  atomic, row-locking (`FOR UPDATE`) RPCs, `checkin_deduct_session` /
+  `checkin_refund_session`, scoped to *only* the increment/decrement. This
+  is deliberately the one part that was previously racy: the old
+  `checkin-store.ts` path read a subscription's `sessions_used` into a JS
+  variable, incremented it locally, and pushed the whole object back —
+  two admins (or two tabs) marking the same student around the same moment
+  could both read the same stale count and the loser's `+1` would silently
+  overwrite the winner's, under- or over-charging a session with no error
+  and no trace. A `FOR UPDATE` lock inside a `SECURITY DEFINER` function
+  makes that physically impossible: the second writer blocks until the
+  first one's transaction commits, then reads the already-updated row.
+- `src/app/actions/checkin.ts` — the "which subscription do we charge/
+  refund" resolution is a faithful **TypeScript** port of
+  `subscription-store.ts`'s `getSubscription()` / `refundSessionsUsed()`
+  candidate-selection tiers (plan-type/group-id fallback, manual-default
+  priority, oldest-purchased-for-continuation on charge vs.
+  newest-purchased-with-sessions-used on refund) — kept in TS rather than
+  PL/pgSQL specifically so it stays line-by-line diffable against the
+  original instead of being reimplemented blind in SQL. Exposes
+  `markPresentAction`, `refundCheckinAction`, `recordCompanionCheckinAction`,
+  `deleteCompanionCheckinAction`, `getCheckinsForDateAction`,
+  `getCheckinCountTodayAction`, `getStudentCheckinsAction`,
+  `deleteCheckinAction`.
+- `src/lib/checkin-client.ts` — a client-side adapter exposing the exact
+  same function names/signatures as `checkin-store.ts` (`recordCheckin`,
+  `forceCheckin`, `refundCheckin`, `recordCompanionCheckin`,
+  `deleteCompanionCheckin`, `getCheckinsForDate`, `getCheckinCountToday`,
+  `getStudentCheckins`, `deleteCheckin`) but backed by the Server Actions
+  above instead of localStorage — so `attendance/page.tsx`'s call sites
+  only needed `await` added, not a rewrite. `getSessionsRemaining` (a pure
+  read against the not-yet-migrated subscription cache) stays imported from
+  `checkin-store.ts`.
+- `attendance/page.tsx`: `toggle()`, `toggleCouple()`, `confirmDouble()`,
+  `processCode()` (QR/RFID scan), the bulk "mark all present"/"delete
+  attendance" buttons, and the student drawer's visit-history list all now
+  go through the adapter. All surrounding logic — the multi-subscription
+  choice popup, the "1 visit left" SMS trigger, couple-checkin pairing, the
+  historical companion-checkin/date-argument/class-identity bug fixes — is
+  unchanged.
+- Known limitation, accepted for this pass: `subs` (the schedule/roster's
+  subscription display state) is still read from `subscription-store.ts`'s
+  localStorage cache, which nothing writes to anymore now that deduction
+  happens server-side. To avoid that going stale mid-session, every mutating
+  call site patches `subs` locally from the server action's actual returned
+  `sessions_used`/`sessions_total` (`patchSubAfterCheckin`) — correct for
+  this tab, this session, immediately after a mark/unmark. It does **not**
+  fix staleness from another device/tab; that only goes away once
+  `/subscriptions` (the next step) moves this whole read path off
+  localStorage too.
