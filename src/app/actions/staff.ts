@@ -41,6 +41,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { hashPassword } from '@/lib/password-hash';
 
 async function requireOrgId(): Promise<{ orgId: string }> {
     const supabase = await createClient();
@@ -82,13 +83,19 @@ export async function createStaffAction(rawInput: unknown): Promise<{ id: string
 
     const id = input.id || `staff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const fullName = resolveFullName(input);
-    const fullRecord = { ...input, id, full_name: fullName, status: (input as Record<string, unknown>).status || 'active' };
+    // Never write a plaintext password — hash it here even though the
+    // login route still tolerates legacy plaintext rows (verifyPassword()).
+    const hashedPassword = input.password ? await hashPassword(input.password) : null;
+    const fullRecord = {
+        ...input, id, full_name: fullName, status: (input as Record<string, unknown>).status || 'active',
+        password: hashedPassword ?? undefined,
+    };
 
     const { error } = await supabase.from('staff').insert({
         id, org_id: orgId, full_name: fullName, first_name: input.first_name, last_name: input.last_name,
         email: input.email || null, phone: input.phone || null, role: input.role,
         salary_percentage: input.salary_percentage ?? null, rate_per_hour: input.rate_per_hour ?? null,
-        rate_per_month: input.rate_per_month ?? null, password: input.password ?? null,
+        rate_per_month: input.rate_per_month ?? null, password: hashedPassword,
         data: fullRecord,
     });
     if (error) throw new Error(error.message);
@@ -115,7 +122,12 @@ export async function updateStaffAction(rawInput: unknown): Promise<void> {
     };
     // Only touch password when one was actually supplied — an edit form
     // that doesn't show/change the password field must not null it out.
-    if (input.password !== undefined) update.password = input.password;
+    // Never write it as plaintext.
+    if (input.password !== undefined) {
+        const hashedPassword = input.password ? await hashPassword(input.password) : null;
+        update.password = hashedPassword;
+        (update.data as Record<string, unknown>).password = hashedPassword ?? undefined;
+    }
 
     const { error } = await supabase.from('staff').update(update).eq('id', input.id).eq('org_id', orgId);
     if (error) throw new Error(error.message);

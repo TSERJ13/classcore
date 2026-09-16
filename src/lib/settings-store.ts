@@ -548,6 +548,17 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
                     if (s.staff && Array.isArray(s.staff)) {
                         import('./master-sync').then(({ syncRecordToCloud }) => {
                             s.staff!.forEach((member: any) => {
+                                // Password itself is never sent through this
+                                // path — src/app/actions/staff.ts's
+                                // create/updateStaffAction own writing the
+                                // (hashed) `password` column now. This used
+                                // to dump the whole `member` object —
+                                // plaintext password included — into `data`
+                                // on every unrelated staff save, which could
+                                // silently re-propagate a stale plaintext
+                                // value into the JSONB blob even after the
+                                // real column held a hash.
+                                const { password: _password, ...memberWithoutPassword } = member;
                                 syncRecordToCloud('staff', {
                                     id: member.id,
                                     org_id: finalOrgId,
@@ -560,7 +571,7 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
                                     salary_percentage: member.salary_percentage,
                                     rate_per_hour: member.rate_per_hour,
                                     rate_per_month: member.rate_per_month,
-                                    data: member
+                                    data: memberWithoutPassword
                                 }, finalOrgId).catch(() => {});
                             });
                         });
