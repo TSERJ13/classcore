@@ -1,13 +1,14 @@
 # ClassCore Architecture Migration — Server-Driven Roadmap
 
-Status: **Phases 0-3 are all built** (RLS gap-fill, Attendance history +
-daily-count RPC, Students full CRUD, atomic attendance-marking + subscription
-deduction). All three new migrations from Phases 0-1 have been applied to the
-real Frankfurt Supabase project and the branch has been merged + deployed to
-`rebrendig`/`rebranding` — see §6. The Phase 3 migration
-(`20260915_mark_attendance_atomic.sql`) has **not** been applied yet and still
-needs the same SQL Editor step. None of `/students-v2` or `/attendance-v2` is
-linked into the live app's navigation.
+Status: **Live cutover in progress.** There are no real studios on this app
+yet, so — per an explicit decision to stop building parallel `-v2` pilot
+pages and cut the real pages over directly — `/students` (the actual live
+page) now runs entirely on Server Actions + TanStack Query + RLS; the
+`student-store.ts`/`StudioContext` data path is gone from that page. The
+`/students-v2` and `/attendance-v2` pilot pages have been deleted (their
+job — proving the pattern — is done). `/attendance` has **not** been
+converted yet — see the note at the end of this doc; it turned out to be a
+much larger page than the pilot assumed. `/subscriptions` is next.
 Branch: `claude/youthful-sagan-efyg4i`.
 
 This responds to the "Fat Client / 85% Frontend" critique with an actual audit of
@@ -247,3 +248,66 @@ visiting them directly is how to do the verification in §5 step 3.
 
 Everything in §4 was verified with `tsc --noEmit` (clean) and `next lint`
 (clean) before being written up here.
+
+---
+
+## 7. Live cutover: `/students` (done) and `/attendance` (not yet — see why)
+
+**`/students` (`src/app/(dashboard)/students/page.tsx`) is now the real,
+only version of this page** — no more `/students-v2`. It reuses everything
+built for the pilot (Server Actions, RLS, TanStack Query) but had to grow to
+match the live page's actual surface:
+
+- New `search_students` RPC (`20260916_search_students_rpc.sql`) — the live
+  page needs search + status/gender/group filters + sort + pagination + each
+  row's current subscription summary, all at once. Doing that as several
+  Server Action round trips (fetch a page, then fetch subscriptions, then
+  filter by status in JS) would either break the pagination count or turn
+  into an N+1, so it's one RPC with a `LATERAL` join instead, same reasoning
+  as `attendance_daily_counts`.
+- `saveStudentAction` replaces `student-store.ts`'s `updateStudent()` (full
+  upsert, server-side id generation, merges into the existing `data` JSONB
+  rather than overwriting it) and `checkDuplicateStudentAction` replaces the
+  client-side `checkDuplicateStudent()` duplicate-name/phone/birthdate check
+  — same UX (a confirm dialog before creating a likely-duplicate), same
+  match rule, just server-resolved.
+- `deleteStudentAction` moves the record to `trash` and then deletes it,
+  matching legacy `deleteStudent()`'s soft-delete behavior.
+- The card grid switched from "load everything, filter/sort in the browser"
+  to server-side pagination with a "load more" button (`useInfiniteQuery`) —
+  this is the actual fix for the brief's "500 students crashes the browser"
+  concern, not just RLS.
+- **`StudentModal` itself was left untouched.** It already only produces a
+  plain `Partial<Student>` object and hands it to the page's `onSave`
+  callback — persistence was always the page's job, not the modal's — so
+  swapping what `onSave`/`onDelete` call underneath didn't require touching
+  the modal. Its own internal reads (shop purchase history, checkin
+  history, custom style presets, the embedded `IssueSubscriptionModal`) are
+  still on their original stores, which is correct: those belong to Shop,
+  Attendance, and Subscriptions respectively, not to this pass.
+
+**`/attendance` (`src/app/(dashboard)/attendance/page.tsx`) has deliberately
+not been converted yet.** The pilot's assumption — that this is an
+attendance *list* — undersold it badly: the real page is ~2,465 lines and is
+the studio's daily-operations screen, not a report. It handles live
+check-in marking, companion check-ins, shop sales made at check-in time,
+browsing the day's group schedule, teacher/hall display, and — notably —
+subscription pause/delete actions, all from one screen, importing from
+`checkin-store`, `student-store`, `subscription-store` (including
+`saveSubscription`/`pauseActiveSubscription`/`deleteSubscription`),
+`event-store`, `teacher-store`, `group-store`, `sales-store`, and
+`sms-service`, plus the same embedded `StudentModal`/`IssueSubscriptionModal`.
+Converting the whole thing in the same pass as Students would mean touching
+Subscriptions, Shop, and Calendar's data layers too — undeclared scope
+creep on modules nobody has asked to migrate yet, and enough surface area
+that doing it carelessly risks actually breaking daily check-in, which
+`mark_attendance_and_deduct_session` was specifically built to make safer,
+not riskier. Two honest options for how to proceed, not yet decided:
+1. **Surgical**: wire only the actual check-in action (present/absent
+   marking + the session deduction it triggers) to
+   `mark_attendance_and_deduct_session`, leaving the rest of the page
+   (schedule browsing, sales, subscription pause/delete) on its current
+   stores for now, clearly marked as such.
+2. **Full page migration**: its own dedicated pass, likely comparable in
+   size to everything done so far combined, given how many other modules'
+   data it touches.
