@@ -134,14 +134,26 @@ function resolveRefundSubscription(subs: SubRow[], groupId?: string, planType?: 
     return sorted.find(s => s.sessions_used > 0) || null;
 }
 
+type SubRowWithStudent = SubRow & { student_id: string };
+
+/**
+ * A couple/individual-pair subscription stores `student_id` as a literal
+ * comma-joined string ("id1, id2"), same as subscription-store.ts's
+ * saveSubscription()/getStudentSubscriptions() — an exact `.eq('student_id',
+ * studentId)` would silently miss it for either partner. Match the legacy
+ * behavior: fetch every row whose student_id column contains this id as one
+ * of its comma-separated tokens.
+ */
 async function fetchStudentSubs(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, studentId: string): Promise<SubRow[]> {
     const { data, error } = await supabase
         .from('subscriptions')
-        .select('id, status, sessions_used, sessions_total, expires_at, data')
+        .select('id, status, sessions_used, sessions_total, expires_at, data, student_id')
         .eq('org_id', orgId)
-        .eq('student_id', studentId);
+        .ilike('student_id', `%${studentId}%`);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return ((data ?? []) as SubRowWithStudent[]).filter(row =>
+        String(row.student_id || '').split(',').map(s => s.trim()).includes(studentId)
+    );
 }
 
 function makeAttendanceId(studentId: string, date: string): string {

@@ -6,7 +6,8 @@ import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { type SubscriptionInfo, pauseActiveSubscription, getEffectiveStatus, findTariffForSubscription } from '@/lib/subscription-store';
+import { type SubscriptionInfo, getEffectiveStatus, findTariffForSubscription } from '@/lib/subscription-store';
+import { pauseSubscriptionAction } from '@/app/actions/subscriptions';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { cn } from '@/lib/utils';
@@ -202,9 +203,10 @@ export function SubscriptionModal({ open, subscription, onClose, onSave, onDelet
                                                     ? `ანგარიშიდან ჩამოიჭრება ${cost} ${settings.currency}. გსურთ ${days} დღით შეჩერება?`
                                                     : `გსურთ აბონემენტის ${days} დღით შეჩერება უფასოდ?`;
                                                 if (await confirm(msg)) {
-                                                    pauseActiveSubscription(form.student_id, form.id, days, cost);
+                                                    await pauseSubscriptionAction({ studentId: form.student_id, subId: form.id, days, price: cost });
                                                     onClose(); // Close modal, letting the parent refresh
-                                                    // Trigger global refresh so subscriptions list updates
+                                                    // Trigger global refresh so subscriptions list + student balance update
+                                                    window.dispatchEvent(new Event('cc_subscription_update'));
                                                     window.dispatchEvent(new Event('cc_student_update'));
                                                 }
                                             }}

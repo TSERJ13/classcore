@@ -11,7 +11,8 @@ import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings
 import { cn, formatCurrency } from '@/lib/utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { useStudio } from '@/contexts/StudioContext';
-import { getPlans, savePlans, deletePlan as deletePlanInStore, type Plan, type RentalPeriod } from '@/lib/plan-store';
+import { type Plan, type RentalPeriod } from '@/lib/plan-store';
+import { getPlansAction, savePlansAction, deletePlanAction } from '@/app/actions/plans';
 import { getGroups, type Group } from '@/lib/group-store';
 
 type PlanType = 'group' | 'personal' | 'individual' | 'rental';
@@ -49,7 +50,7 @@ export default function PlansManagementPage() {
 
     useEffect(() => {
         const load = () => {
-            setPlans(getPlans());
+            getPlansAction().then(rows => setPlans(rows as unknown as Plan[])).catch(err => console.error('❌ [Plans] Failed to load:', err));
             setGroups(getGroups());
         };
         load();
@@ -122,7 +123,8 @@ export default function PlansManagementPage() {
                 next = [...plans, { ...form, id: String(Date.now()) } as Plan];
             }
             setPlans(next);
-            await savePlans(next);
+            await savePlansAction(next);
+            window.dispatchEvent(new Event('cc_subscription_plans_update'));
             setShowForm(false);
         } finally {
             setSavingPlan(false);
@@ -131,7 +133,8 @@ export default function PlansManagementPage() {
 
     async function deletePlan(id: string) {
         if (!await confirm(t.deleteConfirm)) return;
-        await deletePlanInStore(id);
+        await deletePlanAction({ id });
+        window.dispatchEvent(new Event('cc_subscription_plans_update'));
         // The UI will refresh via the cc_subscription_plans_update event listener already in place
     }
 
@@ -146,7 +149,7 @@ export default function PlansManagementPage() {
             return updated;
         });
         setPlans(next);
-        savePlans(next);
+        savePlansAction(next).then(() => window.dispatchEvent(new Event('cc_subscription_plans_update')));
     }
 
     // Mark plan as default — only ONE plan can be default per type at a time
@@ -164,7 +167,7 @@ export default function PlansManagementPage() {
             return updated;
         });
         setPlans(next);
-        savePlans(next);
+        savePlansAction(next).then(() => window.dispatchEvent(new Event('cc_subscription_plans_update')));
     }
 
     return (

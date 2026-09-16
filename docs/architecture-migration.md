@@ -4,11 +4,16 @@ Status: **Live cutover in progress.** There are no real studios on this app
 yet, so — per an explicit decision to stop building parallel `-v2` pilot
 pages and cut the real pages over directly — `/students` (the actual live
 page) now runs entirely on Server Actions + TanStack Query + RLS; the
-`student-store.ts`/`StudioContext` data path is gone from that page. The
+`student-store.ts`/`StudioContext` data path is gone from that page.
+`/attendance`'s check-in write path (mark/unmark present, companion
+check-ins, visit history) is server-driven too, via a small atomic RPC pair
+for the session count and a TypeScript port of the subscription-selection
+logic (§7). `/subscriptions` (issue/edit/pause/delete + tariff Plans CRUD)
+and 4 of `/dashboard`'s stat numbers are now server-driven as well (§8). The
 `/students-v2` and `/attendance-v2` pilot pages have been deleted (their
-job — proving the pattern — is done). `/attendance` has **not** been
-converted yet — see the note at the end of this doc; it turned out to be a
-much larger page than the pilot assumed. `/subscriptions` is next.
+job — proving the pattern — is done). Next: everything else `/dashboard`
+still computes client-side, then the remaining modules (Groups, Calendar,
+Staff, Shop) — see §8's "what's left" list.
 Branch: `claude/youthful-sagan-efyg4i`.
 
 This responds to the "Fat Client / 85% Frontend" critique with an actual audit of
@@ -350,3 +355,114 @@ What moved:
   fix staleness from another device/tab; that only goes away once
   `/subscriptions` (the next step) moves this whole read path off
   localStorage too.
+- Bug found and fixed while building this: `checkin.ts`'s subscription
+  lookup used an exact `.eq('student_id', studentId)` match, but a couple/
+  individual-pair subscription stores `student_id` as a literal comma-joined
+  string ("id1, id2") — same as `subscription-store.ts`'s own
+  `getStudentSubscriptions()`. An exact match would silently miss the shared
+  subscription for either partner, breaking session deduction/refund for
+  couple check-ins specifically. Fixed to fetch by substring and filter by
+  comma-split membership, matching the legacy behavior exactly.
+
+## 8. Subscriptions + Dashboard stats
+
+`supabase/migrations/20260917_subscriptions_write_rls_and_stats.sql`:
+- **`subscriptions` had no INSERT/UPDATE/DELETE RLS policy at all** — only
+  the original SELECT-only policy from `20260415_security_hardening.sql`.
+  Added the missing 3, same 4-policy shape as the students pilot. This is
+  why the attendance check-in RPCs had to mutate `subscriptions` from inside
+  a `SECURITY DEFINER` function instead of a plain RLS-respecting
+  `.update()` — that workaround is no longer the only option, but is kept
+  as-is for the check-in path since it's already correct and live.
+- `expire_overdue_subscriptions()` — flips `status='active'` rows with
+  `expires_at < current_date` to `'expired'`, scoped to the caller's org. No
+  `pg_cron` schedule is set up (enabling that extension is a Supabase
+  dashboard action outside what a migration file can do or verify) — instead
+  this runs as a lazy sweep at the top of `get_dashboard_stats()` and before
+  `getSubscriptionsAction()`'s read, so the next time anyone in the org
+  looks at stats or the subscriptions list, overdue rows are already
+  correct. **If true unattended cron is wanted, `pg_cron` needs to be
+  enabled from the Supabase dashboard first** — flagging this rather than
+  assuming it's already on.
+- `get_dashboard_stats()` — one RPC for the 4 numbers requested: active
+  students, this month's revenue, today's check-ins, subscriptions expiring
+  within 7 days. Revenue is a faithful SQL port of `studio-stats.ts`'s
+  `subRevenue`/`isSubInMonth` (positive `amount_paid` wins, else the
+  matching Plan's price by name then by id; "in this month" matches
+  `purchased_at`, falls back to `created_at` converted to Asia/Tbilisi — no
+  per-org timezone setting exists today so this is a fixed offset, worth
+  revisiting if the app ever has studios outside Georgia — and carries the
+  same documented 2026-08-31 legacy-backfill shim) plus shop `sales`,
+  summed together, exactly matching what the current dashboard code sums
+  (confirmed: this is *not* subscriptions-only revenue). "Active students"
+  and "expiring soon" are both **distinct student counts**, not raw
+  subscription counts — matching `dashboard/page.tsx`'s existing
+  `studentsWithActiveSub`/`expiringSoonStudents` definitions (there's a
+  documented divergence in the original code between "active" by raw
+  `status` field vs. `getEffectiveStatus()`'s richer suspended/cancelled
+  model — this RPC preserves the simpler one the dashboard already uses,
+  not `getEffectiveStatus()`'s).
+
+`src/app/actions/subscriptions.ts` / `src/app/actions/plans.ts`:
+- `getSubscriptionsAction`, `issueSubscriptionAction`, `updateSubscriptionAction`,
+  `pauseSubscriptionAction`, `deleteSubscriptionAction` — replace
+  `subscription-store.ts`'s `getSubscriptions`/`saveSubscription`/
+  `deleteSubscription`/`pauseActiveSubscription`. Schema kept minimal (`id,
+  org_id, student_id, status, sessions_used, sessions_total, starts_at,
+  expires_at, price, data`), same reasoning as `students.ts`'s PGRST204
+  note — the full `SubscriptionInfo` object still rides in `data`.
+  `issueSubscriptionAction` re-checks the studio's `enabledFeatures`
+  (personal/individual/rental plan-type gating) server-side, reading
+  `studio_settings.staff_data->'_operations'->'cc_studio_settings'
+  ->'enabledFeatures'` — the same nested path the existing superadmin API
+  route reads/writes; defaults to **allowed** if that path is missing
+  entirely (matching `isFeatureEnabled()`'s "undefined = enabled" rule, and
+  erring toward not blocking a studio over a schema assumption that
+  couldn't be verified against the live DB in this session).
+- `getPlansAction`, `savePlansAction`, `deletePlanAction` — replace
+  `plan-store.ts`'s `getPlans`/`savePlans`/`deletePlan`. `savePlansAction`
+  keeps the same whole-array-replace contract `plan-store.ts` always had
+  (there was never a per-row upsert) rather than inventing a new API the
+  existing `/subscriptions/plans` page wasn't built around.
+- `src/app/actions/dashboard.ts` — thin wrapper calling `get_dashboard_stats()`.
+
+Page wiring:
+- `/subscriptions/page.tsx`: list load, issue, edit/save, delete all go
+  through the new actions; `SubscriptionModal`'s inline pause action
+  (previously a direct `pauseActiveSubscription()` store call) now calls
+  `pauseSubscriptionAction`. Everything else — `IssueSubscriptionModal`'s own
+  side effects (student balance deduction, group auto-enrollment, generated
+  calendar events for individual-lesson schedules, the `logSubscription`
+  audit entry via `StudioContext`), `BookIndividualLessonModal` — is
+  untouched, still calling `student-store.ts`/`event-store.ts` directly, out
+  of scope for this pass.
+- `/subscriptions/plans/page.tsx`: list/create/edit/delete/toggle-active/
+  toggle-default all go through `plans.ts`'s actions instead of
+  `plan-store.ts`.
+- `/dashboard/page.tsx`: a second, small `useEffect` calls
+  `getDashboardStatsAction()` and overlays its 4 numbers onto the existing
+  `liveStats` state *after* the page's own (unchanged) client-side
+  `refreshFullDashboard()` has already run — server values win once they
+  arrive, everything else on the page (revenue trend chart, occupancy,
+  churn-risk list, AI insights) still comes from the original client-side
+  computation. Deliberately not a full dashboard rewrite — out of scope for
+  what was asked.
+
+**What's left before `StudioContext`/`/api/sync/state` can actually go
+away** (§8 only covered 4 of the dashboard's numbers and Subscriptions'
+core CRUD):
+- `/dashboard`'s other cards: revenue trend/occupancy/churn-risk/AI insights
+  still read `getStudents`/`getUniqueSubscriptions`/`getSales`/`getPlans`
+  from local stores.
+- `IssueSubscriptionModal`'s own direct `student-store.ts`/`event-store.ts`
+  calls (balance, group enrollment, generated calendar events).
+- `getPlans()` elsewhere (e.g. inside `IssueSubscriptionModal`,
+  `findTariffForSubscription`) still reads the local `plan-store.ts` cache —
+  it stays *eventually* correct because `StudioContext`'s background
+  `/api/sync/state` hydration still runs and refreshes it independently, but
+  it's not instant the way the new Server Actions are.
+- Every other module not yet touched: Groups, Calendar/Events, Staff,
+  Branches/Halls, Shop/Sales, SMS templates, Settings.
+- `StudioContext.tsx` itself (1042 lines) still runs its full hydration/
+  merge engine on every page — nothing has been removed from it yet, since
+  other pages still depend on the localStorage state it populates.
