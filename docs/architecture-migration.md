@@ -683,3 +683,51 @@ consumer (`calendar/page.tsx`, `attendance/page.tsx`'s schedule display,
 `dashboard/page.tsx`'s schedule widget, `individual-availability/page.tsx`,
 `BookIndividualLessonModal`, the public student portal) is unaffected by
 everything else in this migration and keeps working exactly as before.
+
+## 13. Shop (Sales + Products) — and a reusable dual-auth path for Server Actions
+
+Same teacher-token reachability problem as Calendar (attendance's quick-sell
+drawer lets a teacher record a sale during their own class, with no
+Supabase Auth session), but none of Calendar's virtual-occurrence
+complexity — so this was safe to actually close, by finally answering the
+question the Staff/Calendar research kept surfacing: **what does a Server
+Action do when the caller is a staff-token session with no `auth.uid()`?**
+
+`src/lib/server-actions-auth.ts`'s `requireOrgIdDualAuth()`: try real
+Supabase Auth first (RLS-respecting client — safest, used for every owner/
+admin call); if that comes back empty, fall back to the `cc_staff_token`
+cookie (`verifyStaffToken()`) and hand back a **service-role** client
+manually scoped to that token's `orgId`. This isn't a new pattern — it's
+`src/lib/sync-auth.ts`'s existing `getAuthenticatedOrgId()` (already used
+by every `/api/sync/*` route), rehomed as a reusable Server Action helper
+instead of a per-route copy. Every query made with the service-role branch
+of this client has to be manually `.eq('org_id', ...)`-scoped by the
+caller — there's no RLS backstop on that branch, same as the existing
+service-role endpoints.
+
+`src/app/actions/sales.ts` / `src/app/actions/products.ts`: both tables
+already had full CRUD RLS (in the phase-0 gapfill migration's array) — no
+new RLS migration needed. `getSalesAction`/`getStudentSalesAction`/
+`recordSaleAction`/`updateSaleAction`/`deleteSaleAction` replace
+`sales-store.ts`; `getProductsAction`/`saveProductsAction` (whole-array
+replace, matching `product-store.ts`'s existing contract)/
+`deleteProductAction` replace `product-store.ts`. Both kept to confirmed-
+real columns only (`sales`: `id, org_id, student_id, data` — despite
+`/api/sync/bulk`'s column map listing `product_id`/`amount`/`date` too,
+the app's actual write path has never populated them, so this matches
+current behavior rather than starting to; `products`: `id, org_id, name,
+price, category, data`).
+
+Wired into `/shop/page.tsx` (the main Shop management page) and
+`attendance/page.tsx`'s quick-sell drawer, including a bug fix found along
+the way: the drawer's inventory decrement wrote directly to the
+`cc_shop_products` localStorage key, bypassing `product-store.ts` (and,
+now, the new action) entirely — a sale recorded from the attendance drawer
+never actually persisted its inventory change anywhere durable. Now both
+the sale and the inventory update go through the same Server Actions the
+Shop page uses.
+
+**This dual-auth pattern is now available for any future module** that
+needs the same thing Calendar was blocked on — it doesn't resolve
+Calendar's own virtual-occurrence problem, but it removes the auth half of
+that module's blocker for whenever the occurrence-model decision gets made.

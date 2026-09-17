@@ -29,7 +29,9 @@ import { ArrowLeftRight } from 'lucide-react';
 import { getPlans } from '@/lib/plan-store';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
-import { getStudentSales, recordSale, deleteSale, type ShopSale } from '@/lib/sales-store';
+import { type ShopSale } from '@/lib/sales-store';
+import { getStudentSalesAction, recordSaleAction, deleteSaleAction } from '@/app/actions/sales';
+import { getProductsAction, saveProductsAction } from '@/app/actions/products';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -687,9 +689,8 @@ export default function AttendancePage() {
 
     useEffect(() => {
         if (selectedStudent) {
-            setStudentSales(getStudentSales(selectedStudent));
-            const saved = localStorage.getItem('cc_shop_products');
-            setAvailableProducts(saved ? JSON.parse(saved) : []);
+            getStudentSalesAction({ studentId: selectedStudent }).then(setStudentSales).catch(err => console.error('❌ [Attendance] Failed to load student sales:', err));
+            getProductsAction().then(rows => setAvailableProducts(rows as unknown as Product[])).catch(err => console.error('❌ [Attendance] Failed to load products:', err));
 
             import('@/lib/student-store').then(mod => {
                 setStudentPatches(mod.getStudentPatches());
@@ -884,10 +885,10 @@ export default function AttendancePage() {
         return 'group';
     }, [cls, isCoupleClass]);
 
-    const handleQuickSell = (productId: string) => {
+    const handleQuickSell = async (productId: string) => {
         const product = availableProducts.find(p => p.id === productId);
         if (!product || !selectedStudent) return;
-        
+
         if (product.quantity < quickSellQty) {
             alert(t.insufficientStock);
             return;
@@ -896,22 +897,31 @@ export default function AttendancePage() {
         const selStudent = students.find(s => s.id === selectedStudent);
         if (!selStudent) return;
 
-        recordSale({
-            studentId: selectedStudent,
-            studentName: selStudent.full_name,
-            productId: product.id,
-            productName: product.name,
-            quantity: quickSellQty,
-            price: product.price * quickSellQty
-        });
-
-        // Update inventory in localStorage
-        const newProducts = availableProducts.map(p => 
+        // Update inventory optimistically, persist both writes.
+        const newProducts = availableProducts.map(p =>
             p.id === productId ? { ...p, quantity: p.quantity - quickSellQty } : p
         );
-        localStorage.setItem('cc_shop_products', JSON.stringify(newProducts));
         setAvailableProducts(newProducts);
-        setStudentSales(getStudentSales(selectedStudent));
+
+        try {
+            await Promise.all([
+                recordSaleAction({
+                    studentId: selectedStudent,
+                    studentName: selStudent.full_name,
+                    productId: product.id,
+                    productName: product.name,
+                    quantity: quickSellQty,
+                    price: product.price * quickSellQty
+                }),
+                saveProductsAction(newProducts),
+            ]);
+        } catch (err) {
+            console.error('❌ [Attendance] Quick sell failed:', err);
+        }
+        window.dispatchEvent(new Event('cc_product_update'));
+        window.dispatchEvent(new Event('cc_sale_update'));
+
+        getStudentSalesAction({ studentId: selectedStudent }).then(setStudentSales).catch(() => {});
         setQuickSellQty(1);
     };
 
@@ -2436,7 +2446,7 @@ export default function AttendancePage() {
                                                     )}
                                                     {activeTab === 'products' && (
                                                         <div className="space-y-3 pb-24">
-                                                            {getStudentSales(selStudent.id).length > 0 ? getStudentSales(selStudent.id).map((sale, i) => (
+                                                            {studentSales.length > 0 ? studentSales.map((sale, i) => (
                                                                 <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-border-subtle/30 group hover:border-rose-500/30 transition-all">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shrink-0">
@@ -2447,7 +2457,18 @@ export default function AttendancePage() {
                                                                             <p className="text-[10px] font-bold text-muted opacity-60 mt-0.5">{sale.date} · {sale.price}₾</p>
                                                                         </div>
                                                                     </div>
-                                                                    <button onClick={async (e) => { e.stopPropagation(); if (await confirm(t.confirmDelete)) { deleteSale(sale.id); setSubs(getSubscriptions()); } }}
+                                                                    <button onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        if (await confirm(t.confirmDelete)) {
+                                                                            try {
+                                                                                await deleteSaleAction({ id: sale.id });
+                                                                            } catch (err) {
+                                                                                console.error('❌ [Attendance] Delete sale failed:', err);
+                                                                            }
+                                                                            if (selectedStudent) getStudentSalesAction({ studentId: selectedStudent }).then(setStudentSales).catch(() => {});
+                                                                            setSubs(getSubscriptions());
+                                                                        }
+                                                                    }}
                                                                         className="p-2 rounded-xl bg-red-500/10 text-red-500 opacity-60 hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shrink-0">
                                                                         <X className="w-4 h-4" />
                                                                     </button>
