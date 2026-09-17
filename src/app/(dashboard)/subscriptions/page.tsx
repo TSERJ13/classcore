@@ -6,7 +6,8 @@ import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, Cr
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
-import { getSubscriptions, deleteSubscription, saveSubscription, getEffectiveStatus, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getEffectiveStatus, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getSubscriptionsAction, issueSubscriptionAction, updateSubscriptionAction, deleteSubscriptionAction } from '@/app/actions/subscriptions';
 import { isFeatureEnabled } from '@/lib/settings-store';
 import { getStudents } from '@/lib/student-store';
 import { useStudio } from '@/contexts/StudioContext';
@@ -28,37 +29,24 @@ export default function SubscriptionsPage() {
     const [bookingSub, setBookingSub] = useState<SubscriptionInfo | null>(null);
     const [issuing, setIssuing] = useState(false);
     const [fabOpen, setFabOpen] = useState(false);
-    const [subsData, setSubsData] = useState<Record<string, SubscriptionInfo[]>>({});
+    const [allSubs, setAllSubs] = useState<SubscriptionInfo[]>([]);
 
     useEffect(() => {
-        function load() { setSubsData(getSubscriptions() || {}); }
+        let cancelled = false;
+        function load() {
+            getSubscriptionsAction().then(rows => {
+                if (!cancelled) setAllSubs(rows as unknown as SubscriptionInfo[]);
+            }).catch(err => console.error('❌ [Subscriptions] Failed to load:', err));
+        }
         load();
         window.addEventListener('cc_subscription_update', load);
         window.addEventListener('cc_student_update', load);
         return () => {
+            cancelled = true;
             window.removeEventListener('cc_subscription_update', load);
             window.removeEventListener('cc_student_update', load);
         };
     }, []);
-
-    // Flatten and sort subscriptions (newest first)
-    const subMap = new Map<string, SubscriptionInfo>();
-    if (subsData && typeof subsData === 'object') {
-        Object.keys(subsData).forEach(key => {
-            const subsArray = subsData[key];
-            if (Array.isArray(subsArray)) {
-                subsArray.forEach(sub => {
-                    if (sub && typeof sub === 'object') {
-                        const sid = sub.id || `temp_${Math.random()}`;
-                        if (!subMap.has(sid)) {
-                            subMap.set(sid, { ...sub, student_id: sub.student_id || key });
-                        }
-                    }
-                });
-            }
-        });
-    }
-    const allSubs = Array.from(subMap.values());
 
     const sortedSubs = [...allSubs].sort((a, b) => {
         const dateA = new Date(a?.purchased_at || 0).getTime();
@@ -239,56 +227,55 @@ export default function SubscriptionsPage() {
         );
     };
 
-    const handleSave = (form: SubscriptionInfo) => {
-        saveSubscription(form.student_id, form);
+    const handleSave = async (form: SubscriptionInfo) => {
+        // Optimistic update so the card reflects the edit immediately.
+        setAllSubs(prev => prev.map(s => s.id === form.id ? form : s));
         setEditing(null);
+        try {
+            await updateSubscriptionAction(form);
+        } catch (err) {
+            console.error('❌ [Subscriptions] Save failed:', err);
+        }
+        window.dispatchEvent(new Event('cc_subscription_update'));
     };
     const handleDelete = async (studentId: string, id: string) => {
         if (await confirm(t.deleteSubConfirm || 'ნამდვილად გსურთ წაშლა?')) {
-            // Look this subscription up BEFORE removing it from state — need
-            // its plan_type to know whether it has generated calendar events
-            // that must be cleaned up too (see below).
-            const subBeingDeleted = subsData[studentId]?.find(s => s.id === id);
-
             // Optimistic Update: Hide immediately in UI
-            setSubsData(prev => {
-                const next = { ...prev };
-                for (const k of Object.keys(next)) {
-                    if (Array.isArray(next[k])) {
-                        next[k] = next[k].filter(s => s.id !== id);
-                        if (next[k].length === 0) delete next[k];
-                    }
-                }
-                return next;
-            });
-
-            deleteSubscription(studentId, id);
-
-            // 🧹 An individual subscription's schedule generates real
-            // calendar events (generateScheduledIndividualEvents, called
-            // from IssueSubscriptionModal). Without this, deleting/
-            // cancelling the subscription left those future lessons behind
-            // as "ghost" entries in the attendance schedule with no
-            // subscription backing them anymore.
-            if (subBeingDeleted?.plan_type === 'individual') {
-                import('@/lib/event-store').then(({ deleteIndividualLessonEvents }) => {
-                    // subBeingDeleted.student_id is the same (possibly comma-
-                    // joined, for a pair) id string the events were generated
-                    // with — match on the exact same value.
-                    deleteIndividualLessonEvents(subBeingDeleted.student_id || studentId);
-                }).catch(() => {});
-            }
-
+            setAllSubs(prev => prev.filter(s => s.id !== id));
             setEditing(null);
+
+            try {
+                const { planType, studentId: deletedStudentId } = await deleteSubscriptionAction({ studentId, subId: id });
+
+                // 🧹 An individual subscription's schedule generates real
+                // calendar events (generateScheduledIndividualEvents, called
+                // from IssueSubscriptionModal). Without this, deleting/
+                // cancelling the subscription left those future lessons behind
+                // as "ghost" entries in the attendance schedule with no
+                // subscription backing them anymore.
+                if (planType === 'individual') {
+                    import('@/lib/event-store').then(({ deleteIndividualLessonEvents }) => {
+                        // deletedStudentId is the same (possibly comma-joined,
+                        // for a pair) id string the events were generated
+                        // with — match on the exact same value.
+                        deleteIndividualLessonEvents(deletedStudentId || studentId);
+                    }).catch(() => {});
+                }
+            } catch (err) {
+                console.error('❌ [Subscriptions] Delete failed:', err);
+            }
+            window.dispatchEvent(new Event('cc_subscription_update'));
         }
     };
-    const handleIssue = (data: Omit<SubscriptionInfo, 'id'>) => {
-        const newSub: SubscriptionInfo = {
-            ...data,
-            id: `sub_${Date.now()}`
-        };
-        saveSubscription(data.student_id, newSub);
+    const handleIssue = async (data: Omit<SubscriptionInfo, 'id'>) => {
         setIssuing(false);
+        try {
+            const { id } = await issueSubscriptionAction(data);
+            setAllSubs(prev => [...prev, { ...data, id } as SubscriptionInfo]);
+        } catch (err) {
+            console.error('❌ [Subscriptions] Issue failed:', err);
+        }
+        window.dispatchEvent(new Event('cc_subscription_update'));
     };
 
     return (

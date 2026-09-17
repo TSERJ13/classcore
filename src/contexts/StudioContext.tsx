@@ -6,6 +6,8 @@ import { setSubscriptionsMemoryCache } from '@/lib/subscription-store';
 import { useUser } from '@/hooks/useUser';
 import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds, getEffectiveOrgId } from '@/lib/utils';
 import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
+import { createStaffAction, updateStaffAction, deleteStaffAction } from '@/app/actions/staff';
+import { createBranchAction, updateBranchAction, deleteBranchAction } from '@/app/actions/branches';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -953,6 +955,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         const next = settings.staff?.map((s: any) => s.id === id ? { ...s, ...data } : s) || [];
         updateSettings({ staff: next });
         notifyStaffChanged(next);
+        // RLS-respecting write alongside the existing service-role sync
+        // above (settings-store.ts's saveSettings() -> syncRecordToCloud)
+        // — additive, not a replacement, since teacher-store.ts's reads
+        // (used by teacher-role sessions with no auth.uid()) still depend
+        // on the local settings.staff cache staying populated the old way.
+        updateStaffAction({ id, ...data }).catch(() => {});
     };
     const removeStaff = (id: string) => {
         const next = settings.staff?.filter((s: any) => s.id !== id) || [];
@@ -991,14 +999,24 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 updateTeacherGroups(id, '', []);
             }).catch(() => {});
         }
+        deleteStaffAction({ id }).catch(() => {});
     };
     const addStaff = (member: any) => {
         const next = [...(settings.staff || []), member];
         updateSettings({ staff: next });
         notifyStaffChanged(next);
+        createStaffAction(member).catch(() => {});
     };
-    const removeBranch = (id: string) => updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
-    const updateBranch = (id: string, data: any) => updateSettings({ branches: settings.branches.map(b => b.id === id ? { ...b, ...data } : b) });
+    const removeBranch = (id: string) => {
+        updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
+        deleteBranchAction({ id }).catch(() => {});
+    };
+    const updateBranch = (id: string, data: any) => {
+        const next = settings.branches.map(b => b.id === id ? { ...b, ...data } : b);
+        updateSettings({ branches: next });
+        const updated = next.find(b => b.id === id);
+        if (updated) updateBranchAction(updated).catch(() => {});
+    };
     const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });
     const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
     const setSmsTemplates = (templates: any) => updateSettings({ sms_templates: templates });
@@ -1028,6 +1046,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true };
             const next = { ...prev, branches: [...prev.branches, newBranch] };
             saveSettings({ branches: next.branches }, prev, prev.studioSlug);
+            createBranchAction(newBranch).catch(() => {});
             return next;
         });
     }, []);

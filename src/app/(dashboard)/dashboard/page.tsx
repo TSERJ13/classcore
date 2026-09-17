@@ -20,6 +20,7 @@ import { getTeachers } from '@/lib/teacher-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 import { pctChange, buildPlanPrices, subRevenue, isSubInMonth, isSubOnDay } from '@/lib/studio-stats';
 import { getPlans } from '@/lib/plan-store';
+import { getDashboardStatsAction } from '@/app/actions/dashboard';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { TodayGroupsCard } from '@/components/dashboard/TodayGroupsCard';
@@ -632,6 +633,33 @@ export default function DashboardPage() {
             window.removeEventListener('cc_sync_done', refreshFullDashboard);
         };
     }, [refreshFullDashboard]);
+
+    // Server-authoritative overlay for the 4 numbers get_dashboard_stats()
+    // computes in Postgres instead of over a client-side array reduce
+    // (active students, this month's revenue, today's check-ins, subs
+    // expiring within 7 days) — overrides just those 4 fields on top of
+    // refreshFullDashboard's existing client-side computation above, which
+    // still drives every other card on this page (see
+    // docs/architecture-migration.md §8 for why this pass stops there).
+    useEffect(() => {
+        let cancelled = false;
+        const loadServerStats = () => {
+            getDashboardStatsAction().then(stats => {
+                if (cancelled) return;
+                setLiveStats(prev => ({
+                    ...prev,
+                    activeStudents: stats.activeStudents,
+                    monthlyRevenue: stats.monthlyRevenue,
+                    attendance: stats.todayCheckins,
+                    expiringSoon: stats.expiringSoonStudents,
+                }));
+            }).catch(err => console.error('❌ [Dashboard] get_dashboard_stats failed:', err));
+        };
+        loadServerStats();
+        const events = ['cc_subscription_update', 'cc_attendance_update', 'cc_sale_update', 'cc_student_update'];
+        events.forEach(e => window.addEventListener(e, loadServerStats));
+        return () => { cancelled = true; events.forEach(e => window.removeEventListener(e, loadServerStats)); };
+    }, []);
 
     // No longer using isDemo hardcoded overrides
     const isDemo = false;

@@ -1,0 +1,97 @@
+'use server';
+
+/**
+ * Server Actions for tariff Plans (/subscriptions/plans) — replaces
+ * plan-store.ts's getPlans()/savePlans()/deletePlan() write path. See
+ * docs/architecture-migration.md §8.
+ *
+ * `subscription_plans` schema: kept to `id, org_id, data` here (same
+ * defensive reasoning as subscriptions.ts) even though plan-store.ts's old
+ * cloud payload also included a bunch of top-level columns (name, price,
+ * type, ...) — those may or may not be real columns on the live table, and
+ * `data` is guaranteed to hold the full Plan object either way.
+ *
+ * plan-store.ts never had a per-row upsert — every save always replaced the
+ * caller's entire Plan array. Keeping that same whole-array contract here
+ * (savePlansAction) rather than inventing a new per-row API the existing
+ * /subscriptions/plans page wasn't built around.
+ */
+
+import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
+import { createClient } from '@/lib/supabase/server';
+
+async function requireOrgId(): Promise<{ orgId: string }> {
+    const supabase = await createClient();
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userData?.user) throw new Error('Not authenticated');
+
+    const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('org_id')
+        .eq('id', userData.user.id)
+        .maybeSingle();
+    if (profileErr || !profile?.org_id) throw new Error('No org for this user');
+
+    return { orgId: profile.org_id };
+}
+
+export type PlanRow = { id: string; [key: string]: unknown };
+
+export async function getPlansAction(): Promise<PlanRow[]> {
+    const { orgId } = await requireOrgId();
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('subscription_plans').select('id, data').eq('org_id', orgId);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map(r => ({ ...(r.data as Record<string, unknown> || {}), id: r.id }));
+}
+
+const planSchema = z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    type: z.enum(['group', 'personal', 'individual', 'rental']),
+    period: z.enum(['sessions', 'monthly', 'unlimited']),
+    price: z.number(),
+}).passthrough();
+
+const savePlansSchema = z.array(planSchema);
+
+/** Whole-array replace, matching plan-store.ts's savePlans() contract exactly. */
+export async function savePlansAction(rawInput: unknown): Promise<void> {
+    const plans = savePlansSchema.parse(rawInput);
+    const { orgId } = await requireOrgId();
+    const supabase = await createClient();
+
+    const { data: existingRows, error: fetchErr } = await supabase
+        .from('subscription_plans').select('id').eq('org_id', orgId);
+    if (fetchErr) throw new Error(fetchErr.message);
+
+    const incomingIds = new Set(plans.map(p => p.id));
+    const toDelete = (existingRows ?? []).map(r => r.id).filter(id => !incomingIds.has(id));
+
+    if (toDelete.length > 0) {
+        const { error } = await supabase.from('subscription_plans').delete().eq('org_id', orgId).in('id', toDelete);
+        if (error) throw new Error(error.message);
+    }
+
+    if (plans.length > 0) {
+        const { error } = await supabase.from('subscription_plans')
+            .upsert(plans.map(p => ({ id: p.id, org_id: orgId, data: p })), { onConflict: 'id' });
+        if (error) throw new Error(error.message);
+    }
+
+    revalidatePath('/subscriptions/plans');
+}
+
+const deletePlanSchema = z.object({ id: z.string().min(1) });
+
+export async function deletePlanAction(rawInput: unknown): Promise<void> {
+    const { id } = deletePlanSchema.parse(rawInput);
+    const { orgId } = await requireOrgId();
+    const supabase = await createClient();
+
+    const { error } = await supabase.from('subscription_plans').delete().eq('id', id).eq('org_id', orgId);
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/subscriptions/plans');
+}

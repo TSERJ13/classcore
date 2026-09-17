@@ -4,11 +4,16 @@ Status: **Live cutover in progress.** There are no real studios on this app
 yet, so — per an explicit decision to stop building parallel `-v2` pilot
 pages and cut the real pages over directly — `/students` (the actual live
 page) now runs entirely on Server Actions + TanStack Query + RLS; the
-`student-store.ts`/`StudioContext` data path is gone from that page. The
+`student-store.ts`/`StudioContext` data path is gone from that page.
+`/attendance`'s check-in write path (mark/unmark present, companion
+check-ins, visit history) is server-driven too, via a small atomic RPC pair
+for the session count and a TypeScript port of the subscription-selection
+logic (§7). `/subscriptions` (issue/edit/pause/delete + tariff Plans CRUD)
+and 4 of `/dashboard`'s stat numbers are now server-driven as well (§8). The
 `/students-v2` and `/attendance-v2` pilot pages have been deleted (their
-job — proving the pattern — is done). `/attendance` has **not** been
-converted yet — see the note at the end of this doc; it turned out to be a
-much larger page than the pilot assumed. `/subscriptions` is next.
+job — proving the pattern — is done). Next: everything else `/dashboard`
+still computes client-side, then the remaining modules (Groups, Calendar,
+Staff, Shop) — see §8's "what's left" list.
 Branch: `claude/youthful-sagan-efyg4i`.
 
 This responds to the "Fat Client / 85% Frontend" critique with an actual audit of
@@ -350,3 +355,420 @@ What moved:
   fix staleness from another device/tab; that only goes away once
   `/subscriptions` (the next step) moves this whole read path off
   localStorage too.
+- Bug found and fixed while building this: `checkin.ts`'s subscription
+  lookup used an exact `.eq('student_id', studentId)` match, but a couple/
+  individual-pair subscription stores `student_id` as a literal comma-joined
+  string ("id1, id2") — same as `subscription-store.ts`'s own
+  `getStudentSubscriptions()`. An exact match would silently miss the shared
+  subscription for either partner, breaking session deduction/refund for
+  couple check-ins specifically. Fixed to fetch by substring and filter by
+  comma-split membership, matching the legacy behavior exactly.
+
+## 8. Subscriptions + Dashboard stats
+
+`supabase/migrations/20260917_subscriptions_write_rls_and_stats.sql`:
+- **`subscriptions` had no INSERT/UPDATE/DELETE RLS policy at all** — only
+  the original SELECT-only policy from `20260415_security_hardening.sql`.
+  Added the missing 3, same 4-policy shape as the students pilot. This is
+  why the attendance check-in RPCs had to mutate `subscriptions` from inside
+  a `SECURITY DEFINER` function instead of a plain RLS-respecting
+  `.update()` — that workaround is no longer the only option, but is kept
+  as-is for the check-in path since it's already correct and live.
+- `expire_overdue_subscriptions()` — flips `status='active'` rows with
+  `expires_at < current_date` to `'expired'`, scoped to the caller's org. No
+  `pg_cron` schedule is set up (enabling that extension is a Supabase
+  dashboard action outside what a migration file can do or verify) — instead
+  this runs as a lazy sweep at the top of `get_dashboard_stats()` and before
+  `getSubscriptionsAction()`'s read, so the next time anyone in the org
+  looks at stats or the subscriptions list, overdue rows are already
+  correct. **If true unattended cron is wanted, `pg_cron` needs to be
+  enabled from the Supabase dashboard first** — flagging this rather than
+  assuming it's already on.
+- `get_dashboard_stats()` — one RPC for the 4 numbers requested: active
+  students, this month's revenue, today's check-ins, subscriptions expiring
+  within 7 days. Revenue is a faithful SQL port of `studio-stats.ts`'s
+  `subRevenue`/`isSubInMonth` (positive `amount_paid` wins, else the
+  matching Plan's price by name then by id; "in this month" matches
+  `purchased_at`, falls back to `created_at` converted to Asia/Tbilisi — no
+  per-org timezone setting exists today so this is a fixed offset, worth
+  revisiting if the app ever has studios outside Georgia — and carries the
+  same documented 2026-08-31 legacy-backfill shim) plus shop `sales`,
+  summed together, exactly matching what the current dashboard code sums
+  (confirmed: this is *not* subscriptions-only revenue). "Active students"
+  and "expiring soon" are both **distinct student counts**, not raw
+  subscription counts — matching `dashboard/page.tsx`'s existing
+  `studentsWithActiveSub`/`expiringSoonStudents` definitions (there's a
+  documented divergence in the original code between "active" by raw
+  `status` field vs. `getEffectiveStatus()`'s richer suspended/cancelled
+  model — this RPC preserves the simpler one the dashboard already uses,
+  not `getEffectiveStatus()`'s).
+
+`src/app/actions/subscriptions.ts` / `src/app/actions/plans.ts`:
+- `getSubscriptionsAction`, `issueSubscriptionAction`, `updateSubscriptionAction`,
+  `pauseSubscriptionAction`, `deleteSubscriptionAction` — replace
+  `subscription-store.ts`'s `getSubscriptions`/`saveSubscription`/
+  `deleteSubscription`/`pauseActiveSubscription`. Schema kept minimal (`id,
+  org_id, student_id, status, sessions_used, sessions_total, starts_at,
+  expires_at, price, data`), same reasoning as `students.ts`'s PGRST204
+  note — the full `SubscriptionInfo` object still rides in `data`.
+  `issueSubscriptionAction` re-checks the studio's `enabledFeatures`
+  (personal/individual/rental plan-type gating) server-side, reading
+  `studio_settings.staff_data->'_operations'->'cc_studio_settings'
+  ->'enabledFeatures'` — the same nested path the existing superadmin API
+  route reads/writes; defaults to **allowed** if that path is missing
+  entirely (matching `isFeatureEnabled()`'s "undefined = enabled" rule, and
+  erring toward not blocking a studio over a schema assumption that
+  couldn't be verified against the live DB in this session).
+- `getPlansAction`, `savePlansAction`, `deletePlanAction` — replace
+  `plan-store.ts`'s `getPlans`/`savePlans`/`deletePlan`. `savePlansAction`
+  keeps the same whole-array-replace contract `plan-store.ts` always had
+  (there was never a per-row upsert) rather than inventing a new API the
+  existing `/subscriptions/plans` page wasn't built around.
+- `src/app/actions/dashboard.ts` — thin wrapper calling `get_dashboard_stats()`.
+
+Page wiring:
+- `/subscriptions/page.tsx`: list load, issue, edit/save, delete all go
+  through the new actions; `SubscriptionModal`'s inline pause action
+  (previously a direct `pauseActiveSubscription()` store call) now calls
+  `pauseSubscriptionAction`. Everything else — `IssueSubscriptionModal`'s own
+  side effects (student balance deduction, group auto-enrollment, generated
+  calendar events for individual-lesson schedules, the `logSubscription`
+  audit entry via `StudioContext`), `BookIndividualLessonModal` — is
+  untouched, still calling `student-store.ts`/`event-store.ts` directly, out
+  of scope for this pass.
+- `/subscriptions/plans/page.tsx`: list/create/edit/delete/toggle-active/
+  toggle-default all go through `plans.ts`'s actions instead of
+  `plan-store.ts`.
+- `/dashboard/page.tsx`: a second, small `useEffect` calls
+  `getDashboardStatsAction()` and overlays its 4 numbers onto the existing
+  `liveStats` state *after* the page's own (unchanged) client-side
+  `refreshFullDashboard()` has already run — server values win once they
+  arrive, everything else on the page (revenue trend chart, occupancy,
+  churn-risk list, AI insights) still comes from the original client-side
+  computation. Deliberately not a full dashboard rewrite — out of scope for
+  what was asked.
+
+**What's left before `StudioContext`/`/api/sync/state` can actually go
+away** (§8 only covered 4 of the dashboard's numbers and Subscriptions'
+core CRUD):
+- `/dashboard`'s other cards: revenue trend/occupancy/churn-risk/AI insights
+  still read `getStudents`/`getUniqueSubscriptions`/`getSales`/`getPlans`
+  from local stores.
+- `IssueSubscriptionModal`'s own direct `student-store.ts`/`event-store.ts`
+  calls (balance, group enrollment, generated calendar events).
+- `getPlans()` elsewhere (e.g. inside `IssueSubscriptionModal`,
+  `findTariffForSubscription`) still reads the local `plan-store.ts` cache —
+  it stays *eventually* correct because `StudioContext`'s background
+  `/api/sync/state` hydration still runs and refreshes it independently, but
+  it's not instant the way the new Server Actions are.
+- Every other module not yet touched: Calendar/Events, Staff,
+  Branches/Halls, Shop/Sales, SMS templates, Settings.
+  (Groups' own CRUD moved in §9 below — Calendar's group-writing side
+  effects did not.)
+- `StudioContext.tsx` itself (1042 lines) still runs its full hydration/
+  merge engine on every page — nothing has been removed from it yet, since
+  other pages still depend on the localStorage state it populates.
+
+## 9. Groups (`/groups`)
+
+`groups` already had full CRUD RLS from `20260915_phase0_rls_gapfill.sql`
+(confirmed: `'groups'` — the live table name — is literally in that
+migration's table array, unlike `subscriptions` which needed its own
+follow-up) — no new migration needed for this module.
+
+`src/app/actions/groups.ts`: `getGroupsAction`, `createGroupAction`,
+`updateGroupAction`, `deleteGroupAction`, same `id, org_id, name, data`
+schema pattern as everything else. `createGroupAction` persists the
+client-supplied id verbatim rather than minting its own — `GroupModal`
+already generates a client-side id before calling `onSave` and reuses that
+exact id right after to sync the group's `schedule_slots` into real
+calendar events (`syncGroupScheduleToCalendar`, `event-store.ts`); minting
+a different server-side id would have split a group from its own calendar
+events.
+
+**Scoped to the Groups management page's own CRUD only** — 15 files import
+`group-store.ts` across the app (attendance, calendar, dashboard, analytics,
+teachers, subscriptions/plans, `IssueSubscriptionModal`, `StudentModal`, the
+public student page, header search, SMS modal, onboarding — full inventory
+in the research this section is based on). Two are explicitly left alone:
+- **Calendar** (`calendar/page.tsx`) still writes to `group-store.ts`
+  directly — `createGroup()` when an unrecognized group name is typed while
+  adding a calendar event, `addSlotToGroup`/`removeSlotFromGroup` to keep
+  `schedule_slots` in sync with recurring events, and a direct color patch.
+  Calendar/Events is its own not-yet-migrated module; folding its
+  group-writing side effects into this pass would be scope creep. Both
+  write paths land on the same real `groups` table, so nothing conflicts —
+  Calendar's writes still go through the old sync path, the Groups page's
+  through RLS-respecting Server Actions.
+- **Teachers** (`teachers/page.tsx`) and `StudioContext`'s
+  `updateTeacherGroups()` (on teacher deletion) still reconcile a group's
+  `teacherId`/`secondaryTeacherId` via `group-store.ts` from the Staff side
+  — Staff is also not yet migrated.
+
+Every other, read-only consumer keeps reading `getGroups()`'s local cache,
+staying eventually consistent via `StudioContext`'s background hydration —
+same reasoning already documented for Plans in §8.
+
+**Pre-existing inconsistency found, not fixed (not asked, and "fixing"
+silently would risk changing numbers someone already relies on):**
+`groups/page.tsx`'s own enrollment count (now server-driven via
+`getSubscriptionsAction`, matching its exact prior behavior:
+active+unexpired subscriptions with a matching `group_id`) is a **different
+computation** than `analytics/page.tsx`/`dashboard/page.tsx`'s enrollment
+count (active students whose `enrolled_group_ids` includes the group). The
+two already disagreed before this migration; this pass preserves the
+`/groups` page's own definition rather than quietly reconciling it with the
+other one.
+
+## 10. Staff — writes only, and why reads stay put
+
+This module is structurally different from everything migrated so far:
+**staff/teacher end users don't authenticate through Supabase Auth at
+all.** They log in via a completely separate, parallel system — a signed
+`cc_staff_token` HMAC cookie (`src/lib/staff-token.ts`), checked server-side
+today only by service-role endpoints (`src/lib/sync-auth.ts`,
+`src/lib/session-check.ts`) that hand-roll their own `org_id` scoping. A
+teacher session has **no Supabase Auth session and no `profiles` row** —
+`auth.uid()` is always null for them.
+
+Every already-migrated page that reads teacher/staff data is viewed by
+teachers themselves, not just owners/admins: attendance, groups, dashboard,
+and students all call `access.ts`'s `getVisibleGroupIds()` or
+`teacher-store.ts`'s `getTeachers()`/`getTeacherName()`/`getTeacherPhoto()`
+specifically to filter what a *teacher* sees. An `auth.uid()`-gated read
+Server Action — the pattern used everywhere else in this migration — would
+return "Not authenticated" for every one of those sessions. **So this pass
+migrates writes only** (`src/app/actions/staff.ts`:
+`createStaffAction`/`updateStaffAction`/`deleteStaffAction`), which are
+safe under the same `auth.uid()` pattern because every real call site
+(`/teachers`, `/settings`'s "Staff Access" section, `/profile`'s "Team"
+tab) is only ever reachable by an owner/admin/manager who did authenticate
+through real Supabase Auth. Reads keep coming from `teacher-store.ts`'s
+local `settings.staff` cache, unchanged — genuinely fixing this needs
+either a `cc_staff_token`-aware branch in these Server Actions (mirroring
+`sync-auth.ts`) or a separate decision about migrating staff auth itself,
+neither of which was asked for here.
+
+`supabase/migrations/20260918_staff_write_rls.sql`: `staff` was already in
+the phase-0 gapfill migration's table array, but no `CREATE TABLE staff`
+exists anywhere in this repo's migration history (it predates the repo's
+migrations folder) — so whether the 4 policies actually attached couldn't
+be confirmed by reading files. This migration re-applies them idempotently
+(drop-if-exists + recreate, same "IF org_id column exists" guard as the
+phase-0 migration) so running it *is* the verification.
+
+Wired additively into `StudioContext.tsx`'s `addStaff`/`updateStaff`/
+`removeStaff` — each now also calls the matching Server Action, alongside
+(not instead of) the existing service-role sync path
+(`settings-store.ts`'s `saveSettings()` → `syncRecordToCloud('staff', ...)`
+/ `deleteRecordFromCloud('staff', ...)`). Kept additive on purpose: the read
+side isn't migrating this pass, so the local `settings.staff` cache still
+needs to keep getting populated the old way for `teacher-store.ts` and
+`useUser.tsx`'s staff-session hydration to keep working.
+
+**Flagged, not fixed — a separate, security-sensitive piece of work:**
+`src/app/api/auth/staff-login/route.ts` compares `staff.password` in
+plaintext. This migration writes `password` through as given (needed since
+the login route reads it as a plain top-level column); it does not hash it
+— hashing here without also changing the login route's comparison would
+just break every staff login. Worth prioritizing as its own task.
+
+**Not migrated, and out of scope for this pass:** staff CRUD UI is
+duplicated across three separate pages with three separate modals
+(`/teachers`'s `TeacherModal`, `/settings`'s inline "Staff Access" form,
+`/profile`'s inline "Team" tab form) plus a fourth, superadmin-only direct
+write path (`superadmin/studios/page.tsx`) that mutates `settings.staff`
+out of band from `addStaff`/`updateStaff`. All three UI paths now benefit
+from the new Server Actions transparently (they all go through
+`StudioContext`'s `addStaff`/`updateStaff`/`removeStaff`), but consolidating
+them into one UI, or covering the superadmin path, wasn't asked for and
+isn't done here.
+
+## 11. Branches + Halls
+
+**Halls** (`src/app/actions/halls.ts`): a conventional port. `halls` already
+had full CRUD RLS and `hall-store.ts` already dual-wrote to the real table
+(`pushCollectionToCloud`) — same shape as Groups. `getHallsAction`,
+`saveHallsAction` (whole-array replace, matching `hall-store.ts`'s
+`saveHalls()` contract — it never had a per-row upsert either),
+`deleteHallAction`. Wired into `/halls/page.tsx`; the delete side effect
+(`clearHallFromEvents(id)`, detaching the hall from calendar events) stays
+client-side, same "keep side effects in the page, swap only the raw
+persistence" pattern as Groups' `deleteGroupEvents`.
+
+**Branches** (`src/app/actions/branches.ts`) turned out different from
+every other module so far: `branches` already had full CRUD RLS ready (same
+migration, same table array) but **nothing had ever written a real row into
+it** — branch data has lived entirely inside
+`studio_settings.settings.branches`, a JSONB blob (`StudioContext.tsx`'s
+`addBranch`/`updateBranch`/`removeBranch` only ever called
+`updateSettings()`/`saveSettings()`, no `syncRecordToCloud('branches', ...)`
+call exists anywhere, unlike Staff/Halls which already had one). So this
+isn't "port an existing real-table path to RLS," it's activating a table
+that was previously inert. Decided to activate it rather than leave it
+dead weight, wired the same additive way as Staff: `createBranchAction`/
+`updateBranchAction`/`deleteBranchAction` now also get called alongside the
+existing settings-blob path, not instead of it, since every branch reader
+(`BranchSwitcher`, the sidebar, the profile page's own branches tab, staff
+`allowedBranchIds` scoping) still reads `settings.branches` and isn't
+migrating this pass. **This only takes effect going forward** — branches
+created before this change (including the default `"main"` branch every
+studio already has) only exist in the settings blob; they aren't
+retroactively backfilled into the real table, since that would need
+enumerating every org's existing settings blob directly, which isn't
+possible from a migration file.
+
+No new RLS migration needed for either — both were already in the phase-0
+gapfill migration's table array (confirmed for both: literally present,
+with `org_id` columns per `/api/sync/bulk`'s `MINIMAL_COLUMNS` allowlist).
+
+**Confirmed, not changed:** there is no per-entity `branch_id` database
+column or RLS boundary anywhere in the schema — "multi-branch" today is
+entirely a client-side UI filter over org-wide data (students, expenses,
+staff `allowedBranchIds`), never a security boundary. `org_id` stays the
+only real tenant boundary, same as every other module in this migration.
+
+## 12. Calendar/Events — researched, deliberately NOT migrated this pass
+
+This is the one module in this migration where I stopped short of writing
+code, on purpose. `calendar_events` already has full CRUD RLS (confirmed:
+in the phase-0 gapfill migration's table array, with a real `org_id`
+column per `/api/sync/bulk`'s `MINIMAL_COLUMNS` map) — no new RLS migration
+is even needed. What stopped me is `event-store.ts`'s actual write model,
+which is unsafe to port faithfully *or* to quietly fix:
+
+1. **There is no real per-occurrence identity for recurring events.** Only
+   the *current calendar week's* row for a recurring group class is ever a
+   concrete, addressable `calendar_events` row (`syncGroupScheduleToCalendar`
+   wipes and regenerates it every time groups load); every other week, and
+   every individual lesson derived from a subscription's own weekly
+   schedule, is recomputed fresh on every render with a synthetic id
+   (`_wN` suffixes, `sub-ind-{subId}-{date}`) that has no row behind it.
+   "Edit" or "delete" on one of those synthetic ids is, today, either a
+   silent no-op (`updateEvent`/`deleteEvent` against an id nothing in the
+   real array matches — confirmed in the store's own code, no error
+   surfaces) or it mutates the *whole recurring template* instead of just
+   the one occurrence someone clicked. Porting this 1:1 means faithfully
+   reproducing UI actions that silently do nothing or do the wrong thing;
+   fixing it under this migration would be a real product decision (a
+   proper per-occurrence exception model), not "move the write to a
+   Server Action."
+2. **Teacher/staff-token reachability is pervasive here, not incidental —
+   across writes, not just reads.** Staff's migration could stay safe by
+   moving writes only, because every Staff write is admin-only in
+   practice. Calendar doesn't have that clean split: teachers routinely
+   call `event-store.ts` directly today to book their own individual
+   lessons (`BookIndividualLessonModal`, `createIndividualBooking`),
+   publish/withdraw their own open availability
+   (`individual-availability/page.tsx`, `publishOpenSlot`/`deleteOpenSlot`),
+   and edit/drag their own calendar (gated only by a `canEditCalendar` flag
+   on their own staff record, never by `auth.uid()` — confirmed via
+   `useUser.tsx`'s staff-token branch, which populates `profile` from the
+   local `settings.staff[]` record with no server round-trip). An
+   `auth.uid()`-gated Server Action would lock teachers out of exactly the
+   self-service actions this module exists for.
+3. `start_time`/`end_time` are stored as full timestamps in the DB (not the
+   `HH:MM` strings the `CalendarEvent` type and every consumer use in
+   memory) with no separate `date` column — every read already does a
+   timestamp→date+HH:MM split; any Server Action needs to either keep
+   doing that split or introduce a real `date` column, another decision
+   with knock-on effects across ~19 files that import `event-store.ts`.
+
+None of this makes Calendar un-migratable — it means it needs its own
+explicit scoping conversation (which occurrence-editing bugs to fix vs.
+preserve, how to handle teacher-token writes) before code gets written,
+the same way Attendance's real size forced a decision before that
+migration started. Left on `event-store.ts`/localStorage for now; every
+consumer (`calendar/page.tsx`, `attendance/page.tsx`'s schedule display,
+`dashboard/page.tsx`'s schedule widget, `individual-availability/page.tsx`,
+`BookIndividualLessonModal`, the public student portal) is unaffected by
+everything else in this migration and keeps working exactly as before.
+
+## 13. Shop (Sales + Products) — and a reusable dual-auth path for Server Actions
+
+Same teacher-token reachability problem as Calendar (attendance's quick-sell
+drawer lets a teacher record a sale during their own class, with no
+Supabase Auth session), but none of Calendar's virtual-occurrence
+complexity — so this was safe to actually close, by finally answering the
+question the Staff/Calendar research kept surfacing: **what does a Server
+Action do when the caller is a staff-token session with no `auth.uid()`?**
+
+`src/lib/server-actions-auth.ts`'s `requireOrgIdDualAuth()`: try real
+Supabase Auth first (RLS-respecting client — safest, used for every owner/
+admin call); if that comes back empty, fall back to the `cc_staff_token`
+cookie (`verifyStaffToken()`) and hand back a **service-role** client
+manually scoped to that token's `orgId`. This isn't a new pattern — it's
+`src/lib/sync-auth.ts`'s existing `getAuthenticatedOrgId()` (already used
+by every `/api/sync/*` route), rehomed as a reusable Server Action helper
+instead of a per-route copy. Every query made with the service-role branch
+of this client has to be manually `.eq('org_id', ...)`-scoped by the
+caller — there's no RLS backstop on that branch, same as the existing
+service-role endpoints.
+
+`src/app/actions/sales.ts` / `src/app/actions/products.ts`: both tables
+already had full CRUD RLS (in the phase-0 gapfill migration's array) — no
+new RLS migration needed. `getSalesAction`/`getStudentSalesAction`/
+`recordSaleAction`/`updateSaleAction`/`deleteSaleAction` replace
+`sales-store.ts`; `getProductsAction`/`saveProductsAction` (whole-array
+replace, matching `product-store.ts`'s existing contract)/
+`deleteProductAction` replace `product-store.ts`. Both kept to confirmed-
+real columns only (`sales`: `id, org_id, student_id, data` — despite
+`/api/sync/bulk`'s column map listing `product_id`/`amount`/`date` too,
+the app's actual write path has never populated them, so this matches
+current behavior rather than starting to; `products`: `id, org_id, name,
+price, category, data`).
+
+Wired into `/shop/page.tsx` (the main Shop management page) and
+`attendance/page.tsx`'s quick-sell drawer, including a bug fix found along
+the way: the drawer's inventory decrement wrote directly to the
+`cc_shop_products` localStorage key, bypassing `product-store.ts` (and,
+now, the new action) entirely — a sale recorded from the attendance drawer
+never actually persisted its inventory change anywhere durable. Now both
+the sale and the inventory update go through the same Server Actions the
+Shop page uses.
+
+**This dual-auth pattern is now available for any future module** that
+needs the same thing Calendar was blocked on — it doesn't resolve
+Calendar's own virtual-occurrence problem, but it removes the auth half of
+that module's blocker for whenever the occurrence-model decision gets made.
+
+## 14. Expenses (Analytics' monthly expense entry)
+
+`src/app/actions/expenses.ts`'s `saveExpensesAction`, using the dual-auth
+helper (Analytics is gated by `canViewAnalytics`, a flag a teacher's staff
+record can carry, even though entering rent/utilities figures is a
+practically owner/admin task). `expenses` already had full CRUD RLS
+(phase-0 gapfill) — no new migration. One upserted row per category, keyed
+`exp_${branchId}_${month}_${category}` — matches `expense-store.ts`'s own
+existing id scheme exactly, so it updates the same rows the legacy path
+already created rather than duplicating them. Kept to confirmed-real
+columns (`id, org_id, category, amount, date, description, data`) — the
+old write also sent `branch_id` as a top-level key, which isn't a
+confirmed column; moved it into `data` instead.
+
+Wired additively into `analytics/page.tsx`'s `ExpenseModal`'s save button
+— calls both the existing `expense-store.ts` write (local cache + legacy
+sync) and the new action, same reasoning as Staff/Branches: `getExpenses()`
+reads (several of them synchronous `useState` initializers) aren't
+migrating this pass, so the local cache still needs to stay populated the
+old way.
+
+## 15. Explicitly deferred: SMS templates and general Settings
+
+`settings.sms_templates` (edited via `/sms-manager`) and the rest of
+`StudioSettings` have never had a dedicated real-table write path at
+all — unlike Branches (which at least got activated this pass), they live
+purely inside the `studio_settings.staff_data` JSONB blob, nested under a
+path (`staff_data._operations.cc_studio_settings.*`) whose exact shape
+could only be partially confirmed during the Staff module's research (see
+§10) and never against a live database. Writing to a nested JSON path I
+can't verify, for a low-value/low-risk feature like message templates,
+isn't worth the chance of a malformed patch silently corrupting unrelated
+settings — unlike Branches (two flat fields, an insert into an otherwise-
+empty table) or Expenses (a handful of confirmed top-level columns), there
+is no safe, defensible move here without a live schema check. Left
+entirely on `StudioContext`'s existing `setSmsTemplates`/`updateSettings`
+path. Same reasoning applies to the rest of Settings not already covered
+by an earlier phase (Staff, Branches, Plans' pause-price/vacation-mode
+fields) — theme, currency, language, notifications, security, custom
+roles, SMS templates all stay on the settings blob.
