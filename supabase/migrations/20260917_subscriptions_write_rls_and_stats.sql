@@ -101,6 +101,13 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public._sub_in_month(p_purchased_at text, p_created_at text, p_expires_at timestamptz, p_month_prefix text)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+    RETURN public._sub_in_month(p_purchased_at, p_created_at, p_expires_at::text, p_month_prefix);
+END;
+$$;
+
 -- ─── 3. Lazy auto-expire sweep ──────────────────────────────────────────────
 -- No pg_cron schedule is created here (enabling that extension is a Supabase
 -- dashboard action this migration can't verify or perform) — instead this is
