@@ -731,3 +731,44 @@ Shop page uses.
 needs the same thing Calendar was blocked on — it doesn't resolve
 Calendar's own virtual-occurrence problem, but it removes the auth half of
 that module's blocker for whenever the occurrence-model decision gets made.
+
+## 14. Expenses (Analytics' monthly expense entry)
+
+`src/app/actions/expenses.ts`'s `saveExpensesAction`, using the dual-auth
+helper (Analytics is gated by `canViewAnalytics`, a flag a teacher's staff
+record can carry, even though entering rent/utilities figures is a
+practically owner/admin task). `expenses` already had full CRUD RLS
+(phase-0 gapfill) — no new migration. One upserted row per category, keyed
+`exp_${branchId}_${month}_${category}` — matches `expense-store.ts`'s own
+existing id scheme exactly, so it updates the same rows the legacy path
+already created rather than duplicating them. Kept to confirmed-real
+columns (`id, org_id, category, amount, date, description, data`) — the
+old write also sent `branch_id` as a top-level key, which isn't a
+confirmed column; moved it into `data` instead.
+
+Wired additively into `analytics/page.tsx`'s `ExpenseModal`'s save button
+— calls both the existing `expense-store.ts` write (local cache + legacy
+sync) and the new action, same reasoning as Staff/Branches: `getExpenses()`
+reads (several of them synchronous `useState` initializers) aren't
+migrating this pass, so the local cache still needs to stay populated the
+old way.
+
+## 15. Explicitly deferred: SMS templates and general Settings
+
+`settings.sms_templates` (edited via `/sms-manager`) and the rest of
+`StudioSettings` have never had a dedicated real-table write path at
+all — unlike Branches (which at least got activated this pass), they live
+purely inside the `studio_settings.staff_data` JSONB blob, nested under a
+path (`staff_data._operations.cc_studio_settings.*`) whose exact shape
+could only be partially confirmed during the Staff module's research (see
+§10) and never against a live database. Writing to a nested JSON path I
+can't verify, for a low-value/low-risk feature like message templates,
+isn't worth the chance of a malformed patch silently corrupting unrelated
+settings — unlike Branches (two flat fields, an insert into an otherwise-
+empty table) or Expenses (a handful of confirmed top-level columns), there
+is no safe, defensible move here without a live schema check. Left
+entirely on `StudioContext`'s existing `setSmsTemplates`/`updateSettings`
+path. Same reasoning applies to the rest of Settings not already covered
+by an earlier phase (Staff, Branches, Plans' pause-price/vacation-mode
+fields) — theme, currency, language, notifications, security, custom
+roles, SMS templates all stay on the settings blob.

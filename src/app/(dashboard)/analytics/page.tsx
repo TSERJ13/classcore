@@ -30,6 +30,7 @@ import { getGroups } from '@/lib/group-store';
 import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
 import { getExpenses, saveExpenses, MonthlyExpenses } from '@/lib/expense-store';
+import { saveExpensesAction } from '@/app/actions/expenses';
 import { getStudentCheckins } from '@/lib/checkin-store';
 import { buildPlanPrices, subRevenue as calcSubRevenue, pctChange, generateInsights, isSubInMonth, isSubOnDay } from '@/lib/studio-stats';
 
@@ -166,6 +167,7 @@ function ExpenseModal({ open, onClose, selectedMonth, branchId, t, l, settings }
                         <button
                             onClick={() => {
                                 saveExpenses(selectedMonth, branchId, expenses);
+                                saveExpensesAction({ month: selectedMonth, branchId, expenses }).catch(err => console.error('❌ [Analytics] Save expenses failed:', err));
                                 onClose();
                             }}
                             className="flex-1 sm:flex-none px-8 py-4 bg-indigo-600 text-white text-[10px] font-black rounded-2xl shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all tracking-widest uppercase"
