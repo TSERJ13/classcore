@@ -31,6 +31,7 @@ import type { Student, CalendarEvent, Teacher, Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { AppLogo as Logo } from '@/components/ui/Logo';
+import { useUser } from '@/hooks/useUser';
 
 type ActiveTab = 'info' | 'schedule' | 'history' | 'shop' | 'chat';
 
@@ -127,9 +128,14 @@ export default function StudentPortalPage() {
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const hasLoadedRef = useRef(false);
 
-    const [authState, setAuthState] = useState<'welcome' | 'phone' | 'authenticated'>('welcome');
-    const [phoneInput, setPhoneInput] = useState('');
-    const [authError, setAuthError] = useState('');
+    // Real auth (docs/tasks.md's Student portal phase) — replaces a
+    // cosmetic phone-suffix "gate" that was never checked server-side and
+    // whose sessionStorage flag was never even read back on next render;
+    // in practice this page was reachable by anyone with the URL. Now
+    // gated by src/middleware.ts (requires a real session, staff-token or
+    // Supabase Auth) plus the ownership check below (a student may only
+    // view their own page; any staff session in the org may view any).
+    const { user: authUser, profile: authProfile, loading: authLoading } = useUser();
 
     useEffect(() => {
         let isMounted = true;
@@ -387,19 +393,6 @@ export default function StudentPortalPage() {
         link.href = url; link.download = `${ev.title}.ics`; link.click();
     };
 
-    const handleAuth = () => {
-        if (!studentData) return;
-        const cleanInput = phoneInput.replace(/\D/g, '');
-        const cleanStudentPhone = studentData.phone.replace(/\D/g, '');
-        if (cleanInput && (cleanStudentPhone === cleanInput || cleanStudentPhone.endsWith(cleanInput))) {
-            sessionStorage.setItem(`auth_${studentId}`, 'true');
-            setAuthState('authenticated');
-        } else {
-            setAuthError(t.incorrectPhone);
-            setTimeout(() => setAuthError(''), 3000);
-        }
-    };
-
     const handleCopyId = () => {
         if (!studentId) return;
         navigator.clipboard.writeText(studentId);
@@ -489,63 +482,43 @@ export default function StudentPortalPage() {
         );
     }
 
-    if (authState === 'welcome') {
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <div className="w-20 h-20 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (!authUser) {
         return (
             <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-8 animate-fade-in p-6 text-center">
-                <div className="w-20 h-20 bg-indigo-500 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-indigo-500/40 animate-bounce-subtle">
+                <div className="w-20 h-20 bg-indigo-500 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-indigo-500/40">
                     <ShieldCheck className="w-10 h-10 text-white" />
                 </div>
                 <div className="space-y-2">
                     <h1 className="text-3xl font-black text-primary tracking-tight">ClassCore Auth</h1>
                     <p className="text-sm text-muted font-medium opacity-60 max-w-[280px]">{t.authRequired}</p>
                 </div>
-                <button
-                    onClick={() => setAuthState('phone')}
+                <Link href="/login"
                     className="w-full max-w-xs py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 group"
                 >
                     {t.portalLogin} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-                <p className="text-[10px] font-bold text-muted tracking-[0.2em] opacity-40">{t.authSecurity}</p>
+                </Link>
             </div>
         );
     }
 
-    if (authState === 'phone') {
+    // A student session may only view their own page — any staff session
+    // in the org (owner/admin/teacher, via the copy-link/QR flow in
+    // StudentModal.tsx) may view any student's.
+    if (authProfile?.role === 'student' && authProfile?.student_id !== studentId) {
         return (
-            <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-8 animate-fade-up p-6">
-                <div className="w-full max-w-xs space-y-6">
-                    <div className="text-center space-y-2">
-                        <div className="flex justify-center mb-4">
-                            <div className="w-12 h-12 bg-surface border border-border-subtle rounded-2xl flex items-center justify-center text-indigo-500">
-                                <Smartphone className="w-6 h-6" />
-                            </div>
-                        </div>
-                        <h2 className="text-xl font-black text-primary tracking-tight">{t.confirmPhone}</h2>
-                        <p className="text-[11px] text-muted font-medium opacity-60">{t.enterPhoneForAuth}</p>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="relative group">
-                            <input
-                                type="tel"
-                                value={phoneInput}
-                                onChange={e => setPhoneInput(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAuth()}
-                                placeholder="5XX XX XX XX"
-                                className={cn(
-                                    "w-full bg-surface border rounded-2xl px-5 py-4 text-center text-lg font-black tracking-widest text-primary focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono",
-                                    authError ? "border-red-500/50 bg-red-500/5" : "border-border-subtle focus:border-indigo-500/50"
-                                )}
-                            />
-                            {authError && <p className="text-[10px] font-black text-red-500 text-center mt-2 animate-shake">{authError}</p>}
-                        </div>
-                        <button onClick={handleAuth} className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all">
-                            {t.confirm}
-                        </button>
-                    </div>
-                    <button onClick={() => setAuthState('welcome')} className="w-full text-[11px] font-bold text-muted hover:text-primary transition-colors text-center">
-                        {t.backToPortal}
-                    </button>
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <div className="w-20 h-20 bg-rose-500/10 rounded-[2.5rem] flex items-center justify-center text-rose-500">
+                    <AlertCircle className="w-10 h-10" />
                 </div>
+                <p className="text-sm font-medium text-muted">{l('ეს არ არის თქვენი გვერდი.', 'Это не ваша страница.', 'This is not your page.')}</p>
             </div>
         );
     }

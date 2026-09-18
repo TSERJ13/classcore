@@ -729,27 +729,63 @@ Status: completed. Gaps found comparing the real Authorization module PRD agains
 
 ### Unified Auth: real Supabase Auth for new Teacher/Administrator accounts
 
-Status: in_progress
+Status: completed
 
 The PRD's core architectural ask (`docs/authorization-module.md` intro / real PRD §2): one login
-mechanism for every user type, not two parallel systems. A full mass-migration of every *existing*
-staff-token account on every already-live studio is high-risk (a botched migration breaks real
-logins) and was explicitly not what was chosen — user confirmed "Option A" (do the real thing, not
-an approximation) but the safe path is incremental: NEW teacher/administrator accounts (via the
-manual-fill and invite-by-email flows) get created as real Supabase Auth users going forward
-(`user_metadata.role`, a `profiles` row) instead of `staff-token` logins, while existing staff-token
-accounts keep working unchanged. The ownership-transfer work above already proved this is
-load-bearing: `requireOrgIdDualAuth()`'s real-Auth branch and `useUser.tsx`'s effective-permissions
-computation already handle "real Supabase Auth, non-owner role" correctly. What's left: point
-`createStaffAction`/the invite-claim flow at `supabase.auth.admin.createUser` instead of
-`staff-token`'s password hash, and update `/login` to accept teacher/administrator credentials
-(today it's owner-only).
+mechanism for every user type, not two parallel systems. User confirmed "Option A" (do the real
+thing) but scoped to the safe path: NOT a mass-migration of every *existing* staff-token account on
+every already-live studio (high-risk — a botched migration breaks real logins) — new
+teacher/administrator accounts (manual-fill and invite-by-email) now get created as real Supabase
+Auth users going forward, while existing staff-token accounts keep working entirely unchanged.
+`/login` needed zero changes — it already tried staff-token then Supabase Auth generically.
+
+Landed: `createStaffAction`/`updateStaffAction`/`deleteStaffAction` (staff.ts) branch on a
+`data.authType === 'supabase'` marker to use the Supabase admin API instead of the scrypt-hash path;
+`staff-invites.ts`'s claim flow creates the real Auth account at submit time WITHOUT a role (so an
+unconfirmed invite can log in but has zero access) and only grants role+permissions at confirm; a
+real bug this surfaced in `useUser.tsx` (missing role defaulted to the legacy 'admin' bypass tier,
+which would've given an unconfirmed invite full owner access) is fixed. `src/lib/permissions/
+enforce.ts` was also fixed here — it bypassed unconditionally for any real-Auth caller, which the
+ownership-transfer feature had already made wrong (a downgraded ex-owner keeps a real-Auth session
+that is NOT owner-tier); now only `role === 'owner'` bypasses, checked for both connection types.
+
+Not done (deliberately out of scope — a separate, later decision if ever needed): migrating
+*existing* staff-token accounts to Supabase Auth.
 
 ### Student portal: real login + module
 
-Status: pending
+Status: completed
 
-Per user: login identity = the parent's email on file; a separate password is set for the student.
-No PRD exists for this yet — scope (what a logged-in student can see/do) needs to be decided as this
-is built, since neither the Permissions PRD nor the Authorization PRD specify it beyond "Student is
-one of the three role flags, not yet a real session."
+Per user: login identity = the parent's email on file (`students.email`, already a real top-level
+column); a separate password is set for the student directly by an admin (no self-service invite
+step, unlike Teacher). No PRD exists for exact portal *content* — turned out not to matter, because
+a full-featured portal page already existed at `src/app/[studio]/[studentId]/page.tsx`
+("StudentPortalPage" — subscription, QR check-in code, schedule, attendance/payment history, shop)
+with a sub-route at `.../history`. What was actually missing was real access control: the page was
+reachable by anyone who had the URL, gated only by a cosmetic phone-suffix prompt that was never
+checked server-side and whose "authenticated" flag was never even read back on the next render.
+
+Landed:
+- `src/app/actions/student-login.ts` — `createStudentLoginAction`/`revokeStudentLoginAction`, same
+  Unified Auth mechanism as Teacher/Administrator (real Supabase Auth account,
+  `user_metadata.role: 'student'` + `student_id`). Deliberately does NOT repoint `students.id` at
+  the new Auth account id — unlike a brand-new teacher, a student typically already has years of
+  subscription/attendance/sales history keyed by their existing id, and that repoint is exactly the
+  high-risk mass-migration this whole approach avoids. The link lives in `students.data.authUserId`
+  instead; authorization is checked via `user_metadata.student_id` matching the URL, not id equality.
+- `src/components/students/StudentModal.tsx` — new "Portal Access" section (password field + Grant
+  button), owner/admin/administrator only.
+- `src/middleware.ts` — `/[slug]/[studentId]` (and its `/history` sub-route) removed from the
+  no-auth bypass list entirely; now requires a real session (staff-token OR Supabase Auth — a
+  student's new account satisfies the latter) the same as every dashboard page.
+- `src/app/[studio]/[studentId]/page.tsx` + `.../history/page.tsx` — replaced the old cosmetic gate
+  with a real one: any staff session in the org may view any student's page (matches the existing
+  copy-link/QR-code flow in StudentModal, which assumes staff can open what they share); a student
+  session may only view their own (`profile.student_id === studentId`).
+- `src/app/(auth)/login/page.tsx` — a signed-in Student is redirected to their own portal URL
+  instead of the staff `/dashboard` (which would show them nothing — no `canView*` permissions
+  resolve for a `'student'` role, by design, since it isn't a tier the Permissions engine knows).
+
+Not done (deliberately out of scope, no PRD basis to build against): self-service invite-by-email
+for students (mirroring Teacher's flow), multi-role linking (a person who is both Teacher and
+Student), role-switching UI.
