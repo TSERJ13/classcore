@@ -108,14 +108,14 @@ export default function GroupsPage() {
                 const oldT = settings.staff.find(s => s.id === oldTeacherId);
                 if (oldT) {
                     const nextGroups = (oldT.assigned_group_ids || []).filter(id => id !== gid);
-                    updateStaff(oldTeacherId, { assigned_group_ids: nextGroups });
+                    updateStaff(oldTeacherId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
             if (newTeacherId) {
                 const newT = settings.staff.find(s => s.id === newTeacherId);
                 if (newT) {
                     const nextGroups = Array.from(new Set([...(newT.assigned_group_ids || []), gid]));
-                    updateStaff(newTeacherId, { assigned_group_ids: nextGroups });
+                    updateStaff(newTeacherId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
         }
@@ -128,14 +128,14 @@ export default function GroupsPage() {
                 const oldST = settings.staff.find(s => s.id === oldSecondaryId);
                 if (oldST) {
                     const nextGroups = (oldST.assigned_group_ids || []).filter(id => id !== gid);
-                    updateStaff(oldSecondaryId, { assigned_group_ids: nextGroups });
+                    updateStaff(oldSecondaryId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
             if (newSecondaryId) {
                 const newST = settings.staff.find(s => s.id === newSecondaryId);
                 if (newST) {
                     const nextGroups = Array.from(new Set([...(newST.assigned_group_ids || []), gid]));
-                    updateStaff(newSecondaryId, { assigned_group_ids: nextGroups });
+                    updateStaff(newSecondaryId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
         }

@@ -219,17 +219,26 @@ export default function SettingsPage() {
     const [lockTargetStaffId, setLockTargetStaffId] = useState('');
     const [lockValue, setLockValue] = useState(false);
     const [lockSaving, setLockSaving] = useState(false);
+    const [staffSaving, setStaffSaving] = useState(false);
 
-    // Sync local state when starting/stopping edit
+    // Sync local state when starting/stopping edit. Only re-clones from
+    // settings.staff when editingStaffId itself changes (opening a
+    // different record, or closing) — this used to also depend on
+    // settings.staff directly, so ANY unrelated change to it (a background
+    // hydrate() cycle, another admin's edit) while this modal was open
+    // silently discarded whatever the user had already toggled but not
+    // saved yet, resetting the form back to the pre-edit values.
+    const prevEditingStaffIdRef = useRef<string | null>(null);
     useEffect(() => {
-        if (editingStaffId) {
+        if (editingStaffId && editingStaffId !== prevEditingStaffIdRef.current) {
             const member = settings.staff?.find((s: any) => s.id === editingStaffId);
             if (member) {
                 setEditingStaffData(JSON.parse(JSON.stringify(member))); // Deep clone
             }
-        } else {
+        } else if (!editingStaffId) {
             setEditingStaffData(null);
         }
+        prevEditingStaffIdRef.current = editingStaffId;
     }, [editingStaffId, settings.staff]);
 
     useEffect(() => {
@@ -1321,7 +1330,7 @@ export default function SettingsPage() {
                                         ...newStaff,
                                         full_name: `${newStaff.first_name} ${newStaff.last_name}`.trim(),
                                         status: 'active'
-                                    } as any);
+                                    } as any).catch(() => {});
                                     setStaffModalOpen(false);
                                     setNewStaff({
                                         first_name: '',
@@ -1367,9 +1376,22 @@ export default function SettingsPage() {
                                 setEditingStaffData({ ...member, ...patch });
                             };
 
-                            const handleSave = () => {
-                                updateStaff(member.id, member);
-                                setEditingStaffId(null);
+                            const handleSave = async () => {
+                                // Await the write and only close on success —
+                                // this used to close immediately after firing
+                                // an unawaited updateStaffAction(), so a
+                                // rejection (permission denied, network error)
+                                // was invisible: the modal reported success
+                                // while nothing was actually saved.
+                                setStaffSaving(true);
+                                try {
+                                    await updateStaff(member.id, member);
+                                    setEditingStaffId(null);
+                                } catch {
+                                    // Error already surfaced via addNotification inside updateStaff().
+                                } finally {
+                                    setStaffSaving(false);
+                                }
                             };
 
                             return (
@@ -1610,7 +1632,7 @@ export default function SettingsPage() {
                                                             danger: true
                                                         });
                                                         if (ok) {
-                                                            removeStaff(member.id);
+                                                            removeStaff(member.id).catch(() => {});
                                                             setEditingStaffId(null);
                                                         }
                                                     }}
@@ -1632,9 +1654,10 @@ export default function SettingsPage() {
                                         </button>
                                         <button
                                             onClick={handleSave}
-                                            className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase"
+                                            disabled={staffSaving}
+                                            className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase disabled:opacity-50"
                                         >
-                                            <Save className="w-4 h-4" />
+                                            {staffSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
                                             {l('შენახვა', 'Сохранить', 'Save')}
                                         </button>
                                     </div>

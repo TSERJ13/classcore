@@ -553,37 +553,22 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
                 
                 // 🚀 ATOMIC CLOUD SYNC: If we have an orgId, push the full state to ensure persistence
                 if (finalOrgId && finalOrgId !== 'demo') {
-                    if (s.staff && Array.isArray(s.staff)) {
-                        import('./master-sync').then(({ syncRecordToCloud }) => {
-                            s.staff!.forEach((member: any) => {
-                                // Password itself is never sent through this
-                                // path — src/app/actions/staff.ts's
-                                // create/updateStaffAction own writing the
-                                // (hashed) `password` column now. This used
-                                // to dump the whole `member` object —
-                                // plaintext password included — into `data`
-                                // on every unrelated staff save, which could
-                                // silently re-propagate a stale plaintext
-                                // value into the JSONB blob even after the
-                                // real column held a hash.
-                                const { password: _password, ...memberWithoutPassword } = member;
-                                syncRecordToCloud('staff', {
-                                    id: member.id,
-                                    org_id: finalOrgId,
-                                    full_name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim(),
-                                    first_name: member.first_name,
-                                    last_name: member.last_name,
-                                    email: member.email,
-                                    phone: member.phone,
-                                    role: member.role || 'teacher',
-                                    salary_percentage: member.salary_percentage,
-                                    rate_per_hour: member.rate_per_hour,
-                                    rate_per_month: member.rate_per_month,
-                                    data: memberWithoutPassword
-                                }, finalOrgId).catch(() => {});
-                            });
-                        });
-                    }
+                    // Staff is DELIBERATELY not re-pushed to the cloud from here
+                    // anymore (removed as part of the Permissions module —
+                    // docs/authorization-module.md §6). This used to
+                    // unconditionally upsert every staff member on every
+                    // saveSettings() call, including from StudioContext.tsx's
+                    // hydrate() cycle (which calls saveSettings(next, prev, ...)
+                    // with whatever it just read back from the cloud) — a
+                    // read racing an in-flight edit would get written straight
+                    // back, silently reverting a just-granted permission. It
+                    // also completely bypassed src/app/actions/staff.ts's
+                    // requireEffectivePermission() check, since this path has
+                    // no permission gate of its own. src/app/actions/staff.ts's
+                    // createStaffAction/updateStaffAction/deleteStaffAction
+                    // (called alongside this by StudioContext.tsx's
+                    // addStaff/updateStaff/removeStaff) are now the only write
+                    // path to the real `staff` table.
 
                     import('./master-sync').then(({ pushFullStudioMetadata }) => {
                         pushFullStudioMetadata(finalSlug, next.studioName || 'Studio', next);
