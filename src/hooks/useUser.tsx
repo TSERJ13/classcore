@@ -114,7 +114,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
                     setUser(u);
                     const meta = u.user_metadata || {};
-                    const resolvedRole = isSuperAdmin ? 'owner' : (meta.role || 'admin');
+                    // No `|| 'admin'` fallback for a missing role anymore
+                    // (removed alongside Unified Auth, docs/tasks.md): a
+                    // real Supabase Auth session with no role at all is now
+                    // a legitimate, common case — a Teacher/Administrator
+                    // invite that was submitted but not yet confirmed by
+                    // the admin (src/app/actions/staff-invites.ts) is
+                    // created deliberately without one, specifically so
+                    // they can authenticate but have zero access until
+                    // confirmed. Defaulting that to 'admin' used to hand
+                    // them a full owner-tier bypass.
+                    const resolvedRole = isSuperAdmin ? 'owner' : (meta.role ?? null);
 
                     if (resolvedRole === 'owner' || resolvedRole === 'admin') {
                         // Main Administrator (or the never-issued legacy

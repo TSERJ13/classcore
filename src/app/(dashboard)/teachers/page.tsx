@@ -161,7 +161,7 @@ export default function TeachersPage() {
             // to add a staff member the cloud sync (which requires a
             // non-null primary key) will silently drop.
             const newId = data.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`);
-            await addStaff({
+            const { id: finalId } = await addStaff({
                 ...data,
                 id: newId,
                 status: data.status || 'active',
@@ -179,7 +179,12 @@ export default function TeachersPage() {
                     canViewSMS: true
                 }
             } as any);
-            reconcileGroupAssignments(newId, [], newGroupIds);
+            // Unified Auth (docs/tasks.md): when this teacher gets a real
+            // Supabase Auth account, addStaff() returns THAT id, not our
+            // optimistic `newId` — use it here so the group's
+            // teacherId/secondaryTeacherId actually matches the row that
+            // ended up in the `staff` table.
+            reconcileGroupAssignments(finalId, [], newGroupIds);
         }
     }
 

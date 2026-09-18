@@ -10,6 +10,13 @@
  * only staff-creation path that existed before this was "(ბ) ხელით
  * შევსება" (TeacherModal.tsx, admin fills the fields directly).
  *
+ * UNIFIED AUTH: submitStaffInviteAction creates the teacher's real
+ * Supabase Auth account immediately (Supabase owns the password from that
+ * moment on — this app never stores it), but deliberately without a role
+ * in user_metadata, so they can authenticate but have zero effective
+ * permissions until confirmStaffInviteAction grants one. This makes the
+ * "admin must confirm" step a real access gate, not just a UI formality.
+ *
  * SCHEMA: supabase/migrations/20260918_staff_invites.sql.
  */
 
@@ -18,7 +25,6 @@ import crypto from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { requireEffectivePermission } from '@/lib/permissions/enforce';
-import { hashPassword } from '@/lib/password-hash';
 import { validatePasswordPolicy } from '@/lib/password-policy';
 import { ROLE_DEFAULT_PERMISSIONS, resolveRoleTier } from '@/lib/permissions/role-defaults';
 import { sendEmail } from '@/lib/smtp';
@@ -152,8 +158,20 @@ export async function revokeStaffInviteAction(rawInput: unknown): Promise<void> 
     const { id } = z.object({ id: z.string().min(1) }).parse(rawInput);
     const { orgId } = await requireEffectivePermission('canViewTeachers');
     const admin = adminClient();
+
+    const { data: invite } = await admin.from('staff_invites').select('staff_id, status').eq('id', id).eq('org_id', orgId).maybeSingle();
+
     const { error } = await admin.from('staff_invites').update({ status: 'revoked' }).eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);
+
+    // A submitted-but-not-yet-confirmed invite already has a real
+    // Supabase Auth account (created at submit time, with no role/
+    // permissions granted) — clean it up rather than leaving an orphan
+    // that can still authenticate.
+    if (invite?.staff_id && invite.status === 'submitted') {
+        await admin.auth.admin.deleteUser(invite.staff_id).catch(() => {});
+    }
+
     revalidatePath('/teachers');
 }
 
@@ -182,21 +200,35 @@ export async function confirmStaffInviteAction(rawInput: unknown): Promise<{ id:
         .maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
     if (!invite) throw new Error('Invite not found or not yet submitted by the teacher');
+    if (!invite.staff_id) throw new Error('This invite has no linked account — the teacher needs to re-submit');
 
     const roleTier = resolveRoleTier(invite.role, false);
     const permissions = input.permissions || (roleTier ? ROLE_DEFAULT_PERMISSIONS[roleTier] : undefined);
-    const staffId = `staff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const staffId = invite.staff_id as string;
     const fullName = `${invite.first_name || ''} ${invite.last_name || ''}`.trim();
+
+    // Unified Auth (docs/tasks.md): submitStaffInviteAction already created
+    // this person's real Supabase Auth account, deliberately WITHOUT a
+    // role — so until this exact moment they can log in but have no
+    // effective permissions at all. Granting `role`/`permissions` here is
+    // the actual "confirm" — everything up to this point was reversible
+    // (a revoke just leaves an inert Auth account with no `staff` row and
+    // no access).
+    const { error: authErr } = await admin.auth.admin.updateUserById(staffId, {
+        user_metadata: { role: invite.role, permissions },
+    });
+    if (authErr) throw new Error(authErr.message);
 
     const fullRecord = {
         id: staffId, full_name: fullName, first_name: invite.first_name, last_name: invite.last_name,
         email: invite.email, phone: invite.phone, role: invite.role, status: 'active',
+        authType: 'supabase',
         ...(permissions ? { permissions } : {}),
     };
 
     const { error: insertErr } = await admin.from('staff').insert({
         id: staffId, org_id: orgId, full_name: fullName, first_name: invite.first_name, last_name: invite.last_name,
-        email: invite.email, phone: invite.phone, role: invite.role, password: invite.password_hash,
+        email: invite.email, phone: invite.phone, role: invite.role,
         data: fullRecord,
     });
     if (insertErr) throw new Error(insertErr.message);
@@ -247,17 +279,41 @@ export async function submitStaffInviteAction(rawInput: unknown): Promise<void> 
     const admin = adminClient();
     const { data: invite } = await admin
         .from('staff_invites')
-        .select('id, status, expires_at')
+        .select('id, org_id, email, status, expires_at')
         .eq('token_hash', hashToken(input.token))
         .maybeSingle();
     if (!invite) throw new Error('Invalid or expired invite link');
     if (invite.status !== 'pending') throw new Error('This invite has already been used');
     if (new Date(invite.expires_at).getTime() < Date.now()) throw new Error('This invite link has expired');
 
-    const passwordHash = await hashPassword(input.password);
+    const studio = await admin.from('studios').select('studio_name, studio_slug').eq('org_id', invite.org_id).maybeSingle();
+
+    // Unified Auth (docs/tasks.md): create the real Supabase Auth account
+    // right now, with the password the teacher just set — Supabase owns
+    // it from here on, this app never stores or sees it again. Deliberately
+    // NO `role` in user_metadata yet: that only gets granted by
+    // confirmStaffInviteAction once the admin reviews and confirms, so a
+    // submitted-but-unconfirmed account can authenticate but has zero
+    // effective permissions (computeEffectivePermissions with a null role
+    // tier resolves to no access at all).
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email: invite.email,
+        password: input.password,
+        email_confirm: true,
+        user_metadata: {
+            first_name: input.first_name, last_name: input.last_name, phone: input.phone,
+            studio_name: studio.data?.studio_name, studio_slug: studio.data?.studio_slug,
+            org_id: invite.org_id, is_activated: true,
+        },
+    });
+    if (createErr || !created?.user) {
+        const isDupe = /already registered|already exists/i.test(createErr?.message || '');
+        throw new Error(isDupe ? 'An account with this email already exists' : (createErr?.message || 'Failed to create the account'));
+    }
+
     const { error } = await admin.from('staff_invites').update({
         first_name: input.first_name, last_name: input.last_name, phone: input.phone,
-        password_hash: passwordHash, status: 'submitted', submitted_at: new Date().toISOString(),
+        staff_id: created.user.id, status: 'submitted', submitted_at: new Date().toISOString(),
     }).eq('id', invite.id);
     if (error) throw new Error(error.message);
 }

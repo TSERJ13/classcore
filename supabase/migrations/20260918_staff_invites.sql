@@ -24,7 +24,14 @@ CREATE TABLE IF NOT EXISTS public.staff_invites (
     first_name text,
     last_name text,
     phone text,
-    password_hash text,
+    -- Unified Auth (docs/tasks.md): the Supabase Auth user id created at
+    -- submit time (public claim page) — deliberately created WITHOUT a
+    -- role in its user_metadata until confirmStaffInviteAction grants one,
+    -- so a submitted-but-not-yet-confirmed account can authenticate but
+    -- has no effective permissions at all. No password hash is ever
+    -- stored here — Supabase Auth owns the password from the moment the
+    -- teacher sets it.
+    staff_id uuid,
     invited_by uuid,
     expires_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
