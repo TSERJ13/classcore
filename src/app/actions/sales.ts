@@ -22,11 +22,20 @@
  * never populated them — only `data` reliably carries productId/quantity/
  * price/date/time. Matched that existing behavior rather than starting to
  * populate columns nothing has ever read from.
+ *
+ * MUTATIONS use requireEffectivePermission('canViewShop')
+ * (src/lib/permissions/enforce.ts) instead of the plain requireOrgIdDualAuth()
+ * — without it, a staff-token caller whose canViewShop is false (or Locked
+ * off) could still record/edit/delete a sale by calling this action
+ * directly, even though the Shop page and its quick-sell drawer would
+ * never show them the button. Reads stay on requireOrgIdDualAuth() alone,
+ * unchanged.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
+import { requireEffectivePermission } from '@/lib/permissions/enforce';
 
 export type SaleRow = {
     id: string;
@@ -68,7 +77,7 @@ const recordSaleSchema = z.object({
 
 export async function recordSaleAction(rawInput: unknown): Promise<SaleRow> {
     const input = recordSaleSchema.parse(rawInput);
-    const { orgId, client } = await requireOrgIdDualAuth();
+    const { orgId, client } = await requireEffectivePermission('canViewShop');
 
     const now = new Date();
     const newSale: SaleRow = {
@@ -89,7 +98,7 @@ const updateSaleSchema = z.object({ id: z.string().min(1) }).passthrough();
 
 export async function updateSaleAction(rawInput: unknown): Promise<void> {
     const input = updateSaleSchema.parse(rawInput);
-    const { orgId, client } = await requireOrgIdDualAuth();
+    const { orgId, client } = await requireEffectivePermission('canViewShop');
 
     const { data: existing, error: fetchErr } = await client.from('sales').select('data').eq('id', input.id).eq('org_id', orgId).maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
@@ -106,7 +115,7 @@ const deleteSaleSchema = z.object({ id: z.string().min(1) });
 
 export async function deleteSaleAction(rawInput: unknown): Promise<void> {
     const { id } = deleteSaleSchema.parse(rawInput);
-    const { orgId, client } = await requireOrgIdDualAuth();
+    const { orgId, client } = await requireEffectivePermission('canViewShop');
 
     const { error } = await client.from('sales').delete().eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);

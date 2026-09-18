@@ -20,11 +20,24 @@
  * branch/category updates the existing row — matches the old write's own
  * id scheme exactly, so this doesn't orphan/duplicate rows already written
  * by the legacy path.
+ *
+ * MUTATION uses requireEffectivePermission('canViewAnalytics')
+ * (src/lib/permissions/enforce.ts) — matching analytics/page.tsx's own
+ * `PermissionGuard permKey="canViewAnalytics"` gate, which is the ONLY
+ * thing that currently controls reaching the ExpenseModal (there's no
+ * separate `viewFinancials` toggle anywhere in the Add/Edit Staff UI, so
+ * gating this action on that flag instead would make expense-saving
+ * unreachable for every staff-token caller, including ones who can
+ * already do it today via a custom role with canViewAnalytics granted —
+ * checked this against the actual UI before choosing the flag). Before
+ * this, nothing server-side enforced even that: the old
+ * requireOrgIdDualAuth() alone let any staff-token caller in the org
+ * write expenses regardless of canViewAnalytics.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
+import { requireEffectivePermission } from '@/lib/permissions/enforce';
 
 const expensesSchema = z.object({
     month: z.string().regex(/^\d{4}-\d{2}$/),
@@ -34,7 +47,7 @@ const expensesSchema = z.object({
 
 export async function saveExpensesAction(rawInput: unknown): Promise<void> {
     const input = expensesSchema.parse(rawInput);
-    const { orgId, client } = await requireOrgIdDualAuth();
+    const { orgId, client } = await requireEffectivePermission('canViewAnalytics');
 
     const date = `${input.month}-01`;
     const rows = Object.entries(input.expenses).map(([category, amount]) => ({

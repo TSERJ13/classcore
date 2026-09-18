@@ -6,6 +6,7 @@ import { getStaffSession, setStaffSession, loadSettings, getActiveSlug } from '@
 import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 import { computeEffectivePermissions } from '@/lib/permissions/resolve';
 import { resolveRoleTier } from '@/lib/permissions/role-defaults';
+import { getPermissionLocksAction } from '@/app/actions/permission-locks';
 
 import React, { createContext, useContext, ReactNode } from 'react';
 
@@ -136,15 +137,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
                         ? settings.studioName
                         : (studioName || (latestStaff as any).studioName || (latestStaff as any).studio_name || (staff as any).studioName || 'ST Dance Studio');
 
-                    // Permissions module (docs/permissions-module-prd.md §6):
-                    // role default -> stored Override. Locks aren't fetched
-                    // here (this hook resolves synchronously from local
-                    // settings, no network round trip) — a locked
-                    // permission still shows its role-default/override
-                    // value client-side; server-side writes are the actual
-                    // enforcement boundary via the dual-auth Server Actions.
+                    // Permissions module (docs/permissions-module-prd.md §6-§7):
+                    // role default -> stored Override -> Lock, in that
+                    // precedence (computeEffectivePermissions). Locks are
+                    // fetched with the staff-token dual-auth Server Action
+                    // (getPermissionLocksAction) so a lock the Main
+                    // Administrator set actually reaches this client, not
+                    // just the server-side requireEffectivePermission()
+                    // checks (src/lib/permissions/enforce.ts) that are the
+                    // real enforcement boundary on writes.
                     const roleTier = resolveRoleTier(latestStaff.role, false);
-                    const effectivePermissions = computeEffectivePermissions(roleTier, latestStaff.permissions, [], latestStaff.id);
+                    let locks: import('@/lib/permissions/resolve').PermissionLock[] = [];
+                    try {
+                        locks = await getPermissionLocksAction();
+                    } catch (err) {
+                        console.warn('⚠️ [UserProvider] Failed to fetch permission locks, proceeding without them:', err);
+                    }
+                    const effectivePermissions = computeEffectivePermissions(roleTier, latestStaff.permissions, locks, latestStaff.id);
 
                     setProfile({
                         ...latestStaff,

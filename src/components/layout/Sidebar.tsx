@@ -223,7 +223,16 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                     const permKey = mapping[item.href];
                     if (permKey) return !!(profile as any)?.[permKey];
 
-                    const adminOnly = ['/billing', '/settings', '/finance', '/invoices', '/payments'];
+                    // '/settings' also opens for the 'administrator' role tier
+                    // (Permissions module, docs/authorization-module.md §2) —
+                    // matches PermissionGuard's allowAdministrator escape
+                    // hatch on that page. Billing/finance/invoices/payments
+                    // stay Main-Administrator-only (ADMINISTRATOR_DEFAULTS
+                    // excludes canViewBilling/manageBilling on purpose).
+                    if (item.href === '/settings') {
+                        return isOwnerOrAdmin(profile?.role) || role === 'administrator';
+                    }
+                    const adminOnly = ['/billing', '/finance', '/invoices', '/payments'];
                     if (adminOnly.includes(item.href)) {
                         return isOwnerOrAdmin(profile?.role);
                     }

@@ -36,7 +36,7 @@ components read from — that doesn't change either.
 |---|---|---|
 | **Super Admin** | `isSuperAdminEmail()` (`src/lib/superadmin-emails.ts`) — a hardcoded email allowlist, entirely separate from `staff`/`profiles`. `useUser.tsx` maps a matching email to `profile.role = 'owner'` with every permission forced `true`. | Exists, but not modeled as a "role" the Permissions engine can see — it's a bypass, not a Scope=platform row. |
 | **Main Administrator** | Supabase Auth, `user_metadata.role === 'owner'`. Created exactly once per studio, only by `/api/auth/register-studio` — there is no second code path that mints another `role: 'owner'` user for the same studio, so uniqueness is a natural consequence of "only registration creates one," not an enforced constraint anywhere. | Exists and is already effectively unique. |
-| **Administrator** | **Does not exist as a distinct tier today.** `useUser.tsx` has a vestigial `meta.role \|\| 'admin'` fallback and `settings/page.tsx` checks `profile.role === 'admin'`, but no invite/signup flow ever produces a Supabase-Auth user with that role — it's dead code for a case nothing creates. | Needs to be built. |
+| **Administrator** | `staff.role === 'administrator'` (staff-token session, same mechanism as Teacher). Default permission set = every `StaffPermissions` flag true except `canViewBilling`/`manageBilling`/`viewFinancials` (`role-defaults.ts`'s `ADMINISTRATOR_DEFAULTS`). | **Built** — see §6 for what's actually wired vs. still coarse. |
 | **Teacher** | Staff-token session, `staff.role` (default `'teacher'`). Added via the Staff Server Actions built this session (`src/app/actions/staff.ts`), through `/teachers`, `/settings`'s Staff Access section, or `/profile`'s Team tab. | Exists and already has real invite/CRUD infrastructure. |
 | **Student** | Not a system-authenticated role at all. The public `/[studio]/[studentId]` page is a different, unauthenticated-ish lookup, not a login. | Confirmed by the PRD itself (§8/§10): the student portal isn't built. Out of scope until it is. |
 
@@ -102,3 +102,50 @@ Administrator/Super Admin; `staff-token.ts`'s signed cookie + `scrypt`
 password hashing (added this session, see
 `docs/architecture-migration.md` §10) for Administrator/Teacher. No new
 auth surface.
+
+## 6. Enforcement status (what actually stops an unauthorized write)
+
+Introducing the Administrator role tier exposed two real gaps beyond just
+"does the role exist": (1) whether Administrator can reach the pages that
+manage staff/branches/halls, and (2) whether anything server-side actually
+stops a caller from doing something their effective permissions (role
+default → stored Override → Lock) say they can't — client-side hiding a
+button is not enforcement.
+
+**Reachability.** Most modules were already fine: `PermissionGuard
+permKey="canView…"` reads the effective permission object directly
+(`useUser.tsx`), so `/teachers`, `/shop`, `/analytics`, `/halls`,
+`/groups`, etc. already worked for Administrator once its defaults were
+true. The one exception was `/settings`, gated by a blanket
+`PermissionGuard adminOnly={true}` — `isOwnerOrAdmin()` (`access.ts`)
+deliberately never bypasses for `'administrator'` (its access is meant to
+come from the Permissions engine, not a role-string bypass), so
+Administrator was silently locked out of Settings entirely, Staff Access
+and Permission Locks included. Fixed with an opt-in
+`allowAdministrator` prop on `PermissionGuard`, used only on `/settings`
+— `/billing` (and `/finance`, `/invoices`, `/payments`) deliberately keep
+the plain `adminOnly` gate, since `ADMINISTRATOR_DEFAULTS` excludes
+billing on purpose. `Sidebar.tsx`'s nav-item visibility got the matching
+fix for `/settings` only.
+
+**Server-side enforcement.** `src/lib/permissions/enforce.ts` adds
+`requireEffectivePermission(permKey)` — resolves the caller's role tier +
+stored permissions + Locks the same way `useUser.tsx` does, and throws if
+the effective flag is false. Wired into the write actions that previously
+only checked "is this org_id right": `staff.ts` (`canViewTeachers`),
+`halls.ts` (`canViewHalls`), `groups.ts` (`canViewGroups`), `sales.ts` /
+`products.ts` (`canViewShop`), `expenses.ts` (`canViewAnalytics` — see
+that file's own comment for why not the more aspirational
+`viewFinancials`: nothing in the UI ever sets that flag, so gating on it
+would make expense-saving unreachable for everyone). `branches.ts` has no
+dedicated `StaffPermissions` flag yet, so it uses `requireStudioManager()`
+instead — role-tier check only (Main Administrator or Administrator).
+Also fixed a real pre-existing bug this surfaced: `groups.ts`'s writes
+required real Supabase Auth, so a Teacher clicking "Add Group" (a button
+their own `canViewGroups: true` default already showed them) always
+failed server-side — now works.
+
+**Still not enforced**: the registry's (`registry.ts`) finer
+`backedBy: null` entries (`students.update`, `subscriptions.create`,
+etc.) — those actions still only check the module's coarse `.view` flag
+or nothing at all, unchanged by this pass.

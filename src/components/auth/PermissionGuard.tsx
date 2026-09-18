@@ -11,10 +11,23 @@ import { useT } from '@/contexts/LanguageContext';
 interface PermissionGuardProps {
     permKey?: string;
     adminOnly?: boolean;
+    /**
+     * Also let the studio-wide `administrator` role tier (Permissions
+     * module — docs/authorization-module.md §2) through an `adminOnly`
+     * gate. `isOwnerOrAdmin()` (access.ts) deliberately never returns true
+     * for 'administrator' — its access is meant to come from the
+     * Permissions engine, not a blanket bypass — but a couple of pages
+     * (Settings) genuinely are "studio management" pages Administrator
+     * should reach, while others gated `adminOnly` (Billing) must stay
+     * Main-Administrator-only per role-defaults.ts's ADMINISTRATOR_DEFAULTS
+     * (canViewBilling/manageBilling explicitly false). Opt-in per page
+     * rather than changing `adminOnly`'s own meaning everywhere.
+     */
+    allowAdministrator?: boolean;
     children: React.ReactNode;
 }
 
-export function PermissionGuard({ permKey, adminOnly, children }: PermissionGuardProps) {
+export function PermissionGuard({ permKey, adminOnly, allowAdministrator, children }: PermissionGuardProps) {
     const { profile, loading } = useUser();
     const { lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
@@ -27,7 +40,8 @@ export function PermissionGuard({ permKey, adminOnly, children }: PermissionGuar
         );
     }
 
-    const isOwnerAdmin = isOwnerOrAdmin(profile?.role) || !profile?.role;
+    const isOwnerAdmin = isOwnerOrAdmin(profile?.role) || !profile?.role
+        || (allowAdministrator && profile?.role === 'administrator');
 
     if (isOwnerAdmin) {
         return <>{children}</>;

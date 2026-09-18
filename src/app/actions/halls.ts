@@ -18,32 +18,23 @@
  *
  * SCHEMA: `id, org_id, name, data` — capacity/color/description/
  * sq_meters/photo_url/is_active/max_parallel_individual all live in `data`.
+ *
+ * WRITES use requireEffectivePermission('canViewHalls')
+ * (src/lib/permissions/enforce.ts), matching /halls/page.tsx's own
+ * `PermissionGuard permKey="canViewHalls"` gate — this also lets the new
+ * Administrator role (staff-token) manage halls, which the old
+ * auth.uid()-only requireOrgId() silently blocked.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
-
-async function requireOrgId(): Promise<{ orgId: string }> {
-    const supabase = await createClient();
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) throw new Error('Not authenticated');
-
-    const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-    if (profileErr || !profile?.org_id) throw new Error('No org for this user');
-
-    return { orgId: profile.org_id };
-}
+import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
+import { requireEffectivePermission } from '@/lib/permissions/enforce';
 
 export type HallRow = { id: string; name: string; [key: string]: unknown };
 
 export async function getHallsAction(): Promise<HallRow[]> {
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
     const { data, error } = await supabase.from('halls').select('id, name, data').eq('org_id', orgId);
     if (error) throw new Error(error.message);
     return (data ?? []).map(h => ({ ...(h.data as Record<string, unknown> || {}), id: h.id, name: h.name }));
@@ -55,8 +46,7 @@ const saveHallsSchema = z.array(hallSchema);
 /** Whole-array replace, matching hall-store.ts's saveHalls() contract exactly. */
 export async function saveHallsAction(rawInput: unknown): Promise<void> {
     const halls = saveHallsSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewHalls');
 
     const { data: existingRows, error: fetchErr } = await supabase.from('halls').select('id').eq('org_id', orgId);
     if (fetchErr) throw new Error(fetchErr.message);
@@ -81,8 +71,7 @@ const deleteHallSchema = z.object({ id: z.string().min(1) });
 
 export async function deleteHallAction(rawInput: unknown): Promise<void> {
     const { id } = deleteHallSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewHalls');
 
     const { error } = await supabase.from('halls').delete().eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);

@@ -28,26 +28,22 @@
  * teacherId/secondaryTeacherId/schedule_slots/etc. all live in `data`,
  * matching group-store.ts's saveGroups() (which pushes the whole Group
  * object into `data` alongside `id`/`name`).
+ *
+ * WRITES use requireEffectivePermission('canViewGroups')
+ * (src/lib/permissions/enforce.ts), matching /groups/page.tsx's own
+ * `PermissionGuard permKey="canViewGroups"` gate — Teacher has
+ * `canViewGroups: true` by default (role-defaults.ts) and the page already
+ * shows the same "Add Group"/edit/delete controls to any teacher who
+ * reaches it, so this also fixes a pre-existing bug: the old
+ * auth.uid()-only requireOrgId() rejected every staff-token session, so a
+ * teacher clicking "Add Group" always failed server-side even though the
+ * button was visible to them.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
-
-async function requireOrgId(): Promise<{ orgId: string }> {
-    const supabase = await createClient();
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) throw new Error('Not authenticated');
-
-    const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-    if (profileErr || !profile?.org_id) throw new Error('No org for this user');
-
-    return { orgId: profile.org_id };
-}
+import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
+import { requireEffectivePermission } from '@/lib/permissions/enforce';
 
 export type GroupRow = {
     id: string;
@@ -60,8 +56,7 @@ export type GroupRow = {
 
 /** Same query shape as students.ts's getGroupsForOrg() — kept independent (not imported cross-file) so each Server Action module owns its own reads, matching this migration's established style. */
 export async function getGroupsAction(): Promise<GroupRow[]> {
-    await requireOrgId();
-    const supabase = await createClient();
+    const { client: supabase } = await requireOrgIdDualAuth();
     const { data, error } = await supabase.from('groups').select('id, name, data').order('name');
     if (error) throw new Error(error.message);
     return (data ?? []).map(g => ({ ...(g.data as Record<string, unknown> || {}), id: g.id, name: g.name }));
@@ -86,8 +81,7 @@ const groupSchema = z.object({
  */
 export async function createGroupAction(rawInput: unknown): Promise<{ id: string }> {
     const input = groupSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewGroups');
 
     const id = input.id || `g_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const fullRecord = { ...input, id, enrolled: 0 };
@@ -106,8 +100,7 @@ const updateGroupSchema = z.object({
 
 export async function updateGroupAction(rawInput: unknown): Promise<void> {
     const input = updateGroupSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewGroups');
 
     const { error } = await supabase.from('groups')
         .update({ name: input.name, data: input })
@@ -121,8 +114,7 @@ const deleteGroupSchema = z.object({ id: z.string().min(1) });
 
 export async function deleteGroupAction(rawInput: unknown): Promise<void> {
     const { id } = deleteGroupSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewGroups');
 
     const { error } = await supabase.from('groups').delete().eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);
