@@ -49,7 +49,15 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { requireEffectivePermission } from '@/lib/permissions/enforce';
 import { hashPassword } from '@/lib/password-hash';
+import { validatePasswordPolicy } from '@/lib/password-policy';
 import { ROLE_DEFAULT_PERMISSIONS, resolveRoleTier } from '@/lib/permissions/role-defaults';
+
+/** docs/authorization-module.md §5 — only checked when a password is actually being set (non-empty); an edit that leaves the password field blank must not be blocked by this. */
+function assertPasswordPolicy(password: string | undefined) {
+    if (!password) return;
+    const check = validatePasswordPolicy(password);
+    if (!check.valid) throw new Error(`Password does not meet the minimum requirements (${check.reason})`);
+}
 
 const staffSchema = z.object({
     id: z.string().optional(),
@@ -75,6 +83,7 @@ export async function createStaffAction(rawInput: unknown): Promise<{ id: string
 
     const id = input.id || `staff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const fullName = resolveFullName(input);
+    assertPasswordPolicy(input.password);
     // Never write a plaintext password — hash it here even though the
     // login route still tolerates legacy plaintext rows (verifyPassword()).
     const hashedPassword = input.password ? await hashPassword(input.password) : null;
@@ -127,6 +136,7 @@ export async function updateStaffAction(rawInput: unknown): Promise<void> {
     // that doesn't show/change the password field must not null it out.
     // Never write it as plaintext.
     if (input.password !== undefined) {
+        assertPasswordPolicy(input.password || undefined);
         const hashedPassword = input.password ? await hashPassword(input.password) : null;
         update.password = hashedPassword;
         (update.data as Record<string, unknown>).password = hashedPassword ?? undefined;

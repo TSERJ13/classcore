@@ -14,6 +14,7 @@ import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { AppLogo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { validatePasswordPolicy, passwordPolicyMessage } from "@/lib/password-policy";
 
 const COUNTRIES = [
     { code: 'GE', dial: '+995', flag: '🇬🇪' },
@@ -99,14 +100,11 @@ export default function RegistrationPage() {
         sessionStorage.removeItem('cc_lang_session');
     }, []);
 
-    const getPasswordStrength = () => {
-        if (!password) return 0;
-        let strength = 0;
-        if (password.length >= 6) strength++;
-        if (/[A-Z]/.test(password)) strength++;
-        if (/[0-9]/.test(password)) strength++;
-        return strength;
-    };
+    // docs/authorization-module.md §5: min 8 chars, 1 uppercase, 1 digit, 1
+    // special char — this used to only require 2 of length/uppercase/digit
+    // (no special-char check at all), so a password server-side registration
+    // would now reject could still pass this client-side gate.
+    const passwordPolicy = validatePasswordPolicy(password);
 
     const fullPhone = dialCode + phone.replace(/\s/g, '');
 
@@ -172,7 +170,7 @@ export default function RegistrationPage() {
     const canNext2 = specificType.trim().length > 1;
     const canNext3 = studioName.trim().length >= 2;
     const canNext4 = !!lessonType && !!paymentStyle;
-    const canSubmit = emailVerified && phoneVerified && agreed && getPasswordStrength() >= 2 && password === confirmPassword && firstName.trim() && lastName.trim();
+    const canSubmit = emailVerified && phoneVerified && agreed && passwordPolicy.valid && password === confirmPassword && firstName.trim() && lastName.trim();
 
     async function handleFinalSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -195,7 +193,9 @@ export default function RegistrationPage() {
                         ? l('ეს ელფოსტა უკვე გამოყენებულია', 'Эта почта уже используется', 'This email is already registered')
                         : data.error === 'not_verified'
                             ? l('გთხოვთ დაადასტუროთ ელფოსტა და ტელეფონი', 'Подтвердите почту и телефон', 'Please verify email and phone first')
-                            : (data.error || 'Registration failed')
+                            : data.error === 'weak_password'
+                                ? passwordPolicyMessage(data.reason, l)
+                                : (data.error || 'Registration failed')
                 );
             }
 
@@ -517,6 +517,9 @@ export default function RegistrationPage() {
                                     <input value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required type={showPassword ? "text" : "password"} className={inputCls} placeholder="••••••••" />
                                 </div>
                             </div>
+                            {password && !passwordPolicy.valid && (
+                                <p className="text-[10px] text-red-500 font-bold text-center">{passwordPolicyMessage(passwordPolicy.reason, l)}</p>
+                            )}
                             {password && confirmPassword && password !== confirmPassword && (
                                 <p className="text-[10px] text-red-500 font-bold text-center">{l('პაროლები არ ემთხვევა', 'Пароли не совпадают', "Passwords don't match")}</p>
                             )}

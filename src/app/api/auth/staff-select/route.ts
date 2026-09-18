@@ -18,8 +18,10 @@ export async function POST(req: Request) {
         }
 
         const res = NextResponse.json({ ok: true, slug: payload.slug });
+        // docs/authorization-module.md §4 — match the token's own 12h
+        // expiry (staff-token.ts), not the token's original 7-day cookie.
         res.cookies.set('cc_staff_token', token, {
-            httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7,
+            httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 12,
         });
         if (lang && ['ka', 'en', 'ru'].includes(lang)) {
             res.cookies.set('cc_lang', lang, {
