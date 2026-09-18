@@ -174,18 +174,26 @@ export default function ProfilePage() {
         }
     }, [editingBranch]);
 
-    const handleStaffSubmit = (e: React.FormEvent) => {
+    const handleStaffSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!staffForm.email || !staffForm.first_name) return;
 
-        if (editingStaff) {
-            updateStaff(editingStaff.id, staffForm as any);
-            addNotification({ title: 'Success', message: l('განახლდა', 'Обновлено', 'Staff updated'), type: 'success', time: String(Date.now()) });
-            setEditingStaff(null);
-        } else {
-            addStaff(staffForm as any);
-            addNotification({ title: 'Success', message: l('დაემატა', 'Добавлено', 'Staff added'), type: 'success', time: String(Date.now()) });
-            setIsAddingStaff(false);
+        // Await the write before reporting success — this used to show
+        // "Success" immediately regardless of whether updateStaff/addStaff
+        // actually persisted, so a rejection (permission denied, network
+        // error) was invisible.
+        try {
+            if (editingStaff) {
+                await updateStaff(editingStaff.id, staffForm as any);
+                addNotification({ title: 'Success', message: l('განახლდა', 'Обновлено', 'Staff updated'), type: 'success', time: String(Date.now()) });
+                setEditingStaff(null);
+            } else {
+                await addStaff(staffForm as any);
+                addNotification({ title: 'Success', message: l('დაემატა', 'Добавлено', 'Staff added'), type: 'success', time: String(Date.now()) });
+                setIsAddingStaff(false);
+            }
+        } catch {
+            // Error already surfaced via addNotification inside updateStaff/addStaff.
         }
     };
 
@@ -408,7 +416,7 @@ export default function ProfilePage() {
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </button>
                                                 <button
-                                                    onClick={() => removeStaff(member.id)}
+                                                    onClick={() => removeStaff(member.id).catch(() => {})}
                                                     className="w-9 h-9 bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/30 rounded-xl flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />

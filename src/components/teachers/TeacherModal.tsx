@@ -27,7 +27,7 @@ interface TeacherModalProps {
     teacher: Teacher | null;
     groups: Group[];
     onClose: () => void;
-    onSave: (data: Partial<Teacher>) => void;
+    onSave: (data: Partial<Teacher>) => void | Promise<void>;
     onDelete?: (id: string) => void;
 }
 
@@ -132,8 +132,17 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                 if (!(finalForm as any).password?.trim()) delete (finalForm as any).password;
             }
 
-            onSave(finalForm);
+            // Await onSave before closing — it used to close unconditionally
+            // right after firing the save, so a rejection (permission
+            // denied, network error) from the underlying Server Action was
+            // invisible: the drawer reported success while nothing was
+            // actually saved. An error is already surfaced elsewhere
+            // (addNotification inside updateStaff/addStaff), so just keep
+            // the drawer open here on failure rather than duplicating that.
+            await onSave(finalForm);
             onClose();
+        } catch {
+            // Swallow — the caller already notified the user of the failure.
         } finally {
             setSaving(false);
         }

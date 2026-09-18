@@ -118,12 +118,17 @@ export default function TeachersPage() {
         }
     }
 
-    function handleSave(data: Partial<Teacher>) {
+    // async now, awaited by TeacherModal's save() before it closes itself —
+    // this used to fire updateStaff()/addStaff() unawaited and close the
+    // modal immediately regardless, so a rejection (permission denied,
+    // network error) was invisible: the modal reported success while the
+    // real write silently failed.
+    async function handleSave(data: Partial<Teacher>) {
         const oldGroupIds = editing?.assigned_group_ids || [];
         const newGroupIds = data.assigned_group_ids || [];
 
         if (editing) {
-            updateStaff(editing.id, data as any);
+            await updateStaff(editing.id, data as any);
             reconcileGroupAssignments(editing.id, oldGroupIds, newGroupIds);
         } else {
             // Defense in depth: TeacherModal always assigns an id now,
@@ -131,7 +136,7 @@ export default function TeachersPage() {
             // to add a staff member the cloud sync (which requires a
             // non-null primary key) will silently drop.
             const newId = data.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`);
-            addStaff({
+            await addStaff({
                 ...data,
                 id: newId,
                 status: data.status || 'active',
@@ -151,11 +156,10 @@ export default function TeachersPage() {
             } as any);
             reconcileGroupAssignments(newId, [], newGroupIds);
         }
-        setModalOpen(false);
     }
 
     function handleDelete(id: string) {
-        removeStaff(id);
+        removeStaff(id).catch(() => {});
     }
 
 
