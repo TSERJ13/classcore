@@ -15,11 +15,22 @@
  * NOT real columns per that map — kept those inside `data` only here
  * rather than repeating that risk (same PGRST204-class issue documented
  * for `students`).
+ *
+ * MUTATIONS use requireEffectivePermission('canViewShop') — matches
+ * sales.ts's reasoning. Deliberately NOT the finer `manageInventory` flag
+ * registry.ts maps `shop.manage_inventory` to: a teacher's attendance-page
+ * quick-sell writes through this SAME whole-array saveProductsAction to
+ * decrement stock (see the file header note in the git history for
+ * `sellProductAction`'s inventory fix), so gating on `manageInventory`
+ * (false by default for Teacher) would break quick-sell for every teacher
+ * who can otherwise use the Shop. `canViewShop` is the flag that actually
+ * governs both call sites today.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
+import { requireEffectivePermission } from '@/lib/permissions/enforce';
 
 export type ProductRow = { id: string; name: string; [key: string]: unknown };
 
@@ -36,7 +47,7 @@ const saveProductsSchema = z.array(productSchema);
 /** Whole-array replace, matching product-store.ts's saveProducts() contract exactly. */
 export async function saveProductsAction(rawInput: unknown): Promise<void> {
     const products = saveProductsSchema.parse(rawInput);
-    const { orgId, client } = await requireOrgIdDualAuth();
+    const { orgId, client } = await requireEffectivePermission('canViewShop');
 
     const { data: existingRows, error: fetchErr } = await client.from('products').select('id').eq('org_id', orgId);
     if (fetchErr) throw new Error(fetchErr.message);
@@ -68,7 +79,7 @@ const deleteProductSchema = z.object({ id: z.string().min(1) });
 
 export async function deleteProductAction(rawInput: unknown): Promise<void> {
     const { id } = deleteProductSchema.parse(rawInput);
-    const { orgId, client } = await requireOrgIdDualAuth();
+    const { orgId, client } = await requireEffectivePermission('canViewShop');
 
     const { error } = await client.from('products').delete().eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);

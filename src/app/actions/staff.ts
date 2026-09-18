@@ -17,11 +17,18 @@
  * getTeacherName/getTeacherPhoto) is viewed by teachers themselves, not
  * just owners/admins. An `auth.uid()`-gated read Server Action would
  * return "Not authenticated" for every one of those teacher sessions —
- * this migration only touches the CREATE/UPDATE/DELETE actions, which in
- * every real UI (`/teachers`, `/settings`'s Staff Access section,
- * `/profile`'s Team tab) are only ever invoked by an owner/admin/manager
- * who did authenticate through real Supabase Auth. Reads keep coming from
- * teacher-store.ts's local settings.staff cache, unchanged.
+ * this migration only touches the CREATE/UPDATE/DELETE actions. Reads keep
+ * coming from teacher-store.ts's local settings.staff cache, unchanged.
+ *
+ * WRITES use requireEffectivePermission('canViewTeachers')
+ * (src/lib/permissions/enforce.ts) instead of the plain auth.uid()-only
+ * requireOrgId() this file used before the Permissions module
+ * (docs/permissions-module-prd.md): the Main Administrator (`owner`, the
+ * only caller the old check ever let through) still always passes, but
+ * this also lets the new Administrator role (staff-token,
+ * `canViewTeachers: true` by default per role-defaults.ts) actually manage
+ * staff — the old auth.uid()-only check silently blocked every
+ * staff-token session, Administrator included.
  *
  * NOT FIXED HERE (flagged separately, see the migration's own comment):
  * src/app/api/auth/staff-login/route.ts compares `staff.password` in
@@ -40,23 +47,9 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
+import { requireEffectivePermission } from '@/lib/permissions/enforce';
 import { hashPassword } from '@/lib/password-hash';
-
-async function requireOrgId(): Promise<{ orgId: string }> {
-    const supabase = await createClient();
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) throw new Error('Not authenticated');
-
-    const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-    if (profileErr || !profile?.org_id) throw new Error('No org for this user');
-
-    return { orgId: profile.org_id };
-}
+import { ROLE_DEFAULT_PERMISSIONS, resolveRoleTier } from '@/lib/permissions/role-defaults';
 
 const staffSchema = z.object({
     id: z.string().optional(),
@@ -78,17 +71,28 @@ function resolveFullName(input: { full_name?: string; first_name?: string; last_
 
 export async function createStaffAction(rawInput: unknown): Promise<{ id: string }> {
     const input = staffSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewTeachers');
 
     const id = input.id || `staff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const fullName = resolveFullName(input);
     // Never write a plaintext password — hash it here even though the
     // login route still tolerates legacy plaintext rows (verifyPassword()).
     const hashedPassword = input.password ? await hashPassword(input.password) : null;
+    // Permissions module (docs/permissions-module-prd.md §6): pre-fill role
+    // defaults when the caller didn't send an explicit permissions object,
+    // matching the PRD's "confirm screen shows role defaults, already
+    // checked" invite UX — done at the data layer here so it holds
+    // regardless of which of the 3 UI paths (TeacherModal already does its
+    // own version of this client-side) created the record.
+    const roleTier = resolveRoleTier(input.role, false);
+    const inputPermissions = (input as Record<string, unknown>).permissions;
+    const permissions = (inputPermissions && typeof inputPermissions === 'object')
+        ? inputPermissions
+        : (roleTier ? ROLE_DEFAULT_PERMISSIONS[roleTier] : undefined);
     const fullRecord = {
         ...input, id, full_name: fullName, status: (input as Record<string, unknown>).status || 'active',
         password: hashedPassword ?? undefined,
+        ...(permissions ? { permissions } : {}),
     };
 
     const { error } = await supabase.from('staff').insert({
@@ -110,8 +114,7 @@ const updateStaffSchema = staffSchema.extend({ id: z.string().min(1) });
 
 export async function updateStaffAction(rawInput: unknown): Promise<void> {
     const input = updateStaffSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewTeachers');
 
     const fullName = resolveFullName(input);
     const update: Record<string, unknown> = {
@@ -141,8 +144,7 @@ const deleteStaffSchema = z.object({ id: z.string().min(1) });
 
 export async function deleteStaffAction(rawInput: unknown): Promise<void> {
     const { id } = deleteStaffSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireEffectivePermission('canViewTeachers');
 
     const { error } = await supabase.from('staff').delete().eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);

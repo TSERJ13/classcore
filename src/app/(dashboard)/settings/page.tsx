@@ -19,6 +19,8 @@ import Link from 'next/link';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { AppLogo } from '@/components/ui/Logo';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { getPermissionLocksAction, setPermissionLockAction, clearPermissionLockAction } from '@/app/actions/permission-locks';
+import type { PermissionLock } from '@/lib/permissions/resolve';
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -87,10 +89,33 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 export default function SettingsPage() {
     const { t, lang, setLang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    // Same key set as the "Assign access" toggles below — the module's
+    // canView* granularity is the only thing a Permission Lock (§7) can
+    // target today, per resolve.ts's PermissionLock.permissionId typing.
+    const LOCKABLE_PERMISSIONS = [
+        { value: 'canViewAttendance', label: t.attendance },
+        { value: 'canViewSubscriptions', label: t.subscriptions },
+        { value: 'canViewStudents', label: t.students },
+        { value: 'canViewCalendar', label: t.calendar },
+        { value: 'canEditCalendar', label: t.edit },
+        { value: 'canViewGroups', label: t.groups },
+        { value: 'canViewTeachers', label: t.teachers },
+        { value: 'canViewHalls', label: t.halls },
+        { value: 'canViewShop', label: t.hallRental },
+        { value: 'canViewAnalytics', label: t.analytics },
+        { value: 'canViewSMS', label: 'SMS' },
+    ];
     const { settings, isLoaded, setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
-    const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin';
+    // 'administrator' (Permissions module, docs/authorization-module.md §2)
+    // included here on purpose — it should reach the same studio-management
+    // sections (Studio Settings, Staff Access, Branch Management, Security)
+    // as owner/admin, just not the owner-exclusive Account/Danger-Zone
+    // sections below (those stay gated by isOwner, unchanged) or Billing
+    // (a separate page, never opened to Administrator — see
+    // role-defaults.ts's ADMINISTRATOR_DEFAULTS).
+    const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'administrator';
     const isOwner = profile?.role === 'owner' || profile?.role === 'superadmin';
     const isSuperAdmin = profile?.role === 'superadmin';
 
@@ -184,6 +209,17 @@ export default function SettingsPage() {
     const [editingStaffData, setEditingStaffData] = useState<any>(null);
     const [showStaffPwd, setShowStaffPwd] = useState(false);
 
+    // Permission Locks (docs/permissions-module-prd.md §7) — Main
+    // Administrator only, see requireOwner() in permission-locks.ts.
+    const [locks, setLocks] = useState<PermissionLock[]>([]);
+    const [locksLoading, setLocksLoading] = useState(false);
+    const [lockPermId, setLockPermId] = useState<string>('canViewShop');
+    const [lockTargetType, setLockTargetType] = useState<'role' | 'staff'>('role');
+    const [lockTargetRole, setLockTargetRole] = useState<'administrator' | 'teacher'>('teacher');
+    const [lockTargetStaffId, setLockTargetStaffId] = useState('');
+    const [lockValue, setLockValue] = useState(false);
+    const [lockSaving, setLockSaving] = useState(false);
+
     // Sync local state when starting/stopping edit
     useEffect(() => {
         if (editingStaffId) {
@@ -196,6 +232,44 @@ export default function SettingsPage() {
         }
     }, [editingStaffId, settings.staff]);
 
+    useEffect(() => {
+        if (!isOwner) return;
+        setLocksLoading(true);
+        getPermissionLocksAction()
+            .then(setLocks)
+            .catch(() => {})
+            .finally(() => setLocksLoading(false));
+    }, [isOwner]);
+
+    async function handleAddLock() {
+        if (lockTargetType === 'staff' && !lockTargetStaffId) return;
+        setLockSaving(true);
+        try {
+            await setPermissionLockAction({
+                permissionId: lockPermId,
+                lockedValue: lockValue,
+                ...(lockTargetType === 'role' ? { targetRole: lockTargetRole } : { targetStaffId: lockTargetStaffId }),
+            });
+            setLocks(await getPermissionLocksAction());
+            addNotification(l('პერმისია დაიბლოკა', 'Разрешение заблокировано', 'Permission locked'), 'success');
+        } catch (e: any) {
+            addNotification(e?.message || l('შეცდომა', 'Ошибка', 'Error'), 'error');
+        } finally {
+            setLockSaving(false);
+        }
+    }
+
+    async function handleRemoveLock(lock: PermissionLock) {
+        try {
+            await clearPermissionLockAction({
+                permissionId: lock.permissionId,
+                ...(lock.targetStaffId ? { targetStaffId: lock.targetStaffId } : { targetRole: lock.targetRole }),
+            });
+            setLocks(prev => prev.filter(x => !(x.permissionId === lock.permissionId && x.targetRole === lock.targetRole && x.targetStaffId === lock.targetStaffId)));
+        } catch (e: any) {
+            addNotification(e?.message || l('შეცდომა', 'Ошибка', 'Error'), 'error');
+        }
+    }
 
 
 
@@ -542,7 +616,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <PermissionGuard adminOnly={true}>
+        <PermissionGuard adminOnly={true} allowAdministrator={true}>
             <div key={settings.studioSlug || 'loading'} className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
             {isAdmin && (
                 <>
@@ -688,6 +762,107 @@ export default function SettingsPage() {
                             )}
                         </div>
                     </Section>
+
+                    {isOwner && (
+                        <Section title={l('პერმისიების დაბლოკვა', 'Блокировка разрешений', 'Permission Locks')} icon={Shield}>
+                            <div className="p-4 space-y-4">
+                                <p className="text-[10px] text-muted/70 leading-relaxed px-1">
+                                    {l(
+                                        'დაბლოკილი პერმისია ვეღარ შეიცვლება როლის დეფოლტით ან პირადი წვდომის მორგებით — ის ყოველთვის იმარჯვებს.',
+                                        'Заблокированное разрешение больше нельзя изменить ни ролью по умолчанию, ни персональной настройкой доступа — оно всегда побеждает.',
+                                        'A locked permission can no longer be changed by a role default or a personal access override — the lock always wins.'
+                                    )}
+                                </p>
+
+                                {locksLoading ? (
+                                    <div className="text-center py-6 text-[10px] font-bold text-muted/50 tracking-widest">{l('იტვირთება...', 'Загрузка...', 'Loading...')}</div>
+                                ) : locks.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {locks.map((lock, i) => {
+                                            const staffMember = lock.targetStaffId ? settings.staff?.find((s: any) => s.id === lock.targetStaffId) : null;
+                                            const targetLabel = staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : (lock.targetStaffId || lock.targetRole);
+                                            const permLabel = LOCKABLE_PERMISSIONS.find(p => p.value === lock.permissionId)?.label || lock.permissionId;
+                                            return (
+                                                <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-surface/30 border border-border-subtle/30">
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-primary truncate">{permLabel}</p>
+                                                        <p className="text-[9px] font-bold text-muted/50 tracking-widest mt-0.5">
+                                                            {targetLabel} · {lock.lockedValue ? l('ჩართული', 'Включено', 'ON') : l('გამორთული', 'Выключено', 'OFF')}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveLock(lock)}
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500/40 hover:text-red-500 hover:bg-red-500/10 transition-all flex-shrink-0"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <p className="text-center py-4 text-[10px] font-bold text-muted/40 tracking-widest">{l('დაბლოკილი პერმისია არ არის', 'Заблокированных разрешений нет', 'No locked permissions')}</p>
+                                )}
+
+                                <div className="pt-3 border-t border-border-subtle/20 space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <SearchSelect
+                                            options={LOCKABLE_PERMISSIONS}
+                                            value={lockPermId}
+                                            onChange={setLockPermId}
+                                            className="!border-border-subtle hover:!border-indigo-500/40"
+                                        />
+                                        <SearchSelect
+                                            options={[
+                                                { value: 'false', label: l('გამორთვა', 'Выключить', 'OFF') },
+                                                { value: 'true', label: l('ჩართვა', 'Включить', 'ON') },
+                                            ]}
+                                            value={String(lockValue)}
+                                            onChange={v => setLockValue(v === 'true')}
+                                            className="!border-border-subtle hover:!border-indigo-500/40"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <SearchSelect
+                                            options={[
+                                                { value: 'role', label: l('როლი', 'Роль', 'Role') },
+                                                { value: 'staff', label: l('კონკრეტული თანამშრომელი', 'Конкретный сотрудник', 'Specific staff member') },
+                                            ]}
+                                            value={lockTargetType}
+                                            onChange={v => setLockTargetType(v as 'role' | 'staff')}
+                                            className="!border-border-subtle hover:!border-indigo-500/40"
+                                        />
+                                        {lockTargetType === 'role' ? (
+                                            <SearchSelect
+                                                options={[
+                                                    { value: 'administrator', label: l('ადმინისტრატორი', 'Администратор', 'Administrator') },
+                                                    { value: 'teacher', label: l('მასწავლებელი', 'Учитель', 'Teacher') },
+                                                ]}
+                                                value={lockTargetRole}
+                                                onChange={v => setLockTargetRole(v as 'administrator' | 'teacher')}
+                                                className="!border-border-subtle hover:!border-indigo-500/40"
+                                            />
+                                        ) : (
+                                            <SearchSelect
+                                                options={(settings.staff || []).map((s: any) => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
+                                                value={lockTargetStaffId}
+                                                onChange={setLockTargetStaffId}
+                                                className="!border-border-subtle hover:!border-indigo-500/40"
+                                            />
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={handleAddLock}
+                                        disabled={lockSaving || (lockTargetType === 'staff' && !lockTargetStaffId)}
+                                        className="w-full py-3.5 bg-indigo-600 text-white text-xs font-black rounded-2xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        <Shield className="w-4 h-4" />
+                                        {l('დაბლოკვა', 'Заблокировать', 'Lock')}
+                                    </button>
+                                </div>
+                            </div>
+                        </Section>
+                    )}
 
                     <Section title={t.branchManagement} icon={Building2}>
                         <div className="p-4 space-y-3">
@@ -1034,6 +1209,7 @@ export default function SettingsPage() {
                                     <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.accessLevelLabel}</label>
                                     <SearchSelect
                                         options={[
+                                            { value: 'administrator', label: l('ადმინისტრატორი', 'Администратор', 'Administrator') },
                                             { value: 'manager', label: t.managerRole },
                                             { value: 'teacher', label: t.teacherRole },
                                             { value: 'receptionist', label: t.receptionistRole },
@@ -1307,8 +1483,8 @@ export default function SettingsPage() {
                                             <label className="text-[10px] font-black text-muted tracking-widest ml-1">{l('წვდომის დონე (როლი)', 'Уровень доступа (Роль)', 'Access Level (Role)')}</label>
                                             <SearchSelect
                                                 options={[
-                                                    { value: 'owner', label: l('მფლობელი', 'Владелец', 'Owner') },
-                                                    { value: 'admin', label: l('ადმინისტრატორი', 'Администратор', 'Admin') },
+                                                    { value: 'owner', label: l('მთავარი ადმინისტრატორი', 'Главный администратор', 'Main Administrator') },
+                                                    { value: 'administrator', label: l('ადმინისტრატორი', 'Администратор', 'Administrator') },
                                                     { value: 'manager', label: l('მენეჯერი', 'Менеджер', 'Manager') },
                                                     { value: 'teacher', label: l('მასწავლებელი', 'Учитель', 'Teacher') },
                                                     { value: 'receptionist', label: l('რეცეფშენი', 'Ресепшн', 'Receptionist') },

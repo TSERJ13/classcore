@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { getStaffSession, setStaffSession, loadSettings, getActiveSlug } from '@/lib/settings-store';
 import { isSuperAdminEmail } from '@/lib/superadmin-emails';
+import { computeEffectivePermissions } from '@/lib/permissions/resolve';
+import { resolveRoleTier } from '@/lib/permissions/role-defaults';
+import { getPermissionLocksAction } from '@/app/actions/permission-locks';
 
 import React, { createContext, useContext, ReactNode } from 'react';
 
@@ -130,14 +133,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     const settings = loadSettings(slug);
                     const latestStaff = settings.staff?.find((s: any) => s.id === staff.id) || staff;
                     setUser({ id: latestStaff.id, email: latestStaff.email } as any);
-                    const resolvedStudioName = (settings.studioName && !/^[0-9a-f-]{20,}$/i.test(settings.studioName)) 
-                        ? settings.studioName 
+                    const resolvedStudioName = (settings.studioName && !/^[0-9a-f-]{20,}$/i.test(settings.studioName))
+                        ? settings.studioName
                         : (studioName || (latestStaff as any).studioName || (latestStaff as any).studio_name || (staff as any).studioName || 'ST Dance Studio');
 
+                    // Permissions module (docs/permissions-module-prd.md §6-§7):
+                    // role default -> stored Override -> Lock, in that
+                    // precedence (computeEffectivePermissions). Locks are
+                    // fetched with the staff-token dual-auth Server Action
+                    // (getPermissionLocksAction) so a lock the Main
+                    // Administrator set actually reaches this client, not
+                    // just the server-side requireEffectivePermission()
+                    // checks (src/lib/permissions/enforce.ts) that are the
+                    // real enforcement boundary on writes.
+                    const roleTier = resolveRoleTier(latestStaff.role, false);
+                    let locks: import('@/lib/permissions/resolve').PermissionLock[] = [];
+                    try {
+                        locks = await getPermissionLocksAction();
+                    } catch (err) {
+                        console.warn('⚠️ [UserProvider] Failed to fetch permission locks, proceeding without them:', err);
+                    }
+                    const effectivePermissions = computeEffectivePermissions(roleTier, latestStaff.permissions, locks, latestStaff.id);
+
                     setProfile({
-                        ...(latestStaff.permissions || {}),
                         ...latestStaff,
-                        canViewAttendance: latestStaff.canViewAttendance ?? latestStaff.permissions?.canViewAttendance ?? true,
+                        ...effectivePermissions,
+                        canViewAttendance: effectivePermissions.canViewAttendance ?? true,
                         studio_name: resolvedStudioName,
                         studio_slug: slug,
                         is_activated: true,

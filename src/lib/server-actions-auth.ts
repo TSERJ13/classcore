@@ -32,6 +32,8 @@ export type DualAuthContext = {
     client: SupabaseClient;
     /** true if this request is a staff-token session — the client is service-role, not RLS-respecting, and every query must be manually org-scoped. */
     isStaffToken: boolean;
+    /** The staff-token session's staff.id, or null for a real Supabase Auth (Main Administrator) session. Used by requireEffectivePermission() (src/lib/permissions/enforce.ts) to resolve that staff member's role/permissions/locks. */
+    staffId: string | null;
 };
 
 export async function requireOrgIdDualAuth(): Promise<DualAuthContext> {
@@ -41,7 +43,7 @@ export async function requireOrgIdDualAuth(): Promise<DualAuthContext> {
         const { data: profile } = await supabase
             .from('profiles').select('org_id').eq('id', userData.user.id).maybeSingle();
         if (profile?.org_id) {
-            return { orgId: profile.org_id, client: supabase, isStaffToken: false };
+            return { orgId: profile.org_id, client: supabase, isStaffToken: false, staffId: null };
         }
     }
 
@@ -54,7 +56,7 @@ export async function requireOrgIdDualAuth(): Promise<DualAuthContext> {
             process.env.SUPABASE_SERVICE_ROLE_KEY!,
             { auth: { autoRefreshToken: false, persistSession: false } },
         );
-        return { orgId: payload.orgId, client: admin, isStaffToken: true };
+        return { orgId: payload.orgId, client: admin, isStaffToken: true, staffId: payload.staffId };
     }
 
     throw new Error('Not authenticated');

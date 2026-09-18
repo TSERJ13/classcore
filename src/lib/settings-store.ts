@@ -458,7 +458,15 @@ export const DEFAULT_SETTINGS: StudioSettings = {
         email: '',
         phone: ''
     },
-    customRoles: ['manager', 'teacher', 'receptionist', 'accountant'],
+    // 'administrator' added for the Permissions module (docs/permissions-
+    // module-prd.md §3) — a formal role tier with its own default
+    // permission set (src/lib/permissions/role-defaults.ts), not just a
+    // free-form custom string like the others in this list. Existing
+    // studios' already-saved customRoles array won't pick this up
+    // automatically (this constant is only the fallback for a brand-new
+    // settings object) — they can add "administrator" by hand via Settings
+    // until the role-picker UI is updated to always offer it.
+    customRoles: ['administrator', 'manager', 'teacher', 'receptionist', 'accountant'],
     activeBranchId: 'main',
     sms_enabled: true,
     primary_lang: 'ka',

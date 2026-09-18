@@ -22,26 +22,21 @@
  * SCHEMA: `id, org_id, name, address, data` — `address` is a real top-level
  * column here (confirmed via /api/sync/bulk's MINIMAL_COLUMNS allowlist),
  * not just inside `data` like everywhere else.
+ *
+ * WRITES use requireStudioManager() (src/lib/permissions/enforce.ts) — the
+ * Permissions module (docs/permissions-module-prd.md) added an
+ * Administrator role (staff-token, no auth.uid()) that should be able to
+ * manage branches the same as the Main Administrator; the old
+ * auth.uid()-only requireOrgId() silently blocked every staff-token
+ * session. No dedicated StaffPermissions flag exists for Branches yet
+ * (registry.ts's `branches.manage` is `backedBy: null`), so this checks
+ * role tier (Main Administrator or Administrator) rather than a specific
+ * permission — same honesty-over-invention approach the registry documents.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
-
-async function requireOrgId(): Promise<{ orgId: string }> {
-    const supabase = await createClient();
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) throw new Error('Not authenticated');
-
-    const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-    if (profileErr || !profile?.org_id) throw new Error('No org for this user');
-
-    return { orgId: profile.org_id };
-}
+import { requireStudioManager } from '@/lib/permissions/enforce';
 
 const branchSchema = z.object({
     id: z.string().min(1),
@@ -51,8 +46,7 @@ const branchSchema = z.object({
 
 export async function createBranchAction(rawInput: unknown): Promise<void> {
     const input = branchSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireStudioManager();
 
     const { error } = await supabase.from('branches').insert({
         id: input.id, org_id: orgId, name: input.name, address: input.address || null, data: input,
@@ -63,8 +57,7 @@ export async function createBranchAction(rawInput: unknown): Promise<void> {
 
 export async function updateBranchAction(rawInput: unknown): Promise<void> {
     const input = branchSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireStudioManager();
 
     const { error } = await supabase.from('branches')
         .update({ name: input.name, address: input.address || null, data: input })
@@ -77,8 +70,7 @@ const deleteBranchSchema = z.object({ id: z.string().min(1) });
 
 export async function deleteBranchAction(rawInput: unknown): Promise<void> {
     const { id } = deleteBranchSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireStudioManager();
 
     const { error } = await supabase.from('branches').delete().eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);
