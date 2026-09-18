@@ -149,8 +149,11 @@ export async function POST(req: Request) {
             if (!token) return NextResponse.json({ ok: false, error: 'Server not configured for staff login.' }, { status: 500 });
 
             const res = NextResponse.json({ ok: true, type: 'single', slug, studioName: name, staff: { ...safeStaff(staff), studioName: name } });
+            // docs/authorization-module.md §4 — cookie lifetime must match
+            // the token's own 12h expiry (staff-token.ts); this used to
+            // outlive the token by 6.5 days for no reason.
             res.cookies.set('cc_staff_token', token, {
-                httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7,
+                httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 12,
             });
             if (name && !/^[0-9a-f-]{20,}$/i.test(name)) {
                 res.cookies.set('cc_studio_name', encodeURIComponent(name), {

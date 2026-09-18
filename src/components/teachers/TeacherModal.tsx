@@ -351,6 +351,11 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                             </button>
                                         </div>
+                                        {form.password && (
+                                            <p className="text-[9px] text-muted/50 font-medium ml-1">
+                                                {l('მინ. 8 სიმბოლო, 1 დიდი ასო, 1 ციფრი, 1 სპეც. სიმბოლო', 'Мин. 8 символов, 1 заглавная, 1 цифра, 1 спец. символ', 'Min. 8 chars, 1 uppercase, 1 digit, 1 special char')}
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Access Language */}

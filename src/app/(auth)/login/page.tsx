@@ -43,7 +43,15 @@ export default function LoginPage() {
                 })();
                 return;
             }
-            window.location.href = '/dashboard';
+            // Unified Auth (docs/tasks.md) — same student-aware redirect
+            // as handleLogin below: this branch fires when a session
+            // cookie already exists on page load (e.g. a Student navigates
+            // straight to /login while already signed in).
+            if (profile?.role === 'student' && profile?.studio_slug && (profile as any)?.student_id) {
+                window.location.href = `/${profile.studio_slug}/${(profile as any).student_id}`;
+            } else {
+                window.location.href = '/dashboard';
+            }
         }
     }, [user, loading, lang, profile]);
 
@@ -137,8 +145,20 @@ export default function LoginPage() {
                     return;
                 }
 
+                // Unified Auth (docs/tasks.md) — a Teacher/Administrator/
+                // Student now logs in through this same Supabase Auth
+                // path too (staff-token is tried first, above); a Student
+                // has no business landing on the staff `/dashboard`, so
+                // send them to their own portal page instead.
+                const meta = signedInUser?.user_metadata || {};
+                const studentPortalUrl = meta.role === 'student' && meta.studio_slug && meta.student_id
+                    ? `/${meta.studio_slug}/${meta.student_id}`
+                    : null;
+
                 setTimeout(() => {
-                    if (isSuperAdmin) {
+                    if (studentPortalUrl) {
+                        window.location.href = studentPortalUrl;
+                    } else if (isSuperAdmin) {
                         window.location.href = '/superadmin';
                     } else if (userSlug) {
                         window.location.href = `/${userSlug}/dashboard`;

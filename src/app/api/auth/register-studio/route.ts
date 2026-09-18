@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { validatePasswordPolicy } from '@/lib/password-policy';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,11 @@ export async function POST(req: NextRequest) {
 
         if (!sessionToken || !studioName || !email || !phone || !password || !firstName || !lastName) {
             return NextResponse.json({ ok: false, error: 'missing_fields' }, { status: 400 });
+        }
+
+        const passwordCheck = validatePasswordPolicy(password);
+        if (!passwordCheck.valid) {
+            return NextResponse.json({ ok: false, error: 'weak_password', reason: passwordCheck.reason }, { status: 400 });
         }
 
         const studioSlug = slugify(studioName);

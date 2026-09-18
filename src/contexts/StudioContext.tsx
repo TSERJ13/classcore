@@ -36,7 +36,7 @@ interface StudioContextType {
     removeBranch: (id: string) => void;
     updateBranch: (id: string, data: any) => void;
     setCustomRoles: (roles: any) => void;
-    addStaff: (member: any) => Promise<void>;
+    addStaff: (member: any) => Promise<{ id: string }>;
     setOwnerInfo: (info: any) => void;
     setSmsTemplates: (templates: any) => void;
     setWizardCompleted: (val: boolean) => void;
@@ -1007,7 +1007,20 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         updateSettings({ staff: next });
         notifyStaffChanged(next);
         try {
-            await createStaffAction(member);
+            const { id: serverId } = await createStaffAction(member);
+            // Unified Auth (docs/tasks.md): a staff member who gets a real
+            // Supabase Auth account is keyed by that account's own id, not
+            // whatever synthetic id the client optimistically generated
+            // before this call — reconcile the local cache immediately
+            // rather than waiting for the next hydration cycle to correct
+            // it, so anything done right after (e.g. teachers/page.tsx's
+            // reconcileGroupAssignments) uses the real id.
+            if (serverId !== member.id) {
+                const reconciled = next.map(s => s.id === member.id ? { ...s, id: serverId } : s);
+                updateSettings({ staff: reconciled });
+                notifyStaffChanged(reconciled);
+            }
+            return { id: serverId };
         } catch (err: any) {
             addNotification(err?.message || 'Failed to add staff member', 'bg-rose-500');
             throw err;

@@ -5,17 +5,22 @@ import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
 import {
     UserPlus, Search, Phone, Mail, Users, User, BookOpen,
-    ChevronRight, Edit2, Zap, CalendarDays, BarChart2, Trash2, MessageSquare
+    ChevronRight, Edit2, Zap, CalendarDays, BarChart2, Trash2, MessageSquare,
+    Send, Clock, Check, X as XIcon
 } from 'lucide-react';
 import { cn, getInitials, formatCurrency } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { TeacherModal } from '@/components/teachers/TeacherModal';
+import { InviteTeacherModal } from '@/components/teachers/InviteTeacherModal';
+import { ConfirmInviteModal } from '@/components/teachers/ConfirmInviteModal';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import type { Teacher } from '@/types';
 import type { StaffMember } from '@/lib/settings-store';
 import { getGroups, saveGroups } from '@/lib/group-store';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { getPendingStaffInvitesAction, revokeStaffInviteAction, type StaffInviteRow } from '@/app/actions/staff-invites';
+import { addNotification } from '@/lib/notification-store';
 
 
 
@@ -47,6 +52,26 @@ export default function TeachersPage() {
     const [search, setSearch] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Teacher | null>(null);
+
+    // Invite-by-email flow (docs/authorization-module.md §8) — alongside
+    // the existing "admin fills the fields directly" path (TeacherModal).
+    const [inviteModalOpen, setInviteModalOpen] = useState(false);
+    const [pendingInvites, setPendingInvites] = useState<StaffInviteRow[]>([]);
+    const [confirmingInvite, setConfirmingInvite] = useState<StaffInviteRow | null>(null);
+
+    function loadPendingInvites() {
+        getPendingStaffInvitesAction().then(setPendingInvites).catch(() => {});
+    }
+    useEffect(() => { loadPendingInvites(); }, []);
+
+    async function handleRevokeInvite(id: string) {
+        try {
+            await revokeStaffInviteAction({ id });
+            loadPendingInvites();
+        } catch (err: any) {
+            addNotification(err?.message || 'Error', 'bg-rose-500');
+        }
+    }
 
     const STATUS_LABEL: Record<string, string> = {
         active: t.active,
@@ -136,7 +161,7 @@ export default function TeachersPage() {
             // to add a staff member the cloud sync (which requires a
             // non-null primary key) will silently drop.
             const newId = data.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`);
-            await addStaff({
+            const { id: finalId } = await addStaff({
                 ...data,
                 id: newId,
                 status: data.status || 'active',
@@ -154,7 +179,12 @@ export default function TeachersPage() {
                     canViewSMS: true
                 }
             } as any);
-            reconcileGroupAssignments(newId, [], newGroupIds);
+            // Unified Auth (docs/tasks.md): when this teacher gets a real
+            // Supabase Auth account, addStaff() returns THAT id, not our
+            // optimistic `newId` — use it here so the group's
+            // teacherId/secondaryTeacherId actually matches the row that
+            // ended up in the `staff` table.
+            reconcileGroupAssignments(finalId, [], newGroupIds);
         }
     }
 
@@ -188,13 +218,55 @@ export default function TeachersPage() {
                     ))}
                 </div>
 
-                {/* Add Teacher Action */}
-                <button onClick={openAdd}
-                    className="hidden sm:flex flex-shrink-0 items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
-                    <UserPlus className="w-5 h-5" />
-                    <span className="hidden sm:inline uppercase">{t.addTeacher}</span>
-                </button>
+                {/* Add Teacher Actions */}
+                <div className="hidden sm:flex flex-shrink-0 items-center gap-2">
+                    <button onClick={() => setInviteModalOpen(true)}
+                        className="flex items-center justify-center gap-2 h-12 px-6 bg-surface border border-border-subtle hover:border-indigo-500/40 active:scale-95 text-primary text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
+                        <Send className="w-4 h-4" />
+                        <span className="uppercase">{lang === 'ka' ? 'მოწვევა' : lang === 'ru' ? 'Пригласить' : 'Invite'}</span>
+                    </button>
+                    <button onClick={openAdd}
+                        className="flex items-center justify-center gap-2 w-12 h-12 sm:w-auto px-0 sm:px-6 bg-[#6d28d9] hover:bg-[#5b21b6] active:scale-95 text-white text-[11px] font-black tracking-widest rounded-[1.25rem] transition-all touch-manipulation">
+                        <UserPlus className="w-5 h-5" />
+                        <span className="hidden sm:inline uppercase">{t.addTeacher}</span>
+                    </button>
+                </div>
             </div>
+
+            {/* Pending invites (docs/authorization-module.md §8) */}
+            {pendingInvites.length > 0 && (
+                <div className="bg-card border-2 border-dashed border-indigo-500/20 rounded-3xl p-4 space-y-3">
+                    <p className="text-[10px] font-black text-indigo-500 tracking-widest uppercase flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5" /> {lang === 'ka' ? 'მოწვევები დასადასტურებლად' : lang === 'ru' ? 'Приглашения на подтверждение' : 'Pending invites'}
+                    </p>
+                    {pendingInvites.map(inv => (
+                        <div key={inv.id} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-surface/30 border border-border-subtle/30">
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-primary truncate">
+                                    {inv.first_name ? `${inv.first_name} ${inv.last_name}` : inv.email}
+                                </p>
+                                <p className="text-[9px] font-bold text-muted/50 tracking-widest mt-0.5">
+                                    {inv.email} · {inv.status === 'submitted'
+                                        ? (lang === 'ka' ? 'შევსებულია — მოსაცდელია დასტური' : lang === 'ru' ? 'Заполнено — ожидает подтверждения' : 'Filled in — awaiting confirmation')
+                                        : (lang === 'ka' ? 'მოწვევა გაგზავნილია' : lang === 'ru' ? 'Приглашение отправлено' : 'Invite sent')}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                                {inv.status === 'submitted' && (
+                                    <button onClick={() => setConfirmingInvite(inv)}
+                                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all">
+                                        <Check className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <button onClick={() => handleRevokeInvite(inv.id)}
+                                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all">
+                                    <XIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Teacher cards */}
                 <div className="grid gap-4 stagger">
@@ -296,6 +368,18 @@ export default function TeachersPage() {
                 onClose={() => setModalOpen(false)}
                 onSave={handleSave}
                 onDelete={handleDelete}
+            />
+
+            <InviteTeacherModal
+                open={inviteModalOpen}
+                onClose={() => setInviteModalOpen(false)}
+                onSent={loadPendingInvites}
+            />
+
+            <ConfirmInviteModal
+                invite={confirmingInvite}
+                onClose={() => setConfirmingInvite(null)}
+                onConfirmed={loadPendingInvites}
             />
 
             <MobileFAB icon={<UserPlus className="w-6 h-6" />} onClick={openAdd} />

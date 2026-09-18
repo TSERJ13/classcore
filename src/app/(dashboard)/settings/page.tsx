@@ -220,6 +220,8 @@ export default function SettingsPage() {
     const [lockValue, setLockValue] = useState(false);
     const [lockSaving, setLockSaving] = useState(false);
     const [staffSaving, setStaffSaving] = useState(false);
+    const [transferTargetId, setTransferTargetId] = useState('');
+    const [transferring, setTransferring] = useState(false);
 
     // Sync local state when starting/stopping edit. Only re-clones from
     // settings.staff when editingStaffId itself changes (opening a
@@ -1011,6 +1013,56 @@ export default function SettingsPage() {
                             <LanguageSwitcher variant="landing" mode="persistent" onChange={(l) => setLanguage(l as any)} />
                         </div>
                     </Row>
+                    {isOwner && !isSuperAdmin && (
+                        <Row label={l('მთავარი ადმინისტრატორის სტატუსის გადაცემა', 'Передача статуса Главного администратора', 'Transfer Main Administrator status')}
+                            sub={l('სტატუსი გადაეცემა უკვე არსებულ Administrator-ს — მათ შეექმნებათ ახალი, ცალკე ანგარიში.', 'Статус передаётся уже существующему Administrator — для него создаётся новая, отдельная учётная запись.', 'Status goes to an existing Administrator — a new, separate account is created for them.')}
+                        >
+                            <div className="flex flex-col sm:flex-row gap-2 w-full items-stretch sm:items-center">
+                                <SearchSelect
+                                    options={(settings.staff || []).filter((s: any) => s.role === 'administrator').map((s: any) => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
+                                    value={transferTargetId}
+                                    onChange={setTransferTargetId}
+                                    placeholder={l('აირჩიეთ Administrator', 'Выберите Administrator', 'Select Administrator')}
+                                    className="!border-border-subtle hover:!border-amber-500/40 min-w-[220px]"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        if (!transferTargetId) return;
+                                        const target = (settings.staff || []).find((s: any) => s.id === transferTargetId);
+                                        const ok = await confirm({
+                                            title: l('სტატუსის გადაცემა', 'Передача статуса', 'Transfer status'),
+                                            message: l(
+                                                `${target?.first_name} ${target?.last_name} გახდება ახალი მთავარი ადმინისტრატორი. თქვენ დაკარგავთ სრულ წვდომას და გახდებით ჩვეულებრივი Administrator. ეს მოქმედება არ არის მარტივად შექცევადი. დარწმუნებული ხართ?`,
+                                                `${target?.first_name} ${target?.last_name} станет новым Главным администратором. Вы потеряете полный доступ и станете обычным Administrator. Это действие непросто отменить. Вы уверены?`,
+                                                `${target?.first_name} ${target?.last_name} will become the new Main Administrator. You will lose full access and become an ordinary Administrator. This is not easily reversible. Are you sure?`
+                                            ),
+                                            confirmText: l('გადაცემა', 'Передать', 'Transfer'),
+                                            danger: true,
+                                        });
+                                        if (!ok) return;
+                                        setTransferring(true);
+                                        try {
+                                            const { transferMainAdministratorAction } = await import('@/app/actions/ownership-transfer');
+                                            const result = await transferMainAdministratorAction({ targetStaffId: transferTargetId, origin: window.location.origin });
+                                            addNotification(
+                                                l(`გადაცემულია! ახალ მთავარ ადმინისტრატორს (${result.newOwnerEmail}) ეგზავნება პაროლის დაყენების ბმული.`, `Передано! Новому Главному администратору (${result.newOwnerEmail}) отправлена ссылка для установки пароля.`, `Transferred! The new Main Administrator (${result.newOwnerEmail}) has been sent a password-setup link.`),
+                                                'bg-emerald-500'
+                                            );
+                                            setTransferTargetId('');
+                                        } catch (err: any) {
+                                            addNotification(err?.message || l('შეცდომა', 'Ошибка', 'Error'), 'bg-rose-500');
+                                        } finally {
+                                            setTransferring(false);
+                                        }
+                                    }}
+                                    disabled={!transferTargetId || transferring}
+                                    className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border border-amber-500/20 text-xs font-black transition-all disabled:opacity-40 whitespace-nowrap"
+                                >
+                                    {transferring ? <div className="w-4 h-4 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" /> : l('გადაცემა', 'Передать', 'Transfer')}
+                                </button>
+                            </div>
+                        </Row>
+                    )}
                     <Row label={l('სისტემიდან გამოსვლა', 'Выйти из системы', 'Logout')} sub={t.logoutDesc}>
                         <div className="flex items-center w-full">
                             <button onClick={logout} className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group border border-rose-500/10">
@@ -1277,6 +1329,11 @@ export default function SettingsPage() {
                                         {showStaffPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                     </button>
                                 </div>
+                                {newStaff.password && (
+                                    <p className="text-[9px] text-muted/50 font-medium ml-1">
+                                        {l('მინ. 8 სიმბოლო, 1 დიდი ასო, 1 ციფრი, 1 სპეც. სიმბოლო', 'Мин. 8 символов, 1 заглавная, 1 цифра, 1 спец. символ', 'Min. 8 chars, 1 uppercase, 1 digit, 1 special char')}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="space-y-4">
@@ -1499,6 +1556,11 @@ export default function SettingsPage() {
                                                     {showStaffPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                                 </button>
                                             </div>
+                                            {member.password && (
+                                                <p className="text-[9px] text-muted/50 font-medium ml-1">
+                                                    {l('მინ. 8 სიმბოლო, 1 დიდი ასო, 1 ციფრი, 1 სპეც. სიმბოლო', 'Мин. 8 символов, 1 заглавная, 1 цифра, 1 спец. символ', 'Min. 8 chars, 1 uppercase, 1 digit, 1 special char')}
+                                                </p>
+                                            )}
                                         </div>
                                         {/* Role Selection */}
                                         <div className="space-y-1.5">
