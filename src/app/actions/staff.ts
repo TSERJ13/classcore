@@ -42,6 +42,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { hashPassword } from '@/lib/password-hash';
+import { ROLE_DEFAULT_PERMISSIONS, resolveRoleTier } from '@/lib/permissions/role-defaults';
 
 async function requireOrgId(): Promise<{ orgId: string }> {
     const supabase = await createClient();
@@ -86,9 +87,21 @@ export async function createStaffAction(rawInput: unknown): Promise<{ id: string
     // Never write a plaintext password — hash it here even though the
     // login route still tolerates legacy plaintext rows (verifyPassword()).
     const hashedPassword = input.password ? await hashPassword(input.password) : null;
+    // Permissions module (docs/permissions-module-prd.md §6): pre-fill role
+    // defaults when the caller didn't send an explicit permissions object,
+    // matching the PRD's "confirm screen shows role defaults, already
+    // checked" invite UX — done at the data layer here so it holds
+    // regardless of which of the 3 UI paths (TeacherModal already does its
+    // own version of this client-side) created the record.
+    const roleTier = resolveRoleTier(input.role, false);
+    const inputPermissions = (input as Record<string, unknown>).permissions;
+    const permissions = (inputPermissions && typeof inputPermissions === 'object')
+        ? inputPermissions
+        : (roleTier ? ROLE_DEFAULT_PERMISSIONS[roleTier] : undefined);
     const fullRecord = {
         ...input, id, full_name: fullName, status: (input as Record<string, unknown>).status || 'active',
         password: hashedPassword ?? undefined,
+        ...(permissions ? { permissions } : {}),
     };
 
     const { error } = await supabase.from('staff').insert({

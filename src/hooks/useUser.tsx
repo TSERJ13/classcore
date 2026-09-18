@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { getStaffSession, setStaffSession, loadSettings, getActiveSlug } from '@/lib/settings-store';
 import { isSuperAdminEmail } from '@/lib/superadmin-emails';
+import { computeEffectivePermissions } from '@/lib/permissions/resolve';
+import { resolveRoleTier } from '@/lib/permissions/role-defaults';
 
 import React, { createContext, useContext, ReactNode } from 'react';
 
@@ -130,14 +132,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     const settings = loadSettings(slug);
                     const latestStaff = settings.staff?.find((s: any) => s.id === staff.id) || staff;
                     setUser({ id: latestStaff.id, email: latestStaff.email } as any);
-                    const resolvedStudioName = (settings.studioName && !/^[0-9a-f-]{20,}$/i.test(settings.studioName)) 
-                        ? settings.studioName 
+                    const resolvedStudioName = (settings.studioName && !/^[0-9a-f-]{20,}$/i.test(settings.studioName))
+                        ? settings.studioName
                         : (studioName || (latestStaff as any).studioName || (latestStaff as any).studio_name || (staff as any).studioName || 'ST Dance Studio');
 
+                    // Permissions module (docs/permissions-module-prd.md §6):
+                    // role default -> stored Override. Locks aren't fetched
+                    // here (this hook resolves synchronously from local
+                    // settings, no network round trip) — a locked
+                    // permission still shows its role-default/override
+                    // value client-side; server-side writes are the actual
+                    // enforcement boundary via the dual-auth Server Actions.
+                    const roleTier = resolveRoleTier(latestStaff.role, false);
+                    const effectivePermissions = computeEffectivePermissions(roleTier, latestStaff.permissions, [], latestStaff.id);
+
                     setProfile({
-                        ...(latestStaff.permissions || {}),
                         ...latestStaff,
-                        canViewAttendance: latestStaff.canViewAttendance ?? latestStaff.permissions?.canViewAttendance ?? true,
+                        ...effectivePermissions,
+                        canViewAttendance: effectivePermissions.canViewAttendance ?? true,
                         studio_name: resolvedStudioName,
                         studio_slug: slug,
                         is_activated: true,
