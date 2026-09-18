@@ -631,3 +631,125 @@ a real environment to confirm the email/SMS codes actually arrive.
 
 Verified in this session: `tsc --noEmit` clean and `next lint` clean on every new/changed file
 across R1-R5.
+
+---
+
+## Architecture migration — localStorage/service-role → Server Actions + RLS
+
+Source: no single PRD — an ongoing migration off the old pattern (client writes straight to
+localStorage, syncs to Supabase via a service-role API route with no real permission check) onto
+real Postgres tables with RLS and Zod-validated Server Actions. Full rationale, phase-by-phase
+detail, and the dual-auth pattern (`src/lib/server-actions-auth.ts`) for staff-token sessions are in
+`docs/architecture-migration.md` — this tracker only records status, not the detail already there.
+
+### Arch Phase 0: RLS gap-fill migration for remaining tables
+
+Status: completed — see `docs/architecture-migration.md` §0.
+
+### Arch Phase 1: Attendance server-driven pilot
+
+Status: completed — Server Actions + atomic check-in RPC + UI cutover. §1.
+
+### Arch Phase 2: Students full CRUD
+
+Status: completed — edit/delete/groups, then cut `/students` over live (old `-v2` pilot pages
+deleted). §2.
+
+### Arch Phase 3: Atomic attendance-marking + session deduction
+
+Status: completed — `SECURITY DEFINER` + `FOR UPDATE` RPC, re-resolves `caller_org_id` from
+`auth.uid()` internally rather than trusting RLS alone. §3.
+
+### Arch: Subscriptions, Plans, Dashboard stats, Groups, Staff writes, Calendar (deferred),
+### Branches/Halls, Shop (Sales+Products), Expenses
+
+Status: completed (Calendar/Events deliberately NOT migrated — documented risk: no real
+per-occurrence identity for recurring events, pervasive teacher-token write reachability with no
+admin-only carve-out; SMS templates/general Settings also deferred, low value / nested-JSONB risk).
+Each module's own section in `docs/architecture-migration.md` (§4-§15) has the real detail —
+notably §13's `requireOrgIdDualAuth()` helper (`src/lib/server-actions-auth.ts`): tries real
+Supabase Auth first, falls back to the `cc_staff_token` cookie with a service-role client manually
+scoped to `org_id`, used by every module a teacher/staff-token session needs to write to directly.
+
+---
+
+## Permissions/RBAC module
+
+Source: `Roles & Permissions module PRD` (uploaded PDF, transcribed to
+`docs/permissions-module-prd.md`) and its dependency, the `Authorization module PRD` (uploaded
+later, transcribed to `docs/authorization-module.md` — which also documents the real role
+hierarchy/session mechanics this module hooks into).
+
+### Permissions Phase 1: Engine + Administrator role + Permission Locks
+
+Status: completed — `src/lib/permissions/{role-defaults,resolve,registry}.ts` (Role default →
+stored Override → Lock precedence), new `staff.role = 'administrator'` tier (staff-token, not a new
+auth mechanism), `permission_locks` table + Server Actions + Settings UI. Full design rationale in
+`docs/authorization-module.md` §2, §6.
+
+### Permissions Phase 2: Real server-side enforcement + Administrator reachability
+
+Status: completed — `src/lib/permissions/enforce.ts` (`requireEffectivePermission`/
+`requireStudioManager`), wired into Staff/Branches/Halls/Groups/Shop/Expenses writes (previously
+only checked org_id match, not the caller's actual permission — a Lock had no server-side teeth).
+`PermissionGuard`'s `allowAdministrator` prop opens `/settings` to Administrator without loosening
+`/billing`. Fixed a real pre-existing bug this surfaced: Teacher's "Add Group" always failed
+server-side despite the button being visible (`groups.ts` required real `auth.uid()`, staff-token
+never has one). Detail: `docs/authorization-module.md` §6.
+
+### Bug fix: staff-permission grants silently not persisting / bypassing enforcement
+
+Status: completed. Root cause: every staff edit fired two uncoordinated writes to the same `staff`
+row — the new permission-checked `updateStaffAction()` (unawaited, error swallowed) and a legacy,
+unguarded `settings-store.ts` → `syncRecordToCloud('staff', ...)` push that ran on *every*
+`saveSettings()` call, including from `StudioContext.tsx`'s own `hydrate()` cycle reading stale data
+and writing it straight back. Fixed: removed the legacy sync path entirely (Server Actions are now
+the only write path to `staff`); `updateStaff`/`addStaff`/`removeStaff` now await their Server
+Action and surface failures instead of swallowing them; Settings' staff-edit form no longer resets
+mid-edit on an unrelated background hydration.
+
+### Authorization PRD alignment: password policy, session TTL, teacher invite-by-email, ownership transfer
+
+Status: completed. Gaps found comparing the real Authorization module PRD against the running app:
+- Password policy (min 8 chars, 1 uppercase, 1 digit, 1 special char) — was unenforced everywhere;
+  now checked server-side at every password-setting point (`src/lib/password-policy.ts`).
+- Session TTL — staff-token default was 7 days; now the PRD's 12 hours (`staff-token.ts`,
+  `staff-login`/`staff-select` cookie `maxAge`).
+- Teacher invite-by-email (PRD §8 path "(ა) მოწვევა") — previously only "admin fills the fields
+  directly" existed. Added: `staff_invites` table + `src/app/actions/staff-invites.ts` + public
+  claim page `src/app/[studio]/staff-invite/[token]/page.tsx` (no session — the token is the
+  credential) + admin-side invite/confirm UI in `/teachers`.
+- Main Administrator status transfer (PRD §7) — `src/app/actions/ownership-transfer.ts`. Confirmed
+  with the user: transferring to an existing Administrator mints them a brand-new Supabase Auth
+  account under their own staff email (no way to "promote" a staff-token session in place); the
+  outgoing owner keeps their existing login, only `role` metadata downgrades to `'administrator'`.
+  This required fixing `useUser.tsx`'s real-Auth branch, which previously assumed every Supabase
+  Auth session was owner-tier and always bypassed `PermissionGuard` — it now computes real effective
+  permissions for a non-owner-tier real-Auth session the same way a staff-token session already did.
+
+### Unified Auth: real Supabase Auth for new Teacher/Administrator accounts
+
+Status: in_progress
+
+The PRD's core architectural ask (`docs/authorization-module.md` intro / real PRD §2): one login
+mechanism for every user type, not two parallel systems. A full mass-migration of every *existing*
+staff-token account on every already-live studio is high-risk (a botched migration breaks real
+logins) and was explicitly not what was chosen — user confirmed "Option A" (do the real thing, not
+an approximation) but the safe path is incremental: NEW teacher/administrator accounts (via the
+manual-fill and invite-by-email flows) get created as real Supabase Auth users going forward
+(`user_metadata.role`, a `profiles` row) instead of `staff-token` logins, while existing staff-token
+accounts keep working unchanged. The ownership-transfer work above already proved this is
+load-bearing: `requireOrgIdDualAuth()`'s real-Auth branch and `useUser.tsx`'s effective-permissions
+computation already handle "real Supabase Auth, non-owner role" correctly. What's left: point
+`createStaffAction`/the invite-claim flow at `supabase.auth.admin.createUser` instead of
+`staff-token`'s password hash, and update `/login` to accept teacher/administrator credentials
+(today it's owner-only).
+
+### Student portal: real login + module
+
+Status: pending
+
+Per user: login identity = the parent's email on file; a separate password is set for the student.
+No PRD exists for this yet — scope (what a logged-in student can see/do) needs to be decided as this
+is built, since neither the Permissions PRD nor the Authorization PRD specify it beyond "Student is
+one of the three role flags, not yet a real session."
